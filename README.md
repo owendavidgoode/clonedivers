@@ -71,30 +71,33 @@ Friends never touch Nexus or a mod manager. You do it once per pack version:
 1. Install [HD2 Arsenal](https://www.nexusmods.com/helldivers2/mods/4664), add the mods above from Nexus, pick the
    **Republic** option wherever offered, sort out the pick-one slots (see [docs/MODS.md](docs/MODS.md#conflicts-and-load-order)),
    put Galactic Map last, and deploy. Your `data\` now holds the numbered `*.patch_*` files. Make sure Clonedivers says **CLONES: ON**.
-2. Build the pack and its manifest:
+2. Run one command from the repo folder:
 
    ```bash
-   powershell -ExecutionPolicy Bypass -File tools\build-pack.ps1 -Notes "Built for Helldivers 2 patch 7.0.2"
+   powershell -ExecutionPolicy Bypass -File tools\publish-pack.ps1 -Notes "Built for Helldivers 2 patch 7.0.2"
    ```
 
-   That writes `dist\pack\clonedivers-pack-<date>.zip` (stored, not compressed, so it runs at disk speed), a `.sha256`
-   next to it, and `pack.json` at the repo root with the size and hash filled in. It also warns if any archive has a gap
-   in its patch numbers, which is the classic "half my mods vanished" mistake.
-3. Upload the zip somewhere with a **direct** download link and paste the URL into `pack.json`'s `url` field
-   (or pass `-Url https://… ` to the script). Then commit and push. Friends' Clonedivers reads `pack.json` from this repo
-   on startup and offers **Download pack** or **Update pack**.
+   It zips `data\`'s patch files (stored, not compressed, so it runs at disk speed), splits into parts under GitHub's
+   2 GB asset limit, uploads them to a release named `pack-<date>` on this repo, writes the URLs, sizes and SHA-256
+   hashes into `pack.json`, commits, and pushes. It warns if any archive has a gap in its patch numbers, the classic
+   "half my mods vanished" mistake. Friends' Clonedivers reads `pack.json` on startup and offers **Download pack**
+   (or **Update pack** when the version changed). Tested end to end with a dummy pack; the whole round trip took under a minute.
 
-Hosting that works with the in-app downloader:
+   It finds the GitHub CLI on PATH or in `%LOCALAPPDATA%\Programs\gh-cli`, and uses the login Git already has for github.com.
 
-- **Cloudflare R2** (recommended): free tier is 10 GB of storage with no egress charges and no expiry, so a 5 GB pack downloaded by the
-  whole squad costs nothing. Make the bucket public and use the `r2.dev` URL.
-- **GitHub Releases:** free, but each asset must be under 2 GB, so build with `-MaxPartGB 1.9` and paste each part's URL
-  in order. Note the repo is public.
+Hosting elsewhere: the app accepts any **direct** download URL in `pack.json`, so if you'd rather not keep the pack on the public
+repo, run `tools\build-pack.ps1 -Url https://…` instead and host the zip yourself.
+
+- **Cloudflare R2**: free tier is 10 GB with no egress charges, so the whole squad downloading 5 GB costs nothing. Make the
+  bucket public with an unguessable object name, or put a Worker in front that checks a secret in the URL. Note the dashboard
+  uploader stops at 300 MB; use `rclone` or another S3 client for a 5 GB file.
+- **Cloudflare Pages does not work**: 25 MB per-file limit, and a private (Access-protected) site serves a login page the
+  downloader can't get past.
 - **Google Drive / OneDrive share links do not work in-app** (they open a web page). They're fine for friends to download in a
   browser and then use **Install pack from file…**.
 
-Updating: rebuild, upload, bump `pack.json`, push. Clonedivers compares the version and shows **Update pack**. Files the new
-pack no longer contains are parked in `mods_old\`; files with the same name are overwritten.
+Updating: deploy the new set, run `publish-pack.ps1` again. Clonedivers compares the version and shows **Update pack**. Files the
+new pack no longer contains are parked in `mods_old\`; files with the same name are overwritten.
 
 ## What it does
 

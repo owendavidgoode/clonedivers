@@ -1,19 +1,6 @@
 {
-    "version":  "test.e2e",
-    "name":  "Clonedivers pack",
-    "notes":  "End-to-end test pack (dummy files). Will be removed.",
-    "files":  [
-                  {
-                      "url":  "https://github.com/owendavidgoode/clonedivers/releases/download/pack-test-e2e/clonedivers-pack-test.e2e-part1.zip",
-                      "size":  8390196,
-                      "sha256":  "ff1623acdcf739cc83158c1e483691b5179a2dc98a6c59e220e39dc814802265",
-                      "file":  "clonedivers-pack-test.e2e-part1.zip"
-                  },
-                  {
-                      "url":  "https://github.com/owendavidgoode/clonedivers/releases/download/pack-test-e2e/clonedivers-pack-test.e2e-part2.zip",
-                      "size":  8390182,
-                      "sha256":  "eb2351ea579db52aefc84e366170a51bdc66afb71fc24aeb122a30d8532330e8",
-                      "file":  "clonedivers-pack-test.e2e-part2.zip"
-                  }
-              ]
+  "version": "",
+  "name": "Clonedivers pack",
+  "notes": "Not published yet. Run tools/publish-pack.ps1 after deploying mods with HD2 Arsenal.",
+  "files": []
 }
