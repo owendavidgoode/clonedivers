@@ -93,6 +93,8 @@
     { "name": "Clone Pilot - Eagle-1",              "zip": "Clone Pilot - Dee Baker - Eagle 1 Only*.zip" },
     { "name": "Clone Pilot - Pelican-1",            "zip": "Clone Pilot - Dee Baker - Pelican 1 only*.zip" },
     { "name": "Republic Commando stratagem beeps",  "zip": "Republic Commando Stratagem Input Sounds*.zip" },
+    { "name": "Battlefront Classic map ambience",   "zip": "Battlefront Classic Map Sounds*.zip" },
+    { "name": "Republic Commando radio chatter (shield pack)", "zip": "Republic Commando Radio Chatter Shield Pack*.zip" },
     { "name": "Clone Trooper Ranks",                "zip": "*Clone Ranks Pack*.zip" },
     { "name": "All Invisible Capes",                "zip": "All Invisible Capes AIO*.zip",
       "select": { "All Invisible Capes": "All Invisible Capes" } },

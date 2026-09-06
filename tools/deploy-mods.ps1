@@ -20,7 +20,9 @@ param(
     [string]$Recipe = (Join-Path $PSScriptRoot "..\pack-recipe.json"),
     [string]$OutDir = "",
     [switch]$DryRun,
-    [switch]$KeepExisting     # default: existing *.patch_* in OutDir are moved to <game>\mods_old first
+    [switch]$SkipMissing,     # deploy what is downloaded; treat missing/still-downloading zips as disabled
+    [switch]$KeepExisting,    # default: existing *.patch_* in OutDir are moved to <game>\mods_old first
+    [switch]$DeleteExisting   # build machine only: delete existing *.patch_* in OutDir instead of parking them
 )
 $ErrorActionPreference = 'Stop'
 Add-Type -AssemblyName System.IO.Compression, System.IO.Compression.FileSystem
@@ -169,12 +171,19 @@ Write-Host ("Plan: {0} patch sets, {1} files, {2:N2} GB" -f $plan.Count, ($plan 
 foreach ($h in $counter.Keys) { Write-Host ("  archive {0}: indices 0..{1}" -f $h, ($counter[$h] - 1)) }
 if ($problems.Count -gt 0) { Write-Host "Problems:" -ForegroundColor Yellow; $problems | ForEach-Object { Write-Host "  - $_" -ForegroundColor Yellow } }
 if ($DryRun) { Write-Host "Dry run: nothing written."; exit ($(if ($problems.Count) { 2 } else { 0 })) }
-if ($problems | Where-Object { $_ -like 'MISSING*' -or $_ -like 'EMPTY*' }) { throw 'Fix the missing/empty zips above (or set "enabled": false for those mods), then run again.' }
+$missing = @($problems | Where-Object { $_ -like 'MISSING*' -or $_ -like 'EMPTY*' })
+if ($missing.Count -gt 0) {
+    if ($SkipMissing) { Write-Host "Continuing without $($missing.Count) missing/empty zip(s) (-SkipMissing)." -ForegroundColor Yellow }
+    else { throw 'Fix the missing/empty zips above (or set "enabled": false for those mods, or pass -SkipMissing), then run again.' }
+}
 
-# Clear the target of old mod files first (moved, never deleted).
+# Clear the target of old mod files first (moved by default; deleted only with -DeleteExisting on the build machine).
 New-Item -ItemType Directory -Force $OutDir | Out-Null
 $existing = Get-ChildItem $OutDir -File | Where-Object { $_.Name -match '\.patch_\d+(\.(gpu_resources|stream))?$' }
-if ($existing -and -not $KeepExisting) {
+if ($existing -and $DeleteExisting) {
+    foreach ($f in $existing) { Remove-Item $f.FullName -Force }
+    Write-Host "Deleted $($existing.Count) existing mod file(s) from $OutDir (-DeleteExisting)"
+} elseif ($existing -and -not $KeepExisting) {
     $old = if ($gameDir) { Join-Path $gameDir "mods_old" } else { Join-Path (Split-Path $OutDir) "mods_old" }
     New-Item -ItemType Directory -Force $old | Out-Null
     foreach ($f in $existing) { Move-Item $f.FullName (Join-Path $old $f.Name) -Force }
