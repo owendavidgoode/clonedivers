@@ -69,10 +69,8 @@
 
     { "name": "SEAF Clone NPCs 2.0",                "zip": "Clone SEAF AIO*.zip",
       "select": { "Clone SEAF NPCs": "Phase 2 (501st)" } },
-    { "name": "Automaton to CIS Overhaul (RAM test build)", "zip": "CIS Overhaul 1.4.2 - Performance Improvement TEST*.zip",
+    { "name": "Automaton to CIS Overhaul",          "zip": [ "CIS Overhaul 1.4.2 - Performance Improvement TEST*.zip", "Automaton to CIS Overhaul - May Update 2*.zip" ],
       "select": {}, "toggles": { "CIS Props": false, "Corpses": false, "Dead Droids": false } },
-    { "name": "Automaton to CIS Overhaul (May Update 2, fallback)", "zip": "Automaton to CIS Overhaul - May Update 2*.zip", "enabled": false,
-      "select": {}, "toggles": { "CIS Props": false, "Dead Droids": false } },
     { "name": "Star Wars Super Earth Props (WIP, off: 170 MB work-in-progress)",  "zip": "Star Wars Super Earth Props - WIP*.zip", "enabled": false },
 
     { "name": "Venator over Super Destroyer",       "zip": "Venator Star Destroyers V1*.zip",

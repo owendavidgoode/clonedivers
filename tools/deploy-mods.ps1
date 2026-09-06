@@ -91,9 +91,14 @@ $problems = New-Object System.Collections.Generic.List[string]
 
 foreach ($mod in $r.mods) {
     if ($mod.PSObject.Properties['enabled'] -and -not $mod.enabled) { Write-Host ("  skip     {0}" -f $mod.name) -ForegroundColor DarkGray; continue }
+    # "zip" may be one wildcard or a list of alternatives in preference order (first pattern that matches a real file wins).
     $zip = $null
-    foreach ($s in $sources) { $zip = Get-ChildItem $s -File -Filter *.zip | Where-Object { $_.Name -like $mod.zip } | Sort-Object LastWriteTime -Descending | Select-Object -First 1; if ($zip) { break } }
-    if (-not $zip) { $problems.Add("MISSING zip for '$($mod.name)': $($mod.zip)"); Write-Host ("  MISSING  {0}   ({1})" -f $mod.name, $mod.zip) -ForegroundColor Red; continue }
+    foreach ($pattern in @($mod.zip)) {
+        foreach ($s in $sources) { $zip = Get-ChildItem $s -File -Filter *.zip | Where-Object { $_.Name -like $pattern -and $_.Length -gt 1024 } | Sort-Object LastWriteTime -Descending | Select-Object -First 1; if ($zip) { break } }
+        if ($zip) { break }
+    }
+    if (-not $zip) { $zip = $null; foreach ($pattern in @($mod.zip)) { foreach ($s in $sources) { $zip = Get-ChildItem $s -File -Filter *.zip | Where-Object { $_.Name -like $pattern } | Select-Object -First 1; if ($zip) { break } }; if ($zip) { break } } }   # an empty (still downloading) file, reported below
+    if (-not $zip) { $problems.Add("MISSING zip for '$($mod.name)': $(@($mod.zip) -join ' | ')"); Write-Host ("  MISSING  {0}   ({1})" -f $mod.name, (@($mod.zip) -join ' | ')) -ForegroundColor Red; continue }
     if ($zip.Length -lt 1024) { $problems.Add("EMPTY zip for '$($mod.name)': $($zip.Name) is $($zip.Length) bytes (download not finished?)"); Write-Host ("  EMPTY    {0}" -f $zip.Name) -ForegroundColor Red; continue }
 
     $a = [IO.Compression.ZipFile]::OpenRead($zip.FullName)
