@@ -110,11 +110,23 @@ foreach ($mod in $r.mods) {
         if ($mj) { foreach ($o in @($mj.Options | Where-Object { $_ })) { $manifestIncludes += @($o.Include | Where-Object { $_ }).Count; foreach ($s in @($o.SubOptions | Where-Object { $_ })) { $manifestIncludes += @($s.Include | Where-Object { $_ }).Count } } }
         $hasOptions = $manifestIncludes -gt 0
         if ($hasOptions) {
+            # Every Include path the manifest knows about. When one Include is a parent folder of another (e.g. a radio
+            # group's 'Shield Backpacks' above its sub-options 'Shield Backpacks/Bubble'), the parent must not swallow
+            # the children: files under a more specific Include belong to that Include only.
+            $allInc = New-Object System.Collections.Generic.List[string]
+            foreach ($o in @($mj.Options | Where-Object { $_ })) { foreach ($x in @($o.Include | Where-Object { $_ })) { $allInc.Add((($x -replace '\\', '/').TrimEnd('/'))) }; foreach ($s in @($o.SubOptions | Where-Object { $_ })) { foreach ($x in @($s.Include | Where-Object { $_ })) { $allInc.Add((($x -replace '\\', '/').TrimEnd('/'))) } } }
             $includes = @(Resolve-Includes $mj.Options $mod.select $mod.toggles ([ref]$notes)) | Where-Object { $_ }
             if (-not $includes) { $problems.Add("'$($mod.name)': recipe selects nothing from this manifest") }
             foreach ($i in ($includes | Select-Object -Unique)) {
                 $prefix = ($i -replace '\\', '/').TrimEnd('/')
-                $hit = $entries | Where-Object { $_.FullName -eq $prefix -or $_.FullName.StartsWith($prefix + '/', 'OrdinalIgnoreCase') }
+                $deeper = @($allInc | Where-Object { $_ -ne $prefix -and $_.StartsWith($prefix + '/', 'OrdinalIgnoreCase') })
+                $hit = $entries | Where-Object {
+                    $f = $_.FullName
+                    if (-not ($f -eq $prefix -or $f.StartsWith($prefix + '/', 'OrdinalIgnoreCase'))) { return $false }
+                    foreach ($d in $deeper) { if ($f -eq $d -or $f.StartsWith($d + '/', 'OrdinalIgnoreCase')) { return $false } }
+                    return $true
+                }
+                if (-not $hit -and $deeper.Count -gt 0) { continue }   # a pure parent folder: its children are picked by their own options
                 if (-not $hit) { $problems.Add("'$($mod.name)': Include '$i' matches no patch files in the zip"); continue }
                 foreach ($dir in ($hit | ForEach-Object { $p = $_.FullName; if ($p.Contains('/')) { $p.Substring(0, $p.LastIndexOf('/')) } else { '' } } | Select-Object -Unique)) { if (-not $folders.Contains($dir)) { $folders.Add($dir) } }
             }
