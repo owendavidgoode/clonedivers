@@ -1,0 +1,6 @@
+{
+  "version": "",
+  "name": "Clonedivers pack",
+  "notes": "Not published yet. Run tools/build-pack.ps1 after deploying mods with HD2 Arsenal, upload the zip, and fill in url.",
+  "files": []
+}
