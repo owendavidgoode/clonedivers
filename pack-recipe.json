@@ -92,13 +92,12 @@
     { "name": "Clone Pilot - Eagle-1",              "zip": "Clone Pilot - Dee Baker - Eagle 1 Only*.zip" },
     { "name": "Clone Pilot - Pelican-1",            "zip": "Clone Pilot - Dee Baker - Pelican 1 only*.zip" },
     { "name": "Republic Commando stratagem beeps",  "zip": "Republic Commando Stratagem Input Sounds*.zip" },
-    { "name": "Battlefront Classic map ambience",   "zip": "Battlefront Classic Map Sounds*.zip" },
-    { "name": "Republic Commando radio chatter (shield pack)", "zip": "Republic Commando Radio Chatter Shield Pack*.zip" },
+    { "name": "Battlefront Classic map ambience (not downloaded yet)",   "zip": "Battlefront Classic Map Sounds*.zip", "enabled": false },
+    { "name": "Republic Commando radio chatter (not downloaded yet)", "zip": "Republic Commando Radio Chatter Shield Pack*.zip", "enabled": false },
     { "name": "Clone Trooper Ranks",                "zip": "*Clone Ranks Pack*.zip" },
     { "name": "All Invisible Capes",                "zip": "All Invisible Capes AIO*.zip",
       "select": { "All Invisible Capes": "All Invisible Capes" } },
-    { "name": "Star Wars music",                    "zip": "SW V1.0.3*.zip",
-      "select": {}, "toggles": {} },
+    { "name": "Star Wars music (skipped: vanilla music kept)", "zip": "SW V1.0.3*.zip", "enabled": false },
 
     { "name": "Galactic Map Overhaul (last)",       "zip": "GalacticMapoverhaul-REP*.zip",
       "select": { "Ship PA System": "Voice-Default" } }
