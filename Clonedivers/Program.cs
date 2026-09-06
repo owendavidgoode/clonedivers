@@ -8,15 +8,18 @@
 
 using System.Diagnostics;
 using System.Drawing;
+using System.Drawing.Drawing2D;
 using System.IO.Compression;
 using System.Net;
 using System.Net.Http;
 using System.Net.Http.Headers;
+using System.Runtime.InteropServices;
 using System.Security.Cryptography;
 using System.Text.Json;
 using System.Text.RegularExpressions;
 using System.Windows.Forms;
 using Microsoft.Win32;
+using static Clonedivers.Palette;
 
 namespace Clonedivers;
 
@@ -275,7 +278,7 @@ public static class Pack
     static HttpClient CreateHttp()
     {
         var c = new HttpClient(new HttpClientHandler { AllowAutoRedirect = true }) { Timeout = Timeout.InfiniteTimeSpan };
-        c.DefaultRequestHeaders.UserAgent.ParseAdd("Clonedivers/1.1 (+https://github.com/owendavidgoode/clonedivers)");
+        c.DefaultRequestHeaders.UserAgent.ParseAdd($"Clonedivers/{AppInfo.Version} (+https://github.com/owendavidgoode/clonedivers)");
         return c;
     }
 
@@ -320,6 +323,14 @@ public static class Pack
         return names;
     }
 
+
+    /// <summary>Extracted size of the patch files inside a zip, read from the zip directory alone (no decompression).
+    /// Lets the install bar span every part instead of restarting per zip.</summary>
+    public static long PatchBytes(string zipPath)
+    {
+        using var zip = ZipFile.OpenRead(zipPath);
+        return zip.Entries.Where(e => e.Name.Length > 0 && ModFiles.IsPatchFile(e.Name)).Sum(e => e.Length);
+    }
     /// <summary>Extracts every *.patch_* entry to <paramref name="dataDir"/> (flat, folders ignored), overwriting.
     /// Writes to a temp name first so a crash never leaves a half-written file that looks like a mod.</summary>
     public static int ExtractPatchFiles(string zipPath, string dataDir, IProgress<(long done, long total)>? progress, CancellationToken ct)
@@ -463,21 +474,278 @@ public static class Pack
         b >= 1L << 10 ? $"{b / (double)(1L << 10):0} KB" : $"{b} B";
 }
 
+/// <summary>Republic navy, clone-armor white, 501st blue, 212th orange. No green, no red, no gradients.
+/// One static class so the custom controls below and MainForm share it (imported with `using static`).</summary>
+internal static class Palette
+{
+    public static readonly Color Bg = Color.FromArgb(11, 16, 32);           // window, DWM caption, LAUNCH text
+    public static readonly Color TextMain = Color.FromArgb(240, 243, 250);
+    public static readonly Color TextDim = Color.FromArgb(150, 162, 190);   // hints, inert text
+    public static readonly Color TextMute = Color.FromArgb(95, 105, 130);   // footer
+    public static readonly Color Blue = Color.FromArgb(31, 95, 204);        // ON, progress fill
+    public static readonly Color BlueHot = Color.FromArgb(52, 118, 230);
+    public static readonly Color Slate = Color.FromArgb(62, 68, 82);        // OFF, secondary buttons, ghost strokes
+    public static readonly Color SlateHot = Color.FromArgb(80, 87, 104);
+    public static readonly Color Disabled = Color.FromArgb(30, 36, 52);     // inert fill, bar track, tooltip background
+    public static readonly Color Orange = Color.FromArgb(226, 118, 28);     // LAUNCH
+    public static readonly Color OrangeHot = Color.FromArgb(244, 140, 52);
+    public static readonly Color Warn = Color.FromArgb(255, 200, 40);       // running warning, "not found"
+    public static readonly Color Border = Color.FromArgb(38, 48, 77);       // DWM border, tooltip border
+}
+
+internal static class AppInfo
+{
+    // AssemblyVersion is derived from <Version> in the csproj. Application.ProductVersion would carry "+<git sha>".
+    public static readonly string Version =
+        typeof(AppInfo).Assembly.GetName().Version is { } v ? $"{v.Major}.{v.Minor}.{v.Build}" : "dev";
+}
+
+static class Dwm
+{
+    [DllImport("dwmapi.dll")] static extern int DwmSetWindowAttribute(IntPtr hwnd, int attr, ref int value, int size);
+    const int DarkModeOld = 19, DarkMode = 20, BorderColor = 34, CaptionColor = 35, TextColor = 36;
+
+    /// <summary>Dark caption on Windows 10 1809+; exact caption/text/border colours on Windows 11. HRESULTs are ignored; nothing throws.</summary>
+    public static void ApplyDark(IntPtr hwnd, Color caption, Color text, Color border)
+    {
+        if (!OperatingSystem.IsWindowsVersionAtLeast(10, 0, 17763)) return;
+        int on = 1;
+        if (DwmSetWindowAttribute(hwnd, DarkMode, ref on, 4) != 0) DwmSetWindowAttribute(hwnd, DarkModeOld, ref on, 4);
+        if (!OperatingSystem.IsWindowsVersionAtLeast(10, 0, 22000)) return;   // 34/35/36 return E_INVALIDARG on Win10
+        int c = ColorTranslator.ToWin32(caption); DwmSetWindowAttribute(hwnd, CaptionColor, ref c, 4);   // COLORREF 0x00BBGGRR
+        int t = ColorTranslator.ToWin32(text);    DwmSetWindowAttribute(hwnd, TextColor, ref t, 4);
+        int b = ColorTranslator.ToWin32(border);  DwmSetWindowAttribute(hwnd, BorderColor, ref b, 4);
+    }
+}
+
+static class Power
+{
+    [DllImport("kernel32.dll")] static extern uint SetThreadExecutionState(uint flags);
+
+    /// <summary>Keeps the PC from sleeping through a 9 GB download. Per-thread, so call it from the UI thread both ways.</summary>
+    public static void KeepAwake(bool on) => SetThreadExecutionState(on ? 0x80000001u /* ES_CONTINUOUS|ES_SYSTEM_REQUIRED */ : 0x80000000u);
+}
+
+/// <summary>Flat Button with anti-aliased rounded corners and hover / press / keyboard-focus states, plus an optional
+/// smaller second line (pack buttons), status dot (the toggle) and ghost outline look. It reads the same BackColor /
+/// ForeColor / FlatAppearance that Style(), SetArmed() and SetToggle() already set, so MainForm's state code is unchanged.</summary>
+sealed class RoundButton : Button
+{
+    public int Radius { get; set; } = 8;                 // logical px
+    public bool Ghost { get; set; }                      // outline only; BackColor is the stroke colour
+    // Change-checked so a refresh that alters only the dot or the sub-line repaints (Text/BackColor setters are no-ops when
+    // unchanged, so nothing else would), while the 1.5-s timer re-setting the same values costs no paint.
+    string subText = ""; Color dotColor = Color.Empty; bool dotFilled = true;
+    public string SubText { get => subText; set { value ??= ""; if (subText != value) { subText = value; Invalidate(); } } }   // smaller second line
+    public Color DotColor { get => dotColor; set { if (dotColor != value) { dotColor = value; Invalidate(); } } }             // Color.Empty = no dot
+    public bool DotFilled { get => dotFilled; set { if (dotFilled != value) { dotFilled = value; Invalidate(); } } }
+    bool hover, down; Font? subFont;
+
+    public RoundButton()
+    {
+        SetStyle(ControlStyles.UserPaint | ControlStyles.AllPaintingInWmPaint | ControlStyles.OptimizedDoubleBuffer | ControlStyles.ResizeRedraw, true);
+        FlatStyle = FlatStyle.Flat; FlatAppearance.BorderSize = 0;
+    }
+    protected override void OnMouseEnter(EventArgs e) { hover = true; Invalidate(); base.OnMouseEnter(e); }
+    protected override void OnMouseLeave(EventArgs e) { hover = down = false; Invalidate(); base.OnMouseLeave(e); }
+    protected override void OnMouseDown(MouseEventArgs e) { if (e.Button == MouseButtons.Left) { down = true; Invalidate(); } base.OnMouseDown(e); }
+    protected override void OnMouseUp(MouseEventArgs e) { down = false; Invalidate(); base.OnMouseUp(e); }
+    protected override void OnGotFocus(EventArgs e) { Invalidate(); base.OnGotFocus(e); }
+    protected override void OnLostFocus(EventArgs e) { Invalidate(); base.OnLostFocus(e); }
+    protected override void OnEnabledChanged(EventArgs e) { Invalidate(); base.OnEnabledChanged(e); }
+    protected override void OnFontChanged(EventArgs e) { subFont?.Dispose(); subFont = null; base.OnFontChanged(e); }
+    protected override void OnPaintBackground(PaintEventArgs e) { }   // OnPaint covers every pixel (no square-corner flash)
+    Font Sub => subFont ??= new Font(Font.FontFamily, Font.Size * 0.8f, FontStyle.Regular);
+
+    // The base OnPaint is deliberately not called: it would add the dotted focus rectangle and the mnemonic underline.
+    protected override void OnPaint(PaintEventArgs e)
+    {
+        var g = e.Graphics; var r = ClientRectangle;
+        if (r.Width <= 0 || r.Height <= 0) return;                        // TLP hands out 0-size cells mid-layout
+        var outside = Parent?.BackColor ?? BackColor;
+        using (var b = new SolidBrush(outside)) g.FillRectangle(b, r);     // corners show the parent's navy
+        g.SmoothingMode = SmoothingMode.AntiAlias; g.PixelOffsetMode = PixelOffsetMode.HighQuality;
+
+        float rad = LogicalToDeviceUnits(Radius);
+        var rf = new RectangleF(0.5f, 0.5f, r.Width - 1, r.Height - 1);
+        Color fill, fore;
+        if (!Enabled) { fill = Disabled; fore = TextDim; }                // we own the disabled look now
+        else
+        {
+            fore = ForeColor;
+            fill = Ghost ? (hover ? Color.FromArgb(48, BackColor) : outside)
+                 : down  ? Blend(BackColor, Color.Black, 0.12f)
+                 : hover ? FlatAppearance.MouseOverBackColor : BackColor;
+        }
+        using (var p = Rounded(rf, rad))
+        {
+            using (var b = new SolidBrush(fill)) g.FillPath(b, p);
+            if (Ghost) { using var pen = new Pen(Enabled ? BackColor : Disabled, LogicalToDeviceUnits(1)); g.DrawPath(pen, p); }
+        }
+        if (Focused && ShowFocusCues)                                      // keyboard focus only; mouse clicks show no ring
+        {
+            var fr = rf; fr.Inflate(-LogicalToDeviceUnits(4), -LogicalToDeviceUnits(4));
+            using var fp = Rounded(fr, Math.Max(2, rad - LogicalToDeviceUnits(3)));
+            using var pen = new Pen(Color.FromArgb(120, 255, 255, 255), LogicalToDeviceUnits(1));
+            g.DrawPath(pen, fp);
+        }
+
+        var tr = r; if (down && Enabled) tr.Offset(0, LogicalToDeviceUnits(1));
+        if (!string.IsNullOrEmpty(SubText))
+        {
+            const TextFormatFlags Line = TextFormatFlags.HorizontalCenter | TextFormatFlags.VerticalCenter | TextFormatFlags.SingleLine | TextFormatFlags.EndEllipsis | TextFormatFlags.NoPrefix | TextFormatFlags.NoPadding;
+            int h1 = TextRenderer.MeasureText(g, "Xg", Font, Size.Empty, TextFormatFlags.NoPadding).Height;
+            int h2 = TextRenderer.MeasureText(g, "Xg", Sub, Size.Empty, TextFormatFlags.NoPadding).Height;
+            int top = tr.Top + (tr.Height - h1 - h2) / 2;
+            TextRenderer.DrawText(g, Text, Font, new Rectangle(tr.Left, top, tr.Width, h1), fore, Line);
+            TextRenderer.DrawText(g, SubText, Sub, new Rectangle(tr.Left, top + h1, tr.Width, h2), Blend(fore, fill, 0.25f), Line);  // opaque: GDI text ignores alpha
+        }
+        else if (DotColor == Color.Empty || !DrawDotAndText(g, tr, fore))
+            TextRenderer.DrawText(g, Text, Font, tr, fore,   // TextRenderer centres wrapped text vertically on its own
+                TextFormatFlags.HorizontalCenter | TextFormatFlags.VerticalCenter | TextFormatFlags.WordBreak | TextFormatFlags.EndEllipsis | TextFormatFlags.NoPrefix);
+    }
+
+    /// <summary>Status dot + label as one centred lockup. False when it would not fit, so the caller draws plain text instead.</summary>
+    bool DrawDotAndText(Graphics g, Rectangle tr, Color fore)
+    {
+        const TextFormatFlags Line = TextFormatFlags.Left | TextFormatFlags.VerticalCenter | TextFormatFlags.SingleLine | TextFormatFlags.NoPrefix | TextFormatFlags.NoPadding;
+        int d = LogicalToDeviceUnits(12), gap = LogicalToDeviceUnits(14);
+        int tw = TextRenderer.MeasureText(g, Text, Font, Size.Empty, Line).Width;
+        int total = d + gap + tw;
+        if (total > tr.Width - LogicalToDeviceUnits(16)) return false;
+        int x = tr.Left + (tr.Width - total) / 2, cy = tr.Top + tr.Height / 2;
+        var dot = new Rectangle(x, cy - d / 2, d, d);
+        if (DotFilled)
+        {
+            var halo = dot; halo.Inflate(LogicalToDeviceUnits(4), LogicalToDeviceUnits(4));
+            using (var hb = new SolidBrush(Color.FromArgb(70, DotColor))) g.FillEllipse(hb, halo);
+            using var db = new SolidBrush(DotColor); g.FillEllipse(db, dot);
+        }
+        else
+        {
+            float w = LogicalToDeviceUnits(2);
+            using var pen = new Pen(DotColor, w);
+            g.DrawEllipse(pen, dot.X + w / 2, dot.Y + w / 2, dot.Width - w, dot.Height - w);
+        }
+        TextRenderer.DrawText(g, Text, Font, Rectangle.FromLTRB(x + d + gap, tr.Top, tr.Right, tr.Bottom), fore, Line);
+        return true;
+    }
+
+    protected override void Dispose(bool disposing) { if (disposing) subFont?.Dispose(); base.Dispose(disposing); }
+
+    internal static Color Blend(Color a, Color b, float t) =>
+        Color.FromArgb((int)(a.R + (b.R - a.R) * t), (int)(a.G + (b.G - a.G) * t), (int)(a.B + (b.B - a.B) * t));
+    internal static GraphicsPath Rounded(RectangleF r, float rad)
+    {
+        var p = new GraphicsPath(); float d = rad * 2;
+        if (d <= 0 || d > Math.Min(r.Width, r.Height)) { p.AddRectangle(r); return p; }
+        p.AddArc(r.X, r.Y, d, d, 180, 90); p.AddArc(r.Right - d, r.Y, d, d, 270, 90);
+        p.AddArc(r.Right - d, r.Bottom - d, d, d, 0, 90); p.AddArc(r.X, r.Bottom - d, d, d, 90, 90);
+        p.CloseFigure(); return p;
+    }
+}
+
+sealed class Grid : TableLayoutPanel { public Grid() { DoubleBuffered = true; } }   // DoubleBuffered is protected on TLP
+
+/// <summary>Single-line label that ellipsises the middle of a path (Label.AutoEllipsis only cuts the end).</summary>
+sealed class PathLabel : Label
+{
+    protected override void OnPaint(PaintEventArgs e) =>
+        TextRenderer.DrawText(e.Graphics, Text, Font, ClientRectangle, ForeColor,
+            TextFormatFlags.PathEllipsis | TextFormatFlags.SingleLine | TextFormatFlags.VerticalCenter | TextFormatFlags.Left | TextFormatFlags.NoPrefix | TextFormatFlags.NoPadding);
+}
+
+/// <summary>6-px rounded progress bar. Idle it paints nothing but keeps its row, so the window never jumps when a download starts.</summary>
+sealed class ThinBar : Control
+{
+    double fraction; bool marquee, active; float mx; int lastW = -1;
+    readonly System.Windows.Forms.Timer anim = new() { Interval = 33 };
+    public Color Track { get; set; } = Disabled;
+    public Color Fill { get; set; } = Blue;
+    // Active / Marquee are set on every progress report; only a real change invalidates, so the lastW guard in Fraction does its job.
+    public bool Active { get => active; set { if (active == value) return; active = value; if (!value) Marquee = false; Invalidate(); } }
+    public double Fraction { get => fraction; set { fraction = Math.Clamp(value, 0, 1); int w = (int)(Width * fraction); if (w != lastW) { lastW = w; Invalidate(); } } }
+    public bool Marquee
+    {
+        get => marquee;
+        set
+        {
+            if (marquee == value) { if (value && Visible && !anim.Enabled) anim.Start(); return; }
+            marquee = value; if (value && Visible) anim.Start(); else anim.Stop(); Invalidate();
+        }
+    }
+    public ThinBar()
+    {
+        SetStyle(ControlStyles.UserPaint | ControlStyles.AllPaintingInWmPaint | ControlStyles.OptimizedDoubleBuffer | ControlStyles.ResizeRedraw, true);
+        TabStop = false;
+        anim.Tick += (_, _) => { mx = (mx + 0.02f) % 1.25f; Invalidate(); };
+    }
+    protected override void OnVisibleChanged(EventArgs e) { base.OnVisibleChanged(e); if (!Visible) anim.Stop(); else if (marquee) anim.Start(); }
+    protected override void OnPaint(PaintEventArgs e)
+    {
+        var g = e.Graphics; var r = ClientRectangle; if (r.Width <= 0 || r.Height <= 0) return;
+        using (var b = new SolidBrush(Parent?.BackColor ?? BackColor)) g.FillRectangle(b, r);
+        if (!active) return;                                             // idle: invisible but the row keeps its height
+        g.SmoothingMode = SmoothingMode.AntiAlias; float rad = r.Height / 2f;
+        var rf = new RectangleF(0, 0, r.Width, r.Height);
+        using (var p = RoundButton.Rounded(rf, rad)) using (var tb = new SolidBrush(Track)) g.FillPath(tb, p);
+        RectangleF f = marquee
+            ? RectangleF.Intersect(rf, new RectangleF((mx - 0.25f) * r.Width, 0, r.Width / 4f, r.Height))
+            : new RectangleF(0, 0, (float)Math.Max(r.Width * fraction, fraction > 0 ? r.Height : 0), r.Height);
+        if (f.Width > 0) using (var p = RoundButton.Rounded(f, rad)) using (var fb = new SolidBrush(Fill)) g.FillPath(fb, p);
+    }
+    protected override void Dispose(bool disposing) { if (disposing) anim.Dispose(); base.Dispose(disposing); }
+}
+
+/// <summary>The clone helmet from tools\make-icon.ps1, vector-drawn straight onto the navy (no tile) so it is crisp at any DPI.</summary>
+sealed class HelmetMark : Control
+{
+    public HelmetMark()
+    {
+        SetStyle(ControlStyles.UserPaint | ControlStyles.AllPaintingInWmPaint | ControlStyles.OptimizedDoubleBuffer | ControlStyles.ResizeRedraw, true);
+        TabStop = false;
+    }
+    protected override void OnPaintBackground(PaintEventArgs e) { }
+    protected override void OnPaint(PaintEventArgs e)
+    {
+        var g = e.Graphics; var r = ClientRectangle; if (r.Width <= 0 || r.Height <= 0) return;
+        using (var b = new SolidBrush(Parent?.BackColor ?? BackColor)) g.FillRectangle(b, r);
+        g.SmoothingMode = SmoothingMode.AntiAlias; g.PixelOffsetMode = PixelOffsetMode.HighQuality;
+
+        // Same 256-unit design space as the icon. The helmet itself spans x 50..206, y 34..210; fit that box, not the tile.
+        float k = Math.Min(r.Width / 156f, r.Height / 176f);
+        g.TranslateTransform((r.Width - 156 * k) / 2 - 50 * k, (r.Height - 176 * k) / 2 - 34 * k);
+        g.ScaleTransform(k, k);
+
+        using (var helm = new GraphicsPath())
+        {
+            helm.AddArc(50, 34, 156, 150, 180, 180);     // dome
+            helm.AddLine(206, 109, 206, 176);            // right cheek
+            helm.AddArc(172, 176, 34, 34, 0, 90);        // jaw right
+            helm.AddLine(189, 210, 67, 210);             // chin
+            helm.AddArc(50, 176, 34, 34, 90, 90);        // jaw left
+            helm.CloseFigure();
+            using var shell = new SolidBrush(TextMain);
+            g.FillPath(shell, helm);
+        }
+        var visor = Color.FromArgb(14, 17, 26); var vent = Color.FromArgb(150, 160, 185);
+        Rounded(g, 118, 34, 20, 46, 6, Blue);        // 501st fin down the crown
+        Rounded(g, 72, 104, 112, 24, 10, visor);     // T-visor
+        Rounded(g, 116, 122, 24, 60, 8, visor);
+        Rounded(g, 70, 166, 30, 20, 6, vent);        // breather vents
+        Rounded(g, 156, 166, 30, 20, 6, vent);
+        Rounded(g, 106, 190, 44, 6, 3, visor);       // mouth grille
+    }
+    static void Rounded(Graphics g, float x, float y, float w, float h, float rad, Color c)
+    {
+        using var p = RoundButton.Rounded(new RectangleF(x, y, w, h), rad);
+        using var b = new SolidBrush(c);
+        g.FillPath(b, p);
+    }
+}
+
 public sealed class MainForm : Form
 {
-    // Palette: Republic navy, clone-armor white, 501st blue, 212th orange.
-    static readonly Color Bg = Color.FromArgb(11, 16, 32);
-    static readonly Color TextMain = Color.FromArgb(240, 243, 250);
-    static readonly Color TextDim = Color.FromArgb(150, 162, 190);
-    static readonly Color Blue = Color.FromArgb(31, 95, 204);
-    static readonly Color BlueHot = Color.FromArgb(52, 118, 230);
-    static readonly Color Slate = Color.FromArgb(62, 68, 82);
-    static readonly Color SlateHot = Color.FromArgb(80, 87, 104);
-    static readonly Color Disabled = Color.FromArgb(30, 36, 52);
-    static readonly Color Orange = Color.FromArgb(226, 118, 28);
-    static readonly Color OrangeHot = Color.FromArgb(244, 140, 52);
-    static readonly Color Warn = Color.FromArgb(255, 200, 40);
-
     readonly Settings settings;
     string? gameDir;
     DateTime? launchRequested;
@@ -485,23 +753,28 @@ public sealed class MainForm : Form
     // Pack install state
     PackManifest? manifest;
     string? manifestError;
+    bool loadingManifest;
+    DateTime lastManifestTry;
     CancellationTokenSource? opCts;
     bool busy;
-    bool installArmed, downloadArmed;
+    bool installArmed, downloadArmed, launchArmed = true;
     readonly Stopwatch rateWatch = new();
     long rateBytes;
     string rateText = "", lastWhat = "";
 
-    readonly Button toggleButton = new();
-    readonly Button launchButton = new();
-    readonly Button pathButton = new();
-    readonly Button installFileButton = new();
-    readonly Button downloadButton = new();
-    readonly ProgressBar progress = new();
+    readonly Grid root = new();
+    readonly RoundButton toggleButton = new();
+    readonly RoundButton launchButton = new();
+    readonly RoundButton pathButton = new();
+    readonly RoundButton openButton = new();
+    readonly RoundButton installFileButton = new();
+    readonly RoundButton downloadButton = new();
+    readonly ThinBar progress = new();
     readonly Label progressLabel = new();
-    readonly Label detailLabel = new();
-    readonly Label pathValue = new();
-    readonly LinkLabel openDataLink = new();
+    readonly Label statusLabel = new();
+    readonly Label hintLabel = new();
+    readonly Label pathCaption = new();
+    readonly PathLabel pathValue = new();
     readonly ToolTip tips = new();
     readonly System.Windows.Forms.Timer refresh = new() { Interval = 1500 };
 
@@ -513,18 +786,27 @@ public sealed class MainForm : Form
         Text = "Clonedivers";
         BackColor = Bg;
         ForeColor = TextMain;
+        DoubleBuffered = true;
         StartPosition = FormStartPosition.CenterScreen;
-        ClientSize = new Size(560, 610);
+        ClientSize = new Size(560, 600);
         MinimumSize = Size;   // never smaller than designed, or the toggle row would collapse to nothing
+        MaximizeBox = false;  // a maximised toggle on an ultrawide would be 4000 px across
         try { Icon = Icon.ExtractAssociatedIcon(Environment.ProcessPath!); } catch { /* no icon resource: fine */ }
 
+        BuildTooltips();
         BuildLayout();
 
         // Scale every pixel value above for the monitor's DPI (100–150%+); fonts scale on their own.
         AutoScaleDimensions = new SizeF(96F, 96F);
         AutoScaleMode = AutoScaleMode.Dpi;
 
-        refresh.Tick += (_, _) => RefreshState();
+        refresh.Tick += (_, _) =>
+        {
+            // Offline at start? Ask GitHub again once a minute until pack.json answers.
+            if (manifest is null && manifestError is not null && !loadingManifest && DateTime.UtcNow - lastManifestTry > TimeSpan.FromSeconds(60))
+                _ = LoadManifestAsync();
+            RefreshState();
+        };
         Activated += (_, _) => RefreshState();
         Shown += (_, _) =>
         {
@@ -535,25 +817,54 @@ public sealed class MainForm : Form
         };
     }
 
+    // Runs before the first paint (no white caption flash) and again on every handle recreation.
+    protected override void OnHandleCreated(EventArgs e) { base.OnHandleCreated(e); Dwm.ApplyDark(Handle, Bg, TextMain, Border); }
+    protected override void OnDpiChanged(DpiChangedEventArgs e) { base.OnDpiChanged(e); Invalidate(true); }
+
+    void BuildTooltips()
+    {
+        tips.InitialDelay = 350; tips.AutoPopDelay = 30000; tips.ReshowDelay = 100;
+        // Dark tooltip; the system one is a white box on our navy window.
+        tips.OwnerDraw = true; tips.BackColor = Disabled; tips.ForeColor = TextMain;
+        // Measure with word-wrap at a 460-px cap: WinForms lets a native tip grow to the screen width, so the pack notes
+        // (~380 characters) would otherwise run off a 1920-px monitor as one line. Draw wraps with the same flags.
+        tips.Popup += (_, e) =>
+        {
+            using var f = SystemFonts.StatusFont;   // the tooltip window's own font (Segoe UI 9); each call returns a new Font
+            var s = TextRenderer.MeasureText(tips.GetToolTip(e.AssociatedControl), f, new Size(LogicalToDeviceUnits(460), 0), TextFormatFlags.WordBreak | TextFormatFlags.NoPrefix);
+            e.ToolTipSize = new Size(s.Width + LogicalToDeviceUnits(10), s.Height + LogicalToDeviceUnits(6));
+        };
+        tips.Draw += (_, e) =>
+        {
+            e.Graphics.Clear(Disabled);
+            using var pen = new Pen(Border); e.Graphics.DrawRectangle(pen, 0, 0, e.Bounds.Width - 1, e.Bounds.Height - 1);
+            TextRenderer.DrawText(e.Graphics, e.ToolTipText, e.Font, Rectangle.Inflate(e.Bounds, -LogicalToDeviceUnits(5), -LogicalToDeviceUnits(3)), TextMain,
+                TextFormatFlags.Left | TextFormatFlags.VerticalCenter | TextFormatFlags.WordBreak | TextFormatFlags.NoPrefix);
+        };
+    }
+
     void BuildLayout()
     {
-        var root = new TableLayoutPanel
-        {
-            Dock = DockStyle.Fill,
-            ColumnCount = 1,
-            BackColor = Bg,
-            Padding = new Padding(28, 22, 28, 14),
-        };
+        root.Dock = DockStyle.Fill;
+        root.ColumnCount = 1;
+        root.BackColor = Bg;
+        root.Padding = new Padding(24, 20, 24, 16);
         root.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100));
 
+        // Header lockup: helmet mark + wordmark, centred as one block (AutoSize grid anchored None in a full-width cell).
+        var header = new Grid { AutoSize = true, ColumnCount = 2, RowCount = 2, Anchor = AnchorStyles.None, BackColor = Bg, Margin = new Padding(0, 0, 0, 10) };
+        header.ColumnStyles.Add(new ColumnStyle(SizeType.AutoSize));
+        header.ColumnStyles.Add(new ColumnStyle(SizeType.AutoSize));
+        header.RowStyles.Add(new RowStyle(SizeType.AutoSize));
+        header.RowStyles.Add(new RowStyle(SizeType.AutoSize));
+        var mark = new HelmetMark { Width = 44, Height = 44, Anchor = AnchorStyles.None, Margin = new Padding(0, 0, 14, 0) };
         var title = new Label
         {
             Text = "CLONEDIVERS",
             Font = new Font("Segoe UI", 26F, FontStyle.Bold),
             ForeColor = TextMain,
             AutoSize = true,
-            Dock = DockStyle.Fill,
-            TextAlign = ContentAlignment.MiddleCenter,
+            TextAlign = ContentAlignment.MiddleLeft,
             Margin = new Padding(0),
         };
         var subtitle = new Label
@@ -562,157 +873,157 @@ public sealed class MainForm : Form
             Font = new Font("Segoe UI", 10.5F, FontStyle.Regular),
             ForeColor = TextDim,
             AutoSize = true,
-            Dock = DockStyle.Fill,
-            TextAlign = ContentAlignment.MiddleCenter,
-            Margin = new Padding(0, 0, 0, 10),
+            TextAlign = ContentAlignment.MiddleLeft,
+            Margin = new Padding(2, 0, 0, 0),
         };
+        header.Controls.Add(mark, 0, 0);
+        header.SetRowSpan(mark, 2);
+        header.Controls.Add(title, 1, 0);
+        header.Controls.Add(subtitle, 1, 1);
 
         Style(toggleButton, Blue, BlueHot, TextMain, 24F);
+        toggleButton.Radius = 12;
         toggleButton.Dock = DockStyle.Fill;
-        toggleButton.Margin = new Padding(0, 6, 0, 10);
+        toggleButton.Margin = new Padding(0, 8, 0, 12);
         toggleButton.Click += (_, _) => OnToggle();
 
-        detailLabel.AutoSize = true;
-        detailLabel.UseMnemonic = false;   // paths with '&' must not turn into underlines
-        detailLabel.Dock = DockStyle.Fill;
-        detailLabel.ForeColor = TextDim;
-        detailLabel.Font = new Font("Segoe UI", 9.75F);
-        detailLabel.TextAlign = ContentAlignment.MiddleCenter;
-        detailLabel.Margin = new Padding(0, 0, 0, 4);
-        detailLabel.MinimumSize = new Size(0, 48);
+        // Under the switch: one bright status line, one dim hint. The hint reserves three lines so ON / OFF / running never move the toggle.
+        statusLabel.AutoSize = true;
+        statusLabel.UseMnemonic = false;   // paths with '&' must not turn into underlines
+        statusLabel.Dock = DockStyle.Fill;
+        statusLabel.ForeColor = TextMain;
+        statusLabel.Font = new Font("Segoe UI", 10F);   // 10.5 wraps the running warning at 125% / 175%, which would shrink the toggle only while the game runs
+        statusLabel.TextAlign = ContentAlignment.MiddleCenter;
+        statusLabel.Margin = new Padding(0, 0, 0, 2);
+        hintLabel.AutoSize = true;
+        hintLabel.UseMnemonic = false;
+        hintLabel.Dock = DockStyle.Fill;
+        hintLabel.ForeColor = TextDim;
+        hintLabel.Font = new Font("Segoe UI", 9F);
+        hintLabel.TextAlign = ContentAlignment.MiddleCenter;
+        hintLabel.Margin = new Padding(0, 0, 0, 12);
+        hintLabel.MinimumSize = new Size(0, 56);
 
-        openDataLink.Text = "Open data folder";
-        openDataLink.AutoSize = true;
-        openDataLink.Dock = DockStyle.Fill;
-        openDataLink.TextAlign = ContentAlignment.MiddleCenter;
-        openDataLink.Font = new Font("Segoe UI", 9.5F);
-        openDataLink.LinkColor = OrangeHot;
-        openDataLink.ActiveLinkColor = TextMain;
-        openDataLink.VisitedLinkColor = OrangeHot;
-        openDataLink.LinkBehavior = LinkBehavior.HoverUnderline;
-        openDataLink.Margin = new Padding(0, 0, 0, 10);
-        openDataLink.LinkClicked += (_, _) => OpenFolder(Path.Combine(gameDir ?? "", ModFiles.DataFolder));
-
-        Style(launchButton, Orange, OrangeHot, TextMain, 13F);
-        launchButton.Text = "LAUNCH HELLDIVERS 2   (via Steam)";
+        Style(launchButton, Orange, OrangeHot, Bg, 13F);   // navy on orange reads at 6.1:1; the old white was 2.8:1
+        launchButton.Radius = 10;
+        launchButton.Text = "LAUNCH HELLDIVERS 2";
         launchButton.Dock = DockStyle.Fill;
         launchButton.Margin = new Padding(0, 0, 0, 12);
         launchButton.Click += (_, _) => OnLaunch();
 
-        // Pack row: "Install pack from file…"  |  "Download pack v… (5.1 GB)"
-        var packRow = new TableLayoutPanel
-        {
-            Dock = DockStyle.Fill,
-            AutoSize = true,
-            ColumnCount = 2,
-            Margin = new Padding(0),
-            BackColor = Bg,
-        };
+        // Pack row: ghost "Install pack from file…"  |  filled "Download pack" with "version · size" under it
+        var packRow = new Grid { Dock = DockStyle.Fill, AutoSize = true, ColumnCount = 2, Margin = new Padding(0), BackColor = Bg };
         packRow.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 50));
         packRow.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 50));
         Style(installFileButton, Slate, SlateHot, TextMain, 10F);
+        installFileButton.Radius = 8;
+        installFileButton.Ghost = true;
         installFileButton.Text = "Install pack from file…";
         installFileButton.Dock = DockStyle.Fill;
-        installFileButton.MinimumSize = new Size(0, 44);
+        installFileButton.MinimumSize = new Size(0, 50);
         installFileButton.Margin = new Padding(0, 0, 6, 0);
         installFileButton.Click += (_, _) => OnInstallFromFile();
         Style(downloadButton, Slate, SlateHot, TextMain, 10F);
+        downloadButton.Radius = 8;
         downloadButton.Text = "Checking for pack…";
         downloadButton.Dock = DockStyle.Fill;
-        downloadButton.MinimumSize = new Size(0, 44);
+        downloadButton.MinimumSize = new Size(0, 50);
         downloadButton.Margin = new Padding(6, 0, 0, 0);
         downloadButton.Click += (_, _) => OnDownloadOrCancel();
         packRow.Controls.Add(installFileButton, 0, 0);
         packRow.Controls.Add(downloadButton, 1, 0);
 
-        progress.Dock = DockStyle.Fill;
-        progress.Maximum = 1000;
-        progress.MinimumSize = new Size(0, 12);
-        progress.Margin = new Padding(0, 10, 0, 2);
-        progress.Visible = false;
+        // Progress: label above a thin bar. Both stay Visible for life — hiding a child collapses its AutoSize row and the window jumps.
         progressLabel.AutoSize = true;
         progressLabel.UseMnemonic = false;
         progressLabel.Dock = DockStyle.Fill;
         progressLabel.ForeColor = TextDim;
         progressLabel.Font = new Font("Segoe UI", 9F);
-        progressLabel.TextAlign = ContentAlignment.MiddleCenter;
-        progressLabel.Margin = new Padding(0, 2, 0, 10);
-        progressLabel.Visible = false;
+        progressLabel.TextAlign = ContentAlignment.MiddleLeft;
+        progressLabel.Margin = new Padding(0, 12, 0, 4);
+        progressLabel.MinimumSize = new Size(0, 36);   // two 9-pt lines at every scale: the "Pack installed … parked in mods_old\" message wraps, and this row must never move
+        progressLabel.Text = "";
+        progress.Height = 6;   // a plain Control has no preferred size; without this the AutoSize row collapses
+        progress.MinimumSize = new Size(0, 6);
+        progress.Dock = DockStyle.Fill;
+        progress.Margin = new Padding(0, 0, 0, 2);
 
-        // Path row: "Game folder:  C:\...\Helldivers 2   [Change…]"
-        var pathRow = new TableLayoutPanel
-        {
-            Dock = DockStyle.Fill,
-            AutoSize = true,
-            ColumnCount = 3,
-            Margin = new Padding(0),
-            BackColor = Bg,
-        };
+        // Game-folder row: "Found via Steam:  C:\…\Helldivers 2   [Open] [Change…]" — one 30-px line, path middle-ellipsised.
+        var pathRow = new Grid { Dock = DockStyle.Fill, AutoSize = true, ColumnCount = 4, Margin = new Padding(0, 6, 0, 0), BackColor = Bg };
         pathRow.ColumnStyles.Add(new ColumnStyle(SizeType.AutoSize));
         pathRow.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100));
         pathRow.ColumnStyles.Add(new ColumnStyle(SizeType.AutoSize));
-        var pathCaption = new Label
-        {
-            Text = "Game folder:",
-            AutoSize = true,
-            ForeColor = TextDim,
-            Font = new Font("Segoe UI", 9.5F),
-            Anchor = AnchorStyles.Left,
-            Margin = new Padding(0, 0, 8, 0),
-        };
+        pathRow.ColumnStyles.Add(new ColumnStyle(SizeType.AutoSize));
+        pathCaption.Text = "Game folder:";
+        pathCaption.AutoSize = true;
+        pathCaption.ForeColor = TextDim;
+        pathCaption.Font = new Font("Segoe UI", 9.5F);
+        pathCaption.Anchor = AnchorStyles.Left;
+        pathCaption.Margin = new Padding(0, 0, 8, 0);
         pathValue.AutoSize = false;
         pathValue.UseMnemonic = false;
-        pathValue.AutoEllipsis = true;
-        pathValue.Dock = DockStyle.Fill;
+        pathValue.Anchor = AnchorStyles.Left | AnchorStyles.Right;   // stretched across the cell and centred on the buttons; Dock=Fill pins a height-capped label to the top
         pathValue.ForeColor = TextMain;
         pathValue.Font = new Font("Segoe UI", 9.5F);
-        pathValue.TextAlign = ContentAlignment.MiddleLeft;
         pathValue.Margin = new Padding(0);
         pathValue.MinimumSize = new Size(0, 30);
+        pathValue.MaximumSize = new Size(0, 30);   // 0 = width unconstrained; the height cap keeps the row at one line
+        Style(openButton, Slate, SlateHot, TextMain, 9.5F);
+        openButton.Radius = 6;
+        openButton.Ghost = true;
+        openButton.Text = "Open";
+        openButton.AutoSize = true;
+        openButton.Padding = new Padding(10, 0, 10, 0);
+        openButton.MinimumSize = new Size(0, 30);
+        openButton.Anchor = AnchorStyles.Right;
+        openButton.Margin = new Padding(8, 0, 0, 0);
+        openButton.Click += (_, _) => OpenFolder(Path.Combine(gameDir ?? "", ModFiles.DataFolder));
         Style(pathButton, Slate, SlateHot, TextMain, 9.5F);
+        pathButton.Radius = 6;
+        pathButton.Ghost = true;
         pathButton.Text = "Change…";
         pathButton.AutoSize = true;
-        pathButton.Padding = new Padding(10, 4, 10, 4);
+        pathButton.Padding = new Padding(10, 0, 10, 0);
+        pathButton.MinimumSize = new Size(0, 30);
         pathButton.Anchor = AnchorStyles.Right;
         pathButton.Margin = new Padding(8, 0, 0, 0);
         pathButton.Click += (_, _) => OnLocate();
         pathRow.Controls.Add(pathCaption, 0, 0);
         pathRow.Controls.Add(pathValue, 1, 0);
-        pathRow.Controls.Add(pathButton, 2, 0);
+        pathRow.Controls.Add(openButton, 2, 0);
+        pathRow.Controls.Add(pathButton, 3, 0);
 
         var footer = new Label
         {
-            Text = "v1.1  ·  moves mod files, launches through Steam, touches nothing else  ·  For the Republic.",
+            Text = $"v{AppInfo.Version}  ·  moves mod files, launches through Steam, touches nothing else  ·  For the Republic.",
             Font = new Font("Segoe UI", 8.25F, FontStyle.Italic),
-            ForeColor = Color.FromArgb(95, 105, 130),
+            ForeColor = TextMute,
             AutoSize = true,
             Dock = DockStyle.Fill,
             TextAlign = ContentAlignment.MiddleCenter,
             Margin = new Padding(0, 10, 0, 0),
         };
 
-        root.RowStyles.Add(new RowStyle(SizeType.AutoSize));      // title
-        root.RowStyles.Add(new RowStyle(SizeType.AutoSize));      // subtitle
+        root.RowStyles.Add(new RowStyle(SizeType.AutoSize));      // header lockup
         root.RowStyles.Add(new RowStyle(SizeType.Percent, 100));  // toggle (takes all spare height)
-        root.RowStyles.Add(new RowStyle(SizeType.AutoSize));      // detail
-        root.RowStyles.Add(new RowStyle(SizeType.AutoSize));      // open data folder
-        root.RowStyles.Add(new RowStyle(SizeType.Absolute, 62));  // launch
+        root.RowStyles.Add(new RowStyle(SizeType.AutoSize));      // status
+        root.RowStyles.Add(new RowStyle(SizeType.AutoSize));      // hint
+        root.RowStyles.Add(new RowStyle(SizeType.Absolute, 62));  // launch: 50-px button + 12 margin, level with the pack buttons
         root.RowStyles.Add(new RowStyle(SizeType.AutoSize));      // pack buttons
-        root.RowStyles.Add(new RowStyle(SizeType.AutoSize));      // progress bar
         root.RowStyles.Add(new RowStyle(SizeType.AutoSize));      // progress text
+        root.RowStyles.Add(new RowStyle(SizeType.AutoSize));      // progress bar
         root.RowStyles.Add(new RowStyle(SizeType.AutoSize));      // path row
         root.RowStyles.Add(new RowStyle(SizeType.AutoSize));      // footer
-        root.Controls.Add(title, 0, 0);
-        root.Controls.Add(subtitle, 0, 1);
-        root.Controls.Add(toggleButton, 0, 2);
-        root.Controls.Add(detailLabel, 0, 3);
-        root.Controls.Add(openDataLink, 0, 4);
-        root.Controls.Add(launchButton, 0, 5);
-        root.Controls.Add(packRow, 0, 6);
+        root.Controls.Add(header, 0, 0);
+        root.Controls.Add(toggleButton, 0, 1);
+        root.Controls.Add(statusLabel, 0, 2);
+        root.Controls.Add(hintLabel, 0, 3);
+        root.Controls.Add(launchButton, 0, 4);
+        root.Controls.Add(packRow, 0, 5);
+        root.Controls.Add(progressLabel, 0, 6);
         root.Controls.Add(progress, 0, 7);
-        root.Controls.Add(progressLabel, 0, 8);
-        root.Controls.Add(pathRow, 0, 9);
-        root.Controls.Add(footer, 0, 10);
+        root.Controls.Add(pathRow, 0, 8);
+        root.Controls.Add(footer, 0, 9);
         Controls.Add(root);
     }
 
@@ -727,6 +1038,9 @@ public sealed class MainForm : Form
         b.Cursor = armed ? Cursors.Hand : Cursors.Default;
     }
 
+    /// <summary>Inert colours but still clickable ("Pack up to date", "Can't reach GitHub"): hand cursor and a hover so it reads as a button.</summary>
+    static void SetQuiet(Button b, string text) { SetArmed(b, text, armed: false); b.FlatAppearance.MouseOverBackColor = SlateHot; b.Cursor = Cursors.Hand; }
+
     static void Style(Button b, Color back, Color hot, Color fore, float pt)
     {
         b.FlatStyle = FlatStyle.Flat;
@@ -739,6 +1053,8 @@ public sealed class MainForm : Form
         b.UseVisualStyleBackColor = false;
         b.Cursor = Cursors.Hand;
     }
+
+    void Tip(Control c, string text) { if (tips.GetToolTip(c) != text) tips.SetToolTip(c, text); }   // SetToolTip on a showing tip resets it
 
     // "Disabled" states stay technically clickable: a truly disabled flat button paints its text nearly
     // black on our dark background, and a click that explains what to do beats a dead button anyway.
@@ -755,8 +1071,15 @@ public sealed class MainForm : Form
         toggleArmed = enabled;
     }
 
-    /// <summary>Re-derives everything from disk. Cheap, so it runs on a timer and on focus.</summary>
+    /// <summary>Re-derives everything from disk. Cheap, so it runs on a timer and on focus. One layout pass per call.</summary>
     void RefreshState()
+    {
+        root.SuspendLayout();
+        try { ApplyState(); }
+        finally { root.ResumeLayout(true); }
+    }
+
+    void ApplyState()
     {
         var state = ModFiles.GetState(gameDir);
         var running = Game.IsRunning();
@@ -765,22 +1088,27 @@ public sealed class MainForm : Form
         var parked = gameDir is null ? 0 : ModFiles.ListPatchFiles(Path.Combine(gameDir, ModFiles.OffFolder)).Length;
 
         string detail;
+        var dot = Color.Empty;
         switch (state)
         {
             case ModState.On:
                 SetToggle("CLONES: ON", Blue, BlueHot, TextMain, enabled: true);
-                detail = $"{active} mod file{(active == 1 ? "" : "s")} active in data\\"
-                       + (parked > 0 ? $" ({parked} more still parked in mods_off\\)" : "")
+                dot = running ? Warn : Color.FromArgb(150, 205, 255);
+                detail = $"{active:N0} mod file{(active == 1 ? "" : "s")} active in data\\"
+                       + (parked > 0 ? $" ({parked:N0} more still parked in mods_off\\)" : "")
                        + ".\nClick to park them in mods_off\\ and play vanilla."
                        + "\nGame crashing after a Helldivers 2 update? Switch OFF until the mods are updated.";
                 break;
             case ModState.Off:
                 SetToggle("CLONES: OFF", Slate, SlateHot, TextMain, enabled: true);
-                detail = $"{parked} mod file{(parked == 1 ? "" : "s")} parked in mods_off\\.\nClick to move them back into data\\.";
+                dot = running ? Warn : TextDim;
+                detail = $"{parked:N0} mod file{(parked == 1 ? "" : "s")} parked in mods_off\\.\nClick to move them back into data\\.";
                 break;
             case ModState.NoModFiles:
                 SetToggle("NO MOD FILES FOUND", Disabled, Disabled, TextDim, enabled: false);
-                detail = "No mod files found in data\\ or mods_off\\.\nUnzip the mod you downloaded, then put its files (names ending in .patch_0, .patch_0.gpu_resources, .patch_0.stream)\ndirectly into this folder — not inside a sub-folder:\n" + dataDir;
+                detail = manifest?.IsPublished == true
+                    ? "No mod pack installed.\nClick Download pack below to fetch the Clone Wars pack. Got the zips from Owen instead? Install pack from file… and select all the parts at once."
+                    : "No mod files found in data\\ or mods_off\\.\nUnzip the mod you downloaded, then put its files (names ending in .patch_0, .patch_0.gpu_resources, .patch_0.stream)\ndirectly into this folder — not inside a sub-folder:\n" + dataDir;
                 break;
             default:
                 SetToggle("GAME NOT FOUND", Disabled, Disabled, TextDim, enabled: false);
@@ -788,65 +1116,114 @@ public sealed class MainForm : Form
                 break;
         }
 
-        if (running && state is ModState.On or ModState.Off)
+        var warn = running && state is ModState.On or ModState.Off;
+        if (warn) detail = "Helldivers 2 is running — close it before toggling. Mods are only read at startup.\n" + detail;
+        if (busy)
         {
-            detail = "Helldivers 2 is running — close it before toggling. Mods are only read at startup.\n" + detail;
-            detailLabel.ForeColor = Warn;
+            // Pack.Install moves mods_off → data first, so without this the switch would flip ON half-way through.
+            SetToggle("INSTALLING PACK…", Disabled, Disabled, TextDim, enabled: false);
+            detail = "Installing the pack — leave this window open.\nThe switch reads CLONES: ON when it finishes. Cancel keeps whatever has downloaded so far.";
+            warn = false;
+            dot = Color.Empty;
         }
-        else detailLabel.ForeColor = TextDim;
-        detailLabel.Text = detail;
-
-        openDataLink.Visible = gameDir is not null;
+        toggleButton.DotColor = dot;
+        toggleButton.DotFilled = state == ModState.On;
+        int nl = detail.IndexOf('\n');
+        statusLabel.Text = nl < 0 ? detail : detail[..nl];
+        hintLabel.Text = nl < 0 ? "" : detail[(nl + 1)..];
+        statusLabel.ForeColor = warn ? Warn : TextMain;
 
         // Launch feedback: Steam can take a minute to open before the game process exists.
         if (running) launchRequested = null;
         var starting = !running && launchRequested is DateTime t && DateTime.UtcNow - t < TimeSpan.FromSeconds(90);
-        launchButton.Enabled = !running && !starting;
-        launchButton.Text = running ? "HELLDIVERS 2 IS RUNNING"
-                          : starting ? "STARTING VIA STEAM…   (Steam opens first if it was closed)"
-                          : "LAUNCH HELLDIVERS 2   (via Steam)";
+        launchArmed = !running && !starting;
+        launchButton.Enabled = true;
+        launchButton.Text = running ? "HELLDIVERS 2 IS RUNNING" : starting ? "STARTING VIA STEAM…" : "LAUNCH HELLDIVERS 2";
+        launchButton.BackColor = launchArmed ? Orange : Disabled;
+        launchButton.ForeColor = launchArmed ? Bg : TextDim;
+        launchButton.FlatAppearance.MouseOverBackColor = launchArmed ? OrangeHot : Disabled;
+        launchButton.FlatAppearance.MouseDownBackColor = launchArmed ? Orange : Disabled;
+        launchButton.Cursor = launchArmed || running ? Cursors.Hand : Cursors.Default;
+        Tip(launchButton, running ? "Helldivers 2 is already running."
+                        : starting ? "Steam is starting the game. If Steam was closed it opens first; give it a minute."
+                        : "Starts the game through Steam, the same as pressing Play. If Steam is closed it opens first, then the game.");
+
+        // Game-folder row. Only manual picks are saved to settings.GamePath, so the caption check is exact.
+        var manual = gameDir is not null && string.Equals(settings.GamePath, gameDir, StringComparison.OrdinalIgnoreCase);
+        pathCaption.Text = gameDir is not null && !manual ? "Found via Steam:" : "Game folder:";
         pathValue.Text = gameDir ?? "not found";
-        tips.SetToolTip(pathValue, gameDir ?? "");
+        pathValue.ForeColor = gameDir is null ? Warn : TextMain;
+        Tip(pathValue, gameDir ?? "");
+        openButton.Visible = gameDir is not null;
+        Tip(openButton, "Opens Helldivers 2\\data\\, where the game reads mod files.");
         pathButton.Text = gameDir is null ? "Locate…" : "Change…";
+        Tip(pathButton, gameDir is null ? "Pick the Helldivers 2 folder (it contains data\\ and bin\\helldivers2.exe)." : "Pick a different Helldivers 2 folder.");
 
         // Pack buttons
         var canInstall = gameDir is not null && !running && !busy;
         installArmed = canInstall;
         SetArmed(installFileButton, "Install pack from file…", installArmed);
+        Tip(installFileButton, "Have the pack as zip files from Owen? Pick all the parts at once. Needs the game closed.");
+        downloadButton.SubText = "";
         if (busy)
         {
             downloadArmed = true;
             SetArmed(downloadButton, "Cancel", true);
+            Tip(downloadButton, "Stops the download or install. Downloaded parts are kept and resume next time.");
+        }
+        else if (manifest is null && manifestError is null)
+        {
+            downloadArmed = false;
+            SetArmed(downloadButton, "Checking for pack…", false);
+            Tip(downloadButton, "Reading pack.json from GitHub.");
         }
         else if (manifest is null)
         {
             downloadArmed = false;
-            SetArmed(downloadButton, manifestError is null ? "Checking for pack…" : "Pack info unavailable (offline?)", false);
-            if (manifestError is not null) tips.SetToolTip(downloadButton, manifestError);
+            SetQuiet(downloadButton, "Can't reach GitHub");
+            downloadButton.SubText = "click to retry";
+            Tip(downloadButton, manifestError!);
         }
         else if (!manifest.IsPublished)
         {
             downloadArmed = false;
             SetArmed(downloadButton, "Pack not published yet", false);
+            Tip(downloadButton, "");
         }
         else
         {
             downloadArmed = canInstall;
             var installed = settings.InstalledPackVersion;
-            var verb = installed == manifest.Version ? "Reinstall pack" : installed is null ? "Download pack" : "Update pack →";
-            SetArmed(downloadButton, $"{verb} v{manifest.Version}   ({Pack.FormatBytes(manifest.TotalSize)})", downloadArmed);
-            tips.SetToolTip(downloadButton, string.IsNullOrWhiteSpace(manifest.Notes) ? manifest.Name : manifest.Name + "\n" + manifest.Notes);
+            var size = Pack.FormatBytes(manifest.TotalSize);
+            var notes = string.IsNullOrWhiteSpace(manifest.Notes) ? manifest.Name : manifest.Name + "\n" + manifest.Notes;
+            if (installed == manifest.Version)
+            {
+                SetQuiet(downloadButton, "Pack up to date");
+                downloadButton.Cursor = canInstall ? Cursors.Hand : Cursors.Default;
+                downloadButton.SubText = $"{manifest.Version}  ·  click to reinstall";
+                Tip(downloadButton, $"You have pack {manifest.Version}. Click to download it again ({size}) and repair the install.\n\n{notes}");
+            }
+            else
+            {
+                SetArmed(downloadButton, installed is null ? "Download pack" : "Update pack", downloadArmed);
+                downloadButton.SubText = $"{manifest.Version}  ·  {size}";
+                Tip(downloadButton, (installed is null ? "" : $"Installed: {installed}\nAvailable: {manifest.Version}\n\n") + notes
+                    + $"\n\nAbout {size}; needs roughly twice that free on the game drive while it installs. Resumes if interrupted.");
+            }
         }
     }
 
     async Task LoadManifestAsync()
     {
+        if (loadingManifest) return;
+        loadingManifest = true; lastManifestTry = DateTime.UtcNow;
         try
         {
             manifest = await Pack.FetchManifestAsync(CancellationToken.None);
             manifestError = manifest is null ? "pack.json was empty" : null;
         }
         catch (Exception ex) { manifest = null; manifestError = ex.Message; }
+        finally { loadingManifest = false; }
         if (!IsDisposed) RefreshState();
     }
 
@@ -873,7 +1250,13 @@ public sealed class MainForm : Form
     void OnDownloadOrCancel()
     {
         if (busy) { opCts?.Cancel(); return; }
-        if (!downloadArmed || gameDir is null || manifest is null || !manifest.IsPublished) return;
+        if (manifest is null)
+        {
+            // "Can't reach GitHub · click to retry"
+            if (manifestError is not null && !loadingManifest) { manifestError = null; _ = LoadManifestAsync(); RefreshState(); }
+            return;
+        }
+        if (!downloadArmed || gameDir is null || !manifest.IsPublished) return;
         if (Game.IsRunning()) { ShowRunningWarning(); return; }
         _ = DownloadAndInstallAsync(manifest);
     }
@@ -900,13 +1283,14 @@ public sealed class MainForm : Form
     async Task DownloadAndInstallAsync(PackManifest m)
     {
         var total = m.TotalSize;
-        var root = Path.GetPathRoot(gameDir!) ?? "";
+        var drive = Path.GetPathRoot(gameDir!) ?? "";
         long free = 0;
-        try { free = new DriveInfo(root).AvailableFreeSpace; } catch { /* unknown drive type: skip the warning */ }
+        try { free = new DriveInfo(drive).AvailableFreeSpace; } catch { /* unknown drive type: skip the warning */ }
         var need = total * 2 + (512L << 20);   // the zip plus the extracted files, plus slack
-        var headline = $"Download {m.Name} v{m.Version} ({Pack.FormatBytes(total)}) and install it into data\\?"
+        var headline = $"Download {m.Name} {m.Version} ({Pack.FormatBytes(total)}) and install it into data\\?"
+                     + "\n\nLeave this window open while it runs. If it is interrupted, click Download pack again and it resumes."
                      + (string.IsNullOrWhiteSpace(m.Notes) ? "" : "\n\n" + m.Notes)
-                     + (free > 0 && free < need ? $"\n\nWarning: only {Pack.FormatBytes(free)} free on {root} — this needs about {Pack.FormatBytes(need)} while installing." : "");
+                     + (free > 0 && free < need ? $"\n\nWarning: only {Pack.FormatBytes(free)} free on {drive} — this needs about {Pack.FormatBytes(need)} while installing." : "");
         if (!ConfirmInstall(headline)) return;
 
         SetBusy(true);
@@ -914,13 +1298,17 @@ public sealed class MainForm : Form
         var dlDir = Path.Combine(gameDir!, Pack.DownloadFolder);
         try
         {
+            // One bar across every part: each part's bytes are offset by the parts before it.
             var zips = new List<string>();
+            long before = 0;
             for (int i = 0; i < m.Files.Count; i++)
             {
-                var part = m.Files.Count > 1 ? $" (part {i + 1} of {m.Files.Count})" : "";
+                long offset = before;
                 var dest = Path.Combine(dlDir, SafeFileName(m.Files[i].Url, $"pack-part{i + 1}.zip"));
-                var reporter = new Progress<(long done, long total)>(p => ShowProgress("Downloading" + part, p.done, p.total));
+                var reporter = new Progress<(long done, long total)>(p => ShowProgress("Downloading pack", offset + p.done, total));
                 await Pack.DownloadAsync(m.Files[i], dest, reporter, cts.Token);
+                before += m.Files[i].Size;
+                ShowProgress("Downloading pack", before, total);   // a part that was already complete (resume) reports nothing
                 zips.Add(dest);
             }
             await InstallCoreAsync(zips, m.Version, cts.Token);
@@ -931,15 +1319,17 @@ public sealed class MainForm : Form
         finally { SetBusy(false); }
     }
 
-    /// <summary>Runs Pack.Install off the UI thread with per-part progress, then records the pack version.</summary>
+    /// <summary>Runs Pack.Install off the UI thread with one bar across every zip, then records the pack version.</summary>
     async Task InstallCoreAsync(IReadOnlyList<string> zips, string? packVersion, CancellationToken ct)
     {
+        // Patch bytes per zip come from the zip directories (no decompression), so the bar can span all parts instead of restarting per zip.
+        var sizes = await Task.Run(() => zips.Select(Pack.PatchBytes).ToArray(), ct);
+        long grand = sizes.Sum();
+        var starts = new long[sizes.Length];
+        for (int i = 1; i < starts.Length; i++) starts[i] = starts[i - 1] + sizes[i - 1];
+
         // Progress objects are created here so their callbacks land on the UI thread.
-        var reporters = zips.Select((_, i) =>
-        {
-            var part = zips.Count > 1 ? $" (part {i + 1} of {zips.Count})" : "";
-            return new Progress<(long done, long total)>(p => ShowProgress("Installing" + part, p.done, p.total));
-        }).ToList();
+        var reporters = zips.Select((_, i) => new Progress<(long done, long total)>(p => ShowProgress("Installing pack", starts[i] + p.done, grand))).ToList();
 
         var result = await Task.Run(() =>
         {
@@ -949,29 +1339,26 @@ public sealed class MainForm : Form
 
         settings.InstalledPackVersion = packVersion;
         settings.Save();
-        ShowProgressDone($"Pack installed: {result.installed} files in data\\"
-            + (result.parked > 0 ? $", {result.parked} old file{(result.parked == 1 ? "" : "s")} parked in mods_old\\" : "")
-            + ". Clones are ON.");
+        ShowProgressDone($"Pack installed: {result.installed:N0} files in data\\"
+            + (result.parked > 0 ? $", {result.parked:N0} old file{(result.parked == 1 ? "" : "s")} parked in mods_old\\" : "")
+            + ". Clones are ON — hit LAUNCH.");
     }
 
     void SetBusy(bool on)
     {
         busy = on;
-        if (on) { rateWatch.Reset(); rateText = ""; lastWhat = ""; progress.Value = 0; }
-        else { opCts?.Dispose(); opCts = null; }
+        if (on) { rateWatch.Reset(); rateText = ""; lastWhat = ""; progress.Fraction = 0; }
+        else { opCts?.Dispose(); opCts = null; Text = "Clonedivers"; }
+        Power.KeepAwake(on);
         RefreshState();
     }
 
     void ShowProgress(string what, long done, long total)
     {
-        progress.Visible = progressLabel.Visible = true;
+        progress.Active = true;
         if (what != lastWhat) { lastWhat = what; rateWatch.Reset(); rateText = ""; }
-        if (total > 0)
-        {
-            progress.Style = ProgressBarStyle.Continuous;
-            progress.Value = (int)Math.Clamp(done * 1000 / total, 0, 1000);
-        }
-        else progress.Style = ProgressBarStyle.Marquee;
+        if (total > 0) { progress.Marquee = false; progress.Fraction = done / (double)total; }
+        else progress.Marquee = true;
 
         if (!rateWatch.IsRunning) { rateWatch.Start(); rateBytes = done; }
         else if (rateWatch.ElapsedMilliseconds >= 1000)
@@ -981,17 +1368,14 @@ public sealed class MainForm : Form
             rateWatch.Restart();
             rateBytes = done;
         }
+        var pct = total > 0 ? (int)Math.Clamp(done * 100 / total, 0, 100) : -1;
         progressLabel.Text = total > 0
-            ? $"{what}  ·  {Pack.FormatBytes(done)} / {Pack.FormatBytes(total)}{rateText}"
+            ? $"{what}  ·  {Pack.FormatBytes(done)} / {Pack.FormatBytes(total)}{rateText}  ·  {pct}%"
             : $"{what}  ·  {Pack.FormatBytes(done)}";
+        Text = pct >= 0 ? $"Clonedivers  ·  {pct}%" : "Clonedivers";   // the taskbar shows progress while you alt-tab
     }
 
-    void ShowProgressDone(string text)
-    {
-        progress.Visible = false;
-        progressLabel.Visible = true;
-        progressLabel.Text = text;
-    }
+    void ShowProgressDone(string text) { progress.Active = false; progressLabel.Text = text; }
 
     static string SafeFileName(string url, string fallback)
     {
@@ -1036,6 +1420,8 @@ public sealed class MainForm : Form
     void OnLaunch()
     {
         if (busy) return;
+        if (Game.IsRunning()) { ShowRunningWarning(); return; }   // the dim button still explains itself when clicked
+        if (!launchArmed) return;
         try
         {
             Game.LaunchViaSteam();

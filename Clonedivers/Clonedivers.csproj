@@ -11,7 +11,8 @@
     <ApplicationIcon>clonedivers.ico</ApplicationIcon>
 
     <!-- Metadata shown in the exe's Properties > Details -->
-    <Version>1.1.1</Version>
+    <Version>1.2.0</Version>
+    <IncludeSourceRevisionInInformationalVersion>false</IncludeSourceRevisionInInformationalVersion>
     <Product>Clonedivers</Product>
     <Company>Clonedivers</Company>
     <Description>Helldivers 2 mod on/off switch and Steam launcher</Description>

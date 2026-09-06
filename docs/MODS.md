@@ -21,7 +21,7 @@ latest Helldivers 2 patch. "Still works" comments beat "last updated" dates.
 | [PEW-PEW sounds](https://www.nexusmods.com/helldivers2/mods/4891) | **Keep** | 14 Jul 2026 (V3.1) | Likely | Author replied to bug reports 29 Aug; a 2 Sep post complains only that SEAF squads lack blaster sounds (by design). Modular manifest with ~60 weapon folders; use the *Republic* file (223 MB). Author warns HD2ModManager can crash removing it. |
 | [Full Clone Voice Conversion](https://www.nexusmods.com/helldivers2/mods/11826) | **Keep** | 6 Mar 2026 | Yes | "Still works perfectly fine for me" 2 Sep; another happy post 4 Sep. Plain two-file pair (patch_0 + .stream, 36 MB), the one true drop-in. Author stopped maintaining it 23 Jun; all four voice options share the same lines; unmatched lines are silenced. |
 | [RiqCrow sound & voice library](https://www.nexusmods.com/helldivers2/mods/633) | **Add** (replaces 2205) | 28 Aug 2026 | Yes | ~90-file modular library maintained through 7.0.x: Star Wars Mission Control + Democracy Officer (12 Aug), clone officers (12 Aug), clone SEAF with laser SFX for the new squad weapons (16 Aug). |
-| [Temuera Morrison Voice Overhaul](https://www.nexusmods.com/helldivers2/mods/12524) | Alternative | 1 May 2026 | Unknown | One mod for all player voices, Democracy Officer, Mission Control, Eagle-1 and (v1.6) SEAF, from real Temuera Morrison lines. Use instead of 11826 + RiqCrow if you want one consistent actor. Not verified post-7.0. |
+| [Temuera Morrison Voice Overhaul](https://www.nexusmods.com/helldivers2/mods/12524) | **In pack** (r3: DO + Mission Control only) | 1 May 2026 | Unknown | One mod for all player voices, Democracy Officer, Mission Control, Eagle-1 and (v1.6) SEAF, from real Temuera Morrison lines. Loaded before Full Clone Voice and Clone Pilot so they win the player-voice and pilot banks; Temuera supplies only the DO and Mission Control lines (asset-level check: [docs/pack/2026.09.05-r3/conflict-report.md](pack/2026.09.05-r3/conflict-report.md)). |
 | [SEAF Clone NPCs 2.0](https://www.nexusmods.com/helldivers2/mods/5251) | **Keep** | 1 Sep 2026 | Yes | Rebuilt for the 7.0.0 SEAF rework four days before this audit; 356 endorsements. Requirements note: the AIO format "is no longer compatible with HDMM", i.e. Arsenal only. Known issue: lights still visible on skins (Light Remover option). Collides with Armory's SEAF module. |
 | [Automaton → CIS Overhaul](https://www.nexusmods.com/helldivers2/mods/9115) | Keep **with warning** | 24 Jul 2026 | Reported broken by some | Posts 16 Aug–4 Sep: several "crashes as soon as a mission loads"; 3 Sep one user fixed it with purge + redeploy; author says it works for him and asks for crash logs. 1.6 GB *May Update 2* (use this) or 2.9 GB *Performance TEST*. ~40 option folders, Arsenal required; author advises disabling *CIS Props* and *Dead Droids* first. Its predecessor (mod 558) was hidden by Nexus staff 7 Aug as unsupported. |
 | [Venator over Super Destroyer](https://www.nexusmods.com/helldivers2/mods/6490) | **Add** (replaces 1261 and 12082) | 4 Jun 2026 | Likely | 263 endorsements, Republic/grey/Helldiver liveries, covers the player ship and the background fleet, used by the Clone Wars Overhaul collection. No post-7.0 complaints found. |
@@ -31,11 +31,14 @@ latest Helldivers 2 patch. "Still works" comments beat "last updated" dates.
 | [TX-130 FRV](https://www.nexusmods.com/helldivers2/mods/6015) | **Add** | 7 May 2026 | Likely | FRV → TX-130 Saber tank, Republic option. |
 | [Galactic Map Overhaul](https://www.nexusmods.com/helldivers2/mods/1489) | **Keep** | 8 May 2026 (6.2.2.04) | Likely | 20 Aug user report: still works after 7.0.0, "some logos a little glitched but it does not break the game". Needs US English text, pick exactly one faction and one voice option, must load last. |
 | [All music replacement with Star Wars](https://www.nexusmods.com/helldivers2/mods/15612) | Optional (replaces 7057) | 29 Aug 2026 (v1.0.3) | Built for 7.0.x | Nearly every track (ship, FTL, loadout, drop, combat, flag, extraction, victory) from Battlefront II 2017 / Force Unleashed. Brand new, 3 endorsements: try it, remove it if anything goes silent. |
-| [Clone Trooper Ranks](https://www.nexusmods.com/helldivers2/mods/14612) | Optional | 14 Jul 2026 | Likely | Text only: every level and warbond title → GAR ranks. Written to complement Clone Armory. |
-| [Clone Pilot Audio](https://www.nexusmods.com/helldivers2/mods/10667) | Optional | 3 Feb 2026 | Unknown | Clone pilot lines for Eagle-1 and Pelican-1, a gap both voice mods leave. |
-| [Republic Commando stratagem inputs](https://www.nexusmods.com/helldivers2/mods/13942) | Optional | 1 Jun 2026 | Likely | Stratagem beeps → tac-pad sounds. Same author: Battlefront map sounds (13944), RC radio chatter shield pack (13869). |
-| [All Invisible Capes](https://www.nexusmods.com/helldivers2/mods/11657) | Optional | 28 Apr 2026 | Likely | Cape remover without ReShade; the Armory authors recommend it for the clean clone look. Themed alternative: [Star Wars Cape Overhaul](https://www.nexusmods.com/helldivers2/mods/1417) (Aug 2025, stale). |
-| [GNK Hellbomb](https://www.nexusmods.com/helldivers2/mods/11333) | Optional | 3 May 2026 | Likely | Hellbomb → GNK power droid. Companion: [RX-200 Falchion over Bastion](https://www.nexusmods.com/helldivers2/mods/11329). |
+| [Clone Trooper Ranks](https://www.nexusmods.com/helldivers2/mods/14612) | Dropped from pack (r2) | 14 Jul 2026 | Likely | Text only: every level and warbond title → GAR ranks. Written to complement Clone Armory. Both string tables are overridden by Galactic Map, which must load last. |
+| [Clone Pilot Audio](https://www.nexusmods.com/helldivers2/mods/10667) | **In pack** | 3 Feb 2026 | Unknown | Clone pilot lines for Eagle-1 and Pelican-1, a gap both voice mods leave. |
+| [Republic Commando stratagem inputs](https://www.nexusmods.com/helldivers2/mods/13942) | **In pack** | 1 Jun 2026 | Likely | Stratagem beeps → tac-pad sounds. Same author: Battlefront map sounds (13944), RC radio chatter shield pack (13869). |
+| [All Invisible Capes](https://www.nexusmods.com/helldivers2/mods/11657) | **In pack** | 28 Apr 2026 | Likely | Cape remover without ReShade; the Armory authors recommend it for the clean clone look. Themed alternative: [Star Wars Cape Overhaul](https://www.nexusmods.com/helldivers2/mods/1417) (Aug 2025, stale). |
+| [GNK Hellbomb](https://www.nexusmods.com/helldivers2/mods/11333) | **In pack** | 3 May 2026 | Likely | Hellbomb → GNK power droid. Companion: [RX-200 Falchion over Bastion](https://www.nexusmods.com/helldivers2/mods/11329). |
+| thebf333's Custom Projectiles (Nexus ID not verified, so unlinked) | **In pack** | not checked | Deployed in r3 | Battlefront-shaped bolts (Blue option, custom bot-bolt toggle on). Loads after Blue Overhaul and overrides 15 of its particle assets on purpose ([conflict-report.md](pack/2026.09.05-r3/conflict-report.md)). Not part of the 2026-09-05 Nexus check. |
+| No Bullet Casings Or Ejection VFX (Nexus ID not verified, so unlinked) | **In pack** | not checked | Deployed in r3 | Removes casings and ejection particles. Loads after Blue Overhaul so the two ejection particles they share end up empty; conflict-report.ps1 confirmed it touches no weapon units. Not part of the 2026-09-05 Nexus check. |
+| Background ARC-170s (Nexus ID not verified, so unlinked) | **In pack** | not checked | Deployed in r3 | ARC-170s flying past the Venator in the ship background. Overrides nothing and is overridden by nothing in the r3 conflict report. Not part of the 2026-09-05 Nexus check. |
 | [Cody's Jetpack + Republic Supply Pack](https://www.nexusmods.com/helldivers2/mods/6735) | Optional, either/or | 7 May 2026 | Likely | Overlaps Armory's Backpacks module. Pick one. |
 | [Clone Naval Officer NPCs](https://www.nexusmods.com/helldivers2/mods/8881) | Skip for now | 29 Apr 2026 | Likely | Bridge crew → clone naval officers, but requires the Shiny pack and [Clone Officer](https://www.nexusmods.com/helldivers2/mods/3156), which conflicts with the Armory route. |
 
@@ -59,18 +62,13 @@ on purpose and need a decision:
 - **SEAF troopers:** SEAF Clone NPCs 2.0 *or* Armory's *SEAF Clone Troopers* module.
 - **Backpacks:** Armory's *Backpacks* module *or* Cody's Jetpack.
 - **Ship interior textures:** Armory's *Decal Sheets* module includes "Gray Ship Interior" and "Idle TV Screen" patches; harmless with Venator 6490, redundant with any interior mod.
-- **Voices:** Full Clone Voice + RiqCrow *or* the Temuera Morrison overhaul.
+- **Voices:** Temuera Morrison (DO + Mission Control) before Full Clone Voice + RiqCrow; load order decides who wins the shared banks.
 - **Galactic Map Overhaul** must have the highest patch number (load last), otherwise other UI patches overwrite its icons.
 - **Blue Overhaul** after Clone Blasters.
 
 ## Still not covered by any mod (as of this audit)
 
-- In-mission Democracy Officer and Mission Control voices (clone era): the pack leaves them vanilla on purpose. RiqCrow's
-  [Clone Officers V4](https://www.nexusmods.com/helldivers2/mods/633) covers the *ship* officers (shipmaster, technician,
-  bridge DO). The only mission-side replacements are RiqCrow's *Mission Control EMPIRE theme* (Imperial officer voice) and the
-  [Temuera Morrison Voice Overhaul](https://www.nexusmods.com/helldivers2/mods/12524) (clone voice for DO, Mission Control and
-  Eagle-1, but it also replaces player voices, so only its DO/Mission Control modules would be wanted). Candidate for pack v2.
-
+- DO/Mission Control: covered since pack r3 by Temuera Morrison 12524.
 - Hellpod model and stratagem icons: nothing Star Wars themed exists on Nexus (Halo and Warhammer drop pods prove it is possible).
 - Terminids → Geonosians: text rename only (Galactic Map). No model replacer.
 - Illuminate → anything: text rename only. The new 7.0 Void enemies have nothing.
@@ -83,3 +81,8 @@ on purpose and need a decision:
 - Steam patch notes for 7.0.0 / 7.0.1 / 7.0.2; the Helldivers 2 wiki *Broken Mods* page for the `0x44415441` startup error.
 - [Clone Wars Overhaul collection](https://www.nexusmods.com/games/helldivers2/collections/h2juj4), Revision 5, 11 Jul 2026, "working as of 7/11/2026 (intended for hd2 arsenal)".
 - [HD2 Arsenal](https://www.nexusmods.com/helldivers2/mods/4664), listed as a requirement on most of the pages above.
+
+## Changes since the audit
+
+- r2 (2026-09-05): Clone Trooper Ranks off; RC stratagem beeps moved before (lower priority than) RiqCrow's ship audio so RiqCrow wins the 4 shared assets.
+- r3 (2026-09-05): Temuera Morrison clone VO added for DO + Mission Control.
