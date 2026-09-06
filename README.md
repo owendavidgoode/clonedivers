@@ -68,9 +68,21 @@ vanilla because no mods exist for them yet. Mods are client-side only, so everyo
 
 Friends never touch Nexus or a mod manager. You do it once per pack version:
 
-1. Install [HD2 Arsenal](https://www.nexusmods.com/helldivers2/mods/4664), add the mods above from Nexus, pick the
-   **Republic** option wherever offered, sort out the pick-one slots (see [docs/MODS.md](docs/MODS.md#conflicts-and-load-order)),
-   put Galactic Map last, and deploy. Your `data\` now holds the numbered `*.patch_*` files. Make sure Clonedivers says **CLONES: ON**.
+1. Download the mod zips from Nexus (the links above; Arsenal's one-click download or the plain "Manual download" both
+   work, the zips just need to end up in `%LOCALAPPDATA%\hd2arsenal\temp`, your Downloads folder, or `dist\mods`).
+   Then let the repo do the mod manager's job:
+
+   ```bash
+   powershell -ExecutionPolicy Bypass -File tools\deploy-mods.ps1 -DryRun
+   powershell -ExecutionPolicy Bypass -File tools\deploy-mods.ps1
+   ```
+
+   [`pack-recipe.json`](pack-recipe.json) is the whole configuration: which zip, which option in every option group
+   (Republic, Phase 2, 501st…), which toggles, and the load order (Galactic Map last). The script reads each zip's
+   `manifest.json`, picks the folders the recipe asks for, numbers every patch set consecutively per archive in
+   recipe order (preserving each mod's own base-then-textures order), and writes them into `data\`. The dry run lists
+   the plan and flags any zip that is missing or still downloading. Existing mod files are moved to `mods_old\`, never deleted.
+   Clonedivers should then say **CLONES: ON**; launch once and check a bot mission before publishing.
 2. Run one command from the repo folder:
 
    ```bash
