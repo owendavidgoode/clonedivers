@@ -1,0 +1,31 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <OutputType>WinExe</OutputType>
+    <TargetFramework>net8.0-windows</TargetFramework>
+    <UseWindowsForms>true</UseWindowsForms>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <AssemblyName>Clonedivers</AssemblyName>
+    <RootNamespace>Clonedivers</RootNamespace>
+    <ApplicationIcon>clonedivers.ico</ApplicationIcon>
+
+    <!-- Metadata shown in the exe's Properties > Details -->
+    <Version>1.0.0</Version>
+    <Product>Clonedivers</Product>
+    <Company>Clonedivers</Company>
+    <Description>Helldivers 2 mod on/off switch and Steam launcher</Description>
+    <Copyright>MIT License</Copyright>
+
+    <!-- `dotnet publish -c Release` => one self-contained exe in ..\dist\ (no .NET install needed) -->
+    <RuntimeIdentifier>win-x64</RuntimeIdentifier>
+    <SelfContained>true</SelfContained>
+    <PublishSingleFile>true</PublishSingleFile>
+    <EnableCompressionInSingleFile>true</EnableCompressionInSingleFile>
+    <IncludeNativeLibrariesForSelfExtract>true</IncludeNativeLibrariesForSelfExtract>
+    <DebugType>none</DebugType>
+    <SatelliteResourceLanguages>en</SatelliteResourceLanguages>
+    <PublishDir>$(MSBuildThisFileDirectory)..\dist\</PublishDir>
+  </PropertyGroup>
+
+</Project>

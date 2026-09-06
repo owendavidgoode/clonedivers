@@ -1,0 +1,9 @@
+# build output
+bin/
+obj/
+dist/
+*.user
+*.suo
+.vs/
+# local scratch
+*.log
