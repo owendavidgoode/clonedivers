@@ -65,6 +65,12 @@ on purpose and need a decision:
 
 ## Still not covered by any mod (as of this audit)
 
+- In-mission Democracy Officer and Mission Control voices (clone era): the pack leaves them vanilla on purpose. RiqCrow's
+  [Clone Officers V4](https://www.nexusmods.com/helldivers2/mods/633) covers the *ship* officers (shipmaster, technician,
+  bridge DO). The only mission-side replacements are RiqCrow's *Mission Control EMPIRE theme* (Imperial officer voice) and the
+  [Temuera Morrison Voice Overhaul](https://www.nexusmods.com/helldivers2/mods/12524) (clone voice for DO, Mission Control and
+  Eagle-1, but it also replaces player voices, so only its DO/Mission Control modules would be wanted). Candidate for pack v2.
+
 - Hellpod model and stratagem icons: nothing Star Wars themed exists on Nexus (Halo and Warhammer drop pods prove it is possible).
 - Terminids → Geonosians: text rename only (Galactic Map). No model replacer.
 - Illuminate → anything: text rename only. The new 7.0 Void enemies have nothing.
