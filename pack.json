@@ -1,6 +1,37 @@
 {
-  "version": "",
-  "name": "Clonedivers pack",
-  "notes": "Not published yet. Run tools/publish-pack.ps1 after deploying mods with HD2 Arsenal.",
-  "files": []
+    "version":  "2026.09.05",
+    "name":  "Clonedivers pack",
+    "notes":  "Clone Wars pack: Clone Armory (Phase 2, 501st), Clone Blasters, Blue Overhaul bolts, PEW-PEW Republic sounds, clone voices, SEAF clones, CIS droid army, Venator, LAAT, Y-Wing, AT-TE, TX-130, Galactic Map. Built for Helldivers 2 patch 7.0.2.",
+    "files":  [
+                  {
+                      "url":  "https://github.com/owendavidgoode/clonedivers/releases/download/pack-2026.09.05/clonedivers-pack-2026.09.05-part1.zip",
+                      "size":  2027832719,
+                      "sha256":  "edeeac4654ac181040e9ece931d35a8b1d4d3c63f463f668c0517dbce28e11a2",
+                      "file":  "clonedivers-pack-2026.09.05-part1.zip"
+                  },
+                  {
+                      "url":  "https://github.com/owendavidgoode/clonedivers/releases/download/pack-2026.09.05/clonedivers-pack-2026.09.05-part2.zip",
+                      "size":  1834150084,
+                      "sha256":  "eb07f1c95e93332833f641c1cb37618d6aedee7c7c1c1a1bb210c9a9b96e1e46",
+                      "file":  "clonedivers-pack-2026.09.05-part2.zip"
+                  },
+                  {
+                      "url":  "https://github.com/owendavidgoode/clonedivers/releases/download/pack-2026.09.05/clonedivers-pack-2026.09.05-part3.zip",
+                      "size":  1888765099,
+                      "sha256":  "4509175150818e945df3b403f654bad6317b28149a46fdbf37d80cd0278a2b14",
+                      "file":  "clonedivers-pack-2026.09.05-part3.zip"
+                  },
+                  {
+                      "url":  "https://github.com/owendavidgoode/clonedivers/releases/download/pack-2026.09.05/clonedivers-pack-2026.09.05-part4.zip",
+                      "size":  2038451770,
+                      "sha256":  "f8042edaa28bc705cadde747e024ea7c1eca6f839e061bb4e1ce86b55eae8df1",
+                      "file":  "clonedivers-pack-2026.09.05-part4.zip"
+                  },
+                  {
+                      "url":  "https://github.com/owendavidgoode/clonedivers/releases/download/pack-2026.09.05/clonedivers-pack-2026.09.05-part5.zip",
+                      "size":  1624531426,
+                      "sha256":  "0fac884a625d9f98c0a80ccec331dd3dccc86c94a5b9f5b4b5093110b0cb8a3b",
+                      "file":  "clonedivers-pack-2026.09.05-part5.zip"
+                  }
+              ]
 }
