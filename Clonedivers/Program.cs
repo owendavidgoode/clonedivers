@@ -262,6 +262,8 @@ public sealed class PackManifest
 /// Still just files — a zip reader and a downloader, nothing that knows the game exists.</summary>
 public static class Pack
 {
+    // The API view is fresh the moment a push lands; the raw CDN can lag up to five minutes, so it is the fallback.
+    public const string ManifestApiUrl = "https://api.github.com/repos/owendavidgoode/clonedivers/contents/pack.json?ref=main";
     public const string ManifestUrl = "https://raw.githubusercontent.com/owendavidgoode/clonedivers/main/pack.json";
     public const string OldFolder = "mods_old";            // stale mods parked here on install; safe to delete
     public const string DownloadFolder = "mods_download";  // zips live here until extracted, then it is removed
@@ -279,11 +281,27 @@ public static class Pack
 
     public static PackManifest? ParseManifest(string json) => JsonSerializer.Deserialize<PackManifest>(json, JsonOpts);
 
+    /// <summary>Fetches pack.json: GitHub API first (fresh, but rate-limited to 60/hour per IP), raw CDN as fallback.</summary>
+    public static async Task<PackManifest?> FetchManifestAsync(CancellationToken ct)
+    {
+        try
+        {
+            using var cts = CancellationTokenSource.CreateLinkedTokenSource(ct);
+            cts.CancelAfter(TimeSpan.FromSeconds(10));
+            using var req = new HttpRequestMessage(HttpMethod.Get, ManifestApiUrl);
+            req.Headers.Accept.ParseAdd("application/vnd.github.raw+json");
+            using var resp = await Http.SendAsync(req, cts.Token);
+            if (resp.IsSuccessStatusCode)
+                return ParseManifest(await resp.Content.ReadAsStringAsync(cts.Token));
+        }
+        catch (Exception) when (!ct.IsCancellationRequested) { /* rate-limited or blocked: use the CDN copy */ }
+        return await FetchManifestAsync(ManifestUrl, ct);
+    }
+
     public static async Task<PackManifest?> FetchManifestAsync(string url, CancellationToken ct)
     {
         using var cts = CancellationTokenSource.CreateLinkedTokenSource(ct);
         cts.CancelAfter(TimeSpan.FromSeconds(12));
-        // Cache-bust so a freshly pushed pack.json shows up right away.
         var bust = url + (url.Contains('?') ? "&" : "?") + "t=" + DateTimeOffset.UtcNow.ToUnixTimeSeconds();
         return ParseManifest(await Http.GetStringAsync(bust, cts.Token));
     }
@@ -825,7 +843,7 @@ public sealed class MainForm : Form
     {
         try
         {
-            manifest = await Pack.FetchManifestAsync(Pack.ManifestUrl, CancellationToken.None);
+            manifest = await Pack.FetchManifestAsync(CancellationToken.None);
             manifestError = manifest is null ? "pack.json was empty" : null;
         }
         catch (Exception ex) { manifest = null; manifestError = ex.Message; }

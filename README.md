@@ -80,8 +80,9 @@ Friends never touch Nexus or a mod manager. You do it once per pack version:
    It zips `data\`'s patch files (stored, not compressed, so it runs at disk speed), splits into parts under GitHub's
    2 GB asset limit, uploads them to a release named `pack-<date>` on this repo, writes the URLs, sizes and SHA-256
    hashes into `pack.json`, commits, and pushes. It warns if any archive has a gap in its patch numbers, the classic
-   "half my mods vanished" mistake. Friends' Clonedivers reads `pack.json` on startup and offers **Download pack**
-   (or **Update pack** when the version changed). Tested end to end with a dummy pack; the whole round trip took under a minute.
+   "half my mods vanished" mistake. Friends' Clonedivers reads `pack.json` on startup (through the GitHub API, so a fresh push
+   shows up immediately) and offers **Download pack**, or **Update pack** when the version changed. Tested end to end with a
+   dummy pack; the whole round trip took under a minute.
 
    It finds the GitHub CLI on PATH or in `%LOCALAPPDATA%\Programs\gh-cli`, and uses the login Git already has for github.com.
 

@@ -116,7 +116,7 @@ try {
     if (-not $NoPush) {
         $p = Invoke-Native { & git push }
         if ($p.Code -ne 0) { throw "git push failed: $($p.Out)" }
-        Write-Host "Pushed. Friends' Clonedivers will offer 'Download pack v$Version' on next launch." -ForegroundColor Green
+        Write-Host "Pushed. Friends' Clonedivers will offer 'Download pack v$Version' on next launch (an app older than 1.1.1 may need up to 5 minutes for GitHub's CDN to catch up)." -ForegroundColor Green
     }
     else { Write-Host "Committed (not pushed, -NoPush)." }
 } finally { Pop-Location }
