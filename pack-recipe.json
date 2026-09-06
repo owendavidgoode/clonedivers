@@ -70,7 +70,8 @@
     { "name": "SEAF Clone NPCs 2.0",                "zip": "Clone SEAF AIO*.zip",
       "select": { "Clone SEAF NPCs": "Phase 2 (501st)" } },
     { "name": "Automaton to CIS Overhaul",          "zip": [ "CIS Overhaul 1.4.2 - Performance Improvement TEST*.zip", "Automaton to CIS Overhaul - May Update 2*.zip" ],
-      "select": {}, "toggles": { "CIS Props": false, "Corpses": false, "Dead Droids": false } },
+      "select": { "MG Trooper Option": "B1", "Heavy Dev Shield Option": "Default CIS Themed Shield", "AAT Color Option": "Brown", "STAP Color Option": "Brown", "MTT Factory Strider": "Brown" },
+      "toggles": { "CIS Automaton Props": false, "CIS Props": false, "Dead Droids": false, "Corpses": false, "B2 Devastators - Bolt VFX Relocation": false } },
     { "name": "Star Wars Super Earth Props (WIP, off: 170 MB work-in-progress)",  "zip": "Star Wars Super Earth Props - WIP*.zip", "enabled": false },
 
     { "name": "Venator over Super Destroyer",       "zip": "Venator Star Destroyers V1*.zip",
