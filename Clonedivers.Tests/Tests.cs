@@ -41,6 +41,9 @@ static class TestProgram
             StateTests(root);
             VdfTests();
             NormalizeTests(root);
+            PackZipTests(root);
+            ManifestTests();
+            DownloadTests(root).GetAwaiter().GetResult();
         }
         finally
         {
@@ -189,6 +192,223 @@ static class TestProgram
         var candidates = GameLocator.CandidateGameDirs().ToArray();
         Console.WriteLine($"        (this machine: {candidates.Length} candidate folder(s); auto-detect → {GameLocator.AutoDetect() ?? "none"})");
         Check(candidates.All(c => c.EndsWith(@"\steamapps\common\Helldivers 2", StringComparison.OrdinalIgnoreCase)), "every candidate ends in \\steamapps\\common\\Helldivers 2");
+    }
+
+    static string MakeZip(string path, params (string entry, string content)[] entries)
+    {
+        using var zip = System.IO.Compression.ZipFile.Open(path, System.IO.Compression.ZipArchiveMode.Create);
+        foreach (var (entry, content) in entries)
+        {
+            var e = zip.CreateEntry(entry);
+            using var w = new StreamWriter(e.Open());
+            w.Write(content);
+        }
+        return path;
+    }
+
+    static void PackZipTests(string root)
+    {
+        Console.WriteLine("Pack zip: extracts only patch files, flat, overwriting; rejects options packages");
+        var game = MakeGame(root, "Pack Game");
+        var data = Path.Combine(game, "data");
+        var zip = MakeZip(Path.Combine(root, "pack.zip"),
+            ("Clone Armory/9ba626afa44a3aa3.patch_0", "armory"),
+            ("Clone Armory/9ba626afa44a3aa3.patch_0.gpu_resources", "armory-gpu"),
+            ("Clone Armory/9ba626afa44a3aa3.patch_0.stream", "armory-stream"),
+            ("Blasters/abcdef0123456789.patch_1", "blasters"),
+            ("nested/deeper/1111111111111111.patch_2", "deep"),
+            ("manifest.json", "{}"),
+            ("readme.txt", "hello"),
+            ("Blasters/icon.png", "png"));
+
+        var names = Pack.ListPatchEntries(zip);
+        Check(names.Length, 5, "ListPatchEntries finds the five patch files and ignores manifest/readme/icon");
+
+        // Stale read-only copy of one file plus a leftover partial from a crashed run.
+        File.WriteAllText(Path.Combine(data, "abcdef0123456789.patch_1"), "STALE");
+        File.SetAttributes(Path.Combine(data, "abcdef0123456789.patch_1"), FileAttributes.ReadOnly);
+        File.WriteAllText(Path.Combine(data, "zzz.patch_0.clonedivers-partial"), "junk");
+        File.WriteAllText(Path.Combine(data, "02582f3da1f8daf5"), "base archive");
+
+        long lastDone = 0, lastTotal = 0;
+        var progress = new SyncProgress<(long done, long total)>(p => { lastDone = p.done; lastTotal = p.total; });
+        var count = Pack.ExtractPatchFiles(zip, data, progress, CancellationToken.None);
+        Check(count, 5, "ExtractPatchFiles extracted five files");
+        Check(SameSet(Names(data), new[] { "02582f3da1f8daf5", "9ba626afa44a3aa3.patch_0", "9ba626afa44a3aa3.patch_0.gpu_resources", "9ba626afa44a3aa3.patch_0.stream", "abcdef0123456789.patch_1", "1111111111111111.patch_2" }),
+            "data\\ holds the base archive plus exactly the five pack files, flat (folders dropped), no manifest/readme/icon, no partial");
+        Check(File.ReadAllText(Path.Combine(data, "abcdef0123456789.patch_1")) == "blasters", "stale read-only file overwritten by the pack");
+        Check(File.ReadAllText(Path.Combine(data, "1111111111111111.patch_2")) == "deep", "deeply nested entry landed flat in data\\");
+        Check(lastDone == lastTotal && lastTotal > 0, "progress reached total");
+        Check(ModFiles.GetState(game) == ModState.On, "state is ON after install");
+
+        var options = MakeZip(Path.Combine(root, "options.zip"),
+            ("Phase 1/9ba626afa44a3aa3.patch_0", "p1"),
+            ("Phase 2/9ba626afa44a3aa3.patch_0", "p2"));
+        InvalidDataException? ex = null;
+        try { Pack.ListPatchEntries(options); } catch (InvalidDataException e) { ex = e; }
+        Check(ex is not null && ex.Message.Contains("options package"), "a zip with the same patch name in two folders is rejected as an options package");
+
+        var empty = MakeZip(Path.Combine(root, "empty.zip"), ("readme.txt", "nothing here"));
+        ex = null;
+        try { Pack.ExtractPatchFiles(empty, data, null, CancellationToken.None); } catch (InvalidDataException e) { ex = e; }
+        Check(ex is not null, "a zip with no patch files is rejected");
+
+        Console.WriteLine("Pack install: parked files come back, stale mods go to mods_old\\, ends ON");
+        var game2 = MakeGame(root, "Install Game");
+        var data2 = Path.Combine(game2, "data");
+        var off2 = Path.Combine(game2, "mods_off");
+        var old2 = Path.Combine(game2, "mods_old");
+        Directory.CreateDirectory(off2);
+        File.WriteAllText(Path.Combine(data2, "02582f3da1f8daf5"), "base");
+        File.WriteAllText(Path.Combine(data2, "9ba626afa44a3aa3.patch_0"), "old armory");        // in pack: gets overwritten
+        File.WriteAllText(Path.Combine(data2, "feedfeedfeedfeed.patch_0"), "hand-installed");    // not in pack: parked
+        File.WriteAllText(Path.Combine(off2, "abcdef0123456789.patch_1"), "parked blasters");    // parked, in pack: comes back then overwritten
+        File.WriteAllText(Path.Combine(off2, "dead0000dead0000.patch_3"), "parked stale");       // parked, not in pack: goes to mods_old
+        var partA = MakeZip(Path.Combine(root, "packA.zip"), ("9ba626afa44a3aa3.patch_0", "new armory"), ("9ba626afa44a3aa3.patch_0.stream", "s"));
+        var partB = MakeZip(Path.Combine(root, "packB.zip"), ("abcdef0123456789.patch_1", "new blasters"));
+        var (installed, parked) = Pack.Install(game2, new[] { partA, partB }, null, CancellationToken.None);
+        Check(installed, 3, "three files installed across two parts");
+        Check(parked, 2, "two stale files parked");
+        Check(SameSet(Names(data2), new[] { "02582f3da1f8daf5", "9ba626afa44a3aa3.patch_0", "9ba626afa44a3aa3.patch_0.stream", "abcdef0123456789.patch_1" }), "data\\ = base archive + exactly the pack");
+        Check(SameSet(Names(old2), new[] { "feedfeedfeedfeed.patch_0", "dead0000dead0000.patch_3" }), "mods_old\\ holds the two files the pack did not contain");
+        Check(Names(off2).Length, 0, "mods_off\\ is empty afterwards");
+        Check(File.ReadAllText(Path.Combine(data2, "9ba626afa44a3aa3.patch_0")) == "new armory" && File.ReadAllText(Path.Combine(data2, "abcdef0123456789.patch_1")) == "new blasters", "pack content replaced both the active and the parked copies");
+        Check(ModFiles.GetState(game2) == ModState.On, "state is ON after install");
+
+        var partDup = MakeZip(Path.Combine(root, "packDup.zip"), ("9ba626afa44a3aa3.patch_0", "again"));
+        ex = null;
+        try { Pack.Install(game2, new[] { partA, partDup }, null, CancellationToken.None); } catch (InvalidDataException e) { ex = e; }
+        Check(ex is not null && ex.Message.Contains("more than one"), "the same file in two selected zips is rejected before anything moves");
+        Check(File.ReadAllText(Path.Combine(data2, "9ba626afa44a3aa3.patch_0")) == "new armory", "and data\\ was left untouched");
+    }
+
+    static void ManifestTests()
+    {
+        Console.WriteLine("pack.json parsing");
+        var m = Pack.ParseManifest("{ \"version\": \"2026.09.05\", \"name\": \"Clonedivers pack\", \"notes\": \"Built for 7.0.2\", \"files\": [ { \"url\": \"https://example.com/a.zip\", \"size\": 10, \"sha256\": \"AB\" }, { \"url\": \"https://example.com/b.zip\", \"size\": 5, \"sha256\": \"CD\" } ] }");
+        Check(m is not null && m.Version == "2026.09.05" && m.Files.Count == 2, "camelCase manifest parses");
+        Check(m!.TotalSize, 15L, "TotalSize sums the parts");
+        Check(m.IsPublished, "manifest with URLs counts as published");
+        var placeholder = Pack.ParseManifest("{ \"version\": \"\", \"files\": [] }");
+        Check(placeholder is not null && !placeholder.IsPublished, "empty files list means not published yet");
+        var blankUrl = Pack.ParseManifest("{ \"version\": \"1\", \"files\": [ { \"url\": \"\", \"size\": 1, \"sha256\": \"\" } ] }");
+        Check(blankUrl is not null && !blankUrl.IsPublished, "a file with a blank URL means not published yet");
+        Check(Pack.FormatBytes(5L * 1024 * 1024 * 1024 + 100) == "5.0 GB" && Pack.FormatBytes(223L * 1024 * 1024) == "223 MB", "FormatBytes");
+    }
+
+    /// <summary>Minimal HTTP/1.1 server for the download tests: serves one byte array, honours Range, one request per connection.</summary>
+    sealed class TinyHttp : IDisposable
+    {
+        readonly System.Net.Sockets.TcpListener listener;
+        readonly byte[] body;
+        readonly string contentType;
+        public int RangeRequests;
+        public TinyHttp(byte[] body, string contentType = "application/zip")
+        {
+            this.body = body; this.contentType = contentType;
+            listener = new System.Net.Sockets.TcpListener(System.Net.IPAddress.Loopback, 0);
+            listener.Start();
+            _ = AcceptLoop();
+        }
+        public string Url => $"http://127.0.0.1:{((System.Net.IPEndPoint)listener.LocalEndpoint).Port}/clonedivers-pack.zip";
+        async Task AcceptLoop()
+        {
+            try { while (true) { var c = await listener.AcceptTcpClientAsync(); _ = Task.Run(() => Serve(c)); } }
+            catch { /* listener stopped */ }
+        }
+        void Serve(System.Net.Sockets.TcpClient c)
+        {
+            using (c)
+            using (var s = c.GetStream())
+            {
+                var reader = new StreamReader(s, System.Text.Encoding.ASCII, false, 4096, leaveOpen: true);
+                string? line; long start = 0; bool range = false;
+                while (!string.IsNullOrEmpty(line = reader.ReadLine()))
+                    if (line.StartsWith("Range: bytes=", StringComparison.OrdinalIgnoreCase))
+                    { range = true; start = long.Parse(line.Substring("Range: bytes=".Length).Split('-')[0]); }
+                if (range) Interlocked.Increment(ref RangeRequests);
+                string head;
+                byte[] payload;
+                if (start >= body.Length)
+                {
+                    head = $"HTTP/1.1 416 Range Not Satisfiable\r\nContent-Range: bytes */{body.Length}\r\nContent-Length: 0\r\nConnection: close\r\n\r\n";
+                    payload = Array.Empty<byte>();
+                }
+                else
+                {
+                    payload = body.AsSpan((int)start).ToArray();
+                    head = (range ? $"HTTP/1.1 206 Partial Content\r\nContent-Range: bytes {start}-{body.Length - 1}/{body.Length}\r\n" : "HTTP/1.1 200 OK\r\n")
+                         + $"Content-Type: {contentType}\r\nContent-Length: {payload.Length}\r\nConnection: close\r\n\r\n";
+                }
+                var hb = System.Text.Encoding.ASCII.GetBytes(head);
+                s.Write(hb, 0, hb.Length);
+                s.Write(payload, 0, payload.Length);
+                s.Flush();
+            }
+        }
+        public void Dispose() => listener.Stop();
+    }
+
+    static async Task DownloadTests(string root)
+    {
+        Console.WriteLine("Pack download: full, resumed, corrupted, wrong size, web-page-instead-of-file");
+        var body = new byte[3 * 1024 * 1024 + 7];
+        new Random(42).NextBytes(body);
+        var sha = Convert.ToHexString(System.Security.Cryptography.SHA256.HashData(body));
+        var dlDir = Path.Combine(root, "dl");
+
+        using (var srv = new TinyHttp(body))
+        {
+            var file = new PackFile { Url = srv.Url, Size = body.Length, Sha256 = sha.ToLowerInvariant() };
+            var dest = Path.Combine(dlDir, "full.zip");
+            long last = 0;
+            await Pack.DownloadAsync(file, dest, new SyncProgress<(long done, long total)>(p => last = p.done), CancellationToken.None);
+            Check(File.ReadAllBytes(dest).AsSpan().SequenceEqual(body), "full download matches byte for byte (hash given in lower case)");
+            Check(last, (long)body.Length, "progress reported the final byte count");
+            Check(srv.RangeRequests, 0, "no Range header on a fresh download");
+
+            var resumeDest = Path.Combine(dlDir, "resume.zip");
+            Directory.CreateDirectory(dlDir);
+            File.WriteAllBytes(resumeDest, body.AsSpan(0, 1024 * 1024).ToArray());
+            await Pack.DownloadAsync(file, resumeDest, null, CancellationToken.None);
+            Check(srv.RangeRequests, 1, "a partial file triggers exactly one Range request");
+            Check(File.ReadAllBytes(resumeDest).AsSpan().SequenceEqual(body), "resumed download matches byte for byte");
+
+            var already = Path.Combine(dlDir, "already.zip");
+            File.WriteAllBytes(already, body);
+            await Pack.DownloadAsync(file, already, null, CancellationToken.None);
+            Check(srv.RangeRequests, 1, "a complete file is only verified, not re-downloaded");
+
+            var bad = new PackFile { Url = srv.Url, Size = body.Length, Sha256 = new string('0', 64) };
+            var badDest = Path.Combine(dlDir, "bad.zip");
+            InvalidDataException? ex = null;
+            try { await Pack.DownloadAsync(bad, badDest, null, CancellationToken.None); } catch (InvalidDataException e) { ex = e; }
+            Check(ex is not null && ex.Message.Contains("SHA-256"), "hash mismatch throws");
+            Check(!File.Exists(badDest), "and the corrupt download is deleted");
+
+            var wrongSize = new PackFile { Url = srv.Url, Size = body.Length + 5, Sha256 = "" };
+            var wsDest = Path.Combine(dlDir, "wrongsize.zip");
+            ex = null;
+            try { await Pack.DownloadAsync(wrongSize, wsDest, null, CancellationToken.None); } catch (InvalidDataException e) { ex = e; }
+            Check(ex is not null && ex.Message.Contains("bytes"), "size mismatch throws");
+            Check(!File.Exists(wsDest), "and the short download is deleted");
+        }
+
+        using (var html = new TinyHttp(System.Text.Encoding.UTF8.GetBytes("<html>Google Drive can't scan this file for viruses</html>"), "text/html"))
+        {
+            var file = new PackFile { Url = html.Url, Size = 0, Sha256 = "" };
+            InvalidDataException? ex = null;
+            try { await Pack.DownloadAsync(file, Path.Combine(dlDir, "page.zip"), null, CancellationToken.None); } catch (InvalidDataException e) { ex = e; }
+            Check(ex is not null && ex.Message.Contains("web page"), "an HTML response is rejected with the browser-download hint");
+        }
+    }
+
+    /// <summary>Progress that reports synchronously (System.Progress posts to a sync context the console app lacks).</summary>
+    sealed class SyncProgress<T> : IProgress<T>
+    {
+        readonly Action<T> handler;
+        public SyncProgress(Action<T> handler) => this.handler = handler;
+        public void Report(T value) => handler(value);
     }
 
     static void NormalizeTests(string root)
