@@ -98,6 +98,12 @@ Friends never touch Nexus or a mod manager. You do it once per pack version:
    found to be dead weight (Galactic Map overrides both of its string tables) and the RC beeps bank was moved below
    RiqCrow's ship audio. Each published pack's deploy report, conflict report and recipe are archived under
    [`docs/pack/`](docs/pack/).
+
+   **Arsenal deletes its download folder.** HD2 Arsenal clears `%LOCALAPPDATA%\hd2arsenal\temp` on its own schedule, and
+   that is where its one-click downloads land. Copy zips you care about into `dist\mods\` (gitignored) right after
+   downloading. If the originals are already gone, `tools\recover-sources.ps1` rebuilds one zip per mod from the deployed
+   `data\` folder plus the deploy report; `deploy-mods.ps1` falls back to those automatically. Recovered zips carry only
+   the options that were deployed, so changing an option later means re-downloading that one mod.
 2. Run one command from the repo folder:
 
    ```bash

@@ -97,6 +97,14 @@ foreach ($mod in $r.mods) {
         foreach ($s in $sources) { $zip = Get-ChildItem $s -File -Filter *.zip | Where-Object { $_.Name -like $pattern -and $_.Length -gt 1024 } | Sort-Object LastWriteTime -Descending | Select-Object -First 1; if ($zip) { break } }
         if ($zip) { break }
     }
+    # Last resort: a zip rebuilt from an earlier deploy by tools\recover-sources.ps1 ("recovered - <mod name>.zip").
+    # It holds only the folders that were deployed then, with no manifest, so select/toggles do not apply to it.
+    $recovered = $false
+    if (-not $zip) {
+        $invalidChars = [IO.Path]::GetInvalidFileNameChars()
+        $safe = ($mod.name.ToCharArray() | ForEach-Object { if ($invalidChars -contains $_) { '_' } else { $_ } }) -join ''
+        foreach ($s in $sources) { $zip = Get-ChildItem $s -File -Filter *.zip | Where-Object { $_.Name -eq "recovered - $safe.zip" -and $_.Length -gt 1024 } | Select-Object -First 1; if ($zip) { $recovered = $true; break } }
+    }
     if (-not $zip) { $zip = $null; foreach ($pattern in @($mod.zip)) { foreach ($s in $sources) { $zip = Get-ChildItem $s -File -Filter *.zip | Where-Object { $_.Name -like $pattern } | Select-Object -First 1; if ($zip) { break } }; if ($zip) { break } } }   # an empty (still downloading) file, reported below
     if (-not $zip) { $problems.Add("MISSING zip for '$($mod.name)': $(@($mod.zip) -join ' | ')"); Write-Host ("  MISSING  {0}   ({1})" -f $mod.name, (@($mod.zip) -join ' | ')) -ForegroundColor Red; continue }
     if ($zip.Length -lt 1024) { $problems.Add("EMPTY zip for '$($mod.name)': $($zip.Name) is $($zip.Length) bytes (download not finished?)"); Write-Host ("  EMPTY    {0}" -f $zip.Name) -ForegroundColor Red; continue }
@@ -166,6 +174,7 @@ foreach ($mod in $r.mods) {
             $plan.Add([pscustomobject]@{ Mod = $mod.name; Zip = $zip.FullName; Folder = $u.Folder; Hash = $u.Hash; Orig = $u.Orig; Index = $idx; Files = $u.Files; Bytes = $u.Bytes })
             $unitCount++
         }
+        if ($recovered) { $notes.Insert(0, "from recovered zip (original download gone; options frozen as deployed)") }
         Write-Host ("  {0,-44} {1,3} patch set(s)  {2}" -f $mod.name, $unitCount, ($notes -join '; '))
     } finally { $a.Dispose() }
 }
