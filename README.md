@@ -84,6 +84,20 @@ Friends never touch Nexus or a mod manager. You do it once per pack version:
    recipe order (preserving each mod's own base-then-textures order), and writes them into `data\`. The dry run lists
    the plan and flags any zip that is missing or still downloading. Existing mod files are moved to `mods_old\`, never deleted.
    Clonedivers should then say **CLONES: ON**; launch once and check a bot mission before publishing.
+
+   Then check who overrides whom:
+
+   ```bash
+   powershell -ExecutionPolicy Bypass -File tools\conflict-report.ps1
+   ```
+
+   Every mod patches the same game archive, so a "conflict" is two mods shipping the same asset (name + type); the one
+   with the higher patch number wins silently. This reads the index table at the top of every deployed patch file and
+   writes `dist\conflict-report.md`: each cross-mod override with the winner, grouped by mod pair. Most are intended
+   layering (Armory's accessories over its armor, Custom Projectiles over Blue Overhaul). It is how the Ranks mod was
+   found to be dead weight (Galactic Map overrides both of its string tables) and the RC beeps bank was moved below
+   RiqCrow's ship audio. Each published pack's deploy report, conflict report and recipe are archived under
+   [`docs/pack/`](docs/pack/).
 2. Run one command from the repo folder:
 
    ```bash
