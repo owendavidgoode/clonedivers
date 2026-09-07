@@ -57,7 +57,9 @@ Three consequences:
    each file that differs as a pair (the base entry gets `unlessOption`, the variant entry `option`), so friends see one
    toggle and download only the files that differ. The first is `skinny` (Lighter textures): run
    `tools\optimize-pack.ps1` after `deploy-mods.ps1`, which writes `dist\pack-optimized` with every texture's mip chain
-   streamed (lossless), then publish as usual. Any new pack version needs both folders rebuilt.
+   streamed (lossless), then publish as usual. Any new pack version needs both folders rebuilt. Six bundles (patch_11, 91,
+   187, 188, 189, 205) print verifier notes in both the original and the output (two-slice array textures the tool skips,
+   a zero DDS linear size on patch_91): pre-existing mod quirks, not corruption; a re-run must not treat them as failures.
 
 2. Check who overrides whom:
 
