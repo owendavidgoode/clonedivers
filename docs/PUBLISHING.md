@@ -49,8 +49,15 @@ Three consequences:
    deleted. Clonedivers should then say **CLONES: ON**; launch once and check a bot mission before publishing.
 
    **Optional groups.** A recipe entry with an `"option": { "id", "name", "description", "default" }` block becomes a
-   toggle in friends' Clonedivers (the Republic Commando squad is the first). Keep such entries at the end of the recipe
+   toggle in friends' Clonedivers (the Republic Commando squad will be one). Keep such entries at the end of the recipe
    so their patch numbers come last; the app renumbers whatever is enabled, so a group switched off never leaves a gap.
+
+   **Variants.** A top-level `"variants": [ { "id", "name", "description", "default", "dir" } ]` entry names a folder that
+   holds the whole pack built differently; `build-manifest.ps1` hashes it, shares files identical to `data\`, and lists
+   each file that differs as a pair (the base entry gets `unlessOption`, the variant entry `option`), so friends see one
+   toggle and download only the files that differ. The first is `skinny` (Lighter textures): run
+   `tools\optimize-pack.ps1` after `deploy-mods.ps1`, which writes `dist\pack-optimized` with every texture's mip chain
+   streamed (lossless), then publish as usual. Any new pack version needs both folders rebuilt.
 
 2. Check who overrides whom:
 

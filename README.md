@@ -45,8 +45,10 @@ are parked in `Helldivers 2\mods_off\` until you flip it back.
 `Helldivers 2\mods_old\`, which you can delete any time. When you're current it reads **Pack up to date**; clicking that
 checks every installed file and repairs anything missing or damaged.
 
-**Optional extras**, like the Republic Commando squad when it lands, appear as toggles under the pack buttons. Off parks
-that group's files, on downloads just that group. Nothing else changes.
+**Toggles** under the pack buttons switch optional parts of the pack. **Lighter textures** is the first: the same mods,
+same look, with textures streamed from disk on demand instead of all sitting in RAM (about 4.5 GB less resident memory).
+Turn it on if you have 16 GB of RAM or the game dies at boot; it downloads about 7 GB once. More toggles (the Republic
+Commando squad) come the same way. Off parks a toggle's files, on downloads just that group.
 
 **Clonedivers updates itself.** When a new version is out, a line under the pack buttons says so. One click downloads it
 and restarts. Still on 1.2? Download the new exe once from the button above; from then on it is automatic.
@@ -57,7 +59,8 @@ and restarts. Still on 1.2? Download the new exe once from the button above; fro
 
 > [!TIP]
 > Framerate tanks in the ship? Clone Armory is heavy: add `--use-d3d11` to the game's launch options
-> (Steam → right-click Helldivers 2 → Properties → Launch Options). 16 GB of RAM is the comfortable minimum.
+> (Steam → right-click Helldivers 2 → Properties → Launch Options). 16 GB of RAM works with the **Lighter textures**
+> toggle on; 32 GB runs the full pack without it.
 
 > [!NOTE]
 > **Game just updated?** Clonedivers knows which Helldivers 2 build the pack was built for. When Steam has updated the

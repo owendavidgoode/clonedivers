@@ -102,8 +102,9 @@ was removed in 1.2.0 (it showed the owner's whole Steam library) and is not comi
 `manifest.json` = `{ format: 2, app: { version, url, size, sha256 }, pack: { version, name, notes, gameBuild, gameDepots,
 status, statusNotes, options: [{ id, name, description, default }], files: [{ name, size, sha256, url, option? }] } }`.
 `name` is the final file name in `data\`; assets are named by sha256 and a sha keeps its URL across versions; size-0
-entries have no URL and are created locally; a file with an `option` id belongs to a toggleable group. `pack.json`
-(format 1, zip parts) still parses and is frozen for the 1.2.0 app.
+entries have no URL and are created locally; a file with an `option` id belongs to a toggleable group; a file with
+`unlessOption` is skipped while that option is on (it is the base file a same-named variant entry replaces, so a whole
+alternative build of the pack is one toggle). `pack.json` (format 1, zip parts) still parses and is frozen for the 1.2.0 app.
 
 The update is `Pack.EffectiveFiles` (drop disabled option groups and renumber per archive so the set is gap-free) →
 `Pack.InventoryAsync` (hash `data\`, `mods_off\`, staged leftovers, lazily `mods_old\`; only sizes that appear in the
