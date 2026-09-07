@@ -8,7 +8,7 @@ Clonedivers installs the mod pack, switches it on or off, and launches the game.
 </p>
 <p align="center">
   <a href="https://github.com/owendavidgoode/clonedivers/releases/latest"><img alt="App version" src="https://img.shields.io/github/v/release/owendavidgoode/clonedivers?filter=v*&label=app&style=flat-square&color=1f5fcc"></a>
-  <a href="pack.json"><img alt="Pack version" src="https://img.shields.io/badge/dynamic/json?url=https%3A%2F%2Fraw.githubusercontent.com%2Fowendavidgoode%2Fclonedivers%2Fmain%2Fpack.json&query=%24.version&label=pack&style=flat-square&color=e2761c"></a>
+  <a href="manifest.json"><img alt="Pack version" src="https://img.shields.io/badge/dynamic/json?url=https%3A%2F%2Fraw.githubusercontent.com%2Fowendavidgoode%2Fclonedivers%2Fmain%2Fmanifest.json&query=%24.pack.version&label=pack&style=flat-square&color=e2761c"></a>
   <a href="LICENSE"><img alt="License" src="https://img.shields.io/github/license/owendavidgoode/clonedivers?style=flat-square&color=3e4452"></a>
 </p>
 <p align="center"><sub>Windows 10/11 64-bit · a Steam copy of Helldivers 2 · nothing else to install · <a href="https://github.com/owendavidgoode/clonedivers/releases/latest/download/Clonedivers.exe">plain download link</a></sub></p>
@@ -25,11 +25,10 @@ Clonedivers installs the mod pack, switches it on or off, and launches the game.
    (Plain .NET app; the source is this repo.)
    It finds Helldivers 2 through Steam by itself and says **Found via Steam:** at the bottom. If it can't, it asks you to
    pick the game folder (Steam → right-click Helldivers 2 → **Manage → Browse local files**; that window is the folder).
-2. **Click Download pack.** It fetches Owen's pack: 9.5 GB in five parts (the app and Explorer show it as 8.8 GB, the way
-   Windows counts), so start it before dinner. Keep the window open; the percentage shows in the title bar. Have about
-   19 GB free on the game drive while it installs; the zips are deleted afterwards. Interrupted? Open Clonedivers and click
-   again. It resumes where it stopped. Got the zips from Owen instead? **Install pack from file…** and
-   **select all five parts at once**.
+2. **Click Download pack.** It fetches Owen's pack, 8.8 GB the first time (421 files), so start it before dinner. Keep
+   the window open; the percentage shows in the title bar. Have about 9 GB free on the game drive. Interrupted? Open
+   Clonedivers and click again. It resumes where it stopped. Got the pack as zips from Owen instead? **Install pack from
+   file…** and **select all the parts at once**.
 3. **Click LAUNCH HELLDIVERS 2** once the big button reads **CLONES: ON**. Steam starts the game as normal.
 
 <p align="center">
@@ -41,8 +40,16 @@ Clonedivers installs the mod pack, switches it on or off, and launches the game.
 **Vanilla night?** Close the game, click the big button so it reads **CLONES: OFF**, launch. Nothing is deleted; the files
 are parked in `Helldivers 2\mods_off\` until you flip it back.
 
-**New pack out?** The button under LAUNCH reads **Update pack**. Click it. Files the new pack no longer contains go to
-`Helldivers 2\mods_old\`, which you can delete any time. When you're current it reads **Pack up to date**.
+**New pack out?** The button under LAUNCH reads **Update pack**. Click it: only the files that changed are downloaded
+(usually a few hundred MB), everything else is kept and renamed in place. Files the new pack no longer contains go to
+`Helldivers 2\mods_old\`, which you can delete any time. When you're current it reads **Pack up to date**; clicking that
+checks every installed file and repairs anything missing or damaged.
+
+**Optional extras**, like the Republic Commando squad when it lands, appear as toggles under the pack buttons. Off parks
+that group's files, on downloads just that group. Nothing else changes.
+
+**Clonedivers updates itself.** When a new version is out, a line under the pack buttons says so. One click downloads it
+and restarts. Still on 1.2? Download the new exe once from the button above; from then on it is automatic.
 
 > [!IMPORTANT]
 > **Only flip the switch while the game is closed.** Helldivers 2 reads mods once, at startup. Clonedivers refuses to
@@ -51,6 +58,11 @@ are parked in `Helldivers 2\mods_off\` until you flip it back.
 > [!TIP]
 > Framerate tanks in the ship? Clone Armory is heavy: add `--use-d3d11` to the game's launch options
 > (Steam → right-click Helldivers 2 → Properties → Launch Options). 16 GB of RAM is the comfortable minimum.
+
+> [!NOTE]
+> **Game just updated?** Clonedivers knows which Helldivers 2 build the pack was built for. When Steam has updated the
+> game, has an update queued, or Owen has marked the pack broken, the status line turns amber and **LAUNCH** asks whether
+> to switch the clones OFF first. Say Yes until Owen confirms the pack on the new patch.
 
 ## What's in the pack
 
@@ -84,11 +96,16 @@ vanilla because no mods exist for them yet. Mods are client-side only, so everyo
 
 - **After a Helldivers 2 update, turn clones OFF until Owen ships an updated pack.** Asset mods are tied to the game's
   archives. Stale ones crash on launch (error `0x44415441`) or show broken gear. Steam's updater leaves the patch files
-  alone, so Clonedivers will still say ON.
+  alone, so the switch still says ON; the amber warning and the question on LAUNCH are there to catch it.
 - **SmartScreen / antivirus.** The exe is unsigned and self-contained (the .NET runtime is packed inside), which trips
   Defender's "unrecognized app" screen and occasionally a false positive. Build it yourself if that bothers you.
-- **Disk space.** Installing needs roughly twice the pack size free on the game drive while it runs: about 19 GB for the
-  current pack (zips plus extracted files). The zips are deleted afterwards. `mods_old\` can be deleted any time.
+- **Disk space.** The first install needs about 9 GB free on the game drive; later updates only the changed files plus
+  a little slack. `mods_old\` holds whatever an update replaced and can be deleted any time.
+- **UPDATE INTERRUPTED.** Power cut or antivirus mid-update? The switch reads that, mods are off, and **Finish update**
+  completes it in seconds without internet. If a file is still locked it names it; close whatever has it open and click again.
+- **Clonedivers.update.exe next to the exe** means a self-update did not finish. Start Clonedivers again and it retries,
+  or rename it over `Clonedivers.exe` by hand. If Clonedivers vanished after an update, Defender quarantined the new exe:
+  restore it from Windows Security or download it again from the button above.
 - **Steam "Verify integrity of game files"** does not remove mods; it only repairs vanilla files. A full reinstall does
   wipe `data\`. `mods_off\` and `mods_old\` are sibling folders, so they survive both.
 - **Anti-cheat.** Modding is technically against the EULA and "at your own risk." Arrowhead has not banned for
@@ -111,17 +128,19 @@ vanilla because no mods exist for them yet. Mods are client-side only, so everyo
 - **ON** = your `*.patch_*` files sit in `Helldivers 2\data\`. **OFF** = the same files sit in `Helldivers 2\mods_off\`.
   The state is read from disk every time; nothing is stored, so it can't get out of sync.
 - Moving is a rename on the same drive, so a multi-gigabyte pack flips instantly. Nothing is ever copied or deleted.
-- **Download pack** reads `pack.json` from this repo, downloads the parts into `Helldivers 2\mods_download\` with resume,
-  refuses anything whose size or SHA-256 doesn't match, extracts only `*.patch_*` files flat into `data\`, parks anything
-  stale in `mods_old\`, and deletes the zips. **Install pack from file…** does the same from zips you already have.
+- **Download pack** reads `manifest.json` from this repo (every file with its name, size and SHA-256), hashes what you
+  already have, renames matching files into place, downloads only the missing ones into `Helldivers 2\mods_download\`
+  with resume and a hash check, and parks anything the pack no longer contains in `mods_old\`. Nothing is written under
+  a mod name until it is complete. **Install pack from file…** installs a zip pack you already have.
 - **Launch** opens `steam://rungameid/553850`, exactly like pressing Play in Steam. The game needs Steam running anyway
   (Steamworks + GameGuard), so this is the reliable way in.
 - Finds the game via Steam's registry key and `libraryfolders.vdf`, so second-drive libraries work. A manually chosen
   folder and the installed pack version are remembered in `%APPDATA%\Clonedivers\config.json`.
 - It never injects into, hooks, reads, or otherwise touches the game process. It notices whether `helldivers2.exe`
   is running (to refuse a toggle or install) and that is all.
-- No Nexus login, no mod browsing, no per-mod toggles, no patch-number management. The only thing it ever downloads is
-  the pack listed in `pack.json`, verified by hash. All `*.patch_*` files move together.
+- No Nexus login, no mod browsing, no patch-number management. The only things it ever downloads are the pack files
+  listed in `manifest.json` and, when you click, its own new version, all verified by hash. The big switch moves every
+  `*.patch_*` file together; the optional-group toggles are the only per-mod control.
 - It doesn't edit any game file. Vanilla Helldivers 2 ships zero `*.patch_*` files, which is exactly why that pattern
   identifies mods safely.
 

@@ -31,6 +31,7 @@ static class TestProgram
 
     static int Main()
     {
+        Game.IsRunningCheck = () => false;   // the engine refuses to move files while helldivers2.exe runs; tests must not depend on the host PC
         var root = Path.Combine(Path.GetTempPath(), "clonedivers-test-" + Guid.NewGuid().ToString("N"));
         Directory.CreateDirectory(root);
         try
@@ -44,6 +45,13 @@ static class TestProgram
             PackZipTests(root);
             ManifestTests();
             DownloadTests(root).GetAwaiter().GetResult();
+            ManifestV2Tests();
+            EffectiveFilesTests();
+            PlanAndApplyTests(root).GetAwaiter().GetResult();
+            SurplusAndParkNamingTests(root);
+            InterruptedAndReplayTests(root);
+            HashCacheAndCleanupTests(root);
+            SelfUpdateAndAcfTests(root);
         }
         finally
         {
@@ -409,6 +417,252 @@ static class TestProgram
         readonly Action<T> handler;
         public SyncProgress(Action<T> handler) => this.handler = handler;
         public void Report(T value) => handler(value);
+    }
+
+    // ------------------------------------------------------------------ 1.3.0: manifest format 2, options, inventory, plan, apply, replay, self-update
+
+    static string ShaOf(string content) => Convert.ToHexString(System.Security.Cryptography.SHA256.HashData(System.Text.Encoding.UTF8.GetBytes(content))).ToLowerInvariant();
+    static PackFile F(string name, string content, string? option = null, string url = "") =>
+        new() { Name = name, Size = System.Text.Encoding.UTF8.GetByteCount(content), Sha256 = content.Length == 0 ? PackFile.EmptySha : ShaOf(content), Url = url, Option = option };
+    static void Put(string dir, string name, string content) { Directory.CreateDirectory(dir); File.WriteAllText(Path.Combine(dir, name), content); }
+
+    static void ManifestV2Tests()
+    {
+        Console.WriteLine("manifest.json (format 2): parse rules, options, app block");
+        var json = """
+        { "format": 2,
+          "app": { "version": "1.3.1", "url": "https://github.com/owendavidgoode/clonedivers/releases/download/v1.3.1/Clonedivers.exe", "size": 5, "sha256": "ABCD" },
+          "pack": { "version": "r4", "name": "P", "notes": "n", "gameBuild": "24826606", "status": "ok",
+                    "options": [ { "id": "cmd", "name": "Republic Commandos", "default": true } ],
+                    "files": [ { "name": "9ba626afa44a3aa3.patch_0", "size": 3, "sha256": "SHA_A", "url": "https://x/a" },
+                               { "name": "9ba626afa44a3aa3.patch_0.stream", "size": 0, "sha256": "", "url": "" },
+                               { "name": "9ba626afa44a3aa3.patch_1", "size": 3, "sha256": "SHA_B", "url": "https://x/b", "option": "cmd" } ],
+                    "extraFutureField": 1 } }
+        """.Replace("SHA_A", new string('A', 64)).Replace("SHA_B", new string('b', 64));
+        var m = Manifest.Parse(json);
+        Check(m.Format, 2, "format 2 parsed");
+        Check(m.App is not null && m.App.IsNewerThan("1.3.0"), "app 1.3.1 is newer than 1.3.0");
+        Check(m.App is not null && !m.App.IsNewerThan("1.3.1") && !m.App.IsNewerThan("1.10.0"), "not newer than itself or than 1.10.0");
+        Check(m.App!.IsPinned, "app.url matches the pinned release URL");
+        Check(new AppRelease { Version = "1.3.1", Url = "https://evil/x.exe" }.IsPinned == false, "a foreign app.url is not pinned");
+        var p = m.Pack!;
+        Check(p.Files.Count, 3, "three files");
+        Check(p.Files[0].Sha256 == new string('a', 64), "sha lower-cased");
+        Check(p.Files[1].Sha256 == PackFile.EmptySha && p.Files[1].Url == "", "size-0 entry gets the empty sha and needs no url");
+        Check(p.IsPublished, "IsPublished with a blank url only on the size-0 entry");
+        Check(p.IsPerFile, "IsPerFile");
+        Check(p.GameBuild == "24826606" && !p.IsBroken, "gameBuild read, status ok");
+        Check(p.Options.Count == 1 && p.Files[2].Option == "cmd", "option and file tag");
+
+        var noUrl = Manifest.Parse(json.Replace("\"url\": \"https://x/b\"", "\"url\": \"\""));
+        Check(!noUrl.Pack!.IsPublished, "a non-empty file without url is not published");
+        InvalidDataException? ex = null;
+        try { Manifest.Parse(json.Replace("9ba626afa44a3aa3.patch_1\"", "sub\\\\dir.patch_1\"")); } catch (InvalidDataException e) { ex = e; }
+        Check(ex is not null, "a file name with a path separator is rejected");
+        ex = null;
+        try { Manifest.Parse(json.Replace("\"option\": \"cmd\"", "\"option\": \"nope\"")); } catch (InvalidDataException e) { ex = e; }
+        Check(ex is not null, "an unknown option id is rejected");
+        ex = null;
+        try { Manifest.Parse(json.Replace("9ba626afa44a3aa3.patch_1\"", "9ba626afa44a3aa3.PATCH_0\"")); } catch (InvalidDataException e) { ex = e; }
+        Check(ex is not null, "duplicate names differing by case are rejected");
+
+        var legacy = Manifest.Parse("""{ "version": "r3", "files": [ { "url": "https://x/p1.zip", "size": 10, "sha256": "AB" } ] }""");
+        Check(legacy.Format == 1 && legacy.Pack is not null && legacy.Pack.Files.Count == 1 && !legacy.Pack.IsPerFile && legacy.Pack.IsPublished, "format-1 pack.json still parses (zip parts, no names)");
+        Check(Manifest.Parse("""{ "format": 2 }""").Pack is null, "a manifest without a pack block parses (Pack null)");
+        Check(Manifest.Parse(json.Replace("\"format\": 2", "\"format\": 3")).App is not null, "format 3 still parses and keeps the app block");
+    }
+
+    static void EffectiveFilesTests()
+    {
+        Console.WriteLine("Options: the enabled set is renumbered so switching a group off leaves no gap");
+        var pack = new PackManifest
+        {
+            Options = { new PackOption { Id = "cmd", Name = "Republic Commandos" } },
+            Files =
+            {
+                F("A.patch_0", "a"), F("A.patch_0.stream", ""),
+                F("A.patch_1", "b"), F("A.patch_2", "opt", "cmd"), F("A.patch_2.gpu_resources", "optg", "cmd"),
+                F("A.patch_3", "c"), F("B.patch_0", "x"),
+            },
+        };
+        var on = Pack.EffectiveFiles(pack, _ => true);
+        Check(on.Select(f => f.Name).SequenceEqual(pack.Files.Select(f => f.Name)), "all options on: names unchanged");
+        var off = Pack.EffectiveFiles(pack, _ => false);
+        Check(off.Count, 5, "option off drops its two files");
+        Check(off.Select(f => f.Name).SequenceEqual(new[] { "A.patch_0", "A.patch_0.stream", "A.patch_1", "A.patch_2", "B.patch_0" }), "A.patch_3 became A.patch_2; B untouched");
+        Check(off.Single(f => f.Name == "A.patch_2").Sha256 == ShaOf("c"), "the renumbered entry keeps its bytes");
+        Check(!ReferenceEquals(on[0], pack.Files[0]), "EffectiveFiles returns copies, the manifest is not mutated");
+    }
+
+    static async Task PlanAndApplyTests(string root)
+    {
+        Console.WriteLine("Per-file update: inventory → plan → download → apply, with renumbering, duplicates, zero-byte files and a stale file");
+        var game = MakeGame(root, "PerFile Game");
+        var data = Path.Combine(game, "data"); var old = Path.Combine(game, "mods_old"); var dl = Path.Combine(game, "mods_download");
+        var cachePath = Path.Combine(root, "perfile-hashes.json"); var planPath = Path.Combine(root, "perfile-plan.json");
+        // Installed r1: aaa at 0 (+ empty stream), bbb at 1, ccc at 2, plus a stale file nobody wants.
+        Put(data, "A.patch_0", "aaa"); Put(data, "A.patch_0.stream", ""); Put(data, "A.patch_1", "bbb"); Put(data, "A.patch_2", "ccc"); Put(data, "stale.patch_5", "zzzzzz");   // 6 bytes: matches no manifest size, so it is never hashed
+        File.SetAttributes(Path.Combine(data, "stale.patch_5"), FileAttributes.ReadOnly);
+
+        using var srv = new TinyHttp(System.Text.Encoding.UTF8.GetBytes("new0"));
+        // r2 inserts a new mod at 0, shifting everything up; adds a byte-identical copy of bbb at 4 and an empty companion.
+        var wanted = new List<PackFile>
+        {
+            F("A.patch_0", "new0", url: srv.Url), F("A.patch_1", "aaa"), F("A.patch_1.stream", ""), F("A.patch_2", "bbb"),
+            F("A.patch_3", "ccc"), F("A.patch_4", "bbb"), F("A.patch_4.stream", ""),
+        };
+        var cache = new HashCache();
+        long lastTotal = -1;
+        var local = await Pack.InventoryAsync(game, wanted, cache, false, new SyncProgress<(long done, long total)>(p => lastTotal = p.total), CancellationToken.None);
+        Check(local.Count, 5, "inventory lists the five local files");
+        Check(local.Single(l => l.Name == "stale.patch_5").Sha is null, "a file whose size matches nothing is not hashed");
+        Check(local.Single(l => l.Name == "A.patch_0.stream").Sha == PackFile.EmptySha, "an empty file gets the empty sha without reading");
+        Check(lastTotal, 9L, "progress total = bytes actually hashed (3 files × 3 bytes)");
+
+        var plan = Pack.Plan(game, wanted, local, new HashSet<string>());
+        Check(plan.Downloads.Count, 1, "one download (the new file)");
+        Check(plan.BytesToDownload, 4L, "4 bytes to download");
+        Check(plan.RenameCount, 4, "four renames (aaa, stream, bbb, ccc)");
+        Check(plan.CopyCount, 1, "one local copy for the duplicated bbb");
+        Check(plan.CreateCount, 1, "one zero-byte create");
+        Check(plan.ParkCount, 1, "one park (stale.patch_5)");
+        Check(plan.InPlaceCount, 0, "nothing was already in place");
+        Check(plan.Actions.All(a => a.Op != PlanOp.Finalize || a.From.EndsWith(ModFiles.StagedSuffix)), "every finalize comes from a staged name");
+        Check(plan.Actions.Where(a => a.Op == PlanOp.Stage).All(a => !ModFiles.IsPatchFile(a.To)), "staged names never look like mods");
+        var stageOrder = plan.Actions.Where(a => a.Op == PlanOp.Stage && ModFiles.TryParsePatchName(Path.GetFileName(a.From), out _, out _, out _))
+            .Select(a => { ModFiles.TryParsePatchName(Path.GetFileName(a.From), out _, out var i, out _); return i; }).ToList();
+        Check(stageOrder.SequenceEqual(stageOrder.OrderByDescending(i => i)), "stages run in descending patch order");
+        var finOrder = plan.Actions.Where(a => a.Op == PlanOp.Finalize).Select(a => { ModFiles.TryParsePatchName(Path.GetFileName(a.To), out _, out var i, out _); return i; }).ToList();
+        Check(finOrder.SequenceEqual(finOrder.OrderBy(i => i)), "finalizes run in ascending patch order");
+
+        await Pack.DownloadPlanAsync(plan, dl, null, CancellationToken.None);
+        Check(File.Exists(Path.Combine(dl, ShaOf("new0"))), "downloaded file is stored under its sha");
+        var result = Pack.Apply(game, plan, planPath, "r2", cache, cachePath);
+        Check(!result.Interrupted, "apply completed" + (result.Interrupted ? ": " + string.Join(";", result.Failed) + result.Reason : ""));
+        Check(SameSet(Names(data).Where(ModFiles.IsPatchFile), wanted.Select(f => f.Name)), "data\\ holds exactly the manifest names");
+        Check(File.ReadAllText(Path.Combine(data, "A.patch_1")) == "aaa" && File.ReadAllText(Path.Combine(data, "A.patch_4")) == "bbb" && File.ReadAllText(Path.Combine(data, "A.patch_0")) == "new0", "contents landed under the right names");
+        Check(new FileInfo(Path.Combine(data, "A.patch_4.stream")).Length == 0, "zero-byte companion created");
+        Check(File.Exists(Path.Combine(old, "stale.patch_5")) && (File.GetAttributes(Path.Combine(old, "stale.patch_5")) & FileAttributes.ReadOnly) != 0, "stale file parked (read-only flag left alone)");
+        Check(ModFiles.ListStagedFiles(game).Length == 0 && !File.Exists(planPath), "no staged files, plan file gone");
+        Check(!Directory.Exists(dl), "empty mods_download removed");
+        Check(File.Exists(cachePath), "hash cache saved");
+
+        // Second run: everything in place, cache hits, no-op.
+        var cache2 = HashCache.Load(cachePath);
+        long hashed = -1;
+        var local2 = await Pack.InventoryAsync(game, wanted, cache2, false, new SyncProgress<(long done, long total)>(p => hashed = p.total), CancellationToken.None);
+        Check(hashed, 0L, "second inventory hashes nothing (cache)");
+        var plan2 = Pack.Plan(game, wanted, local2, new HashSet<string>());
+        Check(plan2.IsNoOp && plan2.InPlaceCount == 7, "second plan is a no-op with every file in place");
+
+        // Option off: the two 'bbb' files at 2 and 4 belong to an option; switching it off renumbers ccc down and parks them.
+        foreach (var f in wanted.Where(f => f.Name is "A.patch_2" or "A.patch_4" or "A.patch_4.stream")) f.Option = "cmd";
+        var pm = new PackManifest { Options = { new PackOption { Id = "cmd", Name = "X" } }, Files = wanted };
+        var wantedOff = Pack.EffectiveFiles(pm, _ => false);
+        Check(wantedOff.Select(f => f.Name).SequenceEqual(new[] { "A.patch_0", "A.patch_1", "A.patch_1.stream", "A.patch_2" }), "option off: ccc moves from 3 to 2");
+        var local3 = await Pack.InventoryAsync(game, wantedOff, cache2, false, null, CancellationToken.None);
+        var plan3 = Pack.Plan(game, wantedOff, local3, new HashSet<string>());
+        Check(plan3.Downloads.Count == 0 && plan3.RenameCount == 1 && plan3.ParkCount == 3, "option off = one rename, three parks, no download");
+        var r3 = Pack.Apply(game, plan3, planPath, "r2", cache2, cachePath);
+        Check(!r3.Interrupted && SameSet(Names(data).Where(ModFiles.IsPatchFile), wantedOff.Select(f => f.Name)) && File.ReadAllText(Path.Combine(data, "A.patch_2")) == "ccc", "option off applied: gap-free, ccc at 2");
+        // Option back on: the parked copies in mods_old\ are reused, still no download.
+        var local4 = await Pack.InventoryAsync(game, wanted, cache2, false, null, CancellationToken.None);
+        var plan4 = Pack.Plan(game, wanted, local4, new HashSet<string>());
+        Check(plan4.Downloads.Count == 0 && plan4.Actions.Any(a => a.Op == PlanOp.Stage && a.From.StartsWith(old, StringComparison.OrdinalIgnoreCase)), "option on again: files come back from mods_old\\, nothing downloaded");
+        var r4 = Pack.Apply(game, plan4, planPath, "r2", cache2, cachePath);
+        Check(!r4.Interrupted && SameSet(Names(data).Where(ModFiles.IsPatchFile), wanted.Select(f => f.Name)), "option on applied");
+    }
+
+    static void SurplusAndParkNamingTests(string root)
+    {
+        Console.WriteLine("Duplicates: surplus local copies are parked; mods_old\\ never overwrites");
+        var game = MakeGame(root, "Surplus Game");
+        var data = Path.Combine(game, "data"); var old = Path.Combine(game, "mods_old");
+        Put(data, "B.patch_0", "same"); Put(data, "B.patch_1", "same"); Put(old, "B.patch_1", "older");
+        var wanted = new List<PackFile> { F("B.patch_0", "same") };
+        var local = Pack.InventoryAsync(game, wanted, new HashCache(), false, null, CancellationToken.None).GetAwaiter().GetResult();
+        var plan = Pack.Plan(game, wanted, local, new HashSet<string>());
+        Check(plan.InPlaceCount == 1 && plan.ParkCount == 1 && plan.Downloads.Count == 0, "one in place, the twin parked");
+        var r = Pack.Apply(game, plan, Path.Combine(root, "surplus-plan.json"), "v", null, null);
+        Check(!r.Interrupted && File.ReadAllText(Path.Combine(old, "B.patch_1")) == "older" && File.Exists(Path.Combine(old, "B.patch_1.1")), "existing mods_old\\B.patch_1 kept; the parked twin became B.patch_1.1");
+        Check(!ModFiles.IsPatchFile("B.patch_1.1"), "the .1 name is not a mod name");
+    }
+
+    static void InterruptedAndReplayTests(string root)
+    {
+        Console.WriteLine("Interrupted update: a locked old file leaves a staged copy and a plan; Finish update replays it offline");
+        var game = MakeGame(root, "Interrupted Game");
+        var data = Path.Combine(game, "data"); var dl = Path.Combine(game, "mods_download");
+        var planPath = Path.Combine(root, "int-plan.json");
+        Put(data, "C.patch_0", "old"); Put(data, "C.patch_1", "keep");
+        var wanted = new List<PackFile> { F("C.patch_0", "fresh"), F("C.patch_1", "keep") };
+        Directory.CreateDirectory(dl); File.WriteAllText(Path.Combine(dl, ShaOf("fresh")), "fresh");   // "already downloaded"
+        var local = Pack.InventoryAsync(game, wanted, new HashCache(), false, null, CancellationToken.None).GetAwaiter().GetResult();
+        var plan = Pack.Plan(game, wanted, local, new HashSet<string> { ShaOf("fresh") });
+        Check(plan.Downloads.Count == 0 && plan.ParkCount == 1 && plan.InPlaceCount == 1, "complete download reused; old file to park; keep in place");
+        ApplyResult r;
+        using (new FileStream(Path.Combine(data, "C.patch_0"), FileMode.Open, FileAccess.Read, FileShare.None))
+            r = Pack.Apply(game, plan, planPath, "v2", null, null);
+        Check(r.Interrupted && r.Failed.Count >= 1, "locked old file → interrupted");
+        Check(File.ReadAllText(Path.Combine(data, "C.patch_0")) == "old", "the occupied final name was NOT overwritten");
+        Check(ModFiles.HasStagedFiles(game) && File.Exists(planPath), "staged copy and plan file remain");
+        Check(ModFiles.GetState(game) == ModState.On, "the game still sees a consistent (old) set");
+        var r2 = Pack.Replay(game, planPath, null, null);
+        Check(r2 is not null && !r2.Interrupted, "replay finished once the lock was gone");
+        Check(File.ReadAllText(Path.Combine(data, "C.patch_0")) == "fresh" && !ModFiles.HasStagedFiles(game) && !File.Exists(planPath), "fresh file in place, staged and plan gone");
+        Check(File.Exists(Path.Combine(game, "mods_old", "C.patch_0")), "old file parked");
+        Check(Pack.Replay(game, planPath, null, null) is null, "replay with no plan file returns null (caller re-plans)");
+        Check(Pack.Replay(game, Path.Combine(root, "nope.json"), null, null) is null, "missing plan → null");
+    }
+
+    static void HashCacheAndCleanupTests(string root)
+    {
+        Console.WriteLine("Hash cache keys survive a move; download-folder cleanup keeps only wanted shas");
+        var dir = Path.Combine(root, "cache"); Directory.CreateDirectory(dir);
+        var a = Path.Combine(dir, "X.patch_0"); File.WriteAllText(a, "hello");
+        var fi = new FileInfo(a);
+        var k1 = HashCache.Key(fi.Name, fi.Length, fi.LastWriteTimeUtc);
+        var sub = Path.Combine(dir, "off"); Directory.CreateDirectory(sub);
+        File.Move(a, Path.Combine(sub, "X.patch_0"));
+        var fi2 = new FileInfo(Path.Combine(sub, "X.patch_0"));
+        Check(HashCache.Key(fi2.Name, fi2.Length, fi2.LastWriteTimeUtc) == k1, "same key after moving to another folder");
+        File.WriteAllText(fi2.FullName, "hello!"); fi2.Refresh();
+        Check(HashCache.Key(fi2.Name, fi2.Length, fi2.LastWriteTimeUtc) != k1, "different size → different key");
+        var c = new HashCache(); c.Entries[k1] = "deadbeef";
+        var cp = Path.Combine(dir, "h.json"); c.Save(cp);
+        Check(HashCache.Load(cp).Entries.TryGetValue(k1.ToUpperInvariant(), out var v) && v == "deadbeef", "cache round-trips and keys are case-insensitive");
+
+        var dl = Path.Combine(root, "dlclean"); Directory.CreateDirectory(dl);
+        var keep = new string('a', 64);
+        File.WriteAllText(Path.Combine(dl, keep), "x"); File.WriteAllText(Path.Combine(dl, keep + Pack.PartialSuffix), "x");
+        File.WriteAllText(Path.Combine(dl, "clonedivers-pack-2026.09.05-r3-part1.zip"), "x"); File.WriteAllText(Path.Combine(dl, new string('b', 64)), "x");
+        Check(Pack.CleanDownloadFolder(dl, new[] { keep }), 2, "removed the zip partial and the unwanted sha");
+        Check(SameSet(Names(dl), new[] { keep, keep + Pack.PartialSuffix }), "kept the wanted sha and its partial");
+    }
+
+    static void SelfUpdateAndAcfTests(string root)
+    {
+        Console.WriteLine("Self-update paths and swap; Steam acf parsing");
+        var (exe, upd, old) = SelfUpdate.Paths(@"C:\Users\José\Desktop\Clonedivers (1).exe");
+        Check(upd == @"C:\Users\José\Desktop\Clonedivers (1).update.exe" && old == @"C:\Users\José\Desktop\Clonedivers (1).old.exe", "update/old paths derive from the stem, same folder");
+
+        var dir = Path.Combine(root, "swap é % test"); Directory.CreateDirectory(dir);
+        var e = Path.Combine(dir, "Clonedivers (1).exe"); var (_, u, o) = SelfUpdate.Paths(e);
+        File.WriteAllText(e, "v1"); File.WriteAllText(u, "v2");
+        SelfUpdate.Swap(e, u, o, TimeSpan.FromMilliseconds(200));
+        Check(File.ReadAllText(e) == "v2" && File.ReadAllText(o) == "v1" && !File.Exists(u), "swap: new exe in place, old kept as .old.exe");
+        File.WriteAllText(e, "v2"); File.Delete(o);   // now a swap whose update file is missing must roll back
+        Exception? ex = null;
+        try { SelfUpdate.Swap(e, u, o, TimeSpan.FromMilliseconds(200)); } catch (Exception x) { ex = x; }
+        Check(ex is not null && File.ReadAllText(e) == "v2" && !File.Exists(o), "failed swap rolled back: exe restored, no .old.exe left");
+
+        var acf = "\"AppState\"\n{\n\t\"appid\"\t\t\"553850\"\n\t\"StateFlags\"\t\t\"4\"\n\t\"buildid\"\t\t\"24826606\"\n\t\"TargetBuildID\"\t\t\"24826606\"\n}\n";
+        var info = SteamAcf.Parse(acf);
+        Check(info.BuildId == "24826606" && info.TargetBuildId == "24826606" && info.StateFlags == "4", "buildid / TargetBuildID / StateFlags parsed from tab-separated acf");
+        Check(!info.UpdatePending, "same target → no pending update");
+        Check(SteamAcf.Parse(acf.Replace("\"TargetBuildID\"\t\t\"24826606\"", "\"TargetBuildID\"\t\t\"24900000\"")).UpdatePending, "different target → pending");
+        Check(!SteamAcf.Parse(acf.Replace("\"TargetBuildID\"\t\t\"24826606\"", "\"TargetBuildID\"\t\t\"0\"")).UpdatePending, "target 0 → not pending");
+        Check(SteamAcf.Parse("nothing here").BuildId is null, "missing keys → null");
     }
 
     static void NormalizeTests(string root)

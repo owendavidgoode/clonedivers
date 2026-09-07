@@ -41,6 +41,30 @@ public static class ModFiles
 
     public static bool IsPatchFile(string path) => PatchName.IsMatch(Path.GetFileName(path));
 
+    // "<archive>.patch_<n>" + optional companion, split for renumbering and ordering.
+    static readonly Regex PatchParts = new(@"^(?<arch>.+?)\.patch_(?<idx>\d+)(?<comp>\.(?:gpu_resources|stream))?$",
+        RegexOptions.IgnoreCase | RegexOptions.CultureInvariant);
+
+    public static bool TryParsePatchName(string name, out string archive, out int index, out string companion)
+    {
+        var m = PatchParts.Match(Path.GetFileName(name));
+        archive = m.Success ? m.Groups["arch"].Value : ""; companion = m.Success ? m.Groups["comp"].Value : "";
+        index = m.Success && int.TryParse(m.Groups["idx"].Value, out var i) ? i : -1;
+        return m.Success && index >= 0;
+    }
+
+    /// <summary>A per-file update parks incoming files under this suffix until every one is in place. It never matches
+    /// the patch pattern, so the game sees a folder with fewer mods rather than a half-numbered set.</summary>
+    public const string StagedSuffix = ".clonedivers-staged";
+    public static bool IsStagedFile(string path) => Path.GetFileName(path).EndsWith(StagedSuffix, StringComparison.OrdinalIgnoreCase);
+    public static string[] ListStagedFiles(string gameDir)
+    {
+        var data = Path.Combine(gameDir, DataFolder);
+        return Directory.Exists(data) ? Directory.EnumerateFiles(data).Where(IsStagedFile).OrderBy(f => f, StringComparer.OrdinalIgnoreCase).ToArray() : Array.Empty<string>();
+    }
+    /// <summary>True while an interrupted update has staged files waiting: the app then offers "Finish update" and blocks other moves.</summary>
+    public static bool HasStagedFiles(string? gameDir) => GameLocator.IsGameDir(gameDir) && ListStagedFiles(gameDir!).Length > 0;
+
     public static string[] ListPatchFiles(string dir)
     {
         if (!Directory.Exists(dir)) return Array.Empty<string>();
@@ -196,10 +220,16 @@ public sealed class Settings
 {
     public string? GamePath { get; set; }
     public string? InstalledPackVersion { get; set; }
+    /// <summary>Hidden test hook: a URL (or file path) that replaces manifest.json. Shown in the footer when set.</summary>
+    public string? ManifestUrl { get; set; }
+    /// <summary>Optional pack groups the friend switched on or off (option id → enabled); anything absent uses the manifest default.</summary>
+    public Dictionary<string, bool> Options { get; set; } = new(StringComparer.OrdinalIgnoreCase);
 
     static readonly string Dir = Path.Combine(
         Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), "Clonedivers");
     public static readonly string FilePath = Path.Combine(Dir, "config.json");
+    public static readonly string HashCachePath = Path.Combine(Dir, "hashes.json");      // static init order: after Dir
+    public static readonly string PlanPath = Path.Combine(Dir, "apply-plan.json");
 
     public static Settings Load()
     {
@@ -226,7 +256,11 @@ public sealed class Settings
 /// <summary>The only two things we do with the game: notice it is running, and ask Steam to start it.</summary>
 public static class Game
 {
-    public static bool IsRunning()
+    /// <summary>Tests swap this out; the app never does.</summary>
+    public static Func<bool> IsRunningCheck = IsRunningNow;
+    public static bool IsRunning() => IsRunningCheck();
+
+    static bool IsRunningNow()
     {
         Process[] procs;
         try { procs = Process.GetProcessesByName("helldivers2"); }
@@ -241,38 +275,213 @@ public static class Game
         Process.Start(new ProcessStartInfo("steam://rungameid/" + GameLocator.SteamAppId) { UseShellExecute = true });
 }
 
-/// <summary>One downloadable piece of the pack. Size and SHA-256 come from tools\build-pack.ps1.</summary>
+/// <summary>One file of the pack. Format 2 (manifest.json) lists every *.patch_* file by its final name;
+/// format 1 (the frozen pack.json for 1.2.0) lists zip parts without names.</summary>
 public sealed class PackFile
 {
-    public string Url { get; set; } = "";
+    public string Name { get; set; } = "";       // final name in data\ (format 2); "" for a format-1 zip part
+    public string Url { get; set; } = "";        // "" for a zero-byte file: nothing to download, the app creates it
     public long Size { get; set; }
-    public string Sha256 { get; set; } = "";
+    public string Sha256 { get; set; } = "";     // lower-case hex
+    public string? Option { get; set; }          // optional-group id (PackOption.Id); null = always installed
+
+    /// <summary>SHA-256 of an empty file. 182 of the 604 r3 files are empty companions, so it is special-cased everywhere.</summary>
+    public const string EmptySha = "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855";
+
+    public PackFile Clone() => new() { Name = Name, Url = Url, Size = Size, Sha256 = Sha256, Option = Option };
 }
 
-/// <summary>pack.json in the repo: where the current pack lives and how to verify it.</summary>
+/// <summary>A group of pack files friends can switch on or off (the Republic Commando squad, say). Files carry the option id;
+/// the app renumbers whatever is enabled so switching a group off never leaves a gap in the patch numbers.</summary>
+public sealed class PackOption
+{
+    public string Id { get; set; } = "";
+    public string Name { get; set; } = "";
+    public string Description { get; set; } = "";
+    public bool Default { get; set; } = true;
+}
+
+/// <summary>The pack block of manifest.json (or the whole of a format-1 pack.json).</summary>
 public sealed class PackManifest
 {
     public string Version { get; set; } = "";
     public string Name { get; set; } = "Clonedivers pack";
     public string Notes { get; set; } = "";
+    public string? GameBuild { get; set; }              // Steam buildid the pack was built and tested on
+    public List<string> GameDepots { get; set; } = new();
+    public string Status { get; set; } = "ok";          // "ok" | "broken" — flipped from the GitHub web editor when a game patch breaks things
+    public string StatusNotes { get; set; } = "";
+    public List<PackOption> Options { get; set; } = new();
     public List<PackFile> Files { get; set; } = new();
 
     public long TotalSize => Files.Sum(f => f.Size);
-    public bool IsPublished => Files.Count > 0 && Files.All(f => !string.IsNullOrWhiteSpace(f.Url));
+    public bool IsBroken => string.Equals(Status, "broken", StringComparison.OrdinalIgnoreCase);
+    /// <summary>Every file that has bytes has somewhere to get them from. Zero-byte entries need no URL.</summary>
+    public bool IsPublished => Files.Count > 0 && Files.All(f => f.Size == 0 || !string.IsNullOrWhiteSpace(f.Url));
+    /// <summary>Format 2: files are listed one by one with their final names.</summary>
+    public bool IsPerFile => Files.Count > 0 && Files.All(f => f.Name.Length > 0);
 }
 
-/// <summary>Pack install: download zips (resumable, hash-checked) and extract their *.patch_* files flat into data\.
-/// Still just files — a zip reader and a downloader, nothing that knows the game exists.</summary>
+/// <summary>The newest Clonedivers exe, so the app can update itself.</summary>
+public sealed class AppRelease
+{
+    public string Version { get; set; } = "";
+    public string Url { get; set; } = "";
+    public long Size { get; set; }
+    public string Sha256 { get; set; } = "";
+
+    /// <summary>The only URL the self-updater accepts: this repo's own release asset for exactly this version.</summary>
+    public string PinnedUrl => $"https://github.com/owendavidgoode/clonedivers/releases/download/v{Version}/Clonedivers.exe";
+    public bool IsPinned => string.Equals(Url, PinnedUrl, StringComparison.OrdinalIgnoreCase);
+    public bool IsNewerThan(string current) =>
+        System.Version.TryParse(Version, out var v) && System.Version.TryParse(current, out var c)
+        && new System.Version(v.Major, v.Minor, Math.Max(v.Build, 0)) > new System.Version(c.Major, c.Minor, Math.Max(c.Build, 0));
+}
+
+/// <summary>manifest.json in the repo: the newest app and the current pack. Format 1 (pack.json) still parses so the
+/// zip-based tests and hand-out packs keep working.</summary>
+public sealed class Manifest
+{
+    public int Format { get; set; } = 2;
+    public AppRelease? App { get; set; }
+    public PackManifest? Pack { get; set; }
+
+    static readonly JsonSerializerOptions JsonOpts = new() { PropertyNameCaseInsensitive = true };
+
+    public static Manifest Parse(string json)
+    {
+        Manifest m;
+        using (var doc = JsonDocument.Parse(json))
+        {
+            var root = doc.RootElement;
+            if (root.ValueKind != JsonValueKind.Object) throw new InvalidDataException("manifest is not a JSON object");
+            var legacy = root.TryGetProperty("files", out _) && !root.TryGetProperty("pack", out _);
+            m = legacy
+                ? new Manifest { Format = 1, Pack = JsonSerializer.Deserialize<PackManifest>(json, JsonOpts) }
+                : JsonSerializer.Deserialize<Manifest>(json, JsonOpts) ?? new Manifest();
+        }
+        if (m.Pack is { } p)
+        {
+            var seen = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+            var optionIds = new HashSet<string>(p.Options.Select(o => o.Id ?? ""), StringComparer.OrdinalIgnoreCase);
+            foreach (var f in p.Files)
+            {
+                f.Sha256 = (f.Sha256 ?? "").Trim().ToLowerInvariant();
+                f.Url = (f.Url ?? "").Trim();
+                f.Name = (f.Name ?? "").Trim();
+                if (f.Size == 0) f.Sha256 = PackFile.EmptySha;
+                if (f.Name.Length == 0) continue;   // format-1 zip part
+                if (!ModFiles.IsPatchFile(f.Name) || f.Name.IndexOfAny(new[] { '\\', '/', ':' }) >= 0 || !seen.Add(f.Name))
+                    throw new InvalidDataException($"manifest.json lists an invalid or duplicate file name: {f.Name}");
+                if (f.Size > 0 && f.Sha256.Length != 64) throw new InvalidDataException($"manifest.json has no SHA-256 for {f.Name}");
+                if (f.Option is not null && !optionIds.Contains(f.Option)) throw new InvalidDataException($"manifest.json: {f.Name} refers to an unknown option '{f.Option}'");
+            }
+        }
+        return m;
+    }
+}
+
+/// <summary>Where a local mod file was found. Order matters: the planner prefers data\ over mods_off\ over mods_old\ over staged.</summary>
+public enum LocalWhere { Data, Off, Old, Staged }
+
+/// <summary>One file found on disk. Sha is null when it was not worth hashing (its size matches nothing in the manifest).</summary>
+public sealed record LocalFile(string Path, string Name, long Size, string? Sha, LocalWhere Where);
+
+/// <summary>%APPDATA%\Clonedivers\hashes.json: name|size|mtime → sha256, so the second inventory costs nothing.
+/// Keyed by file name, not path: an ON/OFF toggle moves every file and would otherwise throw the whole cache away.</summary>
+public sealed class HashCache
+{
+    public int Format { get; set; } = 1;
+    public Dictionary<string, string> Entries { get; set; } = new(StringComparer.OrdinalIgnoreCase);
+
+    public static string Key(string name, long size, DateTime lastWriteUtc) => $"{name.ToLowerInvariant()}|{size}|{lastWriteUtc.Ticks}";
+
+    public static HashCache Load(string path)
+    {
+        try
+        {
+            if (File.Exists(path))
+            {
+                var c = JsonSerializer.Deserialize<HashCache>(File.ReadAllText(path));
+                if (c is not null) { c.Entries = new Dictionary<string, string>(c.Entries, StringComparer.OrdinalIgnoreCase); return c; }
+            }
+        }
+        catch { /* corrupt cache: rebuild */ }
+        return new HashCache();
+    }
+
+    public void Save(string path)
+    {
+        try
+        {
+            Directory.CreateDirectory(Path.GetDirectoryName(path)!);
+            var tmp = path + ".tmp";
+            File.WriteAllText(tmp, JsonSerializer.Serialize(this));
+            File.Move(tmp, path, overwrite: true);
+        }
+        catch { /* the cache is a convenience; losing it costs one re-hash */ }
+    }
+}
+
+public enum PlanOp { Park, Stage, Copy, Create, Finalize }
+
+/// <summary>One file operation. Park: → mods_old\ (a free ".N" name is picked when the target exists).
+/// Stage: rename/move into data\&lt;name&gt;.clonedivers-staged. Copy: duplicate a local file into a staged name.
+/// Create: zero-byte file at a staged name. Finalize: staged → final name (never overwrites).</summary>
+public sealed record PlanAction(PlanOp Op, string From, string To, string Sha, long Size);
+
+/// <summary>Everything an update will do, computed before anything moves. Downloads are one per unique sha.</summary>
+public sealed class UpdatePlan
+{
+    public List<PlanAction> Actions { get; } = new();
+    public List<PackFile> Downloads { get; } = new();
+    public long BytesToDownload { get; set; }
+    public long BytesToCopy { get; set; }
+    public int RenameCount { get; set; }
+    public int ParkCount { get; set; }
+    public int CopyCount { get; set; }
+    public int CreateCount { get; set; }
+    public int InPlaceCount { get; set; }
+    public bool IsNoOp => Actions.Count == 0 && Downloads.Count == 0;
+}
+
+/// <summary>What Apply / Replay did. Interrupted = something could not be moved; the plan file stays and Finish update retries.</summary>
+public sealed class ApplyResult
+{
+    public int Renamed, Parked, Copied, Created;
+    public List<string> Failed { get; } = new();
+    public string? Reason;
+    public bool Interrupted => Failed.Count > 0 || Reason is not null;
+}
+
+sealed class PlanFile
+{
+    public int Format { get; set; } = 1;
+    public string PackVersion { get; set; } = "";
+    public string GameDir { get; set; } = "";
+    public List<PlanFileAction> Actions { get; set; } = new();
+}
+sealed class PlanFileAction
+{
+    public string Op { get; set; } = "";
+    public string From { get; set; } = "";
+    public string To { get; set; } = "";
+    public string Sha { get; set; } = "";
+    public long Size { get; set; }
+}
+
+/// <summary>Pack install. Two paths: the legacy zip path (Install pack from file…) and the per-file path (manifest.json):
+/// inventory what is on disk by hash, plan renames/copies/downloads, download only what is missing, then apply.
+/// Still just files — a zip reader, a hasher and a downloader, nothing that knows the game exists.</summary>
 public static class Pack
 {
     // The API view is fresh the moment a push lands; the raw CDN can lag up to five minutes, so it is the fallback.
-    public const string ManifestApiUrl = "https://api.github.com/repos/owendavidgoode/clonedivers/contents/pack.json?ref=main";
-    public const string ManifestUrl = "https://raw.githubusercontent.com/owendavidgoode/clonedivers/main/pack.json";
-    public const string OldFolder = "mods_old";            // stale mods parked here on install; safe to delete
-    public const string DownloadFolder = "mods_download";  // zips live here until extracted, then it is removed
-    const string PartialSuffix = ".clonedivers-partial";   // never matches the patch-file pattern
+    public const string ManifestApiUrl = "https://api.github.com/repos/owendavidgoode/clonedivers/contents/manifest.json?ref=main";
+    public const string ManifestUrl = "https://raw.githubusercontent.com/owendavidgoode/clonedivers/main/manifest.json";
+    public const string OldFolder = "mods_old";            // stale mods parked here; safe to delete
+    public const string DownloadFolder = "mods_download";  // <sha> (complete) and <sha>.clonedivers-partial live here until applied
+    public const string PartialSuffix = ".clonedivers-partial";   // never matches the patch-file pattern
 
-    static readonly JsonSerializerOptions JsonOpts = new() { PropertyNameCaseInsensitive = true };
     static readonly HttpClient Http = CreateHttp();
 
     static HttpClient CreateHttp()
@@ -282,11 +491,14 @@ public static class Pack
         return c;
     }
 
-    public static PackManifest? ParseManifest(string json) => JsonSerializer.Deserialize<PackManifest>(json, JsonOpts);
+    /// <summary>Legacy entry point kept for the zip path and its tests: the pack block of any manifest shape.</summary>
+    public static PackManifest? ParseManifest(string json) => Manifest.Parse(json).Pack;
 
-    /// <summary>Fetches pack.json: GitHub API first (fresh, but rate-limited to 60/hour per IP), raw CDN as fallback.</summary>
-    public static async Task<PackManifest?> FetchManifestAsync(CancellationToken ct)
+    /// <summary>Fetches manifest.json: GitHub API first (fresh, but rate-limited to 60/hour per IP), raw CDN as fallback.
+    /// <paramref name="overrideUrl"/> (Settings.ManifestUrl) replaces both — a hidden hook for testing against a local server.</summary>
+    public static async Task<Manifest> FetchManifestAsync(string? overrideUrl, CancellationToken ct)
     {
+        if (!string.IsNullOrWhiteSpace(overrideUrl)) return Manifest.Parse(await GetTextAsync(overrideUrl, ct));
         try
         {
             using var cts = CancellationTokenSource.CreateLinkedTokenSource(ct);
@@ -295,19 +507,21 @@ public static class Pack
             req.Headers.Accept.ParseAdd("application/vnd.github.raw+json");
             using var resp = await Http.SendAsync(req, cts.Token);
             if (resp.IsSuccessStatusCode)
-                return ParseManifest(await resp.Content.ReadAsStringAsync(cts.Token));
+                return Manifest.Parse(await resp.Content.ReadAsStringAsync(cts.Token));
         }
         catch (Exception) when (!ct.IsCancellationRequested) { /* rate-limited or blocked: use the CDN copy */ }
-        return await FetchManifestAsync(ManifestUrl, ct);
+        return Manifest.Parse(await GetTextAsync(ManifestUrl, ct));
     }
 
-    public static async Task<PackManifest?> FetchManifestAsync(string url, CancellationToken ct)
+    static async Task<string> GetTextAsync(string url, CancellationToken ct)
     {
         using var cts = CancellationTokenSource.CreateLinkedTokenSource(ct);
         cts.CancelAfter(TimeSpan.FromSeconds(12));
         var bust = url + (url.Contains('?') ? "&" : "?") + "t=" + DateTimeOffset.UtcNow.ToUnixTimeSeconds();
-        return ParseManifest(await Http.GetStringAsync(bust, cts.Token));
+        return await Http.GetStringAsync(bust, cts.Token);
     }
+
+    // ---------------------------------------------------------------- legacy zip path (Install pack from file…)
 
     /// <summary>Flattened names of the patch files inside a zip. Throws if the zip is an options package
     /// (same file name under several folders) rather than a deployed pack.</summary>
@@ -323,14 +537,13 @@ public static class Pack
         return names;
     }
 
-
-    /// <summary>Extracted size of the patch files inside a zip, read from the zip directory alone (no decompression).
-    /// Lets the install bar span every part instead of restarting per zip.</summary>
+    /// <summary>Extracted size of the patch files inside a zip, read from the zip directory alone (no decompression).</summary>
     public static long PatchBytes(string zipPath)
     {
         using var zip = ZipFile.OpenRead(zipPath);
         return zip.Entries.Where(e => e.Name.Length > 0 && ModFiles.IsPatchFile(e.Name)).Sum(e => e.Length);
     }
+
     /// <summary>Extracts every *.patch_* entry to <paramref name="dataDir"/> (flat, folders ignored), overwriting.
     /// Writes to a temp name first so a crash never leaves a half-written file that looks like a mod.</summary>
     public static int ExtractPatchFiles(string zipPath, string dataDir, IProgress<(long done, long total)>? progress, CancellationToken ct)
@@ -362,14 +575,51 @@ public static class Pack
                     progress?.Report((done, total));
                 }
             }
-            if (File.Exists(dest) && (File.GetAttributes(dest) & FileAttributes.ReadOnly) != 0)
-                File.SetAttributes(dest, FileAttributes.Normal);
+            ClearReadOnly(dest);
             File.Move(tmp, dest, overwrite: true);
         }
         return entries.Count;
     }
 
-    /// <summary>Downloads one pack file with HTTP Range resume, then checks size and SHA-256. A failed check deletes the file.</summary>
+    /// <summary>The zip install, file-side: bring parked files back, park anything the pack does not contain
+    /// in mods_old\, extract every zip into data\. Ends with the game in the ON state. Returns (installed, parked).
+    /// Refused while an interrupted per-file update has staged files in data\ (Finish update first).</summary>
+    public static (int installed, int parked) Install(string gameDir, IReadOnlyList<string> zips,
+        Func<int, IProgress<(long done, long total)>?>? progressForZip, CancellationToken ct)
+    {
+        var data = Path.Combine(gameDir, ModFiles.DataFolder);
+        var off = Path.Combine(gameDir, ModFiles.OffFolder);
+        var old = Path.Combine(gameDir, OldFolder);
+        if (ModFiles.HasStagedFiles(gameDir))
+            throw new InvalidOperationException("A pack update was interrupted. Click Finish update first, then install from file.");
+
+        var incoming = new HashSet<string>(zips.SelectMany(ListPatchEntries), StringComparer.OrdinalIgnoreCase);
+        var dupAcross = zips.SelectMany(ListPatchEntries).GroupBy(n => n, StringComparer.OrdinalIgnoreCase).FirstOrDefault(g => g.Count() > 1);
+        if (dupAcross is not null)
+            throw new InvalidDataException($"'{dupAcross.Key}' is in more than one of the selected zips. Pick the parts of one pack only.");
+
+        ModFiles.MoveAllPatchFiles(off, data);
+        int parked = 0;
+        foreach (var f in ModFiles.ListPatchFiles(data))
+        {
+            ct.ThrowIfCancellationRequested();
+            if (incoming.Contains(Path.GetFileName(f))) continue;
+            Directory.CreateDirectory(old);
+            var dest = Path.Combine(old, Path.GetFileName(f));
+            ClearReadOnly(dest);
+            File.Move(f, dest, overwrite: true);
+            parked++;
+        }
+
+        int installed = 0;
+        for (int i = 0; i < zips.Count; i++)
+            installed += ExtractPatchFiles(zips[i], data, progressForZip?.Invoke(i), ct);
+        return (installed, parked);
+    }
+
+    // ---------------------------------------------------------------- downloads
+
+    /// <summary>Downloads one file with HTTP Range resume, then checks size and SHA-256. A failed check deletes the file.</summary>
     public static async Task DownloadAsync(PackFile file, string destPath, IProgress<(long done, long total)>? progress, CancellationToken ct)
     {
         Directory.CreateDirectory(Path.GetDirectoryName(destPath)!);
@@ -428,50 +678,473 @@ public static class Pack
         }
     }
 
-    /// <summary>The whole install, file-side: bring parked files back, park anything the pack does not contain
-    /// in mods_old\, extract every zip into data\. Ends with the game in the ON state. Returns (installed, parked).</summary>
-    public static (int installed, int parked) Install(string gameDir, IReadOnlyList<string> zips,
-        Func<int, IProgress<(long done, long total)>?>? progressForZip, CancellationToken ct)
+    /// <summary>Downloads every missing sha in the plan into mods_download\ (largest first), one bar across all of them.
+    /// Progress reports (bytesDone, bytesTotal, fileIndex, fileCount). Cancel keeps partials; a complete file is never re-fetched.</summary>
+    public static async Task DownloadPlanAsync(UpdatePlan plan, string dlDir, IProgress<(long done, long total, int file, int files)>? progress, CancellationToken ct)
+    {
+        var files = plan.Downloads.OrderByDescending(f => f.Size).ToList();
+        long total = files.Sum(f => f.Size), before = 0;
+        for (int i = 0; i < files.Count; i++)
+        {
+            ct.ThrowIfCancellationRequested();
+            var f = files[i];
+            var complete = Path.Combine(dlDir, f.Sha256);
+            if (!(File.Exists(complete) && new FileInfo(complete).Length == f.Size))
+            {
+                var partial = complete + PartialSuffix;
+                long offset = before; int idx = i + 1;
+                var reporter = new SyncProgress<(long done, long total)>(p => progress?.Report((offset + p.done, total, idx, files.Count)));
+                await DownloadAsync(f, partial, reporter, ct);
+                File.Move(partial, complete, overwrite: true);
+            }
+            before += f.Size;
+            progress?.Report((before, total, i + 1, files.Count));
+        }
+    }
+
+    /// <summary>Deletes everything in mods_download\ that is not a complete or partial download of a sha the manifest still wants
+    /// (this is also how 1.2.0's leftover zip partials go away).</summary>
+    public static int CleanDownloadFolder(string dlDir, IEnumerable<string> wantedShas)
+    {
+        if (!Directory.Exists(dlDir)) return 0;
+        var keep = new HashSet<string>(wantedShas, StringComparer.OrdinalIgnoreCase);
+        int removed = 0;
+        foreach (var path in Directory.EnumerateFiles(dlDir))
+        {
+            var name = Path.GetFileName(path);
+            var sha = name.EndsWith(PartialSuffix, StringComparison.OrdinalIgnoreCase) ? name[..^PartialSuffix.Length] : name;
+            if (keep.Contains(sha)) continue;
+            try { File.Delete(path); removed++; } catch { /* locked: leave it */ }
+        }
+        return removed;
+    }
+
+    // ---------------------------------------------------------------- inventory
+
+    /// <summary>The manifest's files after the friend's option choices, renumbered so the enabled set is gap-free.
+    /// With every option on, names are exactly the manifest's.</summary>
+    public static List<PackFile> EffectiveFiles(PackManifest pack, Func<string, bool> optionEnabled)
+    {
+        var kept = pack.Files.Where(f => f.Option is null || optionEnabled(f.Option)).Select(f => f.Clone()).ToList();
+        if (kept.Count == pack.Files.Count || !pack.IsPerFile) return kept;
+
+        var parsed = kept.Select(f => (f, ok: ModFiles.TryParsePatchName(f.Name, out var arch, out var idx, out var comp), arch, idx, comp)).ToList();
+        var ranks = parsed.Where(x => x.ok)
+            .GroupBy(x => x.arch, StringComparer.OrdinalIgnoreCase)
+            .ToDictionary(g => g.Key,
+                          g => g.Select(x => x.idx).Distinct().OrderBy(i => i).Select((orig, rank) => (orig, rank)).ToDictionary(t => t.orig, t => t.rank),
+                          StringComparer.OrdinalIgnoreCase);
+        foreach (var x in parsed)
+            if (x.ok) x.f.Name = $"{x.arch}.patch_{ranks[x.arch][x.idx]}{x.comp}";
+        return kept;
+    }
+
+    /// <summary>Every mod file in data\, mods_off\ (and staged leftovers), hashed where it could possibly match a manifest entry.
+    /// mods_old\ is hashed lazily, only for sizes the first two folders could not cover. Progress is in bytes hashed.</summary>
+    public static async Task<List<LocalFile>> InventoryAsync(string gameDir, IReadOnlyList<PackFile> wanted, HashCache cache, bool forceRehash,
+        IProgress<(long done, long total)>? progress, CancellationToken ct)
     {
         var data = Path.Combine(gameDir, ModFiles.DataFolder);
         var off = Path.Combine(gameDir, ModFiles.OffFolder);
         var old = Path.Combine(gameDir, OldFolder);
+        var wantedSizes = wanted.Where(f => f.Size > 0).Select(f => f.Size).ToHashSet();
+        var need = wanted.GroupBy(f => f.Sha256).ToDictionary(g => g.Key, g => g.Count(), StringComparer.OrdinalIgnoreCase);
 
-        var incoming = new HashSet<string>(zips.SelectMany(ListPatchEntries), StringComparer.OrdinalIgnoreCase);
-        var dupAcross = zips.SelectMany(ListPatchEntries).GroupBy(n => n, StringComparer.OrdinalIgnoreCase).FirstOrDefault(g => g.Count() > 1);
-        if (dupAcross is not null)
-            throw new InvalidDataException($"'{dupAcross.Key}' is in more than one of the selected zips. Pick the parts of one pack only.");
+        var found = new List<LocalFile>();
+        var seenKeys = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
 
-        ModFiles.MoveAllPatchFiles(off, data);
-        int parked = 0;
-        foreach (var f in ModFiles.ListPatchFiles(data))
+        List<(string path, string name, FileInfo fi, LocalWhere where)> Scan(string dir, LocalWhere where)
         {
-            ct.ThrowIfCancellationRequested();
-            if (incoming.Contains(Path.GetFileName(f))) continue;
-            Directory.CreateDirectory(old);
-            var dest = Path.Combine(old, Path.GetFileName(f));
-            if (File.Exists(dest) && (File.GetAttributes(dest) & FileAttributes.ReadOnly) != 0) File.SetAttributes(dest, FileAttributes.Normal);
-            File.Move(f, dest, overwrite: true);
-            parked++;
+            var list = new List<(string, string, FileInfo, LocalWhere)>();
+            if (!Directory.Exists(dir)) return list;
+            foreach (var path in Directory.EnumerateFiles(dir))
+            {
+                var fn = Path.GetFileName(path);
+                if (where == LocalWhere.Staged)
+                {
+                    if (!fn.EndsWith(ModFiles.StagedSuffix, StringComparison.OrdinalIgnoreCase)) continue;
+                    list.Add((path, fn[..^ModFiles.StagedSuffix.Length], new FileInfo(path), where));
+                }
+                else if (ModFiles.IsPatchFile(fn)) list.Add((path, fn, new FileInfo(path), where));
+            }
+            return list;
         }
 
-        int installed = 0;
-        for (int i = 0; i < zips.Count; i++)
-            installed += ExtractPatchFiles(zips[i], data, progressForZip?.Invoke(i), ct);
-        return (installed, parked);
+        async Task HashBatch(List<(string path, string name, FileInfo fi, LocalWhere where)> batch, Func<long, bool> sizeWanted)
+        {
+            // Decide what needs hashing: size must be wanted; cache hit avoids the read; duplicate cache keys are hashed fresh and never cached.
+            var jobs = new List<(string path, string name, FileInfo fi, LocalWhere where, string key, string? sha)>();
+            var keyCount = new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase);
+            foreach (var b in batch)
+            {
+                var key = HashCache.Key(b.name, b.fi.Length, b.fi.LastWriteTimeUtc);
+                keyCount[key] = keyCount.TryGetValue(key, out var n) ? n + 1 : 1;
+                jobs.Add((b.path, b.name, b.fi, b.where, key, null));
+            }
+            long total = 0;
+            for (int i = 0; i < jobs.Count; i++)
+            {
+                var j = jobs[i];
+                if (j.fi.Length == 0) { jobs[i] = j with { sha = PackFile.EmptySha }; continue; }
+                if (!sizeWanted(j.fi.Length)) continue;                                   // cannot match anything: not worth reading
+                if (!forceRehash && keyCount[j.key] == 1 && cache.Entries.TryGetValue(j.key, out var cached)) { jobs[i] = j with { sha = cached }; seenKeys.Add(j.key); continue; }
+                total += j.fi.Length;
+            }
+            long done = 0;
+            progress?.Report((done, total));
+            for (int i = 0; i < jobs.Count; i++)
+            {
+                var j = jobs[i];
+                if (j.sha is not null || j.fi.Length == 0 || !sizeWanted(j.fi.Length)) { found.Add(new LocalFile(j.path, j.name, j.fi.Length, j.sha, j.where)); continue; }
+                ct.ThrowIfCancellationRequested();
+                long before = done;
+                var sha = await Sha256Async(j.path, new SyncProgress<long>(b => progress?.Report((before + b, total))), ct);
+                done += j.fi.Length;
+                progress?.Report((done, total));
+                if (keyCount[j.key] == 1) { cache.Entries[j.key] = sha; seenKeys.Add(j.key); }
+                found.Add(new LocalFile(j.path, j.name, j.fi.Length, sha, j.where));
+            }
+        }
+
+        var first = Scan(data, LocalWhere.Data).Concat(Scan(off, LocalWhere.Off)).Concat(Scan(data, LocalWhere.Staged)).ToList();
+        await HashBatch(first, wantedSizes.Contains);
+
+        // Lazy mods_old: only sizes of shas that data\ / mods_off\ could not fully cover.
+        var have = found.Where(f => f.Sha is not null).GroupBy(f => f.Sha!).ToDictionary(g => g.Key, g => g.Count(), StringComparer.OrdinalIgnoreCase);
+        var shortSizes = wanted.Where(f => f.Size > 0 && need[f.Sha256] > (have.TryGetValue(f.Sha256, out var h) ? h : 0)).Select(f => f.Size).ToHashSet();
+        if (shortSizes.Count > 0)
+        {
+            var oldFiles = Scan(old, LocalWhere.Old).Where(x => shortSizes.Contains(x.fi.Length)).ToList();
+            if (oldFiles.Count > 0) await HashBatch(oldFiles, shortSizes.Contains);
+        }
+
+        // Prune cache entries for files that no longer exist under any name we saw.
+        foreach (var k in cache.Entries.Keys.Where(k => !seenKeys.Contains(k)).ToList()) cache.Entries.Remove(k);
+        return found;
     }
 
-    public static async Task<string> Sha256Async(string path, CancellationToken ct)
+    // ---------------------------------------------------------------- plan
+
+    /// <summary>Decides every move without touching disk. Matching is by sha as a multiset: K manifest entries sharing one sha
+    /// need K local copies; the shortfall is copied from a local twin when one exists, downloaded once otherwise.
+    /// Local files that match nothing are parked. Zero-byte entries are created, never downloaded.</summary>
+    public static UpdatePlan Plan(string gameDir, IReadOnlyList<PackFile> wanted, IReadOnlyList<LocalFile> local, IReadOnlySet<string> completeDownloads)
     {
-        using var fs = new FileStream(path, FileMode.Open, FileAccess.Read, FileShare.Read, 1 << 20, useAsync: true);
-        var hash = await SHA256.HashDataAsync(fs, ct);
-        return Convert.ToHexString(hash);
+        var data = Path.Combine(gameDir, ModFiles.DataFolder);
+        var old = Path.Combine(gameDir, OldFolder);
+        var dl = Path.Combine(gameDir, DownloadFolder);
+        var plan = new UpdatePlan();
+        string Staged(string name) => Path.Combine(data, name + ModFiles.StagedSuffix);
+
+        var used = new HashSet<LocalFile>();
+        var source = new Dictionary<PackFile, string>();          // entry → path it will be finalized from (in-place path or staged path)
+        var inPlace = new HashSet<PackFile>();
+        var stages = new List<PlanAction>();
+        var copies = new List<PlanAction>();
+        var creates = new List<PlanAction>();
+
+        // 1. In place: right name, right bytes, already in data\.
+        var byName = local.Where(l => l.Where == LocalWhere.Data).GroupBy(l => l.Name, StringComparer.OrdinalIgnoreCase).ToDictionary(g => g.Key, g => g.First(), StringComparer.OrdinalIgnoreCase);
+        foreach (var e in wanted)
+            if (byName.TryGetValue(e.Name, out var l) && string.Equals(l.Sha, e.Sha256, StringComparison.OrdinalIgnoreCase) && !used.Contains(l))
+            { used.Add(l); source[e] = l.Path; inPlace.Add(e); plan.InPlaceCount++; }
+
+        // 2. Keep by rename: any other local copy of the same bytes, preferring data\, then mods_off\, mods_old\, staged.
+        var candidates = local.Where(l => l.Sha is not null).OrderBy(l => (int)l.Where)
+            .GroupBy(l => l.Sha!, StringComparer.OrdinalIgnoreCase).ToDictionary(g => g.Key, g => new Queue<LocalFile>(g), StringComparer.OrdinalIgnoreCase);
+        foreach (var e in wanted.Where(e => !inPlace.Contains(e)))
+        {
+            if (!candidates.TryGetValue(e.Sha256, out var q)) continue;
+            LocalFile? pick = null;
+            while (q.Count > 0) { var c = q.Dequeue(); if (!used.Contains(c)) { pick = c; break; } }
+            if (pick is null) continue;
+            used.Add(pick);
+            var to = Staged(e.Name);
+            if (!string.Equals(pick.Path, to, StringComparison.OrdinalIgnoreCase)) stages.Add(new PlanAction(PlanOp.Stage, pick.Path, to, e.Sha256, e.Size));
+            source[e] = to;
+            plan.RenameCount++;
+        }
+
+        // 3. Everything still without bytes: create (empty), copy from a twin, or download once per sha then copy.
+        foreach (var group in wanted.Where(e => !source.ContainsKey(e)).GroupBy(e => e.Sha256, StringComparer.OrdinalIgnoreCase))
+        {
+            var entries = group.ToList();
+            var donor = wanted.FirstOrDefault(e => string.Equals(e.Sha256, group.Key, StringComparison.OrdinalIgnoreCase) && source.ContainsKey(e));
+            string? donorPath = donor is null ? null : source[donor];
+            int start = 0;
+            if (entries[0].Size == 0)
+            {
+                foreach (var e in entries) { var to = Staged(e.Name); creates.Add(new PlanAction(PlanOp.Create, "", to, e.Sha256, 0)); source[e] = to; plan.CreateCount++; }
+                continue;
+            }
+            if (donorPath is null)
+            {
+                var first = entries[0];
+                var from = Path.Combine(dl, first.Sha256);
+                if (!completeDownloads.Contains(first.Sha256)) { plan.Downloads.Add(first.Clone()); plan.BytesToDownload += first.Size; }
+                var to = Staged(first.Name);
+                stages.Add(new PlanAction(PlanOp.Stage, from, to, first.Sha256, first.Size));
+                source[first] = to; donorPath = to; start = 1;
+            }
+            for (int i = start; i < entries.Count; i++)
+            {
+                var e = entries[i]; var to = Staged(e.Name);
+                copies.Add(new PlanAction(PlanOp.Copy, donorPath, to, e.Sha256, e.Size));
+                source[e] = to; plan.CopyCount++; plan.BytesToCopy += e.Size;
+            }
+        }
+
+        // 4. Park what is left in data\ / mods_off\ (and unmatched staged leftovers). mods_old\ files stay where they are.
+        var parks = new List<PlanAction>();
+        foreach (var l in local.Where(l => !used.Contains(l) && l.Where != LocalWhere.Old))
+        {
+            parks.Add(new PlanAction(PlanOp.Park, l.Path, Path.Combine(old, l.Name), l.Sha ?? "", l.Size));
+            plan.ParkCount++;
+        }
+
+        // 5. Order: parks; stages by descending source patch index (companions with their base); copies/creates; finalizes ascending.
+        static int IndexOf(string path) => ModFiles.TryParsePatchName(Path.GetFileName(path).Replace(ModFiles.StagedSuffix, ""), out _, out var i, out _) ? i : -1;
+        plan.Actions.AddRange(parks);
+        plan.Actions.AddRange(stages.OrderByDescending(s => IndexOf(s.From)).ThenBy(s => s.From, StringComparer.OrdinalIgnoreCase));
+        plan.Actions.AddRange(copies);
+        plan.Actions.AddRange(creates);
+        plan.Actions.AddRange(wanted.Where(e => !inPlace.Contains(e))
+            .OrderBy(e => ModFiles.TryParsePatchName(e.Name, out _, out var i, out _) ? i : int.MaxValue).ThenBy(e => e.Name, StringComparer.OrdinalIgnoreCase)
+            .Select(e => new PlanAction(PlanOp.Finalize, source[e], Path.Combine(data, e.Name), e.Sha256, e.Size)));
+        return plan;
+    }
+
+    // ---------------------------------------------------------------- apply
+
+    static readonly JsonSerializerOptions PlanJson = new() { WriteIndented = true };
+
+    /// <summary>Runs the plan. The plan is written to <paramref name="planPath"/> before anything moves, so an interrupted run can be
+    /// finished later without network or re-hashing. Never cancellable once started: every step is a same-volume rename or a small copy.</summary>
+    public static ApplyResult Apply(string gameDir, UpdatePlan plan, string planPath, string packVersion, HashCache? cache, string? cachePath)
+    {
+        var pf = new PlanFile { PackVersion = packVersion, GameDir = gameDir, Actions = plan.Actions.Select(a => new PlanFileAction { Op = a.Op.ToString(), From = a.From, To = a.To, Sha = a.Sha, Size = a.Size }).ToList() };
+        Directory.CreateDirectory(Path.GetDirectoryName(planPath)!);
+        File.WriteAllText(planPath, JsonSerializer.Serialize(pf, PlanJson));
+        if (Game.IsRunning()) throw new InvalidOperationException("Helldivers 2 started while installing. Close it and try again.");
+        return Execute(gameDir, pf.Actions, planPath, cache, cachePath, replay: false);
+    }
+
+    /// <summary>Finishes an interrupted update from its plan file: every action is idempotent (done already → skip).
+    /// Returns null when the plan cannot be trusted (file missing, wrong folder, or a stage/finalize whose source and target both exist),
+    /// in which case the caller falls back to a fresh plan.</summary>
+    public static ApplyResult? Replay(string gameDir, string planPath, HashCache? cache, string? cachePath)
+    {
+        PlanFile? pf;
+        try { pf = File.Exists(planPath) ? JsonSerializer.Deserialize<PlanFile>(File.ReadAllText(planPath)) : null; }
+        catch { pf = null; }
+        if (pf is null || !string.Equals(Path.GetFullPath(pf.GameDir).TrimEnd('\\'), Path.GetFullPath(gameDir).TrimEnd('\\'), StringComparison.OrdinalIgnoreCase)) return null;
+        if (Game.IsRunning()) throw new InvalidOperationException("Helldivers 2 is running. Close it, then click Finish update.");
+        return Execute(gameDir, pf.Actions, planPath, cache, cachePath, replay: true);
+    }
+
+    static ApplyResult Execute(string gameDir, List<PlanFileAction> actions, string planPath, HashCache? cache, string? cachePath, bool replay)
+    {
+        var r = new ApplyResult();
+        var data = Path.Combine(gameDir, ModFiles.DataFolder);
+        bool abort = false;
+
+        void Try(PlanFileAction a, Action work)
+        {
+            try { work(); }
+            catch (Exception ex) when (ex is IOException or UnauthorizedAccessException) { r.Failed.Add(Path.GetFileName(a.From.Length > 0 ? a.From : a.To) + " (" + ex.Message + ")"); }
+        }
+
+        // Parks, stages, copies, creates — in plan order.
+        foreach (var a in actions.Where(a => a.Op != nameof(PlanOp.Finalize)))
+        {
+            if (abort) break;
+            switch (a.Op)
+            {
+                case nameof(PlanOp.Park):
+                    if (!File.Exists(a.From)) break;                                   // done already
+                    Try(a, () => { Directory.CreateDirectory(Path.GetDirectoryName(a.To)!); File.Move(a.From, FreeName(a.To)); r.Parked++; });
+                    break;
+                case nameof(PlanOp.Stage):
+                    if (!File.Exists(a.From)) { if (File.Exists(a.To)) break; abort = true; r.Reason = $"missing {Path.GetFileName(a.From)}"; break; }
+                    if (File.Exists(a.To)) { if (replay) { abort = true; r.Reason = $"both {Path.GetFileName(a.From)} and its staged copy exist"; break; } Try(a, () => File.Delete(a.To)); }
+                    Try(a, () => { File.Move(a.From, a.To); r.Renamed++; });
+                    break;
+                case nameof(PlanOp.Copy):
+                    if (File.Exists(a.To) && new FileInfo(a.To).Length == a.Size) break;
+                    if (!File.Exists(a.From)) { abort = true; r.Reason = $"missing {Path.GetFileName(a.From)}"; break; }
+                    Try(a, () => { File.Copy(a.From, a.To, overwrite: true); r.Copied++; });
+                    break;
+                case nameof(PlanOp.Create):
+                    if (File.Exists(a.To)) break;
+                    Try(a, () => { File.Create(a.To).Dispose(); r.Created++; });
+                    break;
+            }
+        }
+        if (abort) return r;
+        if (Game.IsRunning()) { r.Reason = "Helldivers 2 started during the update"; return r; }
+
+        // Finalizes: a still-occupied target (a locked old file that failed to move) is skipped, never overwritten.
+        foreach (var a in actions.Where(a => a.Op == nameof(PlanOp.Finalize)))
+        {
+            if (!File.Exists(a.From)) { if (File.Exists(a.To)) continue; r.Failed.Add(Path.GetFileName(a.To) + " (staged copy missing)"); continue; }
+            if (File.Exists(a.To)) { r.Failed.Add(Path.GetFileName(a.To) + " (an old file with that name could not be moved)"); continue; }
+            Try(a, () => File.Move(a.From, a.To));
+        }
+        if (r.Interrupted) return r;
+
+        // Success: remember the hashes under the final names, forget the plan, tidy the download folder.
+        if (cache is not null && cachePath is not null)
+        {
+            foreach (var a in actions.Where(a => a.Op == nameof(PlanOp.Finalize) && a.Sha.Length == 64))
+            {
+                try { var fi = new FileInfo(a.To); if (fi.Exists) cache.Entries[HashCache.Key(fi.Name, fi.Length, fi.LastWriteTimeUtc)] = a.Sha; } catch { }
+            }
+            cache.Save(cachePath);
+        }
+        try { File.Delete(planPath); } catch { }
+        var dl = Path.Combine(gameDir, DownloadFolder);
+        try { if (Directory.Exists(dl) && !Directory.EnumerateFileSystemEntries(dl).Any()) Directory.Delete(dl); } catch { }
+        return r;
+    }
+
+    /// <summary>mods_old\X, then X.1, X.2 … Nothing in mods_old\ is ever overwritten. ".N" never matches the patch pattern.</summary>
+    static string FreeName(string target)
+    {
+        if (!File.Exists(target)) return target;
+        for (int i = 1; ; i++) { var t = $"{target}.{i}"; if (!File.Exists(t)) return t; }
+    }
+
+    static void ClearReadOnly(string path)
+    {
+        if (File.Exists(path) && (File.GetAttributes(path) & FileAttributes.ReadOnly) != 0) File.SetAttributes(path, FileAttributes.Normal);
+    }
+
+    // ---------------------------------------------------------------- hashing
+
+    /// <summary>Lower-case SHA-256 of a file. Opened with FileShare.Delete so a rename by someone else never fails because we are reading.</summary>
+    public static async Task<string> Sha256Async(string path, CancellationToken ct) => await Sha256Async(path, null, ct);
+
+    public static async Task<string> Sha256Async(string path, IProgress<long>? bytes, CancellationToken ct)
+    {
+        using var fs = new FileStream(path, FileMode.Open, FileAccess.Read, FileShare.Read | FileShare.Delete, 1 << 20, FileOptions.Asynchronous | FileOptions.SequentialScan);
+        using var sha = IncrementalHash.CreateHash(HashAlgorithmName.SHA256);
+        var buffer = new byte[1 << 20];
+        long done = 0; int n;
+        while ((n = await fs.ReadAsync(buffer, ct)) > 0) { sha.AppendData(buffer, 0, n); done += n; bytes?.Report(done); }
+        return Convert.ToHexString(sha.GetHashAndReset()).ToLowerInvariant();
     }
 
     public static string FormatBytes(long b) =>
         b >= 1L << 30 ? $"{b / (double)(1L << 30):0.0} GB" :
         b >= 1L << 20 ? $"{b / (double)(1L << 20):0} MB" :
         b >= 1L << 10 ? $"{b / (double)(1L << 10):0} KB" : $"{b} B";
+}
+
+/// <summary>Progress that reports on the caller's thread (System.Progress posts to a sync context; inside Task.Run there is none).</summary>
+public sealed class SyncProgress<T> : IProgress<T>
+{
+    readonly Action<T> handler;
+    public SyncProgress(Action<T> handler) => this.handler = handler;
+    public void Report(T value) => handler(value);
+}
+
+/// <summary>Steam's appmanifest_553850.acf next to the game: which build is installed and whether an update is queued.</summary>
+public static class SteamAcf
+{
+    public sealed record Info(string? BuildId, string? TargetBuildId, string? StateFlags)
+    {
+        public bool UpdatePending => TargetBuildId is not null && TargetBuildId != "0" && BuildId is not null && TargetBuildId != BuildId;
+    }
+
+    static readonly Regex BuildRx = new(@"^\s*""buildid""\s+""(\d+)""", RegexOptions.Multiline | RegexOptions.IgnoreCase);
+    static readonly Regex TargetRx = new(@"^\s*""TargetBuildID""\s+""(\d+)""", RegexOptions.Multiline | RegexOptions.IgnoreCase);
+    static readonly Regex StateRx = new(@"^\s*""StateFlags""\s+""(\d+)""", RegexOptions.Multiline | RegexOptions.IgnoreCase);
+
+    public static string AcfPath(string gameDir) => Path.GetFullPath(Path.Combine(gameDir, "..", "..", "appmanifest_" + GameLocator.SteamAppId + ".acf"));
+
+    public static Info Parse(string text) => new(
+        BuildRx.Match(text) is { Success: true } b ? b.Groups[1].Value : null,
+        TargetRx.Match(text) is { Success: true } t ? t.Groups[1].Value : null,
+        StateRx.Match(text) is { Success: true } s ? s.Groups[1].Value : null);
+
+    static string? cachedPath; static DateTime cachedWrite; static Info? cached;
+
+    /// <summary>Reads the acf, re-parsing only when its timestamp changed (this runs on the 1.5 s refresh tick).</summary>
+    public static Info? Read(string? gameDir)
+    {
+        if (gameDir is null) return null;
+        try
+        {
+            var path = AcfPath(gameDir);
+            if (!File.Exists(path)) return null;
+            var write = File.GetLastWriteTimeUtc(path);
+            if (cached is not null && path == cachedPath && write == cachedWrite) return cached;
+            cached = Parse(File.ReadAllText(path)); cachedPath = path; cachedWrite = write;
+            return cached;
+        }
+        catch { return null; }
+    }
+}
+
+/// <summary>Replacing the running exe with a downloaded one. Windows lets a running exe be renamed, so it is two moves
+/// done while the app is still alive and can show errors: exe → .old.exe, .update.exe → exe, then start the new one and exit.</summary>
+public static class SelfUpdate
+{
+    public static (string exe, string update, string old) Paths(string exePath)
+    {
+        var dir = Path.GetDirectoryName(exePath)!;
+        var stem = Path.GetFileNameWithoutExtension(exePath);
+        return (exePath, Path.Combine(dir, stem + ".update.exe"), Path.Combine(dir, stem + ".old.exe"));
+    }
+
+    /// <summary>Throws if the folder will not let us write the update file (Program Files, controlled folders, read-only media).</summary>
+    public static void ProbeWritable(string updatePath)
+    {
+        if (File.Exists(updatePath)) { using var _ = new FileStream(updatePath, FileMode.Open, FileAccess.ReadWrite, FileShare.None); }
+        else { File.Create(updatePath).Dispose(); File.Delete(updatePath); }
+    }
+
+    /// <summary>The swap, retried for <paramref name="retryFor"/> per move (OneDrive and Defender hold fresh files for a few seconds).
+    /// If the second move fails the first is rolled back so the app keeps working.</summary>
+    public static void Swap(string exe, string update, string old, TimeSpan retryFor)
+    {
+        Retry(() => { if (File.Exists(old)) File.Delete(old); }, retryFor);
+        Retry(() => File.Move(exe, old), retryFor);
+        try { Retry(() => File.Move(update, exe), retryFor); }
+        catch
+        {
+            try { Retry(() => File.Move(old, exe), retryFor); } catch { /* the original is still there under .old.exe */ }
+            throw;
+        }
+    }
+
+    static void Retry(Action work, TimeSpan retryFor)
+    {
+        var until = DateTime.UtcNow + retryFor;
+        while (true)
+        {
+            try { work(); return; }
+            catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+            {
+                if (DateTime.UtcNow >= until) throw;
+                Thread.Sleep(500);
+            }
+        }
+    }
+
+    /// <summary>Best-effort removal of the previous exe left behind by the last swap; retried in the background because Defender may still be scanning it.</summary>
+    public static void CleanupOld(string exePath)
+    {
+        var (_, _, old) = Paths(exePath);
+        if (!File.Exists(old)) return;
+        _ = Task.Run(async () =>
+        {
+            for (int i = 0; i < 20; i++)
+            {
+                try { File.Delete(old); return; } catch { await Task.Delay(500); }
+            }
+        });
+    }
 }
 
 /// <summary>Republic navy, clone-armor white, 501st blue, 212th orange. No green, no red, no gradients.
@@ -749,15 +1422,21 @@ public sealed class MainForm : Form
     readonly Settings settings;
     string? gameDir;
     DateTime? launchRequested;
+    readonly string? updatedTo;   // "--updated 1.3.1": the new exe announcing itself after a self-update
 
-    // Pack install state
-    PackManifest? manifest;
+    // Manifest / pack state
+    Manifest? manifest;
     string? manifestError;
     bool loadingManifest;
     DateTime lastManifestTry;
+    readonly HashCache hashCache = HashCache.Load(Settings.HashCachePath);
+
+    enum BusyKind { None, Inventory, Download, Apply, AppUpdate }
+    BusyKind busy;
+    bool Busy => busy != BusyKind.None;
     CancellationTokenSource? opCts;
-    bool busy;
-    bool installArmed, downloadArmed, launchArmed = true;
+    bool installArmed, downloadArmed, launchArmed = true, offerArmed;
+    DateTime lastProgressMessage = DateTime.MinValue;
     readonly Stopwatch rateWatch = new();
     long rateBytes;
     string rateText = "", lastWhat = "";
@@ -769,19 +1448,23 @@ public sealed class MainForm : Form
     readonly RoundButton openButton = new();
     readonly RoundButton installFileButton = new();
     readonly RoundButton downloadButton = new();
+    readonly Grid optionsRow = new();
+    readonly List<RoundButton> optionButtons = new();
     readonly ThinBar progress = new();
     readonly Label progressLabel = new();
     readonly Label statusLabel = new();
     readonly Label hintLabel = new();
     readonly Label pathCaption = new();
     readonly PathLabel pathValue = new();
+    readonly Label footer = new();
     readonly ToolTip tips = new();
     readonly System.Windows.Forms.Timer refresh = new() { Interval = 1500 };
 
-    public MainForm(Settings settings, string? gameDir)
+    public MainForm(Settings settings, string? gameDir, string? updatedTo = null)
     {
         this.settings = settings;
         this.gameDir = gameDir;
+        this.updatedTo = updatedTo;
 
         Text = "Clonedivers";
         BackColor = Bg;
@@ -802,7 +1485,7 @@ public sealed class MainForm : Form
 
         refresh.Tick += (_, _) =>
         {
-            // Offline at start? Ask GitHub again once a minute until pack.json answers.
+            // Offline at start? Ask GitHub again once a minute until manifest.json answers.
             if (manifest is null && manifestError is not null && !loadingManifest && DateTime.UtcNow - lastManifestTry > TimeSpan.FromSeconds(60))
                 _ = LoadManifestAsync();
             RefreshState();
@@ -810,6 +1493,7 @@ public sealed class MainForm : Form
         Activated += (_, _) => RefreshState();
         Shown += (_, _) =>
         {
+            if (updatedTo is not null) { ShowProgressDone($"Updated to {updatedTo}."); Activate(); }
             RefreshState();
             refresh.Start();
             _ = LoadManifestAsync();                 // find out whether a pack is published (non-blocking)
@@ -933,6 +1617,12 @@ public sealed class MainForm : Form
         packRow.Controls.Add(installFileButton, 0, 0);
         packRow.Controls.Add(downloadButton, 1, 0);
 
+        // Options row: one ghost toggle per optional group in the manifest (empty and flat until a manifest with options arrives).
+        optionsRow.Dock = DockStyle.Fill;
+        optionsRow.AutoSize = true;
+        optionsRow.Margin = new Padding(0);
+        optionsRow.BackColor = Bg;
+
         // Progress: label above a thin bar. Both stay Visible for life — hiding a child collapses its AutoSize row and the window jumps.
         progressLabel.AutoSize = true;
         progressLabel.UseMnemonic = false;
@@ -941,8 +1631,9 @@ public sealed class MainForm : Form
         progressLabel.Font = new Font("Segoe UI", 9F);
         progressLabel.TextAlign = ContentAlignment.MiddleLeft;
         progressLabel.Margin = new Padding(0, 12, 0, 4);
-        progressLabel.MinimumSize = new Size(0, 36);   // two 9-pt lines at every scale: the "Pack installed … parked in mods_old\" message wraps, and this row must never move
+        progressLabel.MinimumSize = new Size(0, 36);   // two 9-pt lines at every scale: the "Pack updated … parked in mods_old\" message wraps, and this row must never move
         progressLabel.Text = "";
+        progressLabel.Click += (_, _) => { if (offerArmed) OnAppUpdate(); };
         progress.Height = 6;   // a plain Control has no preferred size; without this the AutoSize row collapses
         progress.MinimumSize = new Size(0, 6);
         progress.Dock = DockStyle.Fill;
@@ -993,16 +1684,14 @@ public sealed class MainForm : Form
         pathRow.Controls.Add(openButton, 2, 0);
         pathRow.Controls.Add(pathButton, 3, 0);
 
-        var footer = new Label
-        {
-            Text = $"v{AppInfo.Version}  ·  moves mod files, launches through Steam, touches nothing else  ·  For the Republic.",
-            Font = new Font("Segoe UI", 8.25F, FontStyle.Italic),
-            ForeColor = TextMute,
-            AutoSize = true,
-            Dock = DockStyle.Fill,
-            TextAlign = ContentAlignment.MiddleCenter,
-            Margin = new Padding(0, 10, 0, 0),
-        };
+        var testNote = string.IsNullOrWhiteSpace(settings.ManifestUrl) ? "" : $"  ·  test manifest: {HostOf(settings.ManifestUrl)}";
+        footer.Text = $"v{AppInfo.Version}{testNote}  ·  moves mod files, launches through Steam, touches nothing else  ·  For the Republic.";
+        footer.Font = new Font("Segoe UI", 8.25F, FontStyle.Italic);
+        footer.ForeColor = string.IsNullOrWhiteSpace(settings.ManifestUrl) ? TextMute : Warn;
+        footer.AutoSize = true;
+        footer.Dock = DockStyle.Fill;
+        footer.TextAlign = ContentAlignment.MiddleCenter;
+        footer.Margin = new Padding(0, 10, 0, 0);
 
         root.RowStyles.Add(new RowStyle(SizeType.AutoSize));      // header lockup
         root.RowStyles.Add(new RowStyle(SizeType.Percent, 100));  // toggle (takes all spare height)
@@ -1010,6 +1699,7 @@ public sealed class MainForm : Form
         root.RowStyles.Add(new RowStyle(SizeType.AutoSize));      // hint
         root.RowStyles.Add(new RowStyle(SizeType.Absolute, 62));  // launch: 50-px button + 12 margin, level with the pack buttons
         root.RowStyles.Add(new RowStyle(SizeType.AutoSize));      // pack buttons
+        root.RowStyles.Add(new RowStyle(SizeType.AutoSize));      // options (empty until the manifest has some)
         root.RowStyles.Add(new RowStyle(SizeType.AutoSize));      // progress text
         root.RowStyles.Add(new RowStyle(SizeType.AutoSize));      // progress bar
         root.RowStyles.Add(new RowStyle(SizeType.AutoSize));      // path row
@@ -1020,12 +1710,52 @@ public sealed class MainForm : Form
         root.Controls.Add(hintLabel, 0, 3);
         root.Controls.Add(launchButton, 0, 4);
         root.Controls.Add(packRow, 0, 5);
-        root.Controls.Add(progressLabel, 0, 6);
-        root.Controls.Add(progress, 0, 7);
-        root.Controls.Add(pathRow, 0, 8);
-        root.Controls.Add(footer, 0, 9);
+        root.Controls.Add(optionsRow, 0, 6);
+        root.Controls.Add(progressLabel, 0, 7);
+        root.Controls.Add(progress, 0, 8);
+        root.Controls.Add(pathRow, 0, 9);
+        root.Controls.Add(footer, 0, 10);
         Controls.Add(root);
     }
+
+    static string HostOf(string url)
+    {
+        try { return Uri.TryCreate(url, UriKind.Absolute, out var u) ? (u.IsFile ? "local file" : u.Host) : url; } catch { return url; }
+    }
+
+    /// <summary>One ghost toggle per optional group. Rebuilt when a manifest arrives; the row stays empty otherwise.</summary>
+    void RebuildOptions()
+    {
+        var pack = manifest?.Pack;
+        var options = pack?.Options ?? new List<PackOption>();
+        if (optionButtons.Count == options.Count && optionButtons.Select(b => (string)b.Tag!).SequenceEqual(options.Select(o => o.Id))) return;
+        optionsRow.SuspendLayout();
+        optionsRow.Controls.Clear();
+        optionsRow.ColumnStyles.Clear();
+        foreach (var b in optionButtons) b.Dispose();
+        optionButtons.Clear();
+        optionsRow.ColumnCount = Math.Max(1, options.Count);
+        for (int i = 0; i < options.Count; i++)
+        {
+            var o = options[i];
+            optionsRow.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100f / options.Count));
+            var b = new RoundButton { Radius = 8, Ghost = true, Dock = DockStyle.Fill, Tag = o.Id, MinimumSize = new Size(0, 36),
+                                      Margin = new Padding(i == 0 ? 0 : 6, 8, i == options.Count - 1 ? 0 : 6, 0) };
+            Style(b, Slate, SlateHot, TextMain, 9.5F);
+            b.Click += (_, _) => OnOptionToggle(o);
+            optionsRow.Controls.Add(b, i, 0);
+            optionButtons.Add(b);
+        }
+        optionsRow.ResumeLayout(true);
+    }
+
+    bool OptionEnabled(PackOption o) => settings.Options.TryGetValue(o.Id, out var v) ? v : o.Default;
+    bool OptionEnabledById(string id)
+    {
+        if (settings.Options.TryGetValue(id, out var v)) return v;
+        return manifest?.Pack?.Options.FirstOrDefault(o => string.Equals(o.Id, id, StringComparison.OrdinalIgnoreCase))?.Default ?? true;
+    }
+    List<PackFile> WantedFiles(PackManifest pack) => Pack.EffectiveFiles(pack, OptionEnabledById);
 
     /// <summary>Secondary buttons that may be inert: styled dim when not armed (a truly disabled flat button is unreadable here).</summary>
     static void SetArmed(Button b, string text, bool armed)
@@ -1079,13 +1809,38 @@ public sealed class MainForm : Form
         finally { root.ResumeLayout(true); }
     }
 
+    // The three "something changed under the pack" signals, in the order they are shown.
+    enum Signal { None, Broken, Pending, BuildChanged }
+
+    Signal CurrentSignal(ModState state, PackManifest? pack, SteamAcf.Info? acf)
+    {
+        if (pack is null) return Signal.None;
+        if (pack.IsBroken) return Signal.Broken;
+        if (state != ModState.On || acf is null) return Signal.None;
+        if (acf.UpdatePending) return Signal.Pending;
+        if (!string.IsNullOrWhiteSpace(pack.GameBuild) && acf.BuildId is not null && acf.BuildId != pack.GameBuild.Trim()) return Signal.BuildChanged;
+        return Signal.None;
+    }
+
+    static string SignalSentence(Signal s, PackManifest? pack) => s switch
+    {
+        Signal.Broken => string.IsNullOrWhiteSpace(pack?.StatusNotes) ? "Owen marked this pack broken. Switch OFF until an updated pack ships." : "Owen marked this pack broken: " + pack!.StatusNotes.Trim(),
+        Signal.Pending => "Steam has a Helldivers 2 update waiting; it installs when you launch.",
+        Signal.BuildChanged => "Helldivers 2 has updated since this pack was built.",
+        _ => "",
+    };
+
     void ApplyState()
     {
         var state = ModFiles.GetState(gameDir);
         var running = Game.IsRunning();
+        var staged = !Busy && ModFiles.HasStagedFiles(gameDir);
+        var pack = manifest?.Pack;
+        var acf = SteamAcf.Read(gameDir);
         var dataDir = gameDir is null ? "" : Path.Combine(gameDir, ModFiles.DataFolder);
         var active = gameDir is null ? 0 : ModFiles.ListPatchFiles(dataDir).Length;
         var parked = gameDir is null ? 0 : ModFiles.ListPatchFiles(Path.Combine(gameDir, ModFiles.OffFolder)).Length;
+        var usable = pack is not null && pack.IsPublished && pack.IsPerFile;
 
         string detail;
         var dot = Color.Empty;
@@ -1106,7 +1861,7 @@ public sealed class MainForm : Form
                 break;
             case ModState.NoModFiles:
                 SetToggle("NO MOD FILES FOUND", Disabled, Disabled, TextDim, enabled: false);
-                detail = manifest?.IsPublished == true
+                detail = usable
                     ? "No mod pack installed.\nClick Download pack below to fetch the Clone Wars pack. Got the zips from Owen instead? Install pack from file… and select all the parts at once."
                     : "No mod files found in data\\ or mods_off\\.\nUnzip the mod you downloaded, then put its files (names ending in .patch_0, .patch_0.gpu_resources, .patch_0.stream)\ndirectly into this folder — not inside a sub-folder:\n" + dataDir;
                 break;
@@ -1116,15 +1871,37 @@ public sealed class MainForm : Form
                 break;
         }
 
+        // Warnings under the switch, in precedence order: game running > pack broken > Steam update pending > game build changed.
         var warn = running && state is ModState.On or ModState.Off;
+        var signal = CurrentSignal(state, pack, acf);
         if (warn) detail = "Helldivers 2 is running — close it before toggling. Mods are only read at startup.\n" + detail;
-        if (busy)
+        else if (signal != Signal.None && !staged)
         {
-            // Pack.Install moves mods_off → data first, so without this the switch would flip ON half-way through.
-            SetToggle("INSTALLING PACK…", Disabled, Disabled, TextDim, enabled: false);
-            detail = "Installing the pack — leave this window open.\nThe switch reads CLONES: ON when it finishes. Cancel keeps whatever has downloaded so far.";
-            warn = false;
-            dot = Color.Empty;
+            var lines = detail.Split('\n');
+            var keep = string.Join("\n", lines.Skip(1).Take(2));
+            var advice = signal == Signal.Broken ? "" : "If the game crashes or looks wrong, switch OFF until Owen confirms the pack.\n";
+            detail = SignalSentence(signal, pack) + "\n" + advice + keep;
+            warn = true;
+        }
+        Tip(toggleButton, acf?.BuildId is null ? "" : $"Game build {acf.BuildId}" + (string.IsNullOrWhiteSpace(pack?.GameBuild) ? "" : $"  ·  pack built for {pack!.GameBuild}") + (acf.UpdatePending ? $"  ·  Steam update to {acf.TargetBuildId} pending" : ""));
+
+        if (staged)
+        {
+            SetToggle("UPDATE INTERRUPTED", Disabled, Disabled, TextDim, enabled: false);
+            detail = "A pack update was interrupted.\nClick Finish update below — it takes a few seconds and needs no internet.\nMods are off until then.";
+            warn = false; dot = Color.Empty;
+        }
+        if (Busy)
+        {
+            var (t, d) = busy switch
+            {
+                BusyKind.Inventory => ("CHECKING FILES…", "Checking which installed files can be kept.\nThe first check reads every file once (a few minutes on a hard drive). Nothing moves yet."),
+                BusyKind.Download => ("DOWNLOADING PACK…", "Downloading only what changed — leave this window open.\nThe switch reads CLONES: ON when it finishes. Cancel keeps whatever has downloaded so far."),
+                BusyKind.Apply => ("FINISHING UPDATE…", "Putting the files in place — a few seconds.\nThis step cannot be cancelled."),
+                _ => ("UPDATING CLONEDIVERS…", "Downloading the new Clonedivers — leave this window open.\nIt restarts by itself when done."),
+            };
+            SetToggle(t, Disabled, Disabled, TextDim, enabled: false);
+            detail = d; warn = false; dot = Color.Empty;
         }
         toggleButton.DotColor = dot;
         toggleButton.DotFilled = state == ModState.On;
@@ -1135,8 +1912,8 @@ public sealed class MainForm : Form
 
         // Launch feedback: Steam can take a minute to open before the game process exists.
         if (running) launchRequested = null;
-        var starting = !running && launchRequested is DateTime t && DateTime.UtcNow - t < TimeSpan.FromSeconds(90);
-        launchArmed = !running && !starting;
+        var starting = !running && launchRequested is DateTime lt && DateTime.UtcNow - lt < TimeSpan.FromSeconds(90);
+        launchArmed = !running && !starting && busy != BusyKind.Apply;
         launchButton.Enabled = true;
         launchButton.Text = running ? "HELLDIVERS 2 IS RUNNING" : starting ? "STARTING VIA STEAM…" : "LAUNCH HELLDIVERS 2";
         launchButton.BackColor = launchArmed ? Orange : Disabled;
@@ -1160,56 +1937,104 @@ public sealed class MainForm : Form
         Tip(pathButton, gameDir is null ? "Pick the Helldivers 2 folder (it contains data\\ and bin\\helldivers2.exe)." : "Pick a different Helldivers 2 folder.");
 
         // Pack buttons
-        var canInstall = gameDir is not null && !running && !busy;
-        installArmed = canInstall;
+        var canInstall = gameDir is not null && !running && !Busy;
+        installArmed = canInstall && !staged;
         SetArmed(installFileButton, "Install pack from file…", installArmed);
-        Tip(installFileButton, "Have the pack as zip files from Owen? Pick all the parts at once. Needs the game closed.");
+        Tip(installFileButton, staged ? "Finish the interrupted update first." : "Have the pack as zip files from Owen? Pick all the parts at once. Needs the game closed.");
         downloadButton.SubText = "";
-        if (busy)
+        if (Busy)
         {
-            downloadArmed = true;
-            SetArmed(downloadButton, "Cancel", true);
-            Tip(downloadButton, "Stops the download or install. Downloaded parts are kept and resume next time.");
+            downloadArmed = busy != BusyKind.Apply;
+            if (busy == BusyKind.Apply) { SetArmed(downloadButton, "Finishing…", false); Tip(downloadButton, "A few seconds; this step cannot be cancelled."); }
+            else { SetArmed(downloadButton, "Cancel", true); Tip(downloadButton, "Stops the check or download. Downloaded files are kept and resume next time."); }
+        }
+        else if (staged)
+        {
+            downloadArmed = canInstall;
+            SetArmed(downloadButton, "Finish update", downloadArmed);
+            downloadButton.SubText = "a few seconds";
+            Tip(downloadButton, "Puts the files from the interrupted update in place. Needs no internet.");
         }
         else if (manifest is null && manifestError is null)
         {
             downloadArmed = false;
             SetArmed(downloadButton, "Checking for pack…", false);
-            Tip(downloadButton, "Reading pack.json from GitHub.");
+            Tip(downloadButton, "Reading manifest.json from GitHub.");
         }
         else if (manifest is null)
         {
             downloadArmed = false;
-            SetQuiet(downloadButton, "Can't reach GitHub");
+            SetQuiet(downloadButton, manifestError!.StartsWith("manifest.json", StringComparison.OrdinalIgnoreCase) ? "Can't read manifest" : "Can't reach GitHub");
             downloadButton.SubText = "click to retry";
             Tip(downloadButton, manifestError!);
         }
-        else if (!manifest.IsPublished)
+        else if (!usable)
         {
             downloadArmed = false;
             SetArmed(downloadButton, "Pack not published yet", false);
-            Tip(downloadButton, "");
+            Tip(downloadButton, pack is null ? "" : "The manifest lists no per-file pack yet.");
         }
         else
         {
             downloadArmed = canInstall;
             var installed = settings.InstalledPackVersion;
-            var size = Pack.FormatBytes(manifest.TotalSize);
-            var notes = string.IsNullOrWhiteSpace(manifest.Notes) ? manifest.Name : manifest.Name + "\n" + manifest.Notes;
-            if (installed == manifest.Version)
+            var size = Pack.FormatBytes(pack!.TotalSize);
+            var notes = string.IsNullOrWhiteSpace(pack.Notes) ? pack.Name : pack.Name + "\n" + pack.Notes;
+            var anyFiles = active + parked > 0;
+            if (!anyFiles)
+            {
+                SetArmed(downloadButton, "Download pack", downloadArmed);
+                downloadButton.SubText = $"{pack.Version}  ·  {size}";
+                Tip(downloadButton, notes + $"\n\nAbout {size} the first time; later updates fetch only what changed. Resumes if interrupted.");
+            }
+            else if (installed == pack.Version)
             {
                 SetQuiet(downloadButton, "Pack up to date");
                 downloadButton.Cursor = canInstall ? Cursors.Hand : Cursors.Default;
-                downloadButton.SubText = $"{manifest.Version}  ·  click to reinstall";
-                Tip(downloadButton, $"You have pack {manifest.Version}. Click to download it again ({size}) and repair the install.\n\n{notes}");
+                downloadButton.SubText = $"{pack.Version}  ·  click to verify";
+                Tip(downloadButton, $"You have pack {pack.Version}. Click to check every installed file and re-download only what is missing or damaged — usually nothing. The first check reads every file once (a few minutes on a hard drive).\n\n{notes}");
             }
             else
             {
-                SetArmed(downloadButton, installed is null ? "Download pack" : "Update pack", downloadArmed);
-                downloadButton.SubText = $"{manifest.Version}  ·  {size}";
-                Tip(downloadButton, (installed is null ? "" : $"Installed: {installed}\nAvailable: {manifest.Version}\n\n") + notes
-                    + $"\n\nAbout {size}; needs roughly twice that free on the game drive while it installs. Resumes if interrupted.");
+                SetArmed(downloadButton, "Update pack", downloadArmed);
+                downloadButton.SubText = $"{pack.Version}  ·  downloads only what changed";
+                Tip(downloadButton, $"Installed: {installed ?? "unknown — installed from zips"}\nAvailable: {pack.Version}\n\n{notes}\n\nOnly changed files are downloaded; everything else is renamed in place. Resumes if interrupted.");
             }
+        }
+
+        // Option toggles
+        RebuildOptions();
+        foreach (var b in optionButtons)
+        {
+            var o = pack?.Options.FirstOrDefault(x => string.Equals(x.Id, (string)b.Tag!, StringComparison.OrdinalIgnoreCase));
+            if (o is null) continue;
+            var on = OptionEnabled(o);
+            var armed = canInstall && !staged && usable;
+            b.Text = $"{o.Name}: {(on ? "ON" : "OFF")}";
+            b.BackColor = armed ? (on ? Blue : Slate) : Disabled;      // ghost: BackColor is the outline colour
+            b.ForeColor = armed ? TextMain : TextDim;
+            b.Cursor = armed ? Cursors.Hand : Cursors.Default;
+            Tip(b, (string.IsNullOrWhiteSpace(o.Description) ? o.Name : o.Description) + (on ? "\n\nClick to switch it off; its files are parked in mods_old\\ and the rest is renumbered (no download)." : "\n\nClick to switch it on; only its files are downloaded."));
+        }
+
+        // Self-update offer lives in the idle progress row.
+        var app = manifest?.App;
+        var offer = !Busy && !staged && app is not null && app.IsNewerThan(AppInfo.Version) && (app.IsPinned || !string.IsNullOrWhiteSpace(settings.ManifestUrl))
+                    && DateTime.UtcNow - lastProgressMessage > TimeSpan.FromSeconds(5);
+        if (offer)
+        {
+            offerArmed = true;
+            progressLabel.Text = $"Clonedivers {app!.Version} is available  ·  click to update";
+            progressLabel.ForeColor = OrangeHot;
+            progressLabel.Cursor = Cursors.Hand;
+            Tip(progressLabel, $"Downloads Clonedivers {app.Version} ({Pack.FormatBytes(app.Size)}) and restarts by itself. Your game folder, pack and settings carry over.");
+        }
+        else if (offerArmed)
+        {
+            offerArmed = false;
+            if (progressLabel.ForeColor == OrangeHot) { progressLabel.Text = ""; progressLabel.ForeColor = TextDim; }
+            progressLabel.Cursor = Cursors.Default;
+            Tip(progressLabel, "");
         }
     }
 
@@ -1219,8 +2044,8 @@ public sealed class MainForm : Form
         loadingManifest = true; lastManifestTry = DateTime.UtcNow;
         try
         {
-            manifest = await Pack.FetchManifestAsync(CancellationToken.None);
-            manifestError = manifest is null ? "pack.json was empty" : null;
+            manifest = await Pack.FetchManifestAsync(settings.ManifestUrl, CancellationToken.None);
+            manifestError = null;
         }
         catch (Exception ex) { manifest = null; manifestError = ex.Message; }
         finally { loadingManifest = false; }
@@ -1249,16 +2074,38 @@ public sealed class MainForm : Form
 
     void OnDownloadOrCancel()
     {
-        if (busy) { opCts?.Cancel(); return; }
+        if (Busy) { if (busy != BusyKind.Apply) opCts?.Cancel(); return; }
+        if (gameDir is null) return;
+        if (ModFiles.HasStagedFiles(gameDir))
+        {
+            if (!downloadArmed) return;
+            if (Game.IsRunning()) { ShowRunningWarning(); return; }
+            _ = FinishUpdateAsync();
+            return;
+        }
         if (manifest is null)
         {
             // "Can't reach GitHub · click to retry"
             if (manifestError is not null && !loadingManifest) { manifestError = null; _ = LoadManifestAsync(); RefreshState(); }
             return;
         }
-        if (!downloadArmed || gameDir is null || !manifest.IsPublished) return;
+        var pack = manifest.Pack;
+        if (!downloadArmed || pack is null || !pack.IsPublished || !pack.IsPerFile) return;
         if (Game.IsRunning()) { ShowRunningWarning(); return; }
-        _ = DownloadAndInstallAsync(manifest);
+        var verify = settings.InstalledPackVersion == pack.Version;
+        _ = RunPackAsync(pack, verify, optionChange: null);
+    }
+
+    void OnOptionToggle(PackOption o)
+    {
+        var pack = manifest?.Pack;
+        if (Busy || gameDir is null || pack is null || !pack.IsPublished || !pack.IsPerFile || ModFiles.HasStagedFiles(gameDir)) return;
+        if (Game.IsRunning()) { ShowRunningWarning(); return; }
+        var turnOn = !OptionEnabled(o);
+        settings.Options[o.Id] = turnOn;
+        settings.Save();
+        RefreshState();
+        _ = RunPackAsync(pack, verify: false, optionChange: (o, turnOn));
     }
 
     bool ConfirmInstall(string headline)
@@ -1272,84 +2119,214 @@ public sealed class MainForm : Form
     {
         var names = string.Join(", ", zips.Select(Path.GetFileName));
         if (!ConfirmInstall($"Install {names} into data\\?")) return;
-        SetBusy(true);
+        SetBusy(BusyKind.Download);
         var cts = opCts = new CancellationTokenSource();
-        try { await InstallCoreAsync(zips, packVersion: null, cts.Token); }
+        try
+        {
+            // Patch bytes per zip come from the zip directories (no decompression), so the bar can span all parts instead of restarting per zip.
+            var sizes = await Task.Run(() => zips.Select(Pack.PatchBytes).ToArray(), cts.Token);
+            long grand = sizes.Sum();
+            var starts = new long[sizes.Length];
+            for (int i = 1; i < starts.Length; i++) starts[i] = starts[i - 1] + sizes[i - 1];
+            var reporters = zips.Select((_, i) => new Progress<(long done, long total)>(p => ShowProgress("Installing pack", starts[i] + p.done, grand))).ToList();
+            var result = await Task.Run(() =>
+            {
+                if (Game.IsRunning()) throw new InvalidOperationException("Helldivers 2 started while installing. Close it and try again.");
+                return Pack.Install(gameDir!, zips, i => reporters[i], cts.Token);
+            }, cts.Token);
+            settings.InstalledPackVersion = null;   // a zip install is of unknown version; Update pack will verify and record it
+            settings.Save();
+            ShowProgressDone($"Pack installed: {result.installed:N0} files in data\\"
+                + (result.parked > 0 ? $", {result.parked:N0} old file{(result.parked == 1 ? "" : "s")} parked in mods_old\\" : "")
+                + ". Clones are ON — hit LAUNCH.");
+        }
         catch (OperationCanceledException) { ShowProgressDone("Cancelled. The big button shows what is in data\\ now."); }
         catch (Exception ex) { ShowProgressDone("Install failed."); MessageBox.Show(this, ex.Message, "Clonedivers", MessageBoxButtons.OK, MessageBoxIcon.Error); }
-        finally { SetBusy(false); }
+        finally { SetBusy(BusyKind.None); }
     }
 
-    async Task DownloadAndInstallAsync(PackManifest m)
+    /// <summary>The per-file flow: inventory → plan → confirm → download what is missing → apply. <paramref name="verify"/> re-hashes
+    /// everything (the "Pack up to date" click); <paramref name="optionChange"/> names the toggle that triggered it, for the dialog.</summary>
+    async Task RunPackAsync(PackManifest pack, bool verify, (PackOption option, bool on)? optionChange)
     {
-        var total = m.TotalSize;
+        var dlDir = Path.Combine(gameDir!, Pack.DownloadFolder);
+        var wanted = WantedFiles(pack);
+        var planPath = Settings.PlanPath;
+        SetBusy(BusyKind.Inventory);
+        var cts = opCts = new CancellationTokenSource();
+        UpdatePlan plan;
+        try
+        {
+            Pack.CleanDownloadFolder(dlDir, wanted.Select(f => f.Sha256));
+            var complete = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+            if (Directory.Exists(dlDir))
+                foreach (var f in wanted.Where(f => f.Size > 0))
+                    if (File.Exists(Path.Combine(dlDir, f.Sha256)) && new FileInfo(Path.Combine(dlDir, f.Sha256)).Length == f.Size) complete.Add(f.Sha256);
+            var reporter = new Progress<(long done, long total)>(p => ShowProgress("Checking installed files", p.done, p.total));
+            var local = await Task.Run(() => Pack.InventoryAsync(gameDir!, wanted, hashCache, verify, reporter, cts.Token), cts.Token);
+            hashCache.Save(Settings.HashCachePath);
+            plan = Pack.Plan(gameDir!, wanted, local, complete);
+        }
+        catch (OperationCanceledException) { ShowProgressDone("Cancelled. Nothing was changed."); SetBusy(BusyKind.None); return; }
+        catch (Exception ex) { ShowProgressDone("Update failed."); SetBusy(BusyKind.None); MessageBox.Show(this, ex.Message, "Clonedivers", MessageBoxButtons.OK, MessageBoxIcon.Error); return; }
+        SetBusy(BusyKind.None);
+
+        if (plan.IsNoOp)
+        {
+            settings.InstalledPackVersion = pack.Version;
+            settings.Save();
+            ShowProgressDone(verify ? $"Verified: all {wanted.Count:N0} files match {pack.Version}." : optionChange is { } oc ? $"{oc.option.Name} is now {(oc.on ? "on" : "off")}; nothing to change." : "Already up to date — nothing to download.");
+            RefreshState();
+            return;
+        }
+
+        // Confirm, with the real numbers.
+        var fresh = !ModFiles.ListPatchFiles(Path.Combine(gameDir!, ModFiles.DataFolder)).Any() && !ModFiles.ListPatchFiles(Path.Combine(gameDir!, ModFiles.OffFolder)).Any();
+        var dlText = plan.BytesToDownload > 0 ? $"Download {Pack.FormatBytes(plan.BytesToDownload)} ({plan.Downloads.Count:N0} file{(plan.Downloads.Count == 1 ? "" : "s")})." : "Nothing to download.";
+        string headline;
+        if (optionChange is { } o)
+            headline = $"Turn {o.option.Name} {(o.on ? "on" : "off")}?\n\n{dlText}" + (o.on ? "" : " The rest is renumbered in place.");
+        else if (fresh)
+            headline = $"Download the Clone Wars pack {pack.Version}?\n\n{Pack.FormatBytes(plan.BytesToDownload)} ({plan.Downloads.Count:N0} files) — start it before dinner. Leave this window open; it resumes if interrupted.";
+        else if (verify)
+            headline = $"Repair pack {pack.Version}?\n\n{dlText} Those files are missing or damaged; everything else checks out.";
+        else
+            headline = $"Update pack to {pack.Version}?\n\n{dlText} Everything else you already have.";
+        if (plan.ParkCount > 0 && !fresh) headline += $"\n{plan.ParkCount:N0} old file{(plan.ParkCount == 1 ? "" : "s")} go to mods_old\\ (nothing is deleted).";
+        if (!fresh) headline += "\nLeave this window open and keep the game closed.";
+        if (!string.IsNullOrWhiteSpace(pack.Notes)) headline += "\n\n" + pack.Notes;
         var drive = Path.GetPathRoot(gameDir!) ?? "";
         long free = 0;
         try { free = new DriveInfo(drive).AvailableFreeSpace; } catch { /* unknown drive type: skip the warning */ }
-        var need = total * 2 + (512L << 20);   // the zip plus the extracted files, plus slack
-        var headline = $"Download {m.Name} {m.Version} ({Pack.FormatBytes(total)}) and install it into data\\?"
-                     + "\n\nLeave this window open while it runs. If it is interrupted, click Download pack again and it resumes."
-                     + (string.IsNullOrWhiteSpace(m.Notes) ? "" : "\n\n" + m.Notes)
-                     + (free > 0 && free < need ? $"\n\nWarning: only {Pack.FormatBytes(free)} free on {drive} — this needs about {Pack.FormatBytes(need)} while installing." : "");
-        if (!ConfirmInstall(headline)) return;
+        var need = plan.BytesToDownload + plan.BytesToCopy + (256L << 20);
+        if (free > 0 && free < need) headline += $"\n\nWarning: only {Pack.FormatBytes(free)} free on {drive} — this needs about {Pack.FormatBytes(need)}.";
+        if (Form.ActiveForm != this) FlashTaskbar();
+        if (MessageBox.Show(this, headline, "Clonedivers", MessageBoxButtons.YesNo, MessageBoxIcon.Question) != DialogResult.Yes)
+        {
+            if (optionChange is { } undo) { settings.Options[undo.option.Id] = !undo.on; settings.Save(); }
+            RefreshState();
+            return;
+        }
 
-        SetBusy(true);
-        var cts = opCts = new CancellationTokenSource();
-        var dlDir = Path.Combine(gameDir!, Pack.DownloadFolder);
         try
         {
-            // One bar across every part: each part's bytes are offset by the parts before it.
-            var zips = new List<string>();
-            long before = 0;
-            for (int i = 0; i < m.Files.Count; i++)
+            if (plan.Downloads.Count > 0)
             {
-                long offset = before;
-                var dest = Path.Combine(dlDir, SafeFileName(m.Files[i].Url, $"pack-part{i + 1}.zip"));
-                var reporter = new Progress<(long done, long total)>(p => ShowProgress("Downloading pack", offset + p.done, total));
-                await Pack.DownloadAsync(m.Files[i], dest, reporter, cts.Token);
-                before += m.Files[i].Size;
-                ShowProgress("Downloading pack", before, total);   // a part that was already complete (resume) reports nothing
-                zips.Add(dest);
+                SetBusy(BusyKind.Download);
+                cts = opCts = new CancellationTokenSource();
+                var dl = new Progress<(long done, long total, int file, int files)>(p => ShowProgress($"Downloading pack ({p.file} of {p.files})", p.done, p.total));
+                await Pack.DownloadPlanAsync(plan, dlDir, dl, cts.Token);
             }
-            await InstallCoreAsync(zips, m.Version, cts.Token);
-            try { Directory.Delete(dlDir, recursive: true); } catch { /* leave it; harmless */ }
+            SetBusy(BusyKind.Apply);
+            var result = await Task.Run(() => Pack.Apply(gameDir!, plan, planPath, pack.Version, hashCache, Settings.HashCachePath));
+            ReportApply(result, pack.Version, plan.Downloads.Count);
         }
-        catch (OperationCanceledException) { ShowProgressDone("Cancelled. Partial downloads stay in mods_download\\ and resume next time."); }
-        catch (Exception ex) { ShowProgressDone("Install failed."); MessageBox.Show(this, ex.Message, "Clonedivers", MessageBoxButtons.OK, MessageBoxIcon.Error); }
-        finally { SetBusy(false); }
+        catch (OperationCanceledException) { ShowProgressDone("Cancelled. Downloaded files stay in mods_download\\ and resume next time."); }
+        catch (Exception ex) { ShowProgressDone("Update failed."); MessageBox.Show(this, ex.Message, "Clonedivers", MessageBoxButtons.OK, MessageBoxIcon.Error); }
+        finally { SetBusy(BusyKind.None); }
     }
 
-    /// <summary>Runs Pack.Install off the UI thread with one bar across every zip, then records the pack version.</summary>
-    async Task InstallCoreAsync(IReadOnlyList<string> zips, string? packVersion, CancellationToken ct)
+    void ReportApply(ApplyResult result, string version, int downloaded)
     {
-        // Patch bytes per zip come from the zip directories (no decompression), so the bar can span all parts instead of restarting per zip.
-        var sizes = await Task.Run(() => zips.Select(Pack.PatchBytes).ToArray(), ct);
-        long grand = sizes.Sum();
-        var starts = new long[sizes.Length];
-        for (int i = 1; i < starts.Length; i++) starts[i] = starts[i - 1] + sizes[i - 1];
-
-        // Progress objects are created here so their callbacks land on the UI thread.
-        var reporters = zips.Select((_, i) => new Progress<(long done, long total)>(p => ShowProgress("Installing pack", starts[i] + p.done, grand))).ToList();
-
-        var result = await Task.Run(() =>
+        if (result.Interrupted)
         {
-            if (Game.IsRunning()) throw new InvalidOperationException("Helldivers 2 started while installing. Close it and try again.");
-            return Pack.Install(gameDir!, zips, i => reporters[i], ct);
-        }, ct);
-
-        settings.InstalledPackVersion = packVersion;
+            var names = string.Join(", ", result.Failed.Take(3)) + (result.Failed.Count > 3 ? ", …" : "");
+            ShowProgressDone(result.Reason is not null && result.Failed.Count == 0
+                ? $"Update interrupted: {result.Reason}. Click Finish update to continue."
+                : $"Couldn't move {result.Failed.Count} file(s) (antivirus?): {names}. Close whatever has them open and click Finish update.");
+            return;
+        }
+        settings.InstalledPackVersion = version;
         settings.Save();
-        ShowProgressDone($"Pack installed: {result.installed:N0} files in data\\"
-            + (result.parked > 0 ? $", {result.parked:N0} old file{(result.parked == 1 ? "" : "s")} parked in mods_old\\" : "")
-            + ". Clones are ON — hit LAUNCH.");
+        var parts = new List<string>();
+        if (downloaded > 0) parts.Add($"{downloaded:N0} downloaded");
+        if (result.Renamed > 0) parts.Add($"{result.Renamed:N0} renamed");
+        if (result.Copied + result.Created > 0) parts.Add($"{result.Copied + result.Created:N0} created");
+        if (result.Parked > 0) parts.Add($"{result.Parked:N0} parked in mods_old\\");
+        ShowProgressDone($"Pack updated to {version}" + (parts.Count > 0 ? ": " + string.Join(", ", parts) : "") + ". Clones are ON — hit LAUNCH.");
     }
 
-    void SetBusy(bool on)
+    /// <summary>Finish update: replay the saved plan (no network, no hashing); fall back to a fresh plan when the file is unusable.</summary>
+    async Task FinishUpdateAsync()
     {
-        busy = on;
-        if (on) { rateWatch.Reset(); rateText = ""; lastWhat = ""; progress.Fraction = 0; }
+        SetBusy(BusyKind.Apply);
+        try
+        {
+            var result = await Task.Run(() => Pack.Replay(gameDir!, Settings.PlanPath, hashCache, Settings.HashCachePath));
+            if (result is not null) { ReportApply(result, settings.InstalledPackVersion ?? manifest?.Pack?.Version ?? "", 0); return; }
+        }
+        catch (Exception ex) { ShowProgressDone("Update failed."); SetBusy(BusyKind.None); MessageBox.Show(this, ex.Message, "Clonedivers", MessageBoxButtons.OK, MessageBoxIcon.Error); return; }
+        finally { if (busy == BusyKind.Apply) SetBusy(BusyKind.None); }
+        var pack = manifest?.Pack;
+        if (pack is null || !pack.IsPublished || !pack.IsPerFile)
+        {
+            ShowProgressDone("Can't finish offline: the saved plan is unusable and the manifest is not available. Connect and click Finish update again.");
+            return;
+        }
+        await RunPackAsync(pack, verify: false, optionChange: null);
+    }
+
+    // ---- self-update
+
+    void OnAppUpdate()
+    {
+        var app = manifest?.App;
+        if (Busy || app is null) return;
+        var exePath = Environment.ProcessPath;
+        if (exePath is null) return;
+        var (exe, update, old) = SelfUpdate.Paths(exePath);
+        if (MessageBox.Show(this, $"Update Clonedivers to {app.Version}?\n\nIt downloads {Pack.FormatBytes(app.Size)} and restarts by itself.",
+                "Clonedivers", MessageBoxButtons.YesNo, MessageBoxIcon.Question) != DialogResult.Yes) return;
+        try { SelfUpdate.ProbeWritable(update); }
+        catch (Exception ex) { BrowserFallback(Path.GetDirectoryName(exe)!, ex.Message); return; }
+        _ = AppUpdateAsync(app, exe, update, old);
+    }
+
+    void BrowserFallback(string dir, string reason)
+    {
+        MessageBox.Show(this, $"Clonedivers can't replace itself in this folder:\n{dir}\n{reason}\n\nThe release page opens in your browser — download Clonedivers.exe there and replace this file.",
+            "Clonedivers", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+        try { Process.Start(new ProcessStartInfo("https://github.com/owendavidgoode/clonedivers/releases/latest") { UseShellExecute = true }); } catch { }
+    }
+
+    async Task AppUpdateAsync(AppRelease app, string exe, string update, string old)
+    {
+        SetBusy(BusyKind.AppUpdate);
+        var cts = opCts = new CancellationTokenSource();
+        try
+        {
+            var file = new PackFile { Url = app.Url, Size = app.Size, Sha256 = app.Sha256, Name = "" };
+            var reporter = new Progress<(long done, long total)>(p => ShowProgress($"Downloading Clonedivers {app.Version}", p.done, p.total));
+            await Pack.DownloadAsync(file, update, reporter, cts.Token);
+            // It sat on disk for a moment (OneDrive / Defender may have touched it): check again before trusting it.
+            var sha = await Pack.Sha256Async(update, cts.Token);
+            if (!sha.Equals(app.Sha256.Trim(), StringComparison.OrdinalIgnoreCase)) { File.Delete(update); throw new InvalidDataException("The downloaded Clonedivers failed its integrity check. Deleted it; try again."); }
+            ShowProgressDone("Restarting…");
+            await Task.Run(() => SelfUpdate.Swap(exe, update, old, TimeSpan.FromSeconds(30)));
+            Program.ReleaseSingleInstance();
+            Process.Start(new ProcessStartInfo(exe, "--updated " + app.Version) { UseShellExecute = true, WorkingDirectory = Path.GetDirectoryName(exe) });
+            Application.Exit();
+        }
+        catch (OperationCanceledException) { ShowProgressDone("Update cancelled. The partial download resumes next time."); }
+        catch (UnauthorizedAccessException ex) { ShowProgressDone("Update failed."); BrowserFallback(Path.GetDirectoryName(exe)!, ex.Message); }
+        catch (Exception ex)
+        {
+            ShowProgressDone("Update failed.");
+            MessageBox.Show(this, $"Clonedivers couldn't replace itself: {ex.Message}\n\nIf the new version is saved as {Path.GetFileName(update)} next to it, try again later or rename it by hand.",
+                "Clonedivers", MessageBoxButtons.OK, MessageBoxIcon.Error);
+            OpenFolder(Path.GetDirectoryName(exe)!);
+        }
+        finally { SetBusy(BusyKind.None); }
+    }
+
+    // ---- progress plumbing
+
+    void SetBusy(BusyKind kind)
+    {
+        busy = kind;
+        if (kind != BusyKind.None) { rateWatch.Reset(); rateText = ""; lastWhat = ""; progress.Fraction = 0; }
         else { opCts?.Dispose(); opCts = null; Text = "Clonedivers"; }
-        Power.KeepAwake(on);
+        Power.KeepAwake(kind != BusyKind.None);
         RefreshState();
     }
 
@@ -1369,34 +2346,45 @@ public sealed class MainForm : Form
             rateBytes = done;
         }
         var pct = total > 0 ? (int)Math.Clamp(done * 100 / total, 0, 100) : -1;
+        progressLabel.ForeColor = TextDim;
         progressLabel.Text = total > 0
             ? $"{what}  ·  {Pack.FormatBytes(done)} / {Pack.FormatBytes(total)}{rateText}  ·  {pct}%"
             : $"{what}  ·  {Pack.FormatBytes(done)}";
         Text = pct >= 0 ? $"Clonedivers  ·  {pct}%" : "Clonedivers";   // the taskbar shows progress while you alt-tab
+        lastProgressMessage = DateTime.UtcNow;
     }
 
-    void ShowProgressDone(string text) { progress.Active = false; progressLabel.Text = text; }
+    void ShowProgressDone(string text)
+    {
+        progress.Active = false;
+        progressLabel.ForeColor = TextDim;
+        progressLabel.Text = text;
+        lastProgressMessage = DateTime.UtcNow;
+    }
 
-    static string SafeFileName(string url, string fallback)
+    [StructLayout(LayoutKind.Sequential)]
+    struct FLASHWINFO { public uint cbSize; public IntPtr hwnd; public uint dwFlags; public uint uCount; public uint dwTimeout; }
+    [DllImport("user32.dll")] static extern bool FlashWindowEx(ref FLASHWINFO pwfi);
+
+    /// <summary>Flashes the taskbar button until the window is focused: the inventory takes a while and friends alt-tab away.</summary>
+    void FlashTaskbar()
     {
         try
         {
-            var name = Path.GetFileName(new Uri(url).AbsolutePath);
-            name = Uri.UnescapeDataString(name);
-            foreach (var c in Path.GetInvalidFileNameChars()) name = name.Replace(c, '_');
-            return name.EndsWith(".zip", StringComparison.OrdinalIgnoreCase) ? name : fallback;
+            var f = new FLASHWINFO { cbSize = (uint)Marshal.SizeOf<FLASHWINFO>(), hwnd = Handle, dwFlags = 2 | 12 /* FLASHW_TRAY | FLASHW_TIMERNOFG */, uCount = 0, dwTimeout = 0 };
+            FlashWindowEx(ref f);
         }
-        catch { return fallback; }
+        catch { }
     }
 
-    void OnToggle()
+    // ---- toggle / launch / locate
+
+    bool TryToggle()
     {
-        if (gameDir is null || busy) return;
-        if (Game.IsRunning()) { ShowRunningWarning(); return; }
-        if (!toggleArmed) { RefreshState(); return; }   // "no mod files" / "game not found": the text below says what to do
         try
         {
-            ModFiles.Toggle(gameDir);
+            ModFiles.Toggle(gameDir!);
+            return true;
         }
         catch (UnauthorizedAccessException ex)
         {
@@ -1414,14 +2402,34 @@ public sealed class MainForm : Form
                 "The big button always shows where the files actually are.",
                 "Clonedivers", MessageBoxButtons.OK, MessageBoxIcon.Error);
         }
+        return false;
+    }
+
+    void OnToggle()
+    {
+        if (gameDir is null || Busy) return;
+        if (Game.IsRunning()) { ShowRunningWarning(); return; }
+        if (!toggleArmed) { RefreshState(); return; }   // "no mod files" / "game not found" / interrupted: the text below says what to do
+        TryToggle();
         RefreshState();
     }
 
     void OnLaunch()
     {
-        if (busy) return;
+        if (busy == BusyKind.Apply) return;
         if (Game.IsRunning()) { ShowRunningWarning(); return; }   // the dim button still explains itself when clicked
         if (!launchArmed) return;
+        var state = ModFiles.GetState(gameDir);
+        var signal = CurrentSignal(state, manifest?.Pack, SteamAcf.Read(gameDir));
+        if (state == ModState.On && signal != Signal.None && !Busy)
+        {
+            var answer = MessageBox.Show(this,
+                SignalSentence(signal, manifest?.Pack) + "\n\nSwitch the clones OFF before launching?\n\n" +
+                "Yes — switch OFF, then launch (safe)\nNo — launch with the clones ON\nCancel — don't launch",
+                "Clonedivers", MessageBoxButtons.YesNoCancel, MessageBoxIcon.Warning);
+            if (answer == DialogResult.Cancel) return;
+            if (answer == DialogResult.Yes && !TryToggle()) { RefreshState(); return; }
+        }
         try
         {
             Game.LaunchViaSteam();
@@ -1437,7 +2445,7 @@ public sealed class MainForm : Form
 
     void OnLocate()
     {
-        if (busy) return;
+        if (Busy) return;
         var picked = PromptForGameDir();
         if (picked is null) return;
         gameDir = picked;
@@ -1481,7 +2489,13 @@ public sealed class MainForm : Form
 
     protected override void OnFormClosing(FormClosingEventArgs e)
     {
-        if (busy && MessageBox.Show(this, "A pack install is in progress. Cancel it and quit?", "Clonedivers",
+        if (busy == BusyKind.Apply)
+        {
+            MessageBox.Show(this, "Finishing the update — a few seconds. Try again in a moment.", "Clonedivers", MessageBoxButtons.OK, MessageBoxIcon.Information);
+            e.Cancel = true;
+            return;
+        }
+        if (Busy && MessageBox.Show(this, "A pack update is in progress. Cancel it and quit?", "Clonedivers",
                 MessageBoxButtons.YesNo, MessageBoxIcon.Warning) != DialogResult.Yes)
         {
             e.Cancel = true;
@@ -1500,12 +2514,21 @@ public sealed class MainForm : Form
 
 static class Program
 {
+    static Mutex? single;
+
+    /// <summary>Lets the freshly swapped exe start while this one is still shutting down (the mutex is held for the process lifetime otherwise).</summary>
+    public static void ReleaseSingleInstance()
+    {
+        try { single?.ReleaseMutex(); single?.Dispose(); } catch { }
+        single = null;
+    }
+
     [STAThread]
-    static void Main()
+    static void Main(string[] args)
     {
         // The 60 MB self-contained exe takes a few seconds to unpack on first launch; a second double-click
         // during that pause should not open a second window.
-        using var single = new Mutex(true, @"Local\Clonedivers", out bool firstInstance);
+        single = new Mutex(true, @"Local\Clonedivers", out bool firstInstance);
         if (!firstInstance) return;
 
         Application.SetHighDpiMode(HighDpiMode.PerMonitorV2);
@@ -1513,9 +2536,14 @@ static class Program
         Application.SetCompatibleTextRenderingDefault(false);
         Application.SetDefaultFont(new Font("Segoe UI", 10F));
 
+        string? updatedTo = null;
+        for (int i = 0; i + 1 < args.Length; i++) if (args[i] == "--updated") updatedTo = args[i + 1];
+        if (Environment.ProcessPath is { } exe) SelfUpdate.CleanupOld(exe);
+
         var settings = Settings.Load();
         // A remembered manual pick wins if it is still valid; otherwise ask Steam where the game is.
         var gameDir = GameLocator.IsGameDir(settings.GamePath) ? settings.GamePath : GameLocator.AutoDetect();
-        Application.Run(new MainForm(settings, gameDir));
+        Application.Run(new MainForm(settings, gameDir, updatedTo));
+        ReleaseSingleInstance();
     }
 }

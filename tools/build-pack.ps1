@@ -1,4 +1,7 @@
-# Builds the Clonedivers pack from the mods currently deployed in Helldivers 2\data\ and writes pack.json.
+# LEGACY (zip pack for hand-outs and the 1.2.0 app). The live pack is published per file by tools\publish-pack.ps1;
+# pack.json at the repo root is FROZEN for 1.2.0 clients — never regenerate it (this script refuses unless -AllowFrozenOverwrite).
+#
+# Builds a zip pack from the mods currently deployed in Helldivers 2\data\ and writes a format-1 pack.json next to it.
 #
 # Workflow (once per pack version):
 #   1. Deploy your chosen mods with HD2 Arsenal so the numbered *.patch_* files sit in <game>\data\.
@@ -16,9 +19,14 @@ param(
     [string]$Url = "",                 # single URL, or comma-separated list matching the parts in order
     [double]$MaxPartGB = 0,            # 0 = one zip; e.g. 1.9 to split for GitHub Releases
     [string]$OutDir = (Join-Path $PSScriptRoot "..\dist\pack"),
-    [string]$ManifestPath = (Join-Path $PSScriptRoot "..\pack.json")
+    [string]$ManifestPath = (Join-Path $PSScriptRoot "..\dist\pack\pack.json"),
+    [switch]$AllowFrozenOverwrite
 )
 $ErrorActionPreference = 'Stop'
+$frozen = [System.IO.Path]::GetFullPath((Join-Path $PSScriptRoot "..\pack.json"))
+if (([System.IO.Path]::GetFullPath($ManifestPath) -ieq $frozen) -and -not $AllowFrozenOverwrite) {
+    throw "pack.json at the repo root is frozen for 1.2.0 clients. Write elsewhere (default: dist\pack\pack.json) or pass -AllowFrozenOverwrite."
+}
 Add-Type -AssemblyName System.IO.Compression, System.IO.Compression.FileSystem
 
 function Find-GameDir {
