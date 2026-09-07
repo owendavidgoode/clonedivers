@@ -70,7 +70,7 @@ and restarts. Still on 1.2? Download the new exe once from the button above; fro
 ## What's in the pack
 
 The pack is a stack of community mods from Nexus Mods, all client-side asset swaps, chosen and checked against the
-live Nexus pages on **2026-09-05** (game patch 7.0.2); **current pack: 2026.09.05-r3**. The per-mod audit with dates
+live Nexus pages on **2026-09-05** (game patch 7.0.2); **current pack: 2026.09.06-r4**. The per-mod audit with dates
 and evidence is in [docs/MODS.md](docs/MODS.md). Every one of these is somebody's work; the links are their pages.
 
 | Layer | Mod | What it changes |
@@ -93,6 +93,10 @@ and evidence is in [docs/MODS.md](docs/MODS.md). Every one of these is somebody'
 
 Play on the Automaton front for the full effect: the droid conversion only covers bots; Terminids and Illuminate stay
 vanilla because no mods exist for them yet. Mods are client-side only, so everyone installs the pack to be in the same movie.
+
+**Weak PC?** Flip **Lighter textures** to ON under the pack buttons. Same mods, same look: the textures stream in from
+disk on demand instead of all sitting in memory, which is what crashed a 16 GB machine at boot with the plain pack.
+The numbers and how it is built are in [docs/MODS.md](docs/MODS.md#performance-why-the-pack-hurt-16-gb-machines-and-the-lighter-textures-variant).
 
 <details>
 <summary><b>Gotchas</b> (game updates, SmartScreen, disk space, error messages)</summary>

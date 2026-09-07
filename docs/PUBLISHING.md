@@ -6,11 +6,13 @@ The whole round trip, once per pack version:
 
 1. `powershell -ExecutionPolicy Bypass -File tools\deploy-mods.ps1 -DryRun` and read the plan.
 2. `powershell -ExecutionPolicy Bypass -File tools\deploy-mods.ps1`
-3. `powershell -ExecutionPolicy Bypass -File tools\conflict-report.ps1` and check who overrides whom.
-4. Launch once and check a bot mission.
-5. `powershell -ExecutionPolicy Bypass -File tools\publish-pack.ps1 -Version <date>-rN -Notes "Built for Helldivers 2 patch <current game patch>" -Detach`
+3. `powershell -ExecutionPolicy Bypass -File tools\optimize-pack.ps1` rebuilds `dist\pack-optimized`, the Lighter textures
+   variant, from the new `data\` (see "Optimising textures" below).
+4. `powershell -ExecutionPolicy Bypass -File tools\conflict-report.ps1` and check who overrides whom.
+5. Launch once and check a bot mission, then flip **Lighter textures** on and check once more.
+6. `powershell -ExecutionPolicy Bypass -File tools\publish-pack.ps1 -Version <date>-rN -Notes "Built for Helldivers 2 patch <current game patch>" -Detach`
    and watch `dist\publish-pack.state.json` (or `dist\publish-pack.log`) until `phase` is `done`.
-6. Open Clonedivers on a second PC and confirm it shows **Update pack** with a small download.
+7. Open Clonedivers on a second PC and confirm it shows **Update pack** with a small download.
 
 ## How the pack is published (Clonedivers 1.3 and later)
 
@@ -80,6 +82,32 @@ Three consequences:
    downloading. If the originals are already gone, `tools\recover-sources.ps1` rebuilds one zip per mod from the deployed
    `data\` folder plus the deploy report; `deploy-mods.ps1` falls back to those automatically. Recovered zips carry only
    the options that were deployed, so changing an option later means re-downloading that one mod.
+
+### Optimising textures (the Lighter textures variant)
+
+```bash
+powershell -ExecutionPolicy Bypass -File tools\optimize-pack.ps1
+```
+
+Reads the deployed `data\`, runs Stingray Texture Optimizer over every bundle that has a `.gpu_resources` companion and
+writes the result to `dist\pack-optimized`, never in place: each texture's mip chain moves into `.stream` byte for byte,
+the 512-px-and-below tail stays resident, bundles without textures are copied through, and every output is verified
+against its original. The log lands next to the output folder as `dist\pack-optimized.optimize-log.txt`. Re-running
+resumes: outputs that already verify are kept. Why this helps, with the measurements, is in
+[MODS.md](MODS.md#performance-why-the-pack-hurt-16-gb-machines-and-the-lighter-textures-variant).
+
+- **The tool.** Download a release from the
+  [Stingray Texture Optimizer](https://github.com/Shiroiame-Kusu/StingrayTextureOptimizer/releases) page (GPL-3.0) into
+  `%LOCALAPPDATA%\Programs\stingray-tex\`, or pass `-Tool <path to stingray-tex.exe>`. A build from source needs the
+  .NET 10 SDK and, to run, `-DotnetRoot` pointing at it (default `%LOCALAPPDATA%\Microsoft\dotnet10` when that folder
+  exists). Without the native encoder library it uses the slower managed encoder, which does not matter here: streaming
+  is a byte slice, and only the handful of uncompressed RGBA textures are re-encoded.
+- **Options.** `-StreamFloor` (default 512; lower saves almost nothing more), `-MaxSize` (off; the only lossy setting,
+  and the tool reports the measured cost per texture before you commit), `-Dedup` (off; shrinks the download, not memory,
+  and the engine has never been observed relying on shared payloads).
+- Rebuild the variant after every `deploy-mods.ps1` run, before publishing, so the base and the variant describe the same
+  mods. The six bundles with pre-existing verifier notes listed under Variants above are expected; anything else is a
+  real failure and the script exits 2.
 
 ### Publishing
 

@@ -75,6 +75,46 @@ on purpose and need a decision:
 - HUD / reticle: only generic reticle packs exist.
 - In-mission loading screen art. Intro cinematics do exist: [Clone Wars intro](https://www.nexusmods.com/helldivers2/mods/1540) (Jan 2025, stale).
 
+## Performance: why the pack hurt 16 GB machines, and the Lighter textures variant
+
+Measured on pack 2026.09.05-r3 (604 files, 8.81 GB) on 2026-09-06, by parsing every bundle's index table:
+
+| Component | Size | What it is |
+|---|---|---|
+| `.gpu_resources` | 7.87 GB | texture surfaces and mesh buffers, all resident once loaded |
+| `.patch_N` | 0.64 GB | index tables and CPU-side data |
+| `.stream` | 0.30 GB | streamed payloads (audio, video) |
+
+By asset type: textures 4.49 GB (1,067 of them, 953 with full mip chains), unit meshes 3.44 GB, Wwise sound banks 0.49 GB.
+Every one of the 1,067 textures was flagged **not streamed** by the mod tooling, so the game keeps the whole 4.5 GB
+resident from the moment those assets load instead of paging levels through its 1.5 GB texture-streaming budget
+(`data\settings.ini`, `texture_streaming`). That is the RAM spike that crashed a 16 GB PC at boot. Formats were already
+BC1/BC3/BC5/BC7, so block compression had nothing to gain; 13 textures are 8192², 65 are 4096².
+
+**Lighter textures** (option `skinny`, off by default) is the same 604 files with every texture converted to a streamed
+texture, built by [`tools\optimize-pack.ps1`](../tools/optimize-pack.ps1) with
+[Stingray Texture Optimizer 0.1.4](https://github.com/Shiroiame-Kusu/StingrayTextureOptimizer) (`--stream 512`,
+`--strategy quality`, `--no-dedup`; no `--max-size`, no `--add-mips`). The mip chain moves into the bundle's `.stream`
+byte for byte and only the levels of 512 px and below stay resident; nothing is discarded or re-encoded.
+
+| | r3 base | Lighter textures |
+|---|---|---|
+| texture bytes resident at load | 4.42 GB | 0.19 GB |
+| `.gpu_resources` total (resident) | 7.87 GB | 3.63 GB |
+| `.stream` total (streamed on demand) | 0.30 GB | 4.72 GB |
+| files | 604 | 606 |
+
+The 3.6 GB that stays resident is mesh data (Clone Armory bodies, CIS droids), which only the mod authors can reduce
+(the Armory author's "LOD-only" test files are that work in progress). Verification: the tool compares every non-texture
+payload with the original; an independent check over all 74 converted bundles found 650 of 650 streamed chains
+byte-identical to the original texture data, resident tails equal to the end of each chain, and CPU headers unchanged
+except the documented DDS flag and linear-size fields. The one field the tool cannot derive (the streaming flag at prefix
+offset 4) is a documented best guess that matched the shipped game data 75% of the time and tested harmless when wrong.
+
+Rejected on the way: a `--max-size 4096` cap, which measured "visible softening" (32–36 dB) on a dozen 8K CIS tank,
+dropship and ARC-170 textures, while streaming already solves the memory problem without touching pixels. The six
+bundles with pre-existing verifier notes are listed in [PUBLISHING.md](PUBLISHING.md#preparing-the-mods).
+
 ## Sources
 
 - The Nexus pages linked above (Files, Posts and Bugs tabs), read 2026-09-05.
@@ -86,3 +126,4 @@ on purpose and need a decision:
 
 - r2 (2026-09-05): Clone Trooper Ranks off; RC stratagem beeps moved before (lower priority than) RiqCrow's ship audio so RiqCrow wins the 4 shared assets.
 - r3 (2026-09-05): Temuera Morrison clone VO added for DO + Mission Control.
+- r4 (2026-09-06): same mods; adds the Lighter textures variant (option `skinny`, streamed textures) for 16 GB PCs. See Performance above.
