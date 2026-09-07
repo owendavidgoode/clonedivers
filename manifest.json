@@ -7,9 +7,9 @@
                 "sha256":  "31b8538cc4fa2a4e7f93db9a816aa257177b0e86cc90bb4b91a32d038390104b"
             },
     "pack":  {
-                 "version":  "2026.09.06-r4",
+                 "version":  "2026.09.07-r5",
                  "name":  "Clonedivers pack",
-                 "notes":  "Clone Wars / Republic / 501st Legion / Phase 2. Built for Helldivers 2 patch 7.0.2. Adds the Lighter textures toggle: same mods, textures streamed from disk for 16 GB PCs.",
+                 "notes":  "Clone Wars / Republic / 501st Legion / Phase 2. Built for Helldivers 2 patch 7.0.2. Toggles: Lighter textures (16 GB PCs), Republic Commandos (Delta Squad on DP-11 / CM-10 / CE-35 / SC-30, Brawny body type).",
                  "gameBuild":  "24826606",
                  "gameDepots":  [
                                     "5937460960958490081",
@@ -21,6 +21,12 @@
                  "status":  "ok",
                  "statusNotes":  "",
                  "options":  [
+                                 {
+                                     "id":  "commandos",
+                                     "name":  "Republic Commandos",
+                                     "description":  "Delta Squad armor: Boss on DP-11, Fixer on CM-10, Scorch on CE-35, Sev on SC-30 (use the Brawny body type). Everyone else stays a 501st clone.",
+                                     "default":  true
+                                 },
                                  {
                                      "id":  "skinny",
                                      "name":  "Lighter textures",
@@ -5412,6 +5418,174 @@
                                    "size":  3595904,
                                    "sha256":  "a504a683910bf6daf4da1f520562f7f42157bf6319a90f82ea978664c48f1d80",
                                    "url":  "https://github.com/owendavidgoode/clonedivers/releases/download/pack-2026.09.05-r3-files/a504a683910bf6daf4da1f520562f7f42157bf6319a90f82ea978664c48f1d80"
+                               },
+                               {
+                                   "name":  "9ba626afa44a3aa3.patch_249",
+                                   "size":  114212,
+                                   "sha256":  "3ef1e7dcd47e5675be54a2afefe2aea877900a0c16b3c4538487e9364e4a7858",
+                                   "url":  "https://github.com/owendavidgoode/clonedivers/releases/download/pack-2026.09.07-r5-files/3ef1e7dcd47e5675be54a2afefe2aea877900a0c16b3c4538487e9364e4a7858",
+                                   "option":  "commandos"
+                               },
+                               {
+                                   "name":  "9ba626afa44a3aa3.patch_249.gpu_resources",
+                                   "size":  10119248,
+                                   "sha256":  "3fff0f9b06e07d304e0f1c3a56768a9a04732f50de0f243540b5fccfc1771e2e",
+                                   "url":  "https://github.com/owendavidgoode/clonedivers/releases/download/pack-2026.09.07-r5-files/3fff0f9b06e07d304e0f1c3a56768a9a04732f50de0f243540b5fccfc1771e2e",
+                                   "option":  "commandos"
+                               },
+                               {
+                                   "name":  "9ba626afa44a3aa3.patch_249.stream",
+                                   "size":  0,
+                                   "sha256":  "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+                                   "url":  "",
+                                   "option":  "commandos"
+                               },
+                               {
+                                   "name":  "9ba626afa44a3aa3.patch_250",
+                                   "size":  7420,
+                                   "sha256":  "ab97fd4e282e7e6b38250a884e37541c4a3b46929d8af514540e79570cdb08cd",
+                                   "url":  "https://github.com/owendavidgoode/clonedivers/releases/download/pack-2026.09.07-r5-files/ab97fd4e282e7e6b38250a884e37541c4a3b46929d8af514540e79570cdb08cd",
+                                   "option":  "commandos"
+                               },
+                               {
+                                   "name":  "9ba626afa44a3aa3.patch_250.gpu_resources",
+                                   "size":  34428592,
+                                   "sha256":  "099c4f1c3afc43ff1dee347e89047cb8a091d3576b573ec9fa99ab406c65cf63",
+                                   "url":  "https://github.com/owendavidgoode/clonedivers/releases/download/pack-2026.09.07-r5-files/099c4f1c3afc43ff1dee347e89047cb8a091d3576b573ec9fa99ab406c65cf63",
+                                   "option":  "commandos"
+                               },
+                               {
+                                   "name":  "9ba626afa44a3aa3.patch_250.stream",
+                                   "size":  0,
+                                   "sha256":  "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+                                   "url":  "",
+                                   "option":  "commandos"
+                               },
+                               {
+                                   "name":  "9ba626afa44a3aa3.patch_251",
+                                   "size":  137780,
+                                   "sha256":  "cac8995549b04de790d3c82ed2fe51faa57f0e3e475c1e4797d3d1e4f3b2ccc6",
+                                   "url":  "https://github.com/owendavidgoode/clonedivers/releases/download/pack-2026.09.07-r5-files/cac8995549b04de790d3c82ed2fe51faa57f0e3e475c1e4797d3d1e4f3b2ccc6",
+                                   "option":  "commandos"
+                               },
+                               {
+                                   "name":  "9ba626afa44a3aa3.patch_251.gpu_resources",
+                                   "size":  11283528,
+                                   "sha256":  "86bfd7879bf4168ee8e3ef6061dbec9f49b8b928a5f5f332aab80a443e0d9fd6",
+                                   "url":  "https://github.com/owendavidgoode/clonedivers/releases/download/pack-2026.09.07-r5-files/86bfd7879bf4168ee8e3ef6061dbec9f49b8b928a5f5f332aab80a443e0d9fd6",
+                                   "option":  "commandos"
+                               },
+                               {
+                                   "name":  "9ba626afa44a3aa3.patch_251.stream",
+                                   "size":  0,
+                                   "sha256":  "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+                                   "url":  "",
+                                   "option":  "commandos"
+                               },
+                               {
+                                   "name":  "9ba626afa44a3aa3.patch_252",
+                                   "size":  5664,
+                                   "sha256":  "433e95d7931b36fb0367b59bdb63035569d2bfd32eb5f18cf5f72f414a12119e",
+                                   "url":  "https://github.com/owendavidgoode/clonedivers/releases/download/pack-2026.09.07-r5-files/433e95d7931b36fb0367b59bdb63035569d2bfd32eb5f18cf5f72f414a12119e",
+                                   "option":  "commandos"
+                               },
+                               {
+                                   "name":  "9ba626afa44a3aa3.patch_252.gpu_resources",
+                                   "size":  50331984,
+                                   "sha256":  "52881e38881cce2024c8064df0f680bca15ca57b16a9be7fcbe77a3b5a5b79a0",
+                                   "url":  "https://github.com/owendavidgoode/clonedivers/releases/download/pack-2026.09.07-r5-files/52881e38881cce2024c8064df0f680bca15ca57b16a9be7fcbe77a3b5a5b79a0",
+                                   "option":  "commandos"
+                               },
+                               {
+                                   "name":  "9ba626afa44a3aa3.patch_252.stream",
+                                   "size":  0,
+                                   "sha256":  "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+                                   "url":  "",
+                                   "option":  "commandos"
+                               },
+                               {
+                                   "name":  "9ba626afa44a3aa3.patch_253",
+                                   "size":  211539,
+                                   "sha256":  "7115e16a17371d0ff5897734d202d721f0b71fafc706358c31b553ff88000b96",
+                                   "url":  "https://github.com/owendavidgoode/clonedivers/releases/download/pack-2026.09.07-r5-files/7115e16a17371d0ff5897734d202d721f0b71fafc706358c31b553ff88000b96",
+                                   "option":  "commandos"
+                               },
+                               {
+                                   "name":  "9ba626afa44a3aa3.patch_253.gpu_resources",
+                                   "size":  9986688,
+                                   "sha256":  "dd33dd5f58b50800499f95a3a92b1844ee94cdc2a7adf5a5f2e7c8dbcab7ffb9",
+                                   "url":  "https://github.com/owendavidgoode/clonedivers/releases/download/pack-2026.09.07-r5-files/dd33dd5f58b50800499f95a3a92b1844ee94cdc2a7adf5a5f2e7c8dbcab7ffb9",
+                                   "option":  "commandos"
+                               },
+                               {
+                                   "name":  "9ba626afa44a3aa3.patch_253.stream",
+                                   "size":  0,
+                                   "sha256":  "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+                                   "url":  "",
+                                   "option":  "commandos"
+                               },
+                               {
+                                   "name":  "9ba626afa44a3aa3.patch_254",
+                                   "size":  16967,
+                                   "sha256":  "3f363a8caab9366d7e67dd4762904c0e3867e618c3437eb4b2b328c9afdf03b4",
+                                   "url":  "https://github.com/owendavidgoode/clonedivers/releases/download/pack-2026.09.07-r5-files/3f363a8caab9366d7e67dd4762904c0e3867e618c3437eb4b2b328c9afdf03b4",
+                                   "option":  "commandos"
+                               },
+                               {
+                                   "name":  "9ba626afa44a3aa3.patch_254.gpu_resources",
+                                   "size":  33554672,
+                                   "sha256":  "562b8fde03e8450e7b7461cafd6dc1d0d7e6f88b50c46f35fdf01edf327e5e3b",
+                                   "url":  "https://github.com/owendavidgoode/clonedivers/releases/download/pack-2026.09.07-r5-files/562b8fde03e8450e7b7461cafd6dc1d0d7e6f88b50c46f35fdf01edf327e5e3b",
+                                   "option":  "commandos"
+                               },
+                               {
+                                   "name":  "9ba626afa44a3aa3.patch_254.stream",
+                                   "size":  0,
+                                   "sha256":  "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+                                   "url":  "",
+                                   "option":  "commandos"
+                               },
+                               {
+                                   "name":  "9ba626afa44a3aa3.patch_255",
+                                   "size":  351214,
+                                   "sha256":  "8a62410824cb782268e1a25fffa74898e3383d93a6ed018a432681ec48df78e2",
+                                   "url":  "https://github.com/owendavidgoode/clonedivers/releases/download/pack-2026.09.07-r5-files/8a62410824cb782268e1a25fffa74898e3383d93a6ed018a432681ec48df78e2",
+                                   "option":  "commandos"
+                               },
+                               {
+                                   "name":  "9ba626afa44a3aa3.patch_255.gpu_resources",
+                                   "size":  9888512,
+                                   "sha256":  "b856ad457f2496ab4d968afe662335be8880dc65bc04edc127ce29f65f3be4ca",
+                                   "url":  "https://github.com/owendavidgoode/clonedivers/releases/download/pack-2026.09.07-r5-files/b856ad457f2496ab4d968afe662335be8880dc65bc04edc127ce29f65f3be4ca",
+                                   "option":  "commandos"
+                               },
+                               {
+                                   "name":  "9ba626afa44a3aa3.patch_255.stream",
+                                   "size":  0,
+                                   "sha256":  "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+                                   "url":  "",
+                                   "option":  "commandos"
+                               },
+                               {
+                                   "name":  "9ba626afa44a3aa3.patch_256",
+                                   "size":  28862,
+                                   "sha256":  "affc95740dcd39c98f3a45807c8e9e7fa77b0a4e635a49eed3a5efab92e0fa07",
+                                   "url":  "https://github.com/owendavidgoode/clonedivers/releases/download/pack-2026.09.07-r5-files/affc95740dcd39c98f3a45807c8e9e7fa77b0a4e635a49eed3a5efab92e0fa07",
+                                   "option":  "commandos"
+                               },
+                               {
+                                   "name":  "9ba626afa44a3aa3.patch_256.gpu_resources",
+                                   "size":  33554672,
+                                   "sha256":  "323272c6448deff96611f17d1da9a9319bd672d45ba14610312fa566b579b87f",
+                                   "url":  "https://github.com/owendavidgoode/clonedivers/releases/download/pack-2026.09.07-r5-files/323272c6448deff96611f17d1da9a9319bd672d45ba14610312fa566b579b87f",
+                                   "option":  "commandos"
+                               },
+                               {
+                                   "name":  "9ba626afa44a3aa3.patch_256.stream",
+                                   "size":  0,
+                                   "sha256":  "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+                                   "url":  "",
+                                   "option":  "commandos"
                                },
                                {
                                    "name":  "9ba626afa44a3aa3.patch_101.stream",
