@@ -127,3 +127,4 @@ bundles with pre-existing verifier notes are listed in [PUBLISHING.md](PUBLISHIN
 - r2 (2026-09-05): Clone Trooper Ranks off; RC stratagem beeps moved before (lower priority than) RiqCrow's ship audio so RiqCrow wins the 4 shared assets.
 - r3 (2026-09-05): Temuera Morrison clone VO added for DO + Mission Control.
 - r4 (2026-09-06): same mods; adds the Lighter textures variant (option `skinny`, streamed textures) for 16 GB PCs. See Performance above.
+- r5 (2026-09-07): Republic Commando Delta Squad (Nexus 552, degabait; file 'Delta Squad AIO-552-1-1A') added last in load order as the `commandos` toggle, on by default. Wins 86 Clone Armory assets (the four armor sets' units and bones) and 3 Accessories assets; touches nothing of Galactic Map. Requires the Brawny body type; CE-35 shares parts with B-01 and DP-40.

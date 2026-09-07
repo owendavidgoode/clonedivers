@@ -1,0 +1,2686 @@
+[
+    {
+        "mod":  "Clone Armory - Main Mod",
+        "folder":  "Body Main",
+        "file":  "9ba626afa44a3aa3.patch_0",
+        "parts":  [
+                      ".gpu_resources",
+                      ".stream",
+                      ".patch"
+                  ],
+        "bytes":  1268919551
+    },
+    {
+        "mod":  "Clone Armory - Main Mod",
+        "folder":  "Material Reset",
+        "file":  "9ba626afa44a3aa3.patch_1",
+        "parts":  [
+                      ".gpu_resources",
+                      ".stream",
+                      ".patch"
+                  ],
+        "bytes":  83892195
+    },
+    {
+        "mod":  "Clone Armory - Main Mod",
+        "folder":  "Legion Textures/501st P2",
+        "file":  "9ba626afa44a3aa3.patch_2",
+        "parts":  [
+                      ".gpu_resources",
+                      ".stream",
+                      ".patch"
+                  ],
+        "bytes":  55929011
+    },
+    {
+        "mod":  "Clone Armory - Main Mod",
+        "folder":  "Extract Injured Clone Troopers",
+        "file":  "9ba626afa44a3aa3.patch_3",
+        "parts":  [
+                      ".gpu_resources",
+                      ".stream",
+                      ".patch"
+                  ],
+        "bytes":  243256998
+    },
+    {
+        "mod":  "Clone Armory - Main Mod",
+        "folder":  "Clone Armory Opening Videos",
+        "file":  "9ba626afa44a3aa3.patch_4",
+        "parts":  [
+                      ".stream",
+                      ".patch"
+                  ],
+        "bytes":  173940320
+    },
+    {
+        "mod":  "Clone Armory - Main Mod",
+        "folder":  "Clone Armory Title Screen",
+        "file":  "9ba626afa44a3aa3.patch_5",
+        "parts":  [
+                      ".gpu_resources",
+                      ".stream",
+                      ".patch"
+                  ],
+        "bytes":  31893452
+    },
+    {
+        "mod":  "Clone Armory - Main Mod",
+        "folder":  "Phase 2 Helmets",
+        "file":  "9ba626afa44a3aa3.patch_6",
+        "parts":  [
+                      ".gpu_resources",
+                      ".stream",
+                      ".patch"
+                  ],
+        "bytes":  480435644
+    },
+    {
+        "mod":  "Clone Armory - Main Mod",
+        "folder":  "Body Expansion",
+        "file":  "9ba626afa44a3aa3.patch_7",
+        "parts":  [
+                      ".gpu_resources",
+                      ".stream",
+                      ".patch"
+                  ],
+        "bytes":  480010280
+    },
+    {
+        "mod":  "Clone Armory - Backpacks",
+        "folder":  "Ballistic Shield Backpack",
+        "file":  "9ba626afa44a3aa3.patch_8",
+        "parts":  [
+                      ".gpu_resources",
+                      ".stream",
+                      ".patch"
+                  ],
+        "bytes":  13770184
+    },
+    {
+        "mod":  "Clone Armory - Backpacks",
+        "folder":  "Jump Pack Textures/501st",
+        "file":  "9ba626afa44a3aa3.patch_9",
+        "parts":  [
+                      ".gpu_resources",
+                      ".stream",
+                      ".patch"
+                  ],
+        "bytes":  5592956
+    },
+    {
+        "mod":  "Clone Armory - Backpacks",
+        "folder":  "Communications Pack Shield Pack",
+        "file":  "9ba626afa44a3aa3.patch_10",
+        "parts":  [
+                      ".gpu_resources",
+                      ".stream",
+                      ".patch"
+                  ],
+        "bytes":  18579734
+    },
+    {
+        "mod":  "Clone Armory - Backpacks",
+        "folder":  "Backpack File",
+        "file":  "9ba626afa44a3aa3.patch_11",
+        "parts":  [
+                      ".gpu_resources",
+                      ".stream",
+                      ".patch"
+                  ],
+        "bytes":  331761875
+    },
+    {
+        "mod":  "Clone Armory - Backpacks",
+        "folder":  "Gray Cloth",
+        "file":  "9ba626afa44a3aa3.patch_12",
+        "parts":  [
+                      ".gpu_resources",
+                      ".stream",
+                      ".patch"
+                  ],
+        "bytes":  5593836
+    },
+    {
+        "mod":  "Clone Armory - Backpacks",
+        "folder":  "Clone Trooper Jump Pack",
+        "file":  "9ba626afa44a3aa3.patch_13",
+        "parts":  [
+                      ".gpu_resources",
+                      ".stream",
+                      ".patch"
+                  ],
+        "bytes":  21192476
+    },
+    {
+        "mod":  "Clone Armory - Backpacks",
+        "folder":  "Clone Trooper Commander Hover Pack",
+        "file":  "9ba626afa44a3aa3.patch_14",
+        "parts":  [
+                      ".gpu_resources",
+                      ".stream",
+                      ".patch"
+                  ],
+        "bytes":  19626618
+    },
+    {
+        "mod":  "Clone Armory - Armor Accessories",
+        "folder":  "Accessories",
+        "file":  "9ba626afa44a3aa3.patch_15",
+        "parts":  [
+                      ".gpu_resources",
+                      ".stream",
+                      ".patch"
+                  ],
+        "bytes":  440573977
+    },
+    {
+        "mod":  "Clone Armory - Armor Accessories",
+        "folder":  "Legion Textures/501st",
+        "file":  "9ba626afa44a3aa3.patch_16",
+        "parts":  [
+                      ".gpu_resources",
+                      ".stream",
+                      ".patch"
+                  ],
+        "bytes":  5592956
+    },
+    {
+        "mod":  "Clone Armory - Armor Accessories",
+        "folder":  "Legion Bandolier Stripe Textures/501st",
+        "file":  "9ba626afa44a3aa3.patch_17",
+        "parts":  [
+                      ".gpu_resources",
+                      ".stream",
+                      ".patch"
+                  ],
+        "bytes":  5592956
+    },
+    {
+        "mod":  "Clone Armory - Decal Sheets",
+        "folder":  "Republic Idle TV Screen",
+        "file":  "9ba626afa44a3aa3.patch_18",
+        "parts":  [
+                      ".stream",
+                      ".patch"
+                  ],
+        "bytes":  549460
+    },
+    {
+        "mod":  "Clone Armory - Decal Sheets",
+        "folder":  "Republic Decal Sheet - Base",
+        "file":  "9ba626afa44a3aa3.patch_19",
+        "parts":  [
+                      ".gpu_resources",
+                      ".stream",
+                      ".patch"
+                  ],
+        "bytes":  40908252
+    },
+    {
+        "mod":  "Clone Blasters",
+        "folder":  "Primaries/Assault Rifles/Liberator/DC15A",
+        "file":  "9ba626afa44a3aa3.patch_20",
+        "parts":  [
+                      ".gpu_resources",
+                      ".stream",
+                      ".patch"
+                  ],
+        "bytes":  3847679
+    },
+    {
+        "mod":  "Clone Blasters",
+        "folder":  "Primaries/Assault Rifles/Liberator Penetrator/DC15A",
+        "file":  "9ba626afa44a3aa3.patch_21",
+        "parts":  [
+                      ".gpu_resources",
+                      ".stream",
+                      ".patch"
+                  ],
+        "bytes":  3847795
+    },
+    {
+        "mod":  "Clone Blasters",
+        "folder":  "Primaries/Assault Rifles/Liberator Concussive/DC15A",
+        "file":  "9ba626afa44a3aa3.patch_22",
+        "parts":  [
+                      ".gpu_resources",
+                      ".stream",
+                      ".patch"
+                  ],
+        "bytes":  3847875
+    },
+    {
+        "mod":  "Clone Blasters",
+        "folder":  "Primaries/Assault Rifles/Liberator Carbine/DC15A",
+        "file":  "9ba626afa44a3aa3.patch_23",
+        "parts":  [
+                      ".gpu_resources",
+                      ".stream",
+                      ".patch"
+                  ],
+        "bytes":  3845743
+    },
+    {
+        "mod":  "Clone Blasters",
+        "folder":  "Primaries/Assault Rifles/Tenderizer/DC15S",
+        "file":  "9ba626afa44a3aa3.patch_24",
+        "parts":  [
+                      ".gpu_resources",
+                      ".stream",
+                      ".patch"
+                  ],
+        "bytes":  2930118
+    },
+    {
+        "mod":  "Clone Blasters",
+        "folder":  "Primaries/Assault Rifles/Adjudicator",
+        "file":  "9ba626afa44a3aa3.patch_25",
+        "parts":  [
+                      ".gpu_resources",
+                      ".stream",
+                      ".patch"
+                  ],
+        "bytes":  3841097
+    },
+    {
+        "mod":  "Clone Blasters",
+        "folder":  "Primaries/Assault Rifles/Pacifier",
+        "file":  "9ba626afa44a3aa3.patch_26",
+        "parts":  [
+                      ".gpu_resources",
+                      ".stream",
+                      ".patch"
+                  ],
+        "bytes":  3834345
+    },
+    {
+        "mod":  "Clone Blasters",
+        "folder":  "Primaries/Assault Rifles/STA-52",
+        "file":  "9ba626afa44a3aa3.patch_27",
+        "parts":  [
+                      ".gpu_resources",
+                      ".stream",
+                      ".patch"
+                  ],
+        "bytes":  3916410
+    },
+    {
+        "mod":  "Clone Blasters",
+        "folder":  "Primaries/Assault Rifles/MA5C",
+        "file":  "9ba626afa44a3aa3.patch_28",
+        "parts":  [
+                      ".gpu_resources",
+                      ".stream",
+                      ".patch"
+                  ],
+        "bytes":  3868138
+    },
+    {
+        "mod":  "Clone Blasters",
+        "folder":  "Primaries/Assault Rifles/Coyote",
+        "file":  "9ba626afa44a3aa3.patch_29",
+        "parts":  [
+                      ".gpu_resources",
+                      ".stream",
+                      ".patch"
+                  ],
+        "bytes":  3838321
+    },
+    {
+        "mod":  "Clone Blasters",
+        "folder":  "Primaries/Assault Rifles/Supressor/DC15S Unfolded",
+        "file":  "9ba626afa44a3aa3.patch_30",
+        "parts":  [
+                      ".gpu_resources",
+                      ".stream",
+                      ".patch"
+                  ],
+        "bytes":  2929611
+    },
+    {
+        "mod":  "Clone Blasters",
+        "folder":  "Primaries/Marksman Rifles/Amendment",
+        "file":  "9ba626afa44a3aa3.patch_31",
+        "parts":  [
+                      ".gpu_resources",
+                      ".stream",
+                      ".patch"
+                  ],
+        "bytes":  8188676
+    },
+    {
+        "mod":  "Clone Blasters",
+        "folder":  "Primaries/Marksman Rifles/Constitution",
+        "file":  "9ba626afa44a3aa3.patch_32",
+        "parts":  [
+                      ".gpu_resources",
+                      ".stream",
+                      ".patch"
+                  ],
+        "bytes":  4869516
+    },
+    {
+        "mod":  "Clone Blasters",
+        "folder":  "Primaries/Marksman Rifles/Deadeye",
+        "file":  "9ba626afa44a3aa3.patch_33",
+        "parts":  [
+                      ".gpu_resources",
+                      ".stream",
+                      ".patch"
+                  ],
+        "bytes":  4876345
+    },
+    {
+        "mod":  "Clone Blasters",
+        "folder":  "Primaries/Marksman Rifles/Diligence",
+        "file":  "9ba626afa44a3aa3.patch_34",
+        "parts":  [
+                      ".gpu_resources",
+                      ".stream",
+                      ".patch"
+                  ],
+        "bytes":  3846130
+    },
+    {
+        "mod":  "Clone Blasters",
+        "folder":  "Primaries/Marksman Rifles/Diligence CS",
+        "file":  "9ba626afa44a3aa3.patch_35",
+        "parts":  [
+                      ".gpu_resources",
+                      ".stream",
+                      ".patch"
+                  ],
+        "bytes":  8184774
+    },
+    {
+        "mod":  "Clone Blasters",
+        "folder":  "Primaries/Marksman Rifles/Censor",
+        "file":  "9ba626afa44a3aa3.patch_36",
+        "parts":  [
+                      ".gpu_resources",
+                      ".stream",
+                      ".patch"
+                  ],
+        "bytes":  8238235
+    },
+    {
+        "mod":  "Clone Blasters",
+        "folder":  "Primaries/SMGs/Knight/DC15S",
+        "file":  "9ba626afa44a3aa3.patch_37",
+        "parts":  [
+                      ".gpu_resources",
+                      ".stream",
+                      ".patch"
+                  ],
+        "bytes":  2952178
+    },
+    {
+        "mod":  "Clone Blasters",
+        "folder":  "Primaries/SMGs/Sta-11/DC15S",
+        "file":  "9ba626afa44a3aa3.patch_38",
+        "parts":  [
+                      ".gpu_resources",
+                      ".stream",
+                      ".patch"
+                  ],
+        "bytes":  2962287
+    },
+    {
+        "mod":  "Clone Blasters",
+        "folder":  "Primaries/SMGs/M7S/DC15S",
+        "file":  "9ba626afa44a3aa3.patch_39",
+        "parts":  [
+                      ".gpu_resources",
+                      ".stream",
+                      ".patch"
+                  ],
+        "bytes":  2954663
+    },
+    {
+        "mod":  "Clone Blasters",
+        "folder":  "Primaries/SMGs/Reprimand/DC15S",
+        "file":  "9ba626afa44a3aa3.patch_40",
+        "parts":  [
+                      ".gpu_resources",
+                      ".stream",
+                      ".patch"
+                  ],
+        "bytes":  2986015
+    },
+    {
+        "mod":  "Clone Blasters",
+        "folder":  "Primaries/SMGs/Defender/DC15S",
+        "file":  "9ba626afa44a3aa3.patch_41",
+        "parts":  [
+                      ".gpu_resources",
+                      ".stream",
+                      ".patch"
+                  ],
+        "bytes":  3007050
+    },
+    {
+        "mod":  "Clone Blasters",
+        "folder":  "Primaries/SMGs/Pummeler/DC15S",
+        "file":  "9ba626afa44a3aa3.patch_42",
+        "parts":  [
+                      ".gpu_resources",
+                      ".stream",
+                      ".patch"
+                  ],
+        "bytes":  3007050
+    },
+    {
+        "mod":  "Clone Blasters",
+        "folder":  "Primaries/Shotguns/Punisher",
+        "file":  "9ba626afa44a3aa3.patch_43",
+        "parts":  [
+                      ".gpu_resources",
+                      ".stream",
+                      ".patch"
+                  ],
+        "bytes":  4663658
+    },
+    {
+        "mod":  "Clone Blasters",
+        "folder":  "Primaries/Shotguns/Slugger",
+        "file":  "9ba626afa44a3aa3.patch_44",
+        "parts":  [
+                      ".gpu_resources",
+                      ".stream",
+                      ".patch"
+                  ],
+        "bytes":  4665898
+    },
+    {
+        "mod":  "Clone Blasters",
+        "folder":  "Primaries/Shotguns/Cookout",
+        "file":  "9ba626afa44a3aa3.patch_45",
+        "parts":  [
+                      ".gpu_resources",
+                      ".stream",
+                      ".patch"
+                  ],
+        "bytes":  4671850
+    },
+    {
+        "mod":  "Clone Blasters",
+        "folder":  "Primaries/Shotguns/Halt",
+        "file":  "9ba626afa44a3aa3.patch_46",
+        "parts":  [
+                      ".gpu_resources",
+                      ".stream",
+                      ".patch"
+                  ],
+        "bytes":  3852230
+    },
+    {
+        "mod":  "Clone Blasters",
+        "folder":  "Primaries/Shotguns/DBS2",
+        "file":  "9ba626afa44a3aa3.patch_47",
+        "parts":  [
+                      ".gpu_resources",
+                      ".stream",
+                      ".patch"
+                  ],
+        "bytes":  3804932
+    },
+    {
+        "mod":  "Clone Blasters",
+        "folder":  "Primaries/Shotguns/M90A",
+        "file":  "9ba626afa44a3aa3.patch_48",
+        "parts":  [
+                      ".gpu_resources",
+                      ".stream",
+                      ".patch"
+                  ],
+        "bytes":  3797880
+    },
+    {
+        "mod":  "Clone Blasters",
+        "folder":  "Primaries/Shotguns/Breaker",
+        "file":  "9ba626afa44a3aa3.patch_49",
+        "parts":  [
+                      ".gpu_resources",
+                      ".stream",
+                      ".patch"
+                  ],
+        "bytes":  3804375
+    },
+    {
+        "mod":  "Clone Blasters",
+        "folder":  "Primaries/Shotguns/Spray Pray",
+        "file":  "9ba626afa44a3aa3.patch_50",
+        "parts":  [
+                      ".gpu_resources",
+                      ".stream",
+                      ".patch"
+                  ],
+        "bytes":  3805883
+    },
+    {
+        "mod":  "Clone Blasters",
+        "folder":  "Primaries/Shotguns/Incendiary",
+        "file":  "9ba626afa44a3aa3.patch_51",
+        "parts":  [
+                      ".gpu_resources",
+                      ".stream",
+                      ".patch"
+                  ],
+        "bytes":  3804187
+    },
+    {
+        "mod":  "Clone Blasters",
+        "folder":  "Primaries/Explosive/Crossbow",
+        "file":  "9ba626afa44a3aa3.patch_52",
+        "parts":  [
+                      ".gpu_resources",
+                      ".stream",
+                      ".patch"
+                  ],
+        "bytes":  7003096
+    },
+    {
+        "mod":  "Clone Blasters",
+        "folder":  "Primaries/Explosive/Eruptor/Valken38X",
+        "file":  "9ba626afa44a3aa3.patch_53",
+        "parts":  [
+                      ".gpu_resources",
+                      ".stream",
+                      ".patch"
+                  ],
+        "bytes":  8247257
+    },
+    {
+        "mod":  "Clone Blasters",
+        "folder":  "Primaries/Energy/Punisher Plasma",
+        "file":  "9ba626afa44a3aa3.patch_54",
+        "parts":  [
+                      ".gpu_resources",
+                      ".stream",
+                      ".patch"
+                  ],
+        "bytes":  6924477
+    },
+    {
+        "mod":  "Clone Blasters",
+        "folder":  "Primaries/Energy/Plasma Sniper",
+        "file":  "9ba626afa44a3aa3.patch_55",
+        "parts":  [
+                      ".gpu_resources",
+                      ".stream",
+                      ".patch"
+                  ],
+        "bytes":  8200480
+    },
+    {
+        "mod":  "Clone Blasters",
+        "folder":  "Primaries/Energy/Blitzer",
+        "file":  "9ba626afa44a3aa3.patch_56",
+        "parts":  [
+                      ".gpu_resources",
+                      ".stream",
+                      ".patch"
+                  ],
+        "bytes":  2916700
+    },
+    {
+        "mod":  "Clone Blasters",
+        "folder":  "Primaries/Energy/Scythe",
+        "file":  "9ba626afa44a3aa3.patch_57",
+        "parts":  [
+                      ".gpu_resources",
+                      ".stream",
+                      ".patch"
+                  ],
+        "bytes":  2944007
+    },
+    {
+        "mod":  "Clone Blasters",
+        "folder":  "Primaries/Energy/Sickle",
+        "file":  "9ba626afa44a3aa3.patch_58",
+        "parts":  [
+                      ".gpu_resources",
+                      ".stream",
+                      ".patch"
+                  ],
+        "bytes":  3842480
+    },
+    {
+        "mod":  "Clone Blasters",
+        "folder":  "Primaries/Energy/DE Sickle",
+        "file":  "9ba626afa44a3aa3.patch_59",
+        "parts":  [
+                      ".gpu_resources",
+                      ".stream",
+                      ".patch"
+                  ],
+        "bytes":  4277268
+    },
+    {
+        "mod":  "Clone Blasters",
+        "folder":  "Primaries/Energy/Scorcher/DC15S Unfolded",
+        "file":  "9ba626afa44a3aa3.patch_60",
+        "parts":  [
+                      ".gpu_resources",
+                      ".stream",
+                      ".patch"
+                  ],
+        "bytes":  2933703
+    },
+    {
+        "mod":  "Clone Blasters",
+        "folder":  "Primaries/Energy/Purifier",
+        "file":  "9ba626afa44a3aa3.patch_61",
+        "parts":  [
+                      ".gpu_resources",
+                      ".stream",
+                      ".patch"
+                  ],
+        "bytes":  6153931
+    },
+    {
+        "mod":  "Clone Blasters",
+        "folder":  "Primaries/Special/Variable",
+        "file":  "9ba626afa44a3aa3.patch_62",
+        "parts":  [
+                      ".gpu_resources",
+                      ".stream",
+                      ".patch"
+                  ],
+        "bytes":  3891722
+    },
+    {
+        "mod":  "Clone Blasters",
+        "folder":  "Primaries/Special/Dominator",
+        "file":  "9ba626afa44a3aa3.patch_63",
+        "parts":  [
+                      ".gpu_resources",
+                      ".stream",
+                      ".patch"
+                  ],
+        "bytes":  3869106
+    },
+    {
+        "mod":  "Clone Blasters",
+        "folder":  "Secondaries/Warrant",
+        "file":  "9ba626afa44a3aa3.patch_64",
+        "parts":  [
+                      ".gpu_resources",
+                      ".stream",
+                      ".patch"
+                  ],
+        "bytes":  2274642
+    },
+    {
+        "mod":  "Clone Blasters",
+        "folder":  "Secondaries/Peacemaker",
+        "file":  "9ba626afa44a3aa3.patch_65",
+        "parts":  [
+                      ".gpu_resources",
+                      ".stream",
+                      ".patch"
+                  ],
+        "bytes":  2069858
+    },
+    {
+        "mod":  "Clone Blasters",
+        "folder":  "Secondaries/Redeemer/DC17",
+        "file":  "9ba626afa44a3aa3.patch_66",
+        "parts":  [
+                      ".gpu_resources",
+                      ".stream",
+                      ".patch"
+                  ],
+        "bytes":  2811483
+    },
+    {
+        "mod":  "Clone Blasters",
+        "folder":  "Secondaries/Verdict",
+        "file":  "9ba626afa44a3aa3.patch_67",
+        "parts":  [
+                      ".gpu_resources",
+                      ".stream",
+                      ".patch"
+                  ],
+        "bytes":  2277545
+    },
+    {
+        "mod":  "Clone Blasters",
+        "folder":  "Secondaries/M6C SOCOM",
+        "file":  "9ba626afa44a3aa3.patch_68",
+        "parts":  [
+                      ".gpu_resources",
+                      ".stream",
+                      ".patch"
+                  ],
+        "bytes":  2283720
+    },
+    {
+        "mod":  "Clone Blasters",
+        "folder":  "Secondaries/Senator",
+        "file":  "9ba626afa44a3aa3.patch_69",
+        "parts":  [
+                      ".gpu_resources",
+                      ".stream",
+                      ".patch"
+                  ],
+        "bytes":  2813587
+    },
+    {
+        "mod":  "Clone Blasters",
+        "folder":  "Secondaries/Bushwhacker",
+        "file":  "9ba626afa44a3aa3.patch_70",
+        "parts":  [
+                      ".gpu_resources",
+                      ".stream",
+                      ".patch"
+                  ],
+        "bytes":  4293508
+    },
+    {
+        "mod":  "Clone Blasters",
+        "folder":  "Secondaries/Talon",
+        "file":  "9ba626afa44a3aa3.patch_71",
+        "parts":  [
+                      ".gpu_resources",
+                      ".stream",
+                      ".patch"
+                  ],
+        "bytes":  2246650
+    },
+    {
+        "mod":  "Clone Blasters",
+        "folder":  "Secondaries/Dagger",
+        "file":  "9ba626afa44a3aa3.patch_72",
+        "parts":  [
+                      ".gpu_resources",
+                      ".stream",
+                      ".patch"
+                  ],
+        "bytes":  2253729
+    },
+    {
+        "mod":  "Clone Blasters",
+        "folder":  "Secondaries/Crisper",
+        "file":  "9ba626afa44a3aa3.patch_73",
+        "parts":  [
+                      ".gpu_resources",
+                      ".stream",
+                      ".patch"
+                  ],
+        "bytes":  246582
+    },
+    {
+        "mod":  "Clone Blasters",
+        "folder":  "Secondaries/Loyalist",
+        "file":  "9ba626afa44a3aa3.patch_74",
+        "parts":  [
+                      ".gpu_resources",
+                      ".stream",
+                      ".patch"
+                  ],
+        "bytes":  2260234
+    },
+    {
+        "mod":  "Clone Blasters",
+        "folder":  "Secondaries/Re-Educator",
+        "file":  "9ba626afa44a3aa3.patch_75",
+        "parts":  [
+                      ".gpu_resources",
+                      ".stream",
+                      ".patch"
+                  ],
+        "bytes":  3106083
+    },
+    {
+        "mod":  "Clone Blasters",
+        "folder":  "Support Weapons/MG43/DC15A",
+        "file":  "9ba626afa44a3aa3.patch_76",
+        "parts":  [
+                      ".gpu_resources",
+                      ".stream",
+                      ".patch"
+                  ],
+        "bytes":  4026718
+    },
+    {
+        "mod":  "Clone Blasters",
+        "folder":  "Support Weapons/HMG",
+        "file":  "9ba626afa44a3aa3.patch_77",
+        "parts":  [
+                      ".gpu_resources",
+                      ".stream",
+                      ".patch"
+                  ],
+        "bytes":  3227826
+    },
+    {
+        "mod":  "Clone Blasters",
+        "folder":  "Support Weapons/Stalwart/DC15A",
+        "file":  "9ba626afa44a3aa3.patch_78",
+        "parts":  [
+                      ".gpu_resources",
+                      ".stream",
+                      ".patch"
+                  ],
+        "bytes":  4100216
+    },
+    {
+        "mod":  "Clone Blasters",
+        "folder":  "Support Weapons/Maxigun",
+        "file":  "9ba626afa44a3aa3.patch_79",
+        "parts":  [
+                      ".gpu_resources",
+                      ".stream",
+                      ".patch"
+                  ],
+        "bytes":  1633727
+    },
+    {
+        "mod":  "Clone Blasters",
+        "folder":  "Support Weapons/Railgun",
+        "file":  "9ba626afa44a3aa3.patch_80",
+        "parts":  [
+                      ".gpu_resources",
+                      ".stream",
+                      ".patch"
+                  ],
+        "bytes":  3879632
+    },
+    {
+        "mod":  "Clone Blasters",
+        "folder":  "Support Weapons/AMR",
+        "file":  "9ba626afa44a3aa3.patch_81",
+        "parts":  [
+                      ".gpu_resources",
+                      ".stream",
+                      ".patch"
+                  ],
+        "bytes":  8188690
+    },
+    {
+        "mod":  "Clone Blasters",
+        "folder":  "Textures",
+        "file":  "9ba626afa44a3aa3.patch_82",
+        "parts":  [
+                      ".gpu_resources",
+                      ".stream",
+                      ".patch"
+                  ],
+        "bytes":  109189797
+    },
+    {
+        "mod":  "Clone Blasters",
+        "folder":  "Invisible Mags",
+        "file":  "9ba626afa44a3aa3.patch_83",
+        "parts":  [
+                      ".gpu_resources",
+                      ".stream",
+                      ".patch"
+                  ],
+        "bytes":  407136
+    },
+    {
+        "mod":  "Blue Overhaul",
+        "folder":  "VFX Corrections",
+        "file":  "9ba626afa44a3aa3.patch_84",
+        "parts":  [
+                      ".gpu_resources",
+                      ".stream",
+                      ".patch"
+                  ],
+        "bytes":  3943616
+    },
+    {
+        "mod":  "Blue Overhaul",
+        "folder":  "R40K Hot-Shot",
+        "file":  "9ba626afa44a3aa3.patch_85",
+        "parts":  [
+                      ".gpu_resources",
+                      ".stream",
+                      ".patch"
+                  ],
+        "bytes":  36768
+    },
+    {
+        "mod":  "Blue Overhaul",
+        "folder":  "Bolts for Kinetics",
+        "file":  "9ba626afa44a3aa3.patch_86",
+        "parts":  [
+                      ".gpu_resources",
+                      ".stream",
+                      ".patch"
+                  ],
+        "bytes":  125788640
+    },
+    {
+        "mod":  "Blue Overhaul",
+        "folder":  "Bolts for Suppressed Kinetics",
+        "file":  "9ba626afa44a3aa3.patch_87",
+        "parts":  [
+                      ".gpu_resources",
+                      ".stream",
+                      ".patch"
+                  ],
+        "bytes":  31348
+    },
+    {
+        "mod":  "Blue Overhaul",
+        "folder":  "Grenade Launcher VFX",
+        "file":  "9ba626afa44a3aa3.patch_88",
+        "parts":  [
+                      ".gpu_resources",
+                      ".stream",
+                      ".patch"
+                  ],
+        "bytes":  149224
+    },
+    {
+        "mod":  "Blue Overhaul",
+        "folder":  "Laser weapons",
+        "file":  "9ba626afa44a3aa3.patch_89",
+        "parts":  [
+                      ".gpu_resources",
+                      ".stream",
+                      ".patch"
+                  ],
+        "bytes":  330736
+    },
+    {
+        "mod":  "Blue Overhaul",
+        "folder":  "PLAS Weapons",
+        "file":  "9ba626afa44a3aa3.patch_90",
+        "parts":  [
+                      ".gpu_resources",
+                      ".stream",
+                      ".patch"
+                  ],
+        "bytes":  3649340
+    },
+    {
+        "mod":  "Blue Overhaul",
+        "folder":  "ARC Lightning",
+        "file":  "9ba626afa44a3aa3.patch_91",
+        "parts":  [
+                      ".gpu_resources",
+                      ".stream",
+                      ".patch"
+                  ],
+        "bytes":  11325472
+    },
+    {
+        "mod":  "Blue Overhaul",
+        "folder":  "Bastion Tank Muzzle Flash",
+        "file":  "9ba626afa44a3aa3.patch_92",
+        "parts":  [
+                      ".gpu_resources",
+                      ".stream",
+                      ".patch"
+                  ],
+        "bytes":  24580
+    },
+    {
+        "mod":  "Blue Overhaul",
+        "folder":  "Thermite Grenade VFX",
+        "file":  "9ba626afa44a3aa3.patch_93",
+        "parts":  [
+                      ".gpu_resources",
+                      ".stream",
+                      ".patch"
+                  ],
+        "bytes":  124628
+    },
+    {
+        "mod":  "Blue Overhaul",
+        "folder":  "Gatling and Eagle strafe",
+        "file":  "9ba626afa44a3aa3.patch_94",
+        "parts":  [
+                      ".patch"
+                  ],
+        "bytes":  89860
+    },
+    {
+        "mod":  "Blue Overhaul",
+        "folder":  "DSS Eagle Strafe Bolts",
+        "file":  "9ba626afa44a3aa3.patch_95",
+        "parts":  [
+                      ".gpu_resources",
+                      ".stream",
+                      ".patch"
+                  ],
+        "bytes":  8684
+    },
+    {
+        "mod":  "Blue Overhaul",
+        "folder":  "Laser Support weapons",
+        "file":  "9ba626afa44a3aa3.patch_96",
+        "parts":  [
+                      ".gpu_resources",
+                      ".stream",
+                      ".patch"
+                  ],
+        "bytes":  26299012
+    },
+    {
+        "mod":  "Blue Overhaul",
+        "folder":  "Orbital Laser",
+        "file":  "9ba626afa44a3aa3.patch_97",
+        "parts":  [
+                      ".gpu_resources",
+                      ".stream",
+                      ".patch"
+                  ],
+        "bytes":  3165792
+    },
+    {
+        "mod":  "Blue Overhaul",
+        "folder":  "Space Battle VFX",
+        "file":  "9ba626afa44a3aa3.patch_98",
+        "parts":  [
+                      ".gpu_resources",
+                      ".stream",
+                      ".patch"
+                  ],
+        "bytes":  408308
+    },
+    {
+        "mod":  "Blue Overhaul",
+        "folder":  "Lobby skybox VFX",
+        "file":  "9ba626afa44a3aa3.patch_99",
+        "parts":  [
+                      ".gpu_resources",
+                      ".stream",
+                      ".patch"
+                  ],
+        "bytes":  51808
+    },
+    {
+        "mod":  "Blue Overhaul",
+        "folder":  "Mission skybox VFX",
+        "file":  "9ba626afa44a3aa3.patch_100",
+        "parts":  [
+                      ".gpu_resources",
+                      ".stream",
+                      ".patch"
+                  ],
+        "bytes":  16107068
+    },
+    {
+        "mod":  "Blue Overhaul",
+        "folder":  "Warp Pack",
+        "file":  "9ba626afa44a3aa3.patch_101",
+        "parts":  [
+                      ".gpu_resources",
+                      ".patch"
+                  ],
+        "bytes":  9649044
+    },
+    {
+        "mod":  "Blue Overhaul",
+        "folder":  "Shield Backpacks/Bubble",
+        "file":  "9ba626afa44a3aa3.patch_102",
+        "parts":  [
+                      ".gpu_resources",
+                      ".stream",
+                      ".patch"
+                  ],
+        "bytes":  12566340
+    },
+    {
+        "mod":  "Blue Overhaul",
+        "folder":  "Directional Shield",
+        "file":  "9ba626afa44a3aa3.patch_103",
+        "parts":  [
+                      ".gpu_resources",
+                      ".stream",
+                      ".patch"
+                  ],
+        "bytes":  5041188
+    },
+    {
+        "mod":  "Blue Overhaul",
+        "folder":  "OBS Turbolaser",
+        "file":  "9ba626afa44a3aa3.patch_104",
+        "parts":  [
+                      ".gpu_resources",
+                      ".stream",
+                      ".patch"
+                  ],
+        "bytes":  113488424
+    },
+    {
+        "mod":  "Custom Projectiles (blue bolts)",
+        "folder":  "Custom Projectile Colors/Blue",
+        "file":  "9ba626afa44a3aa3.patch_105",
+        "parts":  [
+                      ".gpu_resources",
+                      ".stream",
+                      ".patch"
+                  ],
+        "bytes":  111800
+    },
+    {
+        "mod":  "Custom Projectiles (blue bolts)",
+        "folder":  "Custom Projectile for Bot Bolts",
+        "file":  "9ba626afa44a3aa3.patch_106",
+        "parts":  [
+                      ".gpu_resources",
+                      ".stream",
+                      ".patch"
+                  ],
+        "bytes":  54600
+    },
+    {
+        "mod":  "No Bullet Casings",
+        "folder":  "",
+        "file":  "9ba626afa44a3aa3.patch_107",
+        "parts":  [
+                      ".gpu_resources",
+                      ".stream",
+                      ".patch"
+                  ],
+        "bytes":  56552
+    },
+    {
+        "mod":  "PEW-PEW Republic",
+        "folder":  "PLAS Purifier, Scorcher and Loyalist/DC-17M (Scorcher), DLT-19X Sniper (Purifier) and DC-15s Pistol (Loyalist)",
+        "file":  "9ba626afa44a3aa3.patch_108",
+        "parts":  [
+                      ".stream",
+                      ".patch"
+                  ],
+        "bytes":  10689136
+    },
+    {
+        "mod":  "PEW-PEW Republic",
+        "folder":  "SG Punisher, Slugger and Punisher Plasma/CR-2",
+        "file":  "9ba626afa44a3aa3.patch_109",
+        "parts":  [
+                      ".patch"
+                  ],
+        "bytes":  3368720
+    },
+    {
+        "mod":  "PEW-PEW Republic",
+        "folder":  "Liberators, Diligences, Defender, Pummeler and Hyena/DC-15A",
+        "file":  "9ba626afa44a3aa3.patch_110",
+        "parts":  [
+                      ".patch"
+                  ],
+        "bytes":  7562416
+    },
+    {
+        "mod":  "PEW-PEW Republic",
+        "folder":  "Peacemaker, Redeemer and Veto/DC-17 Pistol",
+        "file":  "9ba626afa44a3aa3.patch_111",
+        "parts":  [
+                      ".patch"
+                  ],
+        "bytes":  3904112
+    },
+    {
+        "mod":  "PEW-PEW Republic",
+        "folder":  "AR-2 Coyote/DC-17M Rifle",
+        "file":  "9ba626afa44a3aa3.patch_112",
+        "parts":  [
+                      ".patch"
+                  ],
+        "bytes":  1260656
+    },
+    {
+        "mod":  "PEW-PEW Republic",
+        "folder":  "AR-23A Liberator Carbine/DC-15A",
+        "file":  "9ba626afa44a3aa3.patch_113",
+        "parts":  [
+                      ".patch"
+                  ],
+        "bytes":  1850160
+    },
+    {
+        "mod":  "PEW-PEW Republic",
+        "folder":  "AR-59 Suppressor/A180 Stealth Blaster",
+        "file":  "9ba626afa44a3aa3.patch_114",
+        "parts":  [
+                      ".patch"
+                  ],
+        "bytes":  1606320
+    },
+    {
+        "mod":  "PEW-PEW Republic",
+        "folder":  "AR-61 Tenderizer/DC-15s Carbine",
+        "file":  "9ba626afa44a3aa3.patch_115",
+        "parts":  [
+                      ".patch"
+                  ],
+        "bytes":  1735456
+    },
+    {
+        "mod":  "PEW-PEW Republic",
+        "folder":  "AR-GL One-Two/DC-15A",
+        "file":  "9ba626afa44a3aa3.patch_116",
+        "parts":  [
+                      ".patch"
+                  ],
+        "bytes":  3924736
+    },
+    {
+        "mod":  "PEW-PEW Republic",
+        "folder":  "BR-14 Adjudicator/DC-15A",
+        "file":  "9ba626afa44a3aa3.patch_117",
+        "parts":  [
+                      ".patch"
+                  ],
+        "bytes":  1521008
+    },
+    {
+        "mod":  "PEW-PEW Republic",
+        "folder":  "CB-9 Exploding Crossbow/Chewbacca\u0027s Bowcaster",
+        "file":  "9ba626afa44a3aa3.patch_118",
+        "parts":  [
+                      ".patch"
+                  ],
+        "bytes":  2628256
+    },
+    {
+        "mod":  "PEW-PEW Republic",
+        "folder":  "Double Freedom/CJ-9 BO Rifle",
+        "file":  "9ba626afa44a3aa3.patch_119",
+        "parts":  [
+                      ".patch"
+                  ],
+        "bytes":  1870880
+    },
+    {
+        "mod":  "PEW-PEW Republic",
+        "folder":  "LAS-16 Sickle/DC-15A Rifle",
+        "file":  "9ba626afa44a3aa3.patch_120",
+        "parts":  [
+                      ".patch"
+                  ],
+        "bytes":  1517504
+    },
+    {
+        "mod":  "PEW-PEW Republic",
+        "folder":  "LAS-17 Double-Edge Sickle/DC-15A Rifle",
+        "file":  "9ba626afa44a3aa3.patch_121",
+        "parts":  [
+                      ".patch"
+                  ],
+        "bytes":  3652624
+    },
+    {
+        "mod":  "PEW-PEW Republic",
+        "folder":  "M7S SMG/A180 Stealth Blaster",
+        "file":  "9ba626afa44a3aa3.patch_122",
+        "parts":  [
+                      ".patch"
+                  ],
+        "bytes":  1210224
+    },
+    {
+        "mod":  "PEW-PEW Republic",
+        "folder":  "M90A Shotgun/A280-CFE",
+        "file":  "9ba626afa44a3aa3.patch_123",
+        "parts":  [
+                      ".patch"
+                  ],
+        "bytes":  1232256
+    },
+    {
+        "mod":  "PEW-PEW Republic",
+        "folder":  "MA5C Assault Rifle/DC-15A",
+        "file":  "9ba626afa44a3aa3.patch_124",
+        "parts":  [
+                      ".patch"
+                  ],
+        "bytes":  1547584
+    },
+    {
+        "mod":  "PEW-PEW Republic",
+        "folder":  "MP-98 Knight/CR-2",
+        "file":  "9ba626afa44a3aa3.patch_125",
+        "parts":  [
+                      ".patch"
+                  ],
+        "bytes":  1547664
+    },
+    {
+        "mod":  "PEW-PEW Republic",
+        "folder":  "PLAS-39 Accelerator Rifle/Valken-38X Sniper Rifle",
+        "file":  "9ba626afa44a3aa3.patch_126",
+        "parts":  [
+                      ".patch"
+                  ],
+        "bytes":  2678992
+    },
+    {
+        "mod":  "PEW-PEW Republic",
+        "folder":  "R-2 Amendment/Valken-38X Sniper Rifle",
+        "file":  "9ba626afa44a3aa3.patch_127",
+        "parts":  [
+                      ".patch"
+                  ],
+        "bytes":  1472816
+    },
+    {
+        "mod":  "PEW-PEW Republic",
+        "folder":  "R-6 Deadeye/Valken-38X Sniper Rifle",
+        "file":  "9ba626afa44a3aa3.patch_128",
+        "parts":  [
+                      ".patch"
+                  ],
+        "bytes":  1669216
+    },
+    {
+        "mod":  "PEW-PEW Republic",
+        "folder":  "R-36 Eruptor/DLT-20A Sniper Rifle",
+        "file":  "9ba626afa44a3aa3.patch_129",
+        "parts":  [
+                      ".patch"
+                  ],
+        "bytes":  5443712
+    },
+    {
+        "mod":  "PEW-PEW Republic",
+        "folder":  "R-72 Censor/E-5S Sniper Rifle",
+        "file":  "9ba626afa44a3aa3.patch_130",
+        "parts":  [
+                      ".patch"
+                  ],
+        "bytes":  1388352
+    },
+    {
+        "mod":  "PEW-PEW Republic",
+        "folder":  "SG Breaker family/DC-15s Carbine",
+        "file":  "9ba626afa44a3aa3.patch_131",
+        "parts":  [
+                      ".patch"
+                  ],
+        "bytes":  1434176
+    },
+    {
+        "mod":  "PEW-PEW Republic",
+        "folder":  "SG-20 Halt/DC-17M",
+        "file":  "9ba626afa44a3aa3.patch_132",
+        "parts":  [
+                      ".patch"
+                  ],
+        "bytes":  1920736
+    },
+    {
+        "mod":  "PEW-PEW Republic",
+        "folder":  "SG-97 Sweeper/A280-CFE",
+        "file":  "9ba626afa44a3aa3.patch_133",
+        "parts":  [
+                      ".patch"
+                  ],
+        "bytes":  1186496
+    },
+    {
+        "mod":  "PEW-PEW Republic",
+        "folder":  "SMG-32 Reprimand/DC-17M",
+        "file":  "9ba626afa44a3aa3.patch_134",
+        "parts":  [
+                      ".patch"
+                  ],
+        "bytes":  1677360
+    },
+    {
+        "mod":  "PEW-PEW Republic",
+        "folder":  "SMG-203 Gallant/F-11D",
+        "file":  "9ba626afa44a3aa3.patch_135",
+        "parts":  [
+                      ".patch"
+                  ],
+        "bytes":  1304512
+    },
+    {
+        "mod":  "PEW-PEW Republic",
+        "folder":  "SMG-FLAM-43 Stoker/Relby-V10",
+        "file":  "9ba626afa44a3aa3.patch_136",
+        "parts":  [
+                      ".patch"
+                  ],
+        "bytes":  3291168
+    },
+    {
+        "mod":  "PEW-PEW Republic",
+        "folder":  "StA-11 SMG/DC-17M",
+        "file":  "9ba626afa44a3aa3.patch_137",
+        "parts":  [
+                      ".patch"
+                  ],
+        "bytes":  2188800
+    },
+    {
+        "mod":  "PEW-PEW Republic",
+        "folder":  "VG-70 Variable/DC-15A and Valken",
+        "file":  "9ba626afa44a3aa3.patch_138",
+        "parts":  [
+                      ".patch"
+                  ],
+        "bytes":  2031440
+    },
+    {
+        "mod":  "PEW-PEW Republic",
+        "folder":  "M6C-SOCOM Pistol/DC-15s Pistol",
+        "file":  "9ba626afa44a3aa3.patch_139",
+        "parts":  [
+                      ".patch"
+                  ],
+        "bytes":  1089008
+    },
+    {
+        "mod":  "PEW-PEW Republic",
+        "folder":  "P-4 Senator and LAS-58 Talon/DC-15s Pistol",
+        "file":  "9ba626afa44a3aa3.patch_140",
+        "parts":  [
+                      ".patch"
+                  ],
+        "bytes":  5529776
+    },
+    {
+        "mod":  "PEW-PEW Republic",
+        "folder":  "P-92 Warrant Pistol/DC-17 Pistol",
+        "file":  "9ba626afa44a3aa3.patch_141",
+        "parts":  [
+                      ".patch"
+                  ],
+        "bytes":  3599328
+    },
+    {
+        "mod":  "PEW-PEW Republic",
+        "folder":  "P-113 Verdict/DC-17 Pistol",
+        "file":  "9ba626afa44a3aa3.patch_142",
+        "parts":  [
+                      ".patch"
+                  ],
+        "bytes":  1530944
+    },
+    {
+        "mod":  "PEW-PEW Republic",
+        "folder":  "SG-22 Bushwhacker/DC-17 Pistol B",
+        "file":  "9ba626afa44a3aa3.patch_143",
+        "parts":  [
+                      ".stream",
+                      ".patch"
+                  ],
+        "bytes":  2041584
+    },
+    {
+        "mod":  "PEW-PEW Republic",
+        "folder":  "AC-8 Autocannon/AT-ST Cannon",
+        "file":  "9ba626afa44a3aa3.patch_144",
+        "parts":  [
+                      ".stream",
+                      ".patch"
+                  ],
+        "bytes":  2541728
+    },
+    {
+        "mod":  "PEW-PEW Republic",
+        "folder":  "Anti Material Rifle/Valken-38x Sniper Rifle",
+        "file":  "9ba626afa44a3aa3.patch_145",
+        "parts":  [
+                      ".patch"
+                  ],
+        "bytes":  1702320
+    },
+    {
+        "mod":  "PEW-PEW Republic",
+        "folder":  "Anti-Tank Emplacement/AT-TE Main Cannon",
+        "file":  "9ba626afa44a3aa3.patch_146",
+        "parts":  [
+                      ".patch"
+                  ],
+        "bytes":  3339104
+    },
+    {
+        "mod":  "PEW-PEW Republic",
+        "folder":  "AX-AR-23 Guard Dog/Droid Blaster Pistol",
+        "file":  "9ba626afa44a3aa3.patch_147",
+        "parts":  [
+                      ".stream",
+                      ".patch"
+                  ],
+        "bytes":  8722960
+    },
+    {
+        "mod":  "PEW-PEW Republic",
+        "folder":  "Exosuits",
+        "file":  "9ba626afa44a3aa3.patch_148",
+        "parts":  [
+                      ".patch"
+                  ],
+        "bytes":  10455536
+    },
+    {
+        "mod":  "PEW-PEW Republic",
+        "folder":  "Bastion Tank/AT-TE Cannon",
+        "file":  "9ba626afa44a3aa3.patch_149",
+        "parts":  [
+                      ".stream",
+                      ".patch"
+                  ],
+        "bytes":  20621520
+    },
+    {
+        "mod":  "PEW-PEW Republic",
+        "folder":  "M-105 Stalwart/DC-15A",
+        "file":  "9ba626afa44a3aa3.patch_150",
+        "parts":  [
+                      ".patch"
+                  ],
+        "bytes":  1602288
+    },
+    {
+        "mod":  "PEW-PEW Republic",
+        "folder":  "M-1000 Maxigun/Z-6 Rotary Cannon",
+        "file":  "9ba626afa44a3aa3.patch_151",
+        "parts":  [
+                      ".patch"
+                  ],
+        "bytes":  2381360
+    },
+    {
+        "mod":  "PEW-PEW Republic",
+        "folder":  "MG-43 Machine Gun/DC-15A",
+        "file":  "9ba626afa44a3aa3.patch_152",
+        "parts":  [
+                      ".patch"
+                  ],
+        "bytes":  1766368
+    },
+    {
+        "mod":  "PEW-PEW Republic",
+        "folder":  "MG-206 Heavy Machine Gun/Z-6 Rotary Cannon",
+        "file":  "9ba626afa44a3aa3.patch_153",
+        "parts":  [
+                      ".patch"
+                  ],
+        "bytes":  2017136
+    },
+    {
+        "mod":  "PEW-PEW Republic",
+        "folder":  "MG-206 Heavy Machine Gun/Super Battle Droid Cannon",
+        "file":  "9ba626afa44a3aa3.patch_154",
+        "parts":  [
+                      ".patch"
+                  ],
+        "bytes":  2064048
+    },
+    {
+        "mod":  "PEW-PEW Republic",
+        "folder":  "MGX-42 Bullet Storm/RT-97C",
+        "file":  "9ba626afa44a3aa3.patch_155",
+        "parts":  [
+                      ".patch"
+                  ],
+        "bytes":  1575008
+    },
+    {
+        "mod":  "PEW-PEW Republic",
+        "folder":  "RS-442 Railgun/TL-50 Charged Shot",
+        "file":  "9ba626afa44a3aa3.patch_156",
+        "parts":  [
+                      ".patch"
+                  ],
+        "bytes":  4333568
+    },
+    {
+        "mod":  "PEW-PEW Republic",
+        "folder":  "S-11 Speargun/TL-50 Charged Shot",
+        "file":  "9ba626afa44a3aa3.patch_157",
+        "parts":  [
+                      ".stream",
+                      ".patch"
+                  ],
+        "bytes":  4377664
+    },
+    {
+        "mod":  "PEW-PEW Republic",
+        "folder":  "StA-X3 W.A.S.P Launcher/Whistle Birds",
+        "file":  "9ba626afa44a3aa3.patch_158",
+        "parts":  [
+                      ".patch"
+                  ],
+        "bytes":  5081760
+    },
+    {
+        "mod":  "Temuera Morrison clone voice (Democracy Officer + Mission Control)",
+        "folder":  "TemueraClonesVO",
+        "file":  "9ba626afa44a3aa3.patch_159",
+        "parts":  [
+                      ".stream",
+                      ".patch"
+                  ],
+        "bytes":  47951504
+    },
+    {
+        "mod":  "Full Clone Voice Conversion",
+        "folder":  "",
+        "file":  "9ba626afa44a3aa3.patch_160",
+        "parts":  [
+                      ".stream",
+                      ".patch"
+                  ],
+        "bytes":  41552912
+    },
+    {
+        "mod":  "Republic Commando stratagem beeps",
+        "folder":  "Republic Commando Stratagem Input Sounds",
+        "file":  "9ba626afa44a3aa3.patch_161",
+        "parts":  [
+                      ".stream",
+                      ".patch"
+                  ],
+        "bytes":  90884672
+    },
+    {
+        "mod":  "RiqCrow - Clone Officers V4",
+        "folder":  "",
+        "file":  "9ba626afa44a3aa3.patch_162",
+        "parts":  [
+                      ".stream",
+                      ".patch"
+                  ],
+        "bytes":  36062752
+    },
+    {
+        "mod":  "RiqCrow - Clone Trooper SEAF audio",
+        "folder":  "",
+        "file":  "9ba626afa44a3aa3.patch_163",
+        "parts":  [
+                      ".stream",
+                      ".patch"
+                  ],
+        "bytes":  31642880
+    },
+    {
+        "mod":  "RiqCrow - Republic cruiser + LAAT audio",
+        "folder":  "",
+        "file":  "9ba626afa44a3aa3.patch_164",
+        "parts":  [
+                      ".stream",
+                      ".patch"
+                  ],
+        "bytes":  74984096
+    },
+    {
+        "mod":  "RiqCrow - ARC-170 Eagle stratagems",
+        "folder":  "",
+        "file":  "9ba626afa44a3aa3.patch_165",
+        "parts":  [
+                      ".stream",
+                      ".patch"
+                  ],
+        "bytes":  6559664
+    },
+    {
+        "mod":  "RiqCrow - Enemy audio (CIS)",
+        "folder":  "",
+        "file":  "9ba626afa44a3aa3.patch_166",
+        "parts":  [
+                      ".stream",
+                      ".patch"
+                  ],
+        "bytes":  103468960
+    },
+    {
+        "mod":  "RiqCrow - 380mm Barrage",
+        "folder":  "",
+        "file":  "9ba626afa44a3aa3.patch_167",
+        "parts":  [
+                      ".patch"
+                  ],
+        "bytes":  2505392
+    },
+    {
+        "mod":  "RiqCrow - Gattling Barrage",
+        "folder":  "",
+        "file":  "9ba626afa44a3aa3.patch_168",
+        "parts":  [
+                      ".patch"
+                  ],
+        "bytes":  4963952
+    },
+    {
+        "mod":  "RiqCrow - Railcannon Strike",
+        "folder":  "",
+        "file":  "9ba626afa44a3aa3.patch_169",
+        "parts":  [
+                      ".patch"
+                  ],
+        "bytes":  1086560
+    },
+    {
+        "mod":  "RiqCrow - Shield Generator Relay",
+        "folder":  "",
+        "file":  "9ba626afa44a3aa3.patch_170",
+        "parts":  [
+                      ".patch"
+                  ],
+        "bytes":  2956160
+    },
+    {
+        "mod":  "RiqCrow - MG Sentry",
+        "folder":  "",
+        "file":  "9ba626afa44a3aa3.patch_171",
+        "parts":  [
+                      ".patch"
+                  ],
+        "bytes":  870560
+    },
+    {
+        "mod":  "RiqCrow - Gattling Sentry",
+        "folder":  "",
+        "file":  "9ba626afa44a3aa3.patch_172",
+        "parts":  [
+                      ".patch"
+                  ],
+        "bytes":  1129024
+    },
+    {
+        "mod":  "RiqCrow - Autocannon Sentry",
+        "folder":  "",
+        "file":  "9ba626afa44a3aa3.patch_173",
+        "parts":  [
+                      ".patch"
+                  ],
+        "bytes":  1336944
+    },
+    {
+        "mod":  "RiqCrow - Mortar Sentry",
+        "folder":  "",
+        "file":  "9ba626afa44a3aa3.patch_174",
+        "parts":  [
+                      ".patch"
+                  ],
+        "bytes":  3982400
+    },
+    {
+        "mod":  "RiqCrow - EMS Mortar",
+        "folder":  "",
+        "file":  "9ba626afa44a3aa3.patch_175",
+        "parts":  [
+                      ".patch"
+                  ],
+        "bytes":  3654848
+    },
+    {
+        "mod":  "RiqCrow - Missile Sentry",
+        "folder":  "",
+        "file":  "9ba626afa44a3aa3.patch_176",
+        "parts":  [
+                      ".patch"
+                  ],
+        "bytes":  934080
+    },
+    {
+        "mod":  "RiqCrow - Probe droid Guard Dog",
+        "folder":  "",
+        "file":  "9ba626afa44a3aa3.patch_177",
+        "parts":  [
+                      ".patch"
+                  ],
+        "bytes":  16325744
+    },
+    {
+        "mod":  "SEAF Clone NPCs 2.0",
+        "folder":  "Light Remover",
+        "file":  "9ba626afa44a3aa3.patch_178",
+        "parts":  [
+                      ".gpu_resources",
+                      ".stream",
+                      ".patch"
+                  ],
+        "bytes":  3128
+    },
+    {
+        "mod":  "SEAF Clone NPCs 2.0",
+        "folder":  "Meshes/Phase 2",
+        "file":  "9ba626afa44a3aa3.patch_179",
+        "parts":  [
+                      ".gpu_resources",
+                      ".stream",
+                      ".patch"
+                  ],
+        "bytes":  24292778
+    },
+    {
+        "mod":  "SEAF Clone NPCs 2.0",
+        "folder":  "Textures/Phase 2 (501st)",
+        "file":  "9ba626afa44a3aa3.patch_180",
+        "parts":  [
+                      ".gpu_resources",
+                      ".stream",
+                      ".patch"
+                  ],
+        "bytes":  34540804
+    },
+    {
+        "mod":  "Automaton to CIS Overhaul",
+        "folder":  "Brown AAT",
+        "file":  "9ba626afa44a3aa3.patch_181",
+        "parts":  [
+                      ".gpu_resources",
+                      ".stream",
+                      ".patch"
+                  ],
+        "bytes":  127263476
+    },
+    {
+        "mod":  "Automaton to CIS Overhaul",
+        "folder":  "Brown STAP",
+        "file":  "9ba626afa44a3aa3.patch_182",
+        "parts":  [
+                      ".gpu_resources",
+                      ".stream",
+                      ".patch"
+                  ],
+        "bytes":  88831852
+    },
+    {
+        "mod":  "Automaton to CIS Overhaul",
+        "folder":  "MTT Brown",
+        "file":  "9ba626afa44a3aa3.patch_183",
+        "parts":  [
+                      ".gpu_resources",
+                      ".stream",
+                      ".patch"
+                  ],
+        "bytes":  532403568
+    },
+    {
+        "mod":  "Automaton to CIS Overhaul",
+        "folder":  "Brown STAP",
+        "file":  "9ba626afa44a3aa3.patch_184",
+        "parts":  [
+                      ".gpu_resources",
+                      ".stream",
+                      ".patch"
+                  ],
+        "bytes":  281904
+    },
+    {
+        "mod":  "Automaton to CIS Overhaul",
+        "folder":  "B1 Troopers and Commisar",
+        "file":  "9ba626afa44a3aa3.patch_185",
+        "parts":  [
+                      ".gpu_resources",
+                      ".stream",
+                      ".patch"
+                  ],
+        "bytes":  76370327
+    },
+    {
+        "mod":  "Automaton to CIS Overhaul",
+        "folder":  "B2 Berserker",
+        "file":  "9ba626afa44a3aa3.patch_186",
+        "parts":  [
+                      ".gpu_resources",
+                      ".stream",
+                      ".patch"
+                  ],
+        "bytes":  55033871
+    },
+    {
+        "mod":  "Automaton to CIS Overhaul",
+        "folder":  "MG Bot Skin - Mesh",
+        "file":  "9ba626afa44a3aa3.patch_187",
+        "parts":  [
+                      ".gpu_resources",
+                      ".stream",
+                      ".patch"
+                  ],
+        "bytes":  33923072
+    },
+    {
+        "mod":  "Automaton to CIS Overhaul",
+        "folder":  "MG B1 Regular",
+        "file":  "9ba626afa44a3aa3.patch_188",
+        "parts":  [
+                      ".gpu_resources",
+                      ".stream",
+                      ".patch"
+                  ],
+        "bytes":  28493984
+    },
+    {
+        "mod":  "Automaton to CIS Overhaul",
+        "folder":  "B2 Devastators",
+        "file":  "9ba626afa44a3aa3.patch_189",
+        "parts":  [
+                      ".gpu_resources",
+                      ".stream",
+                      ".patch"
+                  ],
+        "bytes":  327526400
+    },
+    {
+        "mod":  "Automaton to CIS Overhaul",
+        "folder":  "Default CIS Themed Shield",
+        "file":  "9ba626afa44a3aa3.patch_190",
+        "parts":  [
+                      ".gpu_resources",
+                      ".stream",
+                      ".patch"
+                  ],
+        "bytes":  16855420
+    },
+    {
+        "mod":  "Automaton to CIS Overhaul",
+        "folder":  "MagnaGuard Cyborgs",
+        "file":  "9ba626afa44a3aa3.patch_191",
+        "parts":  [
+                      ".gpu_resources",
+                      ".stream",
+                      ".patch"
+                  ],
+        "bytes":  170466064
+    },
+    {
+        "mod":  "Automaton to CIS Overhaul",
+        "folder":  "Dwarf Spider Hulk",
+        "file":  "9ba626afa44a3aa3.patch_192",
+        "parts":  [
+                      ".gpu_resources",
+                      ".stream",
+                      ".patch"
+                  ],
+        "bytes":  36239189
+    },
+    {
+        "mod":  "Automaton to CIS Overhaul",
+        "folder":  "War Strider Spider Droid",
+        "file":  "9ba626afa44a3aa3.patch_193",
+        "parts":  [
+                      ".gpu_resources",
+                      ".stream",
+                      ".patch"
+                  ],
+        "bytes":  43849879
+    },
+    {
+        "mod":  "Automaton to CIS Overhaul",
+        "folder":  "HMP Dropship",
+        "file":  "9ba626afa44a3aa3.patch_194",
+        "parts":  [
+                      ".gpu_resources",
+                      ".stream",
+                      ".patch"
+                  ],
+        "bytes":  268937436
+    },
+    {
+        "mod":  "Automaton to CIS Overhaul",
+        "folder":  "HMP Dropship - Removed Thruster VFX",
+        "file":  "9ba626afa44a3aa3.patch_195",
+        "parts":  [
+                      ".patch"
+                  ],
+        "bytes":  18760
+    },
+    {
+        "mod":  "Automaton to CIS Overhaul",
+        "folder":  "HMP Gunship",
+        "file":  "9ba626afa44a3aa3.patch_196",
+        "parts":  [
+                      ".gpu_resources",
+                      ".stream",
+                      ".patch"
+                  ],
+        "bytes":  111458204
+    },
+    {
+        "mod":  "Automaton to CIS Overhaul",
+        "folder":  "Hide Reinforced Strider Rockets",
+        "file":  "9ba626afa44a3aa3.patch_197",
+        "parts":  [
+                      ".gpu_resources",
+                      ".stream",
+                      ".patch"
+                  ],
+        "bytes":  6752
+    },
+    {
+        "mod":  "Automaton to CIS Overhaul",
+        "folder":  "Hide Factory Strider and Vox Machine Cannons",
+        "file":  "9ba626afa44a3aa3.patch_198",
+        "parts":  [
+                      ".gpu_resources",
+                      ".stream",
+                      ".patch"
+                  ],
+        "bytes":  148610
+    },
+    {
+        "mod":  "Automaton to CIS Overhaul",
+        "folder":  "Droid Weapons",
+        "file":  "9ba626afa44a3aa3.patch_199",
+        "parts":  [
+                      ".gpu_resources",
+                      ".stream",
+                      ".patch"
+                  ],
+        "bytes":  68448219
+    },
+    {
+        "mod":  "Automaton to CIS Overhaul",
+        "folder":  "Proton Shells and Objective",
+        "file":  "9ba626afa44a3aa3.patch_200",
+        "parts":  [
+                      ".gpu_resources",
+                      ".stream",
+                      ".patch"
+                  ],
+        "bytes":  83707324
+    },
+    {
+        "mod":  "Automaton to CIS Overhaul",
+        "folder":  "Sheathipede Shuttle Small Fabricator",
+        "file":  "9ba626afa44a3aa3.patch_201",
+        "parts":  [
+                      ".gpu_resources",
+                      ".stream",
+                      ".patch"
+                  ],
+        "bytes":  147825437
+    },
+    {
+        "mod":  "Automaton to CIS Overhaul",
+        "folder":  "Hardcell Large Fabricator",
+        "file":  "9ba626afa44a3aa3.patch_202",
+        "parts":  [
+                      ".gpu_resources",
+                      ".patch"
+                  ],
+        "bytes":  66003862
+    },
+    {
+        "mod":  "Automaton to CIS Overhaul",
+        "folder":  "No Bot Glows",
+        "file":  "9ba626afa44a3aa3.patch_203",
+        "parts":  [
+                      ".gpu_resources",
+                      ".patch"
+                  ],
+        "bytes":  96832
+    },
+    {
+        "mod":  "Automaton to CIS Overhaul",
+        "folder":  "Invisible Bot Knives",
+        "file":  "9ba626afa44a3aa3.patch_204",
+        "parts":  [
+                      ".gpu_resources",
+                      ".stream",
+                      ".patch"
+                  ],
+        "bytes":  63568
+    },
+    {
+        "mod":  "Automaton to CIS Overhaul",
+        "folder":  "White Bot Base Lights",
+        "file":  "9ba626afa44a3aa3.patch_205",
+        "parts":  [
+                      ".gpu_resources",
+                      ".stream",
+                      ".patch"
+                  ],
+        "bytes":  6529686
+    },
+    {
+        "mod":  "Automaton to CIS Overhaul",
+        "folder":  "Tactical Droid Head Super Sample",
+        "file":  "9ba626afa44a3aa3.patch_206",
+        "parts":  [
+                      ".gpu_resources",
+                      ".stream",
+                      ".patch"
+                  ],
+        "bytes":  9863536
+    },
+    {
+        "mod":  "Automaton to CIS Overhaul",
+        "folder":  "Detector Tower",
+        "file":  "9ba626afa44a3aa3.patch_207",
+        "parts":  [
+                      ".gpu_resources",
+                      ".stream",
+                      ".patch"
+                  ],
+        "bytes":  162089356
+    },
+    {
+        "mod":  "Automaton to CIS Overhaul",
+        "folder":  "Bot Tank and FS Gatling Muzzle Flash Correction",
+        "file":  "9ba626afa44a3aa3.patch_208",
+        "parts":  [
+                      ".patch"
+                  ],
+        "bytes":  7100
+    },
+    {
+        "mod":  "Automaton to CIS Overhaul",
+        "folder":  "Bot Base E-Web Turrets",
+        "file":  "9ba626afa44a3aa3.patch_209",
+        "parts":  [
+                      ".gpu_resources",
+                      ".stream",
+                      ".patch"
+                  ],
+        "bytes":  67458974
+    },
+    {
+        "mod":  "Automaton to CIS Overhaul",
+        "folder":  "CIS Logo and Recolor Edits",
+        "file":  "9ba626afa44a3aa3.patch_210",
+        "parts":  [
+                      ".gpu_resources",
+                      ".stream",
+                      ".patch"
+                  ],
+        "bytes":  23437720
+    },
+    {
+        "mod":  "Automaton to CIS Overhaul",
+        "folder":  "Vulture Droid Over Distant Bot Gunships",
+        "file":  "9ba626afa44a3aa3.patch_211",
+        "parts":  [
+                      ".gpu_resources",
+                      ".stream",
+                      ".patch"
+                  ],
+        "bytes":  93584
+    },
+    {
+        "mod":  "Automaton to CIS Overhaul",
+        "folder":  "Providence-class Dreadnought",
+        "file":  "9ba626afa44a3aa3.patch_212",
+        "parts":  [
+                      ".gpu_resources",
+                      ".stream",
+                      ".patch"
+                  ],
+        "bytes":  172013379
+    },
+    {
+        "mod":  "Automaton to CIS Overhaul",
+        "folder":  "No Gunship or Tower Lights",
+        "file":  "9ba626afa44a3aa3.patch_213",
+        "parts":  [
+                      ".gpu_resources",
+                      ".stream",
+                      ".patch"
+                  ],
+        "bytes":  35256
+    },
+    {
+        "mod":  "Venator over Super Destroyer",
+        "folder":  "Venator Mesh",
+        "file":  "9ba626afa44a3aa3.patch_214",
+        "parts":  [
+                      ".gpu_resources",
+                      ".stream",
+                      ".patch"
+                  ],
+        "bytes":  256453155
+    },
+    {
+        "mod":  "Venator over Super Destroyer",
+        "folder":  "Republic Textures",
+        "file":  "9ba626afa44a3aa3.patch_215",
+        "parts":  [
+                      ".gpu_resources",
+                      ".stream",
+                      ".patch"
+                  ],
+        "bytes":  202410079
+    },
+    {
+        "mod":  "Venator over Super Destroyer",
+        "folder":  "Venator Ship Screens",
+        "file":  "9ba626afa44a3aa3.patch_216",
+        "parts":  [
+                      ".gpu_resources",
+                      ".stream",
+                      ".patch"
+                  ],
+        "bytes":  4895272
+    },
+    {
+        "mod":  "Venator over Super Destroyer",
+        "folder":  "Super Destroyer VFX Drift Fix",
+        "file":  "9ba626afa44a3aa3.patch_217",
+        "parts":  [
+                      ".gpu_resources",
+                      ".stream",
+                      ".patch"
+                  ],
+        "bytes":  11288
+    },
+    {
+        "mod":  "Venator over Super Destroyer",
+        "folder":  "Super Destroyer Thruster Remover",
+        "file":  "9ba626afa44a3aa3.patch_218",
+        "parts":  [
+                      ".gpu_resources",
+                      ".stream",
+                      ".patch"
+                  ],
+        "bytes":  83664
+    },
+    {
+        "mod":  "Background ARC-170s",
+        "folder":  "",
+        "file":  "9ba626afa44a3aa3.patch_219",
+        "parts":  [
+                      ".gpu_resources",
+                      ".stream",
+                      ".patch"
+                  ],
+        "bytes":  79017968
+    },
+    {
+        "mod":  "LAAT over Pelican-1",
+        "folder":  "LAAT Mesh",
+        "file":  "9ba626afa44a3aa3.patch_220",
+        "parts":  [
+                      ".gpu_resources",
+                      ".stream",
+                      ".patch"
+                  ],
+        "bytes":  281455696
+    },
+    {
+        "mod":  "LAAT over Pelican-1",
+        "folder":  "Republic Skin",
+        "file":  "9ba626afa44a3aa3.patch_221",
+        "parts":  [
+                      ".gpu_resources",
+                      ".stream",
+                      ".patch"
+                  ],
+        "bytes":  22370172
+    },
+    {
+        "mod":  "LAAT over Pelican-1",
+        "folder":  "Invisible Pelican Autocannon and Shells",
+        "file":  "9ba626afa44a3aa3.patch_222",
+        "parts":  [
+                      ".gpu_resources",
+                      ".stream",
+                      ".patch"
+                  ],
+        "bytes":  18200
+    },
+    {
+        "mod":  "LAAT over Pelican-1",
+        "folder":  "Pelican 1 Thruster Remover",
+        "file":  "9ba626afa44a3aa3.patch_223",
+        "parts":  [
+                      ".gpu_resources",
+                      ".stream",
+                      ".patch"
+                  ],
+        "bytes":  119852
+    },
+    {
+        "mod":  "Y-Wing over Eagle-1",
+        "folder":  "Y-Wing Base",
+        "file":  "9ba626afa44a3aa3.patch_224",
+        "parts":  [
+                      ".gpu_resources",
+                      ".stream",
+                      ".patch"
+                  ],
+        "bytes":  84124124
+    },
+    {
+        "mod":  "Y-Wing over Eagle-1",
+        "folder":  "Pink Engines - No Flares",
+        "file":  "9ba626afa44a3aa3.patch_225",
+        "parts":  [
+                      ".gpu_resources",
+                      ".stream",
+                      ".patch"
+                  ],
+        "bytes":  28424
+    },
+    {
+        "mod":  "Y-Wing over Eagle-1",
+        "folder":  "501st Textures",
+        "file":  "9ba626afa44a3aa3.patch_226",
+        "parts":  [
+                      ".gpu_resources",
+                      ".stream",
+                      ".patch"
+                  ],
+        "bytes":  22370960
+    },
+    {
+        "mod":  "AT-TE exosuits + LAAT/c",
+        "folder":  "LAAT and AT-TE EXO Audio",
+        "file":  "9ba626afa44a3aa3.patch_227",
+        "parts":  [
+                      ".stream",
+                      ".patch"
+                  ],
+        "bytes":  38850560
+    },
+    {
+        "mod":  "AT-TE exosuits + LAAT/c",
+        "folder":  "LAAT-C Mesh",
+        "file":  "9ba626afa44a3aa3.patch_228",
+        "parts":  [
+                      ".gpu_resources",
+                      ".stream",
+                      ".patch"
+                  ],
+        "bytes":  118806362
+    },
+    {
+        "mod":  "AT-TE exosuits + LAAT/c",
+        "folder":  "Republic Default LAAT-C",
+        "file":  "9ba626afa44a3aa3.patch_229",
+        "parts":  [
+                      ".gpu_resources",
+                      ".stream",
+                      ".patch"
+                  ],
+        "bytes":  87651980
+    },
+    {
+        "mod":  "AT-TE exosuits + LAAT/c",
+        "folder":  "AT-TE Patriot Mesh",
+        "file":  "9ba626afa44a3aa3.patch_230",
+        "parts":  [
+                      ".gpu_resources",
+                      ".stream",
+                      ".patch"
+                  ],
+        "bytes":  46913899
+    },
+    {
+        "mod":  "AT-TE exosuits + LAAT/c",
+        "folder":  "AT-TE Emancipator Mesh",
+        "file":  "9ba626afa44a3aa3.patch_231",
+        "parts":  [
+                      ".gpu_resources",
+                      ".stream",
+                      ".patch"
+                  ],
+        "bytes":  48417923
+    },
+    {
+        "mod":  "AT-TE exosuits + LAAT/c",
+        "folder":  "AT-TE Lumberer Mesh",
+        "file":  "9ba626afa44a3aa3.patch_232",
+        "parts":  [
+                      ".gpu_resources",
+                      ".stream",
+                      ".patch"
+                  ],
+        "bytes":  50136246
+    },
+    {
+        "mod":  "AT-TE exosuits + LAAT/c",
+        "folder":  "AT-TE Breakthrough Mesh",
+        "file":  "9ba626afa44a3aa3.patch_233",
+        "parts":  [
+                      ".gpu_resources",
+                      ".stream",
+                      ".patch"
+                  ],
+        "bytes":  51329654
+    },
+    {
+        "mod":  "AT-TE exosuits + LAAT/c",
+        "folder":  "AT-TE Wreckage Mesh",
+        "file":  "9ba626afa44a3aa3.patch_234",
+        "parts":  [
+                      ".gpu_resources",
+                      ".stream",
+                      ".patch"
+                  ],
+        "bytes":  45598592
+    },
+    {
+        "mod":  "AT-TE exosuits + LAAT/c",
+        "folder":  "Republic AT-TE",
+        "file":  "9ba626afa44a3aa3.patch_235",
+        "parts":  [
+                      ".gpu_resources",
+                      ".stream",
+                      ".patch"
+                  ],
+        "bytes":  31459348
+    },
+    {
+        "mod":  "AT-TE exosuits + LAAT/c",
+        "folder":  "Invisible Pelican Autocannon and Shells",
+        "file":  "9ba626afa44a3aa3.patch_236",
+        "parts":  [
+                      ".gpu_resources",
+                      ".stream",
+                      ".patch"
+                  ],
+        "bytes":  61580
+    },
+    {
+        "mod":  "AT-TE exosuits + LAAT/c",
+        "folder":  "Pelican 1 Thruster Remover",
+        "file":  "9ba626afa44a3aa3.patch_237",
+        "parts":  [
+                      ".gpu_resources",
+                      ".stream",
+                      ".patch"
+                  ],
+        "bytes":  119852
+    },
+    {
+        "mod":  "AT-TE exosuits + LAAT/c",
+        "folder":  "Walker Animation Edits",
+        "file":  "9ba626afa44a3aa3.patch_238",
+        "parts":  [
+                      ".gpu_resources",
+                      ".stream",
+                      ".patch"
+                  ],
+        "bytes":  94744
+    },
+    {
+        "mod":  "TX-130 FRV",
+        "folder":  "Republic Skin",
+        "file":  "9ba626afa44a3aa3.patch_239",
+        "parts":  [
+                      ".gpu_resources",
+                      ".stream",
+                      ".patch"
+                  ],
+        "bytes":  55926036
+    },
+    {
+        "mod":  "TX-130 FRV",
+        "folder":  "Invisible HMG Mag and Bullets",
+        "file":  "9ba626afa44a3aa3.patch_240",
+        "parts":  [
+                      ".gpu_resources",
+                      ".stream",
+                      ".patch"
+                  ],
+        "bytes":  233088
+    },
+    {
+        "mod":  "TX-130 FRV",
+        "folder":  "TX-130 Mesh",
+        "file":  "9ba626afa44a3aa3.patch_241",
+        "parts":  [
+                      ".gpu_resources",
+                      ".stream",
+                      ".patch"
+                  ],
+        "bytes":  22793456
+    },
+    {
+        "mod":  "GNK Hellbomb",
+        "folder":  "",
+        "file":  "9ba626afa44a3aa3.patch_242",
+        "parts":  [
+                      ".gpu_resources",
+                      ".stream",
+                      ".patch"
+                  ],
+        "bytes":  31195346
+    },
+    {
+        "mod":  "Clone Pilot - Eagle-1",
+        "folder":  "",
+        "file":  "9ba626afa44a3aa3.patch_243",
+        "parts":  [
+                      ".stream",
+                      ".patch"
+                  ],
+        "bytes":  499808
+    },
+    {
+        "mod":  "Clone Pilot - Pelican-1",
+        "folder":  "",
+        "file":  "9ba626afa44a3aa3.patch_244",
+        "parts":  [
+                      ".stream",
+                      ".patch"
+                  ],
+        "bytes":  300992
+    },
+    {
+        "mod":  "All Invisible Capes",
+        "folder":  "Mesh",
+        "file":  "9ba626afa44a3aa3.patch_245",
+        "parts":  [
+                      ".gpu_resources",
+                      ".stream",
+                      ".patch"
+                  ],
+        "bytes":  701213
+    },
+    {
+        "mod":  "Galactic Map Overhaul (last)",
+        "folder":  "icon-rep",
+        "file":  "9ba626afa44a3aa3.patch_246",
+        "parts":  [
+                      ".gpu_resources",
+                      ".stream",
+                      ".patch"
+                  ],
+        "bytes":  28663500
+    },
+    {
+        "mod":  "Galactic Map Overhaul (last)",
+        "folder":  "text-rep",
+        "file":  "9ba626afa44a3aa3.patch_247",
+        "parts":  [
+                      ".patch"
+                  ],
+        "bytes":  621280
+    },
+    {
+        "mod":  "Galactic Map Overhaul (last)",
+        "folder":  "voice-default",
+        "file":  "9ba626afa44a3aa3.patch_248",
+        "parts":  [
+                      ".stream",
+                      ".patch"
+                  ],
+        "bytes":  3691904
+    },
+    {
+        "mod":  "Republic Commando Delta Squad",
+        "folder":  "Meshes/Boss",
+        "file":  "9ba626afa44a3aa3.patch_249",
+        "parts":  [
+                      ".gpu_resources",
+                      ".stream",
+                      ".patch"
+                  ],
+        "bytes":  10233460
+    },
+    {
+        "mod":  "Republic Commando Delta Squad",
+        "folder":  "Textures/Boss",
+        "file":  "9ba626afa44a3aa3.patch_250",
+        "parts":  [
+                      ".gpu_resources",
+                      ".stream",
+                      ".patch"
+                  ],
+        "bytes":  34436012
+    },
+    {
+        "mod":  "Republic Commando Delta Squad",
+        "folder":  "Meshes/Fixer",
+        "file":  "9ba626afa44a3aa3.patch_251",
+        "parts":  [
+                      ".gpu_resources",
+                      ".stream",
+                      ".patch"
+                  ],
+        "bytes":  11421308
+    },
+    {
+        "mod":  "Republic Commando Delta Squad",
+        "folder":  "Textures/Fixer",
+        "file":  "9ba626afa44a3aa3.patch_252",
+        "parts":  [
+                      ".gpu_resources",
+                      ".stream",
+                      ".patch"
+                  ],
+        "bytes":  50337648
+    },
+    {
+        "mod":  "Republic Commando Delta Squad",
+        "folder":  "Meshes/Scorch",
+        "file":  "9ba626afa44a3aa3.patch_253",
+        "parts":  [
+                      ".gpu_resources",
+                      ".stream",
+                      ".patch"
+                  ],
+        "bytes":  10198227
+    },
+    {
+        "mod":  "Republic Commando Delta Squad",
+        "folder":  "Textures/Scorch",
+        "file":  "9ba626afa44a3aa3.patch_254",
+        "parts":  [
+                      ".gpu_resources",
+                      ".stream",
+                      ".patch"
+                  ],
+        "bytes":  33571639
+    },
+    {
+        "mod":  "Republic Commando Delta Squad",
+        "folder":  "Meshes/Sev",
+        "file":  "9ba626afa44a3aa3.patch_255",
+        "parts":  [
+                      ".gpu_resources",
+                      ".stream",
+                      ".patch"
+                  ],
+        "bytes":  10239726
+    },
+    {
+        "mod":  "Republic Commando Delta Squad",
+        "folder":  "Textures/Sev",
+        "file":  "9ba626afa44a3aa3.patch_256",
+        "parts":  [
+                      ".gpu_resources",
+                      ".stream",
+                      ".patch"
+                  ],
+        "bytes":  33583534
+    }
+]
