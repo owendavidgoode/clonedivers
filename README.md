@@ -25,8 +25,8 @@ Clonedivers installs the mod pack, switches it on or off, and launches the game.
    (Plain .NET app; the source is this repo.)
    It finds Helldivers 2 through Steam by itself and says **Found via Steam:** at the bottom. If it can't, it asks you to
    pick the game folder (Steam → right-click Helldivers 2 → **Manage → Browse local files**; that window is the folder).
-2. **Click Download pack.** It fetches Owen's pack, 8.8 GB the first time (421 files), so start it before dinner. Keep
-   the window open; the percentage shows in the title bar. Have about 9 GB free on the game drive. Interrupted? Open
+2. **Click Download pack.** It fetches Owen's pack, about 9 GiB the first time (628 files with the default options), so start it before dinner. Keep
+   the window open; the percentage shows in the title bar. Have at least 10 GB free on the game drive. Interrupted? Open
    Clonedivers and click again. It resumes where it stopped. Got the pack as zips from Owen instead? **Install pack from
    file…** and **select all the parts at once**.
 3. **Click LAUNCH HELLDIVERS 2** once the big button reads **CLONES: ON**. Steam starts the game as normal.
@@ -108,10 +108,12 @@ The numbers and how it is built are in [docs/MODS.md](docs/MODS.md#performance-w
   alone, so the switch still says ON; the amber warning and the question on LAUNCH are there to catch it.
 - **SmartScreen / antivirus.** The exe is unsigned and self-contained (the .NET runtime is packed inside), which trips
   Defender's "unrecognized app" screen and occasionally a false positive. Build it yourself if that bothers you.
-- **Disk space.** The first install needs about 9 GB free on the game drive; later updates only the changed files plus
+- **Disk space.** Have at least 10 GB free on the game drive for the first install; later updates need the changed files plus
   a little slack. `mods_old\` holds whatever an update replaced and can be deleted any time.
-- **UPDATE INTERRUPTED.** Power cut or antivirus mid-update? The switch reads that, mods are off, and **Finish update**
-  completes it in seconds without internet. If a file is still locked it names it; close whatever has it open and click again.
+- **UPDATE INTERRUPTED.** Power cut or antivirus mid-update? Keep the game closed and click **Finish update**.
+  It checks the files before completing the installation, so recovery can take a few minutes. It works offline when the
+  saved target and all required files are available; interrupted updates from older app versions may need internet.
+  If a file is still locked it names it; close whatever has it open and click again.
 - **Clonedivers.update.exe next to the exe** means a self-update did not finish. Start Clonedivers again and it retries,
   or rename it over `Clonedivers.exe` by hand. If Clonedivers vanished after an update, Defender quarantined the new exe:
   restore it from Windows Security or download it again from the button above.

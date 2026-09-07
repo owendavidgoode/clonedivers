@@ -233,10 +233,37 @@ public sealed class Settings
 {
     public string? GamePath { get; set; }
     public string? InstalledPackVersion { get; set; }
+    public string? InstalledGameBuild { get; set; }
     /// <summary>Hidden test hook: a URL (or file path) that replaces manifest.json. Shown in the footer when set.</summary>
     public string? ManifestUrl { get; set; }
     /// <summary>Optional pack groups the friend switched on or off (option id → enabled); anything absent uses the manifest default.</summary>
     public Dictionary<string, bool> Options { get; set; } = new(StringComparer.OrdinalIgnoreCase);
+
+    public Dictionary<string, bool> OptionsFor(PackManifest pack, string? changedId = null, bool on = false)
+    {
+        var result = new Dictionary<string, bool>(Options, StringComparer.OrdinalIgnoreCase);
+        foreach (var o in pack.Options) result.TryAdd(o.Id, o.Default);
+        if (changedId is not null) result[changedId] = on;
+        return result;
+    }
+
+    public void RecordInstall(ApplyResult result)
+    {
+        if (result.Interrupted) return;
+        InstalledPackVersion = result.PackVersion;
+        InstalledGameBuild = result.GameBuild;
+        if (result.Options is not null) Options = new(result.Options, StringComparer.OrdinalIgnoreCase);
+    }
+
+    public bool BuildChanged(PackManifest? available, SteamAcf.Info? game)
+    {
+        if (game?.BuildId is null) return false;
+        var tested = InstalledGameBuild;
+        if (string.IsNullOrWhiteSpace(tested) && InstalledPackVersion == available?.Version) tested = available?.GameBuild;
+        if (!string.IsNullOrWhiteSpace(tested)) return tested.Trim() != game.BuildId;
+        // Older clients did not persist the build. Do not assume a newer remote pack describes their installed files.
+        return InstalledPackVersion is not null && available is not null && InstalledPackVersion != available.Version;
+    }
 
     static readonly string Dir = Path.Combine(
         Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), "Clonedivers");
@@ -456,6 +483,7 @@ public sealed record PlanAction(PlanOp Op, string From, string To, string Sha, l
 /// <summary>Everything an update will do, computed before anything moves. Downloads are one per unique sha.</summary>
 public sealed class UpdatePlan
 {
+    public List<PackFile> TargetFiles { get; } = new();
     public List<PlanAction> Actions { get; } = new();
     public List<PackFile> Downloads { get; } = new();
     public long BytesToDownload { get; set; }
@@ -471,6 +499,9 @@ public sealed class UpdatePlan
 /// <summary>What Apply / Replay did. Interrupted = something could not be moved; the plan file stays and Finish update retries.</summary>
 public sealed class ApplyResult
 {
+    public string PackVersion { get; set; } = "";
+    public string? GameBuild { get; set; }
+    public Dictionary<string, bool>? Options { get; set; }
     public int Renamed, Parked, Copied, Created;
     public List<string> Failed { get; } = new();
     public string? Reason;
@@ -479,8 +510,11 @@ public sealed class ApplyResult
 
 sealed class PlanFile
 {
-    public int Format { get; set; } = 1;
+    public int Format { get; set; } = 2;
     public string PackVersion { get; set; } = "";
+    public string? GameBuild { get; set; }
+    public Dictionary<string, bool>? Options { get; set; }
+    public List<PackFile> TargetFiles { get; set; } = new();
     public string GameDir { get; set; } = "";
     public List<PlanFileAction> Actions { get; set; } = new();
 }
@@ -552,6 +586,7 @@ public static class Pack
     {
         using var zip = ZipFile.OpenRead(zipPath);
         var names = zip.Entries.Where(e => e.Name.Length > 0 && ModFiles.IsPatchFile(e.Name)).Select(e => e.Name).ToArray();
+        if (names.Length == 0) throw new InvalidDataException($"No *.patch_* files inside {Path.GetFileName(zipPath)}.");
         var dup = names.GroupBy(n => n, StringComparer.OrdinalIgnoreCase).FirstOrDefault(g => g.Count() > 1);
         if (dup is not null)
             throw new InvalidDataException(
@@ -621,6 +656,7 @@ public static class Pack
         if (dupAcross is not null)
             throw new InvalidDataException($"'{dupAcross.Key}' is in more than one of the selected zips. Pick the parts of one pack only.");
 
+        ct.ThrowIfCancellationRequested();
         ModFiles.MoveAllPatchFiles(off, data);
         int parked = 0;
         foreach (var f in ModFiles.ListPatchFiles(data))
@@ -629,8 +665,7 @@ public static class Pack
             if (incoming.Contains(Path.GetFileName(f))) continue;
             Directory.CreateDirectory(old);
             var dest = Path.Combine(old, Path.GetFileName(f));
-            ClearReadOnly(dest);
-            File.Move(f, dest, overwrite: true);
+            File.Move(f, FreeName(dest));
             parked++;
         }
 
@@ -712,7 +747,7 @@ public static class Pack
             ct.ThrowIfCancellationRequested();
             var f = files[i];
             var complete = Path.Combine(dlDir, f.Sha256);
-            if (!(File.Exists(complete) && new FileInfo(complete).Length == f.Size))
+            if (!await MatchesAsync(complete, f, ct))
             {
                 var partial = complete + PartialSuffix;
                 long offset = before; int idx = i + 1;
@@ -743,6 +778,21 @@ public static class Pack
     }
 
     // ---------------------------------------------------------------- inventory
+
+    static async Task<bool> MatchesAsync(string path, PackFile file, CancellationToken ct) =>
+        File.Exists(path) && new FileInfo(path).Length == file.Size &&
+        string.Equals(await Sha256Async(path, ct), file.Sha256, StringComparison.OrdinalIgnoreCase);
+
+    public static async Task<HashSet<string>> VerifiedDownloadsAsync(string dlDir, IEnumerable<PackFile> wanted, CancellationToken ct)
+    {
+        var complete = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        foreach (var f in wanted.Where(f => f.Size > 0).DistinctBy(f => f.Sha256))
+        {
+            ct.ThrowIfCancellationRequested();
+            if (await MatchesAsync(Path.Combine(dlDir, f.Sha256), f, ct)) complete.Add(f.Sha256);
+        }
+        return complete;
+    }
 
     /// <summary>The manifest's files after the friend's option choices, renumbered so the enabled set is gap-free.
     /// With every option on, names are exactly the manifest's.</summary>
@@ -861,7 +911,10 @@ public static class Pack
         var old = Path.Combine(gameDir, OldFolder);
         var dl = Path.Combine(gameDir, DownloadFolder);
         var plan = new UpdatePlan();
-        string Staged(string name) => Path.Combine(data, name + ModFiles.StagedSuffix);
+        plan.TargetFiles.AddRange(wanted.Select(f => f.Clone()));
+        // Fresh names never overwrite leftovers from an interrupted plan, including a renumbering cycle.
+        var stageId = Guid.NewGuid().ToString("N") + "-";
+        string Staged(string name) => Path.Combine(data, stageId + name + ModFiles.StagedSuffix);
 
         var used = new HashSet<LocalFile>();
         var source = new Dictionary<PackFile, string>();          // entry → path it will be finalized from (in-place path or staged path)
@@ -946,30 +999,52 @@ public static class Pack
     static readonly JsonSerializerOptions PlanJson = new() { WriteIndented = true };
 
     /// <summary>Runs the plan. The plan is written to <paramref name="planPath"/> before anything moves, so an interrupted run can be
-    /// finished later without network or re-hashing. Never cancellable once started: every step is a same-volume rename or a small copy.</summary>
-    public static ApplyResult Apply(string gameDir, UpdatePlan plan, string planPath, string packVersion, HashCache? cache, string? cachePath)
+    /// reconciled after interruption. Never cancellable once started: every step is a same-volume rename or a copy.</summary>
+    public static ApplyResult Apply(string gameDir, UpdatePlan plan, string planPath, string packVersion, HashCache? cache, string? cachePath,
+        string? gameBuild = null, Dictionary<string, bool>? options = null)
     {
-        var pf = new PlanFile { PackVersion = packVersion, GameDir = gameDir, Actions = plan.Actions.Select(a => new PlanFileAction { Op = a.Op.ToString(), From = a.From, To = a.To, Sha = a.Sha, Size = a.Size }).ToList() };
+        var pf = new PlanFile { PackVersion = packVersion, GameBuild = gameBuild, Options = options, TargetFiles = plan.TargetFiles,
+            GameDir = gameDir, Actions = plan.Actions.Select(a => new PlanFileAction { Op = a.Op.ToString(), From = a.From, To = a.To, Sha = a.Sha, Size = a.Size }).ToList() };
         Directory.CreateDirectory(Path.GetDirectoryName(planPath)!);
-        File.WriteAllText(planPath, JsonSerializer.Serialize(pf, PlanJson));
+        File.WriteAllText(planPath + ".tmp", JsonSerializer.Serialize(pf, PlanJson));
+        File.Move(planPath + ".tmp", planPath, overwrite: true);
         if (Game.IsRunning()) throw new InvalidOperationException("Helldivers 2 started while installing. Close it and try again.");
-        return Execute(gameDir, pf.Actions, planPath, cache, cachePath, replay: false);
+        var result = Execute(gameDir, pf.Actions, planPath, cache, cachePath);
+        result.PackVersion = packVersion; result.GameBuild = gameBuild; result.Options = options;
+        return result;
     }
 
-    /// <summary>Finishes an interrupted update from its plan file: every action is idempotent (done already → skip).
-    /// Returns null when the plan cannot be trusted (file missing, wrong folder, or a stage/finalize whose source and target both exist),
-    /// in which case the caller falls back to a fresh plan.</summary>
+    public static bool HasPendingUpdate(string? gameDir, string planPath)
+    {
+        if (ModFiles.HasStagedFiles(gameDir)) return true;
+        if (!File.Exists(planPath)) return false;
+        try
+        {
+            var pf = JsonSerializer.Deserialize<PlanFile>(File.ReadAllText(planPath));
+            return pf is not null && gameDir is not null && SameGame(pf.GameDir, gameDir);
+        }
+        catch { return false; }
+    }
+
+    static bool SameGame(string a, string b) => string.Equals(Path.GetFullPath(a).TrimEnd('\\'), Path.GetFullPath(b).TrimEnd('\\'), StringComparison.OrdinalIgnoreCase);
+
+    /// <summary>Reconcile the saved target against actual bytes, including already finalized and parked files.
+    /// Old action-only plans and missing bytes return null for a fresh manifest-based repair; no old action is replayed blindly.</summary>
     public static ApplyResult? Replay(string gameDir, string planPath, HashCache? cache, string? cachePath)
     {
         PlanFile? pf;
         try { pf = File.Exists(planPath) ? JsonSerializer.Deserialize<PlanFile>(File.ReadAllText(planPath)) : null; }
         catch { pf = null; }
-        if (pf is null || !string.Equals(Path.GetFullPath(pf.GameDir).TrimEnd('\\'), Path.GetFullPath(gameDir).TrimEnd('\\'), StringComparison.OrdinalIgnoreCase)) return null;
+        if (pf is null || !SameGame(pf.GameDir, gameDir) || pf.Format != 2 || pf.TargetFiles.Count == 0) return null;
         if (Game.IsRunning()) throw new InvalidOperationException("Helldivers 2 is running. Close it, then click Finish update.");
-        return Execute(gameDir, pf.Actions, planPath, cache, cachePath, replay: true);
+        var local = InventoryAsync(gameDir, pf.TargetFiles, cache ?? new HashCache(), true, null, CancellationToken.None).GetAwaiter().GetResult();
+        var complete = VerifiedDownloadsAsync(Path.Combine(gameDir, DownloadFolder), pf.TargetFiles, CancellationToken.None).GetAwaiter().GetResult();
+        var plan = Plan(gameDir, pf.TargetFiles, local, complete);
+        if (plan.Downloads.Count > 0) return null;
+        return Apply(gameDir, plan, planPath, pf.PackVersion, cache, cachePath, pf.GameBuild, pf.Options);
     }
 
-    static ApplyResult Execute(string gameDir, List<PlanFileAction> actions, string planPath, HashCache? cache, string? cachePath, bool replay)
+    static ApplyResult Execute(string gameDir, List<PlanFileAction> actions, string planPath, HashCache? cache, string? cachePath)
     {
         var r = new ApplyResult();
         var data = Path.Combine(gameDir, ModFiles.DataFolder);
@@ -993,7 +1068,7 @@ public static class Pack
                     break;
                 case nameof(PlanOp.Stage):
                     if (!File.Exists(a.From)) { if (File.Exists(a.To)) break; abort = true; r.Reason = $"missing {Path.GetFileName(a.From)}"; break; }
-                    if (File.Exists(a.To)) { if (replay) { abort = true; r.Reason = $"both {Path.GetFileName(a.From)} and its staged copy exist"; break; } Try(a, () => File.Delete(a.To)); }
+                    if (File.Exists(a.To)) { abort = true; r.Reason = $"both {Path.GetFileName(a.From)} and its staged copy exist"; break; }
                     Try(a, () => { File.Move(a.From, a.To); r.Renamed++; });
                     break;
                 case nameof(PlanOp.Copy):
@@ -1842,11 +1917,10 @@ public sealed class MainForm : Form
 
     Signal CurrentSignal(ModState state, PackManifest? pack, SteamAcf.Info? acf)
     {
-        if (pack is null) return Signal.None;
-        if (pack.IsBroken) return Signal.Broken;
+        if (pack?.IsBroken == true) return Signal.Broken;
         if (state != ModState.On || acf is null) return Signal.None;
         if (acf.UpdatePending) return Signal.Pending;
-        if (!string.IsNullOrWhiteSpace(pack.GameBuild) && acf.BuildId is not null && acf.BuildId != pack.GameBuild.Trim()) return Signal.BuildChanged;
+        if (settings.BuildChanged(pack, acf)) return Signal.BuildChanged;
         return Signal.None;
     }
 
@@ -1854,7 +1928,7 @@ public sealed class MainForm : Form
     {
         Signal.Broken => string.IsNullOrWhiteSpace(pack?.StatusNotes) ? "Owen marked this pack broken. Switch OFF until an updated pack ships." : "Owen marked this pack broken: " + pack!.StatusNotes.Trim(),
         Signal.Pending => "Steam has a Helldivers 2 update waiting; it installs when you launch.",
-        Signal.BuildChanged => "Helldivers 2 has updated since this pack was built.",
+        Signal.BuildChanged => "The installed pack has not been verified for this Helldivers 2 build.",
         _ => "",
     };
 
@@ -1862,7 +1936,7 @@ public sealed class MainForm : Form
     {
         var state = ModFiles.GetState(gameDir);
         var running = Game.IsRunning();
-        var staged = !Busy && ModFiles.HasStagedFiles(gameDir);
+        var staged = !Busy && Pack.HasPendingUpdate(gameDir, Settings.PlanPath);
         var pack = manifest?.Pack;
         var acf = SteamAcf.Read(gameDir);
         var dataDir = gameDir is null ? "" : Path.Combine(gameDir, ModFiles.DataFolder);
@@ -1916,7 +1990,7 @@ public sealed class MainForm : Form
         if (staged)
         {
             SetToggle("UPDATE INTERRUPTED", Disabled, Disabled, TextDim, enabled: false);
-            detail = "A pack update was interrupted.\nClick Finish update below — it takes a few seconds and needs no internet.\nMods are off until then.";
+            detail = "A pack update was interrupted.\nClick Finish update to check the files and complete it.\nKeep the game closed until recovery finishes.";
             warn = false; dot = Color.Empty;
         }
         if (Busy)
@@ -1925,7 +1999,7 @@ public sealed class MainForm : Form
             {
                 BusyKind.Inventory => ("CHECKING FILES…", "Checking which installed files can be kept.\nThe first check reads every file once (a few minutes on a hard drive). Nothing moves yet."),
                 BusyKind.Download => ("DOWNLOADING PACK…", "Downloading only what changed — leave this window open.\nThe switch reads CLONES: ON when it finishes. Cancel keeps whatever has downloaded so far."),
-                BusyKind.Apply => ("FINISHING UPDATE…", "Putting the files in place — a few seconds.\nThis step cannot be cancelled."),
+                BusyKind.Apply => ("FINISHING UPDATE…", "Checking and putting the files in place.\nThis step cannot be cancelled."),
                 _ => ("UPDATING CLONEDIVERS…", "Downloading the new Clonedivers — leave this window open.\nIt restarts by itself when done."),
             };
             SetToggle(t, Disabled, Disabled, TextDim, enabled: false);
@@ -1941,7 +2015,7 @@ public sealed class MainForm : Form
         // Launch feedback: Steam can take a minute to open before the game process exists.
         if (running) launchRequested = null;
         var starting = !running && launchRequested is DateTime lt && DateTime.UtcNow - lt < TimeSpan.FromSeconds(90);
-        launchArmed = !running && !starting && busy != BusyKind.Apply;
+        launchArmed = !running && !starting && !Busy && !staged;
         launchButton.Enabled = true;
         launchButton.Text = running ? "HELLDIVERS 2 IS RUNNING" : starting ? "STARTING VIA STEAM…" : "LAUNCH HELLDIVERS 2";
         launchButton.BackColor = launchArmed ? Orange : Disabled;
@@ -1973,15 +2047,15 @@ public sealed class MainForm : Form
         if (Busy)
         {
             downloadArmed = busy != BusyKind.Apply;
-            if (busy == BusyKind.Apply) { SetArmed(downloadButton, "Finishing…", false); Tip(downloadButton, "A few seconds; this step cannot be cancelled."); }
+            if (busy == BusyKind.Apply) { SetArmed(downloadButton, "Finishing…", false); Tip(downloadButton, "Checking and putting files in place; this step cannot be cancelled."); }
             else { SetArmed(downloadButton, "Cancel", true); Tip(downloadButton, "Stops the check or download. Downloaded files are kept and resume next time."); }
         }
         else if (staged)
         {
             downloadArmed = canInstall;
             SetArmed(downloadButton, "Finish update", downloadArmed);
-            downloadButton.SubText = "a few seconds";
-            Tip(downloadButton, "Puts the files from the interrupted update in place. Needs no internet.");
+            downloadButton.SubText = "check and recover files";
+            Tip(downloadButton, "Rechecks files before completing the update. Works offline if the saved target and all required bytes are available.");
         }
         else if (manifest is null && manifestError is null)
         {
@@ -2007,7 +2081,7 @@ public sealed class MainForm : Form
             downloadArmed = canInstall;
             var installed = settings.InstalledPackVersion;
             var size = Pack.FormatBytes(WantedFiles(pack!).Sum(f => f.Size));   // what THIS friend would install with their toggles, not every variant in the manifest
-            var notes = string.IsNullOrWhiteSpace(pack.Notes) ? pack.Name : pack.Name + "\n" + pack.Notes;
+            var notes = string.IsNullOrWhiteSpace(pack!.Notes) ? pack.Name : pack.Name + "\n" + pack.Notes;
             var anyFiles = active + parked > 0;
             if (!anyFiles)
             {
@@ -2104,7 +2178,7 @@ public sealed class MainForm : Form
     {
         if (Busy) { if (busy != BusyKind.Apply) opCts?.Cancel(); return; }
         if (gameDir is null) return;
-        if (ModFiles.HasStagedFiles(gameDir))
+        if (Pack.HasPendingUpdate(gameDir, Settings.PlanPath))
         {
             if (!downloadArmed) return;
             if (Game.IsRunning()) { ShowRunningWarning(); return; }
@@ -2127,12 +2201,9 @@ public sealed class MainForm : Form
     void OnOptionToggle(PackOption o)
     {
         var pack = manifest?.Pack;
-        if (Busy || gameDir is null || pack is null || !pack.IsPublished || !pack.IsPerFile || ModFiles.HasStagedFiles(gameDir)) return;
+        if (Busy || gameDir is null || pack is null || !pack.IsPublished || !pack.IsPerFile || Pack.HasPendingUpdate(gameDir, Settings.PlanPath)) return;
         if (Game.IsRunning()) { ShowRunningWarning(); return; }
         var turnOn = !OptionEnabled(o);
-        settings.Options[o.Id] = turnOn;
-        settings.Save();
-        RefreshState();
         _ = RunPackAsync(pack, verify: false, optionChange: (o, turnOn));
     }
 
@@ -2163,6 +2234,7 @@ public sealed class MainForm : Form
                 return Pack.Install(gameDir!, zips, i => reporters[i], cts.Token);
             }, cts.Token);
             settings.InstalledPackVersion = null;   // a zip install is of unknown version; Update pack will verify and record it
+            settings.InstalledGameBuild = null;
             settings.Save();
             ShowProgressDone($"Pack installed: {result.installed:N0} files in data\\"
                 + (result.parked > 0 ? $", {result.parked:N0} old file{(result.parked == 1 ? "" : "s")} parked in mods_old\\" : "")
@@ -2178,18 +2250,17 @@ public sealed class MainForm : Form
     async Task RunPackAsync(PackManifest pack, bool verify, (PackOption option, bool on)? optionChange)
     {
         var dlDir = Path.Combine(gameDir!, Pack.DownloadFolder);
-        var wanted = WantedFiles(pack);
+        var targetOptions = settings.OptionsFor(pack, optionChange?.option.Id, optionChange?.on ?? false);
+        List<PackFile> wanted;
         var planPath = Settings.PlanPath;
         SetBusy(BusyKind.Inventory);
         var cts = opCts = new CancellationTokenSource();
         UpdatePlan plan;
         try
         {
+            wanted = Pack.EffectiveFiles(pack, id => targetOptions[id]);
             Pack.CleanDownloadFolder(dlDir, wanted.Select(f => f.Sha256));
-            var complete = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
-            if (Directory.Exists(dlDir))
-                foreach (var f in wanted.Where(f => f.Size > 0))
-                    if (File.Exists(Path.Combine(dlDir, f.Sha256)) && new FileInfo(Path.Combine(dlDir, f.Sha256)).Length == f.Size) complete.Add(f.Sha256);
+            var complete = await Pack.VerifiedDownloadsAsync(dlDir, wanted, cts.Token);
             var reporter = new Progress<(long done, long total)>(p => ShowProgress("Checking installed files", p.done, p.total));
             var local = await Task.Run(() => Pack.InventoryAsync(gameDir!, wanted, hashCache, verify, reporter, cts.Token), cts.Token);
             hashCache.Save(Settings.HashCachePath);
@@ -2201,10 +2272,18 @@ public sealed class MainForm : Form
 
         if (plan.IsNoOp)
         {
-            settings.InstalledPackVersion = pack.Version;
-            settings.Save();
-            ShowProgressDone(verify ? $"Verified: all {wanted.Count:N0} files match {pack.Version}." : optionChange is { } oc ? $"{oc.option.Name} is now {(oc.on ? "on" : "off")}; nothing to change." : "Already up to date — nothing to download.");
-            RefreshState();
+            try
+            {
+                SetBusy(BusyKind.Apply);
+                // An old recovery record may remain even when all target files are already in place.
+                var result = await Task.Run(() => Pack.Apply(gameDir!, plan, planPath, pack.Version, hashCache, Settings.HashCachePath, pack.GameBuild, targetOptions));
+                if (result.Interrupted) { ReportApply(result, 0); return; }
+                settings.RecordInstall(result);
+                settings.Save();
+                ShowProgressDone(verify ? $"Verified: all {wanted.Count:N0} files match {pack.Version}." : optionChange is { } oc ? $"{oc.option.Name} is now {(oc.on ? "on" : "off")}; nothing to change." : "Already up to date — nothing to download.");
+            }
+            catch (Exception ex) { ShowProgressDone("Update failed."); MessageBox.Show(this, ex.Message, "Clonedivers", MessageBoxButtons.OK, MessageBoxIcon.Error); }
+            finally { SetBusy(BusyKind.None); }
             return;
         }
 
@@ -2231,7 +2310,6 @@ public sealed class MainForm : Form
         if (Form.ActiveForm != this) FlashTaskbar();
         if (MessageBox.Show(this, headline, "Clonedivers", MessageBoxButtons.YesNo, MessageBoxIcon.Question) != DialogResult.Yes)
         {
-            if (optionChange is { } undo) { settings.Options[undo.option.Id] = !undo.on; settings.Save(); }
             RefreshState();
             return;
         }
@@ -2246,15 +2324,15 @@ public sealed class MainForm : Form
                 await Pack.DownloadPlanAsync(plan, dlDir, dl, cts.Token);
             }
             SetBusy(BusyKind.Apply);
-            var result = await Task.Run(() => Pack.Apply(gameDir!, plan, planPath, pack.Version, hashCache, Settings.HashCachePath));
-            ReportApply(result, pack.Version, plan.Downloads.Count);
+            var result = await Task.Run(() => Pack.Apply(gameDir!, plan, planPath, pack.Version, hashCache, Settings.HashCachePath, pack.GameBuild, targetOptions));
+            ReportApply(result, plan.Downloads.Count);
         }
         catch (OperationCanceledException) { ShowProgressDone("Cancelled. Downloaded files stay in mods_download\\ and resume next time."); }
         catch (Exception ex) { ShowProgressDone("Update failed."); MessageBox.Show(this, ex.Message, "Clonedivers", MessageBoxButtons.OK, MessageBoxIcon.Error); }
         finally { SetBusy(BusyKind.None); }
     }
 
-    void ReportApply(ApplyResult result, string version, int downloaded)
+    void ReportApply(ApplyResult result, int downloaded)
     {
         if (result.Interrupted)
         {
@@ -2264,24 +2342,24 @@ public sealed class MainForm : Form
                 : $"Couldn't move {result.Failed.Count} file(s) (antivirus?): {names}. Close whatever has them open and click Finish update.");
             return;
         }
-        settings.InstalledPackVersion = version;
+        settings.RecordInstall(result);
         settings.Save();
         var parts = new List<string>();
         if (downloaded > 0) parts.Add($"{downloaded:N0} downloaded");
         if (result.Renamed > 0) parts.Add($"{result.Renamed:N0} renamed");
         if (result.Copied + result.Created > 0) parts.Add($"{result.Copied + result.Created:N0} created");
         if (result.Parked > 0) parts.Add($"{result.Parked:N0} parked in mods_old\\");
-        ShowProgressDone($"Pack updated to {version}" + (parts.Count > 0 ? ": " + string.Join(", ", parts) : "") + ". Clones are ON — hit LAUNCH.");
+        ShowProgressDone($"Pack updated to {result.PackVersion}" + (parts.Count > 0 ? ": " + string.Join(", ", parts) : "") + ". Clones are ON — hit LAUNCH.");
     }
 
-    /// <summary>Finish update: replay the saved plan (no network, no hashing); fall back to a fresh plan when the file is unusable.</summary>
+    /// <summary>Finish update: recheck the saved target against disk; fall back to the manifest if recovery needs downloads.</summary>
     async Task FinishUpdateAsync()
     {
         SetBusy(BusyKind.Apply);
         try
         {
             var result = await Task.Run(() => Pack.Replay(gameDir!, Settings.PlanPath, hashCache, Settings.HashCachePath));
-            if (result is not null) { ReportApply(result, settings.InstalledPackVersion ?? manifest?.Pack?.Version ?? "", 0); return; }
+            if (result is not null) { ReportApply(result, 0); return; }
         }
         catch (Exception ex) { ShowProgressDone("Update failed."); SetBusy(BusyKind.None); MessageBox.Show(this, ex.Message, "Clonedivers", MessageBoxButtons.OK, MessageBoxIcon.Error); return; }
         finally { if (busy == BusyKind.Apply) SetBusy(BusyKind.None); }
@@ -2522,7 +2600,7 @@ public sealed class MainForm : Form
         if (exitingForUpdate) { base.OnFormClosing(e); return; }
         if (busy == BusyKind.Apply)
         {
-            MessageBox.Show(this, "Finishing the update — a few seconds. Try again in a moment.", "Clonedivers", MessageBoxButtons.OK, MessageBoxIcon.Information);
+            MessageBox.Show(this, "Checking and finishing the update. Please keep this window open until it completes.", "Clonedivers", MessageBoxButtons.OK, MessageBoxIcon.Information);
             e.Cancel = true;
             return;
         }

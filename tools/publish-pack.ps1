@@ -44,6 +44,7 @@ if ($Detach) {
     if ($VerifyZips) { $childArgs += @('-VerifyZips', "`"$VerifyZips`"") }
     if ($AllowPendingGameUpdate) { $childArgs += '-AllowPendingGameUpdate' }
     if ($NoPush) { $childArgs += '-NoPush' }
+    if ($PlanOnly) { $childArgs += '-PlanOnly' }
     $p = Start-Process powershell -ArgumentList $childArgs -WindowStyle Hidden -PassThru -RedirectStandardOutput (Join-Path $dist "publish-pack.log") -RedirectStandardError (Join-Path $dist "publish-pack.err")
     Write-Host "publish-pack running detached: PID $($p.Id); watch $statePath and dist\publish-pack.log"
     exit 0

@@ -50,6 +50,9 @@ static class TestProgram
             PlanAndApplyTests(root).GetAwaiter().GetResult();
             SurplusAndParkNamingTests(root);
             InterruptedAndReplayTests(root);
+            RecoveryBoundaryTests(root);
+            InstallationSettingsTests();
+            CachedDownloadTests(root).GetAwaiter().GetResult();
             HashCacheAndCleanupTests(root);
             SelfUpdateAndAcfTests(root);
         }
@@ -288,6 +291,18 @@ static class TestProgram
         try { Pack.Install(game2, new[] { partA, partDup }, null, CancellationToken.None); } catch (InvalidDataException e) { ex = e; }
         Check(ex is not null && ex.Message.Contains("more than one"), "the same file in two selected zips is rejected before anything moves");
         Check(File.ReadAllText(Path.Combine(data2, "9ba626afa44a3aa3.patch_0")) == "new armory", "and data\\ was left untouched");
+
+        var before = Names(data2);
+        ex = null;
+        try { Pack.Install(game2, new[] { partA, empty }, null, CancellationToken.None); } catch (InvalidDataException e) { ex = e; }
+        Check(ex is not null && SameSet(before, Names(data2)), "a later empty ZIP is rejected before the first part changes any files");
+        Put(data2, "stale.patch_0", "recent"); Put(old2, "stale.patch_0", "older");
+        Pack.Install(game2, new[] { partA, partB }, null, CancellationToken.None);
+        Check(File.ReadAllText(Path.Combine(old2, "stale.patch_0")) == "older" && File.ReadAllText(Path.Combine(old2, "stale.patch_0.1")) == "recent", "ZIP install preserves both versions of a colliding backup");
+        using var cancelled = new CancellationTokenSource(); cancelled.Cancel();
+        bool stopped = false;
+        try { Pack.Install(game2, new[] { partA }, null, cancelled.Token); } catch (OperationCanceledException) { stopped = true; }
+        Check(stopped && File.Exists(Path.Combine(data2, "abcdef0123456789.patch_1")), "pre-cancelled ZIP install does not park the existing files");
     }
 
     static void ManifestTests()
@@ -641,6 +656,90 @@ static class TestProgram
         Check(File.Exists(Path.Combine(game, "mods_old", "C.patch_0")), "old file parked");
         Check(Pack.Replay(game, planPath, null, null) is null, "replay with no plan file returns null (caller re-plans)");
         Check(Pack.Replay(game, Path.Combine(root, "nope.json"), null, null) is null, "missing plan → null");
+    }
+
+    static void RecoveryBoundaryTests(string root)
+    {
+        Console.WriteLine("Recovery after every action boundary, including renumbering, copies and partial finalization");
+        int count = 1;
+        for (int boundary = 0; boundary <= count; boundary++)
+        {
+            var game = MakeGame(root, "Boundary " + boundary);
+            var data = Path.Combine(game, "data"); var dl = Path.Combine(game, "mods_download");
+            var pp = Path.Combine(game, "plan.json");
+            Put(data, "A.patch_0", "aaa"); Put(data, "A.patch_1", "bbb"); Put(data, "A.patch_4", "keep"); Put(data, "stale.patch_0", "stale");
+            var wanted = new List<PackFile> { F("A.patch_0", "bbb"), F("A.patch_1", "aaa"), F("A.patch_2", "aaa"), F("A.patch_2.stream", ""), F("A.patch_3", "fresh"), F("A.patch_4", "keep") };
+            Put(dl, ShaOf("fresh"), "fresh");
+            var local = Pack.InventoryAsync(game, wanted, new HashCache(), true, null, CancellationToken.None).GetAwaiter().GetResult();
+            var plan = Pack.Plan(game, wanted, local, new HashSet<string> { ShaOf("fresh") });
+            count = plan.Actions.Count;
+            // Save the real transaction without executing it, then simulate a process stop after each mutation.
+            Game.IsRunningCheck = () => true;
+            try { Pack.Apply(game, plan, pp, "target-v2", null, null, "build-b", new() { ["cmd"] = false }); }
+            catch (InvalidOperationException) { }
+            finally { Game.IsRunningCheck = () => false; }
+            foreach (var action in plan.Actions.Take(boundary))
+            {
+                Directory.CreateDirectory(Path.GetDirectoryName(action.To)!);
+                switch (action.Op)
+                {
+                    case PlanOp.Copy: File.Copy(action.From, action.To); break;
+                    case PlanOp.Create: File.Create(action.To).Dispose(); break;
+                    default: File.Move(action.From, action.To); break;
+                }
+            }
+            Check(Pack.HasPendingUpdate(game, pp), $"boundary {boundary}: saved plan marks recovery pending even without staged files");
+            var result = Pack.Replay(game, pp, null, null);
+            Check(result is { Interrupted: false } && result.PackVersion == "target-v2" && result.GameBuild == "build-b" && result.Options?["cmd"] == false,
+                $"boundary {boundary}: offline recovery succeeds and retains the target metadata");
+            Check(SameSet(Names(data), wanted.Select(f => f.Name)) && wanted.All(f => Pack.Sha256Async(Path.Combine(data, f.Name), CancellationToken.None).GetAwaiter().GetResult() == f.Sha256),
+                $"boundary {boundary}: every final file has the correct bytes");
+            Check(!Pack.HasPendingUpdate(game, pp), $"boundary {boundary}: completed recovery clears the transaction");
+        }
+        var legacyGame = MakeGame(root, "Legacy recovery");
+        var legacyPlan = Path.Combine(legacyGame, "plan.json");
+        Put(Path.Combine(legacyGame, "data"), "A.patch_0", "new");
+        File.WriteAllText(legacyPlan, System.Text.Json.JsonSerializer.Serialize(new { Format = 1, GameDir = legacyGame, Actions = new[] { new { Op = "Park", From = Path.Combine(legacyGame, "data", "A.patch_0"), To = Path.Combine(legacyGame, "mods_old", "A.patch_0") } } }));
+        Check(Pack.Replay(legacyGame, legacyPlan, null, null) is null && File.ReadAllText(Path.Combine(legacyGame, "data", "A.patch_0")) == "new", "legacy action-only recovery requests a fresh plan without executing stale actions");
+        var target = new List<PackFile> { F("A.patch_0", "new") };
+        var found = Pack.InventoryAsync(legacyGame, target, new HashCache(), true, null, CancellationToken.None).GetAwaiter().GetResult();
+        var unchanged = Pack.Plan(legacyGame, target, found, new HashSet<string>());
+        Check(unchanged.IsNoOp, "fresh manifest repair can find a legacy interrupted update already complete");
+        Pack.Apply(legacyGame, unchanged, legacyPlan, "new", null, null);
+        Check(!Pack.HasPendingUpdate(legacyGame, legacyPlan), "a no-op apply also clears the stale recovery record");
+    }
+
+    static void InstallationSettingsTests()
+    {
+        Console.WriteLine("Installed settings change only after success; compatibility follows installed metadata");
+        var settings = new Settings { InstalledPackVersion = "v1", InstalledGameBuild = "a", Options = new() { ["cmd"] = true } };
+        var pack = new PackManifest { Version = "v2", GameBuild = "b", Options = { new PackOption { Id = "cmd", Default = true } } };
+        var requested = settings.OptionsFor(pack, "cmd", false);
+        Check(!requested["cmd"] && settings.Options["cmd"], "planning or cancelling an option change leaves the installed option unchanged");
+        settings.RecordInstall(new ApplyResult { PackVersion = "v2", Options = requested, Reason = "interrupted" });
+        Check(settings.Options["cmd"] && settings.InstalledPackVersion == "v1", "an interrupted apply cannot commit target settings");
+        var game = new SteamAcf.Info("b", "b", "4");
+        Check(settings.BuildChanged(pack, game) && settings.BuildChanged(null, game), "new remote pack and offline mode both retain the installed-build warning");
+        var legacy = new Settings { InstalledPackVersion = "v1" };
+        Check(legacy.BuildChanged(pack, game), "an old client's unknown build is not inferred from a newer remote pack");
+        settings.RecordInstall(new ApplyResult { PackVersion = "v2", GameBuild = "b", Options = requested });
+        Check(settings.InstalledPackVersion == "v2" && !settings.Options["cmd"] && !settings.BuildChanged(null, game), "successful install commits the exact version, build and options and clears the warning");
+    }
+
+    static async Task CachedDownloadTests(string root)
+    {
+        Console.WriteLine("Same-length corrupted cached downloads are re-fetched");
+        var dl = Path.Combine(root, "corrupt-download");
+        using var server = new TinyHttp(System.Text.Encoding.UTF8.GetBytes("good"));
+        var wanted = new List<PackFile> { F("A.patch_0", "good", url: server.Url) };
+        Put(dl, wanted[0].Sha256, "evil");
+        var complete = await Pack.VerifiedDownloadsAsync(dl, wanted, CancellationToken.None);
+        Check(complete.Count == 0, "size alone does not mark a cached download complete");
+        var plan = Pack.Plan(Path.Combine(root, "cache-target"), wanted, new List<LocalFile>(), complete);
+        Check(plan.Downloads.Count == 1, "corrupt cache schedules a replacement download");
+        await Pack.DownloadPlanAsync(plan, dl, null, CancellationToken.None);
+        Check(File.ReadAllText(Path.Combine(dl, wanted[0].Sha256)) == "good", "download execution also verifies the existing cache before skipping");
+        Check((await Pack.VerifiedDownloadsAsync(dl, wanted, CancellationToken.None)).Contains(wanted[0].Sha256), "valid completed downloads remain reusable");
     }
 
     static void HashCacheAndCleanupTests(string root)
