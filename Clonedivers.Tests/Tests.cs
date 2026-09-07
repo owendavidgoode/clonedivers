@@ -602,6 +602,18 @@ static class TestProgram
         var r = Pack.Apply(game, plan, Path.Combine(root, "surplus-plan.json"), "v", null, null);
         Check(!r.Interrupted && File.ReadAllText(Path.Combine(old, "B.patch_1")) == "older" && File.Exists(Path.Combine(old, "B.patch_1.1")), "existing mods_old\\B.patch_1 kept; the parked twin became B.patch_1.1");
         Check(!ModFiles.IsPatchFile("B.patch_1.1"), "the .1 name is not a mod name");
+        Check(ModFiles.TryParseParkedName("B.patch_1.gpu_resources.12", out var pn) && pn == "B.patch_1.gpu_resources", "a .N parked name maps back to its pack name");
+        Check(!ModFiles.TryParseParkedName("B.patch_1", out _) && !ModFiles.TryParseParkedName("B.patch_1.stream", out _), "pristine names are not parked names");
+
+        // The twin parked as B.patch_1.1 is still pack bytes: wanting B.patch_1 again must find it there instead of downloading
+        // (this is what happens when a variant toggle is switched off, on, and off again: the same names get parked twice).
+        var wanted2 = new List<PackFile> { F("B.patch_0", "same"), F("B.patch_1", "same") };
+        var local2 = Pack.InventoryAsync(game, wanted2, new HashCache(), false, null, CancellationToken.None).GetAwaiter().GetResult();
+        Check(local2.Any(l => l.Where == LocalWhere.Old && l.Name == "B.patch_1" && l.Path.EndsWith("B.patch_1.1") && l.Sha == ShaOf("same")), "inventory lists mods_old\\B.patch_1.1 under its pack name, hashed");
+        var plan2 = Pack.Plan(game, wanted2, local2, new HashSet<string>());
+        Check(plan2.Downloads.Count == 0 && plan2.Actions.Any(a => a.Op == PlanOp.Stage && a.From.EndsWith("B.patch_1.1")), "the .1 twin comes back by rename, nothing downloaded");
+        var r2 = Pack.Apply(game, plan2, Path.Combine(root, "surplus-plan2.json"), "v", null, null);
+        Check(!r2.Interrupted && File.ReadAllText(Path.Combine(data, "B.patch_1")) == "same" && !File.Exists(Path.Combine(old, "B.patch_1.1")) && File.ReadAllText(Path.Combine(old, "B.patch_1")) == "older", "B.patch_1 restored from the .1 twin; the unrelated mods_old\\B.patch_1 untouched");
     }
 
     static void InterruptedAndReplayTests(string root)

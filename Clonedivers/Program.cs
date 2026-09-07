@@ -53,6 +53,19 @@ public static class ModFiles
         return m.Success && index >= 0;
     }
 
+    /// <summary>mods_old\ never overwrites: a parked file whose name is already taken there becomes "&lt;name&gt;.1", ".2"…
+    /// Those copies still hold pack bytes worth reusing (switching a variant off and on again parks the same names twice),
+    /// so the inventory reads them back under their pack name. The suffix keeps them from ever looking like a mod file.</summary>
+    static readonly Regex ParkedName = new(@"^(?<base>.+\.patch_\d+(?:\.(?:gpu_resources|stream))?)\.\d+$",
+        RegexOptions.IgnoreCase | RegexOptions.CultureInvariant);
+
+    public static bool TryParseParkedName(string name, out string packName)
+    {
+        var m = ParkedName.Match(Path.GetFileName(name));
+        packName = m.Success ? m.Groups["base"].Value : "";
+        return m.Success;
+    }
+
     /// <summary>A per-file update parks incoming files under this suffix until every one is in place. It never matches
     /// the patch pattern, so the game sees a folder with fewer mods rather than a half-numbered set.</summary>
     public const string StagedSuffix = ".clonedivers-staged";
@@ -778,6 +791,8 @@ public static class Pack
                     list.Add((path, fn[..^ModFiles.StagedSuffix.Length], new FileInfo(path), where));
                 }
                 else if (ModFiles.IsPatchFile(fn)) list.Add((path, fn, new FileInfo(path), where));
+                // mods_old\ only: "<name>.N" copies parked when the name was taken (see FreeName) are the same pack bytes.
+                else if (where == LocalWhere.Old && ModFiles.TryParseParkedName(fn, out var packName)) list.Add((path, packName, new FileInfo(path), where));
             }
             return list;
         }
@@ -789,7 +804,7 @@ public static class Pack
             var keyCount = new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase);
             foreach (var b in batch)
             {
-                var key = HashCache.Key(b.name, b.fi.Length, b.fi.LastWriteTimeUtc);
+                var key = HashCache.Key(b.fi.Name, b.fi.Length, b.fi.LastWriteTimeUtc);   // the file's own name: a ".1" twin and the file it shadows must not share a key
                 keyCount[key] = keyCount.TryGetValue(key, out var n) ? n + 1 : 1;
                 jobs.Add((b.path, b.name, b.fi, b.where, key, null));
             }
