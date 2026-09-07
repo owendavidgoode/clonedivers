@@ -53,6 +53,7 @@ static class TestProgram
             RecoveryBoundaryTests(root);
             InstallationSettingsTests();
             CachedDownloadTests(root).GetAwaiter().GetResult();
+            SecurityBoundaryTests(root).GetAwaiter().GetResult();
             HashCacheAndCleanupTests(root);
             SelfUpdateAndAcfTests(root);
         }
@@ -308,13 +309,13 @@ static class TestProgram
     static void ManifestTests()
     {
         Console.WriteLine("pack.json parsing");
-        var m = Pack.ParseManifest("{ \"version\": \"2026.09.05\", \"name\": \"Clonedivers pack\", \"notes\": \"Built for 7.0.2\", \"files\": [ { \"url\": \"https://example.com/a.zip\", \"size\": 10, \"sha256\": \"AB\" }, { \"url\": \"https://example.com/b.zip\", \"size\": 5, \"sha256\": \"CD\" } ] }");
+        var m = Pack.ParseManifest("{ \"version\": \"2026.09.05\", \"name\": \"Clonedivers pack\", \"notes\": \"Built for 7.0.2\", \"files\": [ { \"url\": \"https://example.com/a.zip\", \"size\": 10, \"sha256\": \"SHA_A\" }, { \"url\": \"https://example.com/b.zip\", \"size\": 5, \"sha256\": \"SHA_B\" } ] }".Replace("SHA_A", new string('A', 64)).Replace("SHA_B", new string('b', 64)));
         Check(m is not null && m.Version == "2026.09.05" && m.Files.Count == 2, "camelCase manifest parses");
         Check(m!.TotalSize, 15L, "TotalSize sums the parts");
         Check(m.IsPublished, "manifest with URLs counts as published");
         var placeholder = Pack.ParseManifest("{ \"version\": \"\", \"files\": [] }");
         Check(placeholder is not null && !placeholder.IsPublished, "empty files list means not published yet");
-        var blankUrl = Pack.ParseManifest("{ \"version\": \"1\", \"files\": [ { \"url\": \"\", \"size\": 1, \"sha256\": \"\" } ] }");
+        var blankUrl = Pack.ParseManifest("{ \"version\": \"1\", \"files\": [ { \"url\": \"\", \"size\": 1, \"sha256\": \"SHA\" } ] }".Replace("SHA", new string('a', 64)));
         Check(blankUrl is not null && !blankUrl.IsPublished, "a file with a blank URL means not published yet");
         Check(Pack.FormatBytes(5L * 1024 * 1024 * 1024 + 100) == "5.0 GB" && Pack.FormatBytes(223L * 1024 * 1024) == "223 MB", "FormatBytes");
     }
@@ -481,7 +482,7 @@ static class TestProgram
         try { Manifest.Parse(json.Replace("9ba626afa44a3aa3.patch_1\"", "9ba626afa44a3aa3.PATCH_0\"")); } catch (InvalidDataException e) { ex = e; }
         Check(ex is not null, "duplicate names differing by case are rejected");
 
-        var legacy = Manifest.Parse("""{ "version": "r3", "files": [ { "url": "https://x/p1.zip", "size": 10, "sha256": "AB" } ] }""");
+        var legacy = Manifest.Parse("""{ "version": "r3", "files": [ { "url": "https://x/p1.zip", "size": 10, "sha256": "SHA" } ] }""".Replace("SHA", new string('a', 64)));
         Check(legacy.Format == 1 && legacy.Pack is not null && legacy.Pack.Files.Count == 1 && !legacy.Pack.IsPerFile && legacy.Pack.IsPublished, "format-1 pack.json still parses (zip parts, no names)");
         Check(Manifest.Parse("""{ "format": 2 }""").Pack is null, "a manifest without a pack block parses (Pack null)");
         Check(Manifest.Parse(json.Replace("\"format\": 2", "\"format\": 3")).App is not null, "format 3 still parses and keeps the app block");
@@ -740,6 +741,64 @@ static class TestProgram
         await Pack.DownloadPlanAsync(plan, dl, null, CancellationToken.None);
         Check(File.ReadAllText(Path.Combine(dl, wanted[0].Sha256)) == "good", "download execution also verifies the existing cache before skipping");
         Check((await Pack.VerifiedDownloadsAsync(dl, wanted, CancellationToken.None)).Contains(wanted[0].Sha256), "valid completed downloads remain reusable");
+    }
+
+    static async Task SecurityBoundaryTests(string root)
+    {
+        Console.WriteLine("Security: metadata cannot redirect writes or enable self-update under a test override");
+        void Rejects(Action action, string message)
+        {
+            bool rejected = false;
+            try { action(); } catch (InvalidDataException) { rejected = true; }
+            Check(rejected, message);
+        }
+        string Json(PackFile file) => System.Text.Json.JsonSerializer.Serialize(new { format = 2, pack = new { version = "v", files = new[] { file } } });
+        foreach (var name in new[] { @"..\escape.patch_0", "../escape.patch_0", Path.Combine(root, "escape.patch_0"), "A.patch_0:stream.patch_0", "NUL.patch_0", "CON.patch_0", "LPT1.patch_0", "COM¹.patch_0", "bad?.patch_0", "bad\n.patch_0", "A.patch_0\n", ".patch_0" })
+            Rejects(() => Manifest.Parse(Json(F(name, "good"))), "manifest rejects an unsafe patch name: " + name.Replace("\n", "\\n"));
+        foreach (var sha in new[] { new string('g', 64), "../" + new string('a', 61), "a" + new string('0', 62) + "\n", "" })
+        {
+            var file = F("A.patch_0", "good"); file.Sha256 = sha;
+            Rejects(() => Manifest.Parse(Json(file)), "manifest rejects invalid SHA-256 metadata");
+        }
+        var negative = F("A.patch_0", "good"); negative.Size = -1;
+        Rejects(() => Manifest.Parse(Json(negative)), "manifest rejects a negative file size");
+        Rejects(() => Manifest.Parse("""{"format":2,"pack":{"files":null}}"""), "manifest rejects a null file list");
+        Rejects(() => Manifest.Parse("""{"format":2,"pack":{"files":[null]}}"""), "manifest rejects a null file entry");
+        Check(Manifest.Parse(Json(F("A.patch_0", "good"))).Pack!.Files.Count == 1, "ordinary patch metadata is accepted");
+
+        var game = MakeGame(root, "Security Game"); var data = Path.Combine(game, "data");
+        var outside = Path.Combine(root, "outside.patch_0"); File.WriteAllText(outside, "sentinel");
+        Put(data, "A.patch_0", "installed"); var pp = Path.Combine(game, "plan.json");
+        foreach (var bad in new[] { F(outside, "sentinel"), negative, new PackFile { Name = "A.patch_0", Size = 1, Sha256 = new string('z', 64) } })
+        {
+            File.WriteAllText(pp, System.Text.Json.JsonSerializer.Serialize(new { Format = 2, GameDir = game, TargetFiles = new[] { bad } }));
+            Check(Pack.Replay(game, pp, null, null) is null && File.ReadAllText(outside) == "sentinel" && File.ReadAllText(Path.Combine(data, "A.patch_0")) == "installed", "untrusted recovery targets are rejected before files move");
+        }
+        File.WriteAllText(pp, System.Text.Json.JsonSerializer.Serialize(new { Format = 2, GameDir = game, TargetFiles = new[] { F("A.patch_0", "installed"), F("A.PATCH_0", "installed") } }));
+        Check(Pack.Replay(game, pp, null, null) is null, "recovery rejects duplicate target names");
+        var plan = new UpdatePlan(); plan.TargetFiles.Add(F("A.patch_0", "installed"));
+        plan.Actions.Add(new PlanAction(PlanOp.Create, "", outside, PackFile.EmptySha, 0));
+        Rejects(() => Pack.Apply(game, plan, pp, "v", null, null), "apply refuses destinations outside managed game folders");
+        plan.Actions.Clear(); plan.Actions.Add(new PlanAction(PlanOp.Finalize, Path.Combine(data, "A.patch_0"), Path.Combine(data, "game.exe"), ShaOf("installed"), 9));
+        Rejects(() => Pack.Apply(game, plan, pp, "v", null, null), "apply refuses a non-patch final destination inside data");
+        var dl = Path.Combine(game, "mods_download");
+        var badDownload = F("A.patch_0", "good"); badDownload.Sha256 = "../" + new string('a', 61);
+        bool invalidDownload = false;
+        try { await Pack.VerifiedDownloadsAsync(dl, new[] { badDownload }, CancellationToken.None); } catch (InvalidDataException) { invalidDownload = true; }
+        Check(invalidDownload && !Directory.Exists(dl), "download cache lookup rejects a path-shaped hash before disk writes");
+        var unsafeZip = MakeZip(Path.Combine(root, "unsafe-name.zip"), ("NUL.patch_0", "bad"));
+        Rejects(() => Pack.Install(game, new[] { unsafeZip }, null, CancellationToken.None), "ZIP install rejects Windows device names before mutation");
+        Check(File.ReadAllText(outside) == "sentinel" && File.ReadAllText(Path.Combine(data, "A.patch_0")) == "installed", "all hostile metadata tests preserve the outside and installed files");
+
+        var app = new AppRelease { Version = "1.3.3", Size = 5, Sha256 = new string('a', 64) }; app.Url = app.PinnedUrl;
+        Check(app.CanSelfUpdate(null, "1.3.2"), "a valid pinned newer release can self-update normally");
+        Check(!app.CanSelfUpdate("http://localhost/manifest.json", "1.3.2") && !app.CanSelfUpdate(Pack.ManifestUrl, "1.3.2"), "any explicit manifest override disables executable self-update, even with a pinned app URL");
+        app.Url = "https://example.com/Clonedivers.exe";
+        Check(!app.CanSelfUpdate(null, "1.3.2"), "a foreign executable URL is never eligible");
+        app.Url = app.PinnedUrl; app.Sha256 = new string('g', 64);
+        Check(!app.CanSelfUpdate(null, "1.3.2"), "invalid executable hash disables self-update");
+        app.Sha256 = new string('a', 64); app.Size = 0;
+        Check(!app.CanSelfUpdate(null, "1.3.2"), "empty executable metadata disables self-update");
     }
 
     static void HashCacheAndCleanupTests(string root)

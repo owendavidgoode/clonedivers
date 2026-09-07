@@ -127,8 +127,16 @@ settings until apply succeeds. The saved transaction's metadata is used after re
 ZIP installation validates all part directories before moving files and preserves colliding backups; it is still a legacy
 nontransactional path once extraction begins. Keep all parts available and rerun it if extraction is cancelled or fails.
 
+Security boundaries: pack and recovery file names must be plain patch names, excluding Windows device names, alternate
+streams, path separators and control characters. Sizes must be nonnegative and hashes exactly 64 hexadecimal characters.
+Recovery validates its target before inventory or mutations; apply checks source/destination folders before moving files.
+Managed folders and files that are junctions or symbolic links are rejected. These checks do not provide a sandbox against
+another process already running as the same user and racing filesystem changes; run the app without elevation.
+
 Self-update: `SelfUpdate.Paths` derives `<stem>.update.exe` / `<stem>.old.exe`; the offer needs `app.url` to equal the
-pinned release URL (relaxed only under `Settings.ManifestUrl`); `SelfUpdate.Swap` renames the running exe to `.old.exe`,
+pinned release URL, a positive size, and a valid SHA-256. Any `Settings.ManifestUrl` override disables executable
+self-update, including a pinned app URL supplied by the override. The same policy is enforced at execution and before
+swapping executables. `SelfUpdate.Swap` renames the running exe to `.old.exe`,
 moves the download into place with retries (OneDrive/Defender), rolls back if the second move fails; the mutex is
 released before the new exe starts with `--updated X.Y.Z`; `.old.exe` is deleted on the next start.
 
@@ -145,8 +153,8 @@ an older client's unknown build is not inferred from a newer remote pack. Remote
 - A fake acf lives two folders above the stand-in game folder (`steamapps\appmanifest_553850.acf`, tab-separated like
   the real one); change `buildid` / `TargetBuildID` to trigger the warnings; set `"status": "broken"` in the manifest.
 - Drop any `X.clonedivers-staged` file into `data\` for the interrupted state.
-- Use `"app": { "version": "9.9.9", "url": "http://127.0.0.1:8000/Clonedivers.exe", ... }` in the local manifest for the
-  self-update offer; test the swap on a copy of the exe in a scratch folder, never on `dist\Clonedivers.exe`.
+- A local manifest may exercise pack flows, but must never offer or execute a self-update. Regression tests cover this
+  policy and test the swap using disposable files; do not use the manifest override to test executable downloads.
 
 ## Next (1.4)
 

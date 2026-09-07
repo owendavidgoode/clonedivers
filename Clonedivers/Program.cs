@@ -26,6 +26,68 @@ namespace Clonedivers;
 /// <summary>Where the mod files currently live. Always derived from disk, never stored.</summary>
 public enum ModState { GameNotFound, NoModFiles, On, Off }
 
+/// <summary>Untrusted metadata may name a file, never a path or a Windows device. Managed folders cannot redirect writes.</summary>
+public static class FileSafety
+{
+    public static bool IsSha256(string? value) => value is { Length: 64 } && value.All(c => c is >= '0' and <= '9' or >= 'a' and <= 'f' or >= 'A' and <= 'F');
+
+    public static void ValidateLeaf(string? name)
+    {
+        if (string.IsNullOrWhiteSpace(name) || name.IndexOfAny(Path.GetInvalidFileNameChars()) >= 0 ||
+            name is "." or ".." || name.EndsWith('.') || name.EndsWith(' ') || Path.IsPathRooted(name) ||
+            Regex.IsMatch(name, @"^(CON|PRN|AUX|NUL|CONIN\$|CONOUT\$|COM[1-9¹²³]|LPT[1-9¹²³])(?:\.|$)", RegexOptions.IgnoreCase | RegexOptions.CultureInvariant))
+            throw new InvalidDataException("Invalid file name in pack metadata.");
+    }
+
+    public static void ValidatePatchName(string? name)
+    {
+        ValidateLeaf(name);
+        if (!ModFiles.TryParsePatchName(name!, out _, out _, out _)) throw new InvalidDataException("Invalid patch file name in pack metadata.");
+    }
+
+    public static void RejectLink(string path)
+    {
+        try
+        {
+            if ((File.GetAttributes(path) & FileAttributes.ReparsePoint) != 0)
+                throw new InvalidDataException($"Refusing a linked file or folder: {path}");
+        }
+        catch (FileNotFoundException) { }
+        catch (DirectoryNotFoundException) { }
+    }
+
+    public static string Child(string folder, string name)
+    {
+        ValidateLeaf(name);
+        var root = Path.TrimEndingDirectorySeparator(Path.GetFullPath(folder));
+        var path = Path.GetFullPath(Path.Combine(root, name));
+        if (!string.Equals(Path.GetDirectoryName(path), root, StringComparison.OrdinalIgnoreCase))
+            throw new InvalidDataException("Pack path escapes its destination folder.");
+        RejectLink(root); RejectLink(path);
+        return path;
+    }
+
+    public static void ValidateFile(PackFile? file, bool named = true)
+    {
+        if (file is null || file.Size < 0 || !IsSha256(file.Sha256))
+            throw new InvalidDataException("Pack files require a nonnegative size and a hexadecimal SHA-256.");
+        if (named) ValidatePatchName(file.Name);
+        if (file.Size == 0 && !string.Equals(file.Sha256, PackFile.EmptySha, StringComparison.OrdinalIgnoreCase))
+            throw new InvalidDataException("An empty file must have the empty-file SHA-256.");
+    }
+
+    public static void ValidateTargets(IReadOnlyList<PackFile>? files)
+    {
+        if (files is null || files.Count == 0) throw new InvalidDataException("The recovery target contains no files.");
+        var seen = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        foreach (var file in files)
+        {
+            ValidateFile(file);
+            if (!seen.Add(file.Name)) throw new InvalidDataException("Duplicate file name in recovery target.");
+        }
+    }
+}
+
 /// <summary>Pure file logic. No UI, no processes. Exercised by Clonedivers.Tests.</summary>
 public static class ModFiles
 {
@@ -80,9 +142,10 @@ public static class ModFiles
 
     public static string[] ListPatchFiles(string dir)
     {
+        FileSafety.RejectLink(dir);
         if (!Directory.Exists(dir)) return Array.Empty<string>();
         return Directory.EnumerateFiles(dir)
-            .Where(IsPatchFile)
+            .Where(IsPatchFile).Select(path => FileSafety.Child(dir, Path.GetFileName(path)))
             .OrderBy(f => f, StringComparer.OrdinalIgnoreCase)
             .ToArray();
     }
@@ -104,6 +167,8 @@ public static class ModFiles
             var dst = Path.Combine(toDir, Path.GetFileName(src));
             try
             {
+                FileSafety.Child(fromDir, Path.GetFileName(src));
+                FileSafety.Child(toDir, Path.GetFileName(dst));
                 // A stale copy at the destination may be read-only; it is being replaced anyway.
                 if (File.Exists(dst) && (File.GetAttributes(dst) & FileAttributes.ReadOnly) != 0)
                     File.SetAttributes(dst, FileAttributes.Normal);
@@ -374,6 +439,8 @@ public sealed class AppRelease
     /// <summary>The only URL the self-updater accepts: this repo's own release asset for exactly this version.</summary>
     public string PinnedUrl => $"https://github.com/owendavidgoode/clonedivers/releases/download/v{Version}/Clonedivers.exe";
     public bool IsPinned => string.Equals(Url, PinnedUrl, StringComparison.OrdinalIgnoreCase);
+    public bool CanSelfUpdate(string? manifestOverride, string currentVersion) =>
+        string.IsNullOrWhiteSpace(manifestOverride) && IsPinned && IsNewerThan(currentVersion) && Size > 0 && FileSafety.IsSha256(Sha256);
     public bool IsNewerThan(string current) =>
         System.Version.TryParse(Version, out var v) && System.Version.TryParse(current, out var c)
         && new System.Version(v.Major, v.Minor, Math.Max(v.Build, 0)) > new System.Version(c.Major, c.Minor, Math.Max(c.Build, 0));
@@ -403,15 +470,19 @@ public sealed class Manifest
         }
         if (m.Pack is { } p)
         {
+            if (p.Options is null || p.Files is null || p.Options.Any(o => o is null))
+                throw new InvalidDataException("manifest.json has invalid options or files.");
             // A name may appear twice only as a variant pair: the base file (unlessOption = X) and its replacement (option = X).
             var seen = new Dictionary<string, PackFile>(StringComparer.OrdinalIgnoreCase);
             var optionIds = new HashSet<string>(p.Options.Select(o => o.Id ?? ""), StringComparer.OrdinalIgnoreCase);
             foreach (var f in p.Files)
             {
+                if (f is null) throw new InvalidDataException("manifest.json contains a null file.");
                 f.Sha256 = (f.Sha256 ?? "").Trim().ToLowerInvariant();
                 f.Url = (f.Url ?? "").Trim();
-                f.Name = (f.Name ?? "").Trim();
+                f.Name ??= "";
                 if (f.Size == 0) f.Sha256 = PackFile.EmptySha;
+                FileSafety.ValidateFile(f, named: f.Name.Length > 0);
                 if (f.Name.Length == 0) continue;   // format-1 zip part
                 if (!ModFiles.IsPatchFile(f.Name) || f.Name.IndexOfAny(new[] { '\\', '/', ':' }) >= 0)
                     throw new InvalidDataException($"manifest.json lists an invalid file name: {f.Name}");
@@ -422,7 +493,6 @@ public sealed class Manifest
                     if (!pair) throw new InvalidDataException($"manifest.json lists {f.Name} twice without a variant option");
                 }
                 else seen[f.Name] = f;
-                if (f.Size > 0 && f.Sha256.Length != 64) throw new InvalidDataException($"manifest.json has no SHA-256 for {f.Name}");
                 if (f.Option is not null && !optionIds.Contains(f.Option)) throw new InvalidDataException($"manifest.json: {f.Name} refers to an unknown option '{f.Option}'");
                 if (f.UnlessOption is not null && !optionIds.Contains(f.UnlessOption)) throw new InvalidDataException($"manifest.json: {f.Name} refers to an unknown option '{f.UnlessOption}'");
             }
@@ -587,6 +657,7 @@ public static class Pack
         using var zip = ZipFile.OpenRead(zipPath);
         var names = zip.Entries.Where(e => e.Name.Length > 0 && ModFiles.IsPatchFile(e.Name)).Select(e => e.Name).ToArray();
         if (names.Length == 0) throw new InvalidDataException($"No *.patch_* files inside {Path.GetFileName(zipPath)}.");
+        foreach (var name in names) FileSafety.ValidatePatchName(name);
         var dup = names.GroupBy(n => n, StringComparer.OrdinalIgnoreCase).FirstOrDefault(g => g.Count() > 1);
         if (dup is not null)
             throw new InvalidDataException(
@@ -607,6 +678,7 @@ public static class Pack
     public static int ExtractPatchFiles(string zipPath, string dataDir, IProgress<(long done, long total)>? progress, CancellationToken ct)
     {
         ListPatchEntries(zipPath);   // duplicate / empty check up front
+        FileSafety.RejectLink(dataDir);
         Directory.CreateDirectory(dataDir);
         foreach (var leftover in Directory.EnumerateFiles(dataDir, "*" + PartialSuffix)) File.Delete(leftover);
 
@@ -619,8 +691,8 @@ public static class Pack
         foreach (var e in entries)
         {
             ct.ThrowIfCancellationRequested();
-            var dest = Path.Combine(dataDir, e.Name);
-            var tmp = dest + PartialSuffix;
+            var dest = FileSafety.Child(dataDir, e.Name);
+            var tmp = FileSafety.Child(dataDir, e.Name + PartialSuffix);
             using (var src = e.Open())
             using (var dst = new FileStream(tmp, FileMode.Create, FileAccess.Write, FileShare.None, buffer.Length))
             {
@@ -648,6 +720,7 @@ public static class Pack
         var data = Path.Combine(gameDir, ModFiles.DataFolder);
         var off = Path.Combine(gameDir, ModFiles.OffFolder);
         var old = Path.Combine(gameDir, OldFolder);
+        FileSafety.RejectLink(old);
         if (ModFiles.HasStagedFiles(gameDir))
             throw new InvalidOperationException("A pack update was interrupted. Click Finish update first, then install from file.");
 
@@ -680,6 +753,7 @@ public static class Pack
     /// <summary>Downloads one file with HTTP Range resume, then checks size and SHA-256. A failed check deletes the file.</summary>
     public static async Task DownloadAsync(PackFile file, string destPath, IProgress<(long done, long total)>? progress, CancellationToken ct)
     {
+        FileSafety.RejectLink(destPath);
         Directory.CreateDirectory(Path.GetDirectoryName(destPath)!);
         long existing = File.Exists(destPath) ? new FileInfo(destPath).Length : 0;
         if (file.Size > 0 && existing > file.Size) { File.Delete(destPath); existing = 0; }
@@ -740,16 +814,18 @@ public static class Pack
     /// Progress reports (bytesDone, bytesTotal, fileIndex, fileCount). Cancel keeps partials; a complete file is never re-fetched.</summary>
     public static async Task DownloadPlanAsync(UpdatePlan plan, string dlDir, IProgress<(long done, long total, int file, int files)>? progress, CancellationToken ct)
     {
+        foreach (var f in plan.Downloads) FileSafety.ValidateFile(f);
+        FileSafety.RejectLink(dlDir);
         var files = plan.Downloads.OrderByDescending(f => f.Size).ToList();
         long total = files.Sum(f => f.Size), before = 0;
         for (int i = 0; i < files.Count; i++)
         {
             ct.ThrowIfCancellationRequested();
             var f = files[i];
-            var complete = Path.Combine(dlDir, f.Sha256);
+            var complete = FileSafety.Child(dlDir, f.Sha256);
             if (!await MatchesAsync(complete, f, ct))
             {
-                var partial = complete + PartialSuffix;
+                var partial = FileSafety.Child(dlDir, f.Sha256 + PartialSuffix);
                 long offset = before; int idx = i + 1;
                 var reporter = new SyncProgress<(long done, long total)>(p => progress?.Report((offset + p.done, total, idx, files.Count)));
                 await DownloadAsync(f, partial, reporter, ct);
@@ -764,6 +840,7 @@ public static class Pack
     /// (this is also how 1.2.0's leftover zip partials go away).</summary>
     public static int CleanDownloadFolder(string dlDir, IEnumerable<string> wantedShas)
     {
+        FileSafety.RejectLink(dlDir);
         if (!Directory.Exists(dlDir)) return 0;
         var keep = new HashSet<string>(wantedShas, StringComparer.OrdinalIgnoreCase);
         int removed = 0;
@@ -785,11 +862,13 @@ public static class Pack
 
     public static async Task<HashSet<string>> VerifiedDownloadsAsync(string dlDir, IEnumerable<PackFile> wanted, CancellationToken ct)
     {
+        FileSafety.RejectLink(dlDir);
         var complete = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
         foreach (var f in wanted.Where(f => f.Size > 0).DistinctBy(f => f.Sha256))
         {
             ct.ThrowIfCancellationRequested();
-            if (await MatchesAsync(Path.Combine(dlDir, f.Sha256), f, ct)) complete.Add(f.Sha256);
+            FileSafety.ValidateFile(f);
+            if (await MatchesAsync(FileSafety.Child(dlDir, f.Sha256), f, ct)) complete.Add(f.Sha256);
         }
         return complete;
     }
@@ -819,6 +898,7 @@ public static class Pack
     public static async Task<List<LocalFile>> InventoryAsync(string gameDir, IReadOnlyList<PackFile> wanted, HashCache cache, bool forceRehash,
         IProgress<(long done, long total)>? progress, CancellationToken ct)
     {
+        FileSafety.ValidateTargets(wanted);
         var data = Path.Combine(gameDir, ModFiles.DataFolder);
         var off = Path.Combine(gameDir, ModFiles.OffFolder);
         var old = Path.Combine(gameDir, OldFolder);
@@ -830,11 +910,13 @@ public static class Pack
 
         List<(string path, string name, FileInfo fi, LocalWhere where)> Scan(string dir, LocalWhere where)
         {
+            FileSafety.RejectLink(dir);
             var list = new List<(string, string, FileInfo, LocalWhere)>();
             if (!Directory.Exists(dir)) return list;
             foreach (var path in Directory.EnumerateFiles(dir))
             {
                 var fn = Path.GetFileName(path);
+                if (ModFiles.IsPatchFile(fn) || ModFiles.IsStagedFile(fn) || ModFiles.TryParseParkedName(fn, out _)) FileSafety.Child(dir, fn);
                 if (where == LocalWhere.Staged)
                 {
                     if (!fn.EndsWith(ModFiles.StagedSuffix, StringComparison.OrdinalIgnoreCase)) continue;
@@ -907,6 +989,7 @@ public static class Pack
     /// Local files that match nothing are parked. Zero-byte entries are created, never downloaded.</summary>
     public static UpdatePlan Plan(string gameDir, IReadOnlyList<PackFile> wanted, IReadOnlyList<LocalFile> local, IReadOnlySet<string> completeDownloads)
     {
+        FileSafety.ValidateTargets(wanted);
         var data = Path.Combine(gameDir, ModFiles.DataFolder);
         var old = Path.Combine(gameDir, OldFolder);
         var dl = Path.Combine(gameDir, DownloadFolder);
@@ -1003,6 +1086,9 @@ public static class Pack
     public static ApplyResult Apply(string gameDir, UpdatePlan plan, string planPath, string packVersion, HashCache? cache, string? cachePath,
         string? gameBuild = null, Dictionary<string, bool>? options = null)
     {
+        FileSafety.ValidateTargets(plan.TargetFiles);
+        foreach (var action in plan.Actions) ValidateActionPaths(gameDir, action.Op, action.From, action.To);
+        FileSafety.RejectLink(planPath); FileSafety.RejectLink(planPath + ".tmp");
         var pf = new PlanFile { PackVersion = packVersion, GameBuild = gameBuild, Options = options, TargetFiles = plan.TargetFiles,
             GameDir = gameDir, Actions = plan.Actions.Select(a => new PlanFileAction { Op = a.Op.ToString(), From = a.From, To = a.To, Sha = a.Sha, Size = a.Size }).ToList() };
         Directory.CreateDirectory(Path.GetDirectoryName(planPath)!);
@@ -1035,13 +1121,41 @@ public static class Pack
         PlanFile? pf;
         try { pf = File.Exists(planPath) ? JsonSerializer.Deserialize<PlanFile>(File.ReadAllText(planPath)) : null; }
         catch { pf = null; }
-        if (pf is null || !SameGame(pf.GameDir, gameDir) || pf.Format != 2 || pf.TargetFiles.Count == 0) return null;
+        if (pf is null || pf.Format != 2) return null;
+        try
+        {
+            if (!SameGame(pf.GameDir, gameDir)) return null;
+            FileSafety.ValidateTargets(pf.TargetFiles);
+        }
+        catch (Exception ex) when (ex is InvalidDataException or ArgumentException or NotSupportedException) { return null; }
         if (Game.IsRunning()) throw new InvalidOperationException("Helldivers 2 is running. Close it, then click Finish update.");
         var local = InventoryAsync(gameDir, pf.TargetFiles, cache ?? new HashCache(), true, null, CancellationToken.None).GetAwaiter().GetResult();
         var complete = VerifiedDownloadsAsync(Path.Combine(gameDir, DownloadFolder), pf.TargetFiles, CancellationToken.None).GetAwaiter().GetResult();
         var plan = Plan(gameDir, pf.TargetFiles, local, complete);
         if (plan.Downloads.Count > 0) return null;
         return Apply(gameDir, plan, planPath, pf.PackVersion, cache, cachePath, pf.GameBuild, pf.Options);
+    }
+
+    static void ValidateActionPaths(string gameDir, PlanOp op, string from, string to)
+    {
+        void InFolder(string path, params string[] folders)
+        {
+            var full = Path.GetFullPath(path);
+            foreach (var folder in folders)
+            {
+                var root = Path.GetFullPath(Path.Combine(gameDir, folder));
+                if (string.Equals(Path.GetDirectoryName(full), root, StringComparison.OrdinalIgnoreCase))
+                {
+                    FileSafety.Child(root, Path.GetFileName(full));
+                    return;
+                }
+            }
+            throw new InvalidDataException("An update action escapes its managed game folder.");
+        }
+        InFolder(to, op == PlanOp.Park ? OldFolder : ModFiles.DataFolder);
+        if (op == PlanOp.Finalize) FileSafety.ValidatePatchName(Path.GetFileName(to));
+        else if (op != PlanOp.Park && !ModFiles.IsStagedFile(to)) throw new InvalidDataException("Update writes must use staged file names.");
+        if (op != PlanOp.Create) InFolder(from, ModFiles.DataFolder, ModFiles.OffFolder, OldFolder, DownloadFolder);
     }
 
     static ApplyResult Execute(string gameDir, List<PlanFileAction> actions, string planPath, HashCache? cache, string? cachePath)
@@ -1052,7 +1166,7 @@ public static class Pack
 
         void Try(PlanFileAction a, Action work)
         {
-            try { work(); }
+            try { ValidateActionPaths(gameDir, Enum.Parse<PlanOp>(a.Op), a.From, a.To); work(); }
             catch (Exception ex) when (ex is IOException or UnauthorizedAccessException) { r.Failed.Add(Path.GetFileName(a.From.Length > 0 ? a.From : a.To) + " (" + ex.Message + ")"); }
         }
 
@@ -1112,6 +1226,7 @@ public static class Pack
     /// <summary>mods_old\X, then X.1, X.2 … Nothing in mods_old\ is ever overwritten. ".N" never matches the patch pattern.</summary>
     static string FreeName(string target)
     {
+        FileSafety.Child(Path.GetDirectoryName(target)!, Path.GetFileName(target));
         if (!File.Exists(target)) return target;
         for (int i = 1; ; i++) { var t = $"{target}.{i}"; if (!File.Exists(t)) return t; }
     }
@@ -2121,7 +2236,7 @@ public sealed class MainForm : Form
 
         // Self-update offer lives in the idle progress row.
         var app = manifest?.App;
-        var offer = !Busy && !staged && app is not null && app.IsNewerThan(AppInfo.Version) && (app.IsPinned || !string.IsNullOrWhiteSpace(settings.ManifestUrl))
+        var offer = !Busy && !staged && app is not null && app.CanSelfUpdate(settings.ManifestUrl, AppInfo.Version)
                     && DateTime.UtcNow - lastProgressMessage > TimeSpan.FromSeconds(5);
         if (offer)
         {
@@ -2377,7 +2492,7 @@ public sealed class MainForm : Form
     void OnAppUpdate()
     {
         var app = manifest?.App;
-        if (Busy || app is null) return;
+        if (Busy || app is null || !app.CanSelfUpdate(settings.ManifestUrl, AppInfo.Version)) return;
         var exePath = Environment.ProcessPath;
         if (exePath is null) return;
         var (exe, update, old) = SelfUpdate.Paths(exePath);
@@ -2397,6 +2512,7 @@ public sealed class MainForm : Form
 
     async Task AppUpdateAsync(AppRelease app, string exe, string update, string old)
     {
+        if (!app.CanSelfUpdate(settings.ManifestUrl, AppInfo.Version)) return;
         SetBusy(BusyKind.AppUpdate);
         var cts = opCts = new CancellationTokenSource();
         try
@@ -2407,6 +2523,7 @@ public sealed class MainForm : Form
             // It sat on disk for a moment (OneDrive / Defender may have touched it): check again before trusting it.
             var sha = await Pack.Sha256Async(update, cts.Token);
             if (!sha.Equals(app.Sha256.Trim(), StringComparison.OrdinalIgnoreCase)) { File.Delete(update); throw new InvalidDataException("The downloaded Clonedivers failed its integrity check. Deleted it; try again."); }
+            if (!app.CanSelfUpdate(settings.ManifestUrl, AppInfo.Version)) throw new InvalidOperationException("Self-update is disabled for this manifest source.");
             ShowProgressDone("Restarting…");
             await Task.Run(() => SelfUpdate.Swap(exe, update, old, TimeSpan.FromSeconds(30)));
             Program.ReleaseSingleInstance();
