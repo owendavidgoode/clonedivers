@@ -50,6 +50,10 @@ static class TestProgram
             PlanAndApplyTests(root).GetAwaiter().GetResult();
             SurplusAndParkNamingTests(root);
             InterruptedAndReplayTests(root);
+            RecoveryBoundaryTests(root);
+            InstallationSettingsTests();
+            CachedDownloadTests(root).GetAwaiter().GetResult();
+            SecurityBoundaryTests(root).GetAwaiter().GetResult();
             HashCacheAndCleanupTests(root);
             SelfUpdateAndAcfTests(root);
         }
@@ -288,18 +292,30 @@ static class TestProgram
         try { Pack.Install(game2, new[] { partA, partDup }, null, CancellationToken.None); } catch (InvalidDataException e) { ex = e; }
         Check(ex is not null && ex.Message.Contains("more than one"), "the same file in two selected zips is rejected before anything moves");
         Check(File.ReadAllText(Path.Combine(data2, "9ba626afa44a3aa3.patch_0")) == "new armory", "and data\\ was left untouched");
+
+        var before = Names(data2);
+        ex = null;
+        try { Pack.Install(game2, new[] { partA, empty }, null, CancellationToken.None); } catch (InvalidDataException e) { ex = e; }
+        Check(ex is not null && SameSet(before, Names(data2)), "a later empty ZIP is rejected before the first part changes any files");
+        Put(data2, "stale.patch_0", "recent"); Put(old2, "stale.patch_0", "older");
+        Pack.Install(game2, new[] { partA, partB }, null, CancellationToken.None);
+        Check(File.ReadAllText(Path.Combine(old2, "stale.patch_0")) == "older" && File.ReadAllText(Path.Combine(old2, "stale.patch_0.1")) == "recent", "ZIP install preserves both versions of a colliding backup");
+        using var cancelled = new CancellationTokenSource(); cancelled.Cancel();
+        bool stopped = false;
+        try { Pack.Install(game2, new[] { partA }, null, cancelled.Token); } catch (OperationCanceledException) { stopped = true; }
+        Check(stopped && File.Exists(Path.Combine(data2, "abcdef0123456789.patch_1")), "pre-cancelled ZIP install does not park the existing files");
     }
 
     static void ManifestTests()
     {
         Console.WriteLine("pack.json parsing");
-        var m = Pack.ParseManifest("{ \"version\": \"2026.09.05\", \"name\": \"Clonedivers pack\", \"notes\": \"Built for 7.0.2\", \"files\": [ { \"url\": \"https://example.com/a.zip\", \"size\": 10, \"sha256\": \"AB\" }, { \"url\": \"https://example.com/b.zip\", \"size\": 5, \"sha256\": \"CD\" } ] }");
+        var m = Pack.ParseManifest("{ \"version\": \"2026.09.05\", \"name\": \"Clonedivers pack\", \"notes\": \"Built for 7.0.2\", \"files\": [ { \"url\": \"https://example.com/a.zip\", \"size\": 10, \"sha256\": \"SHA_A\" }, { \"url\": \"https://example.com/b.zip\", \"size\": 5, \"sha256\": \"SHA_B\" } ] }".Replace("SHA_A", new string('A', 64)).Replace("SHA_B", new string('b', 64)));
         Check(m is not null && m.Version == "2026.09.05" && m.Files.Count == 2, "camelCase manifest parses");
         Check(m!.TotalSize, 15L, "TotalSize sums the parts");
         Check(m.IsPublished, "manifest with URLs counts as published");
         var placeholder = Pack.ParseManifest("{ \"version\": \"\", \"files\": [] }");
         Check(placeholder is not null && !placeholder.IsPublished, "empty files list means not published yet");
-        var blankUrl = Pack.ParseManifest("{ \"version\": \"1\", \"files\": [ { \"url\": \"\", \"size\": 1, \"sha256\": \"\" } ] }");
+        var blankUrl = Pack.ParseManifest("{ \"version\": \"1\", \"files\": [ { \"url\": \"\", \"size\": 1, \"sha256\": \"SHA\" } ] }".Replace("SHA", new string('a', 64)));
         Check(blankUrl is not null && !blankUrl.IsPublished, "a file with a blank URL means not published yet");
         Check(Pack.FormatBytes(5L * 1024 * 1024 * 1024 + 100) == "5.0 GB" && Pack.FormatBytes(223L * 1024 * 1024) == "223 MB", "FormatBytes");
     }
@@ -466,7 +482,7 @@ static class TestProgram
         try { Manifest.Parse(json.Replace("9ba626afa44a3aa3.patch_1\"", "9ba626afa44a3aa3.PATCH_0\"")); } catch (InvalidDataException e) { ex = e; }
         Check(ex is not null, "duplicate names differing by case are rejected");
 
-        var legacy = Manifest.Parse("""{ "version": "r3", "files": [ { "url": "https://x/p1.zip", "size": 10, "sha256": "AB" } ] }""");
+        var legacy = Manifest.Parse("""{ "version": "r3", "files": [ { "url": "https://x/p1.zip", "size": 10, "sha256": "SHA" } ] }""".Replace("SHA", new string('a', 64)));
         Check(legacy.Format == 1 && legacy.Pack is not null && legacy.Pack.Files.Count == 1 && !legacy.Pack.IsPerFile && legacy.Pack.IsPublished, "format-1 pack.json still parses (zip parts, no names)");
         Check(Manifest.Parse("""{ "format": 2 }""").Pack is null, "a manifest without a pack block parses (Pack null)");
         Check(Manifest.Parse(json.Replace("\"format\": 2", "\"format\": 3")).App is not null, "format 3 still parses and keeps the app block");
@@ -641,6 +657,148 @@ static class TestProgram
         Check(File.Exists(Path.Combine(game, "mods_old", "C.patch_0")), "old file parked");
         Check(Pack.Replay(game, planPath, null, null) is null, "replay with no plan file returns null (caller re-plans)");
         Check(Pack.Replay(game, Path.Combine(root, "nope.json"), null, null) is null, "missing plan → null");
+    }
+
+    static void RecoveryBoundaryTests(string root)
+    {
+        Console.WriteLine("Recovery after every action boundary, including renumbering, copies and partial finalization");
+        int count = 1;
+        for (int boundary = 0; boundary <= count; boundary++)
+        {
+            var game = MakeGame(root, "Boundary " + boundary);
+            var data = Path.Combine(game, "data"); var dl = Path.Combine(game, "mods_download");
+            var pp = Path.Combine(game, "plan.json");
+            Put(data, "A.patch_0", "aaa"); Put(data, "A.patch_1", "bbb"); Put(data, "A.patch_4", "keep"); Put(data, "stale.patch_0", "stale");
+            var wanted = new List<PackFile> { F("A.patch_0", "bbb"), F("A.patch_1", "aaa"), F("A.patch_2", "aaa"), F("A.patch_2.stream", ""), F("A.patch_3", "fresh"), F("A.patch_4", "keep") };
+            Put(dl, ShaOf("fresh"), "fresh");
+            var local = Pack.InventoryAsync(game, wanted, new HashCache(), true, null, CancellationToken.None).GetAwaiter().GetResult();
+            var plan = Pack.Plan(game, wanted, local, new HashSet<string> { ShaOf("fresh") });
+            count = plan.Actions.Count;
+            // Save the real transaction without executing it, then simulate a process stop after each mutation.
+            Game.IsRunningCheck = () => true;
+            try { Pack.Apply(game, plan, pp, "target-v2", null, null, "build-b", new() { ["cmd"] = false }); }
+            catch (InvalidOperationException) { }
+            finally { Game.IsRunningCheck = () => false; }
+            foreach (var action in plan.Actions.Take(boundary))
+            {
+                Directory.CreateDirectory(Path.GetDirectoryName(action.To)!);
+                switch (action.Op)
+                {
+                    case PlanOp.Copy: File.Copy(action.From, action.To); break;
+                    case PlanOp.Create: File.Create(action.To).Dispose(); break;
+                    default: File.Move(action.From, action.To); break;
+                }
+            }
+            Check(Pack.HasPendingUpdate(game, pp), $"boundary {boundary}: saved plan marks recovery pending even without staged files");
+            var result = Pack.Replay(game, pp, null, null);
+            Check(result is { Interrupted: false } && result.PackVersion == "target-v2" && result.GameBuild == "build-b" && result.Options?["cmd"] == false,
+                $"boundary {boundary}: offline recovery succeeds and retains the target metadata");
+            Check(SameSet(Names(data), wanted.Select(f => f.Name)) && wanted.All(f => Pack.Sha256Async(Path.Combine(data, f.Name), CancellationToken.None).GetAwaiter().GetResult() == f.Sha256),
+                $"boundary {boundary}: every final file has the correct bytes");
+            Check(!Pack.HasPendingUpdate(game, pp), $"boundary {boundary}: completed recovery clears the transaction");
+        }
+        var legacyGame = MakeGame(root, "Legacy recovery");
+        var legacyPlan = Path.Combine(legacyGame, "plan.json");
+        Put(Path.Combine(legacyGame, "data"), "A.patch_0", "new");
+        File.WriteAllText(legacyPlan, System.Text.Json.JsonSerializer.Serialize(new { Format = 1, GameDir = legacyGame, Actions = new[] { new { Op = "Park", From = Path.Combine(legacyGame, "data", "A.patch_0"), To = Path.Combine(legacyGame, "mods_old", "A.patch_0") } } }));
+        Check(Pack.Replay(legacyGame, legacyPlan, null, null) is null && File.ReadAllText(Path.Combine(legacyGame, "data", "A.patch_0")) == "new", "legacy action-only recovery requests a fresh plan without executing stale actions");
+        var target = new List<PackFile> { F("A.patch_0", "new") };
+        var found = Pack.InventoryAsync(legacyGame, target, new HashCache(), true, null, CancellationToken.None).GetAwaiter().GetResult();
+        var unchanged = Pack.Plan(legacyGame, target, found, new HashSet<string>());
+        Check(unchanged.IsNoOp, "fresh manifest repair can find a legacy interrupted update already complete");
+        Pack.Apply(legacyGame, unchanged, legacyPlan, "new", null, null);
+        Check(!Pack.HasPendingUpdate(legacyGame, legacyPlan), "a no-op apply also clears the stale recovery record");
+    }
+
+    static void InstallationSettingsTests()
+    {
+        Console.WriteLine("Installed settings change only after success; compatibility follows installed metadata");
+        var settings = new Settings { InstalledPackVersion = "v1", InstalledGameBuild = "a", Options = new() { ["cmd"] = true } };
+        var pack = new PackManifest { Version = "v2", GameBuild = "b", Options = { new PackOption { Id = "cmd", Default = true } } };
+        var requested = settings.OptionsFor(pack, "cmd", false);
+        Check(!requested["cmd"] && settings.Options["cmd"], "planning or cancelling an option change leaves the installed option unchanged");
+        settings.RecordInstall(new ApplyResult { PackVersion = "v2", Options = requested, Reason = "interrupted" });
+        Check(settings.Options["cmd"] && settings.InstalledPackVersion == "v1", "an interrupted apply cannot commit target settings");
+        var game = new SteamAcf.Info("b", "b", "4");
+        Check(settings.BuildChanged(pack, game) && settings.BuildChanged(null, game), "new remote pack and offline mode both retain the installed-build warning");
+        var legacy = new Settings { InstalledPackVersion = "v1" };
+        Check(legacy.BuildChanged(pack, game), "an old client's unknown build is not inferred from a newer remote pack");
+        settings.RecordInstall(new ApplyResult { PackVersion = "v2", GameBuild = "b", Options = requested });
+        Check(settings.InstalledPackVersion == "v2" && !settings.Options["cmd"] && !settings.BuildChanged(null, game), "successful install commits the exact version, build and options and clears the warning");
+    }
+
+    static async Task CachedDownloadTests(string root)
+    {
+        Console.WriteLine("Same-length corrupted cached downloads are re-fetched");
+        var dl = Path.Combine(root, "corrupt-download");
+        using var server = new TinyHttp(System.Text.Encoding.UTF8.GetBytes("good"));
+        var wanted = new List<PackFile> { F("A.patch_0", "good", url: server.Url) };
+        Put(dl, wanted[0].Sha256, "evil");
+        var complete = await Pack.VerifiedDownloadsAsync(dl, wanted, CancellationToken.None);
+        Check(complete.Count == 0, "size alone does not mark a cached download complete");
+        var plan = Pack.Plan(Path.Combine(root, "cache-target"), wanted, new List<LocalFile>(), complete);
+        Check(plan.Downloads.Count == 1, "corrupt cache schedules a replacement download");
+        await Pack.DownloadPlanAsync(plan, dl, null, CancellationToken.None);
+        Check(File.ReadAllText(Path.Combine(dl, wanted[0].Sha256)) == "good", "download execution also verifies the existing cache before skipping");
+        Check((await Pack.VerifiedDownloadsAsync(dl, wanted, CancellationToken.None)).Contains(wanted[0].Sha256), "valid completed downloads remain reusable");
+    }
+
+    static async Task SecurityBoundaryTests(string root)
+    {
+        Console.WriteLine("Security: metadata cannot redirect writes or enable self-update under a test override");
+        void Rejects(Action action, string message)
+        {
+            bool rejected = false;
+            try { action(); } catch (InvalidDataException) { rejected = true; }
+            Check(rejected, message);
+        }
+        string Json(PackFile file) => System.Text.Json.JsonSerializer.Serialize(new { format = 2, pack = new { version = "v", files = new[] { file } } });
+        foreach (var name in new[] { @"..\escape.patch_0", "../escape.patch_0", Path.Combine(root, "escape.patch_0"), "A.patch_0:stream.patch_0", "NUL.patch_0", "CON.patch_0", "LPT1.patch_0", "COM¹.patch_0", "bad?.patch_0", "bad\n.patch_0", "A.patch_0\n", ".patch_0" })
+            Rejects(() => Manifest.Parse(Json(F(name, "good"))), "manifest rejects an unsafe patch name: " + name.Replace("\n", "\\n"));
+        foreach (var sha in new[] { new string('g', 64), "../" + new string('a', 61), "a" + new string('0', 62) + "\n", "" })
+        {
+            var file = F("A.patch_0", "good"); file.Sha256 = sha;
+            Rejects(() => Manifest.Parse(Json(file)), "manifest rejects invalid SHA-256 metadata");
+        }
+        var negative = F("A.patch_0", "good"); negative.Size = -1;
+        Rejects(() => Manifest.Parse(Json(negative)), "manifest rejects a negative file size");
+        Rejects(() => Manifest.Parse("""{"format":2,"pack":{"files":null}}"""), "manifest rejects a null file list");
+        Rejects(() => Manifest.Parse("""{"format":2,"pack":{"files":[null]}}"""), "manifest rejects a null file entry");
+        Check(Manifest.Parse(Json(F("A.patch_0", "good"))).Pack!.Files.Count == 1, "ordinary patch metadata is accepted");
+
+        var game = MakeGame(root, "Security Game"); var data = Path.Combine(game, "data");
+        var outside = Path.Combine(root, "outside.patch_0"); File.WriteAllText(outside, "sentinel");
+        Put(data, "A.patch_0", "installed"); var pp = Path.Combine(game, "plan.json");
+        foreach (var bad in new[] { F(outside, "sentinel"), negative, new PackFile { Name = "A.patch_0", Size = 1, Sha256 = new string('z', 64) } })
+        {
+            File.WriteAllText(pp, System.Text.Json.JsonSerializer.Serialize(new { Format = 2, GameDir = game, TargetFiles = new[] { bad } }));
+            Check(Pack.Replay(game, pp, null, null) is null && File.ReadAllText(outside) == "sentinel" && File.ReadAllText(Path.Combine(data, "A.patch_0")) == "installed", "untrusted recovery targets are rejected before files move");
+        }
+        File.WriteAllText(pp, System.Text.Json.JsonSerializer.Serialize(new { Format = 2, GameDir = game, TargetFiles = new[] { F("A.patch_0", "installed"), F("A.PATCH_0", "installed") } }));
+        Check(Pack.Replay(game, pp, null, null) is null, "recovery rejects duplicate target names");
+        var plan = new UpdatePlan(); plan.TargetFiles.Add(F("A.patch_0", "installed"));
+        plan.Actions.Add(new PlanAction(PlanOp.Create, "", outside, PackFile.EmptySha, 0));
+        Rejects(() => Pack.Apply(game, plan, pp, "v", null, null), "apply refuses destinations outside managed game folders");
+        plan.Actions.Clear(); plan.Actions.Add(new PlanAction(PlanOp.Finalize, Path.Combine(data, "A.patch_0"), Path.Combine(data, "game.exe"), ShaOf("installed"), 9));
+        Rejects(() => Pack.Apply(game, plan, pp, "v", null, null), "apply refuses a non-patch final destination inside data");
+        var dl = Path.Combine(game, "mods_download");
+        var badDownload = F("A.patch_0", "good"); badDownload.Sha256 = "../" + new string('a', 61);
+        bool invalidDownload = false;
+        try { await Pack.VerifiedDownloadsAsync(dl, new[] { badDownload }, CancellationToken.None); } catch (InvalidDataException) { invalidDownload = true; }
+        Check(invalidDownload && !Directory.Exists(dl), "download cache lookup rejects a path-shaped hash before disk writes");
+        var unsafeZip = MakeZip(Path.Combine(root, "unsafe-name.zip"), ("NUL.patch_0", "bad"));
+        Rejects(() => Pack.Install(game, new[] { unsafeZip }, null, CancellationToken.None), "ZIP install rejects Windows device names before mutation");
+        Check(File.ReadAllText(outside) == "sentinel" && File.ReadAllText(Path.Combine(data, "A.patch_0")) == "installed", "all hostile metadata tests preserve the outside and installed files");
+
+        var app = new AppRelease { Version = "1.3.3", Size = 5, Sha256 = new string('a', 64) }; app.Url = app.PinnedUrl;
+        Check(app.CanSelfUpdate(null, "1.3.2"), "a valid pinned newer release can self-update normally");
+        Check(!app.CanSelfUpdate("http://localhost/manifest.json", "1.3.2") && !app.CanSelfUpdate(Pack.ManifestUrl, "1.3.2"), "any explicit manifest override disables executable self-update, even with a pinned app URL");
+        app.Url = "https://example.com/Clonedivers.exe";
+        Check(!app.CanSelfUpdate(null, "1.3.2"), "a foreign executable URL is never eligible");
+        app.Url = app.PinnedUrl; app.Sha256 = new string('g', 64);
+        Check(!app.CanSelfUpdate(null, "1.3.2"), "invalid executable hash disables self-update");
+        app.Sha256 = new string('a', 64); app.Size = 0;
+        Check(!app.CanSelfUpdate(null, "1.3.2"), "empty executable metadata disables self-update");
     }
 
     static void HashCacheAndCleanupTests(string root)

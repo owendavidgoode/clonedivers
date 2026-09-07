@@ -14,12 +14,15 @@ Native tests (plain console app, no test framework, exit code 0 = pass):
 
 ```bash
 dotnet run --project Clonedivers.Tests
+powershell -NoProfile -ExecutionPolicy Bypass -File tools/test-publish-pack.ps1
 ```
 
 They prove the matcher moves exactly the patch files and their companions, leaves base archives and a decoy named
 `game.patch` alone, overwrites a stale (even read-only) collision, round-trips cleanly, keeps going past a locked file and
 names it, unescapes `libraryfolders.vdf` paths, extracts only patch files from a pack zip (flat, rejecting options packages),
 parks stale files on install, and downloads with resume, rejecting hash or size mismatches and web pages served as files.
+Regression tests cover recovery after every file-operation boundary, same-size corrupted download caches, rejected ZIPs,
+backup collisions, installed option/build/version state, and preservation of PlanOnly when publishing is detached.
 
 The test project compiles `Clonedivers\Program.cs` directly (`net8.0-windows`, `UseWindowsForms`), so every new class,
 `using` and P/Invoke in Program.cs has to build there too.
@@ -112,18 +115,35 @@ manifest are hashed; `%APPDATA%\Clonedivers\hashes.json` caches by `name|size|mt
 `Pack.Plan` (pure: in-place, rename by hash as a multiset, copy a local twin, create empty, download once per sha, park
 the rest under `mods_old\` with `.N` on collision; stages descend by patch index, finalizes ascend) → download into
 `mods_download\<sha>` → `Pack.Apply` (writes `%APPDATA%\Clonedivers\apply-plan.json` first, then parks, stages to
-`<name>.clonedivers-staged`, copies/creates, finalizes; never overwrites an occupied final name; a locked file leaves the
-run interrupted). `Pack.Replay` finishes an interrupted run from the plan file without network; `ModFiles.HasStagedFiles`
-is the interrupted state. `Pack.Install` (zip path) refuses while staged files exist.
+`<unique-id>-<name>.clonedivers-staged`, copies/creates, finalizes; never overwrites an occupied final name; a locked file leaves the
+run interrupted). The format-2 apply plan is written atomically and saves the complete target file set, version, tested game
+build and selected options. `Pack.Replay` rehashes the available files and constructs a new plan toward that saved target;
+it never blindly repeats old path-based actions. Recovery works offline when every required byte is available. Legacy
+action-only plans or missing bytes fall back to a fresh manifest-based repair. `Pack.HasPendingUpdate` checks both staged
+files and the saved plan; the UI blocks launching, toggling and ZIP installation until recovery completes.
+
+Completed downloads are accepted only after size and SHA-256 verification. Requested options are kept separate from installed
+settings until apply succeeds. The saved transaction's metadata is used after recovery, even if the online manifest has advanced.
+ZIP installation validates all part directories before moving files and preserves colliding backups; it is still a legacy
+nontransactional path once extraction begins. Keep all parts available and rerun it if extraction is cancelled or fails.
+
+Security boundaries: pack and recovery file names must be plain patch names, excluding Windows device names, alternate
+streams, path separators and control characters. Sizes must be nonnegative and hashes exactly 64 hexadecimal characters.
+Recovery validates its target before inventory or mutations; apply checks source/destination folders before moving files.
+Managed folders and files that are junctions or symbolic links are rejected. These checks do not provide a sandbox against
+another process already running as the same user and racing filesystem changes; run the app without elevation.
 
 Self-update: `SelfUpdate.Paths` derives `<stem>.update.exe` / `<stem>.old.exe`; the offer needs `app.url` to equal the
-pinned release URL (relaxed only under `Settings.ManifestUrl`); `SelfUpdate.Swap` renames the running exe to `.old.exe`,
+pinned release URL, a positive size, and a valid SHA-256. Any `Settings.ManifestUrl` override disables executable
+self-update, including a pinned app URL supplied by the override. The same policy is enforced at execution and before
+swapping executables. `SelfUpdate.Swap` renames the running exe to `.old.exe`,
 moves the download into place with retries (OneDrive/Defender), rolls back if the second move fails; the mutex is
 released before the new exe starts with `--updated X.Y.Z`; `.old.exe` is deleted on the next start.
 
 Warnings: `SteamAcf.Read` parses `steamapps\appmanifest_553850.acf` (buildid, TargetBuildID, StateFlags; cached by
 mtime). Precedence: game running > `status: broken` > Steam update pending > build changed. LAUNCH shows Yes/No/Cancel
-while a signal is active and the clones are ON.
+while a signal is active and the clones are ON. Build comparisons use the installed pack's saved GameBuild, including offline;
+an older client's unknown build is not inferred from a newer remote pack. Remote broken status remains a separate signal.
 
 ### Faking states
 
@@ -133,8 +153,8 @@ while a signal is active and the clones are ON.
 - A fake acf lives two folders above the stand-in game folder (`steamapps\appmanifest_553850.acf`, tab-separated like
   the real one); change `buildid` / `TargetBuildID` to trigger the warnings; set `"status": "broken"` in the manifest.
 - Drop any `X.clonedivers-staged` file into `data\` for the interrupted state.
-- Use `"app": { "version": "9.9.9", "url": "http://127.0.0.1:8000/Clonedivers.exe", ... }` in the local manifest for the
-  self-update offer; test the swap on a copy of the exe in a scratch folder, never on `dist\Clonedivers.exe`.
+- A local manifest may exercise pack flows, but must never offer or execute a self-update. Regression tests cover this
+  policy and test the swap using disposable files; do not use the manifest override to test executable downloads.
 
 ## Next (1.4)
 
