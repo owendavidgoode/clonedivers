@@ -25,7 +25,7 @@ Clonedivers installs the mod pack, switches it on or off, and launches the game.
    (Plain .NET app; the source is this repo.)
    It finds Helldivers 2 through Steam by itself and says **Found via Steam:** at the bottom. If it can't, it asks you to
    pick the game folder (Steam → right-click Helldivers 2 → **Manage → Browse local files**; that window is the folder).
-2. **Click Download pack.** It fetches Owen's pack, about 9 GiB the first time (628 files with the default options), so start it before dinner. Keep
+2. **Click Download pack.** It shows the required download size before you confirm. The first install is several GB, so start it before dinner. Keep
    the window open; the percentage shows in the title bar. Have at least 10 GB free on the game drive. Interrupted? Open
    Clonedivers and click again. It resumes where it stopped. Got the pack as zips from Owen instead? **Install pack from
    file…** and **select all the parts at once**.
