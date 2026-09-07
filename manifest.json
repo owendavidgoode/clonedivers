@@ -7,9 +7,9 @@
                 "sha256":  "31b8538cc4fa2a4e7f93db9a816aa257177b0e86cc90bb4b91a32d038390104b"
             },
     "pack":  {
-                 "version":  "2026.09.07-r5",
+                 "version":  "2026.09.07-r6",
                  "name":  "Clonedivers pack",
-                 "notes":  "Clone Wars / Republic / 501st Legion / Phase 2. Built for Helldivers 2 patch 7.0.2. Toggles: Lighter textures (16 GB PCs), Republic Commandos (Delta Squad on DP-11 / CM-10 / CE-35 / SC-30, Brawny body type).",
+                 "notes":  "Built for Helldivers 2 patch 7.0.2. Adds the Hide weapon sights toggle (Custom Scopes Compendium attachment remover) for the floating optics over the blasters.",
                  "gameBuild":  "24826606",
                  "gameDepots":  [
                                     "5937460960958490081",
@@ -25,6 +25,12 @@
                                      "id":  "commandos",
                                      "name":  "Republic Commandos",
                                      "description":  "Delta Squad armor: Boss on DP-11, Fixer on CM-10, Scorch on CE-35, Sev on SC-30 (use the Brawny body type). Everyone else stays a 501st clone.",
+                                     "default":  true
+                                 },
+                                 {
+                                     "id":  "optics",
+                                     "name":  "Hide weapon sights",
+                                     "description":  "Removes the sight and attachment models from every weapon, so nothing floats above the blasters (Clone Blasters leaves the vanilla optics in place). Your reticle still works. Also hides the sights on guns the pack does not replace; the Spear and Wasp scopes stay.",
                                      "default":  true
                                  },
                                  {
@@ -5586,6 +5592,1056 @@
                                    "sha256":  "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
                                    "url":  "",
                                    "option":  "commandos"
+                               },
+                               {
+                                   "name":  "9ba626afa44a3aa3.patch_257",
+                                   "size":  3808,
+                                   "sha256":  "238b9d819df1088b82e53c2060a17120cf95986630cda44e4a379425675dbe3f",
+                                   "url":  "https://github.com/owendavidgoode/clonedivers/releases/download/pack-2026.09.07-r6-files/238b9d819df1088b82e53c2060a17120cf95986630cda44e4a379425675dbe3f",
+                                   "option":  "optics"
+                               },
+                               {
+                                   "name":  "9ba626afa44a3aa3.patch_257.gpu_resources",
+                                   "size":  128,
+                                   "sha256":  "50cb5fdd97b5b12087f1163ba29172b3e3280bfb6d6d5f0071606a9d79976ccb",
+                                   "url":  "https://github.com/owendavidgoode/clonedivers/releases/download/pack-2026.09.07-r6-files/50cb5fdd97b5b12087f1163ba29172b3e3280bfb6d6d5f0071606a9d79976ccb",
+                                   "option":  "optics"
+                               },
+                               {
+                                   "name":  "9ba626afa44a3aa3.patch_257.stream",
+                                   "size":  0,
+                                   "sha256":  "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+                                   "url":  "",
+                                   "option":  "optics"
+                               },
+                               {
+                                   "name":  "9ba626afa44a3aa3.patch_258",
+                                   "size":  5528,
+                                   "sha256":  "1524bdfa0c9d6bf01c4ac4a42554a4b69e4017eca858a723aafa566515e8c4c6",
+                                   "url":  "https://github.com/owendavidgoode/clonedivers/releases/download/pack-2026.09.07-r6-files/1524bdfa0c9d6bf01c4ac4a42554a4b69e4017eca858a723aafa566515e8c4c6",
+                                   "option":  "optics"
+                               },
+                               {
+                                   "name":  "9ba626afa44a3aa3.patch_258.gpu_resources",
+                                   "size":  160,
+                                   "sha256":  "81574fbdad474edaea07bbcd34a8bffb508c304f1aea0aaf0c095c5c341d426a",
+                                   "url":  "https://github.com/owendavidgoode/clonedivers/releases/download/pack-2026.09.07-r6-files/81574fbdad474edaea07bbcd34a8bffb508c304f1aea0aaf0c095c5c341d426a",
+                                   "option":  "optics"
+                               },
+                               {
+                                   "name":  "9ba626afa44a3aa3.patch_258.stream",
+                                   "size":  0,
+                                   "sha256":  "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+                                   "url":  "",
+                                   "option":  "optics"
+                               },
+                               {
+                                   "name":  "9ba626afa44a3aa3.patch_259",
+                                   "size":  3840,
+                                   "sha256":  "db1c0da01bb62847fa734b4407399072128edd7d87c283f5f5616482060a3a41",
+                                   "url":  "https://github.com/owendavidgoode/clonedivers/releases/download/pack-2026.09.07-r6-files/db1c0da01bb62847fa734b4407399072128edd7d87c283f5f5616482060a3a41",
+                                   "option":  "optics"
+                               },
+                               {
+                                   "name":  "9ba626afa44a3aa3.patch_259.gpu_resources",
+                                   "size":  128,
+                                   "sha256":  "ce71d56aeb37aaf0592a279a4f501fb3af2c6c4f98b18d83eda67bf0399bf02b",
+                                   "url":  "https://github.com/owendavidgoode/clonedivers/releases/download/pack-2026.09.07-r6-files/ce71d56aeb37aaf0592a279a4f501fb3af2c6c4f98b18d83eda67bf0399bf02b",
+                                   "option":  "optics"
+                               },
+                               {
+                                   "name":  "9ba626afa44a3aa3.patch_259.stream",
+                                   "size":  0,
+                                   "sha256":  "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+                                   "url":  "",
+                                   "option":  "optics"
+                               },
+                               {
+                                   "name":  "9ba626afa44a3aa3.patch_260",
+                                   "size":  3904,
+                                   "sha256":  "375126793aad0eee727da723ddbd7ea935cd46086a78ec3c63616d7227f2a2ec",
+                                   "url":  "https://github.com/owendavidgoode/clonedivers/releases/download/pack-2026.09.07-r6-files/375126793aad0eee727da723ddbd7ea935cd46086a78ec3c63616d7227f2a2ec",
+                                   "option":  "optics"
+                               },
+                               {
+                                   "name":  "9ba626afa44a3aa3.patch_260.gpu_resources",
+                                   "size":  128,
+                                   "sha256":  "16d0d95a56b3fb8b182529272310b38c62dcffe4fee48cd12616ff20a07a166b",
+                                   "url":  "https://github.com/owendavidgoode/clonedivers/releases/download/pack-2026.09.07-r6-files/16d0d95a56b3fb8b182529272310b38c62dcffe4fee48cd12616ff20a07a166b",
+                                   "option":  "optics"
+                               },
+                               {
+                                   "name":  "9ba626afa44a3aa3.patch_260.stream",
+                                   "size":  0,
+                                   "sha256":  "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+                                   "url":  "",
+                                   "option":  "optics"
+                               },
+                               {
+                                   "name":  "9ba626afa44a3aa3.patch_261",
+                                   "size":  3808,
+                                   "sha256":  "6aa7d5c33db454abdf56c25cecf0e7a6a5de1fce753ad6f9c7798c15b92d5f20",
+                                   "url":  "https://github.com/owendavidgoode/clonedivers/releases/download/pack-2026.09.07-r6-files/6aa7d5c33db454abdf56c25cecf0e7a6a5de1fce753ad6f9c7798c15b92d5f20",
+                                   "option":  "optics"
+                               },
+                               {
+                                   "name":  "9ba626afa44a3aa3.patch_261.gpu_resources",
+                                   "size":  128,
+                                   "sha256":  "8d2c176d1dac2ca3fb77b09792a9efb0139b8cca220f9be51c213fcc378f3594",
+                                   "url":  "https://github.com/owendavidgoode/clonedivers/releases/download/pack-2026.09.07-r6-files/8d2c176d1dac2ca3fb77b09792a9efb0139b8cca220f9be51c213fcc378f3594",
+                                   "option":  "optics"
+                               },
+                               {
+                                   "name":  "9ba626afa44a3aa3.patch_261.stream",
+                                   "size":  0,
+                                   "sha256":  "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+                                   "url":  "",
+                                   "option":  "optics"
+                               },
+                               {
+                                   "name":  "9ba626afa44a3aa3.patch_262",
+                                   "size":  3344,
+                                   "sha256":  "3ef99aed758b5660ee557e3cc041a66b7b5d34d5fe135d4c48e4fb329e01ffe8",
+                                   "url":  "https://github.com/owendavidgoode/clonedivers/releases/download/pack-2026.09.07-r6-files/3ef99aed758b5660ee557e3cc041a66b7b5d34d5fe135d4c48e4fb329e01ffe8",
+                                   "option":  "optics"
+                               },
+                               {
+                                   "name":  "9ba626afa44a3aa3.patch_262.gpu_resources",
+                                   "size":  112,
+                                   "sha256":  "7e505394c10636d225e0c79a78e4c64781220b2e655869638e79e37ed8481e2d",
+                                   "url":  "https://github.com/owendavidgoode/clonedivers/releases/download/pack-2026.09.07-r6-files/7e505394c10636d225e0c79a78e4c64781220b2e655869638e79e37ed8481e2d",
+                                   "option":  "optics"
+                               },
+                               {
+                                   "name":  "9ba626afa44a3aa3.patch_262.stream",
+                                   "size":  0,
+                                   "sha256":  "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+                                   "url":  "",
+                                   "option":  "optics"
+                               },
+                               {
+                                   "name":  "9ba626afa44a3aa3.patch_263",
+                                   "size":  3840,
+                                   "sha256":  "57b0a71b750225cdd50aafb40960a3476771d80cbf29e5eb93ce1a2700987539",
+                                   "url":  "https://github.com/owendavidgoode/clonedivers/releases/download/pack-2026.09.07-r6-files/57b0a71b750225cdd50aafb40960a3476771d80cbf29e5eb93ce1a2700987539",
+                                   "option":  "optics"
+                               },
+                               {
+                                   "name":  "9ba626afa44a3aa3.patch_263.gpu_resources",
+                                   "size":  128,
+                                   "sha256":  "778fc57125e89b2ad82f554ea08372baa3b1b86c7f4a7f3c3d2164450d384b9e",
+                                   "url":  "https://github.com/owendavidgoode/clonedivers/releases/download/pack-2026.09.07-r6-files/778fc57125e89b2ad82f554ea08372baa3b1b86c7f4a7f3c3d2164450d384b9e",
+                                   "option":  "optics"
+                               },
+                               {
+                                   "name":  "9ba626afa44a3aa3.patch_263.stream",
+                                   "size":  0,
+                                   "sha256":  "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+                                   "url":  "",
+                                   "option":  "optics"
+                               },
+                               {
+                                   "name":  "9ba626afa44a3aa3.patch_264",
+                                   "size":  3808,
+                                   "sha256":  "bb746e9d26296cb42adea52babb2001932148bc160cf4c4e6411e972883d9f18",
+                                   "url":  "https://github.com/owendavidgoode/clonedivers/releases/download/pack-2026.09.07-r6-files/bb746e9d26296cb42adea52babb2001932148bc160cf4c4e6411e972883d9f18",
+                                   "option":  "optics"
+                               },
+                               {
+                                   "name":  "9ba626afa44a3aa3.patch_264.gpu_resources",
+                                   "size":  128,
+                                   "sha256":  "27fbc501c91a2294eb722d389aef4fdb2a489edb4d88d38e39ed1042a597d440",
+                                   "url":  "https://github.com/owendavidgoode/clonedivers/releases/download/pack-2026.09.07-r6-files/27fbc501c91a2294eb722d389aef4fdb2a489edb4d88d38e39ed1042a597d440",
+                                   "option":  "optics"
+                               },
+                               {
+                                   "name":  "9ba626afa44a3aa3.patch_264.stream",
+                                   "size":  0,
+                                   "sha256":  "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+                                   "url":  "",
+                                   "option":  "optics"
+                               },
+                               {
+                                   "name":  "9ba626afa44a3aa3.patch_265",
+                                   "size":  4032,
+                                   "sha256":  "8313a3900c0cc3506ffe08471e1f301c326e7830f6faa145b70fde2dfb885375",
+                                   "url":  "https://github.com/owendavidgoode/clonedivers/releases/download/pack-2026.09.07-r6-files/8313a3900c0cc3506ffe08471e1f301c326e7830f6faa145b70fde2dfb885375",
+                                   "option":  "optics"
+                               },
+                               {
+                                   "name":  "9ba626afa44a3aa3.patch_265.gpu_resources",
+                                   "size":  128,
+                                   "sha256":  "799d3a2d1b4e164d3dfe6f67f099645336c7ca7a1b9da32d7e18cc76d0e8b773",
+                                   "url":  "https://github.com/owendavidgoode/clonedivers/releases/download/pack-2026.09.07-r6-files/799d3a2d1b4e164d3dfe6f67f099645336c7ca7a1b9da32d7e18cc76d0e8b773",
+                                   "option":  "optics"
+                               },
+                               {
+                                   "name":  "9ba626afa44a3aa3.patch_265.stream",
+                                   "size":  0,
+                                   "sha256":  "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+                                   "url":  "",
+                                   "option":  "optics"
+                               },
+                               {
+                                   "name":  "9ba626afa44a3aa3.patch_266",
+                                   "size":  3376,
+                                   "sha256":  "42c83d636b1d9d114634fbf5a905f262f4e9c0789fd69edcdc8f61743c5631fb",
+                                   "url":  "https://github.com/owendavidgoode/clonedivers/releases/download/pack-2026.09.07-r6-files/42c83d636b1d9d114634fbf5a905f262f4e9c0789fd69edcdc8f61743c5631fb",
+                                   "option":  "optics"
+                               },
+                               {
+                                   "name":  "9ba626afa44a3aa3.patch_266.gpu_resources",
+                                   "size":  112,
+                                   "sha256":  "a75871c6e49b273473f27d056693ee1aeb6849402934913e5dca536291d7fd08",
+                                   "url":  "https://github.com/owendavidgoode/clonedivers/releases/download/pack-2026.09.07-r6-files/a75871c6e49b273473f27d056693ee1aeb6849402934913e5dca536291d7fd08",
+                                   "option":  "optics"
+                               },
+                               {
+                                   "name":  "9ba626afa44a3aa3.patch_266.stream",
+                                   "size":  0,
+                                   "sha256":  "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+                                   "url":  "",
+                                   "option":  "optics"
+                               },
+                               {
+                                   "name":  "9ba626afa44a3aa3.patch_267",
+                                   "size":  4180,
+                                   "sha256":  "a955aecae51ec9c3c3cfa6db142e9e205af769f756d528e90a2c783e8c20a453",
+                                   "url":  "https://github.com/owendavidgoode/clonedivers/releases/download/pack-2026.09.07-r6-files/a955aecae51ec9c3c3cfa6db142e9e205af769f756d528e90a2c783e8c20a453",
+                                   "option":  "optics"
+                               },
+                               {
+                                   "name":  "9ba626afa44a3aa3.patch_267.gpu_resources",
+                                   "size":  144,
+                                   "sha256":  "2fc9326d2d4422fc5478cd8502523193481c9b7534fc3d492bd321999398dcd1",
+                                   "url":  "https://github.com/owendavidgoode/clonedivers/releases/download/pack-2026.09.07-r6-files/2fc9326d2d4422fc5478cd8502523193481c9b7534fc3d492bd321999398dcd1",
+                                   "option":  "optics"
+                               },
+                               {
+                                   "name":  "9ba626afa44a3aa3.patch_267.stream",
+                                   "size":  0,
+                                   "sha256":  "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+                                   "url":  "",
+                                   "option":  "optics"
+                               },
+                               {
+                                   "name":  "9ba626afa44a3aa3.patch_268",
+                                   "size":  4348,
+                                   "sha256":  "c20379b7e2d19bc46348f19064341c84124a225b50d821a8a0fd34606624b5ae",
+                                   "url":  "https://github.com/owendavidgoode/clonedivers/releases/download/pack-2026.09.07-r6-files/c20379b7e2d19bc46348f19064341c84124a225b50d821a8a0fd34606624b5ae",
+                                   "option":  "optics"
+                               },
+                               {
+                                   "name":  "9ba626afa44a3aa3.patch_268.gpu_resources",
+                                   "size":  160,
+                                   "sha256":  "600af711af7bfe9d088e708857376b89daf6453b1c3fd2ed7996d5341c285046",
+                                   "url":  "https://github.com/owendavidgoode/clonedivers/releases/download/pack-2026.09.07-r6-files/600af711af7bfe9d088e708857376b89daf6453b1c3fd2ed7996d5341c285046",
+                                   "option":  "optics"
+                               },
+                               {
+                                   "name":  "9ba626afa44a3aa3.patch_268.stream",
+                                   "size":  0,
+                                   "sha256":  "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+                                   "url":  "",
+                                   "option":  "optics"
+                               },
+                               {
+                                   "name":  "9ba626afa44a3aa3.patch_269",
+                                   "size":  3996,
+                                   "sha256":  "b5a5dd8201569764cd6964ea3b6061233b4af0fbb6c6a3e9b60397b907861203",
+                                   "url":  "https://github.com/owendavidgoode/clonedivers/releases/download/pack-2026.09.07-r6-files/b5a5dd8201569764cd6964ea3b6061233b4af0fbb6c6a3e9b60397b907861203",
+                                   "option":  "optics"
+                               },
+                               {
+                                   "name":  "9ba626afa44a3aa3.patch_269.gpu_resources",
+                                   "size":  128,
+                                   "sha256":  "115c11954e19d702ec930f701dff63af0dd97eceefee58366cb499bfa2e9561f",
+                                   "url":  "https://github.com/owendavidgoode/clonedivers/releases/download/pack-2026.09.07-r6-files/115c11954e19d702ec930f701dff63af0dd97eceefee58366cb499bfa2e9561f",
+                                   "option":  "optics"
+                               },
+                               {
+                                   "name":  "9ba626afa44a3aa3.patch_269.stream",
+                                   "size":  0,
+                                   "sha256":  "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+                                   "url":  "",
+                                   "option":  "optics"
+                               },
+                               {
+                                   "name":  "9ba626afa44a3aa3.patch_270",
+                                   "size":  3868,
+                                   "sha256":  "a10bd3094cc14e8469769f5faf4d764608e5c5c45319f0860f851f4599798376",
+                                   "url":  "https://github.com/owendavidgoode/clonedivers/releases/download/pack-2026.09.07-r6-files/a10bd3094cc14e8469769f5faf4d764608e5c5c45319f0860f851f4599798376",
+                                   "option":  "optics"
+                               },
+                               {
+                                   "name":  "9ba626afa44a3aa3.patch_270.gpu_resources",
+                                   "size":  128,
+                                   "sha256":  "d68aeb3f0127570bf2321f89452129adfa9159f1c627cdd41ef0e0f805d14ab2",
+                                   "url":  "https://github.com/owendavidgoode/clonedivers/releases/download/pack-2026.09.07-r6-files/d68aeb3f0127570bf2321f89452129adfa9159f1c627cdd41ef0e0f805d14ab2",
+                                   "option":  "optics"
+                               },
+                               {
+                                   "name":  "9ba626afa44a3aa3.patch_270.stream",
+                                   "size":  0,
+                                   "sha256":  "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+                                   "url":  "",
+                                   "option":  "optics"
+                               },
+                               {
+                                   "name":  "9ba626afa44a3aa3.patch_271",
+                                   "size":  4156,
+                                   "sha256":  "91dde8b3ae730c705e463c803e316ac904c3569d58122f582a1cb10ddadd2153",
+                                   "url":  "https://github.com/owendavidgoode/clonedivers/releases/download/pack-2026.09.07-r6-files/91dde8b3ae730c705e463c803e316ac904c3569d58122f582a1cb10ddadd2153",
+                                   "option":  "optics"
+                               },
+                               {
+                                   "name":  "9ba626afa44a3aa3.patch_271.gpu_resources",
+                                   "size":  144,
+                                   "sha256":  "1d37a2be3eb5d59337c1d6e499d3ddc51532869613e71c27f2c18e2485adc6fe",
+                                   "url":  "https://github.com/owendavidgoode/clonedivers/releases/download/pack-2026.09.07-r6-files/1d37a2be3eb5d59337c1d6e499d3ddc51532869613e71c27f2c18e2485adc6fe",
+                                   "option":  "optics"
+                               },
+                               {
+                                   "name":  "9ba626afa44a3aa3.patch_271.stream",
+                                   "size":  0,
+                                   "sha256":  "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+                                   "url":  "",
+                                   "option":  "optics"
+                               },
+                               {
+                                   "name":  "9ba626afa44a3aa3.patch_272",
+                                   "size":  3208,
+                                   "sha256":  "e87fc70bce69e30864b18417a89ba047d138bcfc6a2f2ebe1df0b89a5b15f0b2",
+                                   "url":  "https://github.com/owendavidgoode/clonedivers/releases/download/pack-2026.09.07-r6-files/e87fc70bce69e30864b18417a89ba047d138bcfc6a2f2ebe1df0b89a5b15f0b2",
+                                   "option":  "optics"
+                               },
+                               {
+                                   "name":  "9ba626afa44a3aa3.patch_272.gpu_resources",
+                                   "size":  128,
+                                   "sha256":  "b4d43a1ce43613e6af91b173b10b2b1b850623ccf01671345ab582c83f196360",
+                                   "url":  "https://github.com/owendavidgoode/clonedivers/releases/download/pack-2026.09.07-r6-files/b4d43a1ce43613e6af91b173b10b2b1b850623ccf01671345ab582c83f196360",
+                                   "option":  "optics"
+                               },
+                               {
+                                   "name":  "9ba626afa44a3aa3.patch_272.stream",
+                                   "size":  0,
+                                   "sha256":  "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+                                   "url":  "",
+                                   "option":  "optics"
+                               },
+                               {
+                                   "name":  "9ba626afa44a3aa3.patch_273",
+                                   "size":  3644,
+                                   "sha256":  "f13aac050ed5dcc823b3a54cb959e18647ee4ed9afbd044f00dfbeedccaa9e80",
+                                   "url":  "https://github.com/owendavidgoode/clonedivers/releases/download/pack-2026.09.07-r6-files/f13aac050ed5dcc823b3a54cb959e18647ee4ed9afbd044f00dfbeedccaa9e80",
+                                   "option":  "optics"
+                               },
+                               {
+                                   "name":  "9ba626afa44a3aa3.patch_273.gpu_resources",
+                                   "size":  112,
+                                   "sha256":  "119192f28854218607e8b90df93543982ccb17c339e5354239dedf45e63c0e9d",
+                                   "url":  "https://github.com/owendavidgoode/clonedivers/releases/download/pack-2026.09.07-r6-files/119192f28854218607e8b90df93543982ccb17c339e5354239dedf45e63c0e9d",
+                                   "option":  "optics"
+                               },
+                               {
+                                   "name":  "9ba626afa44a3aa3.patch_273.stream",
+                                   "size":  0,
+                                   "sha256":  "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+                                   "url":  "",
+                                   "option":  "optics"
+                               },
+                               {
+                                   "name":  "9ba626afa44a3aa3.patch_274",
+                                   "size":  3772,
+                                   "sha256":  "d7864c3bb33e18635f0731f2b6caf52ddab9dbf8b998ea6d7e46e9731644ea87",
+                                   "url":  "https://github.com/owendavidgoode/clonedivers/releases/download/pack-2026.09.07-r6-files/d7864c3bb33e18635f0731f2b6caf52ddab9dbf8b998ea6d7e46e9731644ea87",
+                                   "option":  "optics"
+                               },
+                               {
+                                   "name":  "9ba626afa44a3aa3.patch_274.gpu_resources",
+                                   "size":  112,
+                                   "sha256":  "fe1d02af08600191f6f27f2d45e88465215c102dfede0da18decc2082c8f0388",
+                                   "url":  "https://github.com/owendavidgoode/clonedivers/releases/download/pack-2026.09.07-r6-files/fe1d02af08600191f6f27f2d45e88465215c102dfede0da18decc2082c8f0388",
+                                   "option":  "optics"
+                               },
+                               {
+                                   "name":  "9ba626afa44a3aa3.patch_274.stream",
+                                   "size":  0,
+                                   "sha256":  "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+                                   "url":  "",
+                                   "option":  "optics"
+                               },
+                               {
+                                   "name":  "9ba626afa44a3aa3.patch_275",
+                                   "size":  3644,
+                                   "sha256":  "9f7dd80c37f3b267cf821aa4493aff36ccc035180084a958d4a89b1ebd6efc06",
+                                   "url":  "https://github.com/owendavidgoode/clonedivers/releases/download/pack-2026.09.07-r6-files/9f7dd80c37f3b267cf821aa4493aff36ccc035180084a958d4a89b1ebd6efc06",
+                                   "option":  "optics"
+                               },
+                               {
+                                   "name":  "9ba626afa44a3aa3.patch_275.gpu_resources",
+                                   "size":  112,
+                                   "sha256":  "02ec2300a3859f8509c1858cab00f31873b1c9eb8ab7eaa5a4a777f0458ba3db",
+                                   "url":  "https://github.com/owendavidgoode/clonedivers/releases/download/pack-2026.09.07-r6-files/02ec2300a3859f8509c1858cab00f31873b1c9eb8ab7eaa5a4a777f0458ba3db",
+                                   "option":  "optics"
+                               },
+                               {
+                                   "name":  "9ba626afa44a3aa3.patch_275.stream",
+                                   "size":  0,
+                                   "sha256":  "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+                                   "url":  "",
+                                   "option":  "optics"
+                               },
+                               {
+                                   "name":  "9ba626afa44a3aa3.patch_276",
+                                   "size":  3996,
+                                   "sha256":  "50142a3f92677716dcc85b65a71fb9102604214ebb02c068a1658367a84c5ad7",
+                                   "url":  "https://github.com/owendavidgoode/clonedivers/releases/download/pack-2026.09.07-r6-files/50142a3f92677716dcc85b65a71fb9102604214ebb02c068a1658367a84c5ad7",
+                                   "option":  "optics"
+                               },
+                               {
+                                   "name":  "9ba626afa44a3aa3.patch_276.gpu_resources",
+                                   "size":  128,
+                                   "sha256":  "b7eceb2489b3a93923ea6bcf86b8deab1e48bd9b42a0dd7815e4e688084966ea",
+                                   "url":  "https://github.com/owendavidgoode/clonedivers/releases/download/pack-2026.09.07-r6-files/b7eceb2489b3a93923ea6bcf86b8deab1e48bd9b42a0dd7815e4e688084966ea",
+                                   "option":  "optics"
+                               },
+                               {
+                                   "name":  "9ba626afa44a3aa3.patch_276.stream",
+                                   "size":  0,
+                                   "sha256":  "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+                                   "url":  "",
+                                   "option":  "optics"
+                               },
+                               {
+                                   "name":  "9ba626afa44a3aa3.patch_277",
+                                   "size":  3852,
+                                   "sha256":  "bf9e46773cfab8586462151047bf1746fe6e7e231cbd6470d6cc5896a78f4236",
+                                   "url":  "https://github.com/owendavidgoode/clonedivers/releases/download/pack-2026.09.07-r6-files/bf9e46773cfab8586462151047bf1746fe6e7e231cbd6470d6cc5896a78f4236",
+                                   "option":  "optics"
+                               },
+                               {
+                                   "name":  "9ba626afa44a3aa3.patch_277.gpu_resources",
+                                   "size":  112,
+                                   "sha256":  "c41620a0d14bd2175515a800ff398567544da9019497dd895c47a8b376245a63",
+                                   "url":  "https://github.com/owendavidgoode/clonedivers/releases/download/pack-2026.09.07-r6-files/c41620a0d14bd2175515a800ff398567544da9019497dd895c47a8b376245a63",
+                                   "option":  "optics"
+                               },
+                               {
+                                   "name":  "9ba626afa44a3aa3.patch_277.stream",
+                                   "size":  0,
+                                   "sha256":  "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+                                   "url":  "",
+                                   "option":  "optics"
+                               },
+                               {
+                                   "name":  "9ba626afa44a3aa3.patch_278",
+                                   "size":  3388,
+                                   "sha256":  "2fb30c60a4a67aa06c35a215b214afa4d2ecfa84c6efff379fb2268c751a1425",
+                                   "url":  "https://github.com/owendavidgoode/clonedivers/releases/download/pack-2026.09.07-r6-files/2fb30c60a4a67aa06c35a215b214afa4d2ecfa84c6efff379fb2268c751a1425",
+                                   "option":  "optics"
+                               },
+                               {
+                                   "name":  "9ba626afa44a3aa3.patch_278.gpu_resources",
+                                   "size":  112,
+                                   "sha256":  "d7237a1f1b5f0531e3c5d338c7e61d6382c000e4518841ada4da2c3401b165c3",
+                                   "url":  "https://github.com/owendavidgoode/clonedivers/releases/download/pack-2026.09.07-r6-files/d7237a1f1b5f0531e3c5d338c7e61d6382c000e4518841ada4da2c3401b165c3",
+                                   "option":  "optics"
+                               },
+                               {
+                                   "name":  "9ba626afa44a3aa3.patch_278.stream",
+                                   "size":  0,
+                                   "sha256":  "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+                                   "url":  "",
+                                   "option":  "optics"
+                               },
+                               {
+                                   "name":  "9ba626afa44a3aa3.patch_279",
+                                   "size":  3388,
+                                   "sha256":  "7243ed218bfc5ec49fe5fcbad8e9990842c3cdb54ba82f4b7e5e4ed80ea15407",
+                                   "url":  "https://github.com/owendavidgoode/clonedivers/releases/download/pack-2026.09.07-r6-files/7243ed218bfc5ec49fe5fcbad8e9990842c3cdb54ba82f4b7e5e4ed80ea15407",
+                                   "option":  "optics"
+                               },
+                               {
+                                   "name":  "9ba626afa44a3aa3.patch_279.gpu_resources",
+                                   "size":  112,
+                                   "sha256":  "ff2c71f456df573adc6eea89d873e4db556dc9bef49c0d50317946ae44feee0e",
+                                   "url":  "https://github.com/owendavidgoode/clonedivers/releases/download/pack-2026.09.07-r6-files/ff2c71f456df573adc6eea89d873e4db556dc9bef49c0d50317946ae44feee0e",
+                                   "option":  "optics"
+                               },
+                               {
+                                   "name":  "9ba626afa44a3aa3.patch_279.stream",
+                                   "size":  0,
+                                   "sha256":  "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+                                   "url":  "",
+                                   "option":  "optics"
+                               },
+                               {
+                                   "name":  "9ba626afa44a3aa3.patch_280",
+                                   "size":  3996,
+                                   "sha256":  "6772b0116cd3bce26e257d44720c9f45378b3a873eee9e78b40ca202f277ea3a",
+                                   "url":  "https://github.com/owendavidgoode/clonedivers/releases/download/pack-2026.09.07-r6-files/6772b0116cd3bce26e257d44720c9f45378b3a873eee9e78b40ca202f277ea3a",
+                                   "option":  "optics"
+                               },
+                               {
+                                   "name":  "9ba626afa44a3aa3.patch_280.gpu_resources",
+                                   "size":  128,
+                                   "sha256":  "e47488807726b1dfcf9c8f33a829dc08de242d343eb3d362318f14ffef43c5e0",
+                                   "url":  "https://github.com/owendavidgoode/clonedivers/releases/download/pack-2026.09.07-r6-files/e47488807726b1dfcf9c8f33a829dc08de242d343eb3d362318f14ffef43c5e0",
+                                   "option":  "optics"
+                               },
+                               {
+                                   "name":  "9ba626afa44a3aa3.patch_280.stream",
+                                   "size":  0,
+                                   "sha256":  "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+                                   "url":  "",
+                                   "option":  "optics"
+                               },
+                               {
+                                   "name":  "9ba626afa44a3aa3.patch_281",
+                                   "size":  3804,
+                                   "sha256":  "ebb77bd817ecd2935f845793254b3b6c88e44100246a5687cf9fea9947b15bc9",
+                                   "url":  "https://github.com/owendavidgoode/clonedivers/releases/download/pack-2026.09.07-r6-files/ebb77bd817ecd2935f845793254b3b6c88e44100246a5687cf9fea9947b15bc9",
+                                   "option":  "optics"
+                               },
+                               {
+                                   "name":  "9ba626afa44a3aa3.patch_281.gpu_resources",
+                                   "size":  112,
+                                   "sha256":  "f90b8d8ac2461edc1e8ccee3f26c5470ffa311f473b1800b2fbcc3534f6ad254",
+                                   "url":  "https://github.com/owendavidgoode/clonedivers/releases/download/pack-2026.09.07-r6-files/f90b8d8ac2461edc1e8ccee3f26c5470ffa311f473b1800b2fbcc3534f6ad254",
+                                   "option":  "optics"
+                               },
+                               {
+                                   "name":  "9ba626afa44a3aa3.patch_281.stream",
+                                   "size":  0,
+                                   "sha256":  "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+                                   "url":  "",
+                                   "option":  "optics"
+                               },
+                               {
+                                   "name":  "9ba626afa44a3aa3.patch_282",
+                                   "size":  3388,
+                                   "sha256":  "ac73a5a5bccc93e7efa41228ee78c7230003e617f91c85cf077a06fbffbb7b06",
+                                   "url":  "https://github.com/owendavidgoode/clonedivers/releases/download/pack-2026.09.07-r6-files/ac73a5a5bccc93e7efa41228ee78c7230003e617f91c85cf077a06fbffbb7b06",
+                                   "option":  "optics"
+                               },
+                               {
+                                   "name":  "9ba626afa44a3aa3.patch_282.gpu_resources",
+                                   "size":  112,
+                                   "sha256":  "d7237a1f1b5f0531e3c5d338c7e61d6382c000e4518841ada4da2c3401b165c3",
+                                   "url":  "https://github.com/owendavidgoode/clonedivers/releases/download/pack-2026.09.07-r6-files/d7237a1f1b5f0531e3c5d338c7e61d6382c000e4518841ada4da2c3401b165c3",
+                                   "option":  "optics"
+                               },
+                               {
+                                   "name":  "9ba626afa44a3aa3.patch_282.stream",
+                                   "size":  0,
+                                   "sha256":  "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+                                   "url":  "",
+                                   "option":  "optics"
+                               },
+                               {
+                                   "name":  "9ba626afa44a3aa3.patch_283",
+                                   "size":  3260,
+                                   "sha256":  "393f51474e57a65bd541844f510cd02ba6e25af31384a35bcdc05b7462a4f577",
+                                   "url":  "https://github.com/owendavidgoode/clonedivers/releases/download/pack-2026.09.07-r6-files/393f51474e57a65bd541844f510cd02ba6e25af31384a35bcdc05b7462a4f577",
+                                   "option":  "optics"
+                               },
+                               {
+                                   "name":  "9ba626afa44a3aa3.patch_283.gpu_resources",
+                                   "size":  112,
+                                   "sha256":  "a5d29ba3307bb0aba264c52e2ff43548af56b7ed9314fb2e224c0ceacd9be1a8",
+                                   "url":  "https://github.com/owendavidgoode/clonedivers/releases/download/pack-2026.09.07-r6-files/a5d29ba3307bb0aba264c52e2ff43548af56b7ed9314fb2e224c0ceacd9be1a8",
+                                   "option":  "optics"
+                               },
+                               {
+                                   "name":  "9ba626afa44a3aa3.patch_283.stream",
+                                   "size":  0,
+                                   "sha256":  "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+                                   "url":  "",
+                                   "option":  "optics"
+                               },
+                               {
+                                   "name":  "9ba626afa44a3aa3.patch_284",
+                                   "size":  3996,
+                                   "sha256":  "8a5d6e1dc2607bebfbf79ad0dfa2f8418818f4d783a2cae8995a69b2d13e61da",
+                                   "url":  "https://github.com/owendavidgoode/clonedivers/releases/download/pack-2026.09.07-r6-files/8a5d6e1dc2607bebfbf79ad0dfa2f8418818f4d783a2cae8995a69b2d13e61da",
+                                   "option":  "optics"
+                               },
+                               {
+                                   "name":  "9ba626afa44a3aa3.patch_284.gpu_resources",
+                                   "size":  128,
+                                   "sha256":  "3a8eee7838886b0330e2d2fcc573d401fd265d91505fce8dcdfd99b620784eba",
+                                   "url":  "https://github.com/owendavidgoode/clonedivers/releases/download/pack-2026.09.07-r6-files/3a8eee7838886b0330e2d2fcc573d401fd265d91505fce8dcdfd99b620784eba",
+                                   "option":  "optics"
+                               },
+                               {
+                                   "name":  "9ba626afa44a3aa3.patch_284.stream",
+                                   "size":  0,
+                                   "sha256":  "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+                                   "url":  "",
+                                   "option":  "optics"
+                               },
+                               {
+                                   "name":  "9ba626afa44a3aa3.patch_285",
+                                   "size":  3852,
+                                   "sha256":  "3af6187ee3e1258dad5df9e8303ef0f891695b643cc17fc1eb4b504439695160",
+                                   "url":  "https://github.com/owendavidgoode/clonedivers/releases/download/pack-2026.09.07-r6-files/3af6187ee3e1258dad5df9e8303ef0f891695b643cc17fc1eb4b504439695160",
+                                   "option":  "optics"
+                               },
+                               {
+                                   "name":  "9ba626afa44a3aa3.patch_285.gpu_resources",
+                                   "size":  112,
+                                   "sha256":  "c4123d3e09b051815a800d4c14171d6f15559000f1afe44dc1160b5aca9c63f1",
+                                   "url":  "https://github.com/owendavidgoode/clonedivers/releases/download/pack-2026.09.07-r6-files/c4123d3e09b051815a800d4c14171d6f15559000f1afe44dc1160b5aca9c63f1",
+                                   "option":  "optics"
+                               },
+                               {
+                                   "name":  "9ba626afa44a3aa3.patch_285.stream",
+                                   "size":  0,
+                                   "sha256":  "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+                                   "url":  "",
+                                   "option":  "optics"
+                               },
+                               {
+                                   "name":  "9ba626afa44a3aa3.patch_286",
+                                   "size":  3388,
+                                   "sha256":  "c39bf46387bc3836ec6105cb6ddab93f522d3665ea1df283b878e96d9e1d7d1c",
+                                   "url":  "https://github.com/owendavidgoode/clonedivers/releases/download/pack-2026.09.07-r6-files/c39bf46387bc3836ec6105cb6ddab93f522d3665ea1df283b878e96d9e1d7d1c",
+                                   "option":  "optics"
+                               },
+                               {
+                                   "name":  "9ba626afa44a3aa3.patch_286.gpu_resources",
+                                   "size":  112,
+                                   "sha256":  "2e66ee2eba6859f439a8049a20cb8f4c943256be17512e951134fe5c4015a757",
+                                   "url":  "https://github.com/owendavidgoode/clonedivers/releases/download/pack-2026.09.07-r6-files/2e66ee2eba6859f439a8049a20cb8f4c943256be17512e951134fe5c4015a757",
+                                   "option":  "optics"
+                               },
+                               {
+                                   "name":  "9ba626afa44a3aa3.patch_286.stream",
+                                   "size":  0,
+                                   "sha256":  "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+                                   "url":  "",
+                                   "option":  "optics"
+                               },
+                               {
+                                   "name":  "9ba626afa44a3aa3.patch_287",
+                                   "size":  3388,
+                                   "sha256":  "7cca57b22d3bb91c31390a7c4f130f25e8b6055394f37d13c42cbf8c88651fca",
+                                   "url":  "https://github.com/owendavidgoode/clonedivers/releases/download/pack-2026.09.07-r6-files/7cca57b22d3bb91c31390a7c4f130f25e8b6055394f37d13c42cbf8c88651fca",
+                                   "option":  "optics"
+                               },
+                               {
+                                   "name":  "9ba626afa44a3aa3.patch_287.gpu_resources",
+                                   "size":  112,
+                                   "sha256":  "d7a032f6a712bc5d2970dce73fc440138482ce39a4028f9b0681888115e50811",
+                                   "url":  "https://github.com/owendavidgoode/clonedivers/releases/download/pack-2026.09.07-r6-files/d7a032f6a712bc5d2970dce73fc440138482ce39a4028f9b0681888115e50811",
+                                   "option":  "optics"
+                               },
+                               {
+                                   "name":  "9ba626afa44a3aa3.patch_287.stream",
+                                   "size":  0,
+                                   "sha256":  "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+                                   "url":  "",
+                                   "option":  "optics"
+                               },
+                               {
+                                   "name":  "9ba626afa44a3aa3.patch_288",
+                                   "size":  3996,
+                                   "sha256":  "25a01c734ac16fd80dd6637d9fe1f94d45652c852838d30e6d4dd3f3632c538a",
+                                   "url":  "https://github.com/owendavidgoode/clonedivers/releases/download/pack-2026.09.07-r6-files/25a01c734ac16fd80dd6637d9fe1f94d45652c852838d30e6d4dd3f3632c538a",
+                                   "option":  "optics"
+                               },
+                               {
+                                   "name":  "9ba626afa44a3aa3.patch_288.gpu_resources",
+                                   "size":  128,
+                                   "sha256":  "546cd743e084c8e5186b848dcdff826822ecf3e99f40e60b9be67db9bfb70199",
+                                   "url":  "https://github.com/owendavidgoode/clonedivers/releases/download/pack-2026.09.07-r6-files/546cd743e084c8e5186b848dcdff826822ecf3e99f40e60b9be67db9bfb70199",
+                                   "option":  "optics"
+                               },
+                               {
+                                   "name":  "9ba626afa44a3aa3.patch_288.stream",
+                                   "size":  0,
+                                   "sha256":  "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+                                   "url":  "",
+                                   "option":  "optics"
+                               },
+                               {
+                                   "name":  "9ba626afa44a3aa3.patch_289",
+                                   "size":  3804,
+                                   "sha256":  "847480c3f6bba65a45ff3c8f387241837800f9996bb6f94793a1097660704efd",
+                                   "url":  "https://github.com/owendavidgoode/clonedivers/releases/download/pack-2026.09.07-r6-files/847480c3f6bba65a45ff3c8f387241837800f9996bb6f94793a1097660704efd",
+                                   "option":  "optics"
+                               },
+                               {
+                                   "name":  "9ba626afa44a3aa3.patch_289.gpu_resources",
+                                   "size":  112,
+                                   "sha256":  "17a366dddcd12c826e891e606362465bb5cb156bf008a773564657eff4c7256b",
+                                   "url":  "https://github.com/owendavidgoode/clonedivers/releases/download/pack-2026.09.07-r6-files/17a366dddcd12c826e891e606362465bb5cb156bf008a773564657eff4c7256b",
+                                   "option":  "optics"
+                               },
+                               {
+                                   "name":  "9ba626afa44a3aa3.patch_289.stream",
+                                   "size":  0,
+                                   "sha256":  "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+                                   "url":  "",
+                                   "option":  "optics"
+                               },
+                               {
+                                   "name":  "9ba626afa44a3aa3.patch_290",
+                                   "size":  3804,
+                                   "sha256":  "a11762e89263505e145f158a0c70ab9d96168823f41798eaf55d3beb822b2791",
+                                   "url":  "https://github.com/owendavidgoode/clonedivers/releases/download/pack-2026.09.07-r6-files/a11762e89263505e145f158a0c70ab9d96168823f41798eaf55d3beb822b2791",
+                                   "option":  "optics"
+                               },
+                               {
+                                   "name":  "9ba626afa44a3aa3.patch_290.gpu_resources",
+                                   "size":  112,
+                                   "sha256":  "39d47b5cc481d26b26417e9cbe52860d700f8cf92f71c078e7f54ee4ebf8de91",
+                                   "url":  "https://github.com/owendavidgoode/clonedivers/releases/download/pack-2026.09.07-r6-files/39d47b5cc481d26b26417e9cbe52860d700f8cf92f71c078e7f54ee4ebf8de91",
+                                   "option":  "optics"
+                               },
+                               {
+                                   "name":  "9ba626afa44a3aa3.patch_290.stream",
+                                   "size":  0,
+                                   "sha256":  "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+                                   "url":  "",
+                                   "option":  "optics"
+                               },
+                               {
+                                   "name":  "9ba626afa44a3aa3.patch_291",
+                                   "size":  3804,
+                                   "sha256":  "f01197c2c06e64b5f8bc65bce950030e478797dde974e94b8040a67ed25ec5dd",
+                                   "url":  "https://github.com/owendavidgoode/clonedivers/releases/download/pack-2026.09.07-r6-files/f01197c2c06e64b5f8bc65bce950030e478797dde974e94b8040a67ed25ec5dd",
+                                   "option":  "optics"
+                               },
+                               {
+                                   "name":  "9ba626afa44a3aa3.patch_291.gpu_resources",
+                                   "size":  112,
+                                   "sha256":  "4c0819e64a669d425a8e4b2b7730890d9f082ce7b788f61d086f6529d195a080",
+                                   "url":  "https://github.com/owendavidgoode/clonedivers/releases/download/pack-2026.09.07-r6-files/4c0819e64a669d425a8e4b2b7730890d9f082ce7b788f61d086f6529d195a080",
+                                   "option":  "optics"
+                               },
+                               {
+                                   "name":  "9ba626afa44a3aa3.patch_291.stream",
+                                   "size":  0,
+                                   "sha256":  "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+                                   "url":  "",
+                                   "option":  "optics"
+                               },
+                               {
+                                   "name":  "9ba626afa44a3aa3.patch_292",
+                                   "size":  3804,
+                                   "sha256":  "64f3653c878e433c3bee85c19ced1b13bad4a1a013f9c92caf690b52ff2b284b",
+                                   "url":  "https://github.com/owendavidgoode/clonedivers/releases/download/pack-2026.09.07-r6-files/64f3653c878e433c3bee85c19ced1b13bad4a1a013f9c92caf690b52ff2b284b",
+                                   "option":  "optics"
+                               },
+                               {
+                                   "name":  "9ba626afa44a3aa3.patch_292.gpu_resources",
+                                   "size":  112,
+                                   "sha256":  "086d9345d8dea16786b89aefa87293a2a1da87fe679d99d0977713895845d815",
+                                   "url":  "https://github.com/owendavidgoode/clonedivers/releases/download/pack-2026.09.07-r6-files/086d9345d8dea16786b89aefa87293a2a1da87fe679d99d0977713895845d815",
+                                   "option":  "optics"
+                               },
+                               {
+                                   "name":  "9ba626afa44a3aa3.patch_292.stream",
+                                   "size":  0,
+                                   "sha256":  "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+                                   "url":  "",
+                                   "option":  "optics"
+                               },
+                               {
+                                   "name":  "9ba626afa44a3aa3.patch_293",
+                                   "size":  3804,
+                                   "sha256":  "2de53c01a504669aeb3dda43f0735052973eb357689ff3e8a1b9ff7456b2afff",
+                                   "url":  "https://github.com/owendavidgoode/clonedivers/releases/download/pack-2026.09.07-r6-files/2de53c01a504669aeb3dda43f0735052973eb357689ff3e8a1b9ff7456b2afff",
+                                   "option":  "optics"
+                               },
+                               {
+                                   "name":  "9ba626afa44a3aa3.patch_293.gpu_resources",
+                                   "size":  112,
+                                   "sha256":  "56ec25e7e15897bd0f832018fac39a44c99b3121d6a1c05d1fab56ca83a1e9b5",
+                                   "url":  "https://github.com/owendavidgoode/clonedivers/releases/download/pack-2026.09.07-r6-files/56ec25e7e15897bd0f832018fac39a44c99b3121d6a1c05d1fab56ca83a1e9b5",
+                                   "option":  "optics"
+                               },
+                               {
+                                   "name":  "9ba626afa44a3aa3.patch_293.stream",
+                                   "size":  0,
+                                   "sha256":  "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+                                   "url":  "",
+                                   "option":  "optics"
+                               },
+                               {
+                                   "name":  "9ba626afa44a3aa3.patch_294",
+                                   "size":  3804,
+                                   "sha256":  "86ad49a41fd014814bc5de01575cd16df2048a59397f5e9f5003c8628064986a",
+                                   "url":  "https://github.com/owendavidgoode/clonedivers/releases/download/pack-2026.09.07-r6-files/86ad49a41fd014814bc5de01575cd16df2048a59397f5e9f5003c8628064986a",
+                                   "option":  "optics"
+                               },
+                               {
+                                   "name":  "9ba626afa44a3aa3.patch_294.gpu_resources",
+                                   "size":  112,
+                                   "sha256":  "432c7897afe358069e13c909e0734ed890cc1ed345d129e9401460e4bc613ba7",
+                                   "url":  "https://github.com/owendavidgoode/clonedivers/releases/download/pack-2026.09.07-r6-files/432c7897afe358069e13c909e0734ed890cc1ed345d129e9401460e4bc613ba7",
+                                   "option":  "optics"
+                               },
+                               {
+                                   "name":  "9ba626afa44a3aa3.patch_294.stream",
+                                   "size":  0,
+                                   "sha256":  "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+                                   "url":  "",
+                                   "option":  "optics"
+                               },
+                               {
+                                   "name":  "9ba626afa44a3aa3.patch_295",
+                                   "size":  3804,
+                                   "sha256":  "1a09551618d8dc16f2fc9b1a20ce59d656a1a195209467f06cb561fc51f0efac",
+                                   "url":  "https://github.com/owendavidgoode/clonedivers/releases/download/pack-2026.09.07-r6-files/1a09551618d8dc16f2fc9b1a20ce59d656a1a195209467f06cb561fc51f0efac",
+                                   "option":  "optics"
+                               },
+                               {
+                                   "name":  "9ba626afa44a3aa3.patch_295.gpu_resources",
+                                   "size":  112,
+                                   "sha256":  "58be2235781edd90b6ccfa31252d6c0e6295600fb517feae1f5172222f974ba6",
+                                   "url":  "https://github.com/owendavidgoode/clonedivers/releases/download/pack-2026.09.07-r6-files/58be2235781edd90b6ccfa31252d6c0e6295600fb517feae1f5172222f974ba6",
+                                   "option":  "optics"
+                               },
+                               {
+                                   "name":  "9ba626afa44a3aa3.patch_295.stream",
+                                   "size":  0,
+                                   "sha256":  "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+                                   "url":  "",
+                                   "option":  "optics"
+                               },
+                               {
+                                   "name":  "9ba626afa44a3aa3.patch_296",
+                                   "size":  3804,
+                                   "sha256":  "82db67c26351aa640c3ca4b0e4f2db3ad4825594cb6da87dc80bdb3c6d78fc4c",
+                                   "url":  "https://github.com/owendavidgoode/clonedivers/releases/download/pack-2026.09.07-r6-files/82db67c26351aa640c3ca4b0e4f2db3ad4825594cb6da87dc80bdb3c6d78fc4c",
+                                   "option":  "optics"
+                               },
+                               {
+                                   "name":  "9ba626afa44a3aa3.patch_296.gpu_resources",
+                                   "size":  112,
+                                   "sha256":  "f81f5ff01a5fd517372a9249ebf82196b2cd2b8a8fa42d1e8cdcead16d9269ef",
+                                   "url":  "https://github.com/owendavidgoode/clonedivers/releases/download/pack-2026.09.07-r6-files/f81f5ff01a5fd517372a9249ebf82196b2cd2b8a8fa42d1e8cdcead16d9269ef",
+                                   "option":  "optics"
+                               },
+                               {
+                                   "name":  "9ba626afa44a3aa3.patch_296.stream",
+                                   "size":  0,
+                                   "sha256":  "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+                                   "url":  "",
+                                   "option":  "optics"
+                               },
+                               {
+                                   "name":  "9ba626afa44a3aa3.patch_297",
+                                   "size":  3676,
+                                   "sha256":  "b9557dad0993583da2d04d731f58773de62755f75de592c6ce2c8cec4dc4b0a3",
+                                   "url":  "https://github.com/owendavidgoode/clonedivers/releases/download/pack-2026.09.07-r6-files/b9557dad0993583da2d04d731f58773de62755f75de592c6ce2c8cec4dc4b0a3",
+                                   "option":  "optics"
+                               },
+                               {
+                                   "name":  "9ba626afa44a3aa3.patch_297.gpu_resources",
+                                   "size":  128,
+                                   "sha256":  "7cd1593b65f173604bbe8ee3df293c794a9b19c849be3d08960e84d532618c44",
+                                   "url":  "https://github.com/owendavidgoode/clonedivers/releases/download/pack-2026.09.07-r6-files/7cd1593b65f173604bbe8ee3df293c794a9b19c849be3d08960e84d532618c44",
+                                   "option":  "optics"
+                               },
+                               {
+                                   "name":  "9ba626afa44a3aa3.patch_297.stream",
+                                   "size":  0,
+                                   "sha256":  "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+                                   "url":  "",
+                                   "option":  "optics"
+                               },
+                               {
+                                   "name":  "9ba626afa44a3aa3.patch_298",
+                                   "size":  3676,
+                                   "sha256":  "e797c9747c7fd8d95bf32238fff9f8d5e39546522d74e97f1752c338a1414d69",
+                                   "url":  "https://github.com/owendavidgoode/clonedivers/releases/download/pack-2026.09.07-r6-files/e797c9747c7fd8d95bf32238fff9f8d5e39546522d74e97f1752c338a1414d69",
+                                   "option":  "optics"
+                               },
+                               {
+                                   "name":  "9ba626afa44a3aa3.patch_298.gpu_resources",
+                                   "size":  128,
+                                   "sha256":  "35110ee9e0447e61ed7bd7f58a0990b504f283c401a1cd9e26883e322130760c",
+                                   "url":  "https://github.com/owendavidgoode/clonedivers/releases/download/pack-2026.09.07-r6-files/35110ee9e0447e61ed7bd7f58a0990b504f283c401a1cd9e26883e322130760c",
+                                   "option":  "optics"
+                               },
+                               {
+                                   "name":  "9ba626afa44a3aa3.patch_298.stream",
+                                   "size":  0,
+                                   "sha256":  "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+                                   "url":  "",
+                                   "option":  "optics"
+                               },
+                               {
+                                   "name":  "9ba626afa44a3aa3.patch_299",
+                                   "size":  3676,
+                                   "sha256":  "f5aa97908ae124fe7290e8105319d8f94a01c895750d7626c19c0f9e8a304438",
+                                   "url":  "https://github.com/owendavidgoode/clonedivers/releases/download/pack-2026.09.07-r6-files/f5aa97908ae124fe7290e8105319d8f94a01c895750d7626c19c0f9e8a304438",
+                                   "option":  "optics"
+                               },
+                               {
+                                   "name":  "9ba626afa44a3aa3.patch_299.gpu_resources",
+                                   "size":  128,
+                                   "sha256":  "ebec9153b1abcd279a087f48b4631fa97386bc2944ff8842e6d6aea26b2580e4",
+                                   "url":  "https://github.com/owendavidgoode/clonedivers/releases/download/pack-2026.09.07-r6-files/ebec9153b1abcd279a087f48b4631fa97386bc2944ff8842e6d6aea26b2580e4",
+                                   "option":  "optics"
+                               },
+                               {
+                                   "name":  "9ba626afa44a3aa3.patch_299.stream",
+                                   "size":  0,
+                                   "sha256":  "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+                                   "url":  "",
+                                   "option":  "optics"
+                               },
+                               {
+                                   "name":  "9ba626afa44a3aa3.patch_300",
+                                   "size":  3068,
+                                   "sha256":  "71983426a434f355f1a90f4e460a4aee27ddd5430ab208c81cd6cd20910c70a7",
+                                   "url":  "https://github.com/owendavidgoode/clonedivers/releases/download/pack-2026.09.07-r6-files/71983426a434f355f1a90f4e460a4aee27ddd5430ab208c81cd6cd20910c70a7",
+                                   "option":  "optics"
+                               },
+                               {
+                                   "name":  "9ba626afa44a3aa3.patch_300.gpu_resources",
+                                   "size":  96,
+                                   "sha256":  "09745ff2759a428633920db11e2925d81896a458496d597e27bec44f77aaa477",
+                                   "url":  "https://github.com/owendavidgoode/clonedivers/releases/download/pack-2026.09.07-r6-files/09745ff2759a428633920db11e2925d81896a458496d597e27bec44f77aaa477",
+                                   "option":  "optics"
+                               },
+                               {
+                                   "name":  "9ba626afa44a3aa3.patch_300.stream",
+                                   "size":  0,
+                                   "sha256":  "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+                                   "url":  "",
+                                   "option":  "optics"
+                               },
+                               {
+                                   "name":  "9ba626afa44a3aa3.patch_301",
+                                   "size":  3676,
+                                   "sha256":  "26ad58b120978ed30500716a672450a7faf8b996c5b920685fca86c246ecdaab",
+                                   "url":  "https://github.com/owendavidgoode/clonedivers/releases/download/pack-2026.09.07-r6-files/26ad58b120978ed30500716a672450a7faf8b996c5b920685fca86c246ecdaab",
+                                   "option":  "optics"
+                               },
+                               {
+                                   "name":  "9ba626afa44a3aa3.patch_301.gpu_resources",
+                                   "size":  128,
+                                   "sha256":  "478e988da2cc8af90131455bd8ad1c29ac37d8ee7cc98f653d2719baec4c9de4",
+                                   "url":  "https://github.com/owendavidgoode/clonedivers/releases/download/pack-2026.09.07-r6-files/478e988da2cc8af90131455bd8ad1c29ac37d8ee7cc98f653d2719baec4c9de4",
+                                   "option":  "optics"
+                               },
+                               {
+                                   "name":  "9ba626afa44a3aa3.patch_301.stream",
+                                   "size":  0,
+                                   "sha256":  "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+                                   "url":  "",
+                                   "option":  "optics"
+                               },
+                               {
+                                   "name":  "9ba626afa44a3aa3.patch_302",
+                                   "size":  1464,
+                                   "sha256":  "bbcf2b65cce8bb78bfffb1309282d6f46a59839cc2556bd81fe7dbb46580dadb",
+                                   "url":  "https://github.com/owendavidgoode/clonedivers/releases/download/pack-2026.09.07-r6-files/bbcf2b65cce8bb78bfffb1309282d6f46a59839cc2556bd81fe7dbb46580dadb",
+                                   "option":  "optics"
+                               },
+                               {
+                                   "name":  "9ba626afa44a3aa3.patch_302.gpu_resources",
+                                   "size":  32,
+                                   "sha256":  "9d7346c1d71afeaf5f76b796722dc0faa968b9335e92b91730dcbe99b5a63d02",
+                                   "url":  "https://github.com/owendavidgoode/clonedivers/releases/download/pack-2026.09.07-r6-files/9d7346c1d71afeaf5f76b796722dc0faa968b9335e92b91730dcbe99b5a63d02",
+                                   "option":  "optics"
+                               },
+                               {
+                                   "name":  "9ba626afa44a3aa3.patch_302.stream",
+                                   "size":  0,
+                                   "sha256":  "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+                                   "url":  "",
+                                   "option":  "optics"
+                               },
+                               {
+                                   "name":  "9ba626afa44a3aa3.patch_303",
+                                   "size":  4124,
+                                   "sha256":  "dc6f906d4405ce28cfdc3571c5f21a8c2424623968f84cd77d80704b3e1130f6",
+                                   "url":  "https://github.com/owendavidgoode/clonedivers/releases/download/pack-2026.09.07-r6-files/dc6f906d4405ce28cfdc3571c5f21a8c2424623968f84cd77d80704b3e1130f6",
+                                   "option":  "optics"
+                               },
+                               {
+                                   "name":  "9ba626afa44a3aa3.patch_303.gpu_resources",
+                                   "size":  144,
+                                   "sha256":  "edb1ae4a26a41ec82460e810cd4915669881092a40af6185c87506bdeeadc8ad",
+                                   "url":  "https://github.com/owendavidgoode/clonedivers/releases/download/pack-2026.09.07-r6-files/edb1ae4a26a41ec82460e810cd4915669881092a40af6185c87506bdeeadc8ad",
+                                   "option":  "optics"
+                               },
+                               {
+                                   "name":  "9ba626afa44a3aa3.patch_303.stream",
+                                   "size":  0,
+                                   "sha256":  "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+                                   "url":  "",
+                                   "option":  "optics"
+                               },
+                               {
+                                   "name":  "9ba626afa44a3aa3.patch_304",
+                                   "size":  4124,
+                                   "sha256":  "2e84528e82450829095af4b77bed42d25cfa5236afa71d80f92fc3c08061502e",
+                                   "url":  "https://github.com/owendavidgoode/clonedivers/releases/download/pack-2026.09.07-r6-files/2e84528e82450829095af4b77bed42d25cfa5236afa71d80f92fc3c08061502e",
+                                   "option":  "optics"
+                               },
+                               {
+                                   "name":  "9ba626afa44a3aa3.patch_304.gpu_resources",
+                                   "size":  144,
+                                   "sha256":  "a18e9eda11b03761e43046772acec677a03622521e117b97aa43331e5fe7d8e9",
+                                   "url":  "https://github.com/owendavidgoode/clonedivers/releases/download/pack-2026.09.07-r6-files/a18e9eda11b03761e43046772acec677a03622521e117b97aa43331e5fe7d8e9",
+                                   "option":  "optics"
+                               },
+                               {
+                                   "name":  "9ba626afa44a3aa3.patch_304.stream",
+                                   "size":  0,
+                                   "sha256":  "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+                                   "url":  "",
+                                   "option":  "optics"
+                               },
+                               {
+                                   "name":  "9ba626afa44a3aa3.patch_305",
+                                   "size":  3676,
+                                   "sha256":  "e317ceab148a68f1faf22905869cb9840c5c0d94b899389d0df6d91b8d8764d2",
+                                   "url":  "https://github.com/owendavidgoode/clonedivers/releases/download/pack-2026.09.07-r6-files/e317ceab148a68f1faf22905869cb9840c5c0d94b899389d0df6d91b8d8764d2",
+                                   "option":  "optics"
+                               },
+                               {
+                                   "name":  "9ba626afa44a3aa3.patch_305.gpu_resources",
+                                   "size":  128,
+                                   "sha256":  "2765c1aac618e86484bdd43712baa51d98de62c63f7daf8708dcbd3a4d8114b1",
+                                   "url":  "https://github.com/owendavidgoode/clonedivers/releases/download/pack-2026.09.07-r6-files/2765c1aac618e86484bdd43712baa51d98de62c63f7daf8708dcbd3a4d8114b1",
+                                   "option":  "optics"
+                               },
+                               {
+                                   "name":  "9ba626afa44a3aa3.patch_305.stream",
+                                   "size":  0,
+                                   "sha256":  "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+                                   "url":  "",
+                                   "option":  "optics"
+                               },
+                               {
+                                   "name":  "9ba626afa44a3aa3.patch_306",
+                                   "size":  3676,
+                                   "sha256":  "4e5c80fb7c1ab2e79208c701d5271a1fdd45b6247793aa2382ba86262e0708dc",
+                                   "url":  "https://github.com/owendavidgoode/clonedivers/releases/download/pack-2026.09.07-r6-files/4e5c80fb7c1ab2e79208c701d5271a1fdd45b6247793aa2382ba86262e0708dc",
+                                   "option":  "optics"
+                               },
+                               {
+                                   "name":  "9ba626afa44a3aa3.patch_306.gpu_resources",
+                                   "size":  128,
+                                   "sha256":  "c0c5f96d4ab753cad64d1775b784acf1863cc000e5dd0dba822b845271c5fcc5",
+                                   "url":  "https://github.com/owendavidgoode/clonedivers/releases/download/pack-2026.09.07-r6-files/c0c5f96d4ab753cad64d1775b784acf1863cc000e5dd0dba822b845271c5fcc5",
+                                   "option":  "optics"
+                               },
+                               {
+                                   "name":  "9ba626afa44a3aa3.patch_306.stream",
+                                   "size":  0,
+                                   "sha256":  "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+                                   "url":  "",
+                                   "option":  "optics"
                                },
                                {
                                    "name":  "9ba626afa44a3aa3.patch_101.stream",
