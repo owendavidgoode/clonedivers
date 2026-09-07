@@ -28,8 +28,9 @@ $exe = Join-Path $root "dist\Clonedivers.exe"
 # --- preconditions --------------------------------------------------------------------------------------------
 if (-not (Test-Path $manifestPath)) { throw "manifest.json is missing: publish the pack first (tools\publish-pack.ps1)" }
 if (-not (Test-Path $notesPath)) { throw "release notes missing: $notesPath" }
-# Untracked files (another session's work in progress, scratch) do not block a release; modified tracked files do.
-$dirty = @((Invoke-Native { & git -C $root status --porcelain }).Out -split "`n" | Where-Object { $_.Trim() -and $_ -notmatch '^\?\?' -and $_ -notmatch '^\s*M\s+manifest\.json$' })
+# Only uncommitted CODE blocks a release (the tag must match the exe). Untracked files, manifest.json and docs edits in
+# progress (another session may be writing them) do not.
+$dirty = @((Invoke-Native { & git -C $root status --porcelain }).Out -split "`n" | Where-Object { $_.Trim() -and $_ -notmatch '^\?\?' -and $_ -match '^\s*\S+\s+(Clonedivers/|Clonedivers\.Tests/|tools/)' })
 if ($dirty.Count) { throw ("working tree is dirty (commit first):`n  " + ($dirty -join "`n  ")) }
 if ((Invoke-Native { & git -C $root tag -l $tag }).Out.Trim()) { throw "tag $tag already exists locally; bump <Version> in the csproj" }
 if ((Invoke-Native { & git -C $root ls-remote --tags origin "refs/tags/$tag" }).Out.Trim()) { throw "tag $tag already exists on origin" }

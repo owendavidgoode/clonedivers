@@ -1991,7 +1991,7 @@ public sealed class MainForm : Form
         {
             downloadArmed = canInstall;
             var installed = settings.InstalledPackVersion;
-            var size = Pack.FormatBytes(pack!.TotalSize);
+            var size = Pack.FormatBytes(WantedFiles(pack!).Sum(f => f.Size));   // what THIS friend would install with their toggles, not every variant in the manifest
             var notes = string.IsNullOrWhiteSpace(pack.Notes) ? pack.Name : pack.Name + "\n" + pack.Notes;
             var anyFiles = active + parked > 0;
             if (!anyFiles)
