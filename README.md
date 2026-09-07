@@ -49,7 +49,10 @@ checks every installed file and repairs anything missing or damaged.
 with textures streamed from disk on demand instead of all sitting in RAM (about 4.5 GB less resident memory). Turn it on
 if you have 16 GB of RAM or the game dies at boot; it downloads about 7 GB once. **Republic Commandos** (on by default):
 Delta Squad armor over four sets, Boss on DP-11, Fixer on CM-10, Scorch on CE-35, Sev on SC-30. Pick your member's set,
-use the Brawny body type, and everyone else stays a 501st clone. Off parks a toggle's files, on downloads just that group.
+use the Brawny body type, and everyone else stays a 501st clone. **Hide weapon sights** (on by default): removes the
+sight and attachment models from every weapon, so nothing floats above the blasters (Clone Blasters leaves the vanilla
+optics in place); your reticle still works, and the Spear and Wasp scopes stay. Off parks a toggle's files, on
+downloads just that group.
 
 **Clonedivers updates itself.** When a new version is out, a line under the pack buttons says so. One click downloads it
 and restarts. Still on 1.2? Download the new exe once from the button above; from then on it is automatic.
@@ -71,13 +74,14 @@ and restarts. Still on 1.2? Download the new exe once from the button above; fro
 ## What's in the pack
 
 The pack is a stack of community mods from Nexus Mods, all client-side asset swaps, chosen and checked against the
-live Nexus pages on **2026-09-05** (game patch 7.0.2); **current pack: 2026.09.07-r5**. The per-mod audit with dates
+live Nexus pages on **2026-09-05** (game patch 7.0.2); **current pack: 2026.09.07-r6**. The per-mod audit with dates
 and evidence is in [docs/MODS.md](docs/MODS.md). Every one of these is somebody's work; the links are their pages.
 
 | Layer | Mod | What it changes |
 |---|---|---|
 | Armor | [Star Wars – Clone Armory](https://www.nexusmods.com/helldivers2/mods/13956) | Every armor set → clone armor, plus backpacks, accessories, Republic decals. Beta, 2.8 GB, 1500+ files. |
 | Squad | [Republic Commando Delta Squad](https://www.nexusmods.com/helldivers2/mods/552) | Boss, Fixer, Scorch and Sev over DP-11, CM-10, CE-35 and SC-30 (Brawny body type). The **Republic Commandos** toggle, on by default; CE-35 shares parts with B-01 and DP-40, so those two pick up Scorch pieces too. |
+| Weapons | [Custom Scopes Compendium: Attachment Remover](https://www.nexusmods.com/helldivers2/mods/443) | Hides every stock sight and attachment model (the Clone Blasters author's own fix for floating optics). The **Hide weapon sights** toggle, on by default; Spear and Wasp scopes stay. |
 | Weapons | [Star Wars Clone Blasters](https://www.nexusmods.com/helldivers2/mods/6633) | Nearly every weapon model → DC-15A/S, DC-17, Z-6, bowcaster… |
 | Tracers | [Blue Overhaul – Laser Bolts](https://www.nexusmods.com/helldivers2/mods/4835) | Bullets → blaster bolts, turbolaser orbitals. Without this the blasters still fire bullets. |
 | Weapon sounds | [Star Wars PEW-PEW sounds](https://www.nexusmods.com/helldivers2/mods/4891) | All weapon fire and reload → blaster sounds (Republic set). |

@@ -43,6 +43,11 @@ Three consequences:
    powershell -ExecutionPolicy Bypass -File tools\deploy-mods.ps1
    ```
 
+   Nexus sometimes serves a mod as `.7z`; `deploy-mods.ps1` only opens zips, so repack it once: extract with Windows'
+   `tar.exe -xf <file>.7z -C <folder>` (bsdtar reads 7z) and zip the folder's contents, keeping `manifest.json` at the
+   root, into `dist\mods\<same name>.zip`. If a source zip has since vanished (Arsenal clears its temp folder), rebuild
+   it from `data\` with `toolsecover-sources.ps1`; the recipe falls back to `dist\modsecovered - <mod>.zip`.
+
    [`pack-recipe.json`](../pack-recipe.json) is the whole configuration: which zip, which option in every option group
    (Republic, Phase 2, 501st…), which toggles, and the load order (Galactic Map last). The script reads each zip's
    `manifest.json`, picks the folders the recipe asks for, numbers every patch set consecutively per archive in
