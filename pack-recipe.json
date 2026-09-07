@@ -1,6 +1,10 @@
 {
   "version": "2026.09.06",
   "notes": "Clone Wars / Republic / 501st Legion / Phase 2. Built for Helldivers 2 patch 7.0.2. Order = load order; Galactic Map last.",
+  "variants": [
+    { "id": "skinny", "name": "Lighter textures", "default": false, "dir": "dist\\pack-optimized",
+      "description": "Same mods, same look: textures stream in from disk on demand instead of all sitting in RAM (about 4.5 GB less resident memory). For 16 GB PCs. Built by tools\\optimize-pack.ps1, lossless. New in r4 and lightly tested: switch it off if anything looks wrong." }
+  ],
   "sources": [
     "%LOCALAPPDATA%\\hd2arsenal\\temp",
     "%LOCALAPPDATA%\\hd2arsenal\\mods",

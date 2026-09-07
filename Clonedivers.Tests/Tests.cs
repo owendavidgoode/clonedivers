@@ -492,6 +492,22 @@ static class TestProgram
         Check(off.Select(f => f.Name).SequenceEqual(new[] { "A.patch_0", "A.patch_0.stream", "A.patch_1", "A.patch_2", "B.patch_0" }), "A.patch_3 became A.patch_2; B untouched");
         Check(off.Single(f => f.Name == "A.patch_2").Sha256 == ShaOf("c"), "the renumbered entry keeps its bytes");
         Check(!ReferenceEquals(on[0], pack.Files[0]), "EffectiveFiles returns copies, the manifest is not mutated");
+
+        // Variant pair: the base texture is used unless "skinny" is on; then its lighter twin with the same name takes over.
+        var skinny = new PackManifest { Options = { new PackOption { Id = "skinny", Name = "Lighter textures", Default = false } } };
+        skinny.Files.Add(F("A.patch_0", "base"));
+        skinny.Files.Add(F("A.patch_0.gpu_resources", "fat-texture")); skinny.Files[1].UnlessOption = "skinny";
+        skinny.Files.Add(F("A.patch_0.gpu_resources", "thin", "skinny"));
+        var fat = Pack.EffectiveFiles(skinny, _ => false); var thin = Pack.EffectiveFiles(skinny, _ => true);
+        Check(fat.Count == 2 && fat[1].Sha256 == ShaOf("fat-texture"), "skinny off: the base texture, same name");
+        Check(thin.Count == 2 && thin[1].Sha256 == ShaOf("thin") && thin[1].Name == "A.patch_0.gpu_resources", "skinny on: the lighter twin under the same name, no renumbering");
+        var pairJson = Manifest.Parse(("{ \"format\": 2, \"pack\": { \"version\": \"v\", \"options\": [ { \"id\": \"skinny\", \"name\": \"L\" } ], \"files\": [ " +
+            "{ \"name\": \"A.patch_0.gpu_resources\", \"size\": 3, \"sha256\": \"SHA\", \"url\": \"u\", \"unlessOption\": \"skinny\" }, " +
+            "{ \"name\": \"A.patch_0.gpu_resources\", \"size\": 4, \"sha256\": \"SHA\", \"url\": \"u\", \"option\": \"skinny\" } ] } }").Replace("SHA", new string('a', 64)));
+        Check(pairJson.Pack!.Files.Count == 2, "a base/variant pair with the same name parses");
+        InvalidDataException? dupEx = null;
+        try { Manifest.Parse("""{ "format": 2, "pack": { "version": "v", "files": [ { "name": "A.patch_0", "size": 1, "sha256": "SHA", "url": "u" }, { "name": "A.patch_0", "size": 1, "sha256": "SHA", "url": "u" } ] } }""".Replace("SHA", new string('a', 64))); } catch (InvalidDataException e) { dupEx = e; }
+        Check(dupEx is not null, "the same name twice without a variant option is rejected");
     }
 
     static async Task PlanAndApplyTests(string root)

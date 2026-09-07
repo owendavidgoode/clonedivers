@@ -135,8 +135,45 @@ if ((Test-Path $RecipePath) -and (Test-Path $DeployReport)) {
     foreach ($e in $report) {
         if ($modOption.ContainsKey($e.mod)) { foreach ($part in @($e.parts)) { $n = if ($part -eq '.patch') { $e.file } else { "$($e.file)$part" }; $fileOption[$n.ToLowerInvariant()] = $modOption[$e.mod] } }
     }
-    if ($options.Count) { Write-Host "  options: $(($options | ForEach-Object { $_.id }) -join ', ') ($($fileOption.Count) files tagged)" }
+    # An option whose mod is not deployed (recipe entry disabled) would be a toggle that does nothing: drop it.
+    $used = @($fileOption.Values | Select-Object -Unique)
+    $options = New-Object System.Collections.ArrayList (,@($options | Where-Object { $used -contains $_.id }))
+    if ($options.Count) { Write-Host "  options: $(($options | ForEach-Object { $_.id }) -join ', ') ($($fileOption.Count) files tagged)" } elseif ($fileOption.Count -eq 0 -and $modOption.Count) { Write-Host "  options: none deployed (recipe has $($modOption.Count) optional mod(s) disabled)" }
 } elseif (Test-Path $RecipePath) { Write-Warning "no dist\deploy-report.json: options cannot be assigned to files" }
+
+# --- variants: a whole alternative build of the pack (e.g. streamed textures) becomes a toggle -----------------------
+# A recipe "variants" entry names a folder holding the same pack built differently. Files identical to data\ are shared;
+# files that differ become a pair (base: unlessOption = id, variant: option = id); files only in the variant carry option = id.
+$variantEntries = @{}        # base name (lower) -> list of variant entries to emit right after the base entry
+$variantOnly = New-Object System.Collections.ArrayList
+$baseUnless = @{}            # base name (lower) -> option id
+if (Test-Path $RecipePath) {
+    $recipeV = (Read-Utf8 $RecipePath) | ConvertFrom-Json
+    if ($recipeV.PSObject.Properties['variants']) {
+        foreach ($v in @($recipeV.variants)) {
+            $vdir = if ([System.IO.Path]::IsPathRooted($v.dir)) { $v.dir } else { Join-Path $root $v.dir }
+            if (-not (Test-Path $vdir)) { Write-Warning "variant '$($v.id)': folder $vdir not found; skipped"; continue }
+            if (-not ($options | Where-Object { $_.id -eq $v.id })) {
+                [void]$options.Add([ordered]@{ id = [string]$v.id; name = [string]$v.name; description = [string]$(if ($v.PSObject.Properties['description']) { $v.description } else { "" }); default = [bool]$(if ($v.PSObject.Properties['default']) { $v.default } else { $false }) })
+            }
+            $byName = @{}; foreach ($f in $files) { $byName[$f.Name.ToLowerInvariant()] = $f }
+            $vfiles = @(Get-ChildItem -LiteralPath $vdir -File | Where-Object { $rx.IsMatch($_.Name) })
+            Write-Host ("Variant '{0}': hashing {1} files in {2}" -f $v.id, $vfiles.Count, $vdir)
+            $shared = 0; $pairs = 0; $extra = 0
+            foreach ($vf in $vfiles) {
+                $vsha = if ($vf.Length -eq 0) { $EmptySha } else { (Get-FileHash -LiteralPath $vf.FullName -Algorithm SHA256).Hash.ToLowerInvariant() }
+                $key = $vf.Name.ToLowerInvariant()
+                $base = $byName[$key]
+                if ($base -and $base.Sha -eq $vsha) { $shared++; continue }
+                $entry = [ordered]@{ name = $vf.Name; size = [long]$vf.Length; sha256 = $vsha; url = ""; option = [string]$v.id; localPath = $vf.FullName }
+                if ($base) { $baseUnless[$key] = [string]$v.id; if (-not $variantEntries.ContainsKey($key)) { $variantEntries[$key] = New-Object System.Collections.ArrayList }; [void]$variantEntries[$key].Add($entry); $pairs++ }
+                else { [void]$variantOnly.Add($entry); $extra++ }
+            }
+            Write-Host ("  {0} shared with the base pack, {1} replaced, {2} only in the variant" -f $shared, $pairs, $extra)
+        }
+    }
+}
+$allVariant = @($variantEntries.Values | ForEach-Object { $_ }) + @($variantOnly)
 
 # --- URL reuse from the committed manifest ---------------------------------------------------------------------
 $prevUrl = @{}
@@ -153,20 +190,26 @@ if (Test-Path $ManifestPath) {
 }
 
 # --- assemble -------------------------------------------------------------------------------------------------
-$newShas = @($files | Where-Object { $_.Size -gt 0 -and -not $prevUrl.ContainsKey($_.Sha) } | Select-Object -ExpandProperty Sha -Unique)
+$newShas = @(@($files | Where-Object { $_.Size -gt 0 -and -not $prevUrl.ContainsKey($_.Sha) } | Select-Object -ExpandProperty Sha) + @($allVariant | Where-Object { $_.size -gt 0 -and -not $prevUrl.ContainsKey($_.sha256) } | ForEach-Object { $_.sha256 }) | Select-Object -Unique)
 $tagFor = @{}
 for ($i = 0; $i -lt $newShas.Count; $i++) {
     $chunk = [math]::Floor($i / $MaxAssetsPerRelease)
     $tagFor[$newShas[$i]] = if ($chunk -eq 0) { "pack-$Version-files" } else { "pack-$Version-files-$($chunk + 1)" }
 }
+function UrlFor([string]$sha, [long]$size) { if ($size -eq 0) { return "" }; if ($prevUrl.ContainsKey($sha)) { return $prevUrl[$sha] }; return "https://github.com/$Repo/releases/download/$($tagFor[$sha])/$sha" }
 $entries = New-Object System.Collections.ArrayList
 foreach ($f in $files) {
-    $url = if ($f.Size -eq 0) { "" } elseif ($prevUrl.ContainsKey($f.Sha)) { $prevUrl[$f.Sha] } else { "https://github.com/$Repo/releases/download/$($tagFor[$f.Sha])/$($f.Sha)" }
-    $e = [ordered]@{ name = $f.Name; size = $f.Size; sha256 = $f.Sha; url = $url }
-    $opt = $fileOption[$f.Name.ToLowerInvariant()]
+    $e = [ordered]@{ name = $f.Name; size = $f.Size; sha256 = $f.Sha; url = (UrlFor $f.Sha $f.Size) }
+    $key = $f.Name.ToLowerInvariant()
+    $opt = $fileOption[$key]
     if ($opt) { $e.option = $opt }
+    if ($baseUnless.ContainsKey($key)) { $e.unlessOption = $baseUnless[$key] }
     [void]$entries.Add($e)
+    if ($variantEntries.ContainsKey($key)) {
+        foreach ($ve in $variantEntries[$key]) { [void]$entries.Add([ordered]@{ name = $ve.name; size = $ve.size; sha256 = $ve.sha256; url = (UrlFor $ve.sha256 $ve.size); option = $ve.option }) }
+    }
 }
+foreach ($ve in $variantOnly) { [void]$entries.Add([ordered]@{ name = $ve.name; size = $ve.size; sha256 = $ve.sha256; url = (UrlFor $ve.sha256 $ve.size); option = $ve.option }) }
 $pack = [ordered]@{
     version = $Version; name = "Clonedivers pack"; notes = $Notes
     gameBuild = $gameBuild; gameDepots = @($gameDepots); status = $Status; statusNotes = $StatusNotes
@@ -180,10 +223,10 @@ Write-Utf8 $ManifestPath $json
 
 # --- self-check (catches PowerShell 5.1 encoding round-trips and array/scalar surprises) --------------------------
 $back = (Read-Utf8 $ManifestPath) | ConvertFrom-Json
-if (@($back.pack.files).Count -ne $files.Count) { throw "self-check: wrote $(@($back.pack.files).Count) files, expected $($files.Count)" }
-for ($i = 0; $i -lt $files.Count; $i++) {
+if (@($back.pack.files).Count -ne $entries.Count) { throw "self-check: wrote $(@($back.pack.files).Count) files, expected $($entries.Count)" }
+for ($i = 0; $i -lt $entries.Count; $i++) {
     $w = $back.pack.files[$i]
-    if ($w.name -ne $files[$i].Name -or [long]$w.size -ne $files[$i].Size -or $w.sha256 -ne $files[$i].Sha) { throw "self-check: entry $i differs ($($w.name))" }
+    if ($w.name -ne $entries[$i].name -or [long]$w.size -ne [long]$entries[$i].size -or $w.sha256 -ne $entries[$i].sha256) { throw "self-check: entry $i differs ($($w.name))" }
 }
 if ($back.pack.notes -ne $Notes -or $back.pack.statusNotes -ne $StatusNotes) { throw "self-check: notes did not round-trip" }
 if ($back.pack.options -and @($back.pack.options).Count -ne $options.Count) { throw "self-check: options count" }
@@ -196,11 +239,16 @@ foreach ($f in $files) {
     $seen[$f.Sha] = $true
     [void]$plan.Add([ordered]@{ sha = $f.Sha; size = $f.Size; localPath = $f.Path; tag = $tagFor[$f.Sha] })
 }
+foreach ($ve in $allVariant) {
+    if ($ve.size -eq 0 -or $prevUrl.ContainsKey($ve.sha256) -or $seen.ContainsKey($ve.sha256)) { continue }
+    $seen[$ve.sha256] = $true
+    [void]$plan.Add([ordered]@{ sha = $ve.sha256; size = [long]$ve.size; localPath = $ve.localPath; tag = $tagFor[$ve.sha256] })
+}
 New-Item -ItemType Directory -Force (Split-Path $UploadPlanPath) | Out-Null
 Write-Utf8 $UploadPlanPath ("[" + (($plan | ForEach-Object { $_ | ConvertTo-Json -Compress }) -join ",`n") + "]")
 
 $zero = @($files | Where-Object { $_.Size -eq 0 }).Count
 $reused = @($files | Where-Object { $_.Size -gt 0 -and $prevUrl.ContainsKey($_.Sha) } | Select-Object -ExpandProperty Sha -Unique).Count
-Write-Host ("manifest {0}: {1} files, {2} zero-byte, {3} unique contents to upload ({4:N2} GB), {5} reused from earlier releases -> {6}" -f `
-    $Version, $files.Count, $zero, $plan.Count, (($plan | ForEach-Object { [long]$_.size } | Measure-Object -Sum).Sum / 1GB), $reused, $ManifestPath) -ForegroundColor Green
+Write-Host ("manifest {0}: {1} entries ({7} variant), {2} zero-byte, {3} unique contents to upload ({4:N2} GB), {5} reused from earlier releases -> {6}" -f `
+    $Version, $entries.Count, $zero, $plan.Count, (($plan | ForEach-Object { [long]$_.size } | Measure-Object -Sum).Sum / 1GB), $reused, $ManifestPath, $allVariant.Count) -ForegroundColor Green
 Write-Host "upload plan -> $UploadPlanPath"

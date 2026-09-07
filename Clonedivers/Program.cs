@@ -284,11 +284,12 @@ public sealed class PackFile
     public long Size { get; set; }
     public string Sha256 { get; set; } = "";     // lower-case hex
     public string? Option { get; set; }          // optional-group id (PackOption.Id); null = always installed
+    public string? UnlessOption { get; set; }    // skipped while this option is ON (the base file a variant replaces)
 
     /// <summary>SHA-256 of an empty file. 182 of the 604 r3 files are empty companions, so it is special-cased everywhere.</summary>
     public const string EmptySha = "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855";
 
-    public PackFile Clone() => new() { Name = Name, Url = Url, Size = Size, Sha256 = Sha256, Option = Option };
+    public PackFile Clone() => new() { Name = Name, Url = Url, Size = Size, Sha256 = Sha256, Option = Option, UnlessOption = UnlessOption };
 }
 
 /// <summary>A group of pack files friends can switch on or off (the Republic Commando squad, say). Files carry the option id;
@@ -362,7 +363,8 @@ public sealed class Manifest
         }
         if (m.Pack is { } p)
         {
-            var seen = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+            // A name may appear twice only as a variant pair: the base file (unlessOption = X) and its replacement (option = X).
+            var seen = new Dictionary<string, PackFile>(StringComparer.OrdinalIgnoreCase);
             var optionIds = new HashSet<string>(p.Options.Select(o => o.Id ?? ""), StringComparer.OrdinalIgnoreCase);
             foreach (var f in p.Files)
             {
@@ -371,12 +373,20 @@ public sealed class Manifest
                 f.Name = (f.Name ?? "").Trim();
                 if (f.Size == 0) f.Sha256 = PackFile.EmptySha;
                 if (f.Name.Length == 0) continue;   // format-1 zip part
-                if (!ModFiles.IsPatchFile(f.Name) || f.Name.IndexOfAny(new[] { '\\', '/', ':' }) >= 0 || !seen.Add(f.Name))
-                    throw new InvalidDataException($"manifest.json lists an invalid or duplicate file name: {f.Name}");
+                if (!ModFiles.IsPatchFile(f.Name) || f.Name.IndexOfAny(new[] { '\\', '/', ':' }) >= 0)
+                    throw new InvalidDataException($"manifest.json lists an invalid file name: {f.Name}");
+                if (seen.TryGetValue(f.Name, out var other))
+                {
+                    var pair = (other.UnlessOption is not null && string.Equals(other.UnlessOption, f.Option, StringComparison.OrdinalIgnoreCase))
+                            || (f.UnlessOption is not null && string.Equals(f.UnlessOption, other.Option, StringComparison.OrdinalIgnoreCase));
+                    if (!pair) throw new InvalidDataException($"manifest.json lists {f.Name} twice without a variant option");
+                }
+                else seen[f.Name] = f;
                 if (f.Size > 0 && f.Sha256.Length != 64) throw new InvalidDataException($"manifest.json has no SHA-256 for {f.Name}");
                 if (f.Option is not null && !optionIds.Contains(f.Option)) throw new InvalidDataException($"manifest.json: {f.Name} refers to an unknown option '{f.Option}'");
+                if (f.UnlessOption is not null && !optionIds.Contains(f.UnlessOption)) throw new InvalidDataException($"manifest.json: {f.Name} refers to an unknown option '{f.UnlessOption}'");
             }
-        }
+}
         return m;
     }
 }
@@ -725,7 +735,9 @@ public static class Pack
     /// With every option on, names are exactly the manifest's.</summary>
     public static List<PackFile> EffectiveFiles(PackManifest pack, Func<string, bool> optionEnabled)
     {
-        var kept = pack.Files.Where(f => f.Option is null || optionEnabled(f.Option)).Select(f => f.Clone()).ToList();
+        var kept = pack.Files.Where(f => (f.Option is null || optionEnabled(f.Option)) && (f.UnlessOption is null || !optionEnabled(f.UnlessOption))).Select(f => f.Clone()).ToList();
+        var dup = kept.GroupBy(f => f.Name, StringComparer.OrdinalIgnoreCase).FirstOrDefault(g => g.Count() > 1);
+        if (dup is not null) throw new InvalidDataException($"manifest.json: {dup.Key} is listed twice for the same option choice");
         if (kept.Count == pack.Files.Count || !pack.IsPerFile) return kept;
 
         var parsed = kept.Select(f => (f, ok: ModFiles.TryParsePatchName(f.Name, out var arch, out var idx, out var comp), arch, idx, comp)).ToList();
@@ -1436,6 +1448,7 @@ public sealed class MainForm : Form
     bool Busy => busy != BusyKind.None;
     CancellationTokenSource? opCts;
     bool installArmed, downloadArmed, launchArmed = true, offerArmed;
+    bool exitingForUpdate;   // the new exe has been started; this instance must close without asking anything
     DateTime lastProgressMessage = DateTime.MinValue;
     readonly Stopwatch rateWatch = new();
     long rateBytes;
@@ -2305,7 +2318,9 @@ public sealed class MainForm : Form
             await Task.Run(() => SelfUpdate.Swap(exe, update, old, TimeSpan.FromSeconds(30)));
             Program.ReleaseSingleInstance();
             Process.Start(new ProcessStartInfo(exe, "--updated " + app.Version) { UseShellExecute = true, WorkingDirectory = Path.GetDirectoryName(exe) });
-            Application.Exit();
+            exitingForUpdate = true;
+            busy = BusyKind.None;   // OnFormClosing must not ask "cancel the update and quit?" — the update is done
+            Close();
         }
         catch (OperationCanceledException) { ShowProgressDone("Update cancelled. The partial download resumes next time."); }
         catch (UnauthorizedAccessException ex) { ShowProgressDone("Update failed."); BrowserFallback(Path.GetDirectoryName(exe)!, ex.Message); }
@@ -2489,6 +2504,7 @@ public sealed class MainForm : Form
 
     protected override void OnFormClosing(FormClosingEventArgs e)
     {
+        if (exitingForUpdate) { base.OnFormClosing(e); return; }
         if (busy == BusyKind.Apply)
         {
             MessageBox.Show(this, "Finishing the update — a few seconds. Try again in a moment.", "Clonedivers", MessageBoxButtons.OK, MessageBoxIcon.Information);

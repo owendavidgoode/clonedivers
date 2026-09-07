@@ -60,7 +60,7 @@ function Assert-ReadmeRedirect([string]$Repo, [string]$ExpectVersion = "") {
         throw "README redirect check failed: releases/latest/download/Clonedivers.exe resolves to '$eff'"
     }
     if ($ExpectVersion) {
-        $view = Invoke-Gh release view "v$ExpectVersion" --repo $Repo --json tagName,isDraft,isPrerelease
+        $view = Invoke-Gh release view "v$ExpectVersion" --repo $Repo --json "tagName,isDraft,isPrerelease"
         if ($view.Code -ne 0) { throw "release v$ExpectVersion not found: $($view.Out)" }
         $latest = Invoke-Gh release list --repo $Repo --limit 20
         if ($latest.Out -notmatch "v$([regex]::Escape($ExpectVersion))\s") { throw "release v$ExpectVersion is not in the release list" }

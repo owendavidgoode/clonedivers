@@ -112,7 +112,8 @@ try {
                     "download the app from the latest release instead of grabbing these by hand. The mods belong to their authors on Nexus Mods (see docs/MODS.md); this pack is shared privately among friends."
             $c = Invoke-Gh release create $tag --repo $Repo --draft --latest=false --title "Clonedivers pack $Version files" --notes $body
             if ($c.Code -ne 0) { throw "release create failed: $($c.Out)" }
-            $rel = Get-Release $tag
+            # The list endpoint lags a few seconds behind a create; retry before giving up.
+            for ($try = 0; $try -lt 20 -and -not $rel; $try++) { Start-Sleep -Seconds 3; $rel = Get-Release $tag }
             if (-not $rel) { throw "release $tag not found after creating it" }
             Log "created draft release $tag"
         }
@@ -178,7 +179,7 @@ try {
             $state.phase = "publishing $tag"; Save-State
             $e = Invoke-Gh release edit $tag --repo $Repo --draft=false --latest=false
             if ($e.Code -ne 0) { throw "release edit failed: $($e.Out)" }
-            $v = Invoke-Gh release view $tag --repo $Repo --json isDraft,isPrerelease
+            $v = Invoke-Gh release view $tag --repo $Repo --json "isDraft,isPrerelease"
             if ($v.Code -ne 0 -or $v.Out -notmatch '"isDraft":\s*false') { throw "release $tag still looks like a draft: $($v.Out)" }
             Log "published $tag"
         } else { Log "$tag was already published" }
