@@ -1418,7 +1418,7 @@ static class Power
 
 /// <summary>Flat Button with anti-aliased rounded corners and hover / press / keyboard-focus states, plus an optional
 /// smaller second line (pack buttons), status dot (the toggle) and ghost outline look. It reads the same BackColor /
-/// ForeColor / FlatAppearance that Style(), SetArmed() and SetToggle() already set, so MainForm's state code is unchanged.</summary>
+/// ForeColor / FlatAppearance that Style() and SetArmed() already set.</summary>
 sealed class RoundButton : Button
 {
     public int Radius { get; set; } = 8;                 // logical px
@@ -1660,7 +1660,10 @@ public sealed class MainForm : Form
     string rateText = "", lastWhat = "";
 
     readonly Grid root = new();
-    readonly RoundButton toggleButton = new();
+    readonly Grid modeRow = new();
+    readonly List<ModeButton> modeButtons = new();
+    readonly bool preview;
+    LauncherMode previewMode = LauncherMode.CommandoDivers;
     readonly RoundButton launchButton = new();
     readonly RoundButton pathButton = new();
     readonly RoundButton openButton = new();
@@ -1678,20 +1681,21 @@ public sealed class MainForm : Form
     readonly ToolTip tips = new();
     readonly System.Windows.Forms.Timer refresh = new() { Interval = 1500 };
 
-    public MainForm(Settings settings, string? gameDir, string? updatedTo = null)
+    public MainForm(Settings settings, string? gameDir, string? updatedTo = null, bool preview = false)
     {
         this.settings = settings;
         this.gameDir = gameDir;
         this.updatedTo = updatedTo;
+        this.preview = preview;
 
         Text = "Clonedivers";
         BackColor = Bg;
         ForeColor = TextMain;
         DoubleBuffered = true;
         StartPosition = FormStartPosition.CenterScreen;
-        ClientSize = new Size(560, 600);
-        MinimumSize = Size;   // never smaller than designed, or the toggle row would collapse to nothing
-        MaximizeBox = false;  // a maximised toggle on an ultrawide would be 4000 px across
+        ClientSize = new Size(660, 660);
+        MinimumSize = Size;
+        MaximizeBox = false;
         try { Icon = Icon.ExtractAssociatedIcon(Environment.ProcessPath!); } catch { /* no icon resource: fine */ }
 
         BuildTooltips();
@@ -1711,12 +1715,14 @@ public sealed class MainForm : Form
         Activated += (_, _) => RefreshState();
         Shown += (_, _) =>
         {
+            if (preview) { RefreshPreview(); return; }
             if (updatedTo is not null) { ShowProgressDone($"Updated to {updatedTo}."); Activate(); }
             RefreshState();
             refresh.Start();
             _ = LoadManifestAsync();                 // find out whether a pack is published (non-blocking)
             if (this.gameDir is null) OnLocate();   // first-run "pathing wizard": auto-detect failed, so ask.
         };
+        if (preview) RefreshPreview();
     }
 
     // Runs before the first paint (no white caption flash) and again on every handle recreation.
@@ -1771,7 +1777,7 @@ public sealed class MainForm : Form
         };
         var subtitle = new Label
         {
-            Text = "Helldivers 2  ·  Clone Wars mod switch",
+            Text = "Choose your universe",
             Font = new Font("Segoe UI", 10.5F, FontStyle.Regular),
             ForeColor = TextDim,
             AutoSize = true,
@@ -1783,11 +1789,21 @@ public sealed class MainForm : Form
         header.Controls.Add(title, 1, 0);
         header.Controls.Add(subtitle, 1, 1);
 
-        Style(toggleButton, Blue, BlueHot, TextMain, 24F);
-        toggleButton.Radius = 12;
-        toggleButton.Dock = DockStyle.Fill;
-        toggleButton.Margin = new Padding(0, 8, 0, 12);
-        toggleButton.Click += (_, _) => OnToggle();
+        modeRow.Dock = DockStyle.Fill;
+        modeRow.ColumnCount = 3;
+        modeRow.BackColor = Bg;
+        modeRow.Margin = new Padding(0, 8, 0, 12);
+        foreach (var mode in Enum.GetValues<LauncherMode>())
+        {
+            modeRow.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100F / 3));
+            var button = new ModeButton { Mode = mode, Text = LauncherModes.Name(mode),
+                AccessibleName = LauncherModes.Name(mode), Dock = DockStyle.Fill,
+                Font = new Font("Segoe UI", 12F, FontStyle.Bold), Cursor = Cursors.Hand,
+                Margin = new Padding(mode == LauncherMode.Helldivers ? 0 : 5, 0, mode == LauncherMode.CommandoDivers ? 0 : 5, 0) };
+            button.Click += (_, _) => OnMode(mode);
+            modeButtons.Add(button);
+            modeRow.Controls.Add(button, (int)mode, 0);
+        }
 
         // Under the switch: one bright status line, one dim hint. The hint reserves three lines so ON / OFF / running never move the toggle.
         statusLabel.AutoSize = true;
@@ -1903,7 +1919,7 @@ public sealed class MainForm : Form
         pathRow.Controls.Add(pathButton, 3, 0);
 
         var testNote = string.IsNullOrWhiteSpace(settings.ManifestUrl) ? "" : $"  ·  test manifest: {HostOf(settings.ManifestUrl)}";
-        footer.Text = $"v{AppInfo.Version}{testNote}  ·  moves mod files, launches through Steam, touches nothing else  ·  For the Republic.";
+        footer.Text = $"v{AppInfo.Version}{testNote}  ·  For the Republic.";
         footer.Font = new Font("Segoe UI", 8.25F, FontStyle.Italic);
         footer.ForeColor = string.IsNullOrWhiteSpace(settings.ManifestUrl) ? TextMute : Warn;
         footer.AutoSize = true;
@@ -1912,7 +1928,7 @@ public sealed class MainForm : Form
         footer.Margin = new Padding(0, 10, 0, 0);
 
         root.RowStyles.Add(new RowStyle(SizeType.AutoSize));      // header lockup
-        root.RowStyles.Add(new RowStyle(SizeType.Percent, 100));  // toggle (takes all spare height)
+        root.RowStyles.Add(new RowStyle(SizeType.Percent, 100));  // three mode cards
         root.RowStyles.Add(new RowStyle(SizeType.AutoSize));      // status
         root.RowStyles.Add(new RowStyle(SizeType.AutoSize));      // hint
         root.RowStyles.Add(new RowStyle(SizeType.Absolute, 62));  // launch: 50-px button + 12 margin, level with the pack buttons
@@ -1923,7 +1939,7 @@ public sealed class MainForm : Form
         root.RowStyles.Add(new RowStyle(SizeType.AutoSize));      // path row
         root.RowStyles.Add(new RowStyle(SizeType.AutoSize));      // footer
         root.Controls.Add(header, 0, 0);
-        root.Controls.Add(toggleButton, 0, 1);
+        root.Controls.Add(modeRow, 0, 1);
         root.Controls.Add(statusLabel, 0, 2);
         root.Controls.Add(hintLabel, 0, 3);
         root.Controls.Add(launchButton, 0, 4);
@@ -1945,7 +1961,7 @@ public sealed class MainForm : Form
     void RebuildOptions()
     {
         var pack = manifest?.Pack;
-        var options = pack?.Options ?? new List<PackOption>();
+        var options = pack?.Options.Where(o => !o.Id.Equals(LauncherModes.CommandoOption, StringComparison.OrdinalIgnoreCase)).ToList() ?? new List<PackOption>();
         if (optionButtons.Count == options.Count && optionButtons.Select(b => (string)b.Tag!).SequenceEqual(options.Select(o => o.Id))) return;
         optionsRow.SuspendLayout();
         optionsRow.Controls.Clear();
@@ -2004,24 +2020,10 @@ public sealed class MainForm : Form
 
     void Tip(Control c, string text) { if (tips.GetToolTip(c) != text) tips.SetToolTip(c, text); }   // SetToolTip on a showing tip resets it
 
-    // "Disabled" states stay technically clickable: a truly disabled flat button paints its text nearly
-    // black on our dark background, and a click that explains what to do beats a dead button anyway.
-    bool toggleArmed = true;
-
-    void SetToggle(string text, Color back, Color hot, Color fore, bool enabled)
-    {
-        toggleButton.Text = text;
-        toggleButton.BackColor = back;
-        toggleButton.FlatAppearance.MouseOverBackColor = hot;
-        toggleButton.FlatAppearance.MouseDownBackColor = back;
-        toggleButton.ForeColor = fore;
-        toggleButton.Cursor = enabled ? Cursors.Hand : Cursors.Default;
-        toggleArmed = enabled;
-    }
-
     /// <summary>Re-derives everything from disk. Cheap, so it runs on a timer and on focus. One layout pass per call.</summary>
     void RefreshState()
     {
+        if (preview) { RefreshPreview(); return; }
         root.SuspendLayout();
         try { ApplyState(); }
         finally { root.ResumeLayout(true); }
@@ -2041,7 +2043,7 @@ public sealed class MainForm : Form
 
     static string SignalSentence(Signal s, PackManifest? pack) => s switch
     {
-        Signal.Broken => string.IsNullOrWhiteSpace(pack?.StatusNotes) ? "Owen marked this pack broken. Switch OFF until an updated pack ships." : "Owen marked this pack broken: " + pack!.StatusNotes.Trim(),
+        Signal.Broken => string.IsNullOrWhiteSpace(pack?.StatusNotes) ? "Owen marked this pack broken. Choose Helldivers until an updated pack ships." : "Owen marked this pack broken: " + pack!.StatusNotes.Trim(),
         Signal.Pending => "Steam has a Helldivers 2 update waiting; it installs when you launch.",
         Signal.BuildChanged => "The installed pack has not been verified for this Helldivers 2 build.",
         _ => "",
@@ -2059,69 +2061,50 @@ public sealed class MainForm : Form
         var parked = gameDir is null ? 0 : ModFiles.ListPatchFiles(Path.Combine(gameDir, ModFiles.OffFolder)).Length;
         var usable = pack is not null && pack.IsPublished && pack.IsPerFile;
 
-        string detail;
-        var dot = Color.Empty;
-        switch (state)
+        var selected = LauncherModes.Current(state, settings, pack);
+        string detail = selected is { } mode
+            ? $"{LauncherModes.Name(mode)} selected.\n{ModeDescription(mode)}"
+            : "Game not found.\nChoose Locate… to find your Helldivers 2 folder.";
+        if (state == ModState.NoModFiles) detail += "\nChoose a modded mode to install its pack.";
+        foreach (var button in modeButtons)
         {
-            case ModState.On:
-                SetToggle("CLONES: ON", Blue, BlueHot, TextMain, enabled: true);
-                dot = running ? Warn : Color.FromArgb(150, 205, 255);
-                detail = $"{active:N0} mod file{(active == 1 ? "" : "s")} active in data\\"
-                       + (parked > 0 ? $" ({parked:N0} more still parked in mods_off\\)" : "")
-                       + ".\nClick to park them in mods_off\\ and play vanilla."
-                       + "\nGame crashing after a Helldivers 2 update? Switch OFF until the mods are updated.";
-                break;
-            case ModState.Off:
-                SetToggle("CLONES: OFF", Slate, SlateHot, TextMain, enabled: true);
-                dot = running ? Warn : TextDim;
-                detail = $"{parked:N0} mod file{(parked == 1 ? "" : "s")} parked in mods_off\\.\nClick to move them back into data\\.";
-                break;
-            case ModState.NoModFiles:
-                SetToggle("NO MOD FILES FOUND", Disabled, Disabled, TextDim, enabled: false);
-                detail = usable
-                    ? "No mod pack installed.\nClick Download pack below to fetch the Clone Wars pack. Got the zips from Owen instead? Install pack from file… and select all the parts at once."
-                    : "No mod files found in data\\ or mods_off\\.\nUnzip the mod you downloaded, then put its files (names ending in .patch_0, .patch_0.gpu_resources, .patch_0.stream)\ndirectly into this folder — not inside a sub-folder:\n" + dataDir;
-                break;
-            default:
-                SetToggle("GAME NOT FOUND", Disabled, Disabled, TextDim, enabled: false);
-                detail = "Couldn't find Helldivers 2 through Steam.\nClick \"Locate…\" and pick the game folder (it contains data\\ and bin\\helldivers2.exe).\nNot sure where it is? In Steam: right-click Helldivers 2 → Manage → Browse local files.";
-                break;
+            var supported = button.Mode != LauncherMode.CommandoDivers || pack?.Options.Any(o => o.Id.Equals(LauncherModes.CommandoOption, StringComparison.OrdinalIgnoreCase)) == true;
+            button.Enabled = !Busy && !staged && !running && state != ModState.GameNotFound &&
+                (button.Mode == LauncherMode.Helldivers || usable && supported);
+            button.Selected = !staged && button.Mode == selected;
+            button.AccessibleDescription = button.Selected ? "Selected. " + ModeDescription(button.Mode) : ModeDescription(button.Mode);
+            Tip(button, !supported ? "This pack does not include Commandodivers yet." :
+                running ? "Close Helldivers 2 before changing modes." : ModeDescription(button.Mode));
         }
-
         // Warnings under the switch, in precedence order: game running > pack broken > Steam update pending > game build changed.
         var warn = running && state is ModState.On or ModState.Off;
         var signal = CurrentSignal(state, pack, acf);
-        if (warn) detail = "Helldivers 2 is running — close it before toggling. Mods are only read at startup.\n" + detail;
+        if (warn) detail = "Helldivers 2 is running — close it before changing modes. Mods are only read at startup.\n" + detail;
         else if (signal != Signal.None && !staged)
         {
             var lines = detail.Split('\n');
             var keep = string.Join("\n", lines.Skip(1).Take(2));
-            var advice = signal == Signal.Broken ? "" : "If the game crashes or looks wrong, switch OFF until Owen confirms the pack.\n";
+            var advice = signal == Signal.Broken ? "" : "If the game crashes or looks wrong, choose Helldivers until Owen confirms the pack.\n";
             detail = SignalSentence(signal, pack) + "\n" + advice + keep;
             warn = true;
         }
-        Tip(toggleButton, acf?.BuildId is null ? "" : $"Game build {acf.BuildId}" + (string.IsNullOrWhiteSpace(pack?.GameBuild) ? "" : $"  ·  pack built for {pack!.GameBuild}") + (acf.UpdatePending ? $"  ·  Steam update to {acf.TargetBuildId} pending" : ""));
 
         if (staged)
         {
-            SetToggle("UPDATE INTERRUPTED", Disabled, Disabled, TextDim, enabled: false);
             detail = "A pack update was interrupted.\nClick Finish update to check the files and complete it.\nKeep the game closed until recovery finishes.";
-            warn = false; dot = Color.Empty;
+            warn = false;
         }
         if (Busy)
         {
             var (t, d) = busy switch
             {
                 BusyKind.Inventory => ("CHECKING FILES…", "Checking which installed files can be kept.\nThe first check reads every file once (a few minutes on a hard drive). Nothing moves yet."),
-                BusyKind.Download => ("DOWNLOADING PACK…", "Downloading only what changed — leave this window open.\nThe switch reads CLONES: ON when it finishes. Cancel keeps whatever has downloaded so far."),
+                BusyKind.Download => ("DOWNLOADING PACK…", "Downloading only what changed — leave this window open.\nYour selected mode is ready when it finishes. Cancel keeps whatever has downloaded so far."),
                 BusyKind.Apply => ("FINISHING UPDATE…", "Checking and putting the files in place.\nThis step cannot be cancelled."),
                 _ => ("UPDATING CLONEDIVERS…", "Downloading the new Clonedivers — leave this window open.\nIt restarts by itself when done."),
             };
-            SetToggle(t, Disabled, Disabled, TextDim, enabled: false);
-            detail = d; warn = false; dot = Color.Empty;
+            detail = d; warn = false;
         }
-        toggleButton.DotColor = dot;
-        toggleButton.DotFilled = state == ModState.On;
         int nl = detail.IndexOf('\n');
         statusLabel.Text = nl < 0 ? detail : detail[..nl];
         hintLabel.Text = nl < 0 ? "" : detail[(nl + 1)..];
@@ -2132,7 +2115,7 @@ public sealed class MainForm : Form
         var starting = !running && launchRequested is DateTime lt && DateTime.UtcNow - lt < TimeSpan.FromSeconds(90);
         launchArmed = !running && !starting && !Busy && !staged;
         launchButton.Enabled = true;
-        launchButton.Text = running ? "HELLDIVERS 2 IS RUNNING" : starting ? "STARTING VIA STEAM…" : "LAUNCH HELLDIVERS 2";
+        launchButton.Text = running ? "HELLDIVERS 2 IS RUNNING" : starting ? "STARTING VIA STEAM…" : "LAUNCH " + (selected is { } launchMode ? LauncherModes.Name(launchMode).ToUpperInvariant() : "HELLDIVERS 2");
         launchButton.BackColor = launchArmed ? Orange : Disabled;
         launchButton.ForeColor = launchArmed ? Bg : TextDim;
         launchButton.FlatAppearance.MouseOverBackColor = launchArmed ? OrangeHot : Disabled;
@@ -2226,7 +2209,7 @@ public sealed class MainForm : Form
             var o = pack?.Options.FirstOrDefault(x => string.Equals(x.Id, (string)b.Tag!, StringComparison.OrdinalIgnoreCase));
             if (o is null) continue;
             var on = OptionEnabled(o);
-            var armed = canInstall && !staged && usable;
+            var armed = canInstall && !staged && usable && state == ModState.On;
             b.Text = $"{o.Name}: {(on ? "ON" : "OFF")}";
             b.BackColor = armed ? (on ? Blue : Slate) : Disabled;      // ghost: BackColor is the outline colour
             b.ForeColor = armed ? TextMain : TextDim;
@@ -2316,7 +2299,7 @@ public sealed class MainForm : Form
     void OnOptionToggle(PackOption o)
     {
         var pack = manifest?.Pack;
-        if (Busy || gameDir is null || pack is null || !pack.IsPublished || !pack.IsPerFile || Pack.HasPendingUpdate(gameDir, Settings.PlanPath)) return;
+        if (Busy || gameDir is null || pack is null || !pack.IsPublished || !pack.IsPerFile || Pack.HasPendingUpdate(gameDir, Settings.PlanPath) || ModFiles.GetState(gameDir) != ModState.On) return;
         if (Game.IsRunning()) { ShowRunningWarning(); return; }
         var turnOn = !OptionEnabled(o);
         _ = RunPackAsync(pack, verify: false, optionChange: (o, turnOn));
@@ -2353,19 +2336,20 @@ public sealed class MainForm : Form
             settings.Save();
             ShowProgressDone($"Pack installed: {result.installed:N0} files in data\\"
                 + (result.parked > 0 ? $", {result.parked:N0} old file{(result.parked == 1 ? "" : "s")} parked in mods_old\\" : "")
-                + ". Clones are ON — hit LAUNCH.");
+                + ". Ready to launch.");
         }
-        catch (OperationCanceledException) { ShowProgressDone("Cancelled. The big button shows what is in data\\ now."); }
+        catch (OperationCanceledException) { ShowProgressDone("Cancelled. The mode selection shows what is installed now."); }
         catch (Exception ex) { ShowProgressDone("Install failed."); MessageBox.Show(this, ex.Message, "Clonedivers", MessageBoxButtons.OK, MessageBoxIcon.Error); }
         finally { SetBusy(BusyKind.None); }
     }
 
     /// <summary>The per-file flow: inventory → plan → confirm → download what is missing → apply. <paramref name="verify"/> re-hashes
     /// everything (the "Pack up to date" click); <paramref name="optionChange"/> names the toggle that triggered it, for the dialog.</summary>
-    async Task RunPackAsync(PackManifest pack, bool verify, (PackOption option, bool on)? optionChange)
+    async Task RunPackAsync(PackManifest pack, bool verify, (PackOption option, bool on)? optionChange, LauncherMode? modeChange = null)
     {
         var dlDir = Path.Combine(gameDir!, Pack.DownloadFolder);
-        var targetOptions = settings.OptionsFor(pack, optionChange?.option.Id, optionChange?.on ?? false);
+        var targetOptions = modeChange is { } mode ? LauncherModes.OptionsFor(settings, pack, mode)
+            : settings.OptionsFor(pack, optionChange?.option.Id, optionChange?.on ?? false);
         List<PackFile> wanted;
         var planPath = Settings.PlanPath;
         SetBusy(BusyKind.Inventory);
@@ -2406,7 +2390,9 @@ public sealed class MainForm : Form
         var fresh = !ModFiles.ListPatchFiles(Path.Combine(gameDir!, ModFiles.DataFolder)).Any() && !ModFiles.ListPatchFiles(Path.Combine(gameDir!, ModFiles.OffFolder)).Any();
         var dlText = plan.BytesToDownload > 0 ? $"Download {Pack.FormatBytes(plan.BytesToDownload)} ({plan.Downloads.Count:N0} file{(plan.Downloads.Count == 1 ? "" : "s")})." : "Nothing to download.";
         string headline;
-        if (optionChange is { } o)
+        if (modeChange is { } chosen)
+            headline = $"Switch to {LauncherModes.Name(chosen)}?\n\n{dlText}";
+        else if (optionChange is { } o)
             headline = $"Turn {o.option.Name} {(o.on ? "on" : "off")}?\n\n{dlText}" + (o.on ? "" : " The rest is renumbered in place.");
         else if (fresh)
             headline = $"Download the Clone Wars pack {pack.Version}?\n\n{Pack.FormatBytes(plan.BytesToDownload)} ({plan.Downloads.Count:N0} files) — start it before dinner. Leave this window open; it resumes if interrupted.";
@@ -2464,7 +2450,7 @@ public sealed class MainForm : Form
         if (result.Renamed > 0) parts.Add($"{result.Renamed:N0} renamed");
         if (result.Copied + result.Created > 0) parts.Add($"{result.Copied + result.Created:N0} created");
         if (result.Parked > 0) parts.Add($"{result.Parked:N0} parked in mods_old\\");
-        ShowProgressDone($"Pack updated to {result.PackVersion}" + (parts.Count > 0 ? ": " + string.Join(", ", parts) : "") + ". Clones are ON — hit LAUNCH.");
+        ShowProgressDone($"Pack updated to {result.PackVersion}" + (parts.Count > 0 ? ": " + string.Join(", ", parts) : "") + ". Ready to launch.");
     }
 
     /// <summary>Finish update: recheck the saved target against disk; fall back to the manifest if recovery needs downloads.</summary>
@@ -2623,21 +2609,66 @@ public sealed class MainForm : Form
             MessageBox.Show(this,
                 ex.Message +
                 "\n\nUsually another program has that file open — an antivirus scan, a download still finishing, or the game itself. " +
-                "The other files moved. Once it's free, flip the switch off and on again and it will catch up. " +
-                "The big button always shows where the files actually are.",
+                "The other files moved. Once it's free, select Helldivers again to park the remaining files. " +
+                "The selected mode reflects the files currently installed.",
                 "Clonedivers", MessageBoxButtons.OK, MessageBoxIcon.Error);
         }
         return false;
     }
 
-    void OnToggle()
+    void OnMode(LauncherMode mode)
     {
+        if (preview) { previewMode = mode; RefreshPreview(); return; }
         if (gameDir is null || Busy) return;
         if (Game.IsRunning()) { ShowRunningWarning(); return; }
-        if (!toggleArmed) { RefreshState(); return; }   // "no mod files" / "game not found" / interrupted: the text below says what to do
-        TryToggle();
-        RefreshState();
+        if (Pack.HasPendingUpdate(gameDir, Settings.PlanPath)) { RefreshState(); return; }
+        var state = ModFiles.GetState(gameDir);
+        if (mode == LauncherMode.Helldivers)
+        {
+            if (state == ModState.On) TryToggle();
+            RefreshState();
+            return;
+        }
+        var pack = manifest?.Pack;
+        if (pack is null || !pack.IsPublished || !pack.IsPerFile) return;
+        if (mode == LauncherMode.CommandoDivers && !pack.Options.Any(o => o.Id.Equals(LauncherModes.CommandoOption, StringComparison.OrdinalIgnoreCase))) return;
+        // Always plan the requested file set, including when an old pack is parked. Restoring it
+        // with Toggle would silently enable RC content after choosing ordinary clonedivers.
+        _ = RunPackAsync(pack, verify: false, optionChange: null, modeChange: mode);
     }
+
+    void RefreshPreview()
+    {
+        manifest ??= new Manifest { Pack = new PackManifest { Options = new()
+        {
+            new() { Id = "commandos", Name = "RC mode", Default = true },
+            new() { Id = "skinny", Name = "Skinny clones", Default = false },
+            new() { Id = "optics", Name = "Optics", Default = true },
+        } } };
+        RebuildOptions();
+        foreach (var button in optionButtons)
+        {
+            var option = manifest.Pack!.Options.Single(o => o.Id == (string)button.Tag!);
+            button.Text = $"{option.Name}: {(option.Default ? "ON" : "OFF")}";
+            button.Enabled = false;
+        }
+        foreach (var button in modeButtons) { button.Enabled = true; button.Selected = button.Mode == previewMode; }
+        statusLabel.Text = $"{LauncherModes.Name(previewMode)} selected";
+        hintLabel.Text = ModeDescription(previewMode);
+        launchButton.Text = "LAUNCH " + LauncherModes.Name(previewMode).ToUpperInvariant();
+        foreach (var control in new Control[] { launchButton, pathButton, openButton, installFileButton, downloadButton }) control.Enabled = false;
+        downloadButton.Text = "Pack up to date";
+        pathCaption.Text = "Preview";
+        pathValue.Text = "No game files or settings are changed";
+        footer.Text = "Launcher preview  ·  For the Republic.";
+    }
+
+    static string ModeDescription(LauncherMode mode) => mode switch
+    {
+        LauncherMode.Helldivers => "The original Helldivers 2 experience.",
+        LauncherMode.Clonedivers => "The Clone Wars pack, with your chosen extras.",
+        _ => "Delta Squad is elite.",
+    };
 
     void OnLaunch()
     {
@@ -2649,8 +2680,8 @@ public sealed class MainForm : Form
         if (state == ModState.On && signal != Signal.None && !Busy)
         {
             var answer = MessageBox.Show(this,
-                SignalSentence(signal, manifest?.Pack) + "\n\nSwitch the clones OFF before launching?\n\n" +
-                "Yes — switch OFF, then launch (safe)\nNo — launch with the clones ON\nCancel — don't launch",
+                SignalSentence(signal, manifest?.Pack) + "\n\nChoose Helldivers before launching?\n\n" +
+                "Yes — park the mods, then launch\nNo — launch the current mode\nCancel — don't launch",
                 "Clonedivers", MessageBoxButtons.YesNoCancel, MessageBoxIcon.Warning);
             if (answer == DialogResult.Cancel) return;
             if (answer == DialogResult.Yes && !TryToggle()) { RefreshState(); return; }

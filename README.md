@@ -1,7 +1,7 @@
 <p align="center"><img src="docs/banner.png" width="720" alt="Clonedivers"></p>
 
-<p align="center"><b>One exe, one button: Helldivers 2 becomes the Clone Wars.</b><br>
-Clonedivers installs the mod pack, switches it on or off, and launches the game. No installer, no accounts, no background service, nothing touches the game itself.</p>
+<p align="center"><b>One launcher. Choose your universe.</b><br>
+Choose Helldivers, Clonedivers, or Commandodivers. Download the pack, select a helmet, and launch through Steam.</p>
 
 <p align="center">
   <a href="https://github.com/owendavidgoode/clonedivers/releases/latest/download/Clonedivers.exe"><img alt="Download Clonedivers.exe" src="https://img.shields.io/badge/Download-Clonedivers.exe-1f5fcc?style=for-the-badge"></a>
@@ -14,8 +14,7 @@ Clonedivers installs the mod pack, switches it on or off, and launches the game.
 <p align="center"><sub>Windows 10/11 64-bit · a Steam copy of Helldivers 2 · nothing else to install · <a href="https://github.com/owendavidgoode/clonedivers/releases/latest/download/Clonedivers.exe">plain download link</a></sub></p>
 
 <p align="center">
-  <img src="docs/screenshots/1-clones-on.png" width="380" alt="Clones on">
-  <img src="docs/screenshots/2-clones-off.png" width="380" alt="Clones off">
+  <img src="docs/screenshots/three-modes.png" width="560" alt="Launcher preview: Helldivers, Clonedivers and Commandodivers">
 </p>
 
 ## Quick start
@@ -29,16 +28,12 @@ Clonedivers installs the mod pack, switches it on or off, and launches the game.
    the window open; the percentage shows in the title bar. Have at least 10 GB free on the game drive. Interrupted? Open
    Clonedivers and click again. It resumes where it stopped. Got the pack as zips from Owen instead? **Install pack from
    file…** and **select all the parts at once**.
-3. **Click LAUNCH HELLDIVERS 2** once the big button reads **CLONES: ON**. Steam starts the game as normal.
+3. **Choose a helmet:** Helldivers for the original game, Clonedivers for the clone pack, or Commandodivers. Delta Squad is elite. Then click the **LAUNCH** button. Steam starts the game as normal.
 
-<p align="center">
-  <img src="docs/screenshots/3-no-mod-files.png" width="380" alt="First run: no mod pack installed yet">
-  <img src="docs/screenshots/5-downloading.png" width="380" alt="Downloading the pack">
-</p>
-<p align="center"><sub>First run, before the pack · Downloading the pack</sub></p>
+**Vanilla night?** Close the game, choose **Helldivers**, then launch. The mod files
+are parked in `Helldivers 2\mods_off\` until you select a modded mode.
 
-**Vanilla night?** Close the game, click the big button so it reads **CLONES: OFF**, launch. Nothing is deleted; the files
-are parked in `Helldivers 2\mods_off\` until you flip it back.
+**Playing with the team?** See [team setup and character equipment](docs/TEAM-SETUP.md).
 
 **New pack out?** The button under LAUNCH reads **Update pack**. Click it: only the files that changed are downloaded
 (usually a few hundred MB), everything else is kept and renamed in place. Files the new pack no longer contains go to
@@ -47,9 +42,7 @@ checks every installed file and repairs anything missing or damaged.
 
 **Toggles** under the pack buttons switch optional parts of the pack. **Lighter textures**: the same mods, same look,
 with textures streamed from disk on demand instead of all sitting in RAM (about 4.5 GB less resident memory). Turn it on
-if you have 16 GB of RAM or the game dies at boot; it downloads about 7 GB once. **Republic Commandos** (on by default):
-Delta Squad armor over four sets, Boss on DP-11, Fixer on CM-10, Scorch on CE-35, Sev on SC-30. Pick your member's set,
-use the Brawny body type, and everyone else stays a 501st clone. **Hide weapon sights** (on by default): removes the
+if you have 16 GB of RAM or the game dies at boot; it downloads about 7 GB once. **Hide weapon sights** (on by default): removes the
 sight and attachment models from every weapon, so nothing floats above the blasters (Clone Blasters leaves the vanilla
 optics in place); your reticle still works, and the Spear and Wasp scopes stay. Off parks a toggle's files, on
 downloads just that group.
@@ -74,13 +67,13 @@ and restarts. Still on 1.2? Download the new exe once from the button above; fro
 ## What's in the pack
 
 The pack is a stack of community mods from Nexus Mods, all client-side asset swaps, chosen and checked against the
-live Nexus pages on **2026-09-05** (game patch 7.0.2); **current pack: 2026.09.07-r6**. The per-mod audit with dates
+live Nexus pages on **2026-09-05** (game patch 7.0.2); **current pack: 2026.09.12-r7**. The per-mod audit with dates
 and evidence is in [docs/MODS.md](docs/MODS.md). Every one of these is somebody's work; the links are their pages.
 
 | Layer | Mod | What it changes |
 |---|---|---|
 | Armor | [Star Wars – Clone Armory](https://www.nexusmods.com/helldivers2/mods/13956) | Every armor set → clone armor, plus backpacks, accessories, Republic decals. Beta, 2.8 GB, 1500+ files. |
-| Squad | [Republic Commando Delta Squad](https://www.nexusmods.com/helldivers2/mods/552) | Boss, Fixer, Scorch and Sev over DP-11, CM-10, CE-35 and SC-30 (Brawny body type). The **Republic Commandos** toggle, on by default; CE-35 shares parts with B-01 and DP-40, so those two pick up Scorch pieces too. |
+| Squad | [Republic Commando Delta Squad](https://www.nexusmods.com/helldivers2/mods/552) | Boss, Fixer, Scorch and Sev over DP-11, CM-10, CE-35 and SC-30 (Brawny body type). Available in **Commandodivers**; CE-35 shares parts with B-01 and DP-40, so those two pick up Scorch pieces too. |
 | Weapons | [Custom Scopes Compendium: Attachment Remover](https://www.nexusmods.com/helldivers2/mods/443) | Hides every stock sight and attachment model (the Clone Blasters author's own fix for floating optics). The **Hide weapon sights** toggle, on by default; Spear and Wasp scopes stay. |
 | Weapons | [Star Wars Clone Blasters](https://www.nexusmods.com/helldivers2/mods/6633) | Nearly every weapon model → DC-15A/S, DC-17, Z-6, bowcaster… |
 | Tracers | [Blue Overhaul – Laser Bolts](https://www.nexusmods.com/helldivers2/mods/4835) | Bullets → blaster bolts, turbolaser orbitals. Without this the blasters still fire bullets. |
@@ -154,7 +147,7 @@ The numbers and how it is built are in [docs/MODS.md](docs/MODS.md#performance-w
 - It never injects into, hooks, reads, or otherwise touches the game process. It notices whether `helldivers2.exe`
   is running (to refuse a toggle or install) and that is all.
 - No Nexus login, no mod browsing, no patch-number management. The only things it ever downloads are the pack files
-  listed in `manifest.json` and, when you click, its own new version, all verified by hash. The big switch moves every
+  listed in `manifest.json` and, when you click, its own new version, all verified by hash. The Helldivers mode button parks every
   `*.patch_*` file together; the optional-group toggles are the only per-mod control.
 - It doesn't edit any game file. Vanilla Helldivers 2 ships zero `*.patch_*` files, which is exactly why that pattern
   identifies mods safely.
@@ -177,7 +170,7 @@ Tests:
 dotnet run --project Clonedivers.Tests
 ```
 
-[`Clonedivers/Program.cs`](Clonedivers/Program.cs) is the whole app (C#, .NET 8 WinForms, one file); what the tests
+[`Clonedivers/Program.cs`](Clonedivers/Program.cs) contains the app logic (C#, .NET 8 WinForms); `Clonedivers/LauncherModes.cs` defines the mode controls; what the tests
 prove, the rest of the layout and the preflight checklist are in [docs/DEVELOPING.md](docs/DEVELOPING.md).
 
 </details>

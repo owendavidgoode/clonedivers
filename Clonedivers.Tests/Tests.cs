@@ -47,6 +47,7 @@ static class TestProgram
             DownloadTests(root).GetAwaiter().GetResult();
             ManifestV2Tests();
             EffectiveFilesTests();
+            LauncherModeTests(root).GetAwaiter().GetResult();
             PlanAndApplyTests(root).GetAwaiter().GetResult();
             SurplusAndParkNamingTests(root);
             InterruptedAndReplayTests(root);
@@ -65,6 +66,66 @@ static class TestProgram
         Console.WriteLine();
         Console.WriteLine(failures == 0 ? "ALL TESTS PASSED" : $"{failures} TEST(S) FAILED");
         return failures == 0 ? 0 : 1;
+    }
+
+    static async Task LauncherModeTests(string root)
+    {
+        Console.WriteLine("Three launcher modes use the requested pack, including parked transitions");
+        var pack = new PackManifest { Version = "mode-test", Options = new()
+        {
+            new() { Id = "commandos", Default = true },
+            new() { Id = "skinny", Default = false },
+            new() { Id = "optics", Default = true },
+        }, Files = new()
+        {
+            F("A.patch_0", "base-clones"),
+            F("A.patch_1", "rc-film", "commandos"),
+            F("A.patch_2", "rc-voices", "commandos"),
+            F("A.patch_3", "skinny", "skinny"),
+            F("A.patch_4", "optics", "optics"),
+        }};
+        var settings = new Settings { Options = new(StringComparer.OrdinalIgnoreCase) { ["commandos"] = true, ["skinny"] = true, ["optics"] = false } };
+        foreach (var mode in new[] { LauncherMode.Clonedivers, LauncherMode.CommandoDivers })
+        {
+            var options = LauncherModes.OptionsFor(settings, pack, mode);
+            Check(options["skinny"] && !options["optics"], "mode choice preserves skinny and optics preferences");
+            Check(options["commandos"] == (mode == LauncherMode.CommandoDivers), "mode choice overrides the commandos default");
+        }
+        Check(settings.Options["commandos"], "planning a mode does not change the saved selection");
+        settings.RecordInstall(new ApplyResult { Reason = "Interrupted", Options = new() { ["commandos"] = false } });
+        Check(settings.Options["commandos"], "failed or interrupted application does not claim a new mode");
+        Check(LauncherModes.Current(ModState.Off, settings, pack) == LauncherMode.Helldivers, "a parked RC pack displays Helldivers");
+        Check(LauncherModes.Current(ModState.GameNotFound, settings, pack) is null, "no game means no selected mode");
+
+        foreach (var targetMode in new[] { LauncherMode.Clonedivers, LauncherMode.CommandoDivers })
+        {
+            var game = MakeGame(root, "Mode " + targetMode);
+            var data = Path.Combine(game, ModFiles.DataFolder);
+            var off = Path.Combine(game, ModFiles.OffFolder);
+            Directory.CreateDirectory(off);
+            var initialOptions = settings.OptionsFor(pack, "commandos", targetMode == LauncherMode.Clonedivers);
+            var initial = Pack.EffectiveFiles(pack, id => initialOptions[id]);
+            var bodies = new Dictionary<string, string> { [ShaOf("base-clones")] = "base-clones", [ShaOf("rc-film")] = "rc-film", [ShaOf("rc-voices")] = "rc-voices", [ShaOf("skinny")] = "skinny", [ShaOf("optics")] = "optics" };
+            foreach (var f in initial) File.WriteAllText(Path.Combine(off, f.Name), bodies[f.Sha256]);
+            // Previously downloaded RC bytes are reusable, as on a real round trip.
+            Directory.CreateDirectory(Path.Combine(game, Pack.OldFolder));
+            File.WriteAllText(Path.Combine(game, Pack.OldFolder, "X.patch_0"), "rc-film");
+            File.WriteAllText(Path.Combine(game, Pack.OldFolder, "X.patch_1"), "rc-voices");
+            var targetOptions = LauncherModes.OptionsFor(settings, pack, targetMode);
+            var wanted = Pack.EffectiveFiles(pack, id => targetOptions[id]);
+            var inventory = await Pack.InventoryAsync(game, wanted, new HashCache(), true, null, CancellationToken.None);
+            var plan = Pack.Plan(game, wanted, inventory, new HashSet<string>());
+            Check(plan.Downloads.Count == 0, "parked mode change reuses verified local bytes");
+            var result = Pack.Apply(game, plan, Path.Combine(game, "mode-plan.json"), pack.Version, null, null, options: targetOptions);
+            Check(!result.Interrupted, "parked pack switches successfully to " + targetMode);
+            var actual = ModFiles.ListPatchFiles(data).Select(File.ReadAllText).ToArray();
+            Check(SameSet(actual, wanted.Select(f => bodies[f.Sha256])), "active files exactly match " + targetMode + ", without leftover RC content");
+            settings.RecordInstall(result);
+            Check(LauncherModes.Current(ModFiles.GetState(game), settings, pack) == targetMode, "selection changes only after the target pack applies");
+            ModFiles.Toggle(game);
+            Check(ModFiles.ListPatchFiles(data).Length == 0 && LauncherModes.Current(ModFiles.GetState(game), settings, pack) == LauncherMode.Helldivers, "Helldivers parks every active mod file");
+            Check(settings.Options["skinny"] && !settings.Options["optics"], "vanilla transition retains extras");
+        }
     }
 
     static void PatchNameTests()

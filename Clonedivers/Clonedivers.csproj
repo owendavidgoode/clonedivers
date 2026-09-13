@@ -11,11 +11,11 @@
     <ApplicationIcon>clonedivers.ico</ApplicationIcon>
 
     <!-- Metadata shown in the exe's Properties > Details -->
-    <Version>1.3.3</Version>
+    <Version>1.4.0</Version>
     <IncludeSourceRevisionInInformationalVersion>false</IncludeSourceRevisionInInformationalVersion>
     <Product>Clonedivers</Product>
     <Company>Clonedivers</Company>
-    <Description>Helldivers 2 mod on/off switch and Steam launcher</Description>
+    <Description>Helldivers, Clonedivers and Commandodivers mode selector and Steam launcher</Description>
     <Copyright>MIT License</Copyright>
 
     <!-- `dotnet publish -c Release` => one self-contained exe in ..\dist\ (no .NET install needed) -->
