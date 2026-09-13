@@ -1,0 +1,7501 @@
+{
+  "slots": [
+    {
+      "slot": 1,
+      "character": "Sev",
+      "bank_id": "0a39096a51ae9e86",
+      "mapped_media": 405,
+      "changes": [
+        {
+          "sound_id": 997428037,
+          "media_id": 74056074,
+          "codec_offset": 63187
+        },
+        {
+          "sound_id": 681008837,
+          "media_id": 695031946,
+          "codec_offset": 63293
+        },
+        {
+          "sound_id": 839347559,
+          "media_id": 806124231,
+          "codec_offset": 63724
+        },
+        {
+          "sound_id": 800105957,
+          "media_id": 993713127,
+          "codec_offset": 63830
+        },
+        {
+          "sound_id": 1036211283,
+          "media_id": 1017211717,
+          "codec_offset": 64049
+        },
+        {
+          "sound_id": 829252610,
+          "media_id": 296464684,
+          "codec_offset": 64155
+        },
+        {
+          "sound_id": 697908049,
+          "media_id": 873438298,
+          "codec_offset": 64366
+        },
+        {
+          "sound_id": 1066794403,
+          "media_id": 731179530,
+          "codec_offset": 64472
+        },
+        {
+          "sound_id": 965810039,
+          "media_id": 764405770,
+          "codec_offset": 64578
+        },
+        {
+          "sound_id": 804449127,
+          "media_id": 825063816,
+          "codec_offset": 64684
+        },
+        {
+          "sound_id": 623581824,
+          "media_id": 480280468,
+          "codec_offset": 64898
+        },
+        {
+          "sound_id": 765396509,
+          "media_id": 622720616,
+          "codec_offset": 65004
+        },
+        {
+          "sound_id": 968301957,
+          "media_id": 908416195,
+          "codec_offset": 65532
+        },
+        {
+          "sound_id": 105112422,
+          "media_id": 97548944,
+          "codec_offset": 65638
+        },
+        {
+          "sound_id": 981016908,
+          "media_id": 52429637,
+          "codec_offset": 65849
+        },
+        {
+          "sound_id": 413453738,
+          "media_id": 1045780561,
+          "codec_offset": 65955
+        },
+        {
+          "sound_id": 183287117,
+          "media_id": 544294789,
+          "codec_offset": 66166
+        },
+        {
+          "sound_id": 1066214065,
+          "media_id": 727017953,
+          "codec_offset": 66272
+        },
+        {
+          "sound_id": 704533809,
+          "media_id": 607081312,
+          "codec_offset": 66483
+        },
+        {
+          "sound_id": 806251845,
+          "media_id": 17756087,
+          "codec_offset": 66589
+        },
+        {
+          "sound_id": 693961314,
+          "media_id": 491190319,
+          "codec_offset": 66901
+        },
+        {
+          "sound_id": 353353407,
+          "media_id": 637909933,
+          "codec_offset": 67007
+        },
+        {
+          "sound_id": 730962220,
+          "media_id": 76095732,
+          "codec_offset": 68311
+        },
+        {
+          "sound_id": 864095960,
+          "media_id": 207591408,
+          "codec_offset": 68417
+        },
+        {
+          "sound_id": 489075803,
+          "media_id": 1001261153,
+          "codec_offset": 68523
+        },
+        {
+          "sound_id": 192278375,
+          "media_id": 956235572,
+          "codec_offset": 68629
+        },
+        {
+          "sound_id": 1016985083,
+          "media_id": 551683201,
+          "codec_offset": 71390
+        },
+        {
+          "sound_id": 265729565,
+          "media_id": 174398361,
+          "codec_offset": 71496
+        },
+        {
+          "sound_id": 765320516,
+          "media_id": 855703187,
+          "codec_offset": 71702
+        },
+        {
+          "sound_id": 465317863,
+          "media_id": 934346381,
+          "codec_offset": 71808
+        },
+        {
+          "sound_id": 461245092,
+          "media_id": 972074013,
+          "codec_offset": 72749
+        },
+        {
+          "sound_id": 203982827,
+          "media_id": 845581251,
+          "codec_offset": 73067
+        },
+        {
+          "sound_id": 210987619,
+          "media_id": 654607206,
+          "codec_offset": 74444
+        },
+        {
+          "sound_id": 808843828,
+          "media_id": 121192770,
+          "codec_offset": 74550
+        },
+        {
+          "sound_id": 998379661,
+          "media_id": 131379881,
+          "codec_offset": 74767
+        },
+        {
+          "sound_id": 833708867,
+          "media_id": 325407070,
+          "codec_offset": 74878
+        },
+        {
+          "sound_id": 1044302389,
+          "media_id": 498692213,
+          "codec_offset": 74984
+        },
+        {
+          "sound_id": 61964694,
+          "media_id": 665561323,
+          "codec_offset": 75196
+        },
+        {
+          "sound_id": 633874450,
+          "media_id": 649964231,
+          "codec_offset": 75302
+        },
+        {
+          "sound_id": 87760495,
+          "media_id": 269726903,
+          "codec_offset": 75408
+        },
+        {
+          "sound_id": 508695590,
+          "media_id": 640877687,
+          "codec_offset": 75514
+        },
+        {
+          "sound_id": 1048158967,
+          "media_id": 144632489,
+          "codec_offset": 75620
+        },
+        {
+          "sound_id": 398215801,
+          "media_id": 845575033,
+          "codec_offset": 75726
+        },
+        {
+          "sound_id": 978552005,
+          "media_id": 257892485,
+          "codec_offset": 75837
+        },
+        {
+          "sound_id": 93139464,
+          "media_id": 86297435,
+          "codec_offset": 75943
+        },
+        {
+          "sound_id": 936065362,
+          "media_id": 578788499,
+          "codec_offset": 76049
+        },
+        {
+          "sound_id": 521624373,
+          "media_id": 188091972,
+          "codec_offset": 76155
+        },
+        {
+          "sound_id": 446926814,
+          "media_id": 25486065,
+          "codec_offset": 76261
+        },
+        {
+          "sound_id": 824888715,
+          "media_id": 1038258325,
+          "codec_offset": 76367
+        },
+        {
+          "sound_id": 1015489180,
+          "media_id": 231620948,
+          "codec_offset": 76473
+        },
+        {
+          "sound_id": 280752950,
+          "media_id": 687626213,
+          "codec_offset": 76579
+        },
+        {
+          "sound_id": 359009953,
+          "media_id": 887624001,
+          "codec_offset": 77024
+        },
+        {
+          "sound_id": 488938854,
+          "media_id": 576737537,
+          "codec_offset": 77130
+        },
+        {
+          "sound_id": 560971575,
+          "media_id": 106155268,
+          "codec_offset": 77236
+        },
+        {
+          "sound_id": 876506349,
+          "media_id": 501203340,
+          "codec_offset": 77342
+        },
+        {
+          "sound_id": 930135361,
+          "media_id": 127242252,
+          "codec_offset": 77561
+        },
+        {
+          "sound_id": 459089712,
+          "media_id": 204978287,
+          "codec_offset": 77667
+        },
+        {
+          "sound_id": 820216434,
+          "media_id": 69525519,
+          "codec_offset": 77878
+        },
+        {
+          "sound_id": 857494061,
+          "media_id": 278489274,
+          "codec_offset": 77984
+        },
+        {
+          "sound_id": 429893648,
+          "media_id": 776703159,
+          "codec_offset": 78090
+        },
+        {
+          "sound_id": 974390991,
+          "media_id": 597053356,
+          "codec_offset": 78196
+        },
+        {
+          "sound_id": 794377901,
+          "media_id": 516360967,
+          "codec_offset": 78302
+        },
+        {
+          "sound_id": 591275976,
+          "media_id": 65123108,
+          "codec_offset": 78408
+        },
+        {
+          "sound_id": 530326453,
+          "media_id": 386485359,
+          "codec_offset": 78630
+        },
+        {
+          "sound_id": 597771744,
+          "media_id": 529950766,
+          "codec_offset": 78842
+        },
+        {
+          "sound_id": 403199217,
+          "media_id": 990995016,
+          "codec_offset": 79167
+        },
+        {
+          "sound_id": 1031788754,
+          "media_id": 687532486,
+          "codec_offset": 79273
+        },
+        {
+          "sound_id": 65205735,
+          "media_id": 785314558,
+          "codec_offset": 79379
+        },
+        {
+          "sound_id": 183228275,
+          "media_id": 443057710,
+          "codec_offset": 79485
+        },
+        {
+          "sound_id": 997081317,
+          "media_id": 286695621,
+          "codec_offset": 79869
+        },
+        {
+          "sound_id": 391064775,
+          "media_id": 293057089,
+          "codec_offset": 80081
+        },
+        {
+          "sound_id": 159140246,
+          "media_id": 412316894,
+          "codec_offset": 80555
+        },
+        {
+          "sound_id": 536305737,
+          "media_id": 644465233,
+          "codec_offset": 80873
+        },
+        {
+          "sound_id": 452766092,
+          "media_id": 356445922,
+          "codec_offset": 81085
+        },
+        {
+          "sound_id": 889023633,
+          "media_id": 859510277,
+          "codec_offset": 81403
+        },
+        {
+          "sound_id": 695143222,
+          "media_id": 728941005,
+          "codec_offset": 81509
+        },
+        {
+          "sound_id": 128400548,
+          "media_id": 1059102246,
+          "codec_offset": 81615
+        },
+        {
+          "sound_id": 1071855700,
+          "media_id": 467553263,
+          "codec_offset": 81827
+        },
+        {
+          "sound_id": 221478253,
+          "media_id": 620094973,
+          "codec_offset": 81933
+        },
+        {
+          "sound_id": 498369418,
+          "media_id": 552594267,
+          "codec_offset": 82039
+        },
+        {
+          "sound_id": 164898155,
+          "media_id": 462424549,
+          "codec_offset": 82251
+        },
+        {
+          "sound_id": 81116849,
+          "media_id": 594223403,
+          "codec_offset": 82357
+        },
+        {
+          "sound_id": 281775833,
+          "media_id": 873430156,
+          "codec_offset": 82463
+        },
+        {
+          "sound_id": 250035374,
+          "media_id": 815013054,
+          "codec_offset": 82569
+        },
+        {
+          "sound_id": 297542762,
+          "media_id": 1068733634,
+          "codec_offset": 82675
+        },
+        {
+          "sound_id": 618720794,
+          "media_id": 931262181,
+          "codec_offset": 82887
+        },
+        {
+          "sound_id": 732422116,
+          "media_id": 1013758555,
+          "codec_offset": 83205
+        },
+        {
+          "sound_id": 899296717,
+          "media_id": 641300919,
+          "codec_offset": 83311
+        },
+        {
+          "sound_id": 699974651,
+          "media_id": 43152115,
+          "codec_offset": 83417
+        },
+        {
+          "sound_id": 114438649,
+          "media_id": 157020505,
+          "codec_offset": 83735
+        },
+        {
+          "sound_id": 165420220,
+          "media_id": 398243647,
+          "codec_offset": 83841
+        },
+        {
+          "sound_id": 438080429,
+          "media_id": 764494089,
+          "codec_offset": 84053
+        },
+        {
+          "sound_id": 852594812,
+          "media_id": 115128444,
+          "codec_offset": 84159
+        },
+        {
+          "sound_id": 411618343,
+          "media_id": 12933285,
+          "codec_offset": 84265
+        },
+        {
+          "sound_id": 751496337,
+          "media_id": 332545732,
+          "codec_offset": 84371
+        },
+        {
+          "sound_id": 41382417,
+          "media_id": 746927993,
+          "codec_offset": 84477
+        },
+        {
+          "sound_id": 128496713,
+          "media_id": 269699632,
+          "codec_offset": 84835
+        },
+        {
+          "sound_id": 142855737,
+          "media_id": 94959102,
+          "codec_offset": 84941
+        },
+        {
+          "sound_id": 471733833,
+          "media_id": 413082906,
+          "codec_offset": 85047
+        },
+        {
+          "sound_id": 9116276,
+          "media_id": 447152238,
+          "codec_offset": 85153
+        },
+        {
+          "sound_id": 852456273,
+          "media_id": 150917881,
+          "codec_offset": 85259
+        },
+        {
+          "sound_id": 821469967,
+          "media_id": 104395328,
+          "codec_offset": 85365
+        },
+        {
+          "sound_id": 915196618,
+          "media_id": 27457527,
+          "codec_offset": 85471
+        },
+        {
+          "sound_id": 1024578310,
+          "media_id": 112393465,
+          "codec_offset": 85577
+        },
+        {
+          "sound_id": 935297029,
+          "media_id": 779865738,
+          "codec_offset": 85683
+        },
+        {
+          "sound_id": 584924074,
+          "media_id": 829916801,
+          "codec_offset": 85789
+        },
+        {
+          "sound_id": 672274378,
+          "media_id": 1072483094,
+          "codec_offset": 86858
+        },
+        {
+          "sound_id": 744170931,
+          "media_id": 221462751,
+          "codec_offset": 86964
+        },
+        {
+          "sound_id": 331145501,
+          "media_id": 989483033,
+          "codec_offset": 87070
+        },
+        {
+          "sound_id": 5695831,
+          "media_id": 901369198,
+          "codec_offset": 87176
+        },
+        {
+          "sound_id": 21871182,
+          "media_id": 298967314,
+          "codec_offset": 87282
+        },
+        {
+          "sound_id": 754044873,
+          "media_id": 223186401,
+          "codec_offset": 87388
+        },
+        {
+          "sound_id": 768927763,
+          "media_id": 189303225,
+          "codec_offset": 87494
+        },
+        {
+          "sound_id": 844999421,
+          "media_id": 98078506,
+          "codec_offset": 87600
+        },
+        {
+          "sound_id": 924848579,
+          "media_id": 59568433,
+          "codec_offset": 87835
+        },
+        {
+          "sound_id": 243832882,
+          "media_id": 686915968,
+          "codec_offset": 87941
+        },
+        {
+          "sound_id": 700497503,
+          "media_id": 307884810,
+          "codec_offset": 88147
+        },
+        {
+          "sound_id": 1015648407,
+          "media_id": 95661187,
+          "codec_offset": 88253
+        },
+        {
+          "sound_id": 386875263,
+          "media_id": 1069743059,
+          "codec_offset": 88359
+        },
+        {
+          "sound_id": 509537787,
+          "media_id": 450455594,
+          "codec_offset": 88465
+        },
+        {
+          "sound_id": 200506350,
+          "media_id": 835841495,
+          "codec_offset": 88684
+        },
+        {
+          "sound_id": 673235650,
+          "media_id": 857284390,
+          "codec_offset": 88790
+        },
+        {
+          "sound_id": 896613909,
+          "media_id": 1029866163,
+          "codec_offset": 89108
+        },
+        {
+          "sound_id": 566357543,
+          "media_id": 149309157,
+          "codec_offset": 89214
+        },
+        {
+          "sound_id": 674278146,
+          "media_id": 132969783,
+          "codec_offset": 89441
+        },
+        {
+          "sound_id": 553008812,
+          "media_id": 596825290,
+          "codec_offset": 89547
+        },
+        {
+          "sound_id": 486305187,
+          "media_id": 854208099,
+          "codec_offset": 89825
+        },
+        {
+          "sound_id": 516048386,
+          "media_id": 1007138576,
+          "codec_offset": 89931
+        },
+        {
+          "sound_id": 215024945,
+          "media_id": 685418159,
+          "codec_offset": 90143
+        },
+        {
+          "sound_id": 580921175,
+          "media_id": 514634018,
+          "codec_offset": 90362
+        },
+        {
+          "sound_id": 729113466,
+          "media_id": 1045105190,
+          "codec_offset": 90680
+        },
+        {
+          "sound_id": 249365125,
+          "media_id": 926720669,
+          "codec_offset": 90899
+        },
+        {
+          "sound_id": 140118315,
+          "media_id": 621235592,
+          "codec_offset": 91272
+        },
+        {
+          "sound_id": 863427696,
+          "media_id": 642323917,
+          "codec_offset": 91378
+        },
+        {
+          "sound_id": 244233255,
+          "media_id": 415847105,
+          "codec_offset": 91589
+        },
+        {
+          "sound_id": 509748290,
+          "media_id": 13969185,
+          "codec_offset": 91695
+        },
+        {
+          "sound_id": 242584581,
+          "media_id": 41828901,
+          "codec_offset": 91801
+        },
+        {
+          "sound_id": 674615428,
+          "media_id": 235307219,
+          "codec_offset": 92011
+        },
+        {
+          "sound_id": 397693570,
+          "media_id": 486656369,
+          "codec_offset": 92117
+        },
+        {
+          "sound_id": 303196780,
+          "media_id": 70614627,
+          "codec_offset": 92328
+        },
+        {
+          "sound_id": 178526218,
+          "media_id": 1018642504,
+          "codec_offset": 92434
+        },
+        {
+          "sound_id": 548247905,
+          "media_id": 500802640,
+          "codec_offset": 94752
+        },
+        {
+          "sound_id": 661557317,
+          "media_id": 836048192,
+          "codec_offset": 94858
+        },
+        {
+          "sound_id": 799006068,
+          "media_id": 389278502,
+          "codec_offset": 95074
+        },
+        {
+          "sound_id": 725481403,
+          "media_id": 204379653,
+          "codec_offset": 95180
+        },
+        {
+          "sound_id": 94904968,
+          "media_id": 573569194,
+          "codec_offset": 95718
+        },
+        {
+          "sound_id": 729264191,
+          "media_id": 508607827,
+          "codec_offset": 95824
+        },
+        {
+          "sound_id": 755812800,
+          "media_id": 889146221,
+          "codec_offset": 95930
+        },
+        {
+          "sound_id": 749203087,
+          "media_id": 407793857,
+          "codec_offset": 96036
+        },
+        {
+          "sound_id": 1052867666,
+          "media_id": 632404785,
+          "codec_offset": 96637
+        },
+        {
+          "sound_id": 607461688,
+          "media_id": 617067828,
+          "codec_offset": 96743
+        },
+        {
+          "sound_id": 968735085,
+          "media_id": 223820753,
+          "codec_offset": 97496
+        },
+        {
+          "sound_id": 585373486,
+          "media_id": 546132977,
+          "codec_offset": 97602
+        },
+        {
+          "sound_id": 1021059832,
+          "media_id": 187352955,
+          "codec_offset": 97708
+        },
+        {
+          "sound_id": 732816372,
+          "media_id": 1016880839,
+          "codec_offset": 97814
+        },
+        {
+          "sound_id": 432248351,
+          "media_id": 882261806,
+          "codec_offset": 98038
+        },
+        {
+          "sound_id": 239611922,
+          "media_id": 405298343,
+          "codec_offset": 98144
+        },
+        {
+          "sound_id": 973024663,
+          "media_id": 470001051,
+          "codec_offset": 98672
+        },
+        {
+          "sound_id": 291587183,
+          "media_id": 861608875,
+          "codec_offset": 98990
+        },
+        {
+          "sound_id": 568887125,
+          "media_id": 1056541274,
+          "codec_offset": 99214
+        },
+        {
+          "sound_id": 83136161,
+          "media_id": 589801666,
+          "codec_offset": 99320
+        },
+        {
+          "sound_id": 104051705,
+          "media_id": 23039641,
+          "codec_offset": 99616
+        },
+        {
+          "sound_id": 299446340,
+          "media_id": 457832680,
+          "codec_offset": 99833
+        },
+        {
+          "sound_id": 382838806,
+          "media_id": 433645380,
+          "codec_offset": 99939
+        },
+        {
+          "sound_id": 809674407,
+          "media_id": 345018221,
+          "codec_offset": 100050
+        },
+        {
+          "sound_id": 116004807,
+          "media_id": 564832080,
+          "codec_offset": 100161
+        },
+        {
+          "sound_id": 648001918,
+          "media_id": 71625389,
+          "codec_offset": 100272
+        },
+        {
+          "sound_id": 948720536,
+          "media_id": 469031197,
+          "codec_offset": 100383
+        },
+        {
+          "sound_id": 1057479,
+          "media_id": 917946330,
+          "codec_offset": 100489
+        },
+        {
+          "sound_id": 658181668,
+          "media_id": 579203507,
+          "codec_offset": 100706
+        },
+        {
+          "sound_id": 363218310,
+          "media_id": 504359137,
+          "codec_offset": 101001
+        },
+        {
+          "sound_id": 688067387,
+          "media_id": 265581114,
+          "codec_offset": 101112
+        },
+        {
+          "sound_id": 959654159,
+          "media_id": 34538502,
+          "codec_offset": 101223
+        },
+        {
+          "sound_id": 16846757,
+          "media_id": 773589526,
+          "codec_offset": 101334
+        },
+        {
+          "sound_id": 596278155,
+          "media_id": 522680436,
+          "codec_offset": 101445
+        },
+        {
+          "sound_id": 393651316,
+          "media_id": 177232411,
+          "codec_offset": 101551
+        },
+        {
+          "sound_id": 907477517,
+          "media_id": 524373019,
+          "codec_offset": 101662
+        },
+        {
+          "sound_id": 1023255295,
+          "media_id": 1049476137,
+          "codec_offset": 101773
+        },
+        {
+          "sound_id": 618160329,
+          "media_id": 332357209,
+          "codec_offset": 101884
+        },
+        {
+          "sound_id": 535885313,
+          "media_id": 218716680,
+          "codec_offset": 101995
+        },
+        {
+          "sound_id": 968057619,
+          "media_id": 615320636,
+          "codec_offset": 102106
+        },
+        {
+          "sound_id": 982738817,
+          "media_id": 40808299,
+          "codec_offset": 102212
+        },
+        {
+          "sound_id": 224920973,
+          "media_id": 126832256,
+          "codec_offset": 102318
+        },
+        {
+          "sound_id": 382291598,
+          "media_id": 650146950,
+          "codec_offset": 102424
+        },
+        {
+          "sound_id": 1061085776,
+          "media_id": 528957381,
+          "codec_offset": 102535
+        },
+        {
+          "sound_id": 485381895,
+          "media_id": 484451791,
+          "codec_offset": 102752
+        },
+        {
+          "sound_id": 856019742,
+          "media_id": 1028928815,
+          "codec_offset": 102969
+        },
+        {
+          "sound_id": 999479961,
+          "media_id": 234941039,
+          "codec_offset": 103080
+        },
+        {
+          "sound_id": 405854217,
+          "media_id": 229049489,
+          "codec_offset": 103186
+        },
+        {
+          "sound_id": 184481907,
+          "media_id": 89123002,
+          "codec_offset": 103408
+        },
+        {
+          "sound_id": 678316836,
+          "media_id": 783809057,
+          "codec_offset": 103514
+        },
+        {
+          "sound_id": 809936380,
+          "media_id": 1048534163,
+          "codec_offset": 105219
+        },
+        {
+          "sound_id": 420168662,
+          "media_id": 890907328,
+          "codec_offset": 105325
+        },
+        {
+          "sound_id": 470285446,
+          "media_id": 462735591,
+          "codec_offset": 106083
+        },
+        {
+          "sound_id": 532247444,
+          "media_id": 981445674,
+          "codec_offset": 106401
+        },
+        {
+          "sound_id": 7012507,
+          "media_id": 904916302,
+          "codec_offset": 106625
+        },
+        {
+          "sound_id": 98780633,
+          "media_id": 220433963,
+          "codec_offset": 106943
+        },
+        {
+          "sound_id": 1061595966,
+          "media_id": 736142849,
+          "codec_offset": 107709
+        },
+        {
+          "sound_id": 476078789,
+          "media_id": 814373099,
+          "codec_offset": 107815
+        },
+        {
+          "sound_id": 375730838,
+          "media_id": 451317967,
+          "codec_offset": 111820
+        },
+        {
+          "sound_id": 563875391,
+          "media_id": 678125574,
+          "codec_offset": 111926
+        },
+        {
+          "sound_id": 757158200,
+          "media_id": 171978726,
+          "codec_offset": 112032
+        },
+        {
+          "sound_id": 341018890,
+          "media_id": 186003205,
+          "codec_offset": 112138
+        },
+        {
+          "sound_id": 852249372,
+          "media_id": 269911887,
+          "codec_offset": 112474
+        },
+        {
+          "sound_id": 106376206,
+          "media_id": 257719267,
+          "codec_offset": 112580
+        },
+        {
+          "sound_id": 713055234,
+          "media_id": 539152991,
+          "codec_offset": 112686
+        },
+        {
+          "sound_id": 954783457,
+          "media_id": 281769031,
+          "codec_offset": 112792
+        },
+        {
+          "sound_id": 722689278,
+          "media_id": 260690156,
+          "codec_offset": 113016
+        },
+        {
+          "sound_id": 766413529,
+          "media_id": 161655528,
+          "codec_offset": 113122
+        },
+        {
+          "sound_id": 26414214,
+          "media_id": 894515791,
+          "codec_offset": 113434
+        },
+        {
+          "sound_id": 484601195,
+          "media_id": 215759158,
+          "codec_offset": 113540
+        },
+        {
+          "sound_id": 621434092,
+          "media_id": 165680854,
+          "codec_offset": 113646
+        },
+        {
+          "sound_id": 1044712047,
+          "media_id": 553453891,
+          "codec_offset": 113858
+        },
+        {
+          "sound_id": 944652488,
+          "media_id": 35717737,
+          "codec_offset": 113964
+        },
+        {
+          "sound_id": 1022234151,
+          "media_id": 613373717,
+          "codec_offset": 114070
+        },
+        {
+          "sound_id": 1025455321,
+          "media_id": 424476146,
+          "codec_offset": 114643
+        },
+        {
+          "sound_id": 611030121,
+          "media_id": 159534818,
+          "codec_offset": 114855
+        },
+        {
+          "sound_id": 125141026,
+          "media_id": 817813948,
+          "codec_offset": 114966
+        },
+        {
+          "sound_id": 69346136,
+          "media_id": 715949563,
+          "codec_offset": 115077
+        },
+        {
+          "sound_id": 160150169,
+          "media_id": 225839537,
+          "codec_offset": 115418
+        },
+        {
+          "sound_id": 1012438847,
+          "media_id": 218609500,
+          "codec_offset": 115524
+        },
+        {
+          "sound_id": 408546689,
+          "media_id": 436801022,
+          "codec_offset": 115630
+        },
+        {
+          "sound_id": 1033608059,
+          "media_id": 949431702,
+          "codec_offset": 115736
+        },
+        {
+          "sound_id": 140625457,
+          "media_id": 748003085,
+          "codec_offset": 115842
+        },
+        {
+          "sound_id": 781282173,
+          "media_id": 522289961,
+          "codec_offset": 116074
+        },
+        {
+          "sound_id": 702543401,
+          "media_id": 575143315,
+          "codec_offset": 116185
+        },
+        {
+          "sound_id": 184766990,
+          "media_id": 675586300,
+          "codec_offset": 116296
+        },
+        {
+          "sound_id": 950794463,
+          "media_id": 636775311,
+          "codec_offset": 116402
+        },
+        {
+          "sound_id": 935490815,
+          "media_id": 132513509,
+          "codec_offset": 116621
+        },
+        {
+          "sound_id": 652624802,
+          "media_id": 675067295,
+          "codec_offset": 116732
+        },
+        {
+          "sound_id": 372786004,
+          "media_id": 748523654,
+          "codec_offset": 116843
+        },
+        {
+          "sound_id": 282727968,
+          "media_id": 577491422,
+          "codec_offset": 116949
+        },
+        {
+          "sound_id": 829828922,
+          "media_id": 811682587,
+          "codec_offset": 117055
+        },
+        {
+          "sound_id": 257951659,
+          "media_id": 387534093,
+          "codec_offset": 117166
+        },
+        {
+          "sound_id": 137932144,
+          "media_id": 1038834454,
+          "codec_offset": 117277
+        },
+        {
+          "sound_id": 286104129,
+          "media_id": 65593509,
+          "codec_offset": 117388
+        },
+        {
+          "sound_id": 869501355,
+          "media_id": 898020795,
+          "codec_offset": 117499
+        },
+        {
+          "sound_id": 23279161,
+          "media_id": 145942362,
+          "codec_offset": 117721
+        },
+        {
+          "sound_id": 61911709,
+          "media_id": 937448319,
+          "codec_offset": 117832
+        },
+        {
+          "sound_id": 247352859,
+          "media_id": 741310721,
+          "codec_offset": 117943
+        },
+        {
+          "sound_id": 113774919,
+          "media_id": 217059888,
+          "codec_offset": 118160
+        },
+        {
+          "sound_id": 446026554,
+          "media_id": 24971425,
+          "codec_offset": 118271
+        },
+        {
+          "sound_id": 97342883,
+          "media_id": 948254850,
+          "codec_offset": 118620
+        },
+        {
+          "sound_id": 212091002,
+          "media_id": 153272611,
+          "codec_offset": 118726
+        },
+        {
+          "sound_id": 231063038,
+          "media_id": 354261060,
+          "codec_offset": 118937
+        },
+        {
+          "sound_id": 298136061,
+          "media_id": 562643857,
+          "codec_offset": 119043
+        },
+        {
+          "sound_id": 348953618,
+          "media_id": 408509209,
+          "codec_offset": 119259
+        },
+        {
+          "sound_id": 301576857,
+          "media_id": 536266130,
+          "codec_offset": 119581
+        },
+        {
+          "sound_id": 922503143,
+          "media_id": 836285349,
+          "codec_offset": 119687
+        },
+        {
+          "sound_id": 631316430,
+          "media_id": 556976689,
+          "codec_offset": 119793
+        },
+        {
+          "sound_id": 492374516,
+          "media_id": 561255820,
+          "codec_offset": 119899
+        },
+        {
+          "sound_id": 282947722,
+          "media_id": 126440593,
+          "codec_offset": 120005
+        },
+        {
+          "sound_id": 813888036,
+          "media_id": 167218070,
+          "codec_offset": 120111
+        },
+        {
+          "sound_id": 354433228,
+          "media_id": 131074864,
+          "codec_offset": 120338
+        },
+        {
+          "sound_id": 589340978,
+          "media_id": 608886530,
+          "codec_offset": 120444
+        },
+        {
+          "sound_id": 454192172,
+          "media_id": 875643565,
+          "codec_offset": 120724
+        },
+        {
+          "sound_id": 785039823,
+          "media_id": 585458520,
+          "codec_offset": 120830
+        },
+        {
+          "sound_id": 94393603,
+          "media_id": 575743507,
+          "codec_offset": 120936
+        },
+        {
+          "sound_id": 527178865,
+          "media_id": 610731609,
+          "codec_offset": 121042
+        },
+        {
+          "sound_id": 518935971,
+          "media_id": 367188501,
+          "codec_offset": 121266
+        },
+        {
+          "sound_id": 206535002,
+          "media_id": 607276785,
+          "codec_offset": 121372
+        },
+        {
+          "sound_id": 1060855833,
+          "media_id": 898685889,
+          "codec_offset": 121478
+        },
+        {
+          "sound_id": 660695311,
+          "media_id": 991987557,
+          "codec_offset": 121584
+        },
+        {
+          "sound_id": 869713760,
+          "media_id": 256123593,
+          "codec_offset": 121690
+        },
+        {
+          "sound_id": 318369482,
+          "media_id": 326538652,
+          "codec_offset": 121796
+        },
+        {
+          "sound_id": 511062416,
+          "media_id": 1002994546,
+          "codec_offset": 121902
+        },
+        {
+          "sound_id": 352620471,
+          "media_id": 611611964,
+          "codec_offset": 122008
+        },
+        {
+          "sound_id": 739926977,
+          "media_id": 376271146,
+          "codec_offset": 122248
+        },
+        {
+          "sound_id": 369244081,
+          "media_id": 768932438,
+          "codec_offset": 122354
+        },
+        {
+          "sound_id": 33507468,
+          "media_id": 728158930,
+          "codec_offset": 122460
+        },
+        {
+          "sound_id": 1061114541,
+          "media_id": 254308352,
+          "codec_offset": 122566
+        },
+        {
+          "sound_id": 934463405,
+          "media_id": 481356435,
+          "codec_offset": 122846
+        },
+        {
+          "sound_id": 76025565,
+          "media_id": 914201227,
+          "codec_offset": 123163
+        },
+        {
+          "sound_id": 193514154,
+          "media_id": 486585252,
+          "codec_offset": 123269
+        },
+        {
+          "sound_id": 157809767,
+          "media_id": 332340164,
+          "codec_offset": 123485
+        },
+        {
+          "sound_id": 766742606,
+          "media_id": 732467059,
+          "codec_offset": 123591
+        },
+        {
+          "sound_id": 737217051,
+          "media_id": 291150453,
+          "codec_offset": 123697
+        },
+        {
+          "sound_id": 1031135502,
+          "media_id": 603044742,
+          "codec_offset": 125896
+        },
+        {
+          "sound_id": 595296688,
+          "media_id": 996276310,
+          "codec_offset": 126002
+        },
+        {
+          "sound_id": 766757318,
+          "media_id": 698107264,
+          "codec_offset": 126598
+        },
+        {
+          "sound_id": 130049013,
+          "media_id": 236987557,
+          "codec_offset": 126704
+        },
+        {
+          "sound_id": 1004798455,
+          "media_id": 940249515,
+          "codec_offset": 126920
+        },
+        {
+          "sound_id": 469635742,
+          "media_id": 577615979,
+          "codec_offset": 127026
+        },
+        {
+          "sound_id": 358200379,
+          "media_id": 895280863,
+          "codec_offset": 127237
+        },
+        {
+          "sound_id": 1014106708,
+          "media_id": 251110497,
+          "codec_offset": 127343
+        },
+        {
+          "sound_id": 824174657,
+          "media_id": 379061976,
+          "codec_offset": 127449
+        },
+        {
+          "sound_id": 1044101203,
+          "media_id": 588149861,
+          "codec_offset": 127661
+        },
+        {
+          "sound_id": 239435377,
+          "media_id": 3963040,
+          "codec_offset": 127873
+        },
+        {
+          "sound_id": 234150530,
+          "media_id": 1070134571,
+          "codec_offset": 127979
+        },
+        {
+          "sound_id": 695109673,
+          "media_id": 945107916,
+          "codec_offset": 128085
+        },
+        {
+          "sound_id": 900895159,
+          "media_id": 631478749,
+          "codec_offset": 128191
+        },
+        {
+          "sound_id": 2111836,
+          "media_id": 248721119,
+          "codec_offset": 128297
+        },
+        {
+          "sound_id": 257144179,
+          "media_id": 877760716,
+          "codec_offset": 128403
+        },
+        {
+          "sound_id": 843059116,
+          "media_id": 1073332123,
+          "codec_offset": 128509
+        },
+        {
+          "sound_id": 767360026,
+          "media_id": 416610430,
+          "codec_offset": 128615
+        },
+        {
+          "sound_id": 185711198,
+          "media_id": 706143404,
+          "codec_offset": 128721
+        },
+        {
+          "sound_id": 521172349,
+          "media_id": 795836072,
+          "codec_offset": 129145
+        },
+        {
+          "sound_id": 1037457408,
+          "media_id": 779459909,
+          "codec_offset": 129251
+        },
+        {
+          "sound_id": 528450192,
+          "media_id": 48278133,
+          "codec_offset": 129534
+        },
+        {
+          "sound_id": 35822597,
+          "media_id": 1027360005,
+          "codec_offset": 129640
+        },
+        {
+          "sound_id": 837972570,
+          "media_id": 185924485,
+          "codec_offset": 129746
+        },
+        {
+          "sound_id": 191260949,
+          "media_id": 389553739,
+          "codec_offset": 129852
+        },
+        {
+          "sound_id": 528580727,
+          "media_id": 898079313,
+          "codec_offset": 129958
+        },
+        {
+          "sound_id": 814403424,
+          "media_id": 419789854,
+          "codec_offset": 130064
+        },
+        {
+          "sound_id": 175019818,
+          "media_id": 584236742,
+          "codec_offset": 130440
+        },
+        {
+          "sound_id": 527483637,
+          "media_id": 332007913,
+          "codec_offset": 130647
+        },
+        {
+          "sound_id": 369999156,
+          "media_id": 705267445,
+          "codec_offset": 130849
+        },
+        {
+          "sound_id": 753304138,
+          "media_id": 282412089,
+          "codec_offset": 131051
+        },
+        {
+          "sound_id": 826480566,
+          "media_id": 933332242,
+          "codec_offset": 131157
+        },
+        {
+          "sound_id": 878718032,
+          "media_id": 269849921,
+          "codec_offset": 132529
+        },
+        {
+          "sound_id": 792589330,
+          "media_id": 538517745,
+          "codec_offset": 132801
+        },
+        {
+          "sound_id": 293543216,
+          "media_id": 1062605886,
+          "codec_offset": 133210
+        },
+        {
+          "sound_id": 1036025416,
+          "media_id": 450264632,
+          "codec_offset": 133689
+        },
+        {
+          "sound_id": 994570370,
+          "media_id": 1030348001,
+          "codec_offset": 133939
+        },
+        {
+          "sound_id": 227204798,
+          "media_id": 422914388,
+          "codec_offset": 134045
+        },
+        {
+          "sound_id": 389271147,
+          "media_id": 381974393,
+          "codec_offset": 134261
+        },
+        {
+          "sound_id": 448238525,
+          "media_id": 494349200,
+          "codec_offset": 137627
+        },
+        {
+          "sound_id": 895745451,
+          "media_id": 7613483,
+          "codec_offset": 137733
+        },
+        {
+          "sound_id": 1027367599,
+          "media_id": 933448938,
+          "codec_offset": 137839
+        },
+        {
+          "sound_id": 311450368,
+          "media_id": 347586014,
+          "codec_offset": 137945
+        },
+        {
+          "sound_id": 93459122,
+          "media_id": 1007908648,
+          "codec_offset": 138263
+        },
+        {
+          "sound_id": 727429978,
+          "media_id": 169632611,
+          "codec_offset": 138369
+        },
+        {
+          "sound_id": 340544044,
+          "media_id": 247464373,
+          "codec_offset": 138880
+        },
+        {
+          "sound_id": 574204636,
+          "media_id": 227570372,
+          "codec_offset": 138986
+        },
+        {
+          "sound_id": 234724433,
+          "media_id": 421104627,
+          "codec_offset": 139092
+        },
+        {
+          "sound_id": 796368563,
+          "media_id": 638578971,
+          "codec_offset": 139198
+        },
+        {
+          "sound_id": 1069842811,
+          "media_id": 402968252,
+          "codec_offset": 139304
+        },
+        {
+          "sound_id": 384035679,
+          "media_id": 855226356,
+          "codec_offset": 139410
+        },
+        {
+          "sound_id": 586513194,
+          "media_id": 136077921,
+          "codec_offset": 139516
+        },
+        {
+          "sound_id": 298979978,
+          "media_id": 110760775,
+          "codec_offset": 139622
+        },
+        {
+          "sound_id": 283711644,
+          "media_id": 471357885,
+          "codec_offset": 139728
+        },
+        {
+          "sound_id": 957451555,
+          "media_id": 321982695,
+          "codec_offset": 139834
+        },
+        {
+          "sound_id": 430155071,
+          "media_id": 100466974,
+          "codec_offset": 142063
+        },
+        {
+          "sound_id": 244471532,
+          "media_id": 80154126,
+          "codec_offset": 142381
+        },
+        {
+          "sound_id": 941924512,
+          "media_id": 482948008,
+          "codec_offset": 142487
+        },
+        {
+          "sound_id": 849910031,
+          "media_id": 357083466,
+          "codec_offset": 142593
+        },
+        {
+          "sound_id": 168748137,
+          "media_id": 253305304,
+          "codec_offset": 142871
+        },
+        {
+          "sound_id": 719910828,
+          "media_id": 969739464,
+          "codec_offset": 142977
+        },
+        {
+          "sound_id": 577566257,
+          "media_id": 373623140,
+          "codec_offset": 143083
+        },
+        {
+          "sound_id": 949831843,
+          "media_id": 55061717,
+          "codec_offset": 143189
+        },
+        {
+          "sound_id": 617768289,
+          "media_id": 304637988,
+          "codec_offset": 143295
+        },
+        {
+          "sound_id": 750675250,
+          "media_id": 362761028,
+          "codec_offset": 143401
+        },
+        {
+          "sound_id": 128182771,
+          "media_id": 708556872,
+          "codec_offset": 143507
+        },
+        {
+          "sound_id": 1063621699,
+          "media_id": 755435928,
+          "codec_offset": 143613
+        },
+        {
+          "sound_id": 450944371,
+          "media_id": 1069891087,
+          "codec_offset": 143719
+        },
+        {
+          "sound_id": 269323104,
+          "media_id": 178915448,
+          "codec_offset": 143825
+        },
+        {
+          "sound_id": 888762457,
+          "media_id": 457833405,
+          "codec_offset": 143931
+        },
+        {
+          "sound_id": 497790891,
+          "media_id": 791246886,
+          "codec_offset": 144037
+        },
+        {
+          "sound_id": 80547518,
+          "media_id": 119554426,
+          "codec_offset": 144148
+        },
+        {
+          "sound_id": 643620948,
+          "media_id": 901821553,
+          "codec_offset": 144259
+        },
+        {
+          "sound_id": 689746362,
+          "media_id": 633892024,
+          "codec_offset": 144518
+        },
+        {
+          "sound_id": 1007524295,
+          "media_id": 4491285,
+          "codec_offset": 144624
+        },
+        {
+          "sound_id": 11235200,
+          "media_id": 314777485,
+          "codec_offset": 144730
+        },
+        {
+          "sound_id": 581747932,
+          "media_id": 623077977,
+          "codec_offset": 144942
+        },
+        {
+          "sound_id": 251040595,
+          "media_id": 998904619,
+          "codec_offset": 145053
+        },
+        {
+          "sound_id": 772050848,
+          "media_id": 556865364,
+          "codec_offset": 145265
+        },
+        {
+          "sound_id": 444716124,
+          "media_id": 916072961,
+          "codec_offset": 145371
+        },
+        {
+          "sound_id": 764847170,
+          "media_id": 45589530,
+          "codec_offset": 145482
+        },
+        {
+          "sound_id": 449233187,
+          "media_id": 685728862,
+          "codec_offset": 145588
+        },
+        {
+          "sound_id": 430264784,
+          "media_id": 636132848,
+          "codec_offset": 145805
+        },
+        {
+          "sound_id": 523002886,
+          "media_id": 49078784,
+          "codec_offset": 145911
+        },
+        {
+          "sound_id": 1068242769,
+          "media_id": 431710387,
+          "codec_offset": 146217
+        },
+        {
+          "sound_id": 819449489,
+          "media_id": 88840323,
+          "codec_offset": 146323
+        },
+        {
+          "sound_id": 147720542,
+          "media_id": 740078340,
+          "codec_offset": 146429
+        },
+        {
+          "sound_id": 153448288,
+          "media_id": 589374729,
+          "codec_offset": 146535
+        },
+        {
+          "sound_id": 179964831,
+          "media_id": 508701187,
+          "codec_offset": 148800
+        },
+        {
+          "sound_id": 213988332,
+          "media_id": 466269075,
+          "codec_offset": 148906
+        },
+        {
+          "sound_id": 809528658,
+          "media_id": 823955748,
+          "codec_offset": 149112
+        },
+        {
+          "sound_id": 684590652,
+          "media_id": 1023500446,
+          "codec_offset": 149218
+        },
+        {
+          "sound_id": 775627066,
+          "media_id": 254932629,
+          "codec_offset": 149324
+        },
+        {
+          "sound_id": 708688209,
+          "media_id": 736835379,
+          "codec_offset": 149430
+        },
+        {
+          "sound_id": 524843225,
+          "media_id": 665204517,
+          "codec_offset": 149536
+        },
+        {
+          "sound_id": 641432356,
+          "media_id": 378549306,
+          "codec_offset": 149642
+        },
+        {
+          "sound_id": 513070257,
+          "media_id": 28541694,
+          "codec_offset": 149748
+        },
+        {
+          "sound_id": 977167784,
+          "media_id": 778439672,
+          "codec_offset": 149854
+        },
+        {
+          "sound_id": 890197570,
+          "media_id": 957853772,
+          "codec_offset": 149960
+        },
+        {
+          "sound_id": 107140097,
+          "media_id": 990840554,
+          "codec_offset": 150172
+        },
+        {
+          "sound_id": 641511602,
+          "media_id": 139314834,
+          "codec_offset": 150278
+        },
+        {
+          "sound_id": 420146992,
+          "media_id": 622018905,
+          "codec_offset": 150384
+        },
+        {
+          "sound_id": 646899465,
+          "media_id": 365557450,
+          "codec_offset": 150490
+        },
+        {
+          "sound_id": 573786172,
+          "media_id": 390795795,
+          "codec_offset": 150808
+        },
+        {
+          "sound_id": 1026139572,
+          "media_id": 996679342,
+          "codec_offset": 150914
+        },
+        {
+          "sound_id": 349403328,
+          "media_id": 897619566,
+          "codec_offset": 151020
+        },
+        {
+          "sound_id": 383252459,
+          "media_id": 195837535,
+          "codec_offset": 151126
+        },
+        {
+          "sound_id": 101126482,
+          "media_id": 383685683,
+          "codec_offset": 151338
+        },
+        {
+          "sound_id": 229154065,
+          "media_id": 802746762,
+          "codec_offset": 151734
+        },
+        {
+          "sound_id": 490510428,
+          "media_id": 428249325,
+          "codec_offset": 151840
+        },
+        {
+          "sound_id": 176962640,
+          "media_id": 224453816,
+          "codec_offset": 151946
+        },
+        {
+          "sound_id": 691324811,
+          "media_id": 695862004,
+          "codec_offset": 152052
+        },
+        {
+          "sound_id": 827558294,
+          "media_id": 660698837,
+          "codec_offset": 158415
+        },
+        {
+          "sound_id": 916086919,
+          "media_id": 522548749,
+          "codec_offset": 158521
+        },
+        {
+          "sound_id": 917825825,
+          "media_id": 534152297,
+          "codec_offset": 158627
+        },
+        {
+          "sound_id": 160386119,
+          "media_id": 902426754,
+          "codec_offset": 158733
+        },
+        {
+          "sound_id": 822698986,
+          "media_id": 1014345900,
+          "codec_offset": 158947
+        },
+        {
+          "sound_id": 797568180,
+          "media_id": 31729699,
+          "codec_offset": 159053
+        },
+        {
+          "sound_id": 418541931,
+          "media_id": 164667855,
+          "codec_offset": 159571
+        },
+        {
+          "sound_id": 16392412,
+          "media_id": 755743285,
+          "codec_offset": 159677
+        },
+        {
+          "sound_id": 233202942,
+          "media_id": 324633481,
+          "codec_offset": 161489
+        },
+        {
+          "sound_id": 668482511,
+          "media_id": 724469147,
+          "codec_offset": 161595
+        },
+        {
+          "sound_id": 756855667,
+          "media_id": 741340894,
+          "codec_offset": 161701
+        },
+        {
+          "sound_id": 454283142,
+          "media_id": 550195749,
+          "codec_offset": 161807
+        },
+        {
+          "sound_id": 667659197,
+          "media_id": 54400502,
+          "codec_offset": 162021
+        },
+        {
+          "sound_id": 563185308,
+          "media_id": 25335324,
+          "codec_offset": 162127
+        },
+        {
+          "sound_id": 476438652,
+          "media_id": 413680485,
+          "codec_offset": 162233
+        },
+        {
+          "sound_id": 465053474,
+          "media_id": 778817197,
+          "codec_offset": 162339
+        }
+      ],
+      "original_bank_sha256": "7e590de17c2c98ddb80c7ae6ae0f5f2d9b52d7b03c1f492b93dbe37a8efe7b0a",
+      "new_bank_sha256": "4706bca66bcce4952175c0350c1de61c1c8672c21f1fb02ca2d53b0aebd06ee1"
+    },
+    {
+      "slot": 2,
+      "character": "Fixer",
+      "bank_id": "017f8b366af141f8",
+      "mapped_media": 418,
+      "changes": [
+        {
+          "sound_id": 767549394,
+          "media_id": 221503623,
+          "codec_offset": 63618
+        },
+        {
+          "sound_id": 171737725,
+          "media_id": 214235135,
+          "codec_offset": 63830
+        },
+        {
+          "sound_id": 786153592,
+          "media_id": 401586634,
+          "codec_offset": 64049
+        },
+        {
+          "sound_id": 17857197,
+          "media_id": 538207094,
+          "codec_offset": 64155
+        },
+        {
+          "sound_id": 904515566,
+          "media_id": 722512841,
+          "codec_offset": 64361
+        },
+        {
+          "sound_id": 532196571,
+          "media_id": 627397158,
+          "codec_offset": 64467
+        },
+        {
+          "sound_id": 516914400,
+          "media_id": 606399273,
+          "codec_offset": 64573
+        },
+        {
+          "sound_id": 847234286,
+          "media_id": 524119974,
+          "codec_offset": 64679
+        },
+        {
+          "sound_id": 615634810,
+          "media_id": 322250508,
+          "codec_offset": 64893
+        },
+        {
+          "sound_id": 14409601,
+          "media_id": 363124284,
+          "codec_offset": 64999
+        },
+        {
+          "sound_id": 877473181,
+          "media_id": 735786462,
+          "codec_offset": 65205
+        },
+        {
+          "sound_id": 48012606,
+          "media_id": 560450895,
+          "codec_offset": 65311
+        },
+        {
+          "sound_id": 762227921,
+          "media_id": 168598582,
+          "codec_offset": 65522
+        },
+        {
+          "sound_id": 357791853,
+          "media_id": 1055634580,
+          "codec_offset": 65628
+        },
+        {
+          "sound_id": 236526348,
+          "media_id": 391316079,
+          "codec_offset": 65834
+        },
+        {
+          "sound_id": 467966339,
+          "media_id": 1073208276,
+          "codec_offset": 65940
+        },
+        {
+          "sound_id": 250126984,
+          "media_id": 76177648,
+          "codec_offset": 66146
+        },
+        {
+          "sound_id": 698679107,
+          "media_id": 296309444,
+          "codec_offset": 66252
+        },
+        {
+          "sound_id": 358097834,
+          "media_id": 332437817,
+          "codec_offset": 66463
+        },
+        {
+          "sound_id": 232924361,
+          "media_id": 739043376,
+          "codec_offset": 66569
+        },
+        {
+          "sound_id": 954741682,
+          "media_id": 117668584,
+          "codec_offset": 66780
+        },
+        {
+          "sound_id": 447821365,
+          "media_id": 384796097,
+          "codec_offset": 66886
+        },
+        {
+          "sound_id": 299793827,
+          "media_id": 868832668,
+          "codec_offset": 66992
+        },
+        {
+          "sound_id": 388282854,
+          "media_id": 24993429,
+          "codec_offset": 67098
+        },
+        {
+          "sound_id": 344224861,
+          "media_id": 807062232,
+          "codec_offset": 67478
+        },
+        {
+          "sound_id": 594880644,
+          "media_id": 127292547,
+          "codec_offset": 67584
+        },
+        {
+          "sound_id": 395203128,
+          "media_id": 498023922,
+          "codec_offset": 67690
+        },
+        {
+          "sound_id": 428148050,
+          "media_id": 860081805,
+          "codec_offset": 68306
+        },
+        {
+          "sound_id": 223589723,
+          "media_id": 784454477,
+          "codec_offset": 68412
+        },
+        {
+          "sound_id": 684065016,
+          "media_id": 363415799,
+          "codec_offset": 68518
+        },
+        {
+          "sound_id": 719218684,
+          "media_id": 673884296,
+          "codec_offset": 68624
+        },
+        {
+          "sound_id": 169507132,
+          "media_id": 77932567,
+          "codec_offset": 71395
+        },
+        {
+          "sound_id": 371061045,
+          "media_id": 668851659,
+          "codec_offset": 71501
+        },
+        {
+          "sound_id": 684283070,
+          "media_id": 336621822,
+          "codec_offset": 71712
+        },
+        {
+          "sound_id": 551723569,
+          "media_id": 932603914,
+          "codec_offset": 71818
+        },
+        {
+          "sound_id": 78888016,
+          "media_id": 780977794,
+          "codec_offset": 72865
+        },
+        {
+          "sound_id": 962761457,
+          "media_id": 852411901,
+          "codec_offset": 73077
+        },
+        {
+          "sound_id": 336949108,
+          "media_id": 607960620,
+          "codec_offset": 74459
+        },
+        {
+          "sound_id": 1008802912,
+          "media_id": 474139085,
+          "codec_offset": 74565
+        },
+        {
+          "sound_id": 749397501,
+          "media_id": 590933137,
+          "codec_offset": 74671
+        },
+        {
+          "sound_id": 620836818,
+          "media_id": 853362881,
+          "codec_offset": 74777
+        },
+        {
+          "sound_id": 625793807,
+          "media_id": 823919027,
+          "codec_offset": 74883
+        },
+        {
+          "sound_id": 13646907,
+          "media_id": 455214654,
+          "codec_offset": 74989
+        },
+        {
+          "sound_id": 195899692,
+          "media_id": 111099608,
+          "codec_offset": 75095
+        },
+        {
+          "sound_id": 428836451,
+          "media_id": 382005785,
+          "codec_offset": 75201
+        },
+        {
+          "sound_id": 725298942,
+          "media_id": 502041407,
+          "codec_offset": 75307
+        },
+        {
+          "sound_id": 801199713,
+          "media_id": 753189498,
+          "codec_offset": 75413
+        },
+        {
+          "sound_id": 463486544,
+          "media_id": 1014778542,
+          "codec_offset": 75519
+        },
+        {
+          "sound_id": 43917753,
+          "media_id": 836706687,
+          "codec_offset": 75625
+        },
+        {
+          "sound_id": 433218597,
+          "media_id": 298782688,
+          "codec_offset": 75731
+        },
+        {
+          "sound_id": 1062179083,
+          "media_id": 382127272,
+          "codec_offset": 75837
+        },
+        {
+          "sound_id": 926852337,
+          "media_id": 836920041,
+          "codec_offset": 76049
+        },
+        {
+          "sound_id": 389586918,
+          "media_id": 278862586,
+          "codec_offset": 76155
+        },
+        {
+          "sound_id": 1050469346,
+          "media_id": 174519157,
+          "codec_offset": 76261
+        },
+        {
+          "sound_id": 710592266,
+          "media_id": 265469085,
+          "codec_offset": 76367
+        },
+        {
+          "sound_id": 943652602,
+          "media_id": 726467621,
+          "codec_offset": 76473
+        },
+        {
+          "sound_id": 681896861,
+          "media_id": 83329895,
+          "codec_offset": 76685
+        },
+        {
+          "sound_id": 525198030,
+          "media_id": 372170661,
+          "codec_offset": 77024
+        },
+        {
+          "sound_id": 540165394,
+          "media_id": 329113456,
+          "codec_offset": 77130
+        },
+        {
+          "sound_id": 651324557,
+          "media_id": 747601635,
+          "codec_offset": 77236
+        },
+        {
+          "sound_id": 43919053,
+          "media_id": 464767540,
+          "codec_offset": 77342
+        },
+        {
+          "sound_id": 622732760,
+          "media_id": 239041870,
+          "codec_offset": 77561
+        },
+        {
+          "sound_id": 582279509,
+          "media_id": 160551833,
+          "codec_offset": 77667
+        },
+        {
+          "sound_id": 411834631,
+          "media_id": 309795793,
+          "codec_offset": 77878
+        },
+        {
+          "sound_id": 295864106,
+          "media_id": 514654991,
+          "codec_offset": 77984
+        },
+        {
+          "sound_id": 632232556,
+          "media_id": 81795369,
+          "codec_offset": 78090
+        },
+        {
+          "sound_id": 184181279,
+          "media_id": 649234966,
+          "codec_offset": 78196
+        },
+        {
+          "sound_id": 255972583,
+          "media_id": 772782969,
+          "codec_offset": 78302
+        },
+        {
+          "sound_id": 723149790,
+          "media_id": 107901758,
+          "codec_offset": 78408
+        },
+        {
+          "sound_id": 974003889,
+          "media_id": 135460680,
+          "codec_offset": 78635
+        },
+        {
+          "sound_id": 119121676,
+          "media_id": 493924022,
+          "codec_offset": 78741
+        },
+        {
+          "sound_id": 463726545,
+          "media_id": 904353011,
+          "codec_offset": 79167
+        },
+        {
+          "sound_id": 186532244,
+          "media_id": 451109757,
+          "codec_offset": 79273
+        },
+        {
+          "sound_id": 54084936,
+          "media_id": 776661824,
+          "codec_offset": 79379
+        },
+        {
+          "sound_id": 497456753,
+          "media_id": 409898315,
+          "codec_offset": 79485
+        },
+        {
+          "sound_id": 548333501,
+          "media_id": 268012540,
+          "codec_offset": 80560
+        },
+        {
+          "sound_id": 859656499,
+          "media_id": 1035402124,
+          "codec_offset": 80666
+        },
+        {
+          "sound_id": 904952575,
+          "media_id": 965025113,
+          "codec_offset": 80772
+        },
+        {
+          "sound_id": 667902016,
+          "media_id": 139039650,
+          "codec_offset": 80878
+        },
+        {
+          "sound_id": 20049650,
+          "media_id": 929968932,
+          "codec_offset": 81090
+        },
+        {
+          "sound_id": 728640946,
+          "media_id": 215414768,
+          "codec_offset": 81196
+        },
+        {
+          "sound_id": 261167635,
+          "media_id": 888199158,
+          "codec_offset": 81408
+        },
+        {
+          "sound_id": 714659750,
+          "media_id": 26188029,
+          "codec_offset": 81620
+        },
+        {
+          "sound_id": 691224417,
+          "media_id": 105615182,
+          "codec_offset": 81726
+        },
+        {
+          "sound_id": 137289372,
+          "media_id": 635790512,
+          "codec_offset": 81832
+        },
+        {
+          "sound_id": 432666897,
+          "media_id": 643341692,
+          "codec_offset": 81938
+        },
+        {
+          "sound_id": 234339315,
+          "media_id": 372484314,
+          "codec_offset": 82044
+        },
+        {
+          "sound_id": 220103801,
+          "media_id": 1036799261,
+          "codec_offset": 82256
+        },
+        {
+          "sound_id": 412123155,
+          "media_id": 381578700,
+          "codec_offset": 82468
+        },
+        {
+          "sound_id": 516560969,
+          "media_id": 1053239668,
+          "codec_offset": 82574
+        },
+        {
+          "sound_id": 702244629,
+          "media_id": 159762974,
+          "codec_offset": 82892
+        },
+        {
+          "sound_id": 624476554,
+          "media_id": 1001960928,
+          "codec_offset": 82998
+        },
+        {
+          "sound_id": 784217169,
+          "media_id": 995929345,
+          "codec_offset": 83104
+        },
+        {
+          "sound_id": 848639083,
+          "media_id": 13726523,
+          "codec_offset": 83210
+        },
+        {
+          "sound_id": 512393877,
+          "media_id": 665854016,
+          "codec_offset": 83528
+        },
+        {
+          "sound_id": 792444202,
+          "media_id": 263452546,
+          "codec_offset": 83740
+        },
+        {
+          "sound_id": 756926822,
+          "media_id": 81046466,
+          "codec_offset": 83846
+        },
+        {
+          "sound_id": 1064923475,
+          "media_id": 848199617,
+          "codec_offset": 83952
+        },
+        {
+          "sound_id": 609899037,
+          "media_id": 655489770,
+          "codec_offset": 84058
+        },
+        {
+          "sound_id": 212001040,
+          "media_id": 541153123,
+          "codec_offset": 84164
+        },
+        {
+          "sound_id": 435485245,
+          "media_id": 966790597,
+          "codec_offset": 84270
+        },
+        {
+          "sound_id": 792452845,
+          "media_id": 111564879,
+          "codec_offset": 84376
+        },
+        {
+          "sound_id": 107631411,
+          "media_id": 837137912,
+          "codec_offset": 84482
+        },
+        {
+          "sound_id": 293681852,
+          "media_id": 261346064,
+          "codec_offset": 84845
+        },
+        {
+          "sound_id": 856802632,
+          "media_id": 123036756,
+          "codec_offset": 84951
+        },
+        {
+          "sound_id": 73868030,
+          "media_id": 121965524,
+          "codec_offset": 85057
+        },
+        {
+          "sound_id": 975646443,
+          "media_id": 312697513,
+          "codec_offset": 85163
+        },
+        {
+          "sound_id": 116342753,
+          "media_id": 189385194,
+          "codec_offset": 85269
+        },
+        {
+          "sound_id": 403109,
+          "media_id": 244798613,
+          "codec_offset": 85375
+        },
+        {
+          "sound_id": 674190295,
+          "media_id": 202658573,
+          "codec_offset": 85481
+        },
+        {
+          "sound_id": 615651181,
+          "media_id": 371402887,
+          "codec_offset": 85587
+        },
+        {
+          "sound_id": 506335047,
+          "media_id": 641581521,
+          "codec_offset": 85693
+        },
+        {
+          "sound_id": 572665607,
+          "media_id": 520315640,
+          "codec_offset": 85799
+        },
+        {
+          "sound_id": 883013365,
+          "media_id": 440709809,
+          "codec_offset": 86868
+        },
+        {
+          "sound_id": 695099030,
+          "media_id": 1014001979,
+          "codec_offset": 86974
+        },
+        {
+          "sound_id": 888252,
+          "media_id": 287309866,
+          "codec_offset": 87080
+        },
+        {
+          "sound_id": 737628603,
+          "media_id": 430792086,
+          "codec_offset": 87186
+        },
+        {
+          "sound_id": 856184434,
+          "media_id": 807804377,
+          "codec_offset": 87292
+        },
+        {
+          "sound_id": 617874648,
+          "media_id": 130419557,
+          "codec_offset": 87398
+        },
+        {
+          "sound_id": 681920389,
+          "media_id": 466105924,
+          "codec_offset": 87504
+        },
+        {
+          "sound_id": 438713668,
+          "media_id": 166191401,
+          "codec_offset": 87610
+        },
+        {
+          "sound_id": 100224194,
+          "media_id": 244430665,
+          "codec_offset": 87840
+        },
+        {
+          "sound_id": 836036942,
+          "media_id": 128212106,
+          "codec_offset": 87946
+        },
+        {
+          "sound_id": 300933563,
+          "media_id": 700945787,
+          "codec_offset": 88795
+        },
+        {
+          "sound_id": 917316931,
+          "media_id": 366134923,
+          "codec_offset": 88901
+        },
+        {
+          "sound_id": 639134213,
+          "media_id": 323373364,
+          "codec_offset": 89007
+        },
+        {
+          "sound_id": 953301370,
+          "media_id": 474014033,
+          "codec_offset": 89113
+        },
+        {
+          "sound_id": 826281832,
+          "media_id": 712951671,
+          "codec_offset": 89451
+        },
+        {
+          "sound_id": 114263239,
+          "media_id": 534636049,
+          "codec_offset": 89557
+        },
+        {
+          "sound_id": 742563774,
+          "media_id": 420990186,
+          "codec_offset": 89840
+        },
+        {
+          "sound_id": 670066909,
+          "media_id": 1061065016,
+          "codec_offset": 89946
+        },
+        {
+          "sound_id": 683151498,
+          "media_id": 626975383,
+          "codec_offset": 90052
+        },
+        {
+          "sound_id": 807649229,
+          "media_id": 696695510,
+          "codec_offset": 90158
+        },
+        {
+          "sound_id": 420335749,
+          "media_id": 214659697,
+          "codec_offset": 90372
+        },
+        {
+          "sound_id": 620099978,
+          "media_id": 398330714,
+          "codec_offset": 90690
+        },
+        {
+          "sound_id": 39753096,
+          "media_id": 256986204,
+          "codec_offset": 90909
+        },
+        {
+          "sound_id": 997377641,
+          "media_id": 678012877,
+          "codec_offset": 91015
+        },
+        {
+          "sound_id": 220357592,
+          "media_id": 1012305969,
+          "codec_offset": 91282
+        },
+        {
+          "sound_id": 659386471,
+          "media_id": 375707876,
+          "codec_offset": 91388
+        },
+        {
+          "sound_id": 671516513,
+          "media_id": 382439314,
+          "codec_offset": 91599
+        },
+        {
+          "sound_id": 782982660,
+          "media_id": 900758282,
+          "codec_offset": 91705
+        },
+        {
+          "sound_id": 322578997,
+          "media_id": 545989675,
+          "codec_offset": 91811
+        },
+        {
+          "sound_id": 220129768,
+          "media_id": 553008788,
+          "codec_offset": 92026
+        },
+        {
+          "sound_id": 951192038,
+          "media_id": 953027050,
+          "codec_offset": 92132
+        },
+        {
+          "sound_id": 873373925,
+          "media_id": 191257447,
+          "codec_offset": 92343
+        },
+        {
+          "sound_id": 404141128,
+          "media_id": 1008477569,
+          "codec_offset": 92449
+        },
+        {
+          "sound_id": 841743926,
+          "media_id": 910960560,
+          "codec_offset": 94772
+        },
+        {
+          "sound_id": 581601365,
+          "media_id": 907463009,
+          "codec_offset": 94878
+        },
+        {
+          "sound_id": 1011523461,
+          "media_id": 217059186,
+          "codec_offset": 95094
+        },
+        {
+          "sound_id": 255111464,
+          "media_id": 1009636870,
+          "codec_offset": 95200
+        },
+        {
+          "sound_id": 77943247,
+          "media_id": 1020076497,
+          "codec_offset": 95733
+        },
+        {
+          "sound_id": 314168491,
+          "media_id": 618170014,
+          "codec_offset": 95839
+        },
+        {
+          "sound_id": 867614353,
+          "media_id": 226676046,
+          "codec_offset": 95945
+        },
+        {
+          "sound_id": 532410536,
+          "media_id": 129816379,
+          "codec_offset": 96051
+        },
+        {
+          "sound_id": 453636125,
+          "media_id": 944774900,
+          "codec_offset": 96441
+        },
+        {
+          "sound_id": 695889304,
+          "media_id": 766771431,
+          "codec_offset": 96657
+        },
+        {
+          "sound_id": 981115266,
+          "media_id": 259131599,
+          "codec_offset": 96763
+        },
+        {
+          "sound_id": 27709675,
+          "media_id": 16348311,
+          "codec_offset": 97516
+        },
+        {
+          "sound_id": 902107775,
+          "media_id": 28773181,
+          "codec_offset": 97622
+        },
+        {
+          "sound_id": 508680998,
+          "media_id": 846803533,
+          "codec_offset": 97733
+        },
+        {
+          "sound_id": 646898404,
+          "media_id": 773076099,
+          "codec_offset": 97844
+        },
+        {
+          "sound_id": 1039393210,
+          "media_id": 158109181,
+          "codec_offset": 98063
+        },
+        {
+          "sound_id": 640518832,
+          "media_id": 243269200,
+          "codec_offset": 98174
+        },
+        {
+          "sound_id": 975624613,
+          "media_id": 885577806,
+          "codec_offset": 98390
+        },
+        {
+          "sound_id": 11480345,
+          "media_id": 821811441,
+          "codec_offset": 98496
+        },
+        {
+          "sound_id": 632520624,
+          "media_id": 795529876,
+          "codec_offset": 98712
+        },
+        {
+          "sound_id": 605178037,
+          "media_id": 598859459,
+          "codec_offset": 98924
+        },
+        {
+          "sound_id": 20699959,
+          "media_id": 14588590,
+          "codec_offset": 99254
+        },
+        {
+          "sound_id": 423092887,
+          "media_id": 602534670,
+          "codec_offset": 99360
+        },
+        {
+          "sound_id": 842075147,
+          "media_id": 66653127,
+          "codec_offset": 99767
+        },
+        {
+          "sound_id": 1053477567,
+          "media_id": 76786413,
+          "codec_offset": 99873
+        },
+        {
+          "sound_id": 896713019,
+          "media_id": 954423633,
+          "codec_offset": 99984
+        },
+        {
+          "sound_id": 211861512,
+          "media_id": 933454584,
+          "codec_offset": 100095
+        },
+        {
+          "sound_id": 802874764,
+          "media_id": 592039791,
+          "codec_offset": 100201
+        },
+        {
+          "sound_id": 324882734,
+          "media_id": 690191234,
+          "codec_offset": 100307
+        },
+        {
+          "sound_id": 235337719,
+          "media_id": 244096783,
+          "codec_offset": 100418
+        },
+        {
+          "sound_id": 176225183,
+          "media_id": 18901217,
+          "codec_offset": 100524
+        },
+        {
+          "sound_id": 967133969,
+          "media_id": 636580944,
+          "codec_offset": 100635
+        },
+        {
+          "sound_id": 719059787,
+          "media_id": 79381450,
+          "codec_offset": 100741
+        },
+        {
+          "sound_id": 1062488819,
+          "media_id": 971323398,
+          "codec_offset": 101036
+        },
+        {
+          "sound_id": 1035595375,
+          "media_id": 887867815,
+          "codec_offset": 101142
+        },
+        {
+          "sound_id": 777088338,
+          "media_id": 645207726,
+          "codec_offset": 101248
+        },
+        {
+          "sound_id": 192530399,
+          "media_id": 426804733,
+          "codec_offset": 101354
+        },
+        {
+          "sound_id": 386427731,
+          "media_id": 197958817,
+          "codec_offset": 101460
+        },
+        {
+          "sound_id": 377770464,
+          "media_id": 592730982,
+          "codec_offset": 101566
+        },
+        {
+          "sound_id": 965574418,
+          "media_id": 132566861,
+          "codec_offset": 101672
+        },
+        {
+          "sound_id": 981215091,
+          "media_id": 1048007519,
+          "codec_offset": 101778
+        },
+        {
+          "sound_id": 299241316,
+          "media_id": 905818084,
+          "codec_offset": 101884
+        },
+        {
+          "sound_id": 463636152,
+          "media_id": 449555556,
+          "codec_offset": 101990
+        },
+        {
+          "sound_id": 22936899,
+          "media_id": 516231727,
+          "codec_offset": 102096
+        },
+        {
+          "sound_id": 195505195,
+          "media_id": 914300630,
+          "codec_offset": 102202
+        },
+        {
+          "sound_id": 27768428,
+          "media_id": 116957429,
+          "codec_offset": 102308
+        },
+        {
+          "sound_id": 860137673,
+          "media_id": 393592026,
+          "codec_offset": 102414
+        },
+        {
+          "sound_id": 108319921,
+          "media_id": 231077131,
+          "codec_offset": 102520
+        },
+        {
+          "sound_id": 641537286,
+          "media_id": 291209932,
+          "codec_offset": 102732
+        },
+        {
+          "sound_id": 813521971,
+          "media_id": 611960960,
+          "codec_offset": 102838
+        },
+        {
+          "sound_id": 1046893594,
+          "media_id": 437962128,
+          "codec_offset": 102944
+        },
+        {
+          "sound_id": 123348535,
+          "media_id": 431076395,
+          "codec_offset": 103050
+        },
+        {
+          "sound_id": 943346492,
+          "media_id": 202815600,
+          "codec_offset": 103156
+        },
+        {
+          "sound_id": 501006885,
+          "media_id": 379248472,
+          "codec_offset": 103368
+        },
+        {
+          "sound_id": 1046866484,
+          "media_id": 676130133,
+          "codec_offset": 103474
+        },
+        {
+          "sound_id": 508935294,
+          "media_id": 456159919,
+          "codec_offset": 105179
+        },
+        {
+          "sound_id": 127063308,
+          "media_id": 464926489,
+          "codec_offset": 105285
+        },
+        {
+          "sound_id": 114029278,
+          "media_id": 1062646845,
+          "codec_offset": 106270
+        },
+        {
+          "sound_id": 125980836,
+          "media_id": 209049913,
+          "codec_offset": 106376
+        },
+        {
+          "sound_id": 867798635,
+          "media_id": 321143055,
+          "codec_offset": 106600
+        },
+        {
+          "sound_id": 53055837,
+          "media_id": 970947178,
+          "codec_offset": 106706
+        },
+        {
+          "sound_id": 876173927,
+          "media_id": 42414475,
+          "codec_offset": 107684
+        },
+        {
+          "sound_id": 184598604,
+          "media_id": 828314385,
+          "codec_offset": 107790
+        },
+        {
+          "sound_id": 324215463,
+          "media_id": 838477485,
+          "codec_offset": 111800
+        },
+        {
+          "sound_id": 181501785,
+          "media_id": 971349545,
+          "codec_offset": 111906
+        },
+        {
+          "sound_id": 806711522,
+          "media_id": 49748470,
+          "codec_offset": 112012
+        },
+        {
+          "sound_id": 9307002,
+          "media_id": 177934,
+          "codec_offset": 112118
+        },
+        {
+          "sound_id": 258343129,
+          "media_id": 35786914,
+          "codec_offset": 112991
+        },
+        {
+          "sound_id": 158222794,
+          "media_id": 930580063,
+          "codec_offset": 113097
+        },
+        {
+          "sound_id": 319871375,
+          "media_id": 1069879278,
+          "codec_offset": 113308
+        },
+        {
+          "sound_id": 1046305868,
+          "media_id": 372305869,
+          "codec_offset": 113414
+        },
+        {
+          "sound_id": 126354057,
+          "media_id": 452203011,
+          "codec_offset": 113520
+        },
+        {
+          "sound_id": 862684364,
+          "media_id": 205733628,
+          "codec_offset": 113732
+        },
+        {
+          "sound_id": 1938464,
+          "media_id": 699029967,
+          "codec_offset": 113838
+        },
+        {
+          "sound_id": 587493028,
+          "media_id": 80219260,
+          "codec_offset": 114050
+        },
+        {
+          "sound_id": 880900338,
+          "media_id": 76549200,
+          "codec_offset": 114502
+        },
+        {
+          "sound_id": 517945378,
+          "media_id": 271323251,
+          "codec_offset": 114714
+        },
+        {
+          "sound_id": 1065931404,
+          "media_id": 310590240,
+          "codec_offset": 114926
+        },
+        {
+          "sound_id": 109966214,
+          "media_id": 689848390,
+          "codec_offset": 115262
+        },
+        {
+          "sound_id": 628257425,
+          "media_id": 664124267,
+          "codec_offset": 115368
+        },
+        {
+          "sound_id": 1067051997,
+          "media_id": 1053971320,
+          "codec_offset": 115474
+        },
+        {
+          "sound_id": 609574814,
+          "media_id": 709881465,
+          "codec_offset": 115580
+        },
+        {
+          "sound_id": 908948301,
+          "media_id": 542975704,
+          "codec_offset": 115686
+        },
+        {
+          "sound_id": 976307799,
+          "media_id": 426454022,
+          "codec_offset": 115792
+        },
+        {
+          "sound_id": 958505329,
+          "media_id": 506212563,
+          "codec_offset": 116019
+        },
+        {
+          "sound_id": 149104985,
+          "media_id": 533685719,
+          "codec_offset": 116130
+        },
+        {
+          "sound_id": 690866188,
+          "media_id": 348046672,
+          "codec_offset": 116241
+        },
+        {
+          "sound_id": 33362068,
+          "media_id": 325715791,
+          "codec_offset": 116352
+        },
+        {
+          "sound_id": 850408040,
+          "media_id": 104374973,
+          "codec_offset": 116571
+        },
+        {
+          "sound_id": 218733008,
+          "media_id": 588437978,
+          "codec_offset": 116682
+        },
+        {
+          "sound_id": 404020405,
+          "media_id": 516570767,
+          "codec_offset": 116793
+        },
+        {
+          "sound_id": 850295555,
+          "media_id": 1009973452,
+          "codec_offset": 116904
+        },
+        {
+          "sound_id": 537125017,
+          "media_id": 564043602,
+          "codec_offset": 117015
+        },
+        {
+          "sound_id": 752492974,
+          "media_id": 235545582,
+          "codec_offset": 117121
+        },
+        {
+          "sound_id": 1013581639,
+          "media_id": 668611026,
+          "codec_offset": 117232
+        },
+        {
+          "sound_id": 385720035,
+          "media_id": 537104876,
+          "codec_offset": 117343
+        },
+        {
+          "sound_id": 499858493,
+          "media_id": 566438901,
+          "codec_offset": 117454
+        },
+        {
+          "sound_id": 645139409,
+          "media_id": 335235091,
+          "codec_offset": 117676
+        },
+        {
+          "sound_id": 1048092689,
+          "media_id": 304058503,
+          "codec_offset": 117787
+        },
+        {
+          "sound_id": 739302529,
+          "media_id": 495732992,
+          "codec_offset": 117898
+        },
+        {
+          "sound_id": 704173445,
+          "media_id": 768224066,
+          "codec_offset": 118009
+        },
+        {
+          "sound_id": 767095755,
+          "media_id": 261447212,
+          "codec_offset": 118120
+        },
+        {
+          "sound_id": 703732438,
+          "media_id": 300658938,
+          "codec_offset": 118231
+        },
+        {
+          "sound_id": 215326387,
+          "media_id": 409502794,
+          "codec_offset": 118575
+        },
+        {
+          "sound_id": 909217480,
+          "media_id": 346064092,
+          "codec_offset": 118681
+        },
+        {
+          "sound_id": 617880143,
+          "media_id": 982679999,
+          "codec_offset": 118887
+        },
+        {
+          "sound_id": 21053988,
+          "media_id": 782287975,
+          "codec_offset": 118993
+        },
+        {
+          "sound_id": 152476050,
+          "media_id": 196852565,
+          "codec_offset": 119204
+        },
+        {
+          "sound_id": 584198246,
+          "media_id": 1036107859,
+          "codec_offset": 119310
+        },
+        {
+          "sound_id": 840069139,
+          "media_id": 119666663,
+          "codec_offset": 119526
+        },
+        {
+          "sound_id": 246522150,
+          "media_id": 333583555,
+          "codec_offset": 119738
+        },
+        {
+          "sound_id": 558045604,
+          "media_id": 56073115,
+          "codec_offset": 119950
+        },
+        {
+          "sound_id": 655261867,
+          "media_id": 915036694,
+          "codec_offset": 120056
+        },
+        {
+          "sound_id": 630592136,
+          "media_id": 316210654,
+          "codec_offset": 120288
+        },
+        {
+          "sound_id": 425536402,
+          "media_id": 608280677,
+          "codec_offset": 120394
+        },
+        {
+          "sound_id": 670625485,
+          "media_id": 380168003,
+          "codec_offset": 120674
+        },
+        {
+          "sound_id": 803591390,
+          "media_id": 919230395,
+          "codec_offset": 120780
+        },
+        {
+          "sound_id": 310988278,
+          "media_id": 1070119562,
+          "codec_offset": 120886
+        },
+        {
+          "sound_id": 854672260,
+          "media_id": 343933823,
+          "codec_offset": 120992
+        },
+        {
+          "sound_id": 946123043,
+          "media_id": 831962564,
+          "codec_offset": 121216
+        },
+        {
+          "sound_id": 363923092,
+          "media_id": 223839651,
+          "codec_offset": 121322
+        },
+        {
+          "sound_id": 682697228,
+          "media_id": 141031551,
+          "codec_offset": 121428
+        },
+        {
+          "sound_id": 248885338,
+          "media_id": 324467653,
+          "codec_offset": 121534
+        },
+        {
+          "sound_id": 761625834,
+          "media_id": 610215809,
+          "codec_offset": 121640
+        },
+        {
+          "sound_id": 995323237,
+          "media_id": 473028822,
+          "codec_offset": 121746
+        },
+        {
+          "sound_id": 431296938,
+          "media_id": 501531810,
+          "codec_offset": 121852
+        },
+        {
+          "sound_id": 188216439,
+          "media_id": 771782836,
+          "codec_offset": 121958
+        },
+        {
+          "sound_id": 825057209,
+          "media_id": 62166310,
+          "codec_offset": 122198
+        },
+        {
+          "sound_id": 686871973,
+          "media_id": 429059001,
+          "codec_offset": 122304
+        },
+        {
+          "sound_id": 587848469,
+          "media_id": 440950712,
+          "codec_offset": 122410
+        },
+        {
+          "sound_id": 370976042,
+          "media_id": 874344963,
+          "codec_offset": 122516
+        },
+        {
+          "sound_id": 81000843,
+          "media_id": 614923373,
+          "codec_offset": 122796
+        },
+        {
+          "sound_id": 1039863669,
+          "media_id": 524345193,
+          "codec_offset": 122902
+        },
+        {
+          "sound_id": 863415848,
+          "media_id": 434700011,
+          "codec_offset": 123113
+        },
+        {
+          "sound_id": 446544150,
+          "media_id": 717059012,
+          "codec_offset": 123219
+        },
+        {
+          "sound_id": 586900621,
+          "media_id": 105557315,
+          "codec_offset": 123430
+        },
+        {
+          "sound_id": 49613258,
+          "media_id": 5526354,
+          "codec_offset": 123536
+        },
+        {
+          "sound_id": 971278443,
+          "media_id": 416922813,
+          "codec_offset": 123642
+        },
+        {
+          "sound_id": 895820524,
+          "media_id": 210051532,
+          "codec_offset": 125806
+        },
+        {
+          "sound_id": 237880374,
+          "media_id": 507843600,
+          "codec_offset": 125912
+        },
+        {
+          "sound_id": 240223344,
+          "media_id": 937482353,
+          "codec_offset": 126503
+        },
+        {
+          "sound_id": 748351505,
+          "media_id": 307670659,
+          "codec_offset": 126609
+        },
+        {
+          "sound_id": 445518885,
+          "media_id": 750971824,
+          "codec_offset": 126820
+        },
+        {
+          "sound_id": 2900472,
+          "media_id": 519340070,
+          "codec_offset": 126926
+        },
+        {
+          "sound_id": 832060121,
+          "media_id": 152076418,
+          "codec_offset": 127142
+        },
+        {
+          "sound_id": 581635060,
+          "media_id": 854651933,
+          "codec_offset": 127253
+        },
+        {
+          "sound_id": 409725917,
+          "media_id": 363278218,
+          "codec_offset": 127465
+        },
+        {
+          "sound_id": 641599831,
+          "media_id": 978544347,
+          "codec_offset": 127682
+        },
+        {
+          "sound_id": 999862679,
+          "media_id": 813780628,
+          "codec_offset": 127899
+        },
+        {
+          "sound_id": 370455769,
+          "media_id": 928866476,
+          "codec_offset": 128005
+        },
+        {
+          "sound_id": 195689302,
+          "media_id": 591303268,
+          "codec_offset": 128222
+        },
+        {
+          "sound_id": 247050288,
+          "media_id": 894350682,
+          "codec_offset": 128333
+        },
+        {
+          "sound_id": 607998497,
+          "media_id": 592555733,
+          "codec_offset": 128656
+        },
+        {
+          "sound_id": 139980256,
+          "media_id": 669133834,
+          "codec_offset": 128767
+        },
+        {
+          "sound_id": 985469983,
+          "media_id": 47451858,
+          "codec_offset": 128878
+        },
+        {
+          "sound_id": 67192780,
+          "media_id": 916533428,
+          "codec_offset": 128989
+        },
+        {
+          "sound_id": 163461483,
+          "media_id": 519242519,
+          "codec_offset": 129095
+        },
+        {
+          "sound_id": 247210989,
+          "media_id": 970094749,
+          "codec_offset": 129201
+        },
+        {
+          "sound_id": 366206114,
+          "media_id": 320967664,
+          "codec_offset": 129489
+        },
+        {
+          "sound_id": 342795035,
+          "media_id": 829887362,
+          "codec_offset": 129595
+        },
+        {
+          "sound_id": 407883610,
+          "media_id": 246540378,
+          "codec_offset": 129701
+        },
+        {
+          "sound_id": 77896482,
+          "media_id": 89031787,
+          "codec_offset": 129807
+        },
+        {
+          "sound_id": 527428672,
+          "media_id": 245583179,
+          "codec_offset": 129913
+        },
+        {
+          "sound_id": 861284353,
+          "media_id": 698552258,
+          "codec_offset": 130019
+        },
+        {
+          "sound_id": 335681777,
+          "media_id": 883292034,
+          "codec_offset": 130395
+        },
+        {
+          "sound_id": 43273834,
+          "media_id": 460237568,
+          "codec_offset": 130597
+        },
+        {
+          "sound_id": 43616612,
+          "media_id": 923647538,
+          "codec_offset": 131006
+        },
+        {
+          "sound_id": 836660254,
+          "media_id": 532298623,
+          "codec_offset": 131112
+        },
+        {
+          "sound_id": 441487217,
+          "media_id": 614144659,
+          "codec_offset": 131371
+        },
+        {
+          "sound_id": 139267376,
+          "media_id": 502517327,
+          "codec_offset": 131848
+        },
+        {
+          "sound_id": 1000981615,
+          "media_id": 968870689,
+          "codec_offset": 132060
+        },
+        {
+          "sound_id": 306646404,
+          "media_id": 982065957,
+          "codec_offset": 132267
+        },
+        {
+          "sound_id": 832359335,
+          "media_id": 91071600,
+          "codec_offset": 132474
+        },
+        {
+          "sound_id": 195883834,
+          "media_id": 38978382,
+          "codec_offset": 132741
+        },
+        {
+          "sound_id": 975618733,
+          "media_id": 709859380,
+          "codec_offset": 132943
+        },
+        {
+          "sound_id": 430520531,
+          "media_id": 808679,
+          "codec_offset": 133150
+        },
+        {
+          "sound_id": 402894836,
+          "media_id": 426002171,
+          "codec_offset": 133879
+        },
+        {
+          "sound_id": 479468409,
+          "media_id": 912347317,
+          "codec_offset": 133985
+        },
+        {
+          "sound_id": 663771896,
+          "media_id": 946048770,
+          "codec_offset": 134196
+        },
+        {
+          "sound_id": 721831516,
+          "media_id": 1024094275,
+          "codec_offset": 137648
+        },
+        {
+          "sound_id": 926972964,
+          "media_id": 279427080,
+          "codec_offset": 137860
+        },
+        {
+          "sound_id": 457100547,
+          "media_id": 192729718,
+          "codec_offset": 137966
+        },
+        {
+          "sound_id": 84992090,
+          "media_id": 147772196,
+          "codec_offset": 138072
+        },
+        {
+          "sound_id": 225783943,
+          "media_id": 477408506,
+          "codec_offset": 138178
+        },
+        {
+          "sound_id": 969109459,
+          "media_id": 750648403,
+          "codec_offset": 138390
+        },
+        {
+          "sound_id": 340297928,
+          "media_id": 1044347076,
+          "codec_offset": 138496
+        },
+        {
+          "sound_id": 445703156,
+          "media_id": 781428755,
+          "codec_offset": 138795
+        },
+        {
+          "sound_id": 645306960,
+          "media_id": 255072702,
+          "codec_offset": 138901
+        },
+        {
+          "sound_id": 397556787,
+          "media_id": 579709629,
+          "codec_offset": 139007
+        },
+        {
+          "sound_id": 259949578,
+          "media_id": 763374810,
+          "codec_offset": 139113
+        },
+        {
+          "sound_id": 947663155,
+          "media_id": 924944244,
+          "codec_offset": 139219
+        },
+        {
+          "sound_id": 850108824,
+          "media_id": 919455688,
+          "codec_offset": 139325
+        },
+        {
+          "sound_id": 420047679,
+          "media_id": 634996631,
+          "codec_offset": 139431
+        },
+        {
+          "sound_id": 649084526,
+          "media_id": 846692883,
+          "codec_offset": 139537
+        },
+        {
+          "sound_id": 70669996,
+          "media_id": 152546764,
+          "codec_offset": 139643
+        },
+        {
+          "sound_id": 753881594,
+          "media_id": 874814492,
+          "codec_offset": 139749
+        },
+        {
+          "sound_id": 1055341297,
+          "media_id": 520727855,
+          "codec_offset": 141968
+        },
+        {
+          "sound_id": 427186258,
+          "media_id": 290429774,
+          "codec_offset": 142074
+        },
+        {
+          "sound_id": 224635623,
+          "media_id": 451234566,
+          "codec_offset": 142180
+        },
+        {
+          "sound_id": 369480762,
+          "media_id": 984740215,
+          "codec_offset": 142286
+        },
+        {
+          "sound_id": 738915949,
+          "media_id": 682288956,
+          "codec_offset": 142392
+        },
+        {
+          "sound_id": 69894975,
+          "media_id": 675880396,
+          "codec_offset": 142498
+        },
+        {
+          "sound_id": 356673443,
+          "media_id": 265785174,
+          "codec_offset": 142781
+        },
+        {
+          "sound_id": 7754227,
+          "media_id": 362401542,
+          "codec_offset": 142993
+        },
+        {
+          "sound_id": 113347628,
+          "media_id": 851837080,
+          "codec_offset": 143099
+        },
+        {
+          "sound_id": 840403241,
+          "media_id": 491730492,
+          "codec_offset": 143205
+        },
+        {
+          "sound_id": 99651367,
+          "media_id": 128842799,
+          "codec_offset": 143311
+        },
+        {
+          "sound_id": 214080676,
+          "media_id": 711606688,
+          "codec_offset": 143417
+        },
+        {
+          "sound_id": 944532014,
+          "media_id": 431075947,
+          "codec_offset": 143523
+        },
+        {
+          "sound_id": 1030751335,
+          "media_id": 516453498,
+          "codec_offset": 143629
+        },
+        {
+          "sound_id": 230358489,
+          "media_id": 974042954,
+          "codec_offset": 143735
+        },
+        {
+          "sound_id": 234467013,
+          "media_id": 943188663,
+          "codec_offset": 143841
+        },
+        {
+          "sound_id": 162600610,
+          "media_id": 899359731,
+          "codec_offset": 143947
+        },
+        {
+          "sound_id": 307688606,
+          "media_id": 735123442,
+          "codec_offset": 144053
+        },
+        {
+          "sound_id": 338081743,
+          "media_id": 360272058,
+          "codec_offset": 144159
+        },
+        {
+          "sound_id": 310481845,
+          "media_id": 480034261,
+          "codec_offset": 144418
+        },
+        {
+          "sound_id": 713464357,
+          "media_id": 757577264,
+          "codec_offset": 144524
+        },
+        {
+          "sound_id": 620573468,
+          "media_id": 216975983,
+          "codec_offset": 144630
+        },
+        {
+          "sound_id": 537491004,
+          "media_id": 883856027,
+          "codec_offset": 144736
+        },
+        {
+          "sound_id": 698694608,
+          "media_id": 361875990,
+          "codec_offset": 144842
+        },
+        {
+          "sound_id": 99445506,
+          "media_id": 825288795,
+          "codec_offset": 144948
+        },
+        {
+          "sound_id": 596166436,
+          "media_id": 1073365799,
+          "codec_offset": 145054
+        },
+        {
+          "sound_id": 9068326,
+          "media_id": 463108640,
+          "codec_offset": 145266
+        },
+        {
+          "sound_id": 949090889,
+          "media_id": 160866753,
+          "codec_offset": 145372
+        },
+        {
+          "sound_id": 334022699,
+          "media_id": 371644962,
+          "codec_offset": 145478
+        },
+        {
+          "sound_id": 884111092,
+          "media_id": 16988228,
+          "codec_offset": 145584
+        },
+        {
+          "sound_id": 42597606,
+          "media_id": 1139643,
+          "codec_offset": 145796
+        },
+        {
+          "sound_id": 792677655,
+          "media_id": 97882549,
+          "codec_offset": 146107
+        },
+        {
+          "sound_id": 681881514,
+          "media_id": 992272872,
+          "codec_offset": 146213
+        },
+        {
+          "sound_id": 874659842,
+          "media_id": 710147114,
+          "codec_offset": 146425
+        },
+        {
+          "sound_id": 456120723,
+          "media_id": 63297142,
+          "codec_offset": 148685
+        },
+        {
+          "sound_id": 892116704,
+          "media_id": 775389018,
+          "codec_offset": 148791
+        },
+        {
+          "sound_id": 950439586,
+          "media_id": 692043217,
+          "codec_offset": 148997
+        },
+        {
+          "sound_id": 878485197,
+          "media_id": 315307319,
+          "codec_offset": 149103
+        },
+        {
+          "sound_id": 35160421,
+          "media_id": 760339015,
+          "codec_offset": 149209
+        },
+        {
+          "sound_id": 396055398,
+          "media_id": 791142982,
+          "codec_offset": 149315
+        },
+        {
+          "sound_id": 5313530,
+          "media_id": 324262790,
+          "codec_offset": 149421
+        },
+        {
+          "sound_id": 572162602,
+          "media_id": 272916375,
+          "codec_offset": 149527
+        },
+        {
+          "sound_id": 867551143,
+          "media_id": 571685325,
+          "codec_offset": 149633
+        },
+        {
+          "sound_id": 99458587,
+          "media_id": 486113620,
+          "codec_offset": 149739
+        },
+        {
+          "sound_id": 1021886279,
+          "media_id": 117757011,
+          "codec_offset": 149845
+        },
+        {
+          "sound_id": 679470385,
+          "media_id": 997090475,
+          "codec_offset": 149951
+        },
+        {
+          "sound_id": 296726963,
+          "media_id": 977716875,
+          "codec_offset": 150163
+        },
+        {
+          "sound_id": 239302436,
+          "media_id": 684920934,
+          "codec_offset": 150375
+        },
+        {
+          "sound_id": 138273819,
+          "media_id": 177577927,
+          "codec_offset": 150481
+        },
+        {
+          "sound_id": 837597906,
+          "media_id": 236734676,
+          "codec_offset": 150587
+        },
+        {
+          "sound_id": 1012253678,
+          "media_id": 152736539,
+          "codec_offset": 150693
+        },
+        {
+          "sound_id": 457877767,
+          "media_id": 244000398,
+          "codec_offset": 150799
+        },
+        {
+          "sound_id": 636946201,
+          "media_id": 274878454,
+          "codec_offset": 150905
+        },
+        {
+          "sound_id": 666694363,
+          "media_id": 959214981,
+          "codec_offset": 151011
+        },
+        {
+          "sound_id": 602409550,
+          "media_id": 375076047,
+          "codec_offset": 151117
+        },
+        {
+          "sound_id": 275631567,
+          "media_id": 992280415,
+          "codec_offset": 151223
+        },
+        {
+          "sound_id": 126700995,
+          "media_id": 513036337,
+          "codec_offset": 151329
+        },
+        {
+          "sound_id": 210743141,
+          "media_id": 375418875,
+          "codec_offset": 151619
+        },
+        {
+          "sound_id": 200726294,
+          "media_id": 714262561,
+          "codec_offset": 151725
+        },
+        {
+          "sound_id": 420482823,
+          "media_id": 157709976,
+          "codec_offset": 151831
+        },
+        {
+          "sound_id": 66336648,
+          "media_id": 16693966,
+          "codec_offset": 151937
+        },
+        {
+          "sound_id": 655837437,
+          "media_id": 43183061,
+          "codec_offset": 158310
+        },
+        {
+          "sound_id": 744182753,
+          "media_id": 1013374677,
+          "codec_offset": 158416
+        },
+        {
+          "sound_id": 475245105,
+          "media_id": 169316641,
+          "codec_offset": 158522
+        },
+        {
+          "sound_id": 475553380,
+          "media_id": 24625784,
+          "codec_offset": 158628
+        },
+        {
+          "sound_id": 607204706,
+          "media_id": 283338730,
+          "codec_offset": 158842
+        },
+        {
+          "sound_id": 765399634,
+          "media_id": 824326904,
+          "codec_offset": 158948
+        },
+        {
+          "sound_id": 854551336,
+          "media_id": 752137321,
+          "codec_offset": 159466
+        },
+        {
+          "sound_id": 56132014,
+          "media_id": 451287610,
+          "codec_offset": 159572
+        },
+        {
+          "sound_id": 328984070,
+          "media_id": 19885149,
+          "codec_offset": 161490
+        },
+        {
+          "sound_id": 585993276,
+          "media_id": 389966658,
+          "codec_offset": 161596
+        },
+        {
+          "sound_id": 320023577,
+          "media_id": 815925470,
+          "codec_offset": 161702
+        },
+        {
+          "sound_id": 506080123,
+          "media_id": 912861062,
+          "codec_offset": 161916
+        },
+        {
+          "sound_id": 143306646,
+          "media_id": 55136535,
+          "codec_offset": 162022
+        },
+        {
+          "sound_id": 36623481,
+          "media_id": 771197312,
+          "codec_offset": 162128
+        },
+        {
+          "sound_id": 667909605,
+          "media_id": 227199154,
+          "codec_offset": 162234
+        }
+      ],
+      "original_bank_sha256": "74d35910616bb2d73fda744a1aadcee95ce2fabb609c9e2ac8da9748ad8119d2",
+      "new_bank_sha256": "f4393802950ea3533650e814cd4b001c0ecc460f9906fe1e2adcc78a12cfa1dc"
+    },
+    {
+      "slot": 3,
+      "character": "Scorch",
+      "bank_id": "498646c6a1ffba95",
+      "mapped_media": 372,
+      "changes": [
+        {
+          "sound_id": 263650226,
+          "media_id": 661653628,
+          "codec_offset": 63618
+        },
+        {
+          "sound_id": 286132499,
+          "media_id": 449010561,
+          "codec_offset": 63724
+        },
+        {
+          "sound_id": 808879022,
+          "media_id": 959177936,
+          "codec_offset": 64044
+        },
+        {
+          "sound_id": 763802379,
+          "media_id": 1039808341,
+          "codec_offset": 64150
+        },
+        {
+          "sound_id": 541675792,
+          "media_id": 438685140,
+          "codec_offset": 64356
+        },
+        {
+          "sound_id": 74134227,
+          "media_id": 411381862,
+          "codec_offset": 64462
+        },
+        {
+          "sound_id": 732648951,
+          "media_id": 650496430,
+          "codec_offset": 64568
+        },
+        {
+          "sound_id": 88254465,
+          "media_id": 104522305,
+          "codec_offset": 64674
+        },
+        {
+          "sound_id": 363177287,
+          "media_id": 111231854,
+          "codec_offset": 64888
+        },
+        {
+          "sound_id": 259705276,
+          "media_id": 224151142,
+          "codec_offset": 64994
+        },
+        {
+          "sound_id": 316763127,
+          "media_id": 204063967,
+          "codec_offset": 65205
+        },
+        {
+          "sound_id": 685073858,
+          "media_id": 190096775,
+          "codec_offset": 65311
+        },
+        {
+          "sound_id": 925235291,
+          "media_id": 15786666,
+          "codec_offset": 65517
+        },
+        {
+          "sound_id": 465675693,
+          "media_id": 670333879,
+          "codec_offset": 65623
+        },
+        {
+          "sound_id": 233222098,
+          "media_id": 326964264,
+          "codec_offset": 65829
+        },
+        {
+          "sound_id": 1004641191,
+          "media_id": 910977522,
+          "codec_offset": 65935
+        },
+        {
+          "sound_id": 860076001,
+          "media_id": 377802215,
+          "codec_offset": 66141
+        },
+        {
+          "sound_id": 940758891,
+          "media_id": 83993319,
+          "codec_offset": 66247
+        },
+        {
+          "sound_id": 468147394,
+          "media_id": 41747073,
+          "codec_offset": 66559
+        },
+        {
+          "sound_id": 429788022,
+          "media_id": 44252773,
+          "codec_offset": 66770
+        },
+        {
+          "sound_id": 175449440,
+          "media_id": 143337344,
+          "codec_offset": 66876
+        },
+        {
+          "sound_id": 240030939,
+          "media_id": 529071200,
+          "codec_offset": 66982
+        },
+        {
+          "sound_id": 669692490,
+          "media_id": 830025990,
+          "codec_offset": 67088
+        },
+        {
+          "sound_id": 679969851,
+          "media_id": 996980300,
+          "codec_offset": 67362
+        },
+        {
+          "sound_id": 304361503,
+          "media_id": 285279418,
+          "codec_offset": 67574
+        },
+        {
+          "sound_id": 704592195,
+          "media_id": 1006249474,
+          "codec_offset": 67680
+        },
+        {
+          "sound_id": 925966437,
+          "media_id": 724577638,
+          "codec_offset": 68286
+        },
+        {
+          "sound_id": 507573843,
+          "media_id": 673707048,
+          "codec_offset": 68392
+        },
+        {
+          "sound_id": 815951455,
+          "media_id": 678078825,
+          "codec_offset": 68498
+        },
+        {
+          "sound_id": 61578394,
+          "media_id": 192619290,
+          "codec_offset": 68604
+        },
+        {
+          "sound_id": 52208392,
+          "media_id": 423138804,
+          "codec_offset": 71370
+        },
+        {
+          "sound_id": 322800375,
+          "media_id": 961654158,
+          "codec_offset": 71476
+        },
+        {
+          "sound_id": 1057154488,
+          "media_id": 361732622,
+          "codec_offset": 71687
+        },
+        {
+          "sound_id": 234753352,
+          "media_id": 327891791,
+          "codec_offset": 71793
+        },
+        {
+          "sound_id": 671347923,
+          "media_id": 558326337,
+          "codec_offset": 72840
+        },
+        {
+          "sound_id": 254142498,
+          "media_id": 170818905,
+          "codec_offset": 73052
+        },
+        {
+          "sound_id": 434816110,
+          "media_id": 811937428,
+          "codec_offset": 74424
+        },
+        {
+          "sound_id": 49713112,
+          "media_id": 149056516,
+          "codec_offset": 74530
+        },
+        {
+          "sound_id": 928361678,
+          "media_id": 701842390,
+          "codec_offset": 74636
+        },
+        {
+          "sound_id": 825181834,
+          "media_id": 308110800,
+          "codec_offset": 74742
+        },
+        {
+          "sound_id": 554969263,
+          "media_id": 588510377,
+          "codec_offset": 74954
+        },
+        {
+          "sound_id": 496956914,
+          "media_id": 873385581,
+          "codec_offset": 75166
+        },
+        {
+          "sound_id": 435637645,
+          "media_id": 25441725,
+          "codec_offset": 75272
+        },
+        {
+          "sound_id": 774594839,
+          "media_id": 650179378,
+          "codec_offset": 75590
+        },
+        {
+          "sound_id": 459497705,
+          "media_id": 765151236,
+          "codec_offset": 75802
+        },
+        {
+          "sound_id": 155604240,
+          "media_id": 832851013,
+          "codec_offset": 75908
+        },
+        {
+          "sound_id": 477450124,
+          "media_id": 431035691,
+          "codec_offset": 76014
+        },
+        {
+          "sound_id": 914150288,
+          "media_id": 995594267,
+          "codec_offset": 76120
+        },
+        {
+          "sound_id": 473248354,
+          "media_id": 446538047,
+          "codec_offset": 76226
+        },
+        {
+          "sound_id": 420801500,
+          "media_id": 21101821,
+          "codec_offset": 76332
+        },
+        {
+          "sound_id": 361427433,
+          "media_id": 285195599,
+          "codec_offset": 76438
+        },
+        {
+          "sound_id": 787137612,
+          "media_id": 324526320,
+          "codec_offset": 76544
+        },
+        {
+          "sound_id": 937910410,
+          "media_id": 268118313,
+          "codec_offset": 76650
+        },
+        {
+          "sound_id": 99548044,
+          "media_id": 264056998,
+          "codec_offset": 76989
+        },
+        {
+          "sound_id": 661002348,
+          "media_id": 288171710,
+          "codec_offset": 77201
+        },
+        {
+          "sound_id": 1014822354,
+          "media_id": 691110997,
+          "codec_offset": 77307
+        },
+        {
+          "sound_id": 257771993,
+          "media_id": 727123970,
+          "codec_offset": 77526
+        },
+        {
+          "sound_id": 647126708,
+          "media_id": 94020855,
+          "codec_offset": 77632
+        },
+        {
+          "sound_id": 662246881,
+          "media_id": 36521219,
+          "codec_offset": 77843
+        },
+        {
+          "sound_id": 776516086,
+          "media_id": 670589684,
+          "codec_offset": 77949
+        },
+        {
+          "sound_id": 906404170,
+          "media_id": 157845615,
+          "codec_offset": 78055
+        },
+        {
+          "sound_id": 642039924,
+          "media_id": 849575567,
+          "codec_offset": 78161
+        },
+        {
+          "sound_id": 437593233,
+          "media_id": 779888902,
+          "codec_offset": 78267
+        },
+        {
+          "sound_id": 1028179565,
+          "media_id": 644256793,
+          "codec_offset": 78373
+        },
+        {
+          "sound_id": 617984105,
+          "media_id": 917849288,
+          "codec_offset": 78600
+        },
+        {
+          "sound_id": 816031462,
+          "media_id": 265849754,
+          "codec_offset": 78706
+        },
+        {
+          "sound_id": 4373307,
+          "media_id": 539180014,
+          "codec_offset": 79132
+        },
+        {
+          "sound_id": 730503632,
+          "media_id": 676912953,
+          "codec_offset": 79238
+        },
+        {
+          "sound_id": 302163472,
+          "media_id": 983356791,
+          "codec_offset": 79450
+        },
+        {
+          "sound_id": 574204465,
+          "media_id": 274480880,
+          "codec_offset": 80313
+        },
+        {
+          "sound_id": 832272546,
+          "media_id": 992673261,
+          "codec_offset": 80419
+        },
+        {
+          "sound_id": 265138792,
+          "media_id": 577249402,
+          "codec_offset": 80525
+        },
+        {
+          "sound_id": 841609771,
+          "media_id": 938686207,
+          "codec_offset": 80737
+        },
+        {
+          "sound_id": 258178428,
+          "media_id": 1001529893,
+          "codec_offset": 81373
+        },
+        {
+          "sound_id": 1038537993,
+          "media_id": 247592287,
+          "codec_offset": 81479
+        },
+        {
+          "sound_id": 546053018,
+          "media_id": 918419713,
+          "codec_offset": 81585
+        },
+        {
+          "sound_id": 967351265,
+          "media_id": 154172264,
+          "codec_offset": 81691
+        },
+        {
+          "sound_id": 846059364,
+          "media_id": 785915196,
+          "codec_offset": 81903
+        },
+        {
+          "sound_id": 991728895,
+          "media_id": 731411528,
+          "codec_offset": 82009
+        },
+        {
+          "sound_id": 902952778,
+          "media_id": 368252274,
+          "codec_offset": 82115
+        },
+        {
+          "sound_id": 255046919,
+          "media_id": 268829318,
+          "codec_offset": 82221
+        },
+        {
+          "sound_id": 997568526,
+          "media_id": 971099919,
+          "codec_offset": 82327
+        },
+        {
+          "sound_id": 488765451,
+          "media_id": 360539704,
+          "codec_offset": 82433
+        },
+        {
+          "sound_id": 950604893,
+          "media_id": 541072017,
+          "codec_offset": 82539
+        },
+        {
+          "sound_id": 424255529,
+          "media_id": 653198518,
+          "codec_offset": 82645
+        },
+        {
+          "sound_id": 191323127,
+          "media_id": 743125477,
+          "codec_offset": 82751
+        },
+        {
+          "sound_id": 360817636,
+          "media_id": 866859611,
+          "codec_offset": 83069
+        },
+        {
+          "sound_id": 206793038,
+          "media_id": 1035361969,
+          "codec_offset": 83175
+        },
+        {
+          "sound_id": 70717418,
+          "media_id": 54255677,
+          "codec_offset": 83281
+        },
+        {
+          "sound_id": 575441128,
+          "media_id": 1038345465,
+          "codec_offset": 83387
+        },
+        {
+          "sound_id": 1038179292,
+          "media_id": 891176616,
+          "codec_offset": 83493
+        },
+        {
+          "sound_id": 967696177,
+          "media_id": 188888708,
+          "codec_offset": 83705
+        },
+        {
+          "sound_id": 804606480,
+          "media_id": 424020209,
+          "codec_offset": 83811
+        },
+        {
+          "sound_id": 91560179,
+          "media_id": 447010287,
+          "codec_offset": 83917
+        },
+        {
+          "sound_id": 137205779,
+          "media_id": 171946475,
+          "codec_offset": 84129
+        },
+        {
+          "sound_id": 322729975,
+          "media_id": 51995220,
+          "codec_offset": 84235
+        },
+        {
+          "sound_id": 610051290,
+          "media_id": 359348817,
+          "codec_offset": 84805
+        },
+        {
+          "sound_id": 1051168874,
+          "media_id": 753508456,
+          "codec_offset": 84911
+        },
+        {
+          "sound_id": 519918172,
+          "media_id": 965132883,
+          "codec_offset": 85017
+        },
+        {
+          "sound_id": 76414262,
+          "media_id": 630904420,
+          "codec_offset": 85123
+        },
+        {
+          "sound_id": 835556950,
+          "media_id": 142639785,
+          "codec_offset": 85229
+        },
+        {
+          "sound_id": 850954594,
+          "media_id": 363589215,
+          "codec_offset": 85335
+        },
+        {
+          "sound_id": 807562715,
+          "media_id": 996991704,
+          "codec_offset": 85441
+        },
+        {
+          "sound_id": 453192846,
+          "media_id": 229941778,
+          "codec_offset": 85547
+        },
+        {
+          "sound_id": 725167351,
+          "media_id": 1047233092,
+          "codec_offset": 85653
+        },
+        {
+          "sound_id": 545197673,
+          "media_id": 112557438,
+          "codec_offset": 85759
+        },
+        {
+          "sound_id": 424870995,
+          "media_id": 464979016,
+          "codec_offset": 86823
+        },
+        {
+          "sound_id": 571527386,
+          "media_id": 278482293,
+          "codec_offset": 86929
+        },
+        {
+          "sound_id": 539646242,
+          "media_id": 319292822,
+          "codec_offset": 87035
+        },
+        {
+          "sound_id": 471717533,
+          "media_id": 511696995,
+          "codec_offset": 87141
+        },
+        {
+          "sound_id": 185803823,
+          "media_id": 508750730,
+          "codec_offset": 87247
+        },
+        {
+          "sound_id": 784723800,
+          "media_id": 682295846,
+          "codec_offset": 87353
+        },
+        {
+          "sound_id": 477041254,
+          "media_id": 937842185,
+          "codec_offset": 87459
+        },
+        {
+          "sound_id": 256880318,
+          "media_id": 176994670,
+          "codec_offset": 87565
+        },
+        {
+          "sound_id": 109222715,
+          "media_id": 943400863,
+          "codec_offset": 87901
+        },
+        {
+          "sound_id": 965746232,
+          "media_id": 869831901,
+          "codec_offset": 88639
+        },
+        {
+          "sound_id": 634286227,
+          "media_id": 173976152,
+          "codec_offset": 88745
+        },
+        {
+          "sound_id": 27787274,
+          "media_id": 2147228,
+          "codec_offset": 88957
+        },
+        {
+          "sound_id": 161058154,
+          "media_id": 763733310,
+          "codec_offset": 89063
+        },
+        {
+          "sound_id": 858354948,
+          "media_id": 531118191,
+          "codec_offset": 89396
+        },
+        {
+          "sound_id": 403075594,
+          "media_id": 327368524,
+          "codec_offset": 89502
+        },
+        {
+          "sound_id": 180704950,
+          "media_id": 590398332,
+          "codec_offset": 89780
+        },
+        {
+          "sound_id": 793323012,
+          "media_id": 741636044,
+          "codec_offset": 89886
+        },
+        {
+          "sound_id": 536472872,
+          "media_id": 652569797,
+          "codec_offset": 89992
+        },
+        {
+          "sound_id": 239495037,
+          "media_id": 598622134,
+          "codec_offset": 90098
+        },
+        {
+          "sound_id": 150950987,
+          "media_id": 744861973,
+          "codec_offset": 90312
+        },
+        {
+          "sound_id": 918773817,
+          "media_id": 311527646,
+          "codec_offset": 90630
+        },
+        {
+          "sound_id": 428312302,
+          "media_id": 1054243800,
+          "codec_offset": 90844
+        },
+        {
+          "sound_id": 938704838,
+          "media_id": 340163483,
+          "codec_offset": 90950
+        },
+        {
+          "sound_id": 1003769558,
+          "media_id": 668201919,
+          "codec_offset": 91534
+        },
+        {
+          "sound_id": 912871575,
+          "media_id": 686422609,
+          "codec_offset": 91640
+        },
+        {
+          "sound_id": 131070251,
+          "media_id": 625798211,
+          "codec_offset": 91746
+        },
+        {
+          "sound_id": 544698574,
+          "media_id": 278687857,
+          "codec_offset": 94798
+        },
+        {
+          "sound_id": 265174944,
+          "media_id": 583646188,
+          "codec_offset": 95014
+        },
+        {
+          "sound_id": 334665429,
+          "media_id": 64994688,
+          "codec_offset": 95120
+        },
+        {
+          "sound_id": 997390731,
+          "media_id": 1002323872,
+          "codec_offset": 95653
+        },
+        {
+          "sound_id": 324395444,
+          "media_id": 534554812,
+          "codec_offset": 95759
+        },
+        {
+          "sound_id": 360811888,
+          "media_id": 238091179,
+          "codec_offset": 95865
+        },
+        {
+          "sound_id": 475141377,
+          "media_id": 141085411,
+          "codec_offset": 95971
+        },
+        {
+          "sound_id": 273820571,
+          "media_id": 12970436,
+          "codec_offset": 96250
+        },
+        {
+          "sound_id": 198909331,
+          "media_id": 74903888,
+          "codec_offset": 96356
+        },
+        {
+          "sound_id": 496700950,
+          "media_id": 474938237,
+          "codec_offset": 96572
+        },
+        {
+          "sound_id": 424629232,
+          "media_id": 456231605,
+          "codec_offset": 96678
+        },
+        {
+          "sound_id": 90104802,
+          "media_id": 793993610,
+          "codec_offset": 97431
+        },
+        {
+          "sound_id": 113128702,
+          "media_id": 511818711,
+          "codec_offset": 97542
+        },
+        {
+          "sound_id": 759460486,
+          "media_id": 155915042,
+          "codec_offset": 97648
+        },
+        {
+          "sound_id": 453820013,
+          "media_id": 299360315,
+          "codec_offset": 97759
+        },
+        {
+          "sound_id": 861412825,
+          "media_id": 868552074,
+          "codec_offset": 97983
+        },
+        {
+          "sound_id": 932083164,
+          "media_id": 243009568,
+          "codec_offset": 98089
+        },
+        {
+          "sound_id": 91487068,
+          "media_id": 420356474,
+          "codec_offset": 98300
+        },
+        {
+          "sound_id": 783295330,
+          "media_id": 880439327,
+          "codec_offset": 98406
+        },
+        {
+          "sound_id": 281295520,
+          "media_id": 662190245,
+          "codec_offset": 98829
+        },
+        {
+          "sound_id": 867609248,
+          "media_id": 709362445,
+          "codec_offset": 98935
+        },
+        {
+          "sound_id": 563815101,
+          "media_id": 214050470,
+          "codec_offset": 99154
+        },
+        {
+          "sound_id": 452812676,
+          "media_id": 919769918,
+          "codec_offset": 99260
+        },
+        {
+          "sound_id": 680492619,
+          "media_id": 987411244,
+          "codec_offset": 99667
+        },
+        {
+          "sound_id": 434270378,
+          "media_id": 546397368,
+          "codec_offset": 99778
+        },
+        {
+          "sound_id": 327758669,
+          "media_id": 518089081,
+          "codec_offset": 99990
+        },
+        {
+          "sound_id": 416868116,
+          "media_id": 898824080,
+          "codec_offset": 100101
+        },
+        {
+          "sound_id": 960463169,
+          "media_id": 815807290,
+          "codec_offset": 100212
+        },
+        {
+          "sound_id": 738867048,
+          "media_id": 358529925,
+          "codec_offset": 100318
+        },
+        {
+          "sound_id": 19514842,
+          "media_id": 273558808,
+          "codec_offset": 100429
+        },
+        {
+          "sound_id": 671929087,
+          "media_id": 135419715,
+          "codec_offset": 100540
+        },
+        {
+          "sound_id": 253167179,
+          "media_id": 405357948,
+          "codec_offset": 100651
+        },
+        {
+          "sound_id": 129349378,
+          "media_id": 27805685,
+          "codec_offset": 100946
+        },
+        {
+          "sound_id": 140226300,
+          "media_id": 1046589703,
+          "codec_offset": 101052
+        },
+        {
+          "sound_id": 508210489,
+          "media_id": 578903279,
+          "codec_offset": 101158
+        },
+        {
+          "sound_id": 360473086,
+          "media_id": 149488582,
+          "codec_offset": 101264
+        },
+        {
+          "sound_id": 928030903,
+          "media_id": 891593825,
+          "codec_offset": 101370
+        },
+        {
+          "sound_id": 186137617,
+          "media_id": 964624453,
+          "codec_offset": 101476
+        },
+        {
+          "sound_id": 421668305,
+          "media_id": 1060880341,
+          "codec_offset": 101582
+        },
+        {
+          "sound_id": 377836577,
+          "media_id": 280061050,
+          "codec_offset": 101794
+        },
+        {
+          "sound_id": 80422508,
+          "media_id": 159915322,
+          "codec_offset": 102218
+        },
+        {
+          "sound_id": 315777001,
+          "media_id": 654158067,
+          "codec_offset": 102324
+        },
+        {
+          "sound_id": 452265575,
+          "media_id": 597806695,
+          "codec_offset": 102430
+        },
+        {
+          "sound_id": 213274293,
+          "media_id": 259459415,
+          "codec_offset": 102642
+        },
+        {
+          "sound_id": 791622937,
+          "media_id": 821132406,
+          "codec_offset": 102748
+        },
+        {
+          "sound_id": 1061372481,
+          "media_id": 360992679,
+          "codec_offset": 102854
+        },
+        {
+          "sound_id": 925917777,
+          "media_id": 533017824,
+          "codec_offset": 102960
+        },
+        {
+          "sound_id": 475172295,
+          "media_id": 310617487,
+          "codec_offset": 103066
+        },
+        {
+          "sound_id": 736506664,
+          "media_id": 343360568,
+          "codec_offset": 103172
+        },
+        {
+          "sound_id": 391970558,
+          "media_id": 865385840,
+          "codec_offset": 103278
+        },
+        {
+          "sound_id": 414573781,
+          "media_id": 505025991,
+          "codec_offset": 103384
+        },
+        {
+          "sound_id": 499812356,
+          "media_id": 511668340,
+          "codec_offset": 105084
+        },
+        {
+          "sound_id": 584937758,
+          "media_id": 271389676,
+          "codec_offset": 105190
+        },
+        {
+          "sound_id": 346021771,
+          "media_id": 223080150,
+          "codec_offset": 106049
+        },
+        {
+          "sound_id": 483677075,
+          "media_id": 923286588,
+          "codec_offset": 106155
+        },
+        {
+          "sound_id": 491792320,
+          "media_id": 568475518,
+          "codec_offset": 106586
+        },
+        {
+          "sound_id": 208529982,
+          "media_id": 382731515,
+          "codec_offset": 106803
+        },
+        {
+          "sound_id": 481445774,
+          "media_id": 921045689,
+          "codec_offset": 107569
+        },
+        {
+          "sound_id": 870372559,
+          "media_id": 532545887,
+          "codec_offset": 107675
+        },
+        {
+          "sound_id": 1043690843,
+          "media_id": 667567972,
+          "codec_offset": 111680
+        },
+        {
+          "sound_id": 1038678108,
+          "media_id": 751869649,
+          "codec_offset": 111786
+        },
+        {
+          "sound_id": 783863874,
+          "media_id": 537981685,
+          "codec_offset": 111892
+        },
+        {
+          "sound_id": 446725855,
+          "media_id": 1053833893,
+          "codec_offset": 111998
+        },
+        {
+          "sound_id": 925817310,
+          "media_id": 276819473,
+          "codec_offset": 112871
+        },
+        {
+          "sound_id": 166990974,
+          "media_id": 977523646,
+          "codec_offset": 113294
+        },
+        {
+          "sound_id": 358195416,
+          "media_id": 629142828,
+          "codec_offset": 113400
+        },
+        {
+          "sound_id": 111276385,
+          "media_id": 861461412,
+          "codec_offset": 113612
+        },
+        {
+          "sound_id": 178043525,
+          "media_id": 502236495,
+          "codec_offset": 113930
+        },
+        {
+          "sound_id": 211941636,
+          "media_id": 849718019,
+          "codec_offset": 114165
+        },
+        {
+          "sound_id": 295115826,
+          "media_id": 87184596,
+          "codec_offset": 114715
+        },
+        {
+          "sound_id": 777308234,
+          "media_id": 449513487,
+          "codec_offset": 114927
+        },
+        {
+          "sound_id": 359373650,
+          "media_id": 1069214032,
+          "codec_offset": 115162
+        },
+        {
+          "sound_id": 178366336,
+          "media_id": 229061135,
+          "codec_offset": 115268
+        },
+        {
+          "sound_id": 590134802,
+          "media_id": 648416041,
+          "codec_offset": 115480
+        },
+        {
+          "sound_id": 913858729,
+          "media_id": 551298639,
+          "codec_offset": 115586
+        },
+        {
+          "sound_id": 103743373,
+          "media_id": 275371855,
+          "codec_offset": 115692
+        },
+        {
+          "sound_id": 208095539,
+          "media_id": 823170903,
+          "codec_offset": 115919
+        },
+        {
+          "sound_id": 94491181,
+          "media_id": 829572484,
+          "codec_offset": 116025
+        },
+        {
+          "sound_id": 837797196,
+          "media_id": 449732959,
+          "codec_offset": 116131
+        },
+        {
+          "sound_id": 236634057,
+          "media_id": 948840614,
+          "codec_offset": 116237
+        },
+        {
+          "sound_id": 773692049,
+          "media_id": 558690781,
+          "codec_offset": 116451
+        },
+        {
+          "sound_id": 1048213528,
+          "media_id": 963324020,
+          "codec_offset": 116562
+        },
+        {
+          "sound_id": 87068527,
+          "media_id": 972511022,
+          "codec_offset": 116673
+        },
+        {
+          "sound_id": 821610313,
+          "media_id": 838282452,
+          "codec_offset": 116779
+        },
+        {
+          "sound_id": 301527822,
+          "media_id": 185220661,
+          "codec_offset": 116885
+        },
+        {
+          "sound_id": 356726772,
+          "media_id": 39041784,
+          "codec_offset": 116996
+        },
+        {
+          "sound_id": 258755493,
+          "media_id": 16888164,
+          "codec_offset": 117102
+        },
+        {
+          "sound_id": 811953557,
+          "media_id": 268541799,
+          "codec_offset": 117213
+        },
+        {
+          "sound_id": 610604806,
+          "media_id": 658637859,
+          "codec_offset": 117319
+        },
+        {
+          "sound_id": 1043099180,
+          "media_id": 849179168,
+          "codec_offset": 117425
+        },
+        {
+          "sound_id": 690915018,
+          "media_id": 923448969,
+          "codec_offset": 117531
+        },
+        {
+          "sound_id": 1031446926,
+          "media_id": 409547060,
+          "codec_offset": 117642
+        },
+        {
+          "sound_id": 442459612,
+          "media_id": 337268235,
+          "codec_offset": 117854
+        },
+        {
+          "sound_id": 141868899,
+          "media_id": 1042564053,
+          "codec_offset": 117965
+        },
+        {
+          "sound_id": 517205963,
+          "media_id": 1055544829,
+          "codec_offset": 118071
+        },
+        {
+          "sound_id": 485088181,
+          "media_id": 370832595,
+          "codec_offset": 118420
+        },
+        {
+          "sound_id": 972269074,
+          "media_id": 869694207,
+          "codec_offset": 118526
+        },
+        {
+          "sound_id": 82695743,
+          "media_id": 109321139,
+          "codec_offset": 118737
+        },
+        {
+          "sound_id": 346500997,
+          "media_id": 557127672,
+          "codec_offset": 118843
+        },
+        {
+          "sound_id": 686029774,
+          "media_id": 794067516,
+          "codec_offset": 119059
+        },
+        {
+          "sound_id": 254507374,
+          "media_id": 278168329,
+          "codec_offset": 119165
+        },
+        {
+          "sound_id": 293206426,
+          "media_id": 18379507,
+          "codec_offset": 119381
+        },
+        {
+          "sound_id": 255281515,
+          "media_id": 550512272,
+          "codec_offset": 119487
+        },
+        {
+          "sound_id": 52304363,
+          "media_id": 64823613,
+          "codec_offset": 119593
+        },
+        {
+          "sound_id": 363143898,
+          "media_id": 277698610,
+          "codec_offset": 119699
+        },
+        {
+          "sound_id": 622087563,
+          "media_id": 1067523679,
+          "codec_offset": 119805
+        },
+        {
+          "sound_id": 1073470876,
+          "media_id": 375976852,
+          "codec_offset": 119911
+        },
+        {
+          "sound_id": 933070026,
+          "media_id": 62971565,
+          "codec_offset": 120143
+        },
+        {
+          "sound_id": 271268445,
+          "media_id": 121786746,
+          "codec_offset": 120524
+        },
+        {
+          "sound_id": 602881319,
+          "media_id": 364751501,
+          "codec_offset": 120630
+        },
+        {
+          "sound_id": 534481301,
+          "media_id": 36616805,
+          "codec_offset": 120842
+        },
+        {
+          "sound_id": 122728373,
+          "media_id": 1061405453,
+          "codec_offset": 121066
+        },
+        {
+          "sound_id": 449349954,
+          "media_id": 532086342,
+          "codec_offset": 121172
+        },
+        {
+          "sound_id": 486024671,
+          "media_id": 428363091,
+          "codec_offset": 121278
+        },
+        {
+          "sound_id": 209330064,
+          "media_id": 376538170,
+          "codec_offset": 121384
+        },
+        {
+          "sound_id": 472769371,
+          "media_id": 777280122,
+          "codec_offset": 121490
+        },
+        {
+          "sound_id": 965756695,
+          "media_id": 338792955,
+          "codec_offset": 121596
+        },
+        {
+          "sound_id": 882883668,
+          "media_id": 475715779,
+          "codec_offset": 121702
+        },
+        {
+          "sound_id": 25225359,
+          "media_id": 133548279,
+          "codec_offset": 121808
+        },
+        {
+          "sound_id": 22638608,
+          "media_id": 225591151,
+          "codec_offset": 122255
+        },
+        {
+          "sound_id": 706163437,
+          "media_id": 122096544,
+          "codec_offset": 122361
+        },
+        {
+          "sound_id": 13454425,
+          "media_id": 711466274,
+          "codec_offset": 122958
+        },
+        {
+          "sound_id": 246630983,
+          "media_id": 61381780,
+          "codec_offset": 123275
+        },
+        {
+          "sound_id": 1030889790,
+          "media_id": 952298344,
+          "codec_offset": 123381
+        },
+        {
+          "sound_id": 309887755,
+          "media_id": 250213250,
+          "codec_offset": 123487
+        },
+        {
+          "sound_id": 235097031,
+          "media_id": 435168685,
+          "codec_offset": 126353
+        },
+        {
+          "sound_id": 798976427,
+          "media_id": 1034915978,
+          "codec_offset": 126459
+        },
+        {
+          "sound_id": 675261518,
+          "media_id": 912200862,
+          "codec_offset": 126670
+        },
+        {
+          "sound_id": 637105808,
+          "media_id": 872680298,
+          "codec_offset": 126776
+        },
+        {
+          "sound_id": 345729883,
+          "media_id": 438497395,
+          "codec_offset": 126987
+        },
+        {
+          "sound_id": 1066702730,
+          "media_id": 127887249,
+          "codec_offset": 127093
+        },
+        {
+          "sound_id": 130419026,
+          "media_id": 594192390,
+          "codec_offset": 127199
+        },
+        {
+          "sound_id": 400950774,
+          "media_id": 1000953143,
+          "codec_offset": 127411
+        },
+        {
+          "sound_id": 617128929,
+          "media_id": 944973025,
+          "codec_offset": 127522
+        },
+        {
+          "sound_id": 16583666,
+          "media_id": 562072894,
+          "codec_offset": 127628
+        },
+        {
+          "sound_id": 868823775,
+          "media_id": 290308827,
+          "codec_offset": 127734
+        },
+        {
+          "sound_id": 841094101,
+          "media_id": 737599183,
+          "codec_offset": 127840
+        },
+        {
+          "sound_id": 49260315,
+          "media_id": 582470213,
+          "codec_offset": 127946
+        },
+        {
+          "sound_id": 49008603,
+          "media_id": 470703217,
+          "codec_offset": 128158
+        },
+        {
+          "sound_id": 207706886,
+          "media_id": 210910541,
+          "codec_offset": 128264
+        },
+        {
+          "sound_id": 859558922,
+          "media_id": 651512027,
+          "codec_offset": 128370
+        },
+        {
+          "sound_id": 162506547,
+          "media_id": 709679560,
+          "codec_offset": 128476
+        },
+        {
+          "sound_id": 773341458,
+          "media_id": 691709313,
+          "codec_offset": 128900
+        },
+        {
+          "sound_id": 966452726,
+          "media_id": 116673211,
+          "codec_offset": 129006
+        },
+        {
+          "sound_id": 931850741,
+          "media_id": 631462786,
+          "codec_offset": 129400
+        },
+        {
+          "sound_id": 205693546,
+          "media_id": 832275887,
+          "codec_offset": 129506
+        },
+        {
+          "sound_id": 13655194,
+          "media_id": 892137455,
+          "codec_offset": 129612
+        },
+        {
+          "sound_id": 663057968,
+          "media_id": 609263131,
+          "codec_offset": 129718
+        },
+        {
+          "sound_id": 456042158,
+          "media_id": 1029050250,
+          "codec_offset": 129824
+        },
+        {
+          "sound_id": 637689618,
+          "media_id": 491996968,
+          "codec_offset": 130195
+        },
+        {
+          "sound_id": 870453108,
+          "media_id": 560634676,
+          "codec_offset": 130811
+        },
+        {
+          "sound_id": 83253422,
+          "media_id": 1013772184,
+          "codec_offset": 130917
+        },
+        {
+          "sound_id": 561465490,
+          "media_id": 987042177,
+          "codec_offset": 132279
+        },
+        {
+          "sound_id": 981912724,
+          "media_id": 254480422,
+          "codec_offset": 132960
+        },
+        {
+          "sound_id": 960366758,
+          "media_id": 163200070,
+          "codec_offset": 133429
+        },
+        {
+          "sound_id": 607440159,
+          "media_id": 710042600,
+          "codec_offset": 133679
+        },
+        {
+          "sound_id": 736957291,
+          "media_id": 346854461,
+          "codec_offset": 133785
+        },
+        {
+          "sound_id": 376907690,
+          "media_id": 722634017,
+          "codec_offset": 133996
+        },
+        {
+          "sound_id": 543541065,
+          "media_id": 774240460,
+          "codec_offset": 137458
+        },
+        {
+          "sound_id": 727827685,
+          "media_id": 436482544,
+          "codec_offset": 137564
+        },
+        {
+          "sound_id": 484390769,
+          "media_id": 73979471,
+          "codec_offset": 137670
+        },
+        {
+          "sound_id": 732812424,
+          "media_id": 936612998,
+          "codec_offset": 137776
+        },
+        {
+          "sound_id": 1063718238,
+          "media_id": 367260511,
+          "codec_offset": 137882
+        },
+        {
+          "sound_id": 677802771,
+          "media_id": 628077949,
+          "codec_offset": 138200
+        },
+        {
+          "sound_id": 543186448,
+          "media_id": 347460978,
+          "codec_offset": 138306
+        },
+        {
+          "sound_id": 16073231,
+          "media_id": 757577489,
+          "codec_offset": 138600
+        },
+        {
+          "sound_id": 66173921,
+          "media_id": 268023162,
+          "codec_offset": 138706
+        },
+        {
+          "sound_id": 868526911,
+          "media_id": 894523833,
+          "codec_offset": 138812
+        },
+        {
+          "sound_id": 1065373948,
+          "media_id": 483271268,
+          "codec_offset": 138918
+        },
+        {
+          "sound_id": 530209119,
+          "media_id": 51018810,
+          "codec_offset": 139130
+        },
+        {
+          "sound_id": 1062520154,
+          "media_id": 370298988,
+          "codec_offset": 139236
+        },
+        {
+          "sound_id": 546336420,
+          "media_id": 726139250,
+          "codec_offset": 139342
+        },
+        {
+          "sound_id": 810666237,
+          "media_id": 896821532,
+          "codec_offset": 139448
+        },
+        {
+          "sound_id": 212517203,
+          "media_id": 754455690,
+          "codec_offset": 139554
+        },
+        {
+          "sound_id": 660319489,
+          "media_id": 880847401,
+          "codec_offset": 141773
+        },
+        {
+          "sound_id": 433347397,
+          "media_id": 291103115,
+          "codec_offset": 141985
+        },
+        {
+          "sound_id": 386029406,
+          "media_id": 584499076,
+          "codec_offset": 142303
+        },
+        {
+          "sound_id": 511323282,
+          "media_id": 872878256,
+          "codec_offset": 142687
+        },
+        {
+          "sound_id": 155911934,
+          "media_id": 256592948,
+          "codec_offset": 142793
+        },
+        {
+          "sound_id": 481297219,
+          "media_id": 125107720,
+          "codec_offset": 143005
+        },
+        {
+          "sound_id": 908626204,
+          "media_id": 791199954,
+          "codec_offset": 143323
+        },
+        {
+          "sound_id": 1070663488,
+          "media_id": 545920618,
+          "codec_offset": 143429
+        },
+        {
+          "sound_id": 485098984,
+          "media_id": 763981718,
+          "codec_offset": 143535
+        },
+        {
+          "sound_id": 463578062,
+          "media_id": 726214092,
+          "codec_offset": 143641
+        },
+        {
+          "sound_id": 782325836,
+          "media_id": 628369378,
+          "codec_offset": 143747
+        },
+        {
+          "sound_id": 852331290,
+          "media_id": 150679856,
+          "codec_offset": 143959
+        },
+        {
+          "sound_id": 54297521,
+          "media_id": 894960168,
+          "codec_offset": 144324
+        },
+        {
+          "sound_id": 480912766,
+          "media_id": 1045661310,
+          "codec_offset": 144430
+        },
+        {
+          "sound_id": 702100119,
+          "media_id": 976911124,
+          "codec_offset": 144536
+        },
+        {
+          "sound_id": 291755887,
+          "media_id": 737498779,
+          "codec_offset": 144642
+        },
+        {
+          "sound_id": 195260056,
+          "media_id": 288024321,
+          "codec_offset": 144748
+        },
+        {
+          "sound_id": 192758844,
+          "media_id": 592716354,
+          "codec_offset": 144854
+        },
+        {
+          "sound_id": 406249999,
+          "media_id": 115965896,
+          "codec_offset": 144960
+        },
+        {
+          "sound_id": 947188116,
+          "media_id": 405435928,
+          "codec_offset": 145066
+        },
+        {
+          "sound_id": 514840433,
+          "media_id": 127950559,
+          "codec_offset": 145172
+        },
+        {
+          "sound_id": 894975499,
+          "media_id": 261562195,
+          "codec_offset": 145278
+        },
+        {
+          "sound_id": 724447173,
+          "media_id": 554111504,
+          "codec_offset": 145384
+        },
+        {
+          "sound_id": 32432960,
+          "media_id": 27710306,
+          "codec_offset": 145490
+        },
+        {
+          "sound_id": 497791993,
+          "media_id": 527927312,
+          "codec_offset": 145902
+        },
+        {
+          "sound_id": 292308932,
+          "media_id": 354892299,
+          "codec_offset": 146008
+        },
+        {
+          "sound_id": 202962159,
+          "media_id": 695536253,
+          "codec_offset": 146114
+        },
+        {
+          "sound_id": 175642961,
+          "media_id": 438149276,
+          "codec_offset": 146220
+        },
+        {
+          "sound_id": 415912554,
+          "media_id": 693500753,
+          "codec_offset": 148485
+        },
+        {
+          "sound_id": 111415402,
+          "media_id": 509644240,
+          "codec_offset": 148591
+        },
+        {
+          "sound_id": 942306479,
+          "media_id": 777539022,
+          "codec_offset": 148903
+        },
+        {
+          "sound_id": 867954467,
+          "media_id": 548501816,
+          "codec_offset": 149009
+        },
+        {
+          "sound_id": 14740057,
+          "media_id": 485075893,
+          "codec_offset": 149115
+        },
+        {
+          "sound_id": 211747127,
+          "media_id": 337493683,
+          "codec_offset": 149221
+        },
+        {
+          "sound_id": 1049669975,
+          "media_id": 486383999,
+          "codec_offset": 149327
+        },
+        {
+          "sound_id": 763978757,
+          "media_id": 420868571,
+          "codec_offset": 149539
+        },
+        {
+          "sound_id": 290566680,
+          "media_id": 66812390,
+          "codec_offset": 149645
+        },
+        {
+          "sound_id": 279060277,
+          "media_id": 24569307,
+          "codec_offset": 149751
+        },
+        {
+          "sound_id": 131836614,
+          "media_id": 472941074,
+          "codec_offset": 149857
+        },
+        {
+          "sound_id": 858770206,
+          "media_id": 417953652,
+          "codec_offset": 149963
+        },
+        {
+          "sound_id": 173052121,
+          "media_id": 743929055,
+          "codec_offset": 150069
+        },
+        {
+          "sound_id": 538518163,
+          "media_id": 503748571,
+          "codec_offset": 150281
+        },
+        {
+          "sound_id": 317058214,
+          "media_id": 585212771,
+          "codec_offset": 150387
+        },
+        {
+          "sound_id": 711510087,
+          "media_id": 827052380,
+          "codec_offset": 150493
+        },
+        {
+          "sound_id": 443916365,
+          "media_id": 513653000,
+          "codec_offset": 150705
+        },
+        {
+          "sound_id": 467554953,
+          "media_id": 280865046,
+          "codec_offset": 150811
+        },
+        {
+          "sound_id": 1054671976,
+          "media_id": 1055601876,
+          "codec_offset": 150917
+        },
+        {
+          "sound_id": 948975959,
+          "media_id": 839441342,
+          "codec_offset": 151129
+        },
+        {
+          "sound_id": 680364146,
+          "media_id": 286498291,
+          "codec_offset": 151424
+        },
+        {
+          "sound_id": 806155158,
+          "media_id": 267153834,
+          "codec_offset": 151530
+        },
+        {
+          "sound_id": 130402846,
+          "media_id": 553495418,
+          "codec_offset": 151636
+        },
+        {
+          "sound_id": 685294231,
+          "media_id": 428774720,
+          "codec_offset": 151742
+        },
+        {
+          "sound_id": 295567315,
+          "media_id": 45676510,
+          "codec_offset": 158120
+        },
+        {
+          "sound_id": 285622065,
+          "media_id": 84727873,
+          "codec_offset": 158226
+        },
+        {
+          "sound_id": 928269650,
+          "media_id": 9862341,
+          "codec_offset": 158332
+        },
+        {
+          "sound_id": 41572419,
+          "media_id": 119629763,
+          "codec_offset": 158438
+        },
+        {
+          "sound_id": 232036726,
+          "media_id": 684098444,
+          "codec_offset": 158652
+        },
+        {
+          "sound_id": 590783837,
+          "media_id": 248179912,
+          "codec_offset": 158758
+        },
+        {
+          "sound_id": 687256216,
+          "media_id": 730862850,
+          "codec_offset": 159281
+        },
+        {
+          "sound_id": 172900120,
+          "media_id": 1040307763,
+          "codec_offset": 159387
+        },
+        {
+          "sound_id": 978523438,
+          "media_id": 982758335,
+          "codec_offset": 161189
+        },
+        {
+          "sound_id": 977147266,
+          "media_id": 80518583,
+          "codec_offset": 161295
+        },
+        {
+          "sound_id": 915511239,
+          "media_id": 329882446,
+          "codec_offset": 161401
+        },
+        {
+          "sound_id": 895668749,
+          "media_id": 967426372,
+          "codec_offset": 161726
+        },
+        {
+          "sound_id": 50842017,
+          "media_id": 947420027,
+          "codec_offset": 161832
+        },
+        {
+          "sound_id": 295487264,
+          "media_id": 954721932,
+          "codec_offset": 162044
+        }
+      ],
+      "original_bank_sha256": "82840e84028ca995fb8df15d69cbe5b349be3a7bd2e8cc08583acb0044936254",
+      "new_bank_sha256": "3c34bbf869717767f6e665750cf24245d6646916d9fec30fbf19dcbfcd656a72"
+    },
+    {
+      "slot": 4,
+      "character": "Boss",
+      "bank_id": "6c91a47b88d26638",
+      "mapped_media": 293,
+      "changes": [
+        {
+          "sound_id": 150525612,
+          "media_id": 825147220,
+          "codec_offset": 63507
+        },
+        {
+          "sound_id": 600038965,
+          "media_id": 743931768,
+          "codec_offset": 63719
+        },
+        {
+          "sound_id": 376085416,
+          "media_id": 790731728,
+          "codec_offset": 64044
+        },
+        {
+          "sound_id": 734090285,
+          "media_id": 546716553,
+          "codec_offset": 64150
+        },
+        {
+          "sound_id": 947607943,
+          "media_id": 71070584,
+          "codec_offset": 64361
+        },
+        {
+          "sound_id": 216440467,
+          "media_id": 155041442,
+          "codec_offset": 64467
+        },
+        {
+          "sound_id": 1019155382,
+          "media_id": 45313077,
+          "codec_offset": 64573
+        },
+        {
+          "sound_id": 771822052,
+          "media_id": 139378925,
+          "codec_offset": 64679
+        },
+        {
+          "sound_id": 342659576,
+          "media_id": 853597390,
+          "codec_offset": 64898
+        },
+        {
+          "sound_id": 598450297,
+          "media_id": 103500057,
+          "codec_offset": 65004
+        },
+        {
+          "sound_id": 563062229,
+          "media_id": 1028024307,
+          "codec_offset": 65532
+        },
+        {
+          "sound_id": 782647307,
+          "media_id": 98598985,
+          "codec_offset": 65638
+        },
+        {
+          "sound_id": 303514985,
+          "media_id": 855403223,
+          "codec_offset": 65849
+        },
+        {
+          "sound_id": 229398962,
+          "media_id": 413695712,
+          "codec_offset": 65955
+        },
+        {
+          "sound_id": 616795417,
+          "media_id": 600731222,
+          "codec_offset": 66272
+        },
+        {
+          "sound_id": 35690705,
+          "media_id": 1049830914,
+          "codec_offset": 66483
+        },
+        {
+          "sound_id": 1052586310,
+          "media_id": 748970810,
+          "codec_offset": 66589
+        },
+        {
+          "sound_id": 473726486,
+          "media_id": 610083008,
+          "codec_offset": 67012
+        },
+        {
+          "sound_id": 1050623093,
+          "media_id": 210666643,
+          "codec_offset": 67118
+        },
+        {
+          "sound_id": 347727204,
+          "media_id": 555312172,
+          "codec_offset": 68326
+        },
+        {
+          "sound_id": 606969658,
+          "media_id": 514753809,
+          "codec_offset": 68538
+        },
+        {
+          "sound_id": 732404252,
+          "media_id": 197738777,
+          "codec_offset": 68644
+        },
+        {
+          "sound_id": 285280710,
+          "media_id": 228065658,
+          "codec_offset": 71415
+        },
+        {
+          "sound_id": 803512487,
+          "media_id": 951942243,
+          "codec_offset": 71521
+        },
+        {
+          "sound_id": 21774344,
+          "media_id": 403003832,
+          "codec_offset": 71732
+        },
+        {
+          "sound_id": 132909852,
+          "media_id": 694861490,
+          "codec_offset": 71838
+        },
+        {
+          "sound_id": 516534831,
+          "media_id": 492191638,
+          "codec_offset": 72678
+        },
+        {
+          "sound_id": 435315205,
+          "media_id": 429486670,
+          "codec_offset": 73208
+        },
+        {
+          "sound_id": 475823304,
+          "media_id": 108425573,
+          "codec_offset": 74600
+        },
+        {
+          "sound_id": 888828972,
+          "media_id": 548398013,
+          "codec_offset": 74706
+        },
+        {
+          "sound_id": 753284316,
+          "media_id": 528712929,
+          "codec_offset": 74812
+        },
+        {
+          "sound_id": 654611535,
+          "media_id": 895825802,
+          "codec_offset": 74918
+        },
+        {
+          "sound_id": 658819532,
+          "media_id": 39891981,
+          "codec_offset": 75024
+        },
+        {
+          "sound_id": 872675695,
+          "media_id": 693385758,
+          "codec_offset": 75236
+        },
+        {
+          "sound_id": 216938815,
+          "media_id": 372045137,
+          "codec_offset": 75342
+        },
+        {
+          "sound_id": 867915680,
+          "media_id": 465847820,
+          "codec_offset": 75448
+        },
+        {
+          "sound_id": 927397767,
+          "media_id": 724457213,
+          "codec_offset": 75554
+        },
+        {
+          "sound_id": 1040269456,
+          "media_id": 590279289,
+          "codec_offset": 75665
+        },
+        {
+          "sound_id": 225928428,
+          "media_id": 956604811,
+          "codec_offset": 75771
+        },
+        {
+          "sound_id": 706471388,
+          "media_id": 505743941,
+          "codec_offset": 75877
+        },
+        {
+          "sound_id": 621145162,
+          "media_id": 134865610,
+          "codec_offset": 75983
+        },
+        {
+          "sound_id": 262917992,
+          "media_id": 258257291,
+          "codec_offset": 76089
+        },
+        {
+          "sound_id": 508715783,
+          "media_id": 833714855,
+          "codec_offset": 76513
+        },
+        {
+          "sound_id": 478191785,
+          "media_id": 265016701,
+          "codec_offset": 76624
+        },
+        {
+          "sound_id": 942309292,
+          "media_id": 439415310,
+          "codec_offset": 76730
+        },
+        {
+          "sound_id": 1051650120,
+          "media_id": 788516774,
+          "codec_offset": 77064
+        },
+        {
+          "sound_id": 247428901,
+          "media_id": 896678640,
+          "codec_offset": 77170
+        },
+        {
+          "sound_id": 87169233,
+          "media_id": 402366708,
+          "codec_offset": 77276
+        },
+        {
+          "sound_id": 947529985,
+          "media_id": 625293618,
+          "codec_offset": 77382
+        },
+        {
+          "sound_id": 745643894,
+          "media_id": 697621440,
+          "codec_offset": 77601
+        },
+        {
+          "sound_id": 43666627,
+          "media_id": 116651007,
+          "codec_offset": 77707
+        },
+        {
+          "sound_id": 687761927,
+          "media_id": 534646358,
+          "codec_offset": 77918
+        },
+        {
+          "sound_id": 845815572,
+          "media_id": 756679065,
+          "codec_offset": 78024
+        },
+        {
+          "sound_id": 574985338,
+          "media_id": 192075437,
+          "codec_offset": 78130
+        },
+        {
+          "sound_id": 412584899,
+          "media_id": 742438000,
+          "codec_offset": 78236
+        },
+        {
+          "sound_id": 96938477,
+          "media_id": 867676626,
+          "codec_offset": 78342
+        },
+        {
+          "sound_id": 316525494,
+          "media_id": 859710390,
+          "codec_offset": 78448
+        },
+        {
+          "sound_id": 350214169,
+          "media_id": 524855498,
+          "codec_offset": 78670
+        },
+        {
+          "sound_id": 512427053,
+          "media_id": 537434200,
+          "codec_offset": 78776
+        },
+        {
+          "sound_id": 247915412,
+          "media_id": 323125215,
+          "codec_offset": 79323
+        },
+        {
+          "sound_id": 1043253870,
+          "media_id": 322936333,
+          "codec_offset": 79429
+        },
+        {
+          "sound_id": 529359480,
+          "media_id": 56965397,
+          "codec_offset": 80418
+        },
+        {
+          "sound_id": 760757018,
+          "media_id": 965979552,
+          "codec_offset": 80630
+        },
+        {
+          "sound_id": 967836547,
+          "media_id": 722731211,
+          "codec_offset": 80948
+        },
+        {
+          "sound_id": 656402571,
+          "media_id": 1042831016,
+          "codec_offset": 81266
+        },
+        {
+          "sound_id": 470933815,
+          "media_id": 572826934,
+          "codec_offset": 81372
+        },
+        {
+          "sound_id": 121728851,
+          "media_id": 569358314,
+          "codec_offset": 81478
+        },
+        {
+          "sound_id": 281229336,
+          "media_id": 34331805,
+          "codec_offset": 81690
+        },
+        {
+          "sound_id": 243002348,
+          "media_id": 230037307,
+          "codec_offset": 81902
+        },
+        {
+          "sound_id": 1049355838,
+          "media_id": 781128237,
+          "codec_offset": 82750
+        },
+        {
+          "sound_id": 551437882,
+          "media_id": 186199817,
+          "codec_offset": 82856
+        },
+        {
+          "sound_id": 426434500,
+          "media_id": 919249767,
+          "codec_offset": 82962
+        },
+        {
+          "sound_id": 544854966,
+          "media_id": 93790851,
+          "codec_offset": 83068
+        },
+        {
+          "sound_id": 683697314,
+          "media_id": 981521311,
+          "codec_offset": 83280
+        },
+        {
+          "sound_id": 509508206,
+          "media_id": 24465233,
+          "codec_offset": 83386
+        },
+        {
+          "sound_id": 141392453,
+          "media_id": 1052707863,
+          "codec_offset": 83598
+        },
+        {
+          "sound_id": 1004807070,
+          "media_id": 113179455,
+          "codec_offset": 83704
+        },
+        {
+          "sound_id": 89977870,
+          "media_id": 1014042120,
+          "codec_offset": 83916
+        },
+        {
+          "sound_id": 63060027,
+          "media_id": 785864512,
+          "codec_offset": 84022
+        },
+        {
+          "sound_id": 688225506,
+          "media_id": 448883317,
+          "codec_offset": 84234
+        },
+        {
+          "sound_id": 355632556,
+          "media_id": 909093260,
+          "codec_offset": 84446
+        },
+        {
+          "sound_id": 1030062969,
+          "media_id": 622736782,
+          "codec_offset": 84552
+        },
+        {
+          "sound_id": 43840292,
+          "media_id": 108406991,
+          "codec_offset": 85243
+        },
+        {
+          "sound_id": 131488637,
+          "media_id": 963623273,
+          "codec_offset": 85904
+        },
+        {
+          "sound_id": 879228323,
+          "media_id": 922708302,
+          "codec_offset": 87109
+        },
+        {
+          "sound_id": 1031331546,
+          "media_id": 416781711,
+          "codec_offset": 87975
+        },
+        {
+          "sound_id": 883420408,
+          "media_id": 343218582,
+          "codec_offset": 88081
+        },
+        {
+          "sound_id": 1042786254,
+          "media_id": 71293550,
+          "codec_offset": 88287
+        },
+        {
+          "sound_id": 622113911,
+          "media_id": 499426475,
+          "codec_offset": 88499
+        },
+        {
+          "sound_id": 295757572,
+          "media_id": 653616342,
+          "codec_offset": 89581
+        },
+        {
+          "sound_id": 184526170,
+          "media_id": 617585203,
+          "codec_offset": 89687
+        },
+        {
+          "sound_id": 624464415,
+          "media_id": 830320113,
+          "codec_offset": 90507
+        },
+        {
+          "sound_id": 321698580,
+          "media_id": 612447463,
+          "codec_offset": 90719
+        },
+        {
+          "sound_id": 621363130,
+          "media_id": 555591475,
+          "codec_offset": 91044
+        },
+        {
+          "sound_id": 262776714,
+          "media_id": 10740793,
+          "codec_offset": 91150
+        },
+        {
+          "sound_id": 109724646,
+          "media_id": 857147818,
+          "codec_offset": 91417
+        },
+        {
+          "sound_id": 356525313,
+          "media_id": 75395937,
+          "codec_offset": 91523
+        },
+        {
+          "sound_id": 466070401,
+          "media_id": 399476487,
+          "codec_offset": 91734
+        },
+        {
+          "sound_id": 556825235,
+          "media_id": 500389011,
+          "codec_offset": 91840
+        },
+        {
+          "sound_id": 654656808,
+          "media_id": 461888217,
+          "codec_offset": 91946
+        },
+        {
+          "sound_id": 55847281,
+          "media_id": 786590714,
+          "codec_offset": 94897
+        },
+        {
+          "sound_id": 152172183,
+          "media_id": 793875243,
+          "codec_offset": 95003
+        },
+        {
+          "sound_id": 707492104,
+          "media_id": 222738361,
+          "codec_offset": 95848
+        },
+        {
+          "sound_id": 230485284,
+          "media_id": 60262402,
+          "codec_offset": 95954
+        },
+        {
+          "sound_id": 48626733,
+          "media_id": 385610324,
+          "codec_offset": 96060
+        },
+        {
+          "sound_id": 807207303,
+          "media_id": 478638302,
+          "codec_offset": 96166
+        },
+        {
+          "sound_id": 802856931,
+          "media_id": 226032689,
+          "codec_offset": 96767
+        },
+        {
+          "sound_id": 424565199,
+          "media_id": 377508362,
+          "codec_offset": 96873
+        },
+        {
+          "sound_id": 888884875,
+          "media_id": 467870714,
+          "codec_offset": 97626
+        },
+        {
+          "sound_id": 49210392,
+          "media_id": 484940733,
+          "codec_offset": 97732
+        },
+        {
+          "sound_id": 26779487,
+          "media_id": 522388951,
+          "codec_offset": 97838
+        },
+        {
+          "sound_id": 274757354,
+          "media_id": 543169196,
+          "codec_offset": 98163
+        },
+        {
+          "sound_id": 829802747,
+          "media_id": 536470974,
+          "codec_offset": 98269
+        },
+        {
+          "sound_id": 780672272,
+          "media_id": 215723859,
+          "codec_offset": 99344
+        },
+        {
+          "sound_id": 496819360,
+          "media_id": 338623830,
+          "codec_offset": 99450
+        },
+        {
+          "sound_id": 323192442,
+          "media_id": 181752192,
+          "codec_offset": 99741
+        },
+        {
+          "sound_id": 551982260,
+          "media_id": 633148090,
+          "codec_offset": 99953
+        },
+        {
+          "sound_id": 517095818,
+          "media_id": 809892580,
+          "codec_offset": 100059
+        },
+        {
+          "sound_id": 857878170,
+          "media_id": 529066000,
+          "codec_offset": 100271
+        },
+        {
+          "sound_id": 652769151,
+          "media_id": 960692183,
+          "codec_offset": 100382
+        },
+        {
+          "sound_id": 862170767,
+          "media_id": 101993110,
+          "codec_offset": 100488
+        },
+        {
+          "sound_id": 934832684,
+          "media_id": 770989047,
+          "codec_offset": 100594
+        },
+        {
+          "sound_id": 865514402,
+          "media_id": 34973547,
+          "codec_offset": 100700
+        },
+        {
+          "sound_id": 884322482,
+          "media_id": 563928657,
+          "codec_offset": 100806
+        },
+        {
+          "sound_id": 510057602,
+          "media_id": 138064621,
+          "codec_offset": 101202
+        },
+        {
+          "sound_id": 897436485,
+          "media_id": 149890484,
+          "codec_offset": 101308
+        },
+        {
+          "sound_id": 268477093,
+          "media_id": 199847994,
+          "codec_offset": 101414
+        },
+        {
+          "sound_id": 604015423,
+          "media_id": 442292650,
+          "codec_offset": 101520
+        },
+        {
+          "sound_id": 458096851,
+          "media_id": 744791996,
+          "codec_offset": 101626
+        },
+        {
+          "sound_id": 457192727,
+          "media_id": 219042339,
+          "codec_offset": 101732
+        },
+        {
+          "sound_id": 234756722,
+          "media_id": 993198876,
+          "codec_offset": 101838
+        },
+        {
+          "sound_id": 16857014,
+          "media_id": 388757443,
+          "codec_offset": 101944
+        },
+        {
+          "sound_id": 67739885,
+          "media_id": 113836626,
+          "codec_offset": 102050
+        },
+        {
+          "sound_id": 370620225,
+          "media_id": 1043279247,
+          "codec_offset": 102156
+        },
+        {
+          "sound_id": 593269838,
+          "media_id": 750776042,
+          "codec_offset": 102262
+        },
+        {
+          "sound_id": 743047921,
+          "media_id": 310294870,
+          "codec_offset": 102368
+        },
+        {
+          "sound_id": 649110437,
+          "media_id": 592229353,
+          "codec_offset": 102580
+        },
+        {
+          "sound_id": 113272978,
+          "media_id": 468846600,
+          "codec_offset": 102686
+        },
+        {
+          "sound_id": 830673146,
+          "media_id": 750926575,
+          "codec_offset": 102792
+        },
+        {
+          "sound_id": 131412767,
+          "media_id": 274639950,
+          "codec_offset": 102898
+        },
+        {
+          "sound_id": 91315293,
+          "media_id": 31826015,
+          "codec_offset": 103004
+        },
+        {
+          "sound_id": 598181667,
+          "media_id": 32416725,
+          "codec_offset": 103216
+        },
+        {
+          "sound_id": 41034286,
+          "media_id": 97844402,
+          "codec_offset": 103322
+        },
+        {
+          "sound_id": 616267412,
+          "media_id": 163264076,
+          "codec_offset": 103428
+        },
+        {
+          "sound_id": 327984895,
+          "media_id": 677581784,
+          "codec_offset": 103534
+        },
+        {
+          "sound_id": 1071032874,
+          "media_id": 434307028,
+          "codec_offset": 105239
+        },
+        {
+          "sound_id": 541369508,
+          "media_id": 966577239,
+          "codec_offset": 105345
+        },
+        {
+          "sound_id": 18374776,
+          "media_id": 700804671,
+          "codec_offset": 106421
+        },
+        {
+          "sound_id": 395208051,
+          "media_id": 740359909,
+          "codec_offset": 106857
+        },
+        {
+          "sound_id": 425505703,
+          "media_id": 674033801,
+          "codec_offset": 107729
+        },
+        {
+          "sound_id": 812796093,
+          "media_id": 922893601,
+          "codec_offset": 107835
+        },
+        {
+          "sound_id": 642263286,
+          "media_id": 916929696,
+          "codec_offset": 111865
+        },
+        {
+          "sound_id": 517242650,
+          "media_id": 802779335,
+          "codec_offset": 111971
+        },
+        {
+          "sound_id": 493968879,
+          "media_id": 995424497,
+          "codec_offset": 112077
+        },
+        {
+          "sound_id": 891524720,
+          "media_id": 843573402,
+          "codec_offset": 112183
+        },
+        {
+          "sound_id": 663596813,
+          "media_id": 965452591,
+          "codec_offset": 112519
+        },
+        {
+          "sound_id": 368383517,
+          "media_id": 890165036,
+          "codec_offset": 112731
+        },
+        {
+          "sound_id": 138440219,
+          "media_id": 721216309,
+          "codec_offset": 112837
+        },
+        {
+          "sound_id": 620435856,
+          "media_id": 512707342,
+          "codec_offset": 113061
+        },
+        {
+          "sound_id": 1047348093,
+          "media_id": 692879376,
+          "codec_offset": 113167
+        },
+        {
+          "sound_id": 737466839,
+          "media_id": 433860672,
+          "codec_offset": 113378
+        },
+        {
+          "sound_id": 1003254082,
+          "media_id": 344253275,
+          "codec_offset": 113696
+        },
+        {
+          "sound_id": 982067286,
+          "media_id": 257051356,
+          "codec_offset": 114461
+        },
+        {
+          "sound_id": 905116923,
+          "media_id": 919332894,
+          "codec_offset": 114678
+        },
+        {
+          "sound_id": 337036176,
+          "media_id": 788095664,
+          "codec_offset": 115347
+        },
+        {
+          "sound_id": 70154554,
+          "media_id": 690827065,
+          "codec_offset": 115453
+        },
+        {
+          "sound_id": 227518852,
+          "media_id": 248804924,
+          "codec_offset": 115665
+        },
+        {
+          "sound_id": 28648839,
+          "media_id": 689098019,
+          "codec_offset": 115771
+        },
+        {
+          "sound_id": 20203339,
+          "media_id": 74169167,
+          "codec_offset": 115877
+        },
+        {
+          "sound_id": 734092118,
+          "media_id": 935376525,
+          "codec_offset": 116641
+        },
+        {
+          "sound_id": 1070458451,
+          "media_id": 736151604,
+          "codec_offset": 116752
+        },
+        {
+          "sound_id": 180241359,
+          "media_id": 411010903,
+          "codec_offset": 116863
+        },
+        {
+          "sound_id": 387157880,
+          "media_id": 1001996563,
+          "codec_offset": 116969
+        },
+        {
+          "sound_id": 796452638,
+          "media_id": 651099243,
+          "codec_offset": 117080
+        },
+        {
+          "sound_id": 974454719,
+          "media_id": 109567376,
+          "codec_offset": 117297
+        },
+        {
+          "sound_id": 1031324572,
+          "media_id": 587078345,
+          "codec_offset": 117408
+        },
+        {
+          "sound_id": 127440261,
+          "media_id": 1044180544,
+          "codec_offset": 117514
+        },
+        {
+          "sound_id": 162646089,
+          "media_id": 121654409,
+          "codec_offset": 117625
+        },
+        {
+          "sound_id": 356377715,
+          "media_id": 177310827,
+          "codec_offset": 117736
+        },
+        {
+          "sound_id": 285892684,
+          "media_id": 94549752,
+          "codec_offset": 117842
+        },
+        {
+          "sound_id": 789749892,
+          "media_id": 756117420,
+          "codec_offset": 117953
+        },
+        {
+          "sound_id": 443649563,
+          "media_id": 9118746,
+          "codec_offset": 118064
+        },
+        {
+          "sound_id": 134411699,
+          "media_id": 829370718,
+          "codec_offset": 118170
+        },
+        {
+          "sound_id": 40841797,
+          "media_id": 137683628,
+          "codec_offset": 118276
+        },
+        {
+          "sound_id": 215087972,
+          "media_id": 741815936,
+          "codec_offset": 118620
+        },
+        {
+          "sound_id": 72142159,
+          "media_id": 376033013,
+          "codec_offset": 118726
+        },
+        {
+          "sound_id": 179540868,
+          "media_id": 508131249,
+          "codec_offset": 118932
+        },
+        {
+          "sound_id": 834729664,
+          "media_id": 210724480,
+          "codec_offset": 119038
+        },
+        {
+          "sound_id": 559728315,
+          "media_id": 168436088,
+          "codec_offset": 119254
+        },
+        {
+          "sound_id": 421154303,
+          "media_id": 1042596319,
+          "codec_offset": 119360
+        },
+        {
+          "sound_id": 498736541,
+          "media_id": 389204485,
+          "codec_offset": 119571
+        },
+        {
+          "sound_id": 1072948811,
+          "media_id": 1068937701,
+          "codec_offset": 119677
+        },
+        {
+          "sound_id": 57991198,
+          "media_id": 470942019,
+          "codec_offset": 119783
+        },
+        {
+          "sound_id": 455641810,
+          "media_id": 735422424,
+          "codec_offset": 119889
+        },
+        {
+          "sound_id": 866878811,
+          "media_id": 893842147,
+          "codec_offset": 119995
+        },
+        {
+          "sound_id": 69719368,
+          "media_id": 267609376,
+          "codec_offset": 120101
+        },
+        {
+          "sound_id": 441812120,
+          "media_id": 466164412,
+          "codec_offset": 120333
+        },
+        {
+          "sound_id": 461245274,
+          "media_id": 555860952,
+          "codec_offset": 120439
+        },
+        {
+          "sound_id": 473887854,
+          "media_id": 839484251,
+          "codec_offset": 120719
+        },
+        {
+          "sound_id": 790283806,
+          "media_id": 271215174,
+          "codec_offset": 120825
+        },
+        {
+          "sound_id": 225784961,
+          "media_id": 103844963,
+          "codec_offset": 120931
+        },
+        {
+          "sound_id": 828008986,
+          "media_id": 902925110,
+          "codec_offset": 121037
+        },
+        {
+          "sound_id": 348314641,
+          "media_id": 451760990,
+          "codec_offset": 121261
+        },
+        {
+          "sound_id": 1010535498,
+          "media_id": 787496028,
+          "codec_offset": 122003
+        },
+        {
+          "sound_id": 507789493,
+          "media_id": 154102907,
+          "codec_offset": 122344
+        },
+        {
+          "sound_id": 1018881145,
+          "media_id": 682809237,
+          "codec_offset": 122450
+        },
+        {
+          "sound_id": 523788703,
+          "media_id": 1026519919,
+          "codec_offset": 122556
+        },
+        {
+          "sound_id": 783730334,
+          "media_id": 102163649,
+          "codec_offset": 122836
+        },
+        {
+          "sound_id": 307326623,
+          "media_id": 22880680,
+          "codec_offset": 123148
+        },
+        {
+          "sound_id": 174649650,
+          "media_id": 226297833,
+          "codec_offset": 123470
+        },
+        {
+          "sound_id": 819449399,
+          "media_id": 653693197,
+          "codec_offset": 123576
+        },
+        {
+          "sound_id": 208374427,
+          "media_id": 73228875,
+          "codec_offset": 123682
+        },
+        {
+          "sound_id": 897883548,
+          "media_id": 1048208661,
+          "codec_offset": 126865
+        },
+        {
+          "sound_id": 917293494,
+          "media_id": 909997836,
+          "codec_offset": 126971
+        },
+        {
+          "sound_id": 276158238,
+          "media_id": 945502326,
+          "codec_offset": 129696
+        },
+        {
+          "sound_id": 955751231,
+          "media_id": 735914077,
+          "codec_offset": 129802
+        },
+        {
+          "sound_id": 24053842,
+          "media_id": 754331769,
+          "codec_offset": 129908
+        },
+        {
+          "sound_id": 372995786,
+          "media_id": 833207301,
+          "codec_offset": 130014
+        },
+        {
+          "sound_id": 93566655,
+          "media_id": 312201909,
+          "codec_offset": 130385
+        },
+        {
+          "sound_id": 536169854,
+          "media_id": 694287856,
+          "codec_offset": 130587
+        },
+        {
+          "sound_id": 360690814,
+          "media_id": 415532238,
+          "codec_offset": 130996
+        },
+        {
+          "sound_id": 107936357,
+          "media_id": 273042377,
+          "codec_offset": 131107
+        },
+        {
+          "sound_id": 784176798,
+          "media_id": 215807427,
+          "codec_offset": 131568
+        },
+        {
+          "sound_id": 171520043,
+          "media_id": 111308175,
+          "codec_offset": 131843
+        },
+        {
+          "sound_id": 343652196,
+          "media_id": 91245864,
+          "codec_offset": 132464
+        },
+        {
+          "sound_id": 794924577,
+          "media_id": 767962628,
+          "codec_offset": 133140
+        },
+        {
+          "sound_id": 351245579,
+          "media_id": 23637206,
+          "codec_offset": 133604
+        },
+        {
+          "sound_id": 63249397,
+          "media_id": 502425804,
+          "codec_offset": 134171
+        },
+        {
+          "sound_id": 565805421,
+          "media_id": 95108094,
+          "codec_offset": 137517
+        },
+        {
+          "sound_id": 438813377,
+          "media_id": 63219403,
+          "codec_offset": 137623
+        },
+        {
+          "sound_id": 720870978,
+          "media_id": 101367628,
+          "codec_offset": 137729
+        },
+        {
+          "sound_id": 988237948,
+          "media_id": 336883695,
+          "codec_offset": 137941
+        },
+        {
+          "sound_id": 440562277,
+          "media_id": 884249496,
+          "codec_offset": 138153
+        },
+        {
+          "sound_id": 266151932,
+          "media_id": 707769890,
+          "codec_offset": 138471
+        },
+        {
+          "sound_id": 634893733,
+          "media_id": 841278295,
+          "codec_offset": 138770
+        },
+        {
+          "sound_id": 742739135,
+          "media_id": 944408696,
+          "codec_offset": 138876
+        },
+        {
+          "sound_id": 1043720069,
+          "media_id": 486856608,
+          "codec_offset": 138982
+        },
+        {
+          "sound_id": 497281721,
+          "media_id": 558244047,
+          "codec_offset": 139088
+        },
+        {
+          "sound_id": 251602630,
+          "media_id": 793464659,
+          "codec_offset": 139194
+        },
+        {
+          "sound_id": 295534012,
+          "media_id": 837233085,
+          "codec_offset": 139300
+        },
+        {
+          "sound_id": 1005545706,
+          "media_id": 17558619,
+          "codec_offset": 139406
+        },
+        {
+          "sound_id": 478179588,
+          "media_id": 942067436,
+          "codec_offset": 139512
+        },
+        {
+          "sound_id": 676448260,
+          "media_id": 93792122,
+          "codec_offset": 139618
+        },
+        {
+          "sound_id": 1014944978,
+          "media_id": 15148264,
+          "codec_offset": 139724
+        },
+        {
+          "sound_id": 655123263,
+          "media_id": 62534872,
+          "codec_offset": 140279
+        },
+        {
+          "sound_id": 215399739,
+          "media_id": 901136409,
+          "codec_offset": 140385
+        },
+        {
+          "sound_id": 769639368,
+          "media_id": 933547710,
+          "codec_offset": 140491
+        },
+        {
+          "sound_id": 826719579,
+          "media_id": 751852387,
+          "codec_offset": 140597
+        },
+        {
+          "sound_id": 165414383,
+          "media_id": 494806457,
+          "codec_offset": 142165
+        },
+        {
+          "sound_id": 673952801,
+          "media_id": 31118197,
+          "codec_offset": 142271
+        },
+        {
+          "sound_id": 690821660,
+          "media_id": 972227107,
+          "codec_offset": 142377
+        },
+        {
+          "sound_id": 48911442,
+          "media_id": 384528032,
+          "codec_offset": 142766
+        },
+        {
+          "sound_id": 767282316,
+          "media_id": 112183428,
+          "codec_offset": 142872
+        },
+        {
+          "sound_id": 704386140,
+          "media_id": 659693784,
+          "codec_offset": 142978
+        },
+        {
+          "sound_id": 1071851142,
+          "media_id": 980585424,
+          "codec_offset": 143084
+        },
+        {
+          "sound_id": 850553745,
+          "media_id": 14199358,
+          "codec_offset": 143296
+        },
+        {
+          "sound_id": 633068476,
+          "media_id": 340780448,
+          "codec_offset": 143402
+        },
+        {
+          "sound_id": 657474353,
+          "media_id": 726954603,
+          "codec_offset": 143614
+        },
+        {
+          "sound_id": 208533648,
+          "media_id": 810933759,
+          "codec_offset": 143720
+        },
+        {
+          "sound_id": 398222888,
+          "media_id": 78162861,
+          "codec_offset": 143826
+        },
+        {
+          "sound_id": 46720145,
+          "media_id": 408404227,
+          "codec_offset": 143932
+        },
+        {
+          "sound_id": 202744423,
+          "media_id": 867049698,
+          "codec_offset": 144038
+        },
+        {
+          "sound_id": 786458050,
+          "media_id": 867734468,
+          "codec_offset": 144144
+        },
+        {
+          "sound_id": 269956061,
+          "media_id": 3745041,
+          "codec_offset": 144509
+        },
+        {
+          "sound_id": 787228598,
+          "media_id": 638304006,
+          "codec_offset": 144721
+        },
+        {
+          "sound_id": 131577193,
+          "media_id": 182288058,
+          "codec_offset": 144827
+        },
+        {
+          "sound_id": 122336741,
+          "media_id": 363603262,
+          "codec_offset": 145145
+        },
+        {
+          "sound_id": 111713871,
+          "media_id": 816604861,
+          "codec_offset": 145357
+        },
+        {
+          "sound_id": 741962962,
+          "media_id": 311380909,
+          "codec_offset": 145569
+        },
+        {
+          "sound_id": 576785123,
+          "media_id": 990190134,
+          "codec_offset": 146087
+        },
+        {
+          "sound_id": 76561405,
+          "media_id": 776537300,
+          "codec_offset": 146193
+        },
+        {
+          "sound_id": 362787537,
+          "media_id": 755673247,
+          "codec_offset": 146299
+        },
+        {
+          "sound_id": 356087797,
+          "media_id": 580377040,
+          "codec_offset": 146405
+        },
+        {
+          "sound_id": 567610242,
+          "media_id": 376893413,
+          "codec_offset": 148675
+        },
+        {
+          "sound_id": 894388389,
+          "media_id": 395231496,
+          "codec_offset": 148781
+        },
+        {
+          "sound_id": 1042426474,
+          "media_id": 896794772,
+          "codec_offset": 149315
+        },
+        {
+          "sound_id": 284954484,
+          "media_id": 110330314,
+          "codec_offset": 149845
+        },
+        {
+          "sound_id": 982599373,
+          "media_id": 824192397,
+          "codec_offset": 150163
+        },
+        {
+          "sound_id": 1042169900,
+          "media_id": 410911803,
+          "codec_offset": 150587
+        },
+        {
+          "sound_id": 769873796,
+          "media_id": 126695671,
+          "codec_offset": 150799
+        },
+        {
+          "sound_id": 729878603,
+          "media_id": 393760110,
+          "codec_offset": 151117
+        },
+        {
+          "sound_id": 307110526,
+          "media_id": 215252963,
+          "codec_offset": 151624
+        },
+        {
+          "sound_id": 344059321,
+          "media_id": 248138495,
+          "codec_offset": 151730
+        },
+        {
+          "sound_id": 587723209,
+          "media_id": 274338592,
+          "codec_offset": 151836
+        },
+        {
+          "sound_id": 275599308,
+          "media_id": 872369275,
+          "codec_offset": 151942
+        },
+        {
+          "sound_id": 322939824,
+          "media_id": 346336609,
+          "codec_offset": 158446
+        },
+        {
+          "sound_id": 1017666333,
+          "media_id": 1020868768,
+          "codec_offset": 158552
+        },
+        {
+          "sound_id": 408696411,
+          "media_id": 888903569,
+          "codec_offset": 158658
+        },
+        {
+          "sound_id": 868337736,
+          "media_id": 741986683,
+          "codec_offset": 159506
+        },
+        {
+          "sound_id": 839536750,
+          "media_id": 774681716,
+          "codec_offset": 159612
+        },
+        {
+          "sound_id": 642662606,
+          "media_id": 291062345,
+          "codec_offset": 161424
+        },
+        {
+          "sound_id": 361786609,
+          "media_id": 118099054,
+          "codec_offset": 161530
+        },
+        {
+          "sound_id": 933975388,
+          "media_id": 641566462,
+          "codec_offset": 161742
+        }
+      ],
+      "original_bank_sha256": "150b368f2a712236fde9daa510e3e511f8f0d49fa75720f5271d3919dd255c26",
+      "new_bank_sha256": "f620d8e9087457faacdb6081ef3572750bad72488603120dc2b6b84e7a75327c"
+    }
+  ],
+  "mapping_sha256": "4a854cbcd05861f5cd2c7af5a4e2519e84c31c351e4feb6d11432c8f6147188d",
+  "template_sha256": "f321f972fcaa187921c5281c208b05e4bef2501b13fb87831f49cc5c3fc84de0",
+  "resource_count": 1496,
+  "runtime_tested": false,
+  "fallback": "Unmapped clone sounds and shared Standard bank retained unchanged",
+  "files": [
+    {
+      "name": "9ba626afa44a3aa3.patch_0",
+      "size": 1105808,
+      "sha256": "315c407b8cf87782a94c265bd23e1a86064d7c93be8679de09090dabd1b65728"
+    },
+    {
+      "name": "9ba626afa44a3aa3.patch_0.stream",
+      "size": 34141968,
+      "sha256": "0a10afcdddbaf770e1a169cb6f26d07a7118ebc857615d60065fbf16cca23682"
+    }
+  ]
+}

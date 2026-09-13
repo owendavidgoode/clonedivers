@@ -1,0 +1,1645 @@
+{
+  "format": 1,
+  "originalMappingSha256": "4a854cbcd05861f5cd2c7af5a4e2519e84c31c351e4feb6d11432c8f6147188d",
+  "portableMappingSha256": "35e7187d84ab9ecfb0c46f8451fcc03e46a2029c2d51b0b607024b077d01e62a",
+  "sources": [
+    {
+      "path": "dist\\rc-dialogue-complete\\audio\\mp_voice\\D38ZZ013.wav",
+      "sha256": "010af9d147deb0e58858d3462d171625e90e9457f7edea0c1d177306a76adb24",
+      "object": "mp_voice.Delta_38.D38ZZ013"
+    },
+    {
+      "path": "dist\\rc-dialogue-complete\\audio\\character_voice\\D62X4856.wav",
+      "sha256": "017f4976954f659b4f9bc6ae065dcd1e727a8a0077742d8357dfe9b5f775f422",
+      "object": "Character_Voice.Delta_62.D62X4856"
+    },
+    {
+      "path": "dist\\rc-dialogue-complete\\audio\\character_voice\\D07XX662.wav",
+      "sha256": "01ddaaee5741e48799ee7054ac3cf8bfe83120354953056c2506d22b0f262447",
+      "object": "Character_Voice.Delta_07.D07XX662"
+    },
+    {
+      "path": "dist\\rc-dialogue-complete\\audio\\mp_voice\\D38ZZ028.wav",
+      "sha256": "02ed83b50a82c2ac26851bf7594f2aa3b65e06eaf380d4a174aee5711a07c2fb",
+      "object": "mp_voice.Delta_38.D38ZZ028"
+    },
+    {
+      "path": "dist\\rc-dialogue-complete\\audio\\character_voice\\D62MK034.wav",
+      "sha256": "043bab4becfe99254e4a03f6d77e6e84c68223ff7b9c3e2887cf868abd7a3b8c",
+      "object": "Character_Voice.Delta_62.D62MK034"
+    },
+    {
+      "path": "dist\\rc-dialogue-complete\\audio\\character_voice\\D62MK574.wav",
+      "sha256": "070b47a2c35f542a62f7622ec56ab1eb26a0b81d1e2e732f2af946d39a003e5f",
+      "object": "Character_Voice.Delta_62.D62MK574"
+    },
+    {
+      "path": "dist\\rc-dialogue-complete\\audio\\character_voice\\D07XX068.wav",
+      "sha256": "08b736fea2e7ca08eb02e0e6f04bf32f03057395ac63077ed41ab5b47e7a4291",
+      "object": "Character_Voice.Delta_07.D07XX068"
+    },
+    {
+      "path": "dist\\rc-dialogue-complete\\audio\\character_voice\\D07MK310.wav",
+      "sha256": "09acfd1681bb984d18d009183a18685cde1b02fefd60a289bcc2c20a63ce3d10",
+      "object": "Character_Voice.Delta_07.D07MK310"
+    },
+    {
+      "path": "dist\\rc-dialogue-complete\\audio\\character_voice\\D40XX974.wav",
+      "sha256": "09c08239306f7274fc2beba50058d870940cc2be44605d4624c6cbab6492bb13",
+      "object": "Character_Voice.Delta_40.D40XX974"
+    },
+    {
+      "path": "dist\\rc-dialogue-complete\\audio\\character_voice\\D40X1212.wav",
+      "sha256": "0a3a6ab386e6031e105329b099e4fea73380402f8bdc3ab48b6c977a6f823eee",
+      "object": "Character_Voice.Delta_40.D40X1212"
+    },
+    {
+      "path": "dist\\rc-dialogue-complete\\audio\\character_voice\\D38MK408.wav",
+      "sha256": "0acb2df4b7fb0b422b8e757c1a9efeb25490ffc7d1cd2714e668fdbff24b437f",
+      "object": "Character_Voice.Delta_38.D38MK408"
+    },
+    {
+      "path": "dist\\rc-dialogue-complete\\audio\\mp_voice\\D40ZZ037.wav",
+      "sha256": "0cae5534e12d5fa4dc86d65e2045bb752bfef9aaa00fcdc0b47aef55cc856ef1",
+      "object": "mp_voice.Delta_40.D40ZZ037"
+    },
+    {
+      "path": "dist\\rc-dialogue-complete\\audio\\mp_voice\\D40ZZ006.wav",
+      "sha256": "0d04d7e251c35dce425739041181943acd55a731b2210f657e006ef770e2bbb5",
+      "object": "mp_voice.Delta_40.D40ZZ006"
+    },
+    {
+      "path": "dist\\rc-dialogue-complete\\audio\\mp_voice\\D38ZZ047.wav",
+      "sha256": "0fa140b3b392f55809c412e12f70dc93b557a6aac76d30a53a6f67155e547b07",
+      "object": "mp_voice.Delta_38.D38ZZ047"
+    },
+    {
+      "path": "dist\\rc-dialogue-complete\\audio\\mp_voice\\D38ZZ023.wav",
+      "sha256": "0fd1b221835161c1d26c8bd110ce62b916f495c9d2f7a4a07fe3b7495c91e737",
+      "object": "mp_voice.Delta_38.D38ZZ023"
+    },
+    {
+      "path": "dist\\rc-dialogue-complete\\audio\\yyy_voice\\D07Y3508.wav",
+      "sha256": "0fde32d9e8d4faf47cc6929170311fd1c6b84302b510eb7e767593b8787db86a",
+      "object": "yyy_voice.YYY_03.D07Y3508"
+    },
+    {
+      "path": "dist\\rc-dialogue-complete\\audio\\character_voice\\D40MK560.wav",
+      "sha256": "1263fa0a4585fd71a6dccc94442d83fe07bd9ba8a0c712fd72480daaebde2e4c",
+      "object": "Character_Voice.Delta_40.D40MK560"
+    },
+    {
+      "path": "dist\\rc-dialogue-complete\\audio\\mp_voice\\D40ZZ050.wav",
+      "sha256": "131886af69ad0dfe500b891d9313424721fc9e6d761d74a2b6387669ee8e6b5d",
+      "object": "mp_voice.Delta_40.D40ZZ050"
+    },
+    {
+      "path": "dist\\rc-dialogue-complete\\audio\\character_voice\\D07XX599.wav",
+      "sha256": "140ad5eb3b1df1ada897618da68680d442e47798e91d16a7bfd981435df62e9b",
+      "object": "Character_Voice.Delta_07.D07XX599"
+    },
+    {
+      "path": "dist\\rc-dialogue-complete\\audio\\mp_voice\\D40ZZ032.wav",
+      "sha256": "1500edfca9d0f24b305552ecd8fcfbfdc0438bfe6b2b2e47e5b3ef8629602ec0",
+      "object": "mp_voice.Delta_40.D40ZZ032"
+    },
+    {
+      "path": "dist\\rc-dialogue-complete\\audio\\character_voice\\D38MK424.wav",
+      "sha256": "150df3f26671c84515c8bbbe819168fcf200fdb5eb413d0d0a19cb85638566a6",
+      "object": "Character_Voice.Delta_38.D38MK424"
+    },
+    {
+      "path": "dist\\rc-dialogue-complete\\audio\\character_voice\\D40XX976.wav",
+      "sha256": "1647aad197558f779227244acd7be0be0bb3effd7385bb1da4c7bd816553fb7f",
+      "object": "Character_Voice.Delta_40.D40XX976"
+    },
+    {
+      "path": "dist\\rc-dialogue-complete\\audio\\mp_voice\\D38ZZ037.wav",
+      "sha256": "17a71a0837cf8bb22d06976392046bcdcc9242cbeb1503195904e5450ab1b228",
+      "object": "mp_voice.Delta_38.D38ZZ037"
+    },
+    {
+      "path": "dist\\rc-dialogue-complete\\audio\\mp_voice\\D62ZZ013.wav",
+      "sha256": "17a9556569f51103f62445ab865a66e7ccc3ba87701512e8f394c5cd227e11fd",
+      "object": "mp_voice.Delta_62.D62ZZ013"
+    },
+    {
+      "path": "dist\\rc-dialogue-complete\\audio\\character_voice\\D40XX296.wav",
+      "sha256": "181edd5a6c001677ac1271a930087373f98018bcd726374321154f8c46252789",
+      "object": "Character_Voice.Delta_40.D40XX296"
+    },
+    {
+      "path": "dist\\rc-dialogue-complete\\audio\\mp_voice\\D62ZZ001.wav",
+      "sha256": "183238e636e415fc4a76e4537aa289598e90624e267b4965cd4643ce413bea4c",
+      "object": "mp_voice.Delta_62.D62ZZ001"
+    },
+    {
+      "path": "dist\\rc-dialogue-complete\\audio\\mp_voice\\D07ZZ014.wav",
+      "sha256": "1915e09cff3360da92758193224c65a90ce88ce7f3ab3eac5f0237a15e39a1b1",
+      "object": "mp_voice.Delta_07.D07ZZ014"
+    },
+    {
+      "path": "dist\\rc-dialogue-complete\\audio\\character_voice\\D62X1352.wav",
+      "sha256": "1a1abd3738c721b757b5945b1170fbd7af0e6e9288dd18e106da3fd39c11b18d",
+      "object": "Character_Voice.Delta_62.D62X1352"
+    },
+    {
+      "path": "dist\\rc-dialogue-complete\\audio\\character_voice\\D07X4083.wav",
+      "sha256": "1b280b7a3c1bfb7a4cf823f0b8084847c54c5f42945975391f65da77148e97fa",
+      "object": "Character_Voice.Delta_07.D07X4083"
+    },
+    {
+      "path": "dist\\rc-dialogue-complete\\audio\\yyy_voice\\D07Y6506.wav",
+      "sha256": "1bd0c7495f18afea7264f198f0b9f0b28b3a57b8b7c3ffb15d6f78bb891c6994",
+      "object": "yyy_voice.YYY_06.D07Y6506"
+    },
+    {
+      "path": "dist\\rc-dialogue-complete\\audio\\character_voice\\D62X1457.wav",
+      "sha256": "1bd7f67efcfea07a9b49435bbea23c18d35d433e5416aa2d4d0e840dba0437f8",
+      "object": "Character_Voice.Delta_62.D62X1457"
+    },
+    {
+      "path": "dist\\rc-dialogue-complete\\audio\\mp_voice\\D40ZZ026.wav",
+      "sha256": "1bf31a8531d393d119f7551225661efdcc91743bc676efc1136f3cd96c8c4b5e",
+      "object": "mp_voice.Delta_40.D40ZZ026"
+    },
+    {
+      "path": "dist\\rc-dialogue-complete\\audio\\mp_voice\\D38ZZ012.wav",
+      "sha256": "1bf89aa5f3a192513bec0172ed421db83e943421f2ae523c2c748508b63cf8d3",
+      "object": "mp_voice.Delta_38.D38ZZ012"
+    },
+    {
+      "path": "dist\\rc-dialogue-complete\\audio\\character_voice\\D38X4328.wav",
+      "sha256": "1ed398845e7391ede36a0f79950cb7e492cbc5e66a851d1621dd9fa85914eff1",
+      "object": "Character_Voice.Delta_38.D38X4328"
+    },
+    {
+      "path": "dist\\rc-dialogue-complete\\audio\\mp_voice\\D38ZZ006.wav",
+      "sha256": "2002a8a8b99c52f665fcda98aa5776d82792b065555dedfad2cb4509abf76e3d",
+      "object": "mp_voice.Delta_38.D38ZZ006"
+    },
+    {
+      "path": "dist\\rc-dialogue-complete\\audio\\mp_voice\\D38ZZ035.wav",
+      "sha256": "20a13967e98f5b12366ddc42f2a8d905f20455f09998fa6f4229412e0623b074",
+      "object": "mp_voice.Delta_38.D38ZZ035"
+    },
+    {
+      "path": "dist\\rc-dialogue-complete\\audio\\character_voice\\D40XX973.wav",
+      "sha256": "20a9e9ef71d3fc369fc6739003310d49899e14ea70eed272862c755eb9bcd5a0",
+      "object": "Character_Voice.Delta_40.D40XX973"
+    },
+    {
+      "path": "dist\\rc-dialogue-complete\\audio\\character_voice\\D62X1462.wav",
+      "sha256": "2265ca474f5da248b05db582cd2ce0d4852f359178b057ed28f314414b6d04d4",
+      "object": "Character_Voice.Delta_62.D62X1462"
+    },
+    {
+      "path": "dist\\rc-dialogue-complete\\audio\\character_voice\\D07X4146.wav",
+      "sha256": "2462a50929ad2f14b1f7f678f704bff2682fb68cc6dd8beb4fbb2b463bcc0940",
+      "object": "Character_Voice.Delta_07.D07X4146"
+    },
+    {
+      "path": "dist\\rc-dialogue-complete\\audio\\character_voice\\D07MK387.wav",
+      "sha256": "253f3d229a72026fccb50f9aab0dfb2ed56eda0cf742543cd9d608d90f8e3052",
+      "object": "Character_Voice.Delta_07.D07MK387"
+    },
+    {
+      "path": "dist\\rc-dialogue-complete\\audio\\character_voice\\D62MK584.wav",
+      "sha256": "263c205b51012ba83fff4238a5cf93f2f0718accda7ff5065ff65c2a20750c2f",
+      "object": "Character_Voice.Delta_62.D62MK584"
+    },
+    {
+      "path": "dist\\rc-dialogue-complete\\audio\\mp_voice\\D40ZZ013.wav",
+      "sha256": "2682a5ffdf89e7e6d0d26615fcc0f57d24f031186b0c1e9a7cd4ae645301cf13",
+      "object": "mp_voice.Delta_40.D40ZZ013"
+    },
+    {
+      "path": "dist\\rc-dialogue-complete\\audio\\character_voice\\D07XX665.wav",
+      "sha256": "27ce423a6ef7750ecb927fa7045a7ee9956ca5703abf83622a21bebdb7bef2bf",
+      "object": "Character_Voice.Delta_07.D07XX665"
+    },
+    {
+      "path": "dist\\rc-dialogue-complete\\audio\\ras_voice\\D40R2216.wav",
+      "sha256": "27e80acc0e55d5cbd20d2b07aaac5262c1cab07509c1c7f15e82b50b587a053d",
+      "object": "ras_voice.RAS_02.D40R2216"
+    },
+    {
+      "path": "dist\\rc-dialogue-complete\\audio\\character_voice\\D62MK033.wav",
+      "sha256": "2858bf3eb389dbbc330ef314cfe3e101d4f83d49932033bc44e30a64a2eef6b7",
+      "object": "Character_Voice.Delta_62.D62MK033"
+    },
+    {
+      "path": "dist\\rc-dialogue-complete\\audio\\mp_voice\\D38ZZ032.wav",
+      "sha256": "28afa92e586db37a8d74e320d336f9cad6992f772cdb2db56746d6d4fdf4e3af",
+      "object": "mp_voice.Delta_38.D38ZZ032"
+    },
+    {
+      "path": "dist\\rc-dialogue-complete\\audio\\character_voice\\D40XX214.wav",
+      "sha256": "292543d00bfd415a4e59cd09882c0148022c1708384b02c77e185d6ca791e703",
+      "object": "Character_Voice.Delta_40.D40XX214"
+    },
+    {
+      "path": "dist\\rc-dialogue-complete\\audio\\character_voice\\D62X1464.wav",
+      "sha256": "2acbf80f8cca8d0630486a0b62b75afffd15efff393d630477c43a2c5c3ae40d",
+      "object": "Character_Voice.Delta_62.D62X1464"
+    },
+    {
+      "path": "dist\\rc-dialogue-complete\\audio\\character_voice\\D40X1230.wav",
+      "sha256": "2b7d8b516169cfedfdb786998421505da5131d629b8e3ea09395ff549ebe4a05",
+      "object": "Character_Voice.Delta_40.D40X1230"
+    },
+    {
+      "path": "dist\\rc-dialogue-complete\\audio\\character_voice\\D40XX970.wav",
+      "sha256": "2c249302ea5b54128d342c7c72012fdb649ded41956bad635ae9a6c2d3348314",
+      "object": "Character_Voice.Delta_40.D40XX970"
+    },
+    {
+      "path": "dist\\rc-dialogue-complete\\audio\\character_voice\\D62X1467.wav",
+      "sha256": "2c8c56afc9aa8dbb876028b4378e926aff2f5983d5d587f4208b2a9911d7d24b",
+      "object": "Character_Voice.Delta_62.D62X1467"
+    },
+    {
+      "path": "dist\\rc-dialogue-complete\\audio\\character_voice\\D40X1039.wav",
+      "sha256": "2c90aa9d8fa695162b1fdf9ce9c02a53021a4e95dcb75c331c03b62a4a59611c",
+      "object": "Character_Voice.Delta_40.D40X1039"
+    },
+    {
+      "path": "dist\\rc-dialogue-complete\\audio\\character_voice\\D40MK555.wav",
+      "sha256": "2dda036c94f765ba151e1ace81f5d415ef63bcc718313db5a6763d0edf305d25",
+      "object": "Character_Voice.Delta_40.D40MK555"
+    },
+    {
+      "path": "dist\\rc-dialogue-complete\\audio\\mp_voice\\D07ZZ001.wav",
+      "sha256": "2e6ab5c8cfcc22a44fdaa338a92e6a75e8536bfe5ceb7057d64a681162f835f2",
+      "object": "mp_voice.Delta_07.D07ZZ001"
+    },
+    {
+      "path": "dist\\rc-dialogue-complete\\audio\\character_voice\\D62XX401.wav",
+      "sha256": "2ec89309ab8612e478578bebea863c4c31574ff252661a697c5f77ea8e9a0b5a",
+      "object": "Character_Voice.Delta_62.D62XX401"
+    },
+    {
+      "path": "dist\\rc-dialogue-complete\\audio\\character_voice\\D07MK347.wav",
+      "sha256": "2f54265c7424ae31eea78f5f29d279cea03b067693db727938179d1e8e94126b",
+      "object": "Character_Voice.Delta_07.D07MK347"
+    },
+    {
+      "path": "dist\\rc-dialogue-complete\\audio\\character_voice\\D40X1235.wav",
+      "sha256": "2faf8d5cadfb011667fd991f0940921da5c35d03807acbff66fff971b717aff7",
+      "object": "Character_Voice.Delta_40.D40X1235"
+    },
+    {
+      "path": "dist\\rc-dialogue-complete\\audio\\character_voice\\D07XX898.wav",
+      "sha256": "309a5447e1beb17cb2a338a49a0aa3319441ad217539e166b7595e1c8c0107a1",
+      "object": "Character_Voice.Delta_07.D07XX898"
+    },
+    {
+      "path": "dist\\rc-dialogue-complete\\audio\\character_voice\\D40XX967.wav",
+      "sha256": "314a98598417233805e5312d7d15879f09620d2c518288ae1c2b875cb9a31177",
+      "object": "Character_Voice.Delta_40.D40XX967"
+    },
+    {
+      "path": "dist\\rc-dialogue-complete\\audio\\mp_voice\\D07ZZ047.wav",
+      "sha256": "31940a1c6db53704ccb976fb6341ac0ef2936caa3e921eb6198717573b40dbca",
+      "object": "mp_voice.Delta_07.D07ZZ047"
+    },
+    {
+      "path": "dist\\rc-dialogue-complete\\audio\\character_voice\\D38X5071.wav",
+      "sha256": "3331a9667e09c48d2a4c7b9995d00f0e20c79e9b67df120edc1c4f1768211136",
+      "object": "Character_Voice.Delta_38.D38X5071"
+    },
+    {
+      "path": "dist\\rc-dialogue-complete\\audio\\character_voice\\D07XX600.wav",
+      "sha256": "336de83eb410be0e22dbbf15671e93ea44c752a3b3a7b06bfb91f95eef43f9b3",
+      "object": "Character_Voice.Delta_07.D07XX600"
+    },
+    {
+      "path": "dist\\rc-dialogue-complete\\audio\\character_voice\\D40XX977.wav",
+      "sha256": "3511141f871350dc79e6d287189ba0cde831c5f4cef5d9c85a2543a18b63cf34",
+      "object": "Character_Voice.Delta_40.D40XX977"
+    },
+    {
+      "path": "dist\\rc-dialogue-complete\\audio\\mp_voice\\D07ZZ006.wav",
+      "sha256": "364cf85466b3dfdcdebe07047404c91c5cfe26291d34e101467820566f36b71a",
+      "object": "mp_voice.Delta_07.D07ZZ006"
+    },
+    {
+      "path": "dist\\rc-dialogue-complete\\audio\\mp_voice\\D38ZZ050.wav",
+      "sha256": "36958c6602845e5df66b0f08bc941fccd0afc5834fe78ab60ee7acc18e58c952",
+      "object": "mp_voice.Delta_38.D38ZZ050"
+    },
+    {
+      "path": "dist\\rc-dialogue-complete\\audio\\character_voice\\D07X4302.wav",
+      "sha256": "36cf94a5f3e7091eacc3aaff65d8ee14fdac19b559ca98b12dee0479af61d1b2",
+      "object": "Character_Voice.Delta_07.D07X4302"
+    },
+    {
+      "path": "dist\\rc-dialogue-complete\\audio\\character_voice\\D38X4336.wav",
+      "sha256": "370cc48b5229fc9c90bc6fb343faaba2f9eb60099f560ea9954be39a49f176c1",
+      "object": "Character_Voice.Delta_38.D38X4336"
+    },
+    {
+      "path": "dist\\rc-dialogue-complete\\audio\\character_voice\\D07XX861.wav",
+      "sha256": "391b4f0e10e898758e534d69a88964db40c0374267a72d991fd48a6a0af4237a",
+      "object": "Character_Voice.Delta_07.D07XX861"
+    },
+    {
+      "path": "dist\\rc-dialogue-complete\\audio\\character_voice\\D62XX427.wav",
+      "sha256": "399157e60a932f07fa3e4719081b886ac3de7893a8ac117c73852cdfef6e189d",
+      "object": "Character_Voice.Delta_62.D62XX427"
+    },
+    {
+      "path": "dist\\rc-dialogue-complete\\audio\\character_voice\\D07XX663.wav",
+      "sha256": "3a0071681a469161d8f144d0fac1828cf15c0e16630ec301b664a693ef27c84f",
+      "object": "Character_Voice.Delta_07.D07XX663"
+    },
+    {
+      "path": "dist\\rc-dialogue-complete\\audio\\character_voice\\D07XX596.wav",
+      "sha256": "3b21429f51771433ee74cd644845340ac9aec041cc71a2ac334aeedd10876359",
+      "object": "Character_Voice.Delta_07.D07XX596"
+    },
+    {
+      "path": "dist\\rc-dialogue-complete\\audio\\character_voice\\D62X1460.wav",
+      "sha256": "3bb0b76ea0741e0070ba0fa83c801e381013eeb8ae328aba21f6f7a97d16c9db",
+      "object": "Character_Voice.Delta_62.D62X1460"
+    },
+    {
+      "path": "dist\\rc-dialogue-complete\\audio\\character_voice\\D07XX597.wav",
+      "sha256": "3da761bc79380c386113e73e26f8359212521a66852a376e31a0105749ffba5f",
+      "object": "Character_Voice.Delta_07.D07XX597"
+    },
+    {
+      "path": "dist\\rc-dialogue-complete\\audio\\character_voice\\D07XX032.wav",
+      "sha256": "3e230d8ee7e4718e079bfae72fd3d92793028141d1257a699fcbf71c3cd03aa3",
+      "object": "Character_Voice.Delta_07.D07XX032"
+    },
+    {
+      "path": "dist\\rc-dialogue-complete\\audio\\character_voice\\D40XX185.wav",
+      "sha256": "40343b89defa0f1ff2c152d39be6d09b17b02548c64c3616072652e243a5e10c",
+      "object": "Character_Voice.Delta_40.D40XX185"
+    },
+    {
+      "path": "dist\\rc-dialogue-complete\\audio\\mp_voice\\D07ZZ028.wav",
+      "sha256": "4143873f58314c54e6e234a037f97952c11117ed19b8d8b0ce384019e6aa16ae",
+      "object": "mp_voice.Delta_07.D07ZZ028"
+    },
+    {
+      "path": "dist\\rc-dialogue-complete\\audio\\character_voice\\D07XX666.wav",
+      "sha256": "416105e192c8a53011ab6d724aa471a339722ffc3dea6559ecf954cf674dcb10",
+      "object": "Character_Voice.Delta_07.D07XX666"
+    },
+    {
+      "path": "dist\\rc-dialogue-complete\\audio\\character_voice\\D07MK388.wav",
+      "sha256": "42c4f5eeadfea4c40a512c3086d4575c6126b81778ab794c12df25be71edf56d",
+      "object": "Character_Voice.Delta_07.D07MK388"
+    },
+    {
+      "path": "dist\\rc-dialogue-complete\\audio\\character_voice\\D07XX113.wav",
+      "sha256": "43074b5b70214e32d389976c2b64ec9bce64f687b2efdbfcf61fc0cfcef842a7",
+      "object": "Character_Voice.Delta_07.D07XX113"
+    },
+    {
+      "path": "dist\\rc-dialogue-complete\\audio\\character_voice\\D62X4737.wav",
+      "sha256": "43107079324233455346d2fea1b2ebdbc378b7cfe20f3eda93de1853f8afbc62",
+      "object": "Character_Voice.Delta_62.D62X4737"
+    },
+    {
+      "path": "dist\\rc-dialogue-complete\\audio\\character_voice\\D62X4768.wav",
+      "sha256": "4359987bea7a703ca6e705b1beb794b0d8402bf027a43423c12195aa69f4d32b",
+      "object": "Character_Voice.Delta_62.D62X4768"
+    },
+    {
+      "path": "dist\\rc-dialogue-complete\\audio\\character_voice\\D07XX851.wav",
+      "sha256": "437515813ccf8cfa7c8b8b490cbf1ed6adc01b116b57eb4a8ae4dca12cafeeff",
+      "object": "Character_Voice.Delta_07.D07XX851"
+    },
+    {
+      "path": "dist\\rc-dialogue-complete\\audio\\mp_voice\\D40ZZ035.wav",
+      "sha256": "462aa5abbe4020b682ab0c69bb77a9c9c790913edba5bfe6f1b53f8d4add2188",
+      "object": "mp_voice.Delta_40.D40ZZ035"
+    },
+    {
+      "path": "dist\\rc-dialogue-complete\\audio\\character_voice\\D40X4666.wav",
+      "sha256": "46c852a96d49aa0ea0854e28cc8d5d0c369db6a6c413abc84424750a911572a4",
+      "object": "Character_Voice.Delta_40.D40X4666"
+    },
+    {
+      "path": "dist\\rc-dialogue-complete\\audio\\mp_voice\\D62ZZ006.wav",
+      "sha256": "493d93bccd65c30179354591c30ad3d247aceb40fe4ff8ecb8178bb7048cf2a0",
+      "object": "mp_voice.Delta_62.D62ZZ006"
+    },
+    {
+      "path": "dist\\rc-dialogue-complete\\audio\\mp_voice\\D40ZZ014.wav",
+      "sha256": "4a8e61633d1e95ba9989ca97bfac78701986ff5bc8200a4eb356e07d70c1023b",
+      "object": "mp_voice.Delta_40.D40ZZ014"
+    },
+    {
+      "path": "dist\\rc-dialogue-complete\\audio\\character_voice\\D38MK005.wav",
+      "sha256": "4aeae7f5530fd7c4ea1f5370cc8f1225e4beefda4813e768ba358485c9a21e79",
+      "object": "Character_Voice.Delta_38.D38MK005"
+    },
+    {
+      "path": "dist\\rc-dialogue-complete\\audio\\character_voice\\D62MK608.wav",
+      "sha256": "4b0277d274a2acd45b4ccc91399c0d8e7ec141c246927000aeedc5f78c36fb3b",
+      "object": "Character_Voice.Delta_62.D62MK608"
+    },
+    {
+      "path": "dist\\rc-dialogue-complete\\audio\\character_voice\\D40X4590.wav",
+      "sha256": "4c08c4663df98e821b33623f154194721f4ea185e95c348b71d093c88d19d682",
+      "object": "Character_Voice.Delta_40.D40X4590"
+    },
+    {
+      "path": "dist\\rc-dialogue-complete\\audio\\character_voice\\D62XX353.wav",
+      "sha256": "4c4f6b49225ac50e8eec52e43a3f5ddf508ca40fee18577281ce8e14a3025bce",
+      "object": "Character_Voice.Delta_62.D62XX353"
+    },
+    {
+      "path": "dist\\rc-dialogue-complete\\audio\\mp_voice\\D07ZZ016.wav",
+      "sha256": "4c5d8af51bc543683e3b36c086596ff58ba40e5cd803d432c77f1e7862c46fcf",
+      "object": "mp_voice.Delta_07.D07ZZ016"
+    },
+    {
+      "path": "dist\\rc-dialogue-complete\\audio\\character_voice\\D07XX591.wav",
+      "sha256": "4ce4b8e1de3f8dd9ba335524cb930b56e1fd6bcd19d48ca42b743b55d07c12ea",
+      "object": "Character_Voice.Delta_07.D07XX591"
+    },
+    {
+      "path": "dist\\rc-dialogue-complete\\audio\\character_voice\\D07XX059.wav",
+      "sha256": "4cee066ac6cd47303b5c64e092f4f1b0f31d52ea26ddf06ba4a6e401f4920542",
+      "object": "Character_Voice.Delta_07.D07XX059"
+    },
+    {
+      "path": "dist\\rc-dialogue-complete\\audio\\character_voice\\D62MK564.wav",
+      "sha256": "4dbb8a95e7c8ed1baca6bede16de575b4d30332c6cc1bbdd76819fdded1b5aba",
+      "object": "Character_Voice.Delta_62.D62MK564"
+    },
+    {
+      "path": "dist\\rc-dialogue-complete\\audio\\mp_voice\\D07ZZ022.wav",
+      "sha256": "4ebfdd28e698fd29fa00b71dca13df33295767407915c64c1752a528d718cfe2",
+      "object": "mp_voice.Delta_07.D07ZZ022"
+    },
+    {
+      "path": "dist\\rc-dialogue-complete\\audio\\mp_voice\\D07ZZ008.wav",
+      "sha256": "50606063a089a1d0b8d22944712cc2a3aa765aa14f0657bd0ba1a4fa718c8218",
+      "object": "mp_voice.Delta_07.D07ZZ008"
+    },
+    {
+      "path": "dist\\rc-dialogue-complete\\audio\\character_voice\\D07XX593.wav",
+      "sha256": "508cbfa691a6b047fc551bc5a16b2ac12a44fa8217394547a0fd5cc9f57e0c5e",
+      "object": "Character_Voice.Delta_07.D07XX593"
+    },
+    {
+      "path": "dist\\rc-dialogue-complete\\audio\\character_voice\\D07XX638.wav",
+      "sha256": "50dcbd2cb24fca65699bccf80f896115f78cb5e949bc7dafbe0ef1beec17ba8a",
+      "object": "Character_Voice.Delta_07.D07XX638"
+    },
+    {
+      "path": "dist\\rc-dialogue-complete\\audio\\character_voice\\D62X5050.wav",
+      "sha256": "5440dcbdf5512092b8ea8424420525a5d1a29c1e2a8f4ae7f9b7625c3e1709d8",
+      "object": "Character_Voice.Delta_62.D62X5050"
+    },
+    {
+      "path": "dist\\rc-dialogue-complete\\audio\\character_voice\\D07XX671.wav",
+      "sha256": "54aeeb0f74d6eac818231f5d6d6a41411b00ca79b616be325a3021be7f756951",
+      "object": "Character_Voice.Delta_07.D07XX671"
+    },
+    {
+      "path": "dist\\rc-dialogue-complete\\audio\\character_voice\\D07X4192.wav",
+      "sha256": "559343856ddd38eb081948e4fe4252f9e487c7673b91ca2a5df1a55a22d6b793",
+      "object": "Character_Voice.Delta_07.D07X4192"
+    },
+    {
+      "path": "dist\\rc-dialogue-complete\\audio\\character_voice\\D62X1461.wav",
+      "sha256": "5631cfecaf7d57d6b9f698d01f6e1cefac64daabebf2e326f45e58ac32bf8fd8",
+      "object": "Character_Voice.Delta_62.D62X1461"
+    },
+    {
+      "path": "dist\\rc-dialogue-complete\\audio\\yyy_voice\\D38Y4058.wav",
+      "sha256": "566fba92ecbf7ad23e7a2cef418d094e7012cef5437bf315e62955c23e661b5e",
+      "object": "yyy_voice.YYY_04.D38Y4058"
+    },
+    {
+      "path": "dist\\rc-dialogue-complete\\audio\\character_voice\\D38X3010.wav",
+      "sha256": "57224116584b69f44869ed79091a3e8b791056a596d9d2d4e70cd7b2f4619a2f",
+      "object": "Character_Voice.Delta_38.D38X3010"
+    },
+    {
+      "path": "dist\\rc-dialogue-complete\\audio\\character_voice\\D62X1456.wav",
+      "sha256": "57a10e35babb10d301d08f3f1f42ef12daab70b01ea30654c7e8668ab0dff896",
+      "object": "Character_Voice.Delta_62.D62X1456"
+    },
+    {
+      "path": "dist\\rc-dialogue-complete\\audio\\character_voice\\D07X4197.wav",
+      "sha256": "58239d3d888fa07573bc9c57453f001b440260ec073226f439fd34d25b8cc30b",
+      "object": "Character_Voice.Delta_07.D07X4197"
+    },
+    {
+      "path": "dist\\rc-dialogue-complete\\audio\\mp_voice\\D07ZZ009.wav",
+      "sha256": "598fe3fb5d61b24dc922ca8b2b5c4e27c03fda886e3abe73ef9752a15d493841",
+      "object": "mp_voice.Delta_07.D07ZZ009"
+    },
+    {
+      "path": "dist\\rc-dialogue-complete\\audio\\character_voice\\D62X1586.wav",
+      "sha256": "5ae0b948d315aaefd1d5803b8a51bfd9029916157fc1ebe1747c0348e18d5ca7",
+      "object": "Character_Voice.Delta_62.D62X1586"
+    },
+    {
+      "path": "dist\\rc-dialogue-complete\\audio\\character_voice\\D07MK389.wav",
+      "sha256": "5afaff15eca680aeab3d94cc67321e758ca25c5bddd653f5fb85c4525816057f",
+      "object": "Character_Voice.Delta_07.D07MK389"
+    },
+    {
+      "path": "dist\\rc-dialogue-complete\\audio\\mp_voice\\D40ZZ016.wav",
+      "sha256": "5b73ed0218198991c3d459e2679b9172dbd944d76874b895761e8e7ee59c78e4",
+      "object": "mp_voice.Delta_40.D40ZZ016"
+    },
+    {
+      "path": "dist\\rc-dialogue-complete\\audio\\character_voice\\D62MK091.wav",
+      "sha256": "5b8173b2e0409ee723d698eac006fa5682950ba6053889bb7d129fe5f4e56320",
+      "object": "Character_Voice.Delta_62.D62MK091"
+    },
+    {
+      "path": "dist\\rc-dialogue-complete\\audio\\character_voice\\D40XX969.wav",
+      "sha256": "5c8d08d27661f2269d16f8d4a3f0b0518a01cd43796da7df4af017277c2bca09",
+      "object": "Character_Voice.Delta_40.D40XX969"
+    },
+    {
+      "path": "dist\\rc-dialogue-complete\\audio\\character_voice\\D40X4438.wav",
+      "sha256": "5c8fabd5aa3e453b90c3b72816658bf457123e7775628eef67d6536996115130",
+      "object": "Character_Voice.Delta_40.D40X4438"
+    },
+    {
+      "path": "dist\\rc-dialogue-complete\\audio\\mp_voice\\D38ZZ007.wav",
+      "sha256": "5d043232582bd2bc931c73fa68787c002697da1bdc7e9f7387aeafb6abaeff23",
+      "object": "mp_voice.Delta_38.D38ZZ007"
+    },
+    {
+      "path": "dist\\rc-dialogue-complete\\audio\\character_voice\\D40X4543.wav",
+      "sha256": "5e8427516385833cd6df9c127ac0e92dca7a4092e8b83706607088bff05d9259",
+      "object": "Character_Voice.Delta_40.D40X4543"
+    },
+    {
+      "path": "dist\\rc-dialogue-complete\\audio\\character_voice\\D07MK032.wav",
+      "sha256": "5ec0b5689db2e01caf629c91f80e58f2f3a43c3504c8263e1657f92438d8391b",
+      "object": "Character_Voice.Delta_07.D07MK032"
+    },
+    {
+      "path": "dist\\rc-dialogue-complete\\audio\\mp_voice\\D38ZZ016.wav",
+      "sha256": "5f5ee3debb9cc312e8ff8335bf997acbcb0cffa5ec2e7b37db9fa730dad19875",
+      "object": "mp_voice.Delta_38.D38ZZ016"
+    },
+    {
+      "path": "dist\\rc-dialogue-complete\\audio\\character_voice\\D62X1351.wav",
+      "sha256": "5fea5329377dcdb395fe92c86254ce15f8db681daa3d8fd73c22b4685ebe4777",
+      "object": "Character_Voice.Delta_62.D62X1351"
+    },
+    {
+      "path": "dist\\rc-dialogue-complete\\audio\\character_voice\\D07MK386.wav",
+      "sha256": "619a0c8874c71df11c87dde773327edf83d864310d307ef108bac1e6142a85b2",
+      "object": "Character_Voice.Delta_07.D07MK386"
+    },
+    {
+      "path": "dist\\rc-dialogue-complete\\audio\\character_voice\\D62X1458.wav",
+      "sha256": "62e987e3ea8a64f12a768384e6fd03f806b8d31b3c2c266dfd2f00d2f1ba13e8",
+      "object": "Character_Voice.Delta_62.D62X1458"
+    },
+    {
+      "path": "dist\\rc-dialogue-complete\\audio\\character_voice\\D07X4047.wav",
+      "sha256": "632501e2d5c3595349236798c66438c530d4563b403b06a284227c48fa2123ec",
+      "object": "Character_Voice.Delta_07.D07X4047"
+    },
+    {
+      "path": "dist\\rc-dialogue-complete\\audio\\mp_voice\\D62ZZ008.wav",
+      "sha256": "633bd6f58da9026b9852b4d1a4570ea9cc93804f11db179c8cfdd9321a611ee2",
+      "object": "mp_voice.Delta_62.D62ZZ008"
+    },
+    {
+      "path": "dist\\rc-dialogue-complete\\audio\\character_voice\\D62MK606.wav",
+      "sha256": "65490e611ac0b541f4093ec5b769f998581cd5fc3d54b8abe07d638ff8edebb2",
+      "object": "Character_Voice.Delta_62.D62MK606"
+    },
+    {
+      "path": "dist\\rc-dialogue-complete\\audio\\character_voice\\D07XX039.wav",
+      "sha256": "6683753ce2eafcd42a35a999fe0957db9a335760f2f43be2c083ae5471df7325",
+      "object": "Character_Voice.Delta_07.D07XX039"
+    },
+    {
+      "path": "dist\\rc-dialogue-complete\\audio\\character_voice\\D40XX278.wav",
+      "sha256": "6909f65406f85d6a2206f518c7977248486c26074d79da432fbce5a00d185b43",
+      "object": "Character_Voice.Delta_40.D40XX278"
+    },
+    {
+      "path": "dist\\rc-dialogue-complete\\audio\\character_voice\\D40MK523.wav",
+      "sha256": "690b2f466e8f3cc7fc85a5a18e630bc775a662864ee3b8d5673c424d708c4f4f",
+      "object": "Character_Voice.Delta_40.D40MK523"
+    },
+    {
+      "path": "dist\\rc-dialogue-complete\\audio\\character_voice\\D07X4190.wav",
+      "sha256": "6a3b7ee78187a0b3c8d6a25150b555375b99607065f1d8d45689f02ee1d4ce5f",
+      "object": "Character_Voice.Delta_07.D07X4190"
+    },
+    {
+      "path": "dist\\rc-dialogue-complete\\audio\\character_voice\\D62X4862.wav",
+      "sha256": "6ae23b1f7bac34f3602566100302a2e41b984efba2dcdafe68c9c312a38b552c",
+      "object": "Character_Voice.Delta_62.D62X4862"
+    },
+    {
+      "path": "dist\\rc-dialogue-complete\\audio\\character_voice\\D62X1602.wav",
+      "sha256": "6afdb1f64841352e2d2db8e136fa0dafca175ab5187d206a17eb5ca15f52bb5f",
+      "object": "Character_Voice.Delta_62.D62X1602"
+    },
+    {
+      "path": "dist\\rc-dialogue-complete\\audio\\character_voice\\D62XX388.wav",
+      "sha256": "6bb395ec3efb50a66d172f55ddb879d4d7718540ebd1e5dbc9f25e78a768f36f",
+      "object": "Character_Voice.Delta_62.D62XX388"
+    },
+    {
+      "path": "dist\\rc-dialogue-complete\\audio\\character_voice\\D62MK670.wav",
+      "sha256": "6e8b0d55e45d9b244be968c05ca8a4d177e5fa3fbb8d2c0691e40b7755a709bc",
+      "object": "Character_Voice.Delta_62.D62MK670"
+    },
+    {
+      "path": "dist\\rc-dialogue-complete\\audio\\mp_voice\\D62ZZ012.wav",
+      "sha256": "6ece3c0da86161dc8fa50025013a773d8ec363875abe053a44a0dbc2c79d2cc0",
+      "object": "mp_voice.Delta_62.D62ZZ012"
+    },
+    {
+      "path": "dist\\rc-dialogue-complete\\audio\\character_voice\\D62X1346.wav",
+      "sha256": "6ee789697a2c56606c85ac31168f393d2995d9c615b8187e3403572b68a74f6f",
+      "object": "Character_Voice.Delta_62.D62X1346"
+    },
+    {
+      "path": "dist\\rc-dialogue-complete\\audio\\character_voice\\D07X4188.wav",
+      "sha256": "6efdae4c5d2a06059f877112ddcb98cd3d9415194dfbe2fb77c5108255172335",
+      "object": "Character_Voice.Delta_07.D07X4188"
+    },
+    {
+      "path": "dist\\rc-dialogue-complete\\audio\\character_voice\\D07XX023.wav",
+      "sha256": "6f60a9247415e21573b7f7f7eeaa9b4841216666feeec498747b90f6074c635a",
+      "object": "Character_Voice.Delta_07.D07XX023"
+    },
+    {
+      "path": "dist\\rc-dialogue-complete\\audio\\mp_voice\\D07ZZ023.wav",
+      "sha256": "71189536c826cbea5aa134a08de99b282eec88b67628bace8b562c2725f2102f",
+      "object": "mp_voice.Delta_07.D07ZZ023"
+    },
+    {
+      "path": "dist\\rc-dialogue-complete\\audio\\character_voice\\D38X2997.wav",
+      "sha256": "71870bc2d1cc2937a61d76668fc02e1b1fceaccb36318c0ad764b3d169dc3548",
+      "object": "Character_Voice.Delta_38.D38X2997"
+    },
+    {
+      "path": "dist\\rc-dialogue-complete\\audio\\mp_voice\\D07ZZ032.wav",
+      "sha256": "7287423bb6ed5e567b5ce4bbf9b84bbec00cf5d2b2abcb383294701813c2c5a9",
+      "object": "mp_voice.Delta_07.D07ZZ032"
+    },
+    {
+      "path": "dist\\rc-dialogue-complete\\audio\\character_voice\\D40X1193.wav",
+      "sha256": "72b4e749e0b476a50cfa2d088b0314291985f2ff653949660b6ddf7b558b1853",
+      "object": "Character_Voice.Delta_40.D40X1193"
+    },
+    {
+      "path": "dist\\rc-dialogue-complete\\audio\\character_voice\\D40X4523.wav",
+      "sha256": "73f3c2c95f562885fad9905224de9b9389c301ce3919d59a4d69bd9aaca3613a",
+      "object": "Character_Voice.Delta_40.D40X4523"
+    },
+    {
+      "path": "dist\\rc-dialogue-complete\\audio\\character_voice\\D62X1344.wav",
+      "sha256": "74ac47b69739b15fae1dd71dcc12e152e60b442fb9d2304658aae68cd2d9222b",
+      "object": "Character_Voice.Delta_62.D62X1344"
+    },
+    {
+      "path": "dist\\rc-dialogue-complete\\audio\\character_voice\\D07XX020.wav",
+      "sha256": "74bab60f69e5e19e5115895d6f9873922f5c04706eca763ed8875c351ea620a9",
+      "object": "Character_Voice.Delta_07.D07XX020"
+    },
+    {
+      "path": "dist\\rc-dialogue-complete\\audio\\yyy_voice\\D38Y1103.wav",
+      "sha256": "7516221788cf9d1d2dcb1e3941c5f156855cc2e143ac696d18aadce4b29c6015",
+      "object": "yyy_voice.YYY_01.D38Y1103"
+    },
+    {
+      "path": "dist\\rc-dialogue-complete\\audio\\mp_voice\\D07ZZ035.wav",
+      "sha256": "76708b3e1753b6337ef3c27a94294c912a5a9b07a8ff1990d89887a93fca189f",
+      "object": "mp_voice.Delta_07.D07ZZ035"
+    },
+    {
+      "path": "dist\\rc-dialogue-complete\\audio\\character_voice\\D40XX200.wav",
+      "sha256": "7670b5bd927c4da8533fb6fd87f1769c6a05802d86ca38aa0e811219911b8a31",
+      "object": "Character_Voice.Delta_40.D40XX200"
+    },
+    {
+      "path": "dist\\rc-dialogue-complete\\audio\\character_voice\\D40XX975.wav",
+      "sha256": "76ca18cc843dd862e3a539dc7dacfe6c0bce6a3fd2f6b2dd0369a3c5464cfbed",
+      "object": "Character_Voice.Delta_40.D40XX975"
+    },
+    {
+      "path": "dist\\rc-dialogue-complete\\audio\\character_voice\\D40X1229.wav",
+      "sha256": "77aae0b2d479746fbcc2bb42c6e23590326aeb191c7906cbf62187b9386e2650",
+      "object": "Character_Voice.Delta_40.D40X1229"
+    },
+    {
+      "path": "dist\\rc-dialogue-complete\\audio\\character_voice\\D40X4455.wav",
+      "sha256": "77f7bda6ddd2397df6f3e93706984865d42eb6dd208bcbc64eab1c602b0b6be8",
+      "object": "Character_Voice.Delta_40.D40X4455"
+    },
+    {
+      "path": "dist\\rc-dialogue-complete\\audio\\character_voice\\D07X4096.wav",
+      "sha256": "796677efb212b87adf6d83dadc8987e89a153e09871e572bb8781c8be9e23d41",
+      "object": "Character_Voice.Delta_07.D07X4096"
+    },
+    {
+      "path": "dist\\rc-dialogue-complete\\audio\\character_voice\\D62MK604.wav",
+      "sha256": "79ca311f4b68c23045c1a67187ea45fd56d5d37fe82684b5558a8be959ec67b5",
+      "object": "Character_Voice.Delta_62.D62MK604"
+    },
+    {
+      "path": "dist\\rc-dialogue-complete\\audio\\character_voice\\D38X4338.wav",
+      "sha256": "7a9306c7c7e55810a0fa7b198ee4980465d4693f22a106d26ef5233f44568583",
+      "object": "Character_Voice.Delta_38.D38X4338"
+    },
+    {
+      "path": "dist\\rc-dialogue-complete\\audio\\character_voice\\D62MK629.wav",
+      "sha256": "7b09aa4397db3c2aaafb46251e520a198a68d6fb9f6a8f77623371461a7c5c9c",
+      "object": "Character_Voice.Delta_62.D62MK629"
+    },
+    {
+      "path": "dist\\rc-dialogue-complete\\audio\\character_voice\\D07XX667.wav",
+      "sha256": "7b0d2a6a8299825f79eb4af960bfe91f8395bd5e2a13e9f25c9ddbcb19b46322",
+      "object": "Character_Voice.Delta_07.D07XX667"
+    },
+    {
+      "path": "dist\\rc-dialogue-complete\\audio\\character_voice\\D62X1466.wav",
+      "sha256": "7b81df8252c5ecd5a9d931a11558d69291783b13a6ca2b28d09f04beb0392b8c",
+      "object": "Character_Voice.Delta_62.D62X1466"
+    },
+    {
+      "path": "dist\\rc-dialogue-complete\\audio\\character_voice\\D40X5038.wav",
+      "sha256": "7d50ee0153168e6d524cdae24943042a81f9b6c1af6811b0a7a6ebbe2706d8fe",
+      "object": "Character_Voice.Delta_40.D40X5038"
+    },
+    {
+      "path": "dist\\rc-dialogue-complete\\audio\\character_voice\\D38X4348.wav",
+      "sha256": "7d76ac43120e41df2cf940fc090c01fd0b1143d8919766aa0280d9b8fe06108f",
+      "object": "Character_Voice.Delta_38.D38X4348"
+    },
+    {
+      "path": "dist\\rc-dialogue-complete\\audio\\character_voice\\D38X3000.wav",
+      "sha256": "7d7eb520d9d7a67048f8c9ad7c53c49749b2c2caa527d8a0578b5ddc0591d718",
+      "object": "Character_Voice.Delta_38.D38X3000"
+    },
+    {
+      "path": "dist\\rc-dialogue-complete\\audio\\character_voice\\D62MK103.wav",
+      "sha256": "7e49432764b24d84414b0c30a35f8bf7c2eaa0a12a8e7bed0bc4a6ab6d237cbc",
+      "object": "Character_Voice.Delta_62.D62MK103"
+    },
+    {
+      "path": "dist\\rc-dialogue-complete\\audio\\character_voice\\D38XX130.wav",
+      "sha256": "7eb4d98e31860e402f61c79af702405e26d9acd986e1e53a02b0da517557d400",
+      "object": "Character_Voice.Delta_38.D38XX130"
+    },
+    {
+      "path": "dist\\rc-dialogue-complete\\audio\\mp_voice\\D38ZZ009.wav",
+      "sha256": "7f20089814640f3afeaed48e5daffa6c7f9f0c3f1e45f2550e58c5e3c1bea965",
+      "object": "mp_voice.Delta_38.D38ZZ009"
+    },
+    {
+      "path": "dist\\rc-dialogue-complete\\audio\\character_voice\\D40MK510.wav",
+      "sha256": "7fb6b967e89ac071215831632c845bb3a077d20e8e36b232c3b6784cbae0cbb5",
+      "object": "Character_Voice.Delta_40.D40MK510"
+    },
+    {
+      "path": "dist\\rc-dialogue-complete\\audio\\mp_voice\\D07ZZ007.wav",
+      "sha256": "8093371323e8dcd4f45f1ffa530aebab8ec7d27e177b5b73b4ce279f1adbfbaf",
+      "object": "mp_voice.Delta_07.D07ZZ007"
+    },
+    {
+      "path": "dist\\rc-dialogue-complete\\audio\\mp_voice\\D40ZZ023.wav",
+      "sha256": "81342bd038f860049c5fa0b1da3577bc145eef85f8dc80303045fdd8f72486e5",
+      "object": "mp_voice.Delta_40.D40ZZ023"
+    },
+    {
+      "path": "dist\\rc-dialogue-complete\\audio\\character_voice\\D07MK349.wav",
+      "sha256": "815919c7548ffe578b8ffbc8c52ca0c7460ea344ed7e36d50f7b13cb96ab0e71",
+      "object": "Character_Voice.Delta_07.D07MK349"
+    },
+    {
+      "path": "dist\\rc-dialogue-complete\\audio\\mp_voice\\D40ZZ012.wav",
+      "sha256": "84d53da20dd4f5008e1a378f55220a09c8fdd71ed9a8248b1b18b1afe502a88b",
+      "object": "mp_voice.Delta_40.D40ZZ012"
+    },
+    {
+      "path": "dist\\rc-dialogue-complete\\audio\\character_voice\\D40XX280.wav",
+      "sha256": "8528588f88b2d8baa0f0f4cfaf2432e98e4ec0616659f4bad3840ae503be0958",
+      "object": "Character_Voice.Delta_40.D40XX280"
+    },
+    {
+      "path": "dist\\rc-dialogue-complete\\audio\\character_voice\\D40MK032.wav",
+      "sha256": "85a8ef9c603ffd9d602dddc0d10195fa739cff8a7750fc27ab1fa6a4b2ec3d0c",
+      "object": "Character_Voice.Delta_40.D40MK032"
+    },
+    {
+      "path": "dist\\rc-dialogue-complete\\audio\\character_voice\\D38XX160.wav",
+      "sha256": "85cdf19683656dd7bc4760d27f26854458dbd200e4bd160f864f6578267b95a9",
+      "object": "Character_Voice.Delta_38.D38XX160"
+    },
+    {
+      "path": "dist\\rc-dialogue-complete\\audio\\character_voice\\D07MK344.wav",
+      "sha256": "85eb57ed0167144efb6b1352a9075c5501000473c66aa7592167bf95240bd46f",
+      "object": "Character_Voice.Delta_07.D07MK344"
+    },
+    {
+      "path": "dist\\rc-dialogue-complete\\audio\\character_voice\\D07XX635.wav",
+      "sha256": "869f6e278f417ea5a9dca76438b0ea279ca66eb2d7cfc38c5bc832f7c67a59b8",
+      "object": "Character_Voice.Delta_07.D07XX635"
+    },
+    {
+      "path": "dist\\rc-dialogue-complete\\audio\\mp_voice\\D07ZZ042.wav",
+      "sha256": "88bf16b8c835b3f8a59f2e8d652ac4adb2cf83f012628cd397aae7b65426b5bb",
+      "object": "mp_voice.Delta_07.D07ZZ042"
+    },
+    {
+      "path": "dist\\rc-dialogue-complete\\audio\\character_voice\\D62X1459.wav",
+      "sha256": "89ca0532a9768a312dcce29fd3a7a641bf093cd731a43e0073eebf0abc62560e",
+      "object": "Character_Voice.Delta_62.D62X1459"
+    },
+    {
+      "path": "dist\\rc-dialogue-complete\\audio\\character_voice\\D62X4855.wav",
+      "sha256": "89eede11f0c77024ec9c0e3fbe4bfdae27ff12ee7a9d11293f9fb92ac13e713c",
+      "object": "Character_Voice.Delta_62.D62X4855"
+    },
+    {
+      "path": "dist\\rc-dialogue-complete\\audio\\character_voice\\D62X1422.wav",
+      "sha256": "8c9f9205d4a930f8a92b0f3df8e2dcabfbbc13e943e6b6cebcca134553ba986f",
+      "object": "Character_Voice.Delta_62.D62X1422"
+    },
+    {
+      "path": "dist\\rc-dialogue-complete\\audio\\character_voice\\D38X4359.wav",
+      "sha256": "8fa794ee172edce2279221c0ee0fc9f8dca30f1789abfaf5bc737b4bd851ef1e",
+      "object": "Character_Voice.Delta_38.D38X4359"
+    },
+    {
+      "path": "dist\\rc-dialogue-complete\\audio\\character_voice\\D62X4769.wav",
+      "sha256": "9048c346db4f6fbfdae248fa851a5c9bdaf31d48054bf42eecd6dbfdf4db62ec",
+      "object": "Character_Voice.Delta_62.D62X4769"
+    },
+    {
+      "path": "dist\\rc-dialogue-complete\\audio\\character_voice\\D40MK487.wav",
+      "sha256": "90e4b284b7277420343ee36fa3f7b4dd94c1c697d4fc8503b1d357bb62885308",
+      "object": "Character_Voice.Delta_40.D40MK487"
+    },
+    {
+      "path": "dist\\rc-dialogue-complete\\audio\\mp_voice\\D40ZZ047.wav",
+      "sha256": "922852b9ff178baebf3da56c2cfccd887de2b9c05c942e8fdb37a3c6300cafbc",
+      "object": "mp_voice.Delta_40.D40ZZ047"
+    },
+    {
+      "path": "dist\\rc-dialogue-complete\\audio\\mp_voice\\D07ZZ012.wav",
+      "sha256": "925ea9650d180ef2154a7eb8f6bad398900405675f40058db0899d4f67b8b958",
+      "object": "mp_voice.Delta_07.D07ZZ012"
+    },
+    {
+      "path": "dist\\rc-dialogue-complete\\audio\\character_voice\\D62MK605.wav",
+      "sha256": "92dd5e78566685b33c2c373971ba3d81fe6782d418187b07dc86e1bde51c9265",
+      "object": "Character_Voice.Delta_62.D62MK605"
+    },
+    {
+      "path": "dist\\rc-dialogue-complete\\audio\\character_voice\\D07MK379.wav",
+      "sha256": "936430cf0f30c3220c427e6255ae1a04e975beb2cce635879e5e1f38b4e84500",
+      "object": "Character_Voice.Delta_07.D07MK379"
+    },
+    {
+      "path": "dist\\rc-dialogue-complete\\audio\\mp_voice\\D38ZZ031.wav",
+      "sha256": "9476bba8797135bd68bbf4465d97578b6ea531d285fc2768b2c9c79717807617",
+      "object": "mp_voice.Delta_38.D38ZZ031"
+    },
+    {
+      "path": "dist\\rc-dialogue-complete\\audio\\character_voice\\D07XX590.wav",
+      "sha256": "95fbb163a520833f3f1728d5582c55a4e1b03ad002d488958b41a592d20a5974",
+      "object": "Character_Voice.Delta_07.D07XX590"
+    },
+    {
+      "path": "dist\\rc-dialogue-complete\\audio\\character_voice\\D62X1465.wav",
+      "sha256": "960c1018e8bdad7fad6e7c2f087d6fca339898c0b3b93356996ce0eec52b7d78",
+      "object": "Character_Voice.Delta_62.D62X1465"
+    },
+    {
+      "path": "dist\\rc-dialogue-complete\\audio\\character_voice\\D40X1046.wav",
+      "sha256": "98f716de2a03e4c5bf0bd2648a7a51dd014e70dcd392fa1cf0bf5a57b0608897",
+      "object": "Character_Voice.Delta_40.D40X1046"
+    },
+    {
+      "path": "dist\\rc-dialogue-complete\\audio\\character_voice\\D07XX595.wav",
+      "sha256": "9a63b76f00427fb16212126cc81c13d17e6a352347a2171218d12dc19b9c0998",
+      "object": "Character_Voice.Delta_07.D07XX595"
+    },
+    {
+      "path": "dist\\rc-dialogue-complete\\audio\\character_voice\\D38MK445.wav",
+      "sha256": "9ac809a9f6332ceac2fbc725ac1e6df26d823ca44c1cecba739e54d8098525cb",
+      "object": "Character_Voice.Delta_38.D38MK445"
+    },
+    {
+      "path": "dist\\rc-dialogue-complete\\audio\\mp_voice\\D40ZZ022.wav",
+      "sha256": "9b140489393c01999d9baf8470f0aae08778a670de588febb1000c9a216be54b",
+      "object": "mp_voice.Delta_40.D40ZZ022"
+    },
+    {
+      "path": "dist\\rc-dialogue-complete\\audio\\mp_voice\\D07ZZ031.wav",
+      "sha256": "9c5ab83b6b44bbf9aba5d475d58b0ea9e0d3693b6318bb9ccdd8685ed25365b8",
+      "object": "mp_voice.Delta_07.D07ZZ031"
+    },
+    {
+      "path": "dist\\rc-dialogue-complete\\audio\\mp_voice\\D07ZZ019.wav",
+      "sha256": "9c9be8c56d7f865dab5b9ee53d7017072eefb88d321d5146539f05b17c64ddd0",
+      "object": "mp_voice.Delta_07.D07ZZ019"
+    },
+    {
+      "path": "dist\\rc-dialogue-complete\\audio\\character_voice\\D62X1350.wav",
+      "sha256": "9dc522f86d3cc3d8c81bf9348c3cdf7ef12685da40e70c6b920140a2d11e4d6d",
+      "object": "Character_Voice.Delta_62.D62X1350"
+    },
+    {
+      "path": "dist\\rc-dialogue-complete\\audio\\character_voice\\D62MK068.wav",
+      "sha256": "9e731a4cb14781670c9832383251e6331944a43d72cb6913cb4bcd8b03c0e906",
+      "object": "Character_Voice.Delta_62.D62MK068"
+    },
+    {
+      "path": "dist\\rc-dialogue-complete\\audio\\character_voice\\D40X4548.wav",
+      "sha256": "9f36b1f03f22264f80fb94721fd294e4670e31a105207cc221790af6c0d0d798",
+      "object": "Character_Voice.Delta_40.D40X4548"
+    },
+    {
+      "path": "dist\\rc-dialogue-complete\\audio\\character_voice\\D07X4101.wav",
+      "sha256": "9f6769b70b294d7fc564944a2cc9b08e7deb395b9b952ee6dbcec938341aa213",
+      "object": "Character_Voice.Delta_07.D07X4101"
+    },
+    {
+      "path": "dist\\rc-dialogue-complete\\audio\\ras_voice\\D07R1503.wav",
+      "sha256": "a01b5e10d3c8fd3852e9a5d400a512785ec2e81851db264cce5215c1d7b2a200",
+      "object": "ras_voice.RAS_01.D07R1503"
+    },
+    {
+      "path": "dist\\rc-dialogue-complete\\audio\\character_voice\\D62X4934.wav",
+      "sha256": "a2121cca1853f724708f44414f8c74391379dcef08e5e08099c5d2ac8ef41564",
+      "object": "Character_Voice.Delta_62.D62X4934"
+    },
+    {
+      "path": "dist\\rc-dialogue-complete\\audio\\character_voice\\D07MK356.wav",
+      "sha256": "a42f3572721cad9e9a9c037bad5e3452affd615e1a02ce0077eb03639a9620ab",
+      "object": "Character_Voice.Delta_07.D07MK356"
+    },
+    {
+      "path": "dist\\rc-dialogue-complete\\audio\\character_voice\\D07MK105.wav",
+      "sha256": "a55d6988389389a96a74ce45f8f2c8bdad3ae155b9098066548a8cdce60f9d55",
+      "object": "Character_Voice.Delta_07.D07MK105"
+    },
+    {
+      "path": "dist\\rc-dialogue-complete\\audio\\mp_voice\\D07ZZ050.wav",
+      "sha256": "a56c299b02b00b5e1702edb2957f677c6d6974657843ee96e836ea71d22953eb",
+      "object": "mp_voice.Delta_07.D07ZZ050"
+    },
+    {
+      "path": "dist\\rc-dialogue-complete\\audio\\mp_voice\\D62ZZ007.wav",
+      "sha256": "a5fa3169acfec16bc1e6e321bfdd06b5e6ec87cf8961386ab6a88a7e2fcd5ff6",
+      "object": "mp_voice.Delta_62.D62ZZ007"
+    },
+    {
+      "path": "dist\\rc-dialogue-complete\\audio\\character_voice\\D62MK578.wav",
+      "sha256": "a6ded5d94ea2ad5df3ff766a733fefe4aee25069c3ee44bcad3c6480f0242247",
+      "object": "Character_Voice.Delta_62.D62MK578"
+    },
+    {
+      "path": "dist\\rc-dialogue-complete\\audio\\character_voice\\D07XX034.wav",
+      "sha256": "a8681a905ca99ef530b2beff86afa9898e15c83717cced1c597f583be45ae653",
+      "object": "Character_Voice.Delta_07.D07XX034"
+    },
+    {
+      "path": "dist\\rc-dialogue-complete\\audio\\character_voice\\D62X1468.wav",
+      "sha256": "a8ebcb9a77b31fe6f9f2c6037718a311483df6b125af9a52627c027829caf9ac",
+      "object": "Character_Voice.Delta_62.D62X1468"
+    },
+    {
+      "path": "dist\\rc-dialogue-complete\\audio\\mp_voice\\D38ZZ003.wav",
+      "sha256": "a9c319c2382d99abe462bc431f387c98b0d9ba24679aba4d0b625f214827a0c1",
+      "object": "mp_voice.Delta_38.D38ZZ003"
+    },
+    {
+      "path": "dist\\rc-dialogue-complete\\audio\\character_voice\\D40XX971.wav",
+      "sha256": "aae5fe4e24ebe3e5e206a5694ad17542b407dd4ed94f8b641b785be83ee008c5",
+      "object": "Character_Voice.Delta_40.D40XX971"
+    },
+    {
+      "path": "dist\\rc-dialogue-complete\\audio\\character_voice\\D40X4585.wav",
+      "sha256": "aaf27ecc7cab49296269fdaf3da7ae1e45eaef30a02c9850bef584dbb39b96a5",
+      "object": "Character_Voice.Delta_40.D40X4585"
+    },
+    {
+      "path": "dist\\rc-dialogue-complete\\audio\\mp_voice\\D40ZZ031.wav",
+      "sha256": "ab20a86322a6395f51e3c2e87b2c41857d7e88c17d44e46e1880b55b35298e33",
+      "object": "mp_voice.Delta_40.D40ZZ031"
+    },
+    {
+      "path": "dist\\rc-dialogue-complete\\audio\\character_voice\\D38X3001.wav",
+      "sha256": "ade4c7863af0516736c26cccaae1567d4c3b1b1daf7de08e18b797c04d82234c",
+      "object": "Character_Voice.Delta_38.D38X3001"
+    },
+    {
+      "path": "dist\\rc-dialogue-complete\\audio\\character_voice\\D40X1009.wav",
+      "sha256": "ae735e9b2f6982fdc6597be51f76506f4f371cd65fa4bb446586984e3ae12bbd",
+      "object": "Character_Voice.Delta_40.D40X1009"
+    },
+    {
+      "path": "dist\\rc-dialogue-complete\\audio\\character_voice\\D62X1605.wav",
+      "sha256": "afe0579b09964951a8b6bf05db19e8b17fcc2af3454b20feffcbe861e1d1da52",
+      "object": "Character_Voice.Delta_62.D62X1605"
+    },
+    {
+      "path": "dist\\rc-dialogue-complete\\audio\\character_voice\\D62X4858.wav",
+      "sha256": "b0643009ed36f8f7d89e92c7188b70e61cfa07d1913b8c5a08e3a6b1b53b026a",
+      "object": "Character_Voice.Delta_62.D62X4858"
+    },
+    {
+      "path": "dist\\rc-dialogue-complete\\audio\\mp_voice\\D38ZZ008.wav",
+      "sha256": "b0730b630a491338e5f6f2cbc7611bac74d7146f8d85890fc53a8c4969e9219e",
+      "object": "mp_voice.Delta_38.D38ZZ008"
+    },
+    {
+      "path": "dist\\rc-dialogue-complete\\audio\\character_voice\\D07MK090.wav",
+      "sha256": "b0b266f5aa239ea371d3403be0f323c503d481e10c76eecb76ab2827c7b7b045",
+      "object": "Character_Voice.Delta_07.D07MK090"
+    },
+    {
+      "path": "dist\\rc-dialogue-complete\\audio\\character_voice\\D62XX442.wav",
+      "sha256": "b1808ab93bde15ebef27085f8b9aa6a1be32ddf73c5b89db505ee5b15fb82561",
+      "object": "Character_Voice.Delta_62.D62XX442"
+    },
+    {
+      "path": "dist\\rc-dialogue-complete\\audio\\character_voice\\D62X1416.wav",
+      "sha256": "b29a99ae7ceefbe37920e35e4275bc89ad014e786a46393b3d9e613a4f5bdfa6",
+      "object": "Character_Voice.Delta_62.D62X1416"
+    },
+    {
+      "path": "dist\\rc-dialogue-complete\\audio\\character_voice\\D07X4005.wav",
+      "sha256": "b2c0c0c58bc63bf5388db729f314065febc25e9a0a7f6ee2b3c37fbba04c416a",
+      "object": "Character_Voice.Delta_07.D07X4005"
+    },
+    {
+      "path": "dist\\rc-dialogue-complete\\audio\\character_voice\\D40XX207.wav",
+      "sha256": "b48c387b4e2c86ceca1477ca62bc86e0f66f818d1434aef8a0d7010c5dee47bf",
+      "object": "Character_Voice.Delta_40.D40XX207"
+    },
+    {
+      "path": "dist\\rc-dialogue-complete\\audio\\character_voice\\D40MK548.wav",
+      "sha256": "b51a6e6f4d101d0502118dbe036de94f845480e4f2a39b55b47dac60514f5e12",
+      "object": "Character_Voice.Delta_40.D40MK548"
+    },
+    {
+      "path": "dist\\rc-dialogue-complete\\audio\\geo_voice\\D38G5502.wav",
+      "sha256": "b5fedddbff15d482ed1b18ab44c4d9f7505f82c8446e36de371b76a701d379df",
+      "object": "geo_voice.GEO_05.D38G5502"
+    },
+    {
+      "path": "dist\\rc-dialogue-complete\\audio\\character_voice\\D62X5049.wav",
+      "sha256": "b60a37f8c427f2563d198e6d53fa1d940d2e010657613af1d2b85b5dd71bdcd9",
+      "object": "Character_Voice.Delta_62.D62X5049"
+    },
+    {
+      "path": "dist\\rc-dialogue-complete\\audio\\character_voice\\D40XX239.wav",
+      "sha256": "b83de19003f09861dbfc6c6ab0bea63eb56bcf20b0a0d98fe3cd3c0df1c37b4a",
+      "object": "Character_Voice.Delta_40.D40XX239"
+    },
+    {
+      "path": "dist\\rc-dialogue-complete\\audio\\mp_voice\\D38ZZ022.wav",
+      "sha256": "bad69e0516a121031332e57f69f08747e6bb55673748635e87374d9dbb36c265",
+      "object": "mp_voice.Delta_38.D38ZZ022"
+    },
+    {
+      "path": "dist\\rc-dialogue-complete\\audio\\character_voice\\D07X5038.wav",
+      "sha256": "bae6d366835578314a6bef071cb5a27e98dc17abe577a7d5baa3b5c6685fd4d9",
+      "object": "Character_Voice.Delta_07.D07X5038"
+    },
+    {
+      "path": "dist\\rc-dialogue-complete\\audio\\character_voice\\D38MK049.wav",
+      "sha256": "baee684ac77f2f020cd3bcde6a95c6213ce9ea3b9cbac8cbf5988626ab8eed3b",
+      "object": "Character_Voice.Delta_38.D38MK049"
+    },
+    {
+      "path": "dist\\rc-dialogue-complete\\audio\\character_voice\\D62XX349.wav",
+      "sha256": "bb809f59883cfe739d1d1fb7b40d4d90666a5721bf71c75425159fca35a5bec2",
+      "object": "Character_Voice.Delta_62.D62XX349"
+    },
+    {
+      "path": "dist\\rc-dialogue-complete\\audio\\character_voice\\D38X4360.wav",
+      "sha256": "bbbf4a4ae4d8046ae35c60c3bd7150d5492769269e2901bd9774b1184e7b633e",
+      "object": "Character_Voice.Delta_38.D38X4360"
+    },
+    {
+      "path": "dist\\rc-dialogue-complete\\audio\\character_voice\\D62MK106.wav",
+      "sha256": "bbe3a28cc7043dc69bd42f7852322b9c976ef5851cf47de4bf6b9adba2f92304",
+      "object": "Character_Voice.Delta_62.D62MK106"
+    },
+    {
+      "path": "dist\\rc-dialogue-complete\\audio\\character_voice\\D62X4911.wav",
+      "sha256": "bcbe8e22d52f00221ede2ca652ec3f8e842d76d9da9c1ef1738de8e0e39d8ee0",
+      "object": "Character_Voice.Delta_62.D62X4911"
+    },
+    {
+      "path": "dist\\rc-dialogue-complete\\audio\\character_voice\\D38X4358.wav",
+      "sha256": "bceb01afadd75ea2d38b6ac21c876cbcc21ef09cb8e8244a25b67e1749a0383b",
+      "object": "Character_Voice.Delta_38.D38X4358"
+    },
+    {
+      "path": "dist\\rc-dialogue-complete\\audio\\character_voice\\D07XX042.wav",
+      "sha256": "be0d6189eae64f9d88d737ff4c7a49273b25a124829257af69a51ddd482ce50a",
+      "object": "Character_Voice.Delta_07.D07XX042"
+    },
+    {
+      "path": "dist\\rc-dialogue-complete\\audio\\character_voice\\D38X5027.wav",
+      "sha256": "beb42e70c2318315120424961e95a2bd05825a2c49b4fb38bf56971a4e6da4ca",
+      "object": "Character_Voice.Delta_38.D38X5027"
+    },
+    {
+      "path": "dist\\rc-dialogue-complete\\audio\\character_voice\\D62X4749.wav",
+      "sha256": "bef8def08af02688b52e05732d3130ba0428b4eea57c2a8a6625cb41e09431a4",
+      "object": "Character_Voice.Delta_62.D62X4749"
+    },
+    {
+      "path": "dist\\rc-dialogue-complete\\audio\\yyy_voice\\D40Y3504.wav",
+      "sha256": "bf6fd980c2a9c96646854cd03971720ab1a3e18ac8cca2781dc49a0af2ec5fb0",
+      "object": "yyy_voice.YYY_03.D40Y3504"
+    },
+    {
+      "path": "dist\\rc-dialogue-complete\\audio\\mp_voice\\D38ZZ042.wav",
+      "sha256": "bf7b0a0c8c400df2b68bac8139291f2b1d84e1cbee90bcef6346e171117befd2",
+      "object": "mp_voice.Delta_38.D38ZZ042"
+    },
+    {
+      "path": "dist\\rc-dialogue-complete\\audio\\mp_voice\\D38ZZ026.wav",
+      "sha256": "bfa4d48c5771f044d9965a20ee81f24020c3baaae8cbad9c860ef5634c4cf422",
+      "object": "mp_voice.Delta_38.D38ZZ026"
+    },
+    {
+      "path": "dist\\rc-dialogue-complete\\audio\\character_voice\\D62X4770.wav",
+      "sha256": "c2abbe9f5afbfc5a7ab1da56732f1f9ee9db8690c901b2c6d2259b2d9a764a82",
+      "object": "Character_Voice.Delta_62.D62X4770"
+    },
+    {
+      "path": "dist\\rc-dialogue-complete\\audio\\character_voice\\D62MK639.wav",
+      "sha256": "c2d6f4e7fc57b34983386205e0d2c44dd8e2014762558a0bca6511e76b715df8",
+      "object": "Character_Voice.Delta_62.D62MK639"
+    },
+    {
+      "path": "dist\\rc-dialogue-complete\\audio\\mp_voice\\D40ZZ019.wav",
+      "sha256": "c34e2e41e581d1a4d29bd723652492e285888bec4e580fe2d5252b9cafc82ee5",
+      "object": "mp_voice.Delta_40.D40ZZ019"
+    },
+    {
+      "path": "dist\\rc-dialogue-complete\\audio\\character_voice\\D38X3008.wav",
+      "sha256": "c410116edb078c3bbcb8e0948623f9dabd54d16ce13d379c66b8bf7d31b50e14",
+      "object": "Character_Voice.Delta_38.D38X3008"
+    },
+    {
+      "path": "dist\\rc-dialogue-complete\\audio\\character_voice\\D40XX194.wav",
+      "sha256": "c525ea3c6aafaecfed0e8fbc900c88e12b5d6812b4a99c98d4f59d67839d6bbe",
+      "object": "Character_Voice.Delta_40.D40XX194"
+    },
+    {
+      "path": "dist\\rc-dialogue-complete\\audio\\character_voice\\D07XX592.wav",
+      "sha256": "c61d1bdf7ccec21c42ab77c206992039566541d34434c3caa77e6cab4158df70",
+      "object": "Character_Voice.Delta_07.D07XX592"
+    },
+    {
+      "path": "dist\\rc-dialogue-complete\\audio\\character_voice\\D62X1355.wav",
+      "sha256": "c66df781bbb38360a040fb87d20da45ec83e29af33ba051623ddea442833453f",
+      "object": "Character_Voice.Delta_62.D62X1355"
+    },
+    {
+      "path": "dist\\rc-dialogue-complete\\audio\\character_voice\\D07XX594.wav",
+      "sha256": "c71a47bb72363a68067397e4c54c86080f272ce4bbc6546c43ca7e15363ebbbe",
+      "object": "Character_Voice.Delta_07.D07XX594"
+    },
+    {
+      "path": "dist\\rc-dialogue-complete\\audio\\mp_voice\\D40ZZ028.wav",
+      "sha256": "c77d224f136c0c390ca649f108caf2c5608475ca353e0e2f50aea99e72faef91",
+      "object": "mp_voice.Delta_40.D40ZZ028"
+    },
+    {
+      "path": "dist\\rc-dialogue-complete\\audio\\character_voice\\D40MK078.wav",
+      "sha256": "c955f64b291101651e6b2ce94b4365f78ff77d9b4111014960c30f380cabb0c9",
+      "object": "Character_Voice.Delta_40.D40MK078"
+    },
+    {
+      "path": "dist\\rc-dialogue-complete\\audio\\mp_voice\\D40ZZ042.wav",
+      "sha256": "c97eb6eac622881ce05d44ace33314215c2c6d2fbdec169ec958c7bbaeeb9b79",
+      "object": "mp_voice.Delta_40.D40ZZ042"
+    },
+    {
+      "path": "dist\\rc-dialogue-complete\\audio\\character_voice\\D40X1203.wav",
+      "sha256": "ca87c14288311f80f469e26e12cd4e2dbbb838fd635f6947d1dca9323daf801c",
+      "object": "Character_Voice.Delta_40.D40X1203"
+    },
+    {
+      "path": "dist\\rc-dialogue-complete\\audio\\mp_voice\\D38ZZ001.wav",
+      "sha256": "cbb1721fa4af1c9c27d419514842e4564ae5da342808cf3b04cac98bc67ceee5",
+      "object": "mp_voice.Delta_38.D38ZZ001"
+    },
+    {
+      "path": "dist\\rc-dialogue-complete\\audio\\character_voice\\D62MK669.wav",
+      "sha256": "cbfde9185abaebe0d3f95908d6cde7921c99422b19a7897dc6cf62f3e54a121f",
+      "object": "Character_Voice.Delta_62.D62MK669"
+    },
+    {
+      "path": "dist\\rc-dialogue-complete\\audio\\yyy_voice\\D38Y3519.wav",
+      "sha256": "ccc197c99329c317f01fe922ce4beeb8525a00391113d0b5c0924be4ec83529e",
+      "object": "yyy_voice.YYY_03.D38Y3519"
+    },
+    {
+      "path": "dist\\rc-dialogue-complete\\audio\\character_voice\\D07X4205.wav",
+      "sha256": "ccf9bc232dae751d80020efd2f00201f30bd4afbd5d462656ce44b14326396cc",
+      "object": "Character_Voice.Delta_07.D07X4205"
+    },
+    {
+      "path": "dist\\rc-dialogue-complete\\audio\\character_voice\\D07X5035.wav",
+      "sha256": "ce62f99920ff57842666c420fce47e369ab3d2115dec645c5b8c0cca720ae231",
+      "object": "Character_Voice.Delta_07.D07X5035"
+    },
+    {
+      "path": "dist\\rc-dialogue-complete\\audio\\character_voice\\D07XX092.wav",
+      "sha256": "cf0b90bfeaf4048888d50df9932963b877a099242947376cf240709b6a3a4cd7",
+      "object": "Character_Voice.Delta_07.D07XX092"
+    },
+    {
+      "path": "dist\\rc-dialogue-complete\\audio\\character_voice\\D40X4533.wav",
+      "sha256": "cf5ebef93531556f4a72556f6c7592b0614c7ca0ae79244c80c1fb2186179ff9",
+      "object": "Character_Voice.Delta_40.D40X4533"
+    },
+    {
+      "path": "dist\\rc-dialogue-complete\\audio\\character_voice\\D62X1425.wav",
+      "sha256": "cf751b9229c0bb399c81944c29cfb7dde87c2addaf023a7c867bb7481c59f119",
+      "object": "Character_Voice.Delta_62.D62X1425"
+    },
+    {
+      "path": "dist\\rc-dialogue-complete\\audio\\character_voice\\D38X4326.wav",
+      "sha256": "d15e591a7dfc8c5c892370e63548a883b78db833d0713b794ed58fb8c40af496",
+      "object": "Character_Voice.Delta_38.D38X4326"
+    },
+    {
+      "path": "dist\\rc-dialogue-complete\\audio\\character_voice\\D62XX425.wav",
+      "sha256": "d23c03e49934b40e131acb801148e0a064ef59e2f4f9f7d4fa52e7ae7dec84ad",
+      "object": "Character_Voice.Delta_62.D62XX425"
+    },
+    {
+      "path": "dist\\rc-dialogue-complete\\audio\\character_voice\\D62MK637.wav",
+      "sha256": "d4374ce72aba050131acab3d72e04705f799e25c9812d2cabf424c5c99ed0bcd",
+      "object": "Character_Voice.Delta_62.D62MK637"
+    },
+    {
+      "path": "dist\\rc-dialogue-complete\\audio\\character_voice\\D62XX372.wav",
+      "sha256": "d43b8b52b25f5525f298bdd9604ea8bfdbbb6e946e8b19ce63c96fd38596473b",
+      "object": "Character_Voice.Delta_62.D62XX372"
+    },
+    {
+      "path": "dist\\rc-dialogue-complete\\audio\\character_voice\\D07X4064.wav",
+      "sha256": "d74b4a1937d16c2f99c7e1c47a2ac4e85bac4d7ac429c699986afb9dadd44298",
+      "object": "Character_Voice.Delta_07.D07X4064"
+    },
+    {
+      "path": "dist\\rc-dialogue-complete\\audio\\character_voice\\D62X5044.wav",
+      "sha256": "d7ef01c360ad89a831c901fba4b509a6c2b0e8e4baf236b58f708fb7d0a16f9b",
+      "object": "Character_Voice.Delta_62.D62X5044"
+    },
+    {
+      "path": "dist\\rc-dialogue-complete\\audio\\ras_voice\\D38R1520.wav",
+      "sha256": "d7f60e10a3867137f69e1626e6a10dcc29fc9541107e2a18d24c076d74f093b0",
+      "object": "ras_voice.RAS_01.D38R1520"
+    },
+    {
+      "path": "dist\\rc-dialogue-complete\\audio\\mp_voice\\D62ZZ003.wav",
+      "sha256": "d80c4096e7c9e42f2319ca9ff433070b2a186a1e212886e13a6753f6c151117b",
+      "object": "mp_voice.Delta_62.D62ZZ003"
+    },
+    {
+      "path": "dist\\rc-dialogue-complete\\audio\\geo_voice\\D40G5509.wav",
+      "sha256": "d9702176041aa13d1516db0f0845a7ff0a4974d91338775ddf58a86b088a2fb9",
+      "object": "geo_voice.GEO_05.D40G5509"
+    },
+    {
+      "path": "dist\\rc-dialogue-complete\\audio\\character_voice\\D07X4199.wav",
+      "sha256": "d9b34b6d867eeea37a36832f29a1f6ed44d6918c6bb7ec913461c7db6ac197a3",
+      "object": "Character_Voice.Delta_07.D07X4199"
+    },
+    {
+      "path": "dist\\rc-dialogue-complete\\audio\\character_voice\\D62X1345.wav",
+      "sha256": "d9e5f2295fe7f5abd2e9aa4486a58bd0bb22cb1c337c3fe0023e33efeaa690ab",
+      "object": "Character_Voice.Delta_62.D62X1345"
+    },
+    {
+      "path": "dist\\rc-dialogue-complete\\audio\\character_voice\\D07MK322.wav",
+      "sha256": "d9e859e56ef1bc8517ce6ec66a1144d44c313d311bb142e3434586c72e2d8636",
+      "object": "Character_Voice.Delta_07.D07MK322"
+    },
+    {
+      "path": "dist\\rc-dialogue-complete\\audio\\character_voice\\D40X4449.wav",
+      "sha256": "da1d987bef16bc57878a00378e2413acb709e1ab1f88cb272327b009b8622231",
+      "object": "Character_Voice.Delta_40.D40X4449"
+    },
+    {
+      "path": "dist\\rc-dialogue-complete\\audio\\character_voice\\D62X1348.wav",
+      "sha256": "da586b5d564e505f5b305de0c49ce7622342c15d84e2ae72a5c941b3fd888e0d",
+      "object": "Character_Voice.Delta_62.D62X1348"
+    },
+    {
+      "path": "dist\\rc-dialogue-complete\\audio\\character_voice\\D62MK651.wav",
+      "sha256": "daa023a28bff8f3939d64f549d0780406ed25fa25f407ff568fa45a034811184",
+      "object": "Character_Voice.Delta_62.D62MK651"
+    },
+    {
+      "path": "dist\\rc-dialogue-complete\\audio\\character_voice\\D40XX181.wav",
+      "sha256": "db9b3628e13aeeb0f13763ecdc0567bec701258547f7880e743feca18433378c",
+      "object": "Character_Voice.Delta_40.D40XX181"
+    },
+    {
+      "path": "dist\\rc-dialogue-complete\\audio\\character_voice\\D07X4191.wav",
+      "sha256": "dc35f693d5937e1b4eef7701d20979a81f3807869a5e78c768f09d52620376a7",
+      "object": "Character_Voice.Delta_07.D07X4191"
+    },
+    {
+      "path": "dist\\rc-dialogue-complete\\audio\\character_voice\\D40X4546.wav",
+      "sha256": "dc6d53b7d8f0a77b67ad98974e41b98d5dfc0833fbac91be1566df013372d15c",
+      "object": "Character_Voice.Delta_40.D40X4546"
+    },
+    {
+      "path": "dist\\rc-dialogue-complete\\audio\\character_voice\\D40X4547.wav",
+      "sha256": "de094a4c976a50029ad270dbb67fd1a4ede0620ce0f7a91c09b5e88515080a0a",
+      "object": "Character_Voice.Delta_40.D40X4547"
+    },
+    {
+      "path": "dist\\rc-dialogue-complete\\audio\\character_voice\\D40X4551.wav",
+      "sha256": "de693f871176feb52c12f9a5fab61cfe7ff50bdb8ce0e2ab27d38fc207a6fbe6",
+      "object": "Character_Voice.Delta_40.D40X4551"
+    },
+    {
+      "path": "dist\\rc-dialogue-complete\\audio\\character_voice\\D40X4540.wav",
+      "sha256": "de7bf50ae3d45399d51bec213f8db4c59363604476641fdf1d811b3a5b921f4d",
+      "object": "Character_Voice.Delta_40.D40X4540"
+    },
+    {
+      "path": "dist\\rc-dialogue-complete\\audio\\mp_voice\\D40ZZ008.wav",
+      "sha256": "dfa52248e8dab4e5e435dc9b7a8276e35cdec251bbd4e0eb167e138a7836221a",
+      "object": "mp_voice.Delta_40.D40ZZ008"
+    },
+    {
+      "path": "dist\\rc-dialogue-complete\\audio\\mp_voice\\D40ZZ020.wav",
+      "sha256": "e0ee37c962ede58aa8919cd92a892570901e4cfc9112a934a02f1c988c50b06d",
+      "object": "mp_voice.Delta_40.D40ZZ020"
+    },
+    {
+      "path": "dist\\rc-dialogue-complete\\audio\\character_voice\\D62X4681.wav",
+      "sha256": "e1dd70a43be568b8af3b22bae39130b92ab55c1d10041fd668251b591b4fe234",
+      "object": "Character_Voice.Delta_62.D62X4681"
+    },
+    {
+      "path": "dist\\rc-dialogue-complete\\audio\\character_voice\\D62X1463.wav",
+      "sha256": "e204c8a369b17cb7af1a165195e29e870116a5fb0ea4c78b5ac591db9fe32e54",
+      "object": "Character_Voice.Delta_62.D62X1463"
+    },
+    {
+      "path": "dist\\rc-dialogue-complete\\audio\\character_voice\\D62MK615.wav",
+      "sha256": "e38e4c4d197efbaaa4b4057d075e153f924c3d951d551a80107cda8278981ae1",
+      "object": "Character_Voice.Delta_62.D62MK615"
+    },
+    {
+      "path": "dist\\rc-dialogue-complete\\audio\\mp_voice\\D38ZZ019.wav",
+      "sha256": "e3c205bed35f9fd1e41d57fd57a43e7f736afd03e2942e44dadaa31f6d4ae73b",
+      "object": "mp_voice.Delta_38.D38ZZ019"
+    },
+    {
+      "path": "dist\\rc-dialogue-complete\\audio\\character_voice\\D40MK090.wav",
+      "sha256": "e4c22e37de7141083bedcba942e9ff4fe9b89c7868598076b114573c18bae476",
+      "object": "Character_Voice.Delta_40.D40MK090"
+    },
+    {
+      "path": "dist\\rc-dialogue-complete\\audio\\character_voice\\D38X2999.wav",
+      "sha256": "e539c99c8657307b0525f0dfc5708d23fd95aeec0261188873700f2745e4b3cf",
+      "object": "Character_Voice.Delta_38.D38X2999"
+    },
+    {
+      "path": "dist\\rc-dialogue-complete\\audio\\character_voice\\D07MK345.wav",
+      "sha256": "e563a65f1feaa3a07305d9ac7cb1c52aaac09c04f4651e94f23f758989ee6c20",
+      "object": "Character_Voice.Delta_07.D07MK345"
+    },
+    {
+      "path": "dist\\rc-dialogue-complete\\audio\\character_voice\\D40XX240.wav",
+      "sha256": "e579e13aa7abd33999fe7f29387c162c0d38948aeb00439d8849233aaf0379ef",
+      "object": "Character_Voice.Delta_40.D40XX240"
+    },
+    {
+      "path": "dist\\rc-dialogue-complete\\audio\\character_voice\\D07X4082.wav",
+      "sha256": "e6589aca2bc36f1966197874d881112ee1e527426b71a6b56d94c2e265c8ee4d",
+      "object": "Character_Voice.Delta_07.D07X4082"
+    },
+    {
+      "path": "dist\\rc-dialogue-complete\\audio\\character_voice\\D07XX808.wav",
+      "sha256": "e688948f85bcc255c340857f62e06748042dc01e9d87ee3de5dd22f4537e9b9f",
+      "object": "Character_Voice.Delta_07.D07XX808"
+    },
+    {
+      "path": "dist\\rc-dialogue-complete\\audio\\character_voice\\D40MK520.wav",
+      "sha256": "e80c1f2ccb65723b01e8ceabf421dcbe8aace7ffed39aa710b5b1ce835149baa",
+      "object": "Character_Voice.Delta_40.D40MK520"
+    },
+    {
+      "path": "dist\\rc-dialogue-complete\\audio\\character_voice\\D62MK104.wav",
+      "sha256": "e9709125fa04dd3a2a3f6e48719909dc63ac88b531c121c4cc838be5b8436ca0",
+      "object": "Character_Voice.Delta_62.D62MK104"
+    },
+    {
+      "path": "dist\\rc-dialogue-complete\\audio\\character_voice\\D07MK033.wav",
+      "sha256": "e97ccfdfdab336591e556909bda828deb86f7fc232a51735b0b7d7601224288f",
+      "object": "Character_Voice.Delta_07.D07MK033"
+    },
+    {
+      "path": "dist\\rc-dialogue-complete\\audio\\character_voice\\D38MK022.wav",
+      "sha256": "eb1494f3721d905e71e4f520fcd995868f7b23c949203450c1a3b9844dc71e5b",
+      "object": "Character_Voice.Delta_38.D38MK022"
+    },
+    {
+      "path": "dist\\rc-dialogue-complete\\audio\\character_voice\\D62XX362.wav",
+      "sha256": "eb911f99ea368dad55a5caa8354469614f9412d6241fffbe11d373eb9dd99008",
+      "object": "Character_Voice.Delta_62.D62XX362"
+    },
+    {
+      "path": "dist\\rc-dialogue-complete\\audio\\mp_voice\\D40ZZ003.wav",
+      "sha256": "ebe52b2b2ecbb39e0b376fc3b10ad8f566712757f3f23d86df3400af045529a5",
+      "object": "mp_voice.Delta_40.D40ZZ003"
+    },
+    {
+      "path": "dist\\rc-dialogue-complete\\audio\\mp_voice\\D38ZZ020.wav",
+      "sha256": "ec7bb19bebca9781b3d36640bdce73e376da25eead4a4833bd19473586da7826",
+      "object": "mp_voice.Delta_38.D38ZZ020"
+    },
+    {
+      "path": "dist\\rc-dialogue-complete\\audio\\character_voice\\D62XX373.wav",
+      "sha256": "ed8c2cf83e3132b1faa83289060ae7e3ad4c66285866d08c83112a2a4351b7be",
+      "object": "Character_Voice.Delta_62.D62XX373"
+    },
+    {
+      "path": "dist\\rc-dialogue-complete\\audio\\character_voice\\D07MK311.wav",
+      "sha256": "ef709cec830eb26593c25ee1a96604bff4c8c9b87d4f287cf6b08a90856e87d5",
+      "object": "Character_Voice.Delta_07.D07MK311"
+    },
+    {
+      "path": "dist\\rc-dialogue-complete\\audio\\mp_voice\\D40ZZ007.wav",
+      "sha256": "eff16bbf11cd7df36d4cc1dfd43ec6b1835e4464ef23a586ade5aa267aa63f3f",
+      "object": "mp_voice.Delta_40.D40ZZ007"
+    },
+    {
+      "path": "dist\\rc-dialogue-complete\\audio\\character_voice\\D07XX055.wav",
+      "sha256": "f18648c84d10239cf2c570860d7196558e232e9ff92a13897ee3de7e4fb5e80c",
+      "object": "Character_Voice.Delta_07.D07XX055"
+    },
+    {
+      "path": "dist\\rc-dialogue-complete\\audio\\character_voice\\D07MK348.wav",
+      "sha256": "f28799e49d95080a7e78a7a9356dac86a755c953b15933597b36f76e428ff296",
+      "object": "Character_Voice.Delta_07.D07MK348"
+    },
+    {
+      "path": "dist\\rc-dialogue-complete\\audio\\character_voice\\D40X4440.wav",
+      "sha256": "f2cf709c4ee6b9162806e8a26e5bb83f575693223e9dfad427951e9e305da416",
+      "object": "Character_Voice.Delta_40.D40X4440"
+    },
+    {
+      "path": "dist\\rc-dialogue-complete\\audio\\character_voice\\D40MK564.wav",
+      "sha256": "f3663a70ff99854adfea827d642f92edaff971a287afb6dff24be7610e031931",
+      "object": "Character_Voice.Delta_40.D40MK564"
+    },
+    {
+      "path": "dist\\rc-dialogue-complete\\audio\\character_voice\\D62MK558.wav",
+      "sha256": "f3f458f5e8b252071b29dd5a1490a37b7ba4667ed054905fed2aa009d6905e66",
+      "object": "Character_Voice.Delta_62.D62MK558"
+    },
+    {
+      "path": "dist\\rc-dialogue-complete\\audio\\character_voice\\D62MK001.wav",
+      "sha256": "f4edf0569924904b0b240ae44455843ea0ecc3efa9610f3a5b963ac1d991e4a0",
+      "object": "Character_Voice.Delta_62.D62MK001"
+    },
+    {
+      "path": "dist\\rc-dialogue-complete\\audio\\character_voice\\D40MK033.wav",
+      "sha256": "f5c083e70b96fa4689567ead8726928a867e703ebfe78cdee447f184bfab58e8",
+      "object": "Character_Voice.Delta_40.D40MK033"
+    },
+    {
+      "path": "dist\\rc-dialogue-complete\\audio\\character_voice\\D40XX195.wav",
+      "sha256": "f6472bf339bc240ada6fce7cd81d6e3cc24c9f6bdafc233335a0a785836ccaeb",
+      "object": "Character_Voice.Delta_40.D40XX195"
+    },
+    {
+      "path": "dist\\rc-dialogue-complete\\audio\\character_voice\\D62X4970.wav",
+      "sha256": "f6bbfd6d759919eefa47458ab6f5e307e88ceacb4dc91d6972ec59fdbe0c61b5",
+      "object": "Character_Voice.Delta_62.D62X4970"
+    },
+    {
+      "path": "dist\\rc-dialogue-complete\\audio\\character_voice\\D62XX404.wav",
+      "sha256": "f724ee8441d99690e8c056efb129f748895b9eeaa6cf3de71ed339c402d859ff",
+      "object": "Character_Voice.Delta_62.D62XX404"
+    },
+    {
+      "path": "dist\\rc-dialogue-complete\\audio\\character_voice\\D62X4750.wav",
+      "sha256": "f73ae7de7ea02b032a77cd808f02f46f1b7ab676ba54639ef1f4bfff56b94011",
+      "object": "Character_Voice.Delta_62.D62X4750"
+    },
+    {
+      "path": "dist\\rc-dialogue-complete\\audio\\yyy_voice\\D62Y5005.wav",
+      "sha256": "f76d0d8bf0cac2b5647c161445b91032c7fbe8026b365c64a5351b75f38828c9",
+      "object": "yyy_voice.YYY_05.D62Y5005"
+    },
+    {
+      "path": "dist\\rc-dialogue-complete\\audio\\character_voice\\D07MK104.wav",
+      "sha256": "f7770dd9c6fc88746cf05384eda06d33db2ae2adaf1dd926afa5feedd2223c80",
+      "object": "Character_Voice.Delta_07.D07MK104"
+    },
+    {
+      "path": "dist\\rc-dialogue-complete\\audio\\character_voice\\D40X4545.wav",
+      "sha256": "f7e8d82716d5710982862980eea75d92b2c939a56e5be79c52a3fe49ecef207c",
+      "object": "Character_Voice.Delta_40.D40X4545"
+    },
+    {
+      "path": "dist\\rc-dialogue-complete\\audio\\character_voice\\D40MK563.wav",
+      "sha256": "f95b8df6406056be5c8d9e0ad2f4c9fdd31195c8a3361eddafe30cc05930d152",
+      "object": "Character_Voice.Delta_40.D40MK563"
+    },
+    {
+      "path": "dist\\rc-dialogue-complete\\audio\\character_voice\\D40XX193.wav",
+      "sha256": "fa6f23f911ba9b21d0bd20b29e0a11f9be6a7e9a71bbe75ae3efa62e802aec0f",
+      "object": "Character_Voice.Delta_40.D40XX193"
+    },
+    {
+      "path": "dist\\rc-dialogue-complete\\audio\\character_voice\\D40MK556.wav",
+      "sha256": "faeb705f0305d413437b87f9b64d8341b6f2932516d13e615c65b879c2b2a6ba",
+      "object": "Character_Voice.Delta_40.D40MK556"
+    },
+    {
+      "path": "dist\\rc-dialogue-complete\\audio\\mp_voice\\D38ZZ014.wav",
+      "sha256": "fc0480c3480730b90fe14f0a4663017e755e151794f7725ce9c1aa9b13525fb1",
+      "object": "mp_voice.Delta_38.D38ZZ014"
+    },
+    {
+      "path": "dist\\rc-dialogue-complete\\audio\\character_voice\\D40X4535.wav",
+      "sha256": "fc413aea204ee9af54574c511ebea05df822f30dc5112ca51e9d5788535128cc",
+      "object": "Character_Voice.Delta_40.D40X4535"
+    },
+    {
+      "path": "dist\\rc-dialogue-complete\\audio\\character_voice\\D40X1234.wav",
+      "sha256": "fe66ed1ce578fa73730d1020e487e5574fecedc81cb665f31f2deebb494979d6",
+      "object": "Character_Voice.Delta_40.D40X1234"
+    },
+    {
+      "path": "dist\\rc-dialogue-complete\\audio\\character_voice\\D62MK607.wav",
+      "sha256": "febfe54563d60ce8fc230e67e1d381d64d4555d7a7d21c7c37b7d2f823cd0f4a",
+      "object": "Character_Voice.Delta_62.D62MK607"
+    },
+    {
+      "path": "dist\\rc-dialogue-complete\\audio\\mp_voice\\D07ZZ013.wav",
+      "sha256": "fec2e61568d499abfc8809dce3f533ddd17379fb37631e5fab44f5285008fc7f",
+      "object": "mp_voice.Delta_07.D07ZZ013"
+    },
+    {
+      "path": "dist\\rc-dialogue-complete\\audio\\character_voice\\D62MK612.wav",
+      "sha256": "ff1086a27c0d5d7e705922e10674093ebd17b3f334f7af1e453ef440028712f2",
+      "object": "Character_Voice.Delta_62.D62MK612"
+    },
+    {
+      "path": "dist\\rc-dialogue-complete\\audio\\geo_voice\\D40G3103.wav",
+      "sha256": "fff89372efcd2de1042862b97c0fd5d1b6d55e8817f683cfd0cc8ac035da33bb",
+      "object": "geo_voice.GEO_03.D40G3103"
+    }
+  ],
+  "templateSha256": "f321f972fcaa187921c5281c208b05e4bef2501b13fb87831f49cc5c3fc84de0",
+  "outputs": [
+    {
+      "name": "9ba626afa44a3aa3.patch_0",
+      "size": 1105808,
+      "sha256": "315c407b8cf87782a94c265bd23e1a86064d7c93be8679de09090dabd1b65728"
+    },
+    {
+      "name": "9ba626afa44a3aa3.patch_0.stream",
+      "size": 34141968,
+      "sha256": "0a10afcdddbaf770e1a169cb6f26d07a7118ebc857615d60065fbf16cca23682"
+    }
+  ],
+  "videoEncoderArguments": "/V6344 /D95 /M10 /#",
+  "videoSlices": 4,
+  "dependencies": [
+    {
+      "path": "dist/rc-upgrade/wwav/wwav.py",
+      "sha256": "e9eed363558d469270b3c5af762cb5a0146a91518002a7207d801c17880e5d6f",
+      "repository": "https://github.com/adamXbot/wwav",
+      "revision": "340aa3535109612cd0b9552e1355fbd836363735"
+    },
+    {
+      "path": "dist/rc-upgrade/hd2-audio-modder/util.py",
+      "sha256": "74da292f5512cc3384fc19d2c461d1d0884241414aa2a97d185718e824b4651b",
+      "revision": "c408a44d14959d0adcbcbde84f7202e5333ea670"
+    }
+  ]
+}

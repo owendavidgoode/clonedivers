@@ -63,7 +63,7 @@ $dupe = $files | Group-Object { $_.Name.ToLowerInvariant() } | Where-Object { $_
 if ($dupe) { throw "Two files differ only by case: $($dupe.Group.Name -join ', ')" }
 foreach ($g in ($files | Where-Object { $_.Comp -eq '' } | Group-Object Arch)) {
     $idx = @($g.Group.Idx | Sort-Object -Unique)
-    for ($i = 0; $i -lt $idx.Count; $i++) { if ($idx[$i] -ne $i) { Write-Warning "archive $($g.Name): patch numbers have a gap at $i (the game stops loading there)"; break } }
+    for ($i = 0; $i -lt $idx.Count; $i++) { if ($idx[$i] -ne $i) { throw "archive $($g.Name): patch numbers have a gap at $i (the game stops loading there)" } }
 }
 Write-Host ("Hashing {0} files ({1:N2} GB) in {2}" -f $files.Count, (($files | Measure-Object Size -Sum).Sum / 1GB), $data)
 $sw = [Diagnostics.Stopwatch]::StartNew()
@@ -72,6 +72,9 @@ foreach ($f in $files) {
     $f | Add-Member -NotePropertyName Sha -NotePropertyValue $sha
 }
 Write-Host ("  hashed in {0:N0} s" -f $sw.Elapsed.TotalSeconds)
+. (Join-Path $PSScriptRoot 'deployment-contract.ps1')
+$contractInventory = @($files | ForEach-Object { [pscustomobject]@{name=$_.Name;size=$_.Size;sha256=$_.Sha} })
+Assert-DeploymentReceipt $data $RecipePath $DeployReport $contractInventory
 
 # --- optional verification against format-1 zips (the first per-file publish must equal the frozen r3 pack) -----
 if ($VerifyZips) {
@@ -152,7 +155,8 @@ if (Test-Path $RecipePath) {
     if ($recipeV.PSObject.Properties['variants']) {
         foreach ($v in @($recipeV.variants)) {
             $vdir = if ([System.IO.Path]::IsPathRooted($v.dir)) { $v.dir } else { Join-Path $root $v.dir }
-            if (-not (Test-Path $vdir)) { Write-Warning "variant '$($v.id)': folder $vdir not found; skipped"; continue }
+            if (-not (Test-Path $vdir)) { throw "Required variant '$($v.id)' missing: $vdir" }
+            Assert-VariantReceipt $vdir $contractInventory
             if (-not ($options | Where-Object { $_.id -eq $v.id })) {
                 [void]$options.Add([ordered]@{ id = [string]$v.id; name = [string]$v.name; description = [string]$(if ($v.PSObject.Properties['description']) { $v.description } else { "" }); default = [bool]$(if ($v.PSObject.Properties['default']) { $v.default } else { $false }) })
             }

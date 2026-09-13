@@ -1,0 +1,39 @@
+{
+  "sourceUrl": "https://www.youtube.com/watch?v=CL5i33CTld8",
+  "sourceTitle": "Republic Commando REMASTERED Intro!!!",
+  "sourceCreator": "WoofWoofWolffe and collaborators",
+  "videoSource": "remastered-source.313.webm",
+  "audioSource": "remastered-source.140.m4a",
+  "startSeconds": 8.4,
+  "endSecondsExclusive": 172.166666666667,
+  "frameRate": 30,
+  "expectedVideoFrames": 4913,
+  "durationSeconds": 163.766666666667,
+  "videoFade": {
+    "startSecondsInOutput": 163.1,
+    "durationSeconds": 0.5
+  },
+  "audioFade": {
+    "startSecondsInOutput": 163.35,
+    "durationSeconds": 0.416667
+  },
+  "outputVideo": "republic-commando-remastered-intro.mp4",
+  "outputAudio": "republic-commando-remastered-intro.wav",
+  "encoding": {
+    "crf": 18,
+    "pixelFormat": "yuv420p",
+    "sampleRate": 48000,
+    "audio": "aac",
+    "video": "libx264",
+    "resolution": "3840x2160",
+    "preset": "veryfast",
+    "authoringAudio": "pcm_s16le stereo 48000Hz",
+    "audioBitrate": "192k"
+  },
+  "removed": [
+    "Opening menu and loading screen",
+    "Ending loading screen",
+    "Credits and promotional outro"
+  ],
+  "gameInstalled": false
+}

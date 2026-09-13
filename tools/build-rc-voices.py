@@ -119,6 +119,8 @@ def build(args: argparse.Namespace) -> None:
             if (resource, STREAM) not in entries:
                 raise ValueError(f'Clone stream resource missing for {media}')
             wav = Path(row['rc_wav'])
+            if not wav.is_absolute():
+                wav = root / wav
             if digest(wav.read_bytes()) != row['rc_sha256']:
                 raise ValueError(f'RC source changed: {wav}')
             wem = wem_dir / (row['rc_sha256'] + '.wem')

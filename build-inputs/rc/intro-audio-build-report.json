@@ -1,0 +1,22 @@
+{
+  "template": "dist\\rc-upgrade\\armory-opening\\9ba626afa44a3aa3.patch_4",
+  "wem": "dist\\rc-upgrade\\video\\republic-commando-intro-pcm.wem",
+  "streamResource": "27d6e984491581b2",
+  "sourceID": 193288922,
+  "soundID": 983687583,
+  "codec": "PCM",
+  "runtimeTested": false,
+  "bankChange": "Only intro source codec: 0x40001 to 0x10001",
+  "files": [
+    {
+      "name": "9ba626afa44a3aa3.patch_0",
+      "bytes": 17312,
+      "sha256": "ffe763b4251721559ee78b94740bb52d07b1a120e0636a4261908c70f7935477"
+    },
+    {
+      "name": "9ba626afa44a3aa3.patch_0.stream",
+      "bytes": 31443264,
+      "sha256": "cfb1ca97348a04c8e5df80cbb3ce06f6692e4673ef8268f4e5898a01d70cebac"
+    }
+  ]
+}

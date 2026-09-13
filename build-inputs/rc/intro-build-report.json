@@ -1,0 +1,34 @@
+{
+  "video": "dist\\rc-upgrade\\video\\republic-commando-remastered-four-slice-v2.bk2",
+  "template": "dist\\rc-upgrade\\armory-opening\\9ba626afa44a3aa3.patch_4",
+  "videoInfo": {
+    "signature": "KB2n",
+    "frames": 4913,
+    "width": 3840,
+    "height": 2160,
+    "fpsNumerator": 30,
+    "fpsDenominator": 1,
+    "seconds": 163.76666666666668,
+    "audioTracks": 1,
+    "flags": 262162,
+    "slices": 4,
+    "bytes": 260497116
+  },
+  "resourceCount": 1,
+  "videoSha256": "c5ad9bd656ddac16737a8a74c26d8061e499139f3ac831874575a79e85f63d9a",
+  "audioStrategy": "Separate English Wwise stream from build-rc-intro-audio.py",
+  "requires": "Clone Armory Opening Videos already installed",
+  "runtimeTested": false,
+  "files": [
+    {
+      "name": "9ba626afa44a3aa3.patch_0",
+      "bytes": 256,
+      "sha256": "d54d14de3fbbd85bb4d9d5d28a778a5c376ba05b2e53c1c1a9c555dea01dcd61"
+    },
+    {
+      "name": "9ba626afa44a3aa3.patch_0.stream",
+      "bytes": 260497120,
+      "sha256": "3940d47b886d2fde62c13a42451bcb3600f5a471a4de8823fe504b746cc7904b"
+    }
+  ]
+}

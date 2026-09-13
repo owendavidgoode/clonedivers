@@ -239,3 +239,5 @@ $reportPath = Join-Path (Split-Path $recipePath) "dist\deploy-report.json"
 New-Item -ItemType Directory -Force (Split-Path $reportPath) | Out-Null
 [IO.File]::WriteAllText($reportPath, ($report | ConvertTo-Json -Depth 4), (New-Object System.Text.UTF8Encoding $false))
 Write-Host "Report: $reportPath"
+. (Join-Path $PSScriptRoot 'deployment-contract.ps1')
+Write-DeploymentReceipt $OutDir $recipePath $reportPath

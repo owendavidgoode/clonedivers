@@ -132,7 +132,7 @@ The numbers and how it is built are in [docs/MODS.md](docs/MODS.md#performance-w
 
 - **ON** = your `*.patch_*` files sit in `Helldivers 2\data\`. **OFF** = the same files sit in `Helldivers 2\mods_off\`.
   The state is read from disk every time; nothing is stored, so it can't get out of sync.
-- Moving is a rename on the same drive, so a multi-gigabyte pack flips instantly. Nothing is ever copied or deleted.
+- Helldivers mode parks files by renaming them on the same drive. Switching between modded modes reuses matching files and downloads missing content when needed.
 - **Download pack** reads `manifest.json` from this repo (every file with its name, size and SHA-256), hashes what you
   already have, renames matching files into place, downloads only the missing ones into `Helldivers 2\mods_download\`
   with resume and a hash check, and parks anything the pack no longer contains in `mods_old\`. Nothing is written under

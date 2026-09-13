@@ -1,0 +1,374 @@
+{
+  "mapping": [
+    {
+      "variant": 1,
+      "character": "Sev",
+      "source_unit": "651ccf16ab84901a",
+      "target_unit": "bc20d0b4efff128c",
+      "bones": "651ccf16ab84901a",
+      "materials": [
+        "c36c9a87d9f00192",
+        "c36c9a87d9f00192",
+        "c36c9a87d9f00192",
+        "c36c9a87d9f00192",
+        "8cd6b9c938feaf90",
+        "8cd6b9c938feaf90"
+      ],
+      "unit_sha256": "5e3add7512ff82786f197feed1e8cb5d93ae7d273989d21d7a5da6de5da3ef6d"
+    },
+    {
+      "variant": 2,
+      "character": "Fixer",
+      "source_unit": "6c5bacf02c5aa0f0",
+      "target_unit": "7b23e3c0ab4cf618",
+      "bones": "0000000000000000",
+      "materials": [
+        "84b327056baf1c6d",
+        "4227728ec876c525",
+        "4227728ec876c525",
+        "4227728ec876c525",
+        "4227728ec876c525"
+      ],
+      "unit_sha256": "2bd8d21fec44236f86c27cfc47605afb0f3c4730ed2bd2d9538284daea7c508f"
+    },
+    {
+      "variant": 3,
+      "character": "Scorch",
+      "source_unit": "697d6a57971da101",
+      "target_unit": "c96cb2e72d7a0525",
+      "bones": "0000000000000000",
+      "materials": [
+        "7a924c38d55e45ea",
+        "7a924c38d55e45ea",
+        "7a924c38d55e45ea",
+        "7a924c38d55e45ea"
+      ],
+      "unit_sha256": "3d791d755b70c37203e836e84d964552ce776c2a83eeb04ac5b50d8d0fb15949"
+    },
+    {
+      "variant": 4,
+      "character": "Boss",
+      "source_unit": "48e63f84996be394",
+      "target_unit": "781134771dd69fbe",
+      "bones": "0000000000000000",
+      "materials": [
+        "50b1eee7b729360c",
+        "50b1eee7b729360c",
+        "50b1eee7b729360c",
+        "50b1eee7b729360c"
+      ],
+      "unit_sha256": "46d14cc5e48f1fc5e7e141f4bb18eb24c6210d63e8828b6e3cbdc365041e2bde"
+    }
+  ],
+  "shared_variant1_helmet_consumers": [
+    {
+      "id": "a3a7e93d",
+      "name": "SA-25 Steel Trooper",
+      "archive": "fd1028aaaa651c2f"
+    },
+    {
+      "id": "ec49526f",
+      "name": "B-22 Model Citizen",
+      "archive": "d1a39b5edac646aa"
+    },
+    {
+      "id": "95ac1cfd",
+      "name": "B-16 Battle-Scarred Veteran",
+      "archive": "687636554fbf6a46"
+    },
+    {
+      "id": "2180eb8d",
+      "name": "B-01 Tactical",
+      "archive": "bbaf861ceb582ef6"
+    },
+    {
+      "id": "35e8934f",
+      "name": "TR-7 Ambassador of the Brand",
+      "archive": "a0ce7d80e81fc62e"
+    },
+    {
+      "id": "4f6ccd6c",
+      "name": "B-01 Tactical",
+      "archive": "8978807640a47498"
+    },
+    {
+      "id": "40a7d694",
+      "name": "B-01 Tactical",
+      "archive": "e0491eb4fb357d2a"
+    },
+    {
+      "id": "8ce73dae",
+      "name": "B-01 Tactical",
+      "archive": "202af54b4fe5dd85"
+    },
+    {
+      "id": "69b2ec39",
+      "name": "B-01 Tactical",
+      "archive": "e5fe990d7d56cd2e"
+    },
+    {
+      "id": "261c4a52",
+      "name": "B-01 Tactical",
+      "archive": "fd109bfeeed36726"
+    },
+    {
+      "id": "ee7019ed",
+      "name": "B-01 Tactical",
+      "archive": "27d27e14b4e66f50"
+    },
+    {
+      "id": "e207c84a",
+      "name": "B-01 Tactical",
+      "archive": "3cd03a1159968eb5"
+    },
+    {
+      "id": "10707d29",
+      "name": "B-01 Tactical",
+      "archive": "3ee85c0f44ad92cc"
+    },
+    {
+      "id": "fdbf4741",
+      "name": "B-01 Tactical",
+      "archive": "32a6a7761c70c19b"
+    },
+    {
+      "id": "b638f3c4",
+      "name": "B-01 Tactical",
+      "archive": "cd08c722235e75cc"
+    },
+    {
+      "id": "843df174",
+      "name": "B-01 Tactical",
+      "archive": "9a37b0e0df207c60"
+    },
+    {
+      "id": "f9d912a7",
+      "name": "TR-40 Gold Eagle",
+      "archive": "c19663a7f34f88fc"
+    }
+  ],
+  "resource_count": 21,
+  "types": {
+    "18dead01056b72e9": 1,
+    "cd4238c6a0c69e32": 12,
+    "e0a48d0be9a7453f": 4,
+    "eac0b497876adedf": 4
+  },
+  "external_base_game_dependencies": [
+    {
+      "resource": "e21128ca48e27a13",
+      "type": "cd4238c6a0c69e32",
+      "reason": "material texture"
+    },
+    {
+      "resource": "12d4692531c1fd35",
+      "type": "cd4238c6a0c69e32",
+      "reason": "material texture"
+    },
+    {
+      "resource": "eb86d298e6cc8f94",
+      "type": "cd4238c6a0c69e32",
+      "reason": "material texture"
+    },
+    {
+      "resource": "589685dc5b965948",
+      "type": "cd4238c6a0c69e32",
+      "reason": "material texture"
+    },
+    {
+      "resource": "eb86d298e6cc8f94",
+      "type": "cd4238c6a0c69e32",
+      "reason": "material texture"
+    },
+    {
+      "resource": "17c4075f57e4211a",
+      "type": "cd4238c6a0c69e32",
+      "reason": "material texture"
+    },
+    {
+      "resource": "4781cf99e180006d",
+      "type": "cd4238c6a0c69e32",
+      "reason": "material texture"
+    },
+    {
+      "resource": "ad18941c16d97448",
+      "type": "cd4238c6a0c69e32",
+      "reason": "material texture"
+    },
+    {
+      "resource": "ef9b3fc2fc1ba61e",
+      "type": "eac0b497876adedf",
+      "reason": "base material"
+    },
+    {
+      "resource": "8cd6b9c938feaf90",
+      "type": "eac0b497876adedf",
+      "reason": "helmet material"
+    },
+    {
+      "resource": "8cd6b9c938feaf90",
+      "type": "eac0b497876adedf",
+      "reason": "helmet material"
+    },
+    {
+      "resource": "84b327056baf1c6d",
+      "type": "eac0b497876adedf",
+      "reason": "helmet material"
+    },
+    {
+      "resource": "e21128ca48e27a13",
+      "type": "cd4238c6a0c69e32",
+      "reason": "material texture"
+    },
+    {
+      "resource": "12d4692531c1fd35",
+      "type": "cd4238c6a0c69e32",
+      "reason": "material texture"
+    },
+    {
+      "resource": "eb86d298e6cc8f94",
+      "type": "cd4238c6a0c69e32",
+      "reason": "material texture"
+    },
+    {
+      "resource": "589685dc5b965948",
+      "type": "cd4238c6a0c69e32",
+      "reason": "material texture"
+    },
+    {
+      "resource": "eb86d298e6cc8f94",
+      "type": "cd4238c6a0c69e32",
+      "reason": "material texture"
+    },
+    {
+      "resource": "17c4075f57e4211a",
+      "type": "cd4238c6a0c69e32",
+      "reason": "material texture"
+    },
+    {
+      "resource": "4781cf99e180006d",
+      "type": "cd4238c6a0c69e32",
+      "reason": "material texture"
+    },
+    {
+      "resource": "ad18941c16d97448",
+      "type": "cd4238c6a0c69e32",
+      "reason": "material texture"
+    },
+    {
+      "resource": "ef9b3fc2fc1ba61e",
+      "type": "eac0b497876adedf",
+      "reason": "base material"
+    },
+    {
+      "resource": "e21128ca48e27a13",
+      "type": "cd4238c6a0c69e32",
+      "reason": "material texture"
+    },
+    {
+      "resource": "12d4692531c1fd35",
+      "type": "cd4238c6a0c69e32",
+      "reason": "material texture"
+    },
+    {
+      "resource": "eb86d298e6cc8f94",
+      "type": "cd4238c6a0c69e32",
+      "reason": "material texture"
+    },
+    {
+      "resource": "589685dc5b965948",
+      "type": "cd4238c6a0c69e32",
+      "reason": "material texture"
+    },
+    {
+      "resource": "eb86d298e6cc8f94",
+      "type": "cd4238c6a0c69e32",
+      "reason": "material texture"
+    },
+    {
+      "resource": "17c4075f57e4211a",
+      "type": "cd4238c6a0c69e32",
+      "reason": "material texture"
+    },
+    {
+      "resource": "4781cf99e180006d",
+      "type": "cd4238c6a0c69e32",
+      "reason": "material texture"
+    },
+    {
+      "resource": "ad18941c16d97448",
+      "type": "cd4238c6a0c69e32",
+      "reason": "material texture"
+    },
+    {
+      "resource": "ef9b3fc2fc1ba61e",
+      "type": "eac0b497876adedf",
+      "reason": "base material"
+    },
+    {
+      "resource": "e21128ca48e27a13",
+      "type": "cd4238c6a0c69e32",
+      "reason": "material texture"
+    },
+    {
+      "resource": "12d4692531c1fd35",
+      "type": "cd4238c6a0c69e32",
+      "reason": "material texture"
+    },
+    {
+      "resource": "eb86d298e6cc8f94",
+      "type": "cd4238c6a0c69e32",
+      "reason": "material texture"
+    },
+    {
+      "resource": "589685dc5b965948",
+      "type": "cd4238c6a0c69e32",
+      "reason": "material texture"
+    },
+    {
+      "resource": "eb86d298e6cc8f94",
+      "type": "cd4238c6a0c69e32",
+      "reason": "material texture"
+    },
+    {
+      "resource": "17c4075f57e4211a",
+      "type": "cd4238c6a0c69e32",
+      "reason": "material texture"
+    },
+    {
+      "resource": "4781cf99e180006d",
+      "type": "cd4238c6a0c69e32",
+      "reason": "material texture"
+    },
+    {
+      "resource": "ad18941c16d97448",
+      "type": "cd4238c6a0c69e32",
+      "reason": "material texture"
+    },
+    {
+      "resource": "ef9b3fc2fc1ba61e",
+      "type": "eac0b497876adedf",
+      "reason": "base material"
+    }
+  ],
+  "files": [
+    {
+      "name": "9ba626afa44a3aa3.patch_0",
+      "size": 84352,
+      "sha256": "5661c5f6f52ae80203689897d046c2166ed0f6da1c8d273a386e9c329df14d95"
+    },
+    {
+      "name": "9ba626afa44a3aa3.patch_0.stream",
+      "size": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "name": "9ba626afa44a3aa3.patch_0.gpu_resources",
+      "size": 92150560,
+      "sha256": "46aa2d0337550b6d1abf315ee28a2c401e6328dd66ca9280f8125b995058dee7"
+    }
+  ],
+  "runtime_tested": false,
+  "source_zip_sha256": "8bf29ee77a044f474cd1e9fd3c55add1119ce6484025afdcf921deb5091ad178",
+  "validation": "Every main/GPU/stream payload byte-identical to Delta donor; only four unit TOC identities remapped; all external dependency IDs found in current game inventory."
+}

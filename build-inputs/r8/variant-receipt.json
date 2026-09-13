@@ -1,0 +1,6 @@
+{
+  "format": 1,
+  "baseInventorySha256": "81b6c88a9133fae85c72486d2ae05ba398bb10f8f40308fda8f00b5420a4d1d7",
+  "inventorySha256": "4bfcf73d50eeaa2db881ebaaa8cc1f944806e10c34bb46aa3dbe545f152c4215",
+  "evidence": "Reconstructed by exact released file hashes; manifest SHA256 8b76de3a393a657993ccdc0f4e1f40b6e67c4f88ca382b4a94eda92da1487adc"
+}
