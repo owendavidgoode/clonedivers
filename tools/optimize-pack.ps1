@@ -26,6 +26,8 @@ param(
     [int]$StreamFloor = 512,       # largest mip level kept permanently resident; 512 is within 6 MiB of the best case
     [int]$MaxSize = 0,             # 0 = never resize. A cap discards levels above it for good (the only lossy option)
     [switch]$Dedup,                # share byte-identical payloads (shrinks the download, not memory; the engine has not been seen relying on it)
+    [switch]$Restream,             # also optimize chains already stored in .stream
+    [switch]$AllowUnchangedDiagnostics, # accept only identical verifier diagnostics already present in the source
     [switch]$Force                 # rewrite bundles already present in OutDir
 )
 $ErrorActionPreference = 'Stop'
@@ -53,6 +55,12 @@ if (-not $Tool) {
 if (-not (Test-Path $Tool)) { throw "stingray-tex.exe not found. Download it from https://github.com/Shiroiame-Kusu/StingrayTextureOptimizer/releases (or build from source) and pass -Tool." }
 if (-not $DotnetRoot) { $d = Join-Path $env:LOCALAPPDATA "Microsoft\dotnet10"; if (Test-Path $d) { $DotnetRoot = $d } }
 if ($DotnetRoot) { $env:DOTNET_ROOT = $DotnetRoot }
+# Invoke the runtime explicitly: portable runtimes need not be installed or on PATH.
+$toolCommand = $Tool; $toolPrefix = @()
+if ($DotnetRoot -and (Test-Path (Join-Path $DotnetRoot 'dotnet.exe'))) {
+    $toolDll = [IO.Path]::ChangeExtension($Tool, '.dll')
+    if (Test-Path $toolDll) { $toolCommand = Join-Path $DotnetRoot 'dotnet.exe'; $toolPrefix = @($toolDll) }
+}
 if (Get-Process helldivers2 -ErrorAction SilentlyContinue) { throw "Helldivers 2 is running. Close it first." }
 
 New-Item -ItemType Directory -Force $OutDir | Out-Null
@@ -63,11 +71,26 @@ function Log([string]$s) { $s | Tee-Object -FilePath $log -Append | Out-Host }
 Log ("optimize-pack  {0}" -f (Get-Date -Format s))
 Log "Source: $Source"
 Log "OutDir: $OutDir"
-Log ("Tool:   {0}  ({1})" -f $Tool, ((& $Tool --version) -join ' / '))
+Log ("Tool:   {0}  ({1})" -f $Tool, ((& $toolCommand @toolPrefix --version) -join ' / '))
 $common = @('--stream', "$StreamFloor", '--strategy', 'quality')
 if ($MaxSize -gt 0) { $common += @('--max-size', "$MaxSize") }
 if (-not $Dedup) { $common += '--no-dedup' }
 Log ("Options: {0}" -f ($common -join ' '))
+
+function Verify-Output([string]$output, [string]$original) {
+    $result = & $toolCommand @toolPrefix verify $output --original $original 2>&1
+    $verifyCode = $LASTEXITCODE
+    $result | Add-Content ($log + '.verification.txt')
+    if ($verifyCode -eq 0) { return $true }
+    if (-not $AllowUnchangedDiagnostics -or $verifyCode -ne 2) { return $false }
+    $baseline = & $toolCommand @toolPrefix verify $original 2>&1
+    if ($LASTEXITCODE -ne 2) { return $false }
+    $beforeIssues = @($baseline | ForEach-Object { "$_".Trim() } | Where-Object { $_ -match '^\[' } | Sort-Object)
+    $afterIssues = @($result | ForEach-Object { "$_".Trim() } | Where-Object { $_ -match '^\[' } | Sort-Object)
+    if (-not $beforeIssues.Count -or ($beforeIssues -join "`n") -cne ($afterIssues -join "`n") -or ($result -join "`n") -match '(?i)error:') { return $false }
+    Log ("  baseline {0}: {1} unchanged verifier diagnostic(s)" -f ([IO.Path]::GetFileName($output)), $afterIssues.Count)
+    return $true
+}
 
 $bundles = Get-ChildItem $Source -File | Where-Object { $_.Name -match '^(?<hash>[0-9a-f]{16})\.patch_(?<idx>\d+)$' } |
     Sort-Object { ($_.Name -split '\.')[0] }, { [int]([regex]::Match($_.Name, '\.patch_(\d+)$').Groups[1].Value) }
@@ -91,15 +114,16 @@ foreach ($b in $bundles) {
     $outBundle = Join-Path $OutDir $b.Name
     if (-not $Force -and (Test-Path $outBundle)) {
         # Resume: trust an output that verifies against its original.
-        $v = & $Tool verify $outBundle --original $b.FullName 2>&1
-        if ($LASTEXITCODE -eq 0) { $skipped++; Log ("  kept     {0,-28} already written and verified" -f $b.Name); continue }
+        if (Verify-Output $outBundle $b.FullName) { $skipped++; Log ("  kept     {0,-28} already written and verified" -f $b.Name); continue }
     }
     if (-not (Test-Path ($b.FullName + '.gpu_resources'))) { Copy-Through $b "no gpu_resources (audio / video / text bundle)"; continue }
 
-    $out = & $Tool optimize $b.FullName --output $OutDir @common 2>&1
+    $bundleArgs = @($common)
+    if ($Restream -and (Test-Path ($b.FullName + '.stream'))) { $bundleArgs += '--restream' }
+    $out = & $toolCommand @toolPrefix optimize $b.FullName --output $OutDir @bundleArgs 2>&1
     $code = $LASTEXITCODE
     $text = ($out | Out-String)
-    if ($code -ne 0) {
+    if ($code -ne 0 -and -not ($code -eq 2 -and $AllowUnchangedDiagnostics -and (Test-Path $outBundle))) {
         $failed.Add($b.Name)
         Log ("  FAILED   {0,-28} exit {1}" -f $b.Name, $code)
         Log (($text -split "`n" | Select-Object -Last 12) -join "`n")
@@ -109,11 +133,10 @@ foreach ($b in $bundles) {
     if (-not (Test-Path $outBundle)) { Copy-Through $b "tool wrote nothing"; continue }
 
     # Independent check against the original: header, entry identity, every passthrough payload byte for byte.
-    $v = & $Tool verify $outBundle --original $b.FullName 2>&1
-    if ($LASTEXITCODE -ne 0) {
+    if (-not (Verify-Output $outBundle $b.FullName)) {
         $failed.Add($b.Name)
         Log ("  FAILED   {0,-28} verification against the original" -f $b.Name)
-        Log (($v | Out-String))
+        Log ("See " + $log + '.verification.txt')
         continue
     }
     $converted++
@@ -130,7 +153,7 @@ $missing = @($bundles | Where-Object { -not (Test-Path (Join-Path $OutDir $_.Nam
 foreach ($g in ($bundles | Group-Object { ($_.Name -split '\.')[0] })) {
     $idx = Get-ChildItem $OutDir -File | Where-Object { $_.Name -match ('^' + [regex]::Escape($g.Name) + '\.patch_(\d+)$') } |
         ForEach-Object { [int]([regex]::Match($_.Name, '\.patch_(\d+)$').Groups[1].Value) } | Sort-Object -Unique
-    for ($i = 0; $i -lt $idx.Count; $i++) { if ($idx[$i] -ne $i) { Log "GAP in $($g.Name) at index $i"; break } }
+    for ($i = 0; $i -lt $idx.Count; $i++) { if ($idx[$i] -ne $i) { Log "GAP in $($g.Name) at index $i"; $failed.Add("gap:$($g.Name):$i"); break } }
 }
 
 function Total($dir, $filter) { $f = Get-ChildItem $dir -File | Where-Object { $_.Name -match $filter }; if ($f) { ($f | Measure-Object Length -Sum).Sum } else { 0 } }
@@ -144,3 +167,4 @@ Log ("streamed on demand (.stream):       {0:N2} GB -> {1:N2} GB" -f ($before.st
 Log ("pack on disk:                       {0:N2} GB -> {1:N2} GB" -f (($before.patch + $before.gpu + $before.stream) / 1GB), (($after.patch + $after.gpu + $after.stream) / 1GB))
 Log "Log: $log"
 if ($failed.Count -or $missing.Count) { exit 2 }
+exit 0

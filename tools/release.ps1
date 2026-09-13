@@ -3,7 +3,8 @@ param(
     [ValidateSet('Stage','Publish')][string]$Action='Stage',
     [Parameter(Mandatory=$true)][string]$Directory,
     [string]$CandidateManifest='', [string]$TestedManifest='', [string]$BaselineManifest='',
-    [string]$GameDir='', [string]$AppExe='', [string]$AssetDirectory='', [string]$NotesPath='', [string]$Dotnet=''
+    [string]$GameDir='', [string]$AppExe='', [string]$AssetDirectory='', [string]$NotesPath='', [string]$Dotnet='',
+    [string]$ProfileDirectories=''
 )
 $ErrorActionPreference='Stop'
 $root=[IO.Path]::GetFullPath((Join-Path $PSScriptRoot '..'))
@@ -15,20 +16,32 @@ function Git-Result([string[]]$Arguments) {
     ($out | Out-String).Trim()
 }
 if ($Action -eq 'Stage') {
-    foreach ($required in @($CandidateManifest,$TestedManifest,$BaselineManifest,$GameDir,$AppExe,$NotesPath)) { if (!$required) { throw 'Stage requires candidate, tested and baseline manifests, game directory, executable and notes.' } }
+    foreach ($required in @($CandidateManifest,$BaselineManifest,$AppExe,$NotesPath)) { if (!$required) { throw 'Stage requires candidate and baseline manifests, executable and notes.' } }
     if (Test-Path -LiteralPath $Directory) { throw 'Use a new staging directory; prepared releases are immutable.' }
     if (!$Dotnet) { $Dotnet=Join-Path $root 'dist/dotnet-sdk/dotnet.exe' }
     $manifest=Get-Content -LiteralPath $CandidateManifest -Raw | ConvertFrom-Json
+    $profiles=[int]$manifest.format -eq 3
+    if ($profiles -and !$ProfileDirectories) { throw 'Format-3 Stage requires -ProfileDirectories with id/directory records.' }
+    if (!$profiles -and (!$TestedManifest -or !$GameDir)) { throw 'Legacy Stage requires -TestedManifest and -GameDir.' }
     $version=(Get-Item -LiteralPath $AppExe).VersionInfo.ProductVersion
     if ($version -notmatch '^\d+\.\d+\.\d+$') { throw 'Executable has no release version' }
     $manifest | Add-Member -Force -NotePropertyName app -NotePropertyValue ([pscustomobject]@{version=$version;url="https://github.com/owendavidgoode/clonedivers/releases/download/v$version/Clonedivers.exe";size=(Get-Item $AppExe).Length;sha256=(Get-ContentHash $AppExe)})
     $assets=Get-ReleaseAssets $manifest
     & $Dotnet run --project (Join-Path $root 'Clonedivers.Tests/Clonedivers.Tests.csproj')
     if ($LASTEXITCODE -ne 0) { throw 'Native tests failed' }
-    & $Dotnet run --project (Join-Path $root 'tools/Release.Check/Release.Check.csproj') -- $CandidateManifest $TestedManifest $BaselineManifest $GameDir
+    if ($profiles) {
+        & $Dotnet run --project (Join-Path $root 'tools/Profile.Release.Check/Profile.Release.Check.csproj') -- $CandidateManifest $BaselineManifest $ProfileDirectories
+    } else {
+        & $Dotnet run --project (Join-Path $root 'tools/Release.Check/Release.Check.csproj') -- $CandidateManifest $TestedManifest $BaselineManifest $GameDir
+    }
     if ($LASTEXITCODE -ne 0) { throw 'Release mode validation failed' }
     $known=@{}; $old=Get-Content (Join-Path $root 'manifest.json') -Raw | ConvertFrom-Json
+    $compatibility=if ($profiles) { New-CompatibilityManifest $old $manifest } else { $null }
     foreach ($a in (Get-ReleaseAssets $old)) { $known[$a.url]=$a.sha256 }
+    if ($profiles -and (Test-Path -LiteralPath (Join-Path $root 'manifest-v3.json'))) {
+        $previousProfile=Get-Content -LiteralPath (Join-Path $root 'manifest-v3.json') -Raw | ConvertFrom-Json
+        foreach ($a in (Get-ReleaseAssets $previousProfile)) { $known[$a.url]=$a.sha256 }
+    }
     $copies=@()
     foreach ($a in $assets) {
         if ($known.ContainsKey($a.url)) { if ($known[$a.url] -ne $a.sha256) { throw 'Existing release URL would change content' }; continue }
@@ -43,29 +56,59 @@ if ($Action -eq 'Stage') {
     Copy-Item -LiteralPath $NotesPath -Destination (Join-Path $Directory 'notes.md')
     foreach ($copy in $copies) { Copy-Item -LiteralPath $copy.source -Destination (Join-Path $Directory "assets/$($copy.name)") }
     Write-ContractJson (Join-Path $Directory 'manifest.json') $manifest
+    if ($profiles) {
+        Copy-Item -LiteralPath (Join-Path $root 'manifest.json') -Destination (Join-Path $Directory 'baseline-compatibility.json')
+        Write-ContractJson (Join-Path $Directory 'compatibility-manifest.json') $compatibility
+        $profilePath=Join-Path $root 'manifest-v3.json';$profileExists=Test-Path -LiteralPath $profilePath -PathType Leaf
+        $profileHash=if ($profileExists) {Get-ContentHash $profilePath} else {$null}
+        Write-ContractJson (Join-Path $Directory 'feed-plan.json') ([ordered]@{format=1;feeds=@(
+            [ordered]@{target='manifest.json';prepared='compatibility-manifest.json';baselineExists=$true;baselineSha256=(Get-ContentHash (Join-Path $root 'manifest.json'))},
+            [ordered]@{target='manifest-v3.json';prepared='manifest.json';baselineExists=[bool]$profileExists;baselineSha256=$profileHash}
+        )})
+    }
     $sealed=@(Get-ChildItem -LiteralPath $Directory -File -Recurse | ForEach-Object { [pscustomobject]@{path=$_.FullName.Substring($Directory.Length+1);sha256=(Get-ContentHash $_.FullName)} })
-    Write-ContractJson (Join-Path $Directory 'release.json') ([ordered]@{format=1;phase='prepared';sourceCommit=(Git-Result @('rev-parse','HEAD'));feedCommit='';baselineManifestSha256=(Get-ContentHash (Join-Path $root 'manifest.json'));sealedFiles=$sealed})
+    $receipt=[ordered]@{format=if ($profiles) {2} else {1};phase='prepared';sourceCommit=(Git-Result @('rev-parse','HEAD'));feedCommit='';baselineManifestSha256=(Get-ContentHash (Join-Path $root 'manifest.json'));sealedFiles=$sealed}
+    Assert-PreparedRelease $Directory ([pscustomobject]$receipt)
+    Write-ContractJson (Join-Path $Directory 'release.json') $receipt
     'PASS prepared release. No remote changes; use -Action Publish only for an authorized release.'
     return
 }
-# Authentication/network code is loaded only for explicit Publish.
-. (Join-Path $PSScriptRoot 'gh-common.ps1')
+# Authentication/network code is loaded only for explicit Publish, after local sealing checks.
 function Gh-Result([string[]]$Arguments) {
     $r=Invoke-Gh @Arguments
     if ($r.Code -ne 0) { throw $r.Out }
     $r.Out
 }
 $candidate=Get-Content (Join-Path $Directory 'manifest.json') -Raw | ConvertFrom-Json
-$assets=Get-ReleaseAssets $candidate
+$initialReceipt=Get-Content -LiteralPath (Join-Path $Directory 'release.json') -Raw | ConvertFrom-Json
+Assert-PreparedRelease $Directory $initialReceipt
+$feeds=@(Get-ReleaseFeedTargets $Directory $initialReceipt)
+$assetManifest=[pscustomobject]@{app=$candidate.app;pack=[pscustomobject]@{files=@($candidate.pack.files)}}
+if ([int]$initialReceipt.format -eq 2) {
+    $compat=Get-Content -LiteralPath (Join-Path $Directory 'compatibility-manifest.json') -Raw | ConvertFrom-Json
+    $assetManifest.pack.files+=@($compat.pack.files)
+}
+$assets=Get-ReleaseAssets $assetManifest
+. (Join-Path $PSScriptRoot 'gh-common.ps1')
 $repo='owendavidgoode/clonedivers'
+function Test-CommittedFeeds([string]$Revision,$Targets) {
+    try {
+        foreach ($target in $Targets) {
+            $committed=(Git-Result @('show',"${Revision}:$($target.target)")) | ConvertFrom-Json
+            $prepared=Get-Content -LiteralPath (Join-Path $Directory $target.prepared) -Raw | ConvertFrom-Json
+            if (($committed | ConvertTo-Json -Depth 12 -Compress) -cne ($prepared | ConvertTo-Json -Depth 12 -Compress)) { return $false }
+        }
+        return $true
+    } catch { return $false }
+}
 $ensure={ param($receipt)
+    Assert-ReleaseFeedBaseline $root $Directory $feeds
     $head=Git-Result @('rev-parse','HEAD')
-    # Recover a crash after our manifest-only commit but before recording its hash.
+    # Recover a crash after the coordinated feed-only commit but before recording its hash.
     if (!$receipt.feedCommit -and $head -ne $receipt.sourceCommit -and
-        (Git-Result @('rev-parse','HEAD^')) -eq $receipt.sourceCommit -and
-        (Git-Result @('diff','--name-only','HEAD^','HEAD')) -eq 'manifest.json') {
-        $committed=(Git-Result @('show','HEAD:manifest.json')) | ConvertFrom-Json
-        if (($committed | ConvertTo-Json -Depth 12 -Compress) -eq ($candidate | ConvertTo-Json -Depth 12 -Compress)) {
+        (Git-Result @('rev-parse','HEAD^')) -eq $receipt.sourceCommit) {
+        $changed=@((Git-Result @('diff','--name-only','HEAD^','HEAD')) -split '\r?\n' | Where-Object {$_})
+        if ($changed.Count -gt 0 -and @($changed | Where-Object {$_ -notin @($feeds.target)}).Count -eq 0 -and (Test-CommittedFeeds 'HEAD' $feeds)) {
             $receipt.feedCommit=$head
             Write-ContractJson (Join-Path $Directory 'release.json') $receipt
         }
@@ -73,9 +116,12 @@ $ensure={ param($receipt)
     if ($head -ne $receipt.sourceCommit -and $head -ne $receipt.feedCommit) { throw 'Checkout changed since preparation; stage a new release.' }
     $dirty=Git-Result @('status','--porcelain','--untracked-files=no')
     if ($dirty) {
-        $changed=Git-Result @('diff','--name-only','HEAD')
-        $ownCandidate=$changed -eq 'manifest.json' -and
-            (Get-ContentHash (Join-Path $root 'manifest.json')) -eq (Get-ContentHash (Join-Path $Directory 'manifest.json'))
+        $changed=@((Git-Result @('diff','--name-only','HEAD')) -split '\r?\n' | Where-Object {$_})
+        $ownCandidate=$changed.Count -gt 0 -and @($changed | Where-Object {$_ -notin @($feeds.target)}).Count -eq 0
+        foreach ($name in $changed) {
+            $target=$feeds | Where-Object target -CEQ $name
+            if (!$target -or (Get-ContentHash (Join-Path $root $name)) -ne (Get-ContentHash (Join-Path $Directory $target.prepared))) { $ownCandidate=$false;break }
+        }
         if (!$ownCandidate) { throw 'Publish requires committed changes; use an isolated release checkout if other work is in progress.' }
     }
     if (!$receipt.feedCommit) { Git-Result @('push','origin',"$($receipt.sourceCommit):refs/heads/main") | Out-Null }
@@ -111,23 +157,23 @@ $ensure={ param($receipt)
     if ($LASTEXITCODE -ne 0 -or (Get-ContentHash $download) -ne $candidate.app.sha256) { throw 'Public executable download verification failed' }
 }
 $feed={ param($receipt)
-    $manifestPath=Join-Path $root 'manifest.json'
-    $prepared=Join-Path $Directory 'manifest.json'
     $remote=(Git-Result @('ls-remote','origin','refs/heads/main') -split '\s+')[0]
     if ($remote -ne $receipt.sourceCommit -and $remote -ne $receipt.feedCommit) { throw 'Remote main advanced; do not overwrite another release.' }
     if (!$receipt.feedCommit) {
-        $localHash=Get-ContentHash $manifestPath
-        if ($localHash -ne $receipt.baselineManifestSha256 -and $localHash -ne (Get-ContentHash $prepared)) { throw 'Local feed changed after preparation' }
-        Copy-Item -LiteralPath $prepared -Destination $manifestPath
-        Git-Result @('add','--','manifest.json') | Out-Null
-        if (Git-Result @('diff','--cached','--name-only','--','manifest.json')) {
-            Git-Result @('commit','-m',"Publish verified launcher $($candidate.app.version) and pack $($candidate.pack.version)",'--','manifest.json') | Out-Null
+        Assert-ReleaseFeedBaseline $root $Directory $feeds
+        foreach ($target in $feeds) { Copy-Item -LiteralPath (Join-Path $Directory $target.prepared) -Destination (Join-Path $root $target.target) }
+        Git-Result (@('add','--')+@($feeds.target)) | Out-Null
+        if (Git-Result (@('diff','--cached','--name-only','--')+@($feeds.target))) {
+            Git-Result (@('commit','-m',"Publish verified launcher $($candidate.app.version) and pack $($candidate.pack.version)",'--')+@($feeds.target)) | Out-Null
         }
         $receipt.feedCommit=Git-Result @('rev-parse','HEAD')
         Write-ContractJson (Join-Path $Directory 'release.json') $receipt
     }
     Git-Result @('push','origin',"$($receipt.feedCommit):refs/heads/main") | Out-Null
-    $live=(Gh-Result @('api',"repos/$repo/contents/manifest.json?ref=main",'-H','Accept: application/vnd.github.raw+json')) | ConvertFrom-Json
-    if (($live | ConvertTo-Json -Depth 12 -Compress) -ne ($candidate | ConvertTo-Json -Depth 12 -Compress)) { throw 'Live feed differs from the prepared release' }
+    foreach ($target in $feeds) {
+        $live=(Gh-Result @('api',"repos/$repo/contents/$($target.target)?ref=main",'-H','Accept: application/vnd.github.raw+json')) | ConvertFrom-Json
+        $prepared=Get-Content -LiteralPath (Join-Path $Directory $target.prepared) -Raw | ConvertFrom-Json
+        if (($live | ConvertTo-Json -Depth 12 -Compress) -cne ($prepared | ConvertTo-Json -Depth 12 -Compress)) { throw "Live feed differs from the prepared release: $($target.target)" }
+    }
 }
 Invoke-VerifiedRelease $Directory $ensure $feed

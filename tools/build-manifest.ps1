@@ -153,6 +153,7 @@ $baseUnless = @{}            # base name (lower) -> option id
 if (Test-Path $RecipePath) {
     $recipeV = (Read-Utf8 $RecipePath) | ConvertFrom-Json
     if ($recipeV.PSObject.Properties['variants']) {
+        if (@($recipeV.variants).Count -gt 1) { throw 'Multiple texture profiles require tools/build-profile-manifest.ps1 (format 3).' }
         foreach ($v in @($recipeV.variants)) {
             $vdir = if ([System.IO.Path]::IsPathRooted($v.dir)) { $v.dir } else { Join-Path $root $v.dir }
             if (-not (Test-Path $vdir)) { throw "Required variant '$($v.id)' missing: $vdir" }
@@ -169,6 +170,8 @@ if (Test-Path $RecipePath) {
                 $key = $vf.Name.ToLowerInvariant()
                 $base = $byName[$key]
                 if ($base -and $base.Sha -eq $vsha) { $shared++; continue }
+                $parentKey = $key -replace '(\.gpu_resources|\.stream)$', ''
+                if ($fileOption[$key] -or $fileOption[$parentKey]) { throw "Transformed optional bundle '$($vf.Name)' requires format 3 so its mode gate is preserved. Use tools/build-profile-manifest.ps1." }
                 $entry = [ordered]@{ name = $vf.Name; size = [long]$vf.Length; sha256 = $vsha; url = ""; option = [string]$v.id; localPath = $vf.FullName }
                 if ($base) { $baseUnless[$key] = [string]$v.id; if (-not $variantEntries.ContainsKey($key)) { $variantEntries[$key] = New-Object System.Collections.ArrayList }; [void]$variantEntries[$key].Add($entry); $pairs++ }
                 else { [void]$variantOnly.Add($entry); $extra++ }

@@ -3,6 +3,30 @@
 Authoritative status after the September 12, 2026 maintenance review. Historical
 investigations are in [the session archive](archive/2026-09-12-session/RC-UPGRADE.md).
 
+## September 13: 1.5.0 candidate implemented, not published
+
+The combined update is implemented locally. Public players still receive **1.4.1 / r8**.
+Candidate 1.5.0 adds independent pre-install texture selection, cached metadata for
+offline switching, explicit repair/diagnostics, installation receipts, exact-target
+recovery and bounded resumable downloads. Brawny help and quieter cached switches
+are included. Native tests pass **351 assertions**, profile tests **52**, diagnostics
+**12**, measurement fixtures **11**, and coordinated-release fixtures **16**.
+
+The r9 public candidate contains Full/Lighter only; Lighter streams additional RC
+textures. Both source folders pass complete file-hash checks and mode isolation.
+`dist/profile-candidates/manifest-public-v3.json` is the asset candidate;
+`dist/release-1.5.0-build/Clonedivers.exe` is the separate executable build. The
+staged release will seal a format-2 compatibility feed (r8 pack plus new app metadata)
+and a separate format-3 profile feed in one coordinated publication.
+
+Current 1024/128 and 512/128 trial profiles built with zero optimizer failures and
+remain separate from the public candidate. Their reduced GPU companion sizes are
+identical; their streaming data differs by 621,086,080 bytes. No gameplay performance
+claim is made. **RC streaming visual/startup acceptance and weak-PC A/B testing are
+pending.** See [performance testing](PERFORMANCE-TESTING.md) and
+[texture profile staging](TEXTURE-PROFILES.md). Nothing has been installed into the
+live game or published during this implementation pass.
+
 ## Shipped and installed
 
 - Launcher **1.4.1**, pack **2026.09.12-r8**, Steam build **24826606**.
@@ -37,6 +61,24 @@ files, user settings, versions, or remote releases. It requires no player downlo
 
 Run [the existing-release playtest](PLAYTEST.md) for the pending checks. Do not turn
 installer/hash verification into a claim of multiplayer validation.
+
+## September 13 follow-up (local changes)
+
+The user confirmed that changing an affected player's body type from Lean to Brawny
+resolved the missing Commando body armor. The public r8 assets were available with
+matching hosted hashes; all 34 RC files and 126 armor resource winners matched in
+the full and lighter-texture variants.
+
+The launcher source now shows “Requires Brawny body type.” beneath the Commandodivers
+description. Mode switches using already-downloaded files proceed without confirmation;
+downloads and detected low disk space still prompt. These UI changes are not published.
+The existing native test suite passes. The weakest PC's performance issue remains
+unresolved pending hardware, settings and symptom details; the old reduced-resolution
+experiment has no demonstrated gameplay benefit and is not a shipped fix.
+
+The deeper [player update investigation](PLAYER-UPDATE-INVESTIGATION.md) records
+reproduced repair/recovery/cache issues, the profile-format prerequisite, current
+asset costs and a proposed scope/validation plan for one coordinated release.
 
 ## Build state and recovery
 

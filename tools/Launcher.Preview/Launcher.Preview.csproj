@@ -8,7 +8,6 @@
     <StartupObject>Clonedivers.LauncherPreview</StartupObject>
   </PropertyGroup>
   <ItemGroup>
-    <Compile Include="../../Clonedivers/Program.cs" Link="Program.cs" />
-    <Compile Include="../../Clonedivers/LauncherModes.cs" Link="LauncherModes.cs" />
+    <Compile Include="../../Clonedivers/*.cs" Link="%(Filename)%(Extension)" />
   </ItemGroup>
 </Project>

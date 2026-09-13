@@ -38,6 +38,23 @@ For intentional changes to ordinary Clonedivers, supply the explicitly tested ne
 
 ## One release command, two explicit actions
 
+For a format-3 profile release, use `-ProfileDirectories` with an array of
+`{ "id": "full", "directory": "..." }` records, including every published profile.
+Stage runs `Profile.Release.Check` against those source folders and the format-2
+baseline. `-GameDir` and `-TestedManifest` are only required for legacy releases.
+
+Format-3 staging seals two feeds. `compatibility-manifest.json` retains the existing
+format-2 pack and changes only app metadata; it publishes as root `manifest.json`.
+The new candidate publishes as `manifest-v3.json`. Both feed files are committed
+together after asset verification. Existing 1.4.1 clients can discover the new
+launcher without parsing unsupported profile metadata. The new launcher caches
+validated metadata by source and reads the versioned feed first.
+
+Do not include Reduced profiles until their gameplay acceptance is recorded. The
+current public candidate spec is `dist/profile-candidates/directories-public.json`;
+the equal-tail trial manifest is separate. Publication is pending the gameplay
+checks recorded in STATUS; a sealed staging receipt is not gameplay evidence.
+
 Commit the intended source changes before preparing a future release. Build the
 versioned executable to a separate folder. The existing public binary is never a
 scratch build target. Put new content-addressed files in an asset directory.

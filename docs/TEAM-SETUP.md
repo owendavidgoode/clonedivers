@@ -30,6 +30,19 @@ The full opening has been confirmed in game. The named voice slots are visible;
 the audio replacements passed extraction/decoding checks. A complete multiplayer
 voice check and the new starter helmet mapping still need team gameplay confirmation.
 
+## If a selected Commando body still looks like a clone
+
+Check **Body Type: Brawny** first, then re-equip the character's body armor from
+the table above. These Delta body replacements require Brawny; Lean uses different
+model resources. Selecting a named voice does not select the matching armor.
+
+The published r8 pack contains the Commando assets. A file/resource audit found
+identical Commando armor files and all 126 armor resource winners with Lighter
+textures on and off. That rules out an omitted armor file in the texture variant;
+it does not replace an in-game check. If Brawny still fails, close the game, select
+Commandodivers, and click **Pack up to date** to verify/repair the installed files.
+Record the exact body armor and whether its helmet is also affected if it persists.
+
 ## Camera
 
 The AT-TE camera distance is unchanged. FOV is a personal game setting and is not

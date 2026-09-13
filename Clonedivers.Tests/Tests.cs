@@ -56,6 +56,8 @@ static class TestProgram
             CachedDownloadTests(root).GetAwaiter().GetResult();
             SecurityBoundaryTests(root).GetAwaiter().GetResult();
             HashCacheAndCleanupTests(root);
+            OperationTests.Run(root).GetAwaiter().GetResult();
+            ExperienceTests.Run(root, Check);
             SelfUpdateAndAcfTests(root);
         }
         finally
@@ -494,10 +496,10 @@ static class TestProgram
 
             var wrongSize = new PackFile { Url = srv.Url, Size = body.Length + 5, Sha256 = "" };
             var wsDest = Path.Combine(dlDir, "wrongsize.zip");
-            ex = null;
-            try { await Pack.DownloadAsync(wrongSize, wsDest, null, CancellationToken.None); } catch (InvalidDataException e) { ex = e; }
-            Check(ex is not null && ex.Message.Contains("bytes"), "size mismatch throws");
-            Check(!File.Exists(wsDest), "and the short download is deleted");
+            IOException? shortError = null;
+            try { await Pack.DownloadAsync(wrongSize, wsDest, null, CancellationToken.None); } catch (IOException e) { shortError = e; }
+            Check(shortError is not null && shortError.Message.Contains("bytes"), "short response stops after bounded retries");
+            Check(File.Exists(wsDest) && new FileInfo(wsDest).Length == body.Length, "short download is preserved for a later resume");
         }
 
         using (var html = new TinyHttp(System.Text.Encoding.UTF8.GetBytes("<html>Google Drive can't scan this file for viruses</html>"), "text/html"))
@@ -567,7 +569,9 @@ static class TestProgram
         var legacy = Manifest.Parse("""{ "version": "r3", "files": [ { "url": "https://x/p1.zip", "size": 10, "sha256": "SHA" } ] }""".Replace("SHA", new string('a', 64)));
         Check(legacy.Format == 1 && legacy.Pack is not null && legacy.Pack.Files.Count == 1 && !legacy.Pack.IsPerFile && legacy.Pack.IsPublished, "format-1 pack.json still parses (zip parts, no names)");
         Check(Manifest.Parse("""{ "format": 2 }""").Pack is null, "a manifest without a pack block parses (Pack null)");
-        Check(Manifest.Parse(json.Replace("\"format\": 2", "\"format\": 3")).App is not null, "format 3 still parses and keeps the app block");
+        ex = null;
+        try { Manifest.Parse(json.Replace("\"format\": 2", "\"format\": 4")); } catch (InvalidDataException e) { ex = e; }
+        Check(ex is not null, "unsupported future manifest formats are rejected");
     }
 
     static void EffectiveFilesTests()

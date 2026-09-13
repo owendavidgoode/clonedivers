@@ -299,6 +299,10 @@ public sealed class Settings
     public string? GamePath { get; set; }
     public string? InstalledPackVersion { get; set; }
     public string? InstalledGameBuild { get; set; }
+    public string? TextureProfile { get; set; }
+    public string? InstalledTextureProfile { get; set; }
+    public string? InstalledGamePath { get; set; }
+    public DateTimeOffset? LastVerifiedUtc { get; set; }
     /// <summary>Hidden test hook: a URL (or file path) that replaces manifest.json. Shown in the footer when set.</summary>
     public string? ManifestUrl { get; set; }
     /// <summary>Optional pack groups the friend switched on or off (option id → enabled); anything absent uses the manifest default.</summary>
@@ -312,12 +316,33 @@ public sealed class Settings
         return result;
     }
 
-    public void RecordInstall(ApplyResult result)
+    public string ProfileFor(PackManifest pack) => PackProfiles.Resolve(pack,
+        id => Options.TryGetValue(id, out var on) ? on : pack.Options.FirstOrDefault(o => o.Id.Equals(id, StringComparison.OrdinalIgnoreCase))?.Default ?? false,
+        TextureProfile);
+
+    public void RecordInstall(ApplyResult result, bool preserveTexturePreference = false)
     {
         if (result.Interrupted) return;
+        if (preserveTexturePreference && TextureProfile is null)
+            TextureProfile = Options.TryGetValue("skinny", out var lighter) && lighter ? "lighter" : "full";
         InstalledPackVersion = result.PackVersion;
         InstalledGameBuild = result.GameBuild;
+        InstalledTextureProfile = result.TextureProfile;
+        if (!preserveTexturePreference && result.TextureProfile is not null) TextureProfile = result.TextureProfile;
+        InstalledGamePath = result.GameDir;
+        LastVerifiedUtc = result.VerifiedUtc;
         if (result.Options is not null) Options = new(result.Options, StringComparer.OrdinalIgnoreCase);
+    }
+
+    public bool ForgetInstallationForDifferentGame(string? gameDir)
+    {
+        if (gameDir is null || InstalledGamePath is null || RecoveryTarget.SameGame(gameDir, InstalledGamePath)) return false;
+        InstalledPackVersion = null;
+        InstalledGameBuild = null;
+        InstalledTextureProfile = null;
+        InstalledGamePath = null;
+        LastVerifiedUtc = null;
+        return true;
     }
 
     public bool BuildChanged(PackManifest? available, SteamAcf.Info? game)
@@ -335,13 +360,20 @@ public sealed class Settings
     public static readonly string FilePath = Path.Combine(Dir, "config.json");
     public static readonly string HashCachePath = Path.Combine(Dir, "hashes.json");      // static init order: after Dir
     public static readonly string PlanPath = Path.Combine(Dir, "apply-plan.json");
+    public static string ReceiptPathFor(string gameDir) => Path.Combine(Dir, "receipts",
+        Convert.ToHexString(System.Security.Cryptography.SHA256.HashData(System.Text.Encoding.UTF8.GetBytes(
+            Path.TrimEndingDirectorySeparator(Path.GetFullPath(gameDir)).ToUpperInvariant()))).ToLowerInvariant() + ".json");
 
     public static Settings Load()
     {
         try
         {
             if (File.Exists(FilePath))
-                return JsonSerializer.Deserialize<Settings>(File.ReadAllText(FilePath)) ?? new Settings();
+            {
+                var loaded = JsonSerializer.Deserialize<Settings>(File.ReadAllText(FilePath)) ?? new Settings();
+                loaded.Options = new(loaded.Options ?? new(), StringComparer.OrdinalIgnoreCase);
+                return loaded;
+            }
         }
         catch { /* corrupt or unreadable: start fresh */ }
         return new Settings();
@@ -352,7 +384,8 @@ public sealed class Settings
         try
         {
             Directory.CreateDirectory(Dir);
-            File.WriteAllText(FilePath, JsonSerializer.Serialize(this, new JsonSerializerOptions { WriteIndented = true }));
+            File.WriteAllText(FilePath + ".tmp", JsonSerializer.Serialize(this, new JsonSerializerOptions { WriteIndented = true }));
+            File.Move(FilePath + ".tmp", FilePath, overwrite: true);
         }
         catch { /* read-only profile: the app still works, it just re-detects next time */ }
     }
@@ -390,11 +423,14 @@ public sealed class PackFile
     public string Sha256 { get; set; } = "";     // lower-case hex
     public string? Option { get; set; }          // optional-group id (PackOption.Id); null = always installed
     public string? UnlessOption { get; set; }    // skipped while this option is ON (the base file a variant replaces)
+    public List<string>? Modes { get; set; }     // format 3: allowed visual modes; null means both modded modes
+    public List<string>? TextureProfiles { get; set; } // format 3: allowed texture profile IDs; null means all
 
     /// <summary>SHA-256 of an empty file. 182 of the 604 r3 files are empty companions, so it is special-cased everywhere.</summary>
     public const string EmptySha = "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855";
 
-    public PackFile Clone() => new() { Name = Name, Url = Url, Size = Size, Sha256 = Sha256, Option = Option, UnlessOption = UnlessOption };
+    public PackFile Clone() => new() { Name = Name, Url = Url, Size = Size, Sha256 = Sha256, Option = Option, UnlessOption = UnlessOption,
+        Modes = Modes?.ToList(), TextureProfiles = TextureProfiles?.ToList() };
 }
 
 /// <summary>A group of pack files friends can switch on or off (the Republic Commando squad, say). Files carry the option id;
@@ -418,6 +454,7 @@ public sealed class PackManifest
     public string Status { get; set; } = "ok";          // "ok" | "broken" — flipped from the GitHub web editor when a game patch breaks things
     public string StatusNotes { get; set; } = "";
     public List<PackOption> Options { get; set; } = new();
+    public List<PackTextureProfile> TextureProfiles { get; set; } = new();
     public List<PackFile> Files { get; set; } = new();
 
     public long TotalSize => Files.Sum(f => f.Size);
@@ -468,6 +505,7 @@ public sealed class Manifest
                 ? new Manifest { Format = 1, Pack = JsonSerializer.Deserialize<PackManifest>(json, JsonOpts) }
                 : JsonSerializer.Deserialize<Manifest>(json, JsonOpts) ?? new Manifest();
         }
+        if (m.Format is not (1 or 2 or 3)) throw new InvalidDataException($"Unsupported manifest format: {m.Format}");
         if (m.Pack is { } p)
         {
             if (p.Options is null || p.Files is null || p.Options.Any(o => o is null))
@@ -483,10 +521,10 @@ public sealed class Manifest
                 f.Name ??= "";
                 if (f.Size == 0) f.Sha256 = PackFile.EmptySha;
                 FileSafety.ValidateFile(f, named: f.Name.Length > 0);
-                if (f.Name.Length == 0) continue;   // format-1 zip part
+                if (f.Name.Length == 0) { if (m.Format == 3) throw new InvalidDataException("Format 3 requires named patch files."); continue; }   // format-1 zip part
                 if (!ModFiles.IsPatchFile(f.Name) || f.Name.IndexOfAny(new[] { '\\', '/', ':' }) >= 0)
                     throw new InvalidDataException($"manifest.json lists an invalid file name: {f.Name}");
-                if (seen.TryGetValue(f.Name, out var other))
+                if (m.Format < 3 && seen.TryGetValue(f.Name, out var other))
                 {
                     var pair = (other.UnlessOption is not null && string.Equals(other.UnlessOption, f.Option, StringComparison.OrdinalIgnoreCase))
                             || (f.UnlessOption is not null && string.Equals(f.UnlessOption, other.Option, StringComparison.OrdinalIgnoreCase));
@@ -496,7 +534,10 @@ public sealed class Manifest
                 if (f.Option is not null && !optionIds.Contains(f.Option)) throw new InvalidDataException($"manifest.json: {f.Name} refers to an unknown option '{f.Option}'");
                 if (f.UnlessOption is not null && !optionIds.Contains(f.UnlessOption)) throw new InvalidDataException($"manifest.json: {f.Name} refers to an unknown option '{f.UnlessOption}'");
             }
-}
+            if (m.Format < 3 && (p.TextureProfiles is null || p.TextureProfiles.Count > 0 || p.Files.Any(f => f.Modes is not null || f.TextureProfiles is not null)))
+                throw new InvalidDataException("Texture profiles and mode conditions require manifest format 3.");
+            if (m.Format == 3) PackProfiles.Validate(p);
+        }
         return m;
     }
 }
@@ -553,6 +594,7 @@ public sealed record PlanAction(PlanOp Op, string From, string To, string Sha, l
 /// <summary>Everything an update will do, computed before anything moves. Downloads are one per unique sha.</summary>
 public sealed class UpdatePlan
 {
+    public bool TargetActive { get; set; } = true;
     public List<PackFile> TargetFiles { get; } = new();
     public List<PlanAction> Actions { get; } = new();
     public List<PackFile> Downloads { get; } = new();
@@ -572,6 +614,10 @@ public sealed class ApplyResult
     public string PackVersion { get; set; } = "";
     public string? GameBuild { get; set; }
     public Dictionary<string, bool>? Options { get; set; }
+    public bool TargetActive { get; set; } = true;
+    public string? TextureProfile { get; set; }
+    public string? GameDir { get; set; }
+    public DateTimeOffset? VerifiedUtc { get; set; }
     public int Renamed, Parked, Copied, Created;
     public List<string> Failed { get; } = new();
     public string? Reason;
@@ -584,6 +630,9 @@ sealed class PlanFile
     public string PackVersion { get; set; } = "";
     public string? GameBuild { get; set; }
     public Dictionary<string, bool>? Options { get; set; }
+    public bool TargetActive { get; set; } = true;
+    public string? TextureProfile { get; set; }
+    public bool Verified { get; set; }
     public List<PackFile> TargetFiles { get; set; } = new();
     public string GameDir { get; set; } = "";
     public List<PlanFileAction> Actions { get; set; } = new();
@@ -753,6 +802,24 @@ public static class Pack
     /// <summary>Downloads one file with HTTP Range resume, then checks size and SHA-256. A failed check deletes the file.</summary>
     public static async Task DownloadAsync(PackFile file, string destPath, IProgress<(long done, long total)>? progress, CancellationToken ct)
     {
+        for (var attempt = 0; ; attempt++)
+        {
+            try { await DownloadAttemptAsync(file, destPath, progress, ct); return; }
+            catch (Exception ex) when (!ct.IsCancellationRequested && attempt < 2 &&
+                (ex is DownloadInterruptedException || ex is HttpRequestException h &&
+                    (h.StatusCode is null || h.StatusCode == HttpStatusCode.RequestTimeout || (int)h.StatusCode == 429 || (int)h.StatusCode >= 500)))
+            {
+                await Task.Delay(DownloadRetryDelay * (attempt + 1), ct);
+            }
+        }
+    }
+
+    internal static TimeSpan DownloadInactivityTimeout { get; set; } = TimeSpan.FromSeconds(30);
+    internal static TimeSpan DownloadRetryDelay { get; set; } = TimeSpan.FromSeconds(1);
+    sealed class DownloadInterruptedException(string message, Exception? inner = null) : IOException(message, inner);
+
+    static async Task DownloadAttemptAsync(PackFile file, string destPath, IProgress<(long done, long total)>? progress, CancellationToken ct)
+    {
         FileSafety.RejectLink(destPath);
         Directory.CreateDirectory(Path.GetDirectoryName(destPath)!);
         long existing = File.Exists(destPath) ? new FileInfo(destPath).Length : 0;
@@ -760,14 +827,19 @@ public static class Pack
 
         if (!(file.Size > 0 && existing == file.Size))   // already complete? then just verify below
         {
+            using var inactivity = CancellationTokenSource.CreateLinkedTokenSource(ct);
+            inactivity.CancelAfter(DownloadInactivityTimeout);
+            try
+            {
             using var req = new HttpRequestMessage(HttpMethod.Get, file.Url);
             if (existing > 0) req.Headers.Range = new RangeHeaderValue(existing, null);
-            using var resp = await Http.SendAsync(req, HttpCompletionOption.ResponseHeadersRead, ct);
+            using var resp = await Http.SendAsync(req, HttpCompletionOption.ResponseHeadersRead, inactivity.Token);
 
             if (resp.StatusCode == HttpStatusCode.RequestedRangeNotSatisfiable)
             {
+                if (existing == 0) throw new InvalidDataException("The server cannot provide this file. Retry the download later.");
                 File.Delete(destPath);
-                await DownloadAsync(file, destPath, progress, ct);   // start over without a Range header
+                await DownloadAttemptAsync(file, destPath, progress, ct);   // one retry without a Range header
                 return;
             }
             resp.EnsureSuccessStatusCode();
@@ -780,22 +852,29 @@ public static class Pack
             if (!resumed) existing = 0;
             long total = file.Size > 0 ? file.Size : existing + (resp.Content.Headers.ContentLength ?? 0);
 
-            using var net = await resp.Content.ReadAsStreamAsync(ct);
+            using var net = await resp.Content.ReadAsStreamAsync(inactivity.Token);
             using var fs = new FileStream(destPath, resumed ? FileMode.Append : FileMode.Create, FileAccess.Write, FileShare.None, 1 << 20, useAsync: true);
             var buffer = new byte[1 << 20];
             long written = existing;
             int n;
-            while ((n = await net.ReadAsync(buffer, ct)) > 0)
+            while ((n = await net.ReadAsync(buffer, inactivity.Token)) > 0)
             {
+                inactivity.CancelAfter(DownloadInactivityTimeout);
                 await fs.WriteAsync(buffer.AsMemory(0, n), ct);
                 written += n;
                 progress?.Report((written, total));
             }
+            }
+            catch (OperationCanceledException ex) when (!ct.IsCancellationRequested)
+            { throw new DownloadInterruptedException("The download stopped responding. Progress is saved; click Retry to resume.", ex); }
+            catch (HttpIOException ex)
+            { throw new DownloadInterruptedException("The connection ended early. Progress is saved; click Retry to resume.", ex); }
         }
 
         var length = new FileInfo(destPath).Length;
         if (file.Size > 0 && length != file.Size)
         {
+            if (length < file.Size) throw new DownloadInterruptedException($"The download stopped at {length:N0} of {file.Size:N0} bytes. Progress is saved; click Retry to resume.");
             File.Delete(destPath);
             throw new InvalidDataException($"Download ended at {length:N0} bytes but the pack file should be {file.Size:N0}. Deleted it; try again.");
         }
@@ -875,9 +954,12 @@ public static class Pack
 
     /// <summary>The manifest's files after the friend's option choices, renumbered so the enabled set is gap-free.
     /// With every option on, names are exactly the manifest's.</summary>
-    public static List<PackFile> EffectiveFiles(PackManifest pack, Func<string, bool> optionEnabled)
+    public static List<PackFile> EffectiveFiles(PackManifest pack, Func<string, bool> optionEnabled, string? textureProfile = null)
     {
-        var kept = pack.Files.Where(f => (f.Option is null || optionEnabled(f.Option)) && (f.UnlessOption is null || !optionEnabled(f.UnlessOption))).Select(f => f.Clone()).ToList();
+        var profile = PackProfiles.Resolve(pack, optionEnabled, textureProfile);
+        var mode = (pack.TextureProfiles.Count > 0 || pack.Options.Any(o => string.Equals(o.Id, "commandos", StringComparison.OrdinalIgnoreCase))) && optionEnabled("commandos") ? "commandos" : "clonedivers";
+        bool Enabled(string id) => string.Equals(id, "skinny", StringComparison.OrdinalIgnoreCase) ? profile != "full" : optionEnabled(id);
+        var kept = pack.Files.Where(f => PackProfiles.Includes(f, mode, profile) && (f.Option is null || Enabled(f.Option)) && (f.UnlessOption is null || !Enabled(f.UnlessOption))).Select(f => f.Clone()).ToList();
         var dup = kept.GroupBy(f => f.Name, StringComparer.OrdinalIgnoreCase).FirstOrDefault(g => g.Count() > 1);
         if (dup is not null) throw new InvalidDataException($"manifest.json: {dup.Key} is listed twice for the same option choice");
         if (kept.Count == pack.Files.Count || !pack.IsPerFile) return kept;
@@ -907,6 +989,23 @@ public static class Pack
 
         var found = new List<LocalFile>();
         var seenKeys = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        // Retaining inactive-profile hashes requires considering collisions across all folders,
+        // even when mods_old will not be content-scanned for this particular choice.
+        var existingKeys = new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase);
+        foreach (var dir in new[] { data, off, old })
+        {
+            FileSafety.RejectLink(dir);
+            if (!Directory.Exists(dir)) continue;
+            foreach (var path in Directory.EnumerateFiles(dir))
+            {
+                var fi = new FileInfo(path);
+                if (!ModFiles.IsPatchFile(fi.Name) && !ModFiles.TryParseParkedName(fi.Name, out _) && !ModFiles.IsStagedFile(fi.Name)) continue;
+                var key = HashCache.Key(fi.Name, fi.Length, fi.LastWriteTimeUtc);
+                existingKeys[key] = existingKeys.GetValueOrDefault(key) + 1;
+            }
+        }
+        var ambiguousKeys = existingKeys.Where(k => k.Value > 1).Select(k => k.Key).ToHashSet(StringComparer.OrdinalIgnoreCase);
+        foreach (var key in ambiguousKeys) cache.Entries.Remove(key);
 
         List<(string path, string name, FileInfo fi, LocalWhere where)> Scan(string dir, LocalWhere where)
         {
@@ -946,7 +1045,7 @@ public static class Pack
                 var j = jobs[i];
                 if (j.fi.Length == 0) { jobs[i] = j with { sha = PackFile.EmptySha }; continue; }
                 if (!sizeWanted(j.fi.Length)) continue;                                   // cannot match anything: not worth reading
-                if (!forceRehash && keyCount[j.key] == 1 && cache.Entries.TryGetValue(j.key, out var cached)) { jobs[i] = j with { sha = cached }; seenKeys.Add(j.key); continue; }
+                if (!forceRehash && keyCount[j.key] == 1 && !ambiguousKeys.Contains(j.key) && cache.Entries.TryGetValue(j.key, out var cached)) { jobs[i] = j with { sha = cached }; seenKeys.Add(j.key); continue; }
                 total += j.fi.Length;
             }
             long done = 0;
@@ -960,7 +1059,7 @@ public static class Pack
                 var sha = await Sha256Async(j.path, new SyncProgress<long>(b => progress?.Report((before + b, total))), ct);
                 done += j.fi.Length;
                 progress?.Report((done, total));
-                if (keyCount[j.key] == 1) { cache.Entries[j.key] = sha; seenKeys.Add(j.key); }
+                if (keyCount[j.key] == 1 && !ambiguousKeys.Contains(j.key)) { cache.Entries[j.key] = sha; seenKeys.Add(j.key); }
                 found.Add(new LocalFile(j.path, j.name, j.fi.Length, sha, j.where));
             }
         }
@@ -977,7 +1076,9 @@ public static class Pack
             if (oldFiles.Count > 0) await HashBatch(oldFiles, shortSizes.Contains);
         }
 
-        // Prune cache entries for files that no longer exist under any name we saw.
+        // A profile can leave most of mods_old unscanned. Preserve hashes for existing parked
+        // files without reading their contents; prune only stale file identities.
+        seenKeys.UnionWith(existingKeys.Keys);
         foreach (var k in cache.Entries.Keys.Where(k => !seenKeys.Contains(k)).ToList()) cache.Entries.Remove(k);
         return found;
     }
@@ -987,13 +1088,14 @@ public static class Pack
     /// <summary>Decides every move without touching disk. Matching is by sha as a multiset: K manifest entries sharing one sha
     /// need K local copies; the shortfall is copied from a local twin when one exists, downloaded once otherwise.
     /// Local files that match nothing are parked. Zero-byte entries are created, never downloaded.</summary>
-    public static UpdatePlan Plan(string gameDir, IReadOnlyList<PackFile> wanted, IReadOnlyList<LocalFile> local, IReadOnlySet<string> completeDownloads)
+    public static UpdatePlan Plan(string gameDir, IReadOnlyList<PackFile> wanted, IReadOnlyList<LocalFile> local, IReadOnlySet<string> completeDownloads, bool targetActive = true)
     {
         FileSafety.ValidateTargets(wanted);
         var data = Path.Combine(gameDir, ModFiles.DataFolder);
+        var destination = Path.Combine(gameDir, targetActive ? ModFiles.DataFolder : ModFiles.OffFolder);
         var old = Path.Combine(gameDir, OldFolder);
         var dl = Path.Combine(gameDir, DownloadFolder);
-        var plan = new UpdatePlan();
+        var plan = new UpdatePlan { TargetActive = targetActive };
         plan.TargetFiles.AddRange(wanted.Select(f => f.Clone()));
         // Fresh names never overwrite leftovers from an interrupted plan, including a renumbering cycle.
         var stageId = Guid.NewGuid().ToString("N") + "-";
@@ -1007,7 +1109,7 @@ public static class Pack
         var creates = new List<PlanAction>();
 
         // 1. In place: right name, right bytes, already in data\.
-        var byName = local.Where(l => l.Where == LocalWhere.Data).GroupBy(l => l.Name, StringComparer.OrdinalIgnoreCase).ToDictionary(g => g.Key, g => g.First(), StringComparer.OrdinalIgnoreCase);
+        var byName = local.Where(l => l.Where == (targetActive ? LocalWhere.Data : LocalWhere.Off)).GroupBy(l => l.Name, StringComparer.OrdinalIgnoreCase).ToDictionary(g => g.Key, g => g.First(), StringComparer.OrdinalIgnoreCase);
         foreach (var e in wanted)
             if (byName.TryGetValue(e.Name, out var l) && string.Equals(l.Sha, e.Sha256, StringComparison.OrdinalIgnoreCase) && !used.Contains(l))
             { used.Add(l); source[e] = l.Path; inPlace.Add(e); plan.InPlaceCount++; }
@@ -1073,7 +1175,7 @@ public static class Pack
         plan.Actions.AddRange(creates);
         plan.Actions.AddRange(wanted.Where(e => !inPlace.Contains(e))
             .OrderBy(e => ModFiles.TryParsePatchName(e.Name, out _, out var i, out _) ? i : int.MaxValue).ThenBy(e => e.Name, StringComparer.OrdinalIgnoreCase)
-            .Select(e => new PlanAction(PlanOp.Finalize, source[e], Path.Combine(data, e.Name), e.Sha256, e.Size)));
+            .Select(e => new PlanAction(PlanOp.Finalize, source[e], Path.Combine(destination, e.Name), e.Sha256, e.Size)));
         return plan;
     }
 
@@ -1084,12 +1186,13 @@ public static class Pack
     /// <summary>Runs the plan. The plan is written to <paramref name="planPath"/> before anything moves, so an interrupted run can be
     /// reconciled after interruption. Never cancellable once started: every step is a same-volume rename or a copy.</summary>
     public static ApplyResult Apply(string gameDir, UpdatePlan plan, string planPath, string packVersion, HashCache? cache, string? cachePath,
-        string? gameBuild = null, Dictionary<string, bool>? options = null)
+        string? gameBuild = null, Dictionary<string, bool>? options = null, string? textureProfile = null, bool verified = false, string? receiptPath = null)
     {
         FileSafety.ValidateTargets(plan.TargetFiles);
         foreach (var action in plan.Actions) ValidateActionPaths(gameDir, action.Op, action.From, action.To);
         FileSafety.RejectLink(planPath); FileSafety.RejectLink(planPath + ".tmp");
         var pf = new PlanFile { PackVersion = packVersion, GameBuild = gameBuild, Options = options, TargetFiles = plan.TargetFiles,
+            TargetActive = plan.TargetActive, TextureProfile = textureProfile, Verified = verified,
             GameDir = gameDir, Actions = plan.Actions.Select(a => new PlanFileAction { Op = a.Op.ToString(), From = a.From, To = a.To, Sha = a.Sha, Size = a.Size }).ToList() };
         Directory.CreateDirectory(Path.GetDirectoryName(planPath)!);
         File.WriteAllText(planPath + ".tmp", JsonSerializer.Serialize(pf, PlanJson));
@@ -1097,6 +1200,15 @@ public static class Pack
         if (Game.IsRunning()) throw new InvalidOperationException("Helldivers 2 started while installing. Close it and try again.");
         var result = Execute(gameDir, pf.Actions, planPath, cache, cachePath);
         result.PackVersion = packVersion; result.GameBuild = gameBuild; result.Options = options;
+        result.TargetActive = plan.TargetActive; result.TextureProfile = textureProfile; result.GameDir = gameDir;
+        result.VerifiedUtc = verified ? DateTimeOffset.UtcNow : null;
+        if (!result.Interrupted)
+        {
+            // Commit durable installed metadata before dropping the recovery target. A crash
+            // before this point is repaired from the plan; a crash afterward is read from the receipt.
+            if (receiptPath is not null) InstallReceipt.Write(receiptPath, gameDir, plan.TargetFiles, result);
+            try { File.Delete(planPath); } catch { }
+        }
         return result;
     }
 
@@ -1116,7 +1228,7 @@ public static class Pack
 
     /// <summary>Reconcile the saved target against actual bytes, including already finalized and parked files.
     /// Old action-only plans and missing bytes return null for a fresh manifest-based repair; no old action is replayed blindly.</summary>
-    public static ApplyResult? Replay(string gameDir, string planPath, HashCache? cache, string? cachePath)
+    public static ApplyResult? Replay(string gameDir, string planPath, HashCache? cache, string? cachePath, string? receiptPath = null)
     {
         PlanFile? pf;
         try { pf = File.Exists(planPath) ? JsonSerializer.Deserialize<PlanFile>(File.ReadAllText(planPath)) : null; }
@@ -1131,9 +1243,9 @@ public static class Pack
         if (Game.IsRunning()) throw new InvalidOperationException("Helldivers 2 is running. Close it, then click Finish update.");
         var local = InventoryAsync(gameDir, pf.TargetFiles, cache ?? new HashCache(), true, null, CancellationToken.None).GetAwaiter().GetResult();
         var complete = VerifiedDownloadsAsync(Path.Combine(gameDir, DownloadFolder), pf.TargetFiles, CancellationToken.None).GetAwaiter().GetResult();
-        var plan = Plan(gameDir, pf.TargetFiles, local, complete);
+        var plan = Plan(gameDir, pf.TargetFiles, local, complete, pf.TargetActive);
         if (plan.Downloads.Count > 0) return null;
-        return Apply(gameDir, plan, planPath, pf.PackVersion, cache, cachePath, pf.GameBuild, pf.Options);
+        return Apply(gameDir, plan, planPath, pf.PackVersion, cache, cachePath, pf.GameBuild, pf.Options, pf.TextureProfile, true, receiptPath);
     }
 
     static void ValidateActionPaths(string gameDir, PlanOp op, string from, string to)
@@ -1152,7 +1264,8 @@ public static class Pack
             }
             throw new InvalidDataException("An update action escapes its managed game folder.");
         }
-        InFolder(to, op == PlanOp.Park ? OldFolder : ModFiles.DataFolder);
+        if (op == PlanOp.Finalize) InFolder(to, ModFiles.DataFolder, ModFiles.OffFolder);
+        else InFolder(to, op == PlanOp.Park ? OldFolder : ModFiles.DataFolder);
         if (op == PlanOp.Finalize) FileSafety.ValidatePatchName(Path.GetFileName(to));
         else if (op != PlanOp.Park && !ModFiles.IsStagedFile(to)) throw new InvalidDataException("Update writes must use staged file names.");
         if (op != PlanOp.Create) InFolder(from, ModFiles.DataFolder, ModFiles.OffFolder, OldFolder, DownloadFolder);
@@ -1204,7 +1317,7 @@ public static class Pack
         {
             if (!File.Exists(a.From)) { if (File.Exists(a.To)) continue; r.Failed.Add(Path.GetFileName(a.To) + " (staged copy missing)"); continue; }
             if (File.Exists(a.To)) { r.Failed.Add(Path.GetFileName(a.To) + " (an old file with that name could not be moved)"); continue; }
-            Try(a, () => File.Move(a.From, a.To));
+            Try(a, () => { Directory.CreateDirectory(Path.GetDirectoryName(a.To)!); File.Move(a.From, a.To); });
         }
         if (r.Interrupted) return r;
 
@@ -1217,7 +1330,6 @@ public static class Pack
             }
             cache.Save(cachePath);
         }
-        try { File.Delete(planPath); } catch { }
         var dl = Path.Combine(gameDir, DownloadFolder);
         try { if (Directory.Exists(dl) && !Directory.EnumerateFileSystemEntries(dl).Any()) Directory.Delete(dl); } catch { }
         return r;
@@ -1634,7 +1746,7 @@ sealed class HelmetMark : Control
     }
 }
 
-public sealed class MainForm : Form
+public sealed partial class MainForm : Form
 {
     readonly Settings settings;
     string? gameDir;
@@ -1644,6 +1756,8 @@ public sealed class MainForm : Form
     // Manifest / pack state
     Manifest? manifest;
     string? manifestError;
+    string? lastOperationError;
+    bool metadataOffline;
     bool loadingManifest;
     DateTime lastManifestTry;
     readonly HashCache hashCache = HashCache.Load(Settings.HashCachePath);
@@ -1668,6 +1782,7 @@ public sealed class MainForm : Form
     readonly RoundButton pathButton = new();
     readonly RoundButton openButton = new();
     readonly RoundButton installFileButton = new();
+    readonly RoundButton diagnosticsButton = new();
     readonly RoundButton downloadButton = new();
     readonly Grid optionsRow = new();
     readonly List<RoundButton> optionButtons = new();
@@ -1708,14 +1823,19 @@ public sealed class MainForm : Form
         refresh.Tick += (_, _) =>
         {
             // Offline at start? Ask GitHub again once a minute until manifest.json answers.
-            if (manifest is null && manifestError is not null && !loadingManifest && DateTime.UtcNow - lastManifestTry > TimeSpan.FromSeconds(60))
+            if (manifestError is not null && !loadingManifest && DateTime.UtcNow - lastManifestTry > TimeSpan.FromSeconds(60))
                 _ = LoadManifestAsync();
+            if (WindowState == FormWindowState.Minimized && !Busy) return;
             RefreshState();
         };
         Activated += (_, _) => RefreshState();
         Shown += (_, _) =>
         {
             if (preview) { RefreshPreview(); return; }
+            manifest = ManifestStore.Load(ManifestStore.CachePath(settings.ManifestUrl));
+            metadataOffline = manifest is not null;
+            RestoreInstallationMetadata();
+            UpdateMetadataFooter();
             if (updatedTo is not null) { ShowProgressDone($"Updated to {updatedTo}."); Activate(); }
             RefreshState();
             refresh.Start();
@@ -1830,26 +1950,37 @@ public sealed class MainForm : Form
         launchButton.Click += (_, _) => OnLaunch();
 
         // Pack row: ghost "Install pack from file…"  |  filled "Download pack" with "version · size" under it
-        var packRow = new Grid { Dock = DockStyle.Fill, AutoSize = true, ColumnCount = 2, Margin = new Padding(0), BackColor = Bg };
-        packRow.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 50));
-        packRow.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 50));
+        var packRow = new Grid { Dock = DockStyle.Fill, AutoSize = true, ColumnCount = 3, Margin = new Padding(0), BackColor = Bg };
+        packRow.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 33));
+        packRow.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 34));
+        packRow.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 33));
         Style(installFileButton, Slate, SlateHot, TextMain, 10F);
         installFileButton.Radius = 8;
         installFileButton.Ghost = true;
-        installFileButton.Text = "Install pack from file…";
+        installFileButton.Text = "Check and repair";
         installFileButton.Dock = DockStyle.Fill;
         installFileButton.MinimumSize = new Size(0, 50);
         installFileButton.Margin = new Padding(0, 0, 6, 0);
-        installFileButton.Click += (_, _) => OnInstallFromFile();
+        installFileButton.Click += (_, _) => OnRepair();
+        Style(diagnosticsButton, Slate, SlateHot, TextMain, 9.5F);
+        diagnosticsButton.Radius = 8;
+        diagnosticsButton.Ghost = true;
+        diagnosticsButton.Text = "Help & diagnostics";
+        diagnosticsButton.UseMnemonic = false;
+        diagnosticsButton.Dock = DockStyle.Fill;
+        diagnosticsButton.MinimumSize = new Size(0, 50);
+        diagnosticsButton.Margin = new Padding(6, 0, 0, 0);
+        diagnosticsButton.Click += async (_, _) => await ShowDiagnosticsAsync();
         Style(downloadButton, Slate, SlateHot, TextMain, 10F);
         downloadButton.Radius = 8;
         downloadButton.Text = "Checking for pack…";
         downloadButton.Dock = DockStyle.Fill;
         downloadButton.MinimumSize = new Size(0, 50);
-        downloadButton.Margin = new Padding(6, 0, 0, 0);
+        downloadButton.Margin = new Padding(6, 0, 6, 0);
         downloadButton.Click += (_, _) => OnDownloadOrCancel();
         packRow.Controls.Add(installFileButton, 0, 0);
         packRow.Controls.Add(downloadButton, 1, 0);
+        packRow.Controls.Add(diagnosticsButton, 2, 0);
 
         // Options row: one ghost toggle per optional group in the manifest (empty and flat until a manifest with options arrives).
         optionsRow.Dock = DockStyle.Fill;
@@ -1957,11 +2088,11 @@ public sealed class MainForm : Form
         try { return Uri.TryCreate(url, UriKind.Absolute, out var u) ? (u.IsFile ? "local file" : u.Host) : url; } catch { return url; }
     }
 
-    /// <summary>One ghost toggle per optional group. Rebuilt when a manifest arrives; the row stays empty otherwise.</summary>
+    /// <summary>Independent texture preference, available before downloading the first pack.</summary>
     void RebuildOptions()
     {
         var pack = manifest?.Pack;
-        var options = pack?.Options.Where(o => !o.Id.Equals(LauncherModes.CommandoOption, StringComparison.OrdinalIgnoreCase)).ToList() ?? new List<PackOption>();
+        var options = PackProfiles.Supported(pack ?? new PackManifest()).ToList();
         if (optionButtons.Count == options.Count && optionButtons.Select(b => (string)b.Tag!).SequenceEqual(options.Select(o => o.Id))) return;
         optionsRow.SuspendLayout();
         optionsRow.Controls.Clear();
@@ -1976,7 +2107,7 @@ public sealed class MainForm : Form
             var b = new RoundButton { Radius = 8, Ghost = true, Dock = DockStyle.Fill, Tag = o.Id, MinimumSize = new Size(0, 36),
                                       Margin = new Padding(i == 0 ? 0 : 6, 8, i == options.Count - 1 ? 0 : 6, 0) };
             Style(b, Slate, SlateHot, TextMain, 9.5F);
-            b.Click += (_, _) => OnOptionToggle(o);
+            b.Click += (_, _) => OnTextureProfile(o);
             optionsRow.Controls.Add(b, i, 0);
             optionButtons.Add(b);
         }
@@ -1989,7 +2120,7 @@ public sealed class MainForm : Form
         if (settings.Options.TryGetValue(id, out var v)) return v;
         return manifest?.Pack?.Options.FirstOrDefault(o => string.Equals(o.Id, id, StringComparison.OrdinalIgnoreCase))?.Default ?? true;
     }
-    List<PackFile> WantedFiles(PackManifest pack) => Pack.EffectiveFiles(pack, OptionEnabledById);
+    List<PackFile> WantedFiles(PackManifest pack) => AvailableTextureProfile(pack) is { } profile ? Pack.EffectiveFiles(pack, OptionEnabledById, profile) : new();
 
     /// <summary>Secondary buttons that may be inert: styled dim when not armed (a truly disabled flat button is unreadable here).</summary>
     static void SetArmed(Button b, string text, bool armed)
@@ -2059,12 +2190,14 @@ public sealed class MainForm : Form
         var dataDir = gameDir is null ? "" : Path.Combine(gameDir, ModFiles.DataFolder);
         var active = gameDir is null ? 0 : ModFiles.ListPatchFiles(dataDir).Length;
         var parked = gameDir is null ? 0 : ModFiles.ListPatchFiles(Path.Combine(gameDir, ModFiles.OffFolder)).Length;
-        var usable = pack is not null && pack.IsPublished && pack.IsPerFile;
+        var profileAvailable = AvailableTextureProfile(pack ?? new PackManifest()) is not null;
+        var usable = pack is not null && pack.IsPublished && pack.IsPerFile && profileAvailable;
 
         var selected = LauncherModes.Current(state, settings, pack);
+        if (state == ModState.On && settings.InstalledPackVersion is null) selected = null;
         string detail = selected is { } mode
             ? $"{LauncherModes.Name(mode)} selected.\n{ModeDescription(mode)}"
-            : "Game not found.\nChoose Locate… to find your Helldivers 2 folder.";
+            : state == ModState.On ? "Unverified mod files found.\nUse Check and repair to identify and verify the pack." : "Game not found.\nChoose Change… to find your Helldivers 2 folder.";
         if (state == ModState.NoModFiles) detail += "\nChoose a modded mode to install its pack.";
         foreach (var button in modeButtons)
         {
@@ -2138,9 +2271,11 @@ public sealed class MainForm : Form
 
         // Pack buttons
         var canInstall = gameDir is not null && !running && !Busy;
-        installArmed = canInstall && !staged;
-        SetArmed(installFileButton, "Install pack from file…", installArmed);
-        Tip(installFileButton, staged ? "Finish the interrupted update first." : "Have the pack as zip files from Owen? Pick all the parts at once. Needs the game closed.");
+        installArmed = canInstall && !staged && (active + parked > 0 || (gameDir is not null && File.Exists(Settings.ReceiptPathFor(gameDir))));
+        SetArmed(installFileButton, "Check and repair", installArmed);
+        Tip(installFileButton, staged ? "Finish the interrupted update first." : "Check installed files and repair anything missing or damaged. Your selected universe stays the same.\n" +
+            (settings.LastVerifiedUtc is { } checkedAt ? $"Last full check: {checkedAt.ToLocalTime():g}" : "No full check recorded yet."));
+        diagnosticsButton.Enabled = !Busy && !collectingDiagnostics;
         downloadButton.SubText = "";
         if (Busy)
         {
@@ -2168,6 +2303,13 @@ public sealed class MainForm : Form
             downloadButton.SubText = "click to retry";
             Tip(downloadButton, manifestError!);
         }
+        else if (!profileAvailable)
+        {
+            downloadArmed = false;
+            SetQuiet(downloadButton, "Choose textures");
+            downloadButton.SubText = "Saved choice unavailable";
+            Tip(downloadButton, "Choose an available texture profile below. Your installed files have not changed.");
+        }
         else if (!usable)
         {
             downloadArmed = false;
@@ -2189,10 +2331,10 @@ public sealed class MainForm : Form
             }
             else if (installed == pack.Version)
             {
-                SetQuiet(downloadButton, "Pack up to date");
+                SetQuiet(downloadButton, "Pack installed");
                 downloadButton.Cursor = canInstall ? Cursors.Hand : Cursors.Default;
-                downloadButton.SubText = $"{pack.Version}  ·  click to verify";
-                Tip(downloadButton, $"You have pack {pack.Version}. Click to check every installed file and re-download only what is missing or damaged — usually nothing. The first check reads every file once (a few minutes on a hard drive).\n\n{notes}");
+                downloadButton.SubText = pack.Version;
+                Tip(downloadButton, $"Installed version: {pack.Version}. Use Check and repair to verify its files.\n\n{notes}");
             }
             else
             {
@@ -2206,15 +2348,16 @@ public sealed class MainForm : Form
         RebuildOptions();
         foreach (var b in optionButtons)
         {
-            var o = pack?.Options.FirstOrDefault(x => string.Equals(x.Id, (string)b.Tag!, StringComparison.OrdinalIgnoreCase));
+            var o = PackProfiles.Supported(pack ?? new PackManifest()).FirstOrDefault(x => string.Equals(x.Id, (string)b.Tag!, StringComparison.OrdinalIgnoreCase));
             if (o is null) continue;
-            var on = OptionEnabled(o);
-            var armed = canInstall && !staged && usable && state == ModState.On;
-            b.Text = $"{o.Name}: {(on ? "ON" : "OFF")}";
+            var on = string.Equals(AvailableTextureProfile(pack ?? new PackManifest()), o.Id, StringComparison.OrdinalIgnoreCase);
+            var armed = !Busy && !running && !staged;
+            b.Text = (on ? "✓ " : "") + o.Name;
+            b.AccessibleDescription = on ? "Selected texture profile" : "Choose this texture profile";
             b.BackColor = armed ? (on ? Blue : Slate) : Disabled;      // ghost: BackColor is the outline colour
             b.ForeColor = armed ? TextMain : TextDim;
             b.Cursor = armed ? Cursors.Hand : Cursors.Default;
-            Tip(b, (string.IsNullOrWhiteSpace(o.Description) ? o.Name : o.Description) + (on ? "\n\nClick to switch it off; its files are parked in mods_old\\ and the rest is renumbered (no download)." : "\n\nClick to switch it on; only its files are downloaded."));
+            Tip(b, o.Description + (state == ModState.On ? "" : " Choose before installing; used for your next modded selection."));
         }
 
         // Self-update offer lives in the idle progress row.
@@ -2244,12 +2387,19 @@ public sealed class MainForm : Form
         loadingManifest = true; lastManifestTry = DateTime.UtcNow;
         try
         {
-            manifest = await Pack.FetchManifestAsync(settings.ManifestUrl, CancellationToken.None);
+            var fresh = await ManifestStore.FetchAsync(settings.ManifestUrl, CancellationToken.None);
+            ManifestStore.ValidateForUse(fresh);
+            if (manifest?.Format == 3 && fresh.Format < 3)
+                throw new IOException("The profile feed is unavailable. Using the saved pack information.");
+            manifest = fresh;
+            try { ManifestStore.Save(ManifestStore.CachePath(settings.ManifestUrl), fresh); }
+            catch (Exception e) when (e is IOException or UnauthorizedAccessException) { /* Online use still works when caching is unavailable. */ }
+            metadataOffline = false;
             manifestError = null;
         }
-        catch (Exception ex) { manifest = null; manifestError = ex.Message; }
+        catch (Exception ex) { metadataOffline = manifest is not null; manifestError = ex.Message; }
         finally { loadingManifest = false; }
-        if (!IsDisposed) RefreshState();
+        if (!IsDisposed) { UpdateMetadataFooter(); RefreshState(); }
     }
 
     void ShowRunningWarning() => MessageBox.Show(this,
@@ -2293,6 +2443,7 @@ public sealed class MainForm : Form
         if (!downloadArmed || pack is null || !pack.IsPublished || !pack.IsPerFile) return;
         if (Game.IsRunning()) { ShowRunningWarning(); return; }
         var verify = settings.InstalledPackVersion == pack.Version;
+        if (verify) { OnRepair(); return; }
         _ = RunPackAsync(pack, verify, optionChange: null);
     }
 
@@ -2333,6 +2484,8 @@ public sealed class MainForm : Form
             }, cts.Token);
             settings.InstalledPackVersion = null;   // a zip install is of unknown version; Update pack will verify and record it
             settings.InstalledGameBuild = null;
+            settings.LastVerifiedUtc = null;
+            InstallReceipt.Invalidate(Settings.ReceiptPathFor(gameDir!));
             settings.Save();
             ShowProgressDone($"Pack installed: {result.installed:N0} files in data\\"
                 + (result.parked > 0 ? $", {result.parked:N0} old file{(result.parked == 1 ? "" : "s")} parked in mods_old\\" : "")
@@ -2345,11 +2498,19 @@ public sealed class MainForm : Form
 
     /// <summary>The per-file flow: inventory → plan → confirm → download what is missing → apply. <paramref name="verify"/> re-hashes
     /// everything (the "Pack up to date" click); <paramref name="optionChange"/> names the toggle that triggered it, for the dialog.</summary>
-    async Task RunPackAsync(PackManifest pack, bool verify, (PackOption option, bool on)? optionChange, LauncherMode? modeChange = null)
+    async Task RunPackAsync(PackManifest pack, bool verify, (PackOption option, bool on)? optionChange, LauncherMode? modeChange = null,
+        string? textureProfileChange = null, RecoveryTarget? savedTarget = null)
     {
         var dlDir = Path.Combine(gameDir!, Pack.DownloadFolder);
-        var targetOptions = modeChange is { } mode ? LauncherModes.OptionsFor(settings, pack, mode)
-            : settings.OptionsFor(pack, optionChange?.option.Id, optionChange?.on ?? false);
+        var targetOptions = savedTarget?.Options ?? (modeChange is { } mode ? LauncherModes.OptionsFor(settings, pack, mode)
+            : settings.OptionsFor(pack, optionChange?.option.Id, optionChange?.on ?? false));
+        var targetProfile = savedTarget is not null ? savedTarget.TextureProfile ?? (savedTarget.Options.TryGetValue("skinny", out var legacyLighter) && legacyLighter ? "lighter" : "full")
+            : textureProfileChange ?? settings.ProfileFor(pack);
+        if (savedTarget is null) targetOptions["skinny"] = targetProfile != "full";
+        var targetActive = savedTarget?.TargetActive ?? (modeChange is not null || ModFiles.GetState(gameDir) != ModState.Off);
+        var targetVersion = savedTarget?.PackVersion ?? pack.Version;
+        var targetBuild = savedTarget?.GameBuild ?? pack.GameBuild;
+        var receiptPath = Settings.ReceiptPathFor(gameDir!);
         List<PackFile> wanted;
         var planPath = Settings.PlanPath;
         SetBusy(BusyKind.Inventory);
@@ -2357,16 +2518,18 @@ public sealed class MainForm : Form
         UpdatePlan plan;
         try
         {
-            wanted = Pack.EffectiveFiles(pack, id => targetOptions[id]);
-            Pack.CleanDownloadFolder(dlDir, wanted.Select(f => f.Sha256));
+            wanted = savedTarget?.Files.Select(f => f.Clone()).ToList() ?? Pack.EffectiveFiles(pack, id => targetOptions[id], targetProfile);
+            // Switching profiles must not throw away a cancelled download for another supported choice.
+            if (savedTarget is null)
+                Pack.CleanDownloadFolder(dlDir, pack.Files.Concat(wanted).Concat(manifest?.Pack?.Files ?? new()).Select(f => f.Sha256));
             var complete = await Pack.VerifiedDownloadsAsync(dlDir, wanted, cts.Token);
             var reporter = new Progress<(long done, long total)>(p => ShowProgress("Checking installed files", p.done, p.total));
             var local = await Task.Run(() => Pack.InventoryAsync(gameDir!, wanted, hashCache, verify, reporter, cts.Token), cts.Token);
             hashCache.Save(Settings.HashCachePath);
-            plan = Pack.Plan(gameDir!, wanted, local, complete);
+            plan = Pack.Plan(gameDir!, wanted, local, complete, targetActive);
         }
         catch (OperationCanceledException) { ShowProgressDone("Cancelled. Nothing was changed."); SetBusy(BusyKind.None); return; }
-        catch (Exception ex) { ShowProgressDone("Update failed."); SetBusy(BusyKind.None); MessageBox.Show(this, ex.Message, "Clonedivers", MessageBoxButtons.OK, MessageBoxIcon.Error); return; }
+        catch (Exception ex) { lastOperationError = ex.Message; SupportHistory.Record("error", targetVersion, targetProfile, ex.Message); ShowProgressDone("Update failed."); SetBusy(BusyKind.None); MessageBox.Show(this, ex.Message, "Clonedivers", MessageBoxButtons.OK, MessageBoxIcon.Error); return; }
         SetBusy(BusyKind.None);
 
         if (plan.IsNoOp)
@@ -2375,44 +2538,58 @@ public sealed class MainForm : Form
             {
                 SetBusy(BusyKind.Apply);
                 // An old recovery record may remain even when all target files are already in place.
-                var result = await Task.Run(() => Pack.Apply(gameDir!, plan, planPath, pack.Version, hashCache, Settings.HashCachePath, pack.GameBuild, targetOptions));
+                var result = await Task.Run(() => Pack.Apply(gameDir!, plan, planPath, targetVersion, hashCache, Settings.HashCachePath, targetBuild, targetOptions, targetProfile, verify, receiptPath));
                 if (result.Interrupted) { ReportApply(result, 0); return; }
-                settings.RecordInstall(result);
+                settings.RecordInstall(result, preserveTexturePreference: !targetActive && textureProfileChange is null);
                 settings.Save();
-                ShowProgressDone(verify ? $"Verified: all {wanted.Count:N0} files match {pack.Version}." : optionChange is { } oc ? $"{oc.option.Name} is now {(oc.on ? "on" : "off")}; nothing to change." : "Already up to date — nothing to download.");
+                lastOperationError = null;
+                SupportHistory.Record(verify ? "verified" : "installed", targetVersion, targetProfile);
+                ShowProgressDone(verify ? $"Verified: all {wanted.Count:N0} files match {targetVersion}." : optionChange is { } oc ? $"{oc.option.Name} is now {(oc.on ? "on" : "off")}; nothing to change." : "Ready — nothing to download.");
             }
-            catch (Exception ex) { ShowProgressDone("Update failed."); MessageBox.Show(this, ex.Message, "Clonedivers", MessageBoxButtons.OK, MessageBoxIcon.Error); }
+            catch (Exception ex) { lastOperationError = ex.Message; SupportHistory.Record("error", targetVersion, targetProfile, ex.Message); ShowProgressDone("Update failed."); MessageBox.Show(this, ex.Message, "Clonedivers", MessageBoxButtons.OK, MessageBoxIcon.Error); }
             finally { SetBusy(BusyKind.None); }
             return;
         }
 
-        // Confirm, with the real numbers.
+        // A mode click authorizes a local switch. Confirm downloads and low disk space;
+        // keep the existing confirmation for repairs and other pack operations.
         var fresh = !ModFiles.ListPatchFiles(Path.Combine(gameDir!, ModFiles.DataFolder)).Any() && !ModFiles.ListPatchFiles(Path.Combine(gameDir!, ModFiles.OffFolder)).Any();
         var dlText = plan.BytesToDownload > 0 ? $"Download {Pack.FormatBytes(plan.BytesToDownload)} ({plan.Downloads.Count:N0} file{(plan.Downloads.Count == 1 ? "" : "s")})." : "Nothing to download.";
         string headline;
         if (modeChange is { } chosen)
-            headline = $"Switch to {LauncherModes.Name(chosen)}?\n\n{dlText}";
+            headline = $"Download files for {LauncherModes.Name(chosen)}?\n\n{dlText}";
+        else if (textureProfileChange is not null)
+            headline = $"Change texture profile?\n\n{dlText}";
         else if (optionChange is { } o)
             headline = $"Turn {o.option.Name} {(o.on ? "on" : "off")}?\n\n{dlText}" + (o.on ? "" : " The rest is renumbered in place.");
         else if (fresh)
             headline = $"Download the Clone Wars pack {pack.Version}?\n\n{Pack.FormatBytes(plan.BytesToDownload)} ({plan.Downloads.Count:N0} files) — start it before dinner. Leave this window open; it resumes if interrupted.";
         else if (verify)
-            headline = $"Repair pack {pack.Version}?\n\n{dlText} Those files are missing or damaged; everything else checks out.";
+            headline = $"Repair pack {targetVersion}?\n\n{dlText} Those files are missing or damaged; everything else checks out.";
         else
             headline = $"Update pack to {pack.Version}?\n\n{dlText} Everything else you already have.";
-        if (plan.ParkCount > 0 && !fresh) headline += $"\n{plan.ParkCount:N0} old file{(plan.ParkCount == 1 ? "" : "s")} go to mods_old\\ (nothing is deleted).";
+        if (modeChange is null && plan.ParkCount > 0 && !fresh) headline += $"\n{plan.ParkCount:N0} old file{(plan.ParkCount == 1 ? "" : "s")} go to mods_old\\ (nothing is deleted).";
         if (!fresh) headline += "\nLeave this window open and keep the game closed.";
         if (!string.IsNullOrWhiteSpace(pack.Notes)) headline += "\n\n" + pack.Notes;
         var drive = Path.GetPathRoot(gameDir!) ?? "";
         long free = 0;
         try { free = new DriveInfo(drive).AvailableFreeSpace; } catch { /* unknown drive type: skip the warning */ }
         var need = plan.BytesToDownload + plan.BytesToCopy + (256L << 20);
-        if (free > 0 && free < need) headline += $"\n\nWarning: only {Pack.FormatBytes(free)} free on {drive} — this needs about {Pack.FormatBytes(need)}.";
-        if (Form.ActiveForm != this) FlashTaskbar();
-        if (MessageBox.Show(this, headline, "Clonedivers", MessageBoxButtons.YesNo, MessageBoxIcon.Question) != DialogResult.Yes)
+        var lowDiskSpace = free > 0 && free < need;
+        if (lowDiskSpace)
         {
-            RefreshState();
-            return;
+            if (modeChange is { } diskMode && plan.Downloads.Count == 0)
+                headline = $"Switch to {LauncherModes.Name(diskMode)}?";
+            headline += $"\n\nWarning: only {Pack.FormatBytes(free)} free on {drive} — this needs about {Pack.FormatBytes(need)}.";
+        }
+        if (modeChange is null && textureProfileChange is null || plan.Downloads.Count > 0 || lowDiskSpace)
+        {
+            if (Form.ActiveForm != this) FlashTaskbar();
+            if (MessageBox.Show(this, headline, "Clonedivers", MessageBoxButtons.YesNo, MessageBoxIcon.Question) != DialogResult.Yes)
+            {
+                RefreshState();
+                return;
+            }
         }
 
         try
@@ -2425,52 +2602,61 @@ public sealed class MainForm : Form
                 await Pack.DownloadPlanAsync(plan, dlDir, dl, cts.Token);
             }
             SetBusy(BusyKind.Apply);
-            var result = await Task.Run(() => Pack.Apply(gameDir!, plan, planPath, pack.Version, hashCache, Settings.HashCachePath, pack.GameBuild, targetOptions));
-            ReportApply(result, plan.Downloads.Count);
+            var result = await Task.Run(() => Pack.Apply(gameDir!, plan, planPath, targetVersion, hashCache, Settings.HashCachePath, targetBuild, targetOptions, targetProfile, verify, receiptPath));
+            ReportApply(result, plan.Downloads.Count, preserveTexturePreference: !targetActive && textureProfileChange is null);
         }
         catch (OperationCanceledException) { ShowProgressDone("Cancelled. Downloaded files stay in mods_download\\ and resume next time."); }
-        catch (Exception ex) { ShowProgressDone("Update failed."); MessageBox.Show(this, ex.Message, "Clonedivers", MessageBoxButtons.OK, MessageBoxIcon.Error); }
+        catch (Exception ex) { lastOperationError = ex.Message; SupportHistory.Record("error", targetVersion, targetProfile, ex.Message); ShowProgressDone("Update failed."); MessageBox.Show(this, ex.Message, "Clonedivers", MessageBoxButtons.OK, MessageBoxIcon.Error); }
         finally { SetBusy(BusyKind.None); }
     }
 
-    void ReportApply(ApplyResult result, int downloaded)
+    void ReportApply(ApplyResult result, int downloaded, bool preserveTexturePreference = false)
     {
         if (result.Interrupted)
         {
             var names = string.Join(", ", result.Failed.Take(3)) + (result.Failed.Count > 3 ? ", …" : "");
+            lastOperationError = result.Reason ?? names;
+            SupportHistory.Record("error", result.PackVersion, result.TextureProfile, lastOperationError);
             ShowProgressDone(result.Reason is not null && result.Failed.Count == 0
                 ? $"Update interrupted: {result.Reason}. Click Finish update to continue."
                 : $"Couldn't move {result.Failed.Count} file(s) (antivirus?): {names}. Close whatever has them open and click Finish update.");
             return;
         }
-        settings.RecordInstall(result);
+        settings.RecordInstall(result, preserveTexturePreference);
         settings.Save();
+        lastOperationError = null;
+        SupportHistory.Record("installed", result.PackVersion, result.TextureProfile);
         var parts = new List<string>();
         if (downloaded > 0) parts.Add($"{downloaded:N0} downloaded");
         if (result.Renamed > 0) parts.Add($"{result.Renamed:N0} renamed");
         if (result.Copied + result.Created > 0) parts.Add($"{result.Copied + result.Created:N0} created");
         if (result.Parked > 0) parts.Add($"{result.Parked:N0} parked in mods_old\\");
-        ShowProgressDone($"Pack updated to {result.PackVersion}" + (parts.Count > 0 ? ": " + string.Join(", ", parts) : "") + ". Ready to launch.");
+        ShowProgressDone($"Pack {result.PackVersion} ready." + (result.TargetActive ? " Ready to launch." : " Helldivers remains selected."));
     }
 
-    /// <summary>Finish update: recheck the saved target against disk; fall back to the manifest if recovery needs downloads.</summary>
+    /// <summary>Finish the exact saved target, including missing downloads. The current feed cannot replace a pending choice.</summary>
     async Task FinishUpdateAsync()
     {
-        SetBusy(BusyKind.Apply);
-        try
+        var target = RecoveryTarget.Read(gameDir!, Settings.PlanPath);
+        if (target is not null)
         {
-            var result = await Task.Run(() => Pack.Replay(gameDir!, Settings.PlanPath, hashCache, Settings.HashCachePath));
-            if (result is not null) { ReportApply(result, 0); return; }
+            var savedPack = new PackManifest { Version = target.PackVersion, GameBuild = target.GameBuild,
+                Files = target.Files.Select(f => f.Clone()).ToList(),
+                Options = target.Options.Select(o => new PackOption { Id = o.Key, Default = o.Value }).ToList() };
+            await RunPackAsync(savedPack, verify: true, optionChange: null, savedTarget: target);
+            return;
         }
-        catch (Exception ex) { ShowProgressDone("Update failed."); SetBusy(BusyKind.None); MessageBox.Show(this, ex.Message, "Clonedivers", MessageBoxButtons.OK, MessageBoxIcon.Error); return; }
-        finally { if (busy == BusyKind.Apply) SetBusy(BusyKind.None); }
+        // Old action-only plans did not record a trustworthy target. Only these require a
+        // manifest-based repair; valid modern plans never lose their requested settings.
         var pack = manifest?.Pack;
         if (pack is null || !pack.IsPublished || !pack.IsPerFile)
         {
+            lastOperationError = "The interrupted update has no usable saved target or available manifest.";
+            SupportHistory.Record("error", settings.InstalledPackVersion, settings.InstalledTextureProfile, lastOperationError);
             ShowProgressDone("Can't finish offline: the saved plan is unusable and the manifest is not available. Connect and click Finish update again.");
             return;
         }
-        await RunPackAsync(pack, verify: false, optionChange: null);
+        await RunPackAsync(pack, verify: true, optionChange: null);
     }
 
     // ---- self-update
@@ -2631,6 +2817,7 @@ public sealed class MainForm : Form
         }
         var pack = manifest?.Pack;
         if (pack is null || !pack.IsPublished || !pack.IsPerFile) return;
+        if (AvailableTextureProfile(pack) is null) { ShowProgressDone("Choose an available texture profile first."); return; }
         if (mode == LauncherMode.CommandoDivers && !pack.Options.Any(o => o.Id.Equals(LauncherModes.CommandoOption, StringComparison.OrdinalIgnoreCase))) return;
         // Always plan the requested file set, including when an old pack is parked. Restoring it
         // with Toggle would silently enable RC content after choosing ordinary clonedivers.
@@ -2647,16 +2834,19 @@ public sealed class MainForm : Form
         RebuildOptions();
         foreach (var button in optionButtons)
         {
-            var option = manifest.Pack!.Options.Single(o => o.Id == (string)button.Tag!);
-            button.Text = $"{option.Name}: {(option.Default ? "ON" : "OFF")}";
-            button.Enabled = false;
+            var option = PackProfiles.Supported(manifest.Pack!).Single(o => o.Id == (string)button.Tag!);
+            var on = AvailableTextureProfile(manifest.Pack!) == option.Id;
+            button.Text = (on ? "✓ " : "") + option.Name;
+            button.BackColor = on ? Blue : Slate;
+            button.Enabled = true;
         }
         foreach (var button in modeButtons) { button.Enabled = true; button.Selected = button.Mode == previewMode; }
         statusLabel.Text = $"{LauncherModes.Name(previewMode)} selected";
         hintLabel.Text = ModeDescription(previewMode);
         launchButton.Text = "LAUNCH " + LauncherModes.Name(previewMode).ToUpperInvariant();
         foreach (var control in new Control[] { launchButton, pathButton, openButton, installFileButton, downloadButton }) control.Enabled = false;
-        downloadButton.Text = "Pack up to date";
+        downloadButton.Text = "Pack installed";
+        diagnosticsButton.Enabled = false;
         pathCaption.Text = "Preview";
         pathValue.Text = "No game files or settings are changed";
         footer.Text = "Launcher preview  ·  For the Republic.";
@@ -2666,7 +2856,7 @@ public sealed class MainForm : Form
     {
         LauncherMode.Helldivers => "The original Helldivers 2 experience.",
         LauncherMode.Clonedivers => "The Clone Wars pack, with your chosen extras.",
-        _ => "Delta Squad is elite.",
+        _ => "Delta Squad is elite.\nRequires Brawny body type.",
     };
 
     void OnLaunch()
@@ -2703,8 +2893,16 @@ public sealed class MainForm : Form
         if (Busy) return;
         var picked = PromptForGameDir();
         if (picked is null) return;
+        if (!string.Equals(gameDir, picked, StringComparison.OrdinalIgnoreCase))
+        {
+            settings.InstalledPackVersion = null;
+            settings.InstalledGameBuild = null;
+            settings.InstalledTextureProfile = null;
+            settings.LastVerifiedUtc = null;
+        }
         gameDir = picked;
         settings.GamePath = picked;
+        RestoreInstallationMetadata();
         settings.Save();
         RefreshState();
     }
