@@ -97,6 +97,27 @@ static class TestProgram
         Check(LauncherModes.Current(ModState.Off, settings, pack) == LauncherMode.Helldivers, "a parked RC pack displays Helldivers");
         Check(LauncherModes.Current(ModState.GameNotFound, settings, pack) is null, "no game means no selected mode");
 
+        // A saved optics=false from r7 must not exclude the mandatory r8 scope fix.
+        var requiredScopes = new PackManifest { Version = "required-scopes", Options = new()
+        {
+            new() { Id = "commandos", Default = true },
+            new() { Id = "skinny", Default = false },
+        }, Files = pack.Files.Select(f => f.Clone()).ToList() };
+        requiredScopes.Files.Single(f => f.Option == "optics").Option = null;
+        foreach (var mode in new[] { LauncherMode.Clonedivers, LauncherMode.CommandoDivers })
+        {
+            var options = LauncherModes.OptionsFor(settings, requiredScopes, mode);
+            var wanted = Pack.EffectiveFiles(requiredScopes, id => options[id]);
+            Check(wanted.Any(f => f.Sha256 == ShaOf("optics")), "mandatory scopes survive a saved OFF preference in " + mode);
+            var game = MakeGame(root, "Required scopes " + mode);
+            var prior = Pack.EffectiveFiles(pack, id => options[id]);
+            var bodies = new Dictionary<string, string> { [ShaOf("base-clones")] = "base-clones", [ShaOf("rc-film")] = "rc-film", [ShaOf("rc-voices")] = "rc-voices", [ShaOf("skinny")] = "skinny" };
+            foreach (var f in prior) File.WriteAllText(Path.Combine(game, ModFiles.DataFolder, f.Name), bodies[f.Sha256]);
+            var inventory = await Pack.InventoryAsync(game, wanted, new HashCache(), true, null, CancellationToken.None);
+            var migration = Pack.Plan(game, wanted, inventory, new HashSet<string>());
+            Check(migration.Downloads.Count == 1 && migration.Downloads[0].Sha256 == ShaOf("optics"), "updating an optics-OFF install requests the missing scope fix in " + mode);
+        }
+
         foreach (var targetMode in new[] { LauncherMode.Clonedivers, LauncherMode.CommandoDivers })
         {
             var game = MakeGame(root, "Mode " + targetMode);

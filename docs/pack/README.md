@@ -1,7 +1,7 @@
 # Published packs
 
 One folder per published pack: `pack-recipe.json` (what was asked for), `deploy-report.json` (what was deployed), `conflict-report.md` (who overrides whom).
-Current: **2026.09.12-r7**, paired with launcher **1.4.0**. Three modes, selectable Delta Squad voices, updated labels and starter helmets. Lighter textures and Hide weapon sights remain available.
+Current: **2026.09.12-r8**, paired with launcher **1.4.1**. Scope removal is automatic in both modded modes. Lighter textures remains optional.
 
-The r7 release promotes the tested full-option manifest without rebuilding unchanged assets.
-Its recipe, validation results and release notes are in [2026.09.12-r7](2026.09.12-r7/README.md).
+The r8 release uses the same assets as r7, making its optics-ON configuration mandatory.
+Its recipe, validation results and release notes are in [2026.09.12-r8](2026.09.12-r8/README.md).

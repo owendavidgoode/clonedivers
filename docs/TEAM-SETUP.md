@@ -1,8 +1,8 @@
 # Team setup
 
 1. Download [Clonedivers.exe](https://github.com/owendavidgoode/clonedivers/releases/latest/download/Clonedivers.exe).
-   Close the old launcher before replacing it. Version 1.4.0 or newer shows three helmet buttons.
-2. Keep Helldivers 2 closed and download/update the pack to **2026.09.12-r7**.
+   Close the old launcher before replacing it. Use version 1.4.1 or newer. Scope removal is automatic; Lighter textures remains optional.
+2. Keep Helldivers 2 closed and download/update the pack to **2026.09.12-r8**.
 3. Choose **Helldivers**, **Clonedivers**, or **Commandodivers**, then launch through Steam.
    Everyone installs the pack locally to see and hear the same replacements.
 

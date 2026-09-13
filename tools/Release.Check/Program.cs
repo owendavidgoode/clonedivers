@@ -8,10 +8,17 @@ string Identity(PackFile f) => $"{f.Name}|{f.Size}|{f.Sha256}";
 foreach (var f in release.Files.Where(f => f.Size > 0))
     if (!f.Url.StartsWith("https://github.com/owendavidgoode/clonedivers/releases/download/"))
         throw new Exception("Non-release asset URL");
-if (release.Options.Count != 3) throw new Exception("Unexpected options");
-for (int mask = 0; mask < 8; mask++)
+if (release.Options.Count is < 2 or > 3) throw new Exception("Unexpected options");
+var combinations = 1 << release.Options.Count;
+for (int mask = 0; mask < combinations; mask++)
 {
-    bool Enabled(string id) => (mask & (1 << release.Options.FindIndex(o => o.Id == id))) != 0;
+    bool Enabled(string id)
+    {
+        var index = release.Options.FindIndex(o => o.Id == id);
+        if (index < 0 && id == "optics") return true; // r8 promotes the r7 ON configuration to the base pack.
+        if (index < 0) throw new Exception("Unexpected removed option: " + id);
+        return (mask & (1 << index)) != 0;
+    }
     var wanted = Pack.EffectiveFiles(release, Enabled);
     FileSafety.ValidateTargets(wanted);
     if (!wanted.Select(Identity).Order().SequenceEqual(Pack.EffectiveFiles(tested, Enabled).Select(Identity).Order()))
@@ -35,4 +42,4 @@ foreach (var f in active)
     if (new FileInfo(path).Length != f.Size || await Pack.Sha256Async(path, CancellationToken.None) != f.Sha256)
         throw new Exception("Live hash differs: " + f.Name);
 }
-Console.WriteLine($"PASS: all {active.Count} deployed files match the release; all eight option combinations validated.");
+Console.WriteLine($"PASS: all {active.Count} deployed files match the release; all {combinations} option combinations validated.");

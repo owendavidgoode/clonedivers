@@ -2642,8 +2642,7 @@ public sealed class MainForm : Form
         manifest ??= new Manifest { Pack = new PackManifest { Options = new()
         {
             new() { Id = "commandos", Name = "RC mode", Default = true },
-            new() { Id = "skinny", Name = "Skinny clones", Default = false },
-            new() { Id = "optics", Name = "Optics", Default = true },
+            new() { Id = "skinny", Name = "Lighter textures", Default = false },
         } } };
         RebuildOptions();
         foreach (var button in optionButtons)

@@ -1,0 +1,5 @@
+PASS options 0: 754 unique gap-free files match tested content.
+PASS options 1: 788 unique gap-free files match tested content.
+PASS options 2: 756 unique gap-free files match tested content.
+PASS options 3: 790 unique gap-free files match tested content.
+PASS: all 788 deployed files match the release; all 4 option combinations validated.
