@@ -1,8 +1,9 @@
 # Team setup
 
 1. Download [Clonedivers.exe](https://github.com/owendavidgoode/clonedivers/releases/latest/download/Clonedivers.exe).
-   Close the old launcher before replacing it. Use version 1.4.1 or newer. Scope removal is automatic; Lighter textures remains optional.
-2. Keep Helldivers 2 closed and download/update the pack to **2026.09.12-r8**.
+   Close the old launcher before replacing it. Use version **1.5.0** or newer. Scope removal is automatic; Lighter textures remains optional.
+2. Keep Helldivers 2 closed, choose Full or Lighter textures, and download/update the pack to **2026.09.13-r9**.
+   r9 reuses the existing r8 game assets; keeping the same mode/profile requires no new pack files.
 3. Choose **Helldivers**, **Clonedivers**, or **Commandodivers**, then launch through Steam.
    Everyone installs the pack locally to see and hear the same replacements.
 
@@ -36,15 +37,23 @@ Check **Body Type: Brawny** first, then re-equip the character's body armor from
 the table above. These Delta body replacements require Brawny; Lean uses different
 model resources. Selecting a named voice does not select the matching armor.
 
-The published r8 pack contains the Commando assets. A file/resource audit found
+The published pack contains the Commando assets. A file/resource audit found
 identical Commando armor files and all 126 armor resource winners with Lighter
 textures on and off. That rules out an omitted armor file in the texture variant;
 it does not replace an in-game check. If Brawny still fails, close the game, select
-Commandodivers, and click **Pack up to date** to verify/repair the installed files.
+Commandodivers, and click **Check and repair** to verify/repair the installed files.
 Record the exact body armor and whether its helmet is also affected if it persists.
 
 ## Camera
 
 The AT-TE camera distance is unchanged. FOV is a personal game setting and is not
 forced by the launcher or downloaded pack. A value of 75 improved framing on the
-host PC; 85 was set afterward but has not been confirmed in gameplay.
+host PC; later local combat trials used 85. This is a preference, not a recommended
+performance setting for every machine.
+
+## GameGuard error 110 after closing the game
+
+Allow GameGuard to finish closing before relaunching. If repeated attempts fail,
+restart Windows before trying again. During our local tests, an old GameGuard
+process survived game exit; rebooting cleared the launch failure. Do not repeatedly
+launch another copy or change game protection settings.

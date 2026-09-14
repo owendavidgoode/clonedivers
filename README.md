@@ -8,7 +8,7 @@ Choose Helldivers, Clonedivers, or Commandodivers. Download the pack, select a h
 </p>
 <p align="center">
   <a href="https://github.com/owendavidgoode/clonedivers/releases/latest"><img alt="App version" src="https://img.shields.io/github/v/release/owendavidgoode/clonedivers?filter=v*&label=app&style=flat-square&color=1f5fcc"></a>
-  <a href="manifest.json"><img alt="Pack version" src="https://img.shields.io/badge/dynamic/json?url=https%3A%2F%2Fraw.githubusercontent.com%2Fowendavidgoode%2Fclonedivers%2Fmain%2Fmanifest.json&query=%24.pack.version&label=pack&style=flat-square&color=e2761c"></a>
+  <a href="manifest-v3.json"><img alt="Pack version" src="https://img.shields.io/badge/dynamic/json?url=https%3A%2F%2Fraw.githubusercontent.com%2Fowendavidgoode%2Fclonedivers%2Fmain%2Fmanifest-v3.json&query=%24.pack.version&label=pack&style=flat-square&color=e2761c"></a>
   <a href="LICENSE"><img alt="License" src="https://img.shields.io/github/license/owendavidgoode/clonedivers?style=flat-square&color=3e4452"></a>
 </p>
 <p align="center"><sub>Windows 10/11 64-bit · a Steam copy of Helldivers 2 · nothing else to install · <a href="https://github.com/owendavidgoode/clonedivers/releases/latest/download/Clonedivers.exe">plain download link</a></sub></p>
@@ -24,10 +24,9 @@ Choose Helldivers, Clonedivers, or Commandodivers. Download the pack, select a h
    (Plain .NET app; the source is this repo.)
    It finds Helldivers 2 through Steam by itself and says **Found via Steam:** at the bottom. If it can't, it asks you to
    pick the game folder (Steam → right-click Helldivers 2 → **Manage → Browse local files**; that window is the folder).
-2. **Click Download pack.** It shows the required download size before you confirm. The first install is several GB, so start it before dinner. Keep
+2. **Choose your universe and texture profile, then download.** Select **Full textures** or **Lighter textures** before the first installation. It shows the required download size before you confirm. The first install is several GB, so start it before dinner. Keep
    the window open; the percentage shows in the title bar. Have at least 10 GB free on the game drive. Interrupted? Open
-   Clonedivers and click again. It resumes where it stopped. Got the pack as zips from Owen instead? **Install pack from
-   file…** and **select all the parts at once**.
+   Clonedivers and click again. It resumes where it stopped. **Help & diagnostics** also provides access to the legacy ZIP import.
 3. **Choose a helmet:** Helldivers for the original game, Clonedivers for the clone pack, or Commandodivers. Delta Squad is elite. Then click the **LAUNCH** button. Steam starts the game as normal.
 
 **Vanilla night?** Close the game, choose **Helldivers**, then launch. The mod files
@@ -36,11 +35,13 @@ are parked in `Helldivers 2\mods_off\` until you select a modded mode.
 **Playing with the team?** See [team setup and character equipment](docs/TEAM-SETUP.md).
 
 **New pack out?** The button under LAUNCH reads **Update pack**. Click it: only the files that changed are downloaded
-(usually a few hundred MB), everything else is kept and renamed in place. Files the new pack no longer contains go to
-`Helldivers 2\mods_old\`, which you can delete any time. When you're current it reads **Pack up to date**; clicking that
-checks every installed file and repairs anything missing or damaged.
+(usually a few hundred MB), everything else is reused. Files the new pack no longer contains go to
+`Helldivers 2\mods_old\`. Use **Check and repair** to verify installed files and repair anything missing or damaged;
+repair preserves your selected universe, including Helldivers with mods parked.
 
-**Lighter textures** remains available under the pack buttons. It streams textures from disk and can help on 16 GB PCs.
+**Lighter textures** streams texture detail as needed and preserves the existing visual detail. Choose it before downloading to avoid installing Full first. Performance depends on the machine and scene; this is not an FPS guarantee.
+
+Switching between already-downloaded modes no longer asks for confirmation. Cached modes can be selected offline when their files are available. **Help & diagnostics** previews a support report you can copy; nothing is uploaded automatically.
 
 Scope removal is automatic in **Clonedivers** and **Commandodivers**, fixing floating sights over the replacement blasters. Your reticle still works, and the existing Spear and Wasp scope exceptions remain. **Helldivers** restores the original game.
 
@@ -52,9 +53,9 @@ and restarts. Still on 1.2? Download the new exe once from the button above; fro
 > toggle or install while `helldivers2.exe` is running and tells you why.
 
 > [!TIP]
-> Framerate tanks in the ship? Clone Armory is heavy: add `--use-d3d11` to the game's launch options
-> (Steam → right-click Helldivers 2 → Properties → Launch Options). 16 GB of RAM works with the **Lighter textures**
-> toggle on; 32 GB runs the full pack without it.
+> **Performance trouble?** Start with **Lighter textures** and use **Help & diagnostics** to record hardware and settings.
+> RAM capacity alone does not predict gameplay performance. The experimental reduced-resolution textures and mesh
+> changes are not included in this release.
 
 > [!NOTE]
 > **Game just updated?** Clonedivers knows which Helldivers 2 build the pack was built for. When Steam has updated the
@@ -90,8 +91,7 @@ and evidence is in [docs/MODS.md](docs/MODS.md). Every one of these is somebody'
 Play on the Automaton front for the full effect: the droid conversion only covers bots; Terminids and Illuminate stay
 vanilla because no mods exist for them yet. Mods are client-side only, so everyone installs the pack to be in the same movie.
 
-**Weak PC?** Flip **Lighter textures** to ON under the pack buttons. Same mods, same look: the textures stream in from
-disk on demand instead of all sitting in memory, which is what crashed a 16 GB machine at boot with the plain pack.
+**Weak PC?** Select **Lighter textures** before installing. Same mods, same texture detail, with streaming that can reduce resident texture pressure.
 The numbers and how it is built are in [docs/MODS.md](docs/MODS.md#performance-why-the-pack-hurt-16-gb-machines-and-the-lighter-textures-variant).
 
 <details>

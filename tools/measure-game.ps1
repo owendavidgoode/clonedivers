@@ -30,6 +30,9 @@ for ($run=1; $run -le $Repeats; $run++) {
     $context | ConvertTo-Json -Depth 6 | Set-Content ($prefix+'-context.json')
     try {
         $capture=Start-Process -FilePath $PresentMon -ArgumentList @('--process_id',$game.Id,'--output_file',('"'+$csv+'"'),'--timed',$Seconds,'--delay',$DelaySeconds,'--date_time','--terminate_after_timed','--no_console_stats','--session_name',$session) -WindowStyle Hidden -PassThru -RedirectStandardOutput ($prefix+'-capture.log') -RedirectStandardError ($prefix+'-capture.err')
+        # Retain the native handle while running: Windows PowerShell 5.1 can otherwise
+        # return a null ExitCode on a Start-Process object after the child has exited.
+        $null=$capture.Handle
         $timer=[Diagnostics.Stopwatch]::StartNew();$lastCpu=$game.TotalProcessorTime.TotalSeconds;$lastTime=0.0
         while ($timer.Elapsed.TotalSeconds -lt $Seconds+$DelaySeconds) {
             Start-Sleep -Seconds 1
@@ -53,10 +56,11 @@ for ($run=1; $run -le $Repeats; $run++) {
         }
         if (-not $capture.WaitForExit(5000)) { throw 'Capture exceeded timed window.' }
         if ($game.HasExited) { throw 'Game exited; sample incomplete.' }
+        if ($null -eq $capture.ExitCode) { throw 'Recorder exit status unavailable; retain raw frames for review, but do not automatically qualify this capture.' }
         if ($capture.ExitCode -ne 0) { throw "PresentMon failed (exit $($capture.ExitCode)); inspect capture.err. Use documented ETW tracing privileges if denied; do not change game protection." }
         $frames=if (Test-Path -LiteralPath $csv) { @(Import-Csv -LiteralPath $csv) } else { @() }
         $stats=Get-FrameSummary $frames
-        [ordered]@{label=$Label;scene=$Scene;run=$run;frameStatistics=$stats;memorySamples=$rows.Count;sceneValidity='User-marked gameplay. Review loading/menu/alt-tab sections before comparison.'} | ConvertTo-Json -Depth 5 | Set-Content ($prefix+'-summary.json')
+        [ordered]@{label=$Label;scene=$Scene;run=$run;captureExitCode=$capture.ExitCode;frameStatistics=$stats;memorySamples=$rows.Count;sceneValidity='User-marked gameplay. Review loading/menu/alt-tab sections before comparison.'} | ConvertTo-Json -Depth 5 | Set-Content ($prefix+'-summary.json')
         $stats | ConvertTo-Json -Depth 4 | Write-Output
     } catch {
         [ordered]@{label=$Label;scene=$Scene;run=$run;valid=$false;reason='Capture incomplete or invalid; no performance conclusion. Inspect local capture output.'} | ConvertTo-Json | Set-Content ($prefix+'-failure.json')

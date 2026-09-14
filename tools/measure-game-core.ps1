@@ -25,6 +25,7 @@ function Get-FrameSummary {
     [pscustomobject][ordered]@{
         rawRows=$Frames.Count;selectedSwapchain=$swapchain;intervalField=$field;validIntervals=$values.Count
         invalidIntervals=$selected.Count-$values.Count;meanFps=1000*$values.Count/$sum
+        intervalSeconds=$sum/1000;over50MsPerMinute=60000*@($values | Where-Object { $_ -gt 50 }).Count/$sum;over100MsPerMinute=60000*@($values | Where-Object { $_ -gt 100 }).Count/$sum
         medianMs=$sorted[[math]::Ceiling(.5*$sorted.Count)-1];p95Ms=$sorted[[math]::Ceiling(.95*$sorted.Count)-1];p99Ms=$sorted[[math]::Ceiling(.99*$sorted.Count)-1]
         over50Ms=@($values | Where-Object { $_ -gt 50 }).Count;over100Ms=@($values | Where-Object { $_ -gt 100 }).Count
         gpuBusyField=$gpuField;meanGpuBusyMs=if ($gpuValues.Count) { ($gpuValues | Measure-Object -Average).Average } else { $null }
@@ -45,7 +46,7 @@ function Get-SafeBenchmarkSettings {
     } catch { }
     try {
         $raw=Get-Content -LiteralPath $GameSettingsPath -Raw; $safe=[ordered]@{}
-        foreach ($key in @('screen_resolution','render_resolution','render_scale','texture_quality','vertical_fov','vsync','max_fps','fullscreen')) {
+        foreach ($key in @('screen_resolution','render_resolution','render_scale','render_resolution_factor_index','upscaling_method','upscaling_quality','texture_quality','vertical_fov','vsync','max_fps','framerate_limit','framerate_limit_enabled','fullscreen','object_lod_quality','terrain_quality','particle_quality','shadows','volumetric_clouds_quality','volumetric_fog_quality','reflection_quality','lighting_and_material_quality')) {
             $match=[regex]::Match($raw,'(?m)^\s*'+[regex]::Escape($key)+'\s*=\s*([0-9.\s\[\],-]+|true|false)\s*$')
             $safe[$key]=if ($match.Success) { ($match.Groups[1].Value -replace '\s+',' ').Trim() } else { 'unavailable' }
         }

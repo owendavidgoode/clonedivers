@@ -286,7 +286,119 @@ selection and transaction state; add diagnostics and UX; run the texture experim
 then stage one coordinated executable/feed/optional-profile release. Do not publish
 intermediate builds to the team while these pieces are being combined.
 
+## Follow-up: geometry and usable comparisons
+
+A bounded read-only follow-up parsed fifteen effective unit resources using the
+local Filediver metadata definitions (commit
+`42ee19a7d8a743a77b7db996ce8bc64f47105f71`). Several declared LOD entries reference
+equally detailed geometry. HMP dropship mesh records 6–14 have matching corresponding
+vertex and index payload hashes across both LOD groups. A sampled Phase 2 helmet's
+three LOD levels also reference matching payloads. All sampled AT-TE levels retain
+61,052 index-count/3 triangle-list equivalents; the Breakthrough variant has repeated
+vertex payloads and two index-hash classes with repeated adjacent levels.
+
+This establishes repeated geometry in these modded LOD slots, not the game's actual
+draw counts or an FPS benefit. Groups can represent damage, shadow or other variants.
+The vanilla dropship uses external geometry group `417da1b8e06cb5b9`. The initial
+follow-up had not parsed it; the subsequent local-development pass below completes
+that comparison.
+Simplified distant meshes are now a concrete authoring candidate; changing thresholds
+alone cannot reduce polygon count when each level references equally detailed meshes.
+
+Full methodology, warnings, source hashes and reproducible scripts:
+`dist/investigation-2026-09-13/geometry/FINDINGS.md`.
+
+The [performance trial guide](PERFORMANCE-TRIAL.md) starts with existing-download
+Lighter → Helldivers → Lighter runs on the weakest PC. Support tooling now captures
+the actual HD2 frame-cap, upscaling and LOD settings. An offline comparison recomputes
+raw frames, rejects failed captures and mismatched recorded settings, and reports
+per-run medians/ranges and normalized hitch rates. Eighteen fixture checks pass.
+There are still no valid gameplay measurements, no private texture install, and no
+publication from this follow-up.
+
+## Local development: completed vanilla dropship comparison
+
+The user cannot provide weak-PC tests; proceed on the current PC. External geometry
+was extracted read-only from the current public game build 24826606. Unit LOD entries
+must resolve through unit mesh bone identity into the external geometry table;
+those two tables have different order. Comparing array indices directly is wrong.
+The comparison script verifies matching vanilla/mod unit bone identities and LOD
+thresholds before reporting counts.
+
+| Visible slot | Vanilla triangle equivalents | HMP replacement |
+| --- | ---: | ---: |
+| g_body | 129,129 | 271,205 |
+| g_body_LOD0 | 64,570 | 271,205 |
+| g_body_LOD1 | 19,371 | 271,205 |
+| g_body_LOD2 | 5,810 | 271,205 |
+| g_body_LOD3 | 1,743 | 271,205 |
+
+Original shadow slots fall from 19,370 to 5,811, 1,161 and 579; the replacement stays
+at 271,205 for all four. This establishes increased static geometry relative to
+vanilla for corresponding slots. It does not establish simultaneous draws, selected
+runtime distances, frame-time cost or a guaranteed optimization gain.
+
+A private 78,864-byte original-unit control is staged for HMP → original geometry →
+HMP gameplay comparisons while keeping the rest of the pack. The build round-trips
+the original unit payload exactly; Enable/Disable owns one extra patch using a
+hash-checked receipt. Nine disposable fixture checks pass. One shared vanilla
+material remains overridden by CIS, so a visual check is mandatory before treating
+the control as valid. It measures the net model/material-reference change, not a
+pure polygon-only experiment. Standalone Filediver initialization requires global
+game customization metadata; that attempted validation supplies no runtime proof.
+
+Evidence: `dist/investigation-2026-09-13/geometry/dropship-vanilla-comparison.json`,
+`dropship-control/build-report.json`, and the developer procedure in
+[PERFORMANCE-TRIAL.md](PERFORMANCE-TRIAL.md). No live patch, installed setting or
+published feed was changed. The control is not installed or gameplay-tested.
+
+## Arrowhead's own slim build: relevance to this pack
+
+Reviewed September 13, 2026. Arrowhead's October 3, 2025
+[Tech Blog #1](https://www.arrowheadgamestudios.com/2025/10/helldivers-2-tech-blog-1-install-size/)
+explained deliberate asset duplication to reduce mechanical-drive seeks. Its proposed
+shared bundles could load unnecessary common resources and increase RAM use; engine
+work to avoid that was a plan, not confirmation of the eventual implementation.
+
+The December 2, 2025
+[Tech Blog #2](https://steamcommunity.com/games/553850/announcements/detail/491583942944621372)
+credits Nixxes and complete data deduplication for reducing installation size from
+about 154 GB to 23 GB. Game-specific tests found level generation dominated loading,
+with asset reads running in parallel; HDD load penalties were only seconds. The
+announcement describes functional parity, not a measured combat-FPS improvement.
+The Steam page's body was unavailable to the web reader; the announcement text was
+read from its [SteamDB reproduction](https://steamdb.info/patchnotes/20965246/).
+No detailed shared-resource format or loader implementation is disclosed there.
+
+Implications for our investigation:
+
+- Keep packaging savings separate from texture residency and rendered geometry.
+  Our Lighter profile changes texture streaming; reduced profiles also cap texture
+  resolution. Arrowhead's result does not measure either mod technique's benefit.
+- Do not assume fewer copies on disk mean fewer runtime allocations or fewer
+  polygons drawn. Simplified distant meshes remain a separate optimization target.
+- The earlier 1.14% duplicate figure covers entire unit GPU slices only. New matching
+  mesh subranges inside units mean that figure does not bound all possible geometry
+  storage savings. A subresource audit could quantify additional packaging potential,
+  but any repack still needs loader/dependency validation and measured runtime impact.
+- Avoid converting everything into always-loaded common bundles without testing RAM.
+  Follow Arrowhead's useful methodological lesson: measure this game's actual limiting
+  stage before relying on assumptions about storage, textures or loading time.
+
+No game files, candidate assets or published feeds changed for this research.
+
 ## Primary references and measurement notes
+
+September 13 evening follow-up: the Full shadow-only and distant-detail candidates
+completed one local combat capture each, with normal visuals reported. Average FPS
+was 79.5 (shadows), 74.0 (balanced) and 76.0 for the clean final original baseline.
+The earlier original raw frames averaged 81.2 but had an unavailable collector exit
+status. Single samples, changing combat and a reboot before the final baseline
+prevent a reliable performance conclusion. Retain original geometry for the team
+update. Originals are restored, captures are stopped, and no candidates were
+published. Reduced texture testing remains deferred. See
+[the playtest results and evidence](PERFORMANCE-TRIAL.md) for details; earlier
+no-gameplay statements in this investigation describe the preceding research stage.
 
 The detailed performance research is saved in
 `dist/investigation-2026-09-13/performance/research.md`.

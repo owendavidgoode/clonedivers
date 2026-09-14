@@ -50,10 +50,11 @@ together after asset verification. Existing 1.4.1 clients can discover the new
 launcher without parsing unsupported profile metadata. The new launcher caches
 validated metadata by source and reads the versioned feed first.
 
-Do not include Reduced profiles until their gameplay acceptance is recorded. The
-current public candidate spec is `dist/profile-candidates/directories-public.json`;
-the equal-tail trial manifest is separate. Publication is pending the gameplay
-checks recorded in STATUS; a sealed staging receipt is not gameplay evidence.
+Do not include Reduced profiles or additional RC streaming until their gameplay
+acceptance is recorded. The 1.5.0/r9 release spec is
+`dist/release-final/directories.json`: Full/Lighter with unchanged r8 assets and
+zero new game-asset uploads. The earlier streaming candidate and reduced-profile
+trials are private. A sealed staging receipt is not gameplay evidence.
 
 Commit the intended source changes before preparing a future release. Build the
 versioned executable to a separate folder. The existing public binary is never a
@@ -84,8 +85,8 @@ branch causes a stop, never a force push. Existing asset content is never overwr
 Re-running the same Publish command resumes by rechecking hosted evidence. The state
 file records a completed feed commit so a failed push can be retried. No failure before
 artifact verification may activate the update feed. Already completed runs are no-ops.
-The publication state machine has offline failure/resume tests; its new real GitHub
-path has deliberately not been exercised during this no-download maintenance pass.
+The publication state machine has offline failure/resume tests. Each real release
+also records hosted verification and feed completion in its staging receipt.
 
 Old `publish-app.ps1` / `publish-pack.ps1` remain for historical compatibility; use the
 new staged workflow for coordinated releases. `pack.json` stays frozen for 1.2 clients.
