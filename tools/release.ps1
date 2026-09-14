@@ -157,7 +157,7 @@ $ensure={ param($receipt)
     if ($LASTEXITCODE -ne 0 -or (Get-ContentHash $download) -ne $candidate.app.sha256) { throw 'Public executable download verification failed' }
 }
 $feed={ param($receipt)
-    $remote=(Git-Result @('ls-remote','origin','refs/heads/main') -split '\s+')[0]
+    $remote=Get-RemoteMainCommit (Git-Result @('ls-remote','origin','refs/heads/main'))
     if ($remote -ne $receipt.sourceCommit -and $remote -ne $receipt.feedCommit) { throw 'Remote main advanced; do not overwrite another release.' }
     if (!$receipt.feedCommit) {
         Assert-ReleaseFeedBaseline $root $Directory $feeds

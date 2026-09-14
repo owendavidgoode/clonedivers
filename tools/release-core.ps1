@@ -1,4 +1,10 @@
 . (Join-Path $PSScriptRoot 'deployment-contract.ps1')
+function Get-RemoteMainCommit([string]$Output) {
+    if ($Output.Trim() -notmatch '\A([a-f0-9]{40})\s+refs/heads/main\z') {
+        throw 'Remote main did not resolve to one commit.'
+    }
+    $Matches[1]
+}
 function New-CompatibilityManifest($Legacy,$Candidate) {
     if ([int]$Candidate.format -ne 3) { throw 'Compatibility feed is only used for format 3.' }
     if ([int]$Legacy.format -ne 2 -or $Legacy.pack.version -ne '2026.09.12-r8') { throw 'The compatibility feed must retain the published format-2 r8 pack.' }

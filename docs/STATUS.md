@@ -13,7 +13,7 @@ need only the launcher update. The format-2 compatibility feed retains pack r8
 and advertises app 1.5.0; the new launcher reads the format-3 r9 feed. Both feeds
 are published together after hosted assets and the public executable are verified.
 
-The final release inputs are under `dist/release-final/`; its `staged/release.json`
+The final release inputs are under `dist/release-final/`; its `staged-verified/release.json`
 records publication completion and the feed commit. Earlier stages containing
 additional RC streaming assets are superseded and must not be published.
 

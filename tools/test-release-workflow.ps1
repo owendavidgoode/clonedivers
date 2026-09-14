@@ -1,5 +1,14 @@
 $ErrorActionPreference='Stop'
 . (Join-Path $PSScriptRoot 'release-core.ps1')
+$remoteCommit='ae116a3910c151e70fb1b06ef95627b3d4364d81'
+if ((Get-RemoteMainCommit "$remoteCommit`trefs/heads/main`r`n") -cne $remoteCommit) { throw 'Remote commit was truncated or misparsed' }
+'PASS tab-separated remote main resolves to the complete commit'
+foreach ($invalid in @('', "$remoteCommit`trefs/heads/other", "$remoteCommit`trefs/heads/main`n$remoteCommit`trefs/heads/other")) {
+    $rejected=$false
+    try { Get-RemoteMainCommit $invalid | Out-Null } catch { $rejected=$true }
+    if (!$rejected) { throw 'Ambiguous or missing remote main was accepted' }
+}
+'PASS missing, wrong-ref and ambiguous remote identities are rejected'
 $root=Join-Path (Split-Path $PSScriptRoot) ('dist/release-workflow-tests/' + [Guid]::NewGuid().ToString('N'))
 New-Item -ItemType Directory -Force $root | Out-Null
 [IO.File]::WriteAllText((Join-Path $root 'manifest.json'),'prepared')
