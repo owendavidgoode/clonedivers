@@ -1,11 +1,5 @@
 {
   "format": 2,
-  "app": {
-    "version": "1.4.1",
-    "url": "https://github.com/owendavidgoode/clonedivers/releases/download/v1.4.1/Clonedivers.exe",
-    "size": 65926779,
-    "sha256": "f1c3c6a025ade019d8124dd68d6f315065956210003d85a73308b9a934c20342"
-  },
   "pack": {
     "version": "2026.09.12-r8",
     "name": "Clonedivers pack",
@@ -8120,5 +8114,11 @@
     "isBroken": false,
     "isPublished": true,
     "isPerFile": true
+  },
+  "app": {
+    "version": "1.5.0",
+    "url": "https://github.com/owendavidgoode/clonedivers/releases/download/v1.5.0/Clonedivers.exe",
+    "size": 65947696,
+    "sha256": "8fa4a05c14bb8f9e4322c3e543b09f2a7e0e8543be7d4c9bdcd01ff39c774c95"
   }
 }
