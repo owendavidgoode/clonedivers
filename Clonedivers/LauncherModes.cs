@@ -18,6 +18,7 @@ public static class LauncherModes
     public static LauncherMode? Current(ModState state, Settings settings, PackManifest? pack) => state switch
     {
         ModState.Off or ModState.NoModFiles => LauncherMode.Helldivers,
+        ModState.On when pack?.CombinedRoster == true => LauncherMode.Clonedivers,
         ModState.On => (settings.Options.TryGetValue(CommandoOption, out var on) ? on :
             pack?.Options.FirstOrDefault(o => o.Id.Equals(CommandoOption, StringComparison.OrdinalIgnoreCase))?.Default ?? false)
             ? LauncherMode.CommandoDivers : LauncherMode.Clonedivers,
@@ -29,6 +30,8 @@ public static class LauncherModes
         if (mode == LauncherMode.Helldivers) throw new ArgumentException("Vanilla mode parks the pack; it does not change pack options.", nameof(mode));
         if (mode == LauncherMode.CommandoDivers && !pack.Options.Any(o => o.Id.Equals(CommandoOption, StringComparison.OrdinalIgnoreCase)))
             throw new InvalidOperationException("This pack does not include Commandodivers yet.");
+        if (pack.CombinedRoster && mode == LauncherMode.Clonedivers)
+            return settings.OptionsFor(pack);
         return settings.OptionsFor(pack, CommandoOption, mode == LauncherMode.CommandoDivers);
     }
 }

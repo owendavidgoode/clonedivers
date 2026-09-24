@@ -10,6 +10,11 @@ public sealed class PackTextureProfile
 /// <summary>Texture quality and visual mode are independent. Legacy skinny is an input alias only.</summary>
 public static class PackProfiles
 {
+    public const string PotatoName = "JohnsonPotatoMode™";
+    public static PackTextureProfile? Potato(PackManifest pack) =>
+        Supported(pack).FirstOrDefault(p => p.Id == "reduced512") ??
+        Supported(pack).FirstOrDefault(p => p.Id == "lighter") ??
+        Supported(pack).FirstOrDefault(p => p.Id != "full");
     public static IReadOnlyList<PackTextureProfile> Supported(PackManifest pack) => pack.TextureProfiles.Count > 0
         ? pack.TextureProfiles
         : new List<PackTextureProfile> {
@@ -20,6 +25,7 @@ public static class PackProfiles
     public static string Resolve(PackManifest pack, Func<string, bool> enabled, string? explicitProfile = null)
     {
         var chosen = explicitProfile ?? (pack.Options.Any(o => string.Equals(o.Id, "skinny", StringComparison.OrdinalIgnoreCase)) && enabled("skinny") ? "lighter" : "full");
+        if (chosen == "lighter" && !Supported(pack).Any(p => p.Id == "lighter") && Potato(pack) is {} potato) chosen = potato.Id;
         var profile = Supported(pack).FirstOrDefault(p => string.Equals(p.Id, chosen, StringComparison.OrdinalIgnoreCase));
         if (profile is null) throw new InvalidDataException($"This pack does not support texture profile '{chosen}'.");
         return profile.Id;

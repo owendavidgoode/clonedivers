@@ -11,11 +11,11 @@
     <ApplicationIcon>clonedivers.ico</ApplicationIcon>
 
     <!-- Metadata shown in the exe's Properties > Details -->
-    <Version>1.5.0</Version>
+    <Version>1.6.0</Version>
     <IncludeSourceRevisionInInformationalVersion>false</IncludeSourceRevisionInInformationalVersion>
     <Product>Clonedivers</Product>
     <Company>Clonedivers</Company>
-    <Description>Helldivers, Clonedivers and Commandodivers mode selector and Steam launcher</Description>
+    <Description>Helldivers and Clonedivers mode selector and Steam launcher</Description>
     <Copyright>MIT License</Copyright>
 
     <!-- `dotnet publish -c Release` => one self-contained exe in ..\dist\ (no .NET install needed) -->
@@ -29,4 +29,8 @@
     <PublishDir>$(MSBuildThisFileDirectory)..\dist\</PublishDir>
   </PropertyGroup>
 
+  <ItemGroup>
+    <EmbeddedResource Include="..\dist\PresentMon.exe" LogicalName="Clonedivers.PresentMon.exe" />
+    <EmbeddedResource Include="Licenses\PresentMon.txt" LogicalName="Clonedivers.PresentMon.LICENSE.txt" />
+  </ItemGroup>
 </Project>

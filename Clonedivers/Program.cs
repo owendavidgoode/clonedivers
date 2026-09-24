@@ -1,10 +1,11 @@
 // Clonedivers — Helldivers 2 mod on/off switch + Steam launcher.
 //
-// The whole app lives in this one file on purpose. It does exactly two things:
+// Core launcher responsibilities:
 //   1. Moves every *.patch_* file between <game>\data\ (ON) and <game>\mods_off\ (OFF).
 //      Move = rename on the same drive, so gigabyte mod packs flip instantly.
 //   2. Opens steam://rungameid/553850 so Steam launches the game the normal way.
-// It never injects into, hooks, reads, or otherwise touches the game process.
+// Optional performance sharing lives in Telemetry*.cs and reads Windows counters
+// and PresentMon ETW output. It never injects, hooks or reads game process memory.
 
 using System.Diagnostics;
 using System.Drawing;
@@ -305,6 +306,7 @@ public sealed class Settings
     public DateTimeOffset? LastVerifiedUtc { get; set; }
     /// <summary>Hidden test hook: a URL (or file path) that replaces manifest.json. Shown in the footer when set.</summary>
     public string? ManifestUrl { get; set; }
+    public TelemetrySettings Telemetry { get; set; } = new();
     /// <summary>Optional pack groups the friend switched on or off (option id → enabled); anything absent uses the manifest default.</summary>
     public Dictionary<string, bool> Options { get; set; } = new(StringComparer.OrdinalIgnoreCase);
 
@@ -313,6 +315,7 @@ public sealed class Settings
         var result = new Dictionary<string, bool>(Options, StringComparer.OrdinalIgnoreCase);
         foreach (var o in pack.Options) result.TryAdd(o.Id, o.Default);
         if (changedId is not null) result[changedId] = on;
+        foreach (var o in pack.Options.Where(o => PackExtras.AlwaysOn(pack, o.Id))) result[o.Id] = true;
         return result;
     }
 
@@ -372,6 +375,7 @@ public sealed class Settings
             {
                 var loaded = JsonSerializer.Deserialize<Settings>(File.ReadAllText(FilePath)) ?? new Settings();
                 loaded.Options = new(loaded.Options ?? new(), StringComparer.OrdinalIgnoreCase);
+                loaded.Telemetry ??= new();
                 return loaded;
             }
         }
@@ -446,6 +450,7 @@ public sealed class PackOption
 /// <summary>The pack block of manifest.json (or the whole of a format-1 pack.json).</summary>
 public sealed class PackManifest
 {
+    public bool CombinedRoster { get; set; }
     public string Version { get; set; } = "";
     public string Name { get; set; } = "Clonedivers pack";
     public string Notes { get; set; } = "";
@@ -957,8 +962,8 @@ public static class Pack
     public static List<PackFile> EffectiveFiles(PackManifest pack, Func<string, bool> optionEnabled, string? textureProfile = null)
     {
         var profile = PackProfiles.Resolve(pack, optionEnabled, textureProfile);
-        var mode = (pack.TextureProfiles.Count > 0 || pack.Options.Any(o => string.Equals(o.Id, "commandos", StringComparison.OrdinalIgnoreCase))) && optionEnabled("commandos") ? "commandos" : "clonedivers";
-        bool Enabled(string id) => string.Equals(id, "skinny", StringComparison.OrdinalIgnoreCase) ? profile != "full" : optionEnabled(id);
+        bool Enabled(string id) => PackExtras.AlwaysOn(pack, id) || (string.Equals(id, "skinny", StringComparison.OrdinalIgnoreCase) ? profile != "full" : optionEnabled(id));
+        var mode = (pack.TextureProfiles.Count > 0 || pack.Options.Any(o => string.Equals(o.Id, "commandos", StringComparison.OrdinalIgnoreCase))) && Enabled("commandos") ? "commandos" : "clonedivers";
         var kept = pack.Files.Where(f => PackProfiles.Includes(f, mode, profile) && (f.Option is null || Enabled(f.Option)) && (f.UnlessOption is null || !Enabled(f.UnlessOption))).Select(f => f.Clone()).ToList();
         var dup = kept.GroupBy(f => f.Name, StringComparer.OrdinalIgnoreCase).FirstOrDefault(g => g.Count() > 1);
         if (dup is not null) throw new InvalidDataException($"manifest.json: {dup.Key} is listed twice for the same option choice");
@@ -1786,6 +1791,7 @@ public sealed partial class MainForm : Form
     readonly RoundButton downloadButton = new();
     readonly Grid optionsRow = new();
     readonly List<RoundButton> optionButtons = new();
+    readonly List<RoundButton> extraButtons = new();
     readonly ThinBar progress = new();
     readonly Label progressLabel = new();
     readonly Label statusLabel = new();
@@ -1796,12 +1802,13 @@ public sealed partial class MainForm : Form
     readonly ToolTip tips = new();
     readonly System.Windows.Forms.Timer refresh = new() { Interval = 1500 };
 
-    public MainForm(Settings settings, string? gameDir, string? updatedTo = null, bool preview = false)
+    public MainForm(Settings settings, string? gameDir, string? updatedTo = null, bool preview = false, Manifest? previewManifest = null)
     {
         this.settings = settings;
         this.gameDir = gameDir;
         this.updatedTo = updatedTo;
         this.preview = preview;
+        if (preview) manifest = previewManifest;
 
         Text = "Clonedivers";
         BackColor = Bg;
@@ -1822,6 +1829,7 @@ public sealed partial class MainForm : Form
 
         refresh.Tick += (_, _) =>
         {
+            ObserveSession(); // Continue low-frequency observations while minimized.
             // Offline at start? Ask GitHub again once a minute until manifest.json answers.
             if (manifestError is not null && !loadingManifest && DateTime.UtcNow - lastManifestTry > TimeSpan.FromSeconds(60))
                 _ = LoadManifestAsync();
@@ -1835,6 +1843,7 @@ public sealed partial class MainForm : Form
             manifest = ManifestStore.Load(ManifestStore.CachePath(settings.ManifestUrl));
             metadataOffline = manifest is not null;
             RestoreInstallationMetadata();
+            StartSessionObservation();
             UpdateMetadataFooter();
             if (updatedTo is not null) { ShowProgressDone($"Updated to {updatedTo}."); Activate(); }
             RefreshState();
@@ -1911,6 +1920,8 @@ public sealed partial class MainForm : Form
 
         modeRow.Dock = DockStyle.Fill;
         modeRow.ColumnCount = 3;
+        modeRow.RowCount = 1;
+        modeRow.RowStyles.Add(new RowStyle(SizeType.Percent, 100));
         modeRow.BackColor = Bg;
         modeRow.Margin = new Padding(0, 8, 0, 12);
         foreach (var mode in Enum.GetValues<LauncherMode>())
@@ -2092,31 +2103,51 @@ public sealed partial class MainForm : Form
     void RebuildOptions()
     {
         var pack = manifest?.Pack;
-        var options = PackProfiles.Supported(pack ?? new PackManifest()).ToList();
-        if (optionButtons.Count == options.Count && optionButtons.Select(b => (string)b.Tag!).SequenceEqual(options.Select(o => o.Id))) return;
+        var options = new List<PackTextureProfile>();
+        if (PackProfiles.Potato(pack ?? new PackManifest()) is {} potato) options.Add(potato);
+        var extras = PackExtras.Visible(pack).ToList();
+        if (optionButtons.Count == options.Count && optionButtons.Select(b => (string)b.Tag!).SequenceEqual(options.Select(o => o.Id)) &&
+            extraButtons.Select(b => (string)b.Tag!).SequenceEqual(extras.Select(o => o.Id))) return;
         optionsRow.SuspendLayout();
         optionsRow.Controls.Clear();
         optionsRow.ColumnStyles.Clear();
+        optionsRow.RowStyles.Clear();
         foreach (var b in optionButtons) b.Dispose();
+        foreach (var b in extraButtons) b.Dispose();
         optionButtons.Clear();
-        optionsRow.ColumnCount = Math.Max(1, options.Count);
+        extraButtons.Clear();
+        optionsRow.ColumnCount = Math.Clamp(options.Count + extras.Count, 1, 2);
+        optionsRow.RowCount = Math.Max(1, (options.Count + extras.Count + optionsRow.ColumnCount - 1) / optionsRow.ColumnCount);
+        for (int row = 0; row < optionsRow.RowCount; row++) optionsRow.RowStyles.Add(new RowStyle(SizeType.AutoSize));
+        for (int column = 0; column < optionsRow.ColumnCount; column++) optionsRow.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100f / optionsRow.ColumnCount));
         for (int i = 0; i < options.Count; i++)
         {
             var o = options[i];
-            optionsRow.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100f / options.Count));
             var b = new RoundButton { Radius = 8, Ghost = true, Dock = DockStyle.Fill, Tag = o.Id, MinimumSize = new Size(0, 36),
                                       Margin = new Padding(i == 0 ? 0 : 6, 8, i == options.Count - 1 ? 0 : 6, 0) };
             Style(b, Slate, SlateHot, TextMain, 9.5F);
-            b.Click += (_, _) => OnTextureProfile(o);
+            b.Click += (_, _) => OnPotatoToggle();
             optionsRow.Controls.Add(b, i, 0);
             optionButtons.Add(b);
+        }
+        for (int i = 0; i < extras.Count; i++)
+        {
+            var extra = extras[i];
+            int column = (options.Count + i) % optionsRow.ColumnCount;
+            var button = new RoundButton { Radius = 8, Ghost = true, Dock = DockStyle.Fill, Tag = extra.Id,
+                MinimumSize = new Size(0, 36), Margin = new Padding(column == 0 ? 0 : 6, 8, column == optionsRow.ColumnCount - 1 ? 0 : 6, 0) };
+            Style(button, Slate, SlateHot, TextMain, 9.5F);
+            button.Click += (_, _) => OnOptionToggle(manifest!.Pack!.Options.Single(o => o.Id == (string)button.Tag!));
+            optionsRow.Controls.Add(button, column, (options.Count + i) / optionsRow.ColumnCount);
+            extraButtons.Add(button);
         }
         optionsRow.ResumeLayout(true);
     }
 
-    bool OptionEnabled(PackOption o) => settings.Options.TryGetValue(o.Id, out var v) ? v : o.Default;
+    bool OptionEnabled(PackOption o) => manifest?.Pack is {} p && PackExtras.AlwaysOn(p, o.Id) || (settings.Options.TryGetValue(o.Id, out var v) ? v : o.Default);
     bool OptionEnabledById(string id)
     {
+        if (manifest?.Pack is {} pack && PackExtras.AlwaysOn(pack, id)) return true;
         if (settings.Options.TryGetValue(id, out var v)) return v;
         return manifest?.Pack?.Options.FirstOrDefault(o => string.Equals(o.Id, id, StringComparison.OrdinalIgnoreCase))?.Default ?? true;
     }
@@ -2187,6 +2218,7 @@ public sealed partial class MainForm : Form
         var staged = !Busy && Pack.HasPendingUpdate(gameDir, Settings.PlanPath);
         var pack = manifest?.Pack;
         var acf = SteamAcf.Read(gameDir);
+        RefreshModeLayout();
         var dataDir = gameDir is null ? "" : Path.Combine(gameDir, ModFiles.DataFolder);
         var active = gameDir is null ? 0 : ModFiles.ListPatchFiles(dataDir).Length;
         var parked = gameDir is null ? 0 : ModFiles.ListPatchFiles(Path.Combine(gameDir, ModFiles.OffFolder)).Length;
@@ -2255,8 +2287,8 @@ public sealed partial class MainForm : Form
         launchButton.FlatAppearance.MouseDownBackColor = launchArmed ? Orange : Disabled;
         launchButton.Cursor = launchArmed || running ? Cursors.Hand : Cursors.Default;
         Tip(launchButton, running ? "Helldivers 2 is already running."
-                        : starting ? "Steam is starting the game. If Steam was closed it opens first; give it a minute."
-                        : "Starts the game through Steam, the same as pressing Play. If Steam is closed it opens first, then the game.");
+                        : starting ? "Starting through Steam. Give it a minute."
+                        : "Launch through Steam.");
 
         // Game-folder row. Only manual picks are saved to settings.GamePath, so the caption check is exact.
         var manual = gameDir is not null && string.Equals(settings.GamePath, gameDir, StringComparison.OrdinalIgnoreCase);
@@ -2265,7 +2297,7 @@ public sealed partial class MainForm : Form
         pathValue.ForeColor = gameDir is null ? Warn : TextMain;
         Tip(pathValue, gameDir ?? "");
         openButton.Visible = gameDir is not null;
-        Tip(openButton, "Opens Helldivers 2\\data\\, where the game reads mod files.");
+        Tip(openButton, "Open the mod folder.");
         pathButton.Text = gameDir is null ? "Locate…" : "Change…";
         Tip(pathButton, gameDir is null ? "Pick the Helldivers 2 folder (it contains data\\ and bin\\helldivers2.exe)." : "Pick a different Helldivers 2 folder.");
 
@@ -2273,7 +2305,7 @@ public sealed partial class MainForm : Form
         var canInstall = gameDir is not null && !running && !Busy;
         installArmed = canInstall && !staged && (active + parked > 0 || (gameDir is not null && File.Exists(Settings.ReceiptPathFor(gameDir))));
         SetArmed(installFileButton, "Check and repair", installArmed);
-        Tip(installFileButton, staged ? "Finish the interrupted update first." : "Check installed files and repair anything missing or damaged. Your selected universe stays the same.\n" +
+        Tip(installFileButton, staged ? "Finish the interrupted update first." : "Repair missing or damaged files.\n" +
             (settings.LastVerifiedUtc is { } checkedAt ? $"Last full check: {checkedAt.ToLocalTime():g}" : "No full check recorded yet."));
         diagnosticsButton.Enabled = !Busy && !collectingDiagnostics;
         downloadButton.SubText = "";
@@ -2288,13 +2320,13 @@ public sealed partial class MainForm : Form
             downloadArmed = canInstall;
             SetArmed(downloadButton, "Finish update", downloadArmed);
             downloadButton.SubText = "check and recover files";
-            Tip(downloadButton, "Rechecks files before completing the update. Works offline if the saved target and all required bytes are available.");
+            Tip(downloadButton, "Continue the interrupted update.");
         }
         else if (manifest is null && manifestError is null)
         {
             downloadArmed = false;
             SetArmed(downloadButton, "Checking for pack…", false);
-            Tip(downloadButton, "Reading manifest.json from GitHub.");
+            Tip(downloadButton, "Checking for updates.");
         }
         else if (manifest is null)
         {
@@ -2308,13 +2340,13 @@ public sealed partial class MainForm : Form
             downloadArmed = false;
             SetQuiet(downloadButton, "Choose textures");
             downloadButton.SubText = "Saved choice unavailable";
-            Tip(downloadButton, "Choose an available texture profile below. Your installed files have not changed.");
+            Tip(downloadButton, "Use the texture toggle below to choose a supported setting.");
         }
         else if (!usable)
         {
             downloadArmed = false;
             SetArmed(downloadButton, "Pack not published yet", false);
-            Tip(downloadButton, pack is null ? "" : "The manifest lists no per-file pack yet.");
+            Tip(downloadButton, "No pack is available yet.");
         }
         else
         {
@@ -2340,27 +2372,30 @@ public sealed partial class MainForm : Form
             {
                 SetArmed(downloadButton, "Update pack", downloadArmed);
                 downloadButton.SubText = $"{pack.Version}  ·  downloads only what changed";
-                Tip(downloadButton, $"Installed: {installed ?? "unknown — installed from zips"}\nAvailable: {pack.Version}\n\n{notes}\n\nOnly changed files are downloaded; everything else is renamed in place. Resumes if interrupted.");
+                Tip(downloadButton, $"Installed: {installed ?? "unknown"}\nAvailable: {pack.Version}\n\n{notes}\n\nDownloads only changed files. Resumes if interrupted.");
             }
         }
 
         // Option toggles
         RebuildOptions();
+        optionsRow.Visible = selected is LauncherMode.Clonedivers or LauncherMode.CommandoDivers;
         foreach (var b in optionButtons)
         {
             var o = PackProfiles.Supported(pack ?? new PackManifest()).FirstOrDefault(x => string.Equals(x.Id, (string)b.Tag!, StringComparison.OrdinalIgnoreCase));
             if (o is null) continue;
-            var on = string.Equals(AvailableTextureProfile(pack ?? new PackManifest()), o.Id, StringComparison.OrdinalIgnoreCase);
+            var on = AvailableTextureProfile(pack ?? new PackManifest()) is {} textureChoice && textureChoice != "full";
             var armed = !Busy && !running && !staged;
-            b.Text = (on ? "✓ " : "") + o.Name;
-            b.AccessibleDescription = on ? "Selected texture profile" : "Choose this texture profile";
+            b.Text = PackProfiles.PotatoName + (on ? ": On" : ": Off");
+            b.AccessibleDescription = "Use lighter textures. " + (on ? "On." : "Off.");
+            b.Enabled = armed;
             b.BackColor = armed ? (on ? Blue : Slate) : Disabled;      // ghost: BackColor is the outline colour
             b.ForeColor = armed ? TextMain : TextDim;
             b.Cursor = armed ? Cursors.Hand : Cursors.Default;
-            Tip(b, o.Description + (state == ModState.On ? "" : " Choose before installing; used for your next modded selection."));
+            Tip(b, o.Id == "reduced512" ? "Smaller textures for slower PCs. Less detail." : "Use lighter textures.");
         }
 
         // Self-update offer lives in the idle progress row.
+        RefreshExtras(!Busy && !running && !staged);
         var app = manifest?.App;
         var offer = !Busy && !staged && app is not null && app.CanSelfUpdate(settings.ManifestUrl, AppInfo.Version)
                     && DateTime.UtcNow - lastProgressMessage > TimeSpan.FromSeconds(5);
@@ -2450,9 +2485,17 @@ public sealed partial class MainForm : Form
     void OnOptionToggle(PackOption o)
     {
         var pack = manifest?.Pack;
-        if (Busy || gameDir is null || pack is null || !pack.IsPublished || !pack.IsPerFile || Pack.HasPendingUpdate(gameDir, Settings.PlanPath) || ModFiles.GetState(gameDir) != ModState.On) return;
-        if (Game.IsRunning()) { ShowRunningWarning(); return; }
+        if (Busy || pack is null || (!preview && (!pack.IsPublished || !pack.IsPerFile || Pack.HasPendingUpdate(gameDir, Settings.PlanPath)))) return;
+        if (!preview && Game.IsRunning()) { ShowRunningWarning(); return; }
         var turnOn = !OptionEnabled(o);
+        if (preview || gameDir is null || ModFiles.GetState(gameDir) == ModState.NoModFiles)
+        {
+            settings.Options[o.Id] = turnOn;
+            if (!preview) settings.Save();
+            RefreshState();
+            return;
+        }
+        if (AvailableTextureProfile(pack) is null) { ShowProgressDone("Choose an available texture profile first."); return; }
         _ = RunPackAsync(pack, verify: false, optionChange: (o, turnOn));
     }
 
@@ -2582,7 +2625,7 @@ public sealed partial class MainForm : Form
                 headline = $"Switch to {LauncherModes.Name(diskMode)}?";
             headline += $"\n\nWarning: only {Pack.FormatBytes(free)} free on {drive} — this needs about {Pack.FormatBytes(need)}.";
         }
-        if (modeChange is null && textureProfileChange is null || plan.Downloads.Count > 0 || lowDiskSpace)
+        if (modeChange is null && textureProfileChange is null && optionChange is null || plan.Downloads.Count > 0 || lowDiskSpace)
         {
             if (Form.ActiveForm != this) FlashTaskbar();
             if (MessageBox.Show(this, headline, "Clonedivers", MessageBoxButtons.YesNo, MessageBoxIcon.Question) != DialogResult.Yes)
@@ -2817,11 +2860,11 @@ public sealed partial class MainForm : Form
         }
         var pack = manifest?.Pack;
         if (pack is null || !pack.IsPublished || !pack.IsPerFile) return;
-        if (AvailableTextureProfile(pack) is null) { ShowProgressDone("Choose an available texture profile first."); return; }
         if (mode == LauncherMode.CommandoDivers && !pack.Options.Any(o => o.Id.Equals(LauncherModes.CommandoOption, StringComparison.OrdinalIgnoreCase))) return;
         // Always plan the requested file set, including when an old pack is parked. Restoring it
         // with Toggle would silently enable RC content after choosing ordinary clonedivers.
-        _ = RunPackAsync(pack, verify: false, optionChange: null, modeChange: mode);
+        _ = RunPackAsync(pack, verify: false, optionChange: null, modeChange: mode,
+            textureProfileChange: AvailableTextureProfile(pack) is null ? "full" : null);
     }
 
     void RefreshPreview()
@@ -2832,15 +2875,20 @@ public sealed partial class MainForm : Form
             new() { Id = "skinny", Name = "Lighter textures", Default = false },
         } } };
         RebuildOptions();
+        RefreshModeLayout();
+        if (manifest.Pack?.CombinedRoster == true && previewMode == LauncherMode.CommandoDivers)
+            previewMode = LauncherMode.Clonedivers;
+        optionsRow.Visible = previewMode != LauncherMode.Helldivers;
         foreach (var button in optionButtons)
         {
             var option = PackProfiles.Supported(manifest.Pack!).Single(o => o.Id == (string)button.Tag!);
-            var on = AvailableTextureProfile(manifest.Pack!) == option.Id;
-            button.Text = (on ? "✓ " : "") + option.Name;
+            var on = AvailableTextureProfile(manifest.Pack!) is {} selected && selected != "full";
+            button.Text = PackProfiles.PotatoName + (on ? ": On" : ": Off");
             button.BackColor = on ? Blue : Slate;
             button.Enabled = true;
         }
         foreach (var button in modeButtons) { button.Enabled = true; button.Selected = button.Mode == previewMode; }
+        RefreshExtras(true);
         statusLabel.Text = $"{LauncherModes.Name(previewMode)} selected";
         hintLabel.Text = ModeDescription(previewMode);
         launchButton.Text = "LAUNCH " + LauncherModes.Name(previewMode).ToUpperInvariant();
@@ -2852,10 +2900,11 @@ public sealed partial class MainForm : Form
         footer.Text = "Launcher preview  ·  For the Republic.";
     }
 
-    static string ModeDescription(LauncherMode mode) => mode switch
+    string ModeDescription(LauncherMode mode) => mode switch
     {
-        LauncherMode.Helldivers => "The original Helldivers 2 experience.",
-        LauncherMode.Clonedivers => "The Clone Wars pack, with your chosen extras.",
+        LauncherMode.Helldivers => "Standard Helldivers 2.",
+        LauncherMode.Clonedivers when manifest?.Pack?.CombinedRoster == true => "For the Republic.\nCommando armor needs Brawny body type.",
+        LauncherMode.Clonedivers => "For the Republic.",
         _ => "Delta Squad is elite.\nRequires Brawny body type.",
     };
 
@@ -2877,12 +2926,14 @@ public sealed partial class MainForm : Form
         }
         try
         {
+            sessionObserver?.Request(DateTimeOffset.UtcNow);
             Game.LaunchViaSteam();
             launchRequested = DateTime.UtcNow;
             RefreshState();
         }
         catch (Exception ex)
         {
+            sessionObserver?.HandoffFailed();
             MessageBox.Show(this, "Couldn't hand off to Steam:\n" + ex.Message + "\n\nIs Steam installed?",
                 "Clonedivers", MessageBoxButtons.OK, MessageBoxIcon.Error);
         }
@@ -2957,6 +3008,13 @@ public sealed partial class MainForm : Form
         }
         opCts?.Cancel();
         base.OnFormClosing(e);
+    }
+
+    protected override void OnFormClosed(FormClosedEventArgs e)
+    {
+        RecordSession("launcher-closed");
+        telemetryRecorder?.Dispose();
+        base.OnFormClosed(e);
     }
 
     protected override void Dispose(bool disposing)

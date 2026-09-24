@@ -7,3 +7,7 @@ dist/
 .vs/
 # local scratch
 *.log
+node_modules/
+.wrangler/
+.dev.vars*
+worker-configuration.d.ts

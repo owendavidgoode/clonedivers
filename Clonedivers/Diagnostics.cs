@@ -58,11 +58,13 @@ public static class Diagnostics
         Add("Integrity now", "not checked by this report; use Check and repair for a fresh verification");
         Add("Last error category", ErrorCategory(lastError));
         b.Append(FormatHistory(SupportHistory.Read()));
+        b.Append(SessionLog.Format(SessionLog.Read()));
         b.AppendLine();
         b.Append(FormatHardware(ReadHardware()));
         b.AppendLine("Gameplay FPS / frame times / current VRAM usage: unavailable (requires gameplay capture)");
         b.AppendLine("Armor body type / equipped armor / audio language: unavailable (not read from game memory)");
-        b.AppendLine("Privacy: no personal paths, account identifiers, log contents or automatic upload.");
+        b.AppendLine("Performance sharing: " + (settings.Telemetry.Ready ? "enabled; separate session reports upload to the configured private collector" : "off"));
+        b.AppendLine("This support report omits personal paths, account identifiers and upload credentials.");
         return b.ToString();
     }
 
@@ -71,6 +73,7 @@ public static class Diagnostics
         if (string.IsNullOrWhiteSpace(error)) return "none reported";
         // Never reproduce arbitrary exception messages: they can contain paths, URLs or account names.
         if (Regex.IsMatch(error, @"\b114\b", RegexOptions.CultureInvariant)) return "GameGuard 114 reported";
+        if (Regex.IsMatch(error, @"\b110\b", RegexOptions.CultureInvariant)) return "GameGuard 110 reported";
         if (error.Contains("space", StringComparison.OrdinalIgnoreCase)) return "disk space";
         if (error.Contains("hash", StringComparison.OrdinalIgnoreCase) || error.Contains("checksum", StringComparison.OrdinalIgnoreCase)) return "file integrity";
         if (error.Contains("download", StringComparison.OrdinalIgnoreCase) || error.Contains("network", StringComparison.OrdinalIgnoreCase)) return "download or network";
@@ -85,7 +88,7 @@ public static class Diagnostics
         if (safe.Length == 0) b.AppendLine("  No recorded operations.");
         foreach (var entry in safe)
         {
-            var category = entry.ErrorCategory is "none reported" or "GameGuard 114 reported" or "disk space" or "file integrity" or "download or network" or "file access"
+            var category = entry.ErrorCategory is "none reported" or "GameGuard 114 reported" or "GameGuard 110 reported" or "disk space" or "file integrity" or "download or network" or "file access"
                 ? entry.ErrorCategory : "reported (message omitted for privacy)";
             b.AppendLine($"  {entry.Utc.ToUniversalTime():O} | {entry.Event} | pack {VersionToken(entry.Pack) ?? "unavailable"} | {ProfileToken(entry.Profile)} | {category}");
         }

@@ -1,0 +1,16 @@
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "clonedivers-telemetry",
+  "account_id": "4acbbb6e35a1d4bd9be245a6a8f969f4",
+  "main": "src/index.ts",
+  "compatibility_date": "2026-09-23",
+  "compatibility_flags": ["nodejs_compat"],
+  "workers_dev": true,
+  "preview_urls": false,
+  "routes": [{ "pattern": "clonedivers-telemetry.goodecraft.com", "custom_domain": true }],
+  "observability": { "enabled": true, "head_sampling_rate": 0.1 },
+  "ratelimits": [{ "name": "INGEST_LIMIT", "namespace_id": "1001", "simple": { "limit": 120, "period": 60 } }],
+  "triggers": { "crons": ["17 * * * *"] },
+  "d1_databases": [{ "binding": "DB", "database_name": "clonedivers-telemetry", "database_id": "dda0b619-c26e-4269-8c5c-c3ffde9848fe", "migrations_dir": "migrations" }],
+  "r2_buckets": [{ "binding": "REPORTS", "bucket_name": "clonedivers-telemetry" }]
+}

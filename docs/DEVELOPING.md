@@ -15,8 +15,10 @@ three mode controls. The native console test project compiles those same sources
 ```
 
 The preview uses the actual controls without writing settings, installing mods or
-launching the game. Current UI: three helmet cards, one launch button, and the optional
-Lighter textures toggle. Scope removal is an unconditional part of the pack.
+launching the game. The combined roster shows two helmet cards, one launch button,
+JohnsonPotatoMode™ and Droid skins. Delta Squad and restored walker weapons are
+always enabled in that roster. Legacy manifests retain three modes. The current
+candidate replaces the old scope removers with the tested ADS fix.
 
 Before shipping, check version metadata, preview layout, keyboard navigation, mode
 isolation, mode changes from parked installs, interrupted-install recovery and download

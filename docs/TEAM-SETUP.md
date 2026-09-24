@@ -1,59 +1,34 @@
 # Team setup
 
-1. Download [Clonedivers.exe](https://github.com/owendavidgoode/clonedivers/releases/latest/download/Clonedivers.exe).
-   Close the old launcher before replacing it. Use version **1.5.0** or newer. Scope removal is automatic; Lighter textures remains optional.
-2. Keep Helldivers 2 closed, choose Full or Lighter textures, and download/update the pack to **2026.09.13-r9**.
-   r9 reuses the existing r8 game assets; keeping the same mode/profile requires no new pack files.
-3. Choose **Helldivers**, **Clonedivers**, or **Commandodivers**, then launch through Steam.
-   Everyone installs the pack locally to see and hear the same replacements.
+1. Download [Clonedivers.exe](https://github.com/owendavidgoode/clonedivers/releases/latest/download/Clonedivers.exe), version **1.6.0**. Close the old launcher before replacing it.
+2. Keep Helldivers 2 closed, choose **Clonedivers**, set **Droid skins** and **JohnsonPotatoMode™**, then update to pack **2026.09.24-r10**.
+3. Launch through Steam. Everyone installs the pack locally to see and hear the same replacements. **Helldivers** parks the pack for original-game sessions.
 
-## Delta Squad loadouts
+## Delta Squad equipment
 
-In Commandodivers, use the **Brawny** body type and select your character's voice
-explicitly. Avoid Random. Armor does not automatically select a voice. Other
-players' voice selections determine which character replacements you hear locally.
-The new dialogue and labels target English audio/text; some calls and exertions
-retain the existing clone voices.
+Clones and commandos share the Clonedivers roster. Use **Brawny** for Commando bodies and select your character's voice explicitly; avoid Random. Armor does not choose a voice. Another player's selected voice slot determines the replacement you hear on your machine. English dialogue/text is targeted; some calls retain fallback lines.
 
-| Character | Voice slot | Body armor to unlock | Helmet |
+| Character | Voice slot | Body armor | Helmet |
 | --- | --- | --- | --- |
-| Sev | 1 | SC-30 Trailblazer Scout — Helldivers Mobilize page 7, 50 Medals | B-01 variant 1 |
-| Fixer | 2 | CM-10 Clinician — Superstore, 250 Super Credits | B-01 variant 2 |
-| Scorch | 3 | CE-35 Trench Engineer — Helldivers Mobilize page 3, 10 Medals | B-01 variant 3 |
-| Boss | 4 | DP-11 Champion of the People — Helldivers Mobilize page 10, 100 Medals | B-01 variant 4 |
+| Sev | 1 | SC-30 Trailblazer Scout | CM-09 Bonesnapper |
+| Fixer | 2 | CM-10 Clinician | B-01 variant 2 |
+| Scorch | 3 | CE-35 Trench Engineer | B-01 variant 3 |
+| Boss | 4 | DP-11 Champion of the People | B-01 variant 4 |
 
-Only your chosen body is required. All four cost **250 Super Credits + 160 Medals**
-for the items themselves; reaching later Warbond pages requires additional spending.
-The four B-01 helmet variants are starter items. Shared underlying game models mean
-some other helmets can also show Sev, and some armor pieces can share Scorch parts.
+Only the equipment you intend to wear needs unlocking. The pack does not grant ownership. Shared name keys mean some labels name both the clone body and Commando helmet. Commando helmet overrides are limited to these four targets; Sev no longer uses the broadly shared first B-01 helmet. Some body components can still be shared by stock armor.
 
-The full opening has been confirmed in game. The named voice slots are visible;
-the audio replacements passed extraction/decoding checks. A complete multiplayer
-voice check and the new starter helmet mapping still need team gameplay confirmation.
+If a Commando body looks like a clone, check **Body Type: Brawny**, then re-equip the correct armor. Potato mode retains the same Commando equipment. If it still fails, close the game and use **Check and repair**, then report the exact body and helmet.
 
-## If a selected Commando body still looks like a clone
+## Performance and reports
 
-Check **Body Type: Brawny** first, then re-equip the character's body armor from
-the table above. These Delta body replacements require Brawny; Lean uses different
-model resources. Selecting a named voice does not select the matching armor.
+**JohnsonPotatoMode™** replaces Lighter textures. It streams full-detail textures and may reduce resident texture pressure; FPS improvements depend on the machine and scene. It is not a reduced-resolution pack.
 
-The published pack contains the Commando assets. A file/resource audit found
-identical Commando armor files and all 126 armor resource winners with Lighter
-textures on and off. That rules out an omitted armor file in the texture variant;
-it does not replace an in-game check. If Brawny still fails, close the game, select
-Commandodivers, and click **Check and repair** to verify/repair the installed files.
-Record the exact body armor and whether its helmet is also affected if it persists.
+Use **Help & diagnostics → Save report** for a local report. Optional **Performance sharing** needs Owen's squad invitation and one-time enrollment. Keep the launcher open while playing. [Collection details](AUTOMATIC-PERFORMANCE-REPORTS.md) explain the measurements and retention.
 
-## Camera
+## Remaining checks
 
-The AT-TE camera distance is unchanged. FOV is a personal game setting and is not
-forced by the launcher or downloaded pack. A value of 75 improved framing on the
-host PC; later local combat trials used 85. This is a preference, not a recommended
-performance setting for every machine.
+ADS passed local testing. Supply FRV seating, weapon/supply access, deformation and destruction, Watcher probe-loop timing/stopping, multiplayer voices and walker weapon alignment need more gameplay checks. The Supply FRV and Watcher changes are experimental. Report the vehicle/enemy, selected profile and what happened.
 
-## GameGuard error 110 after closing the game
+The AT-TE camera remains unchanged. FOV is a personal setting; the launcher does not force it. Eye/vent aim markers are still unfinished.
 
-Allow GameGuard to finish closing before relaunching. If repeated attempts fail,
-restart Windows before trying again. During our local tests, an old GameGuard
-process survived game exit; rebooting cleared the launch failure. Do not repeatedly
-launch another copy or change game protection settings.
+If GameGuard repeatedly fails, restart Windows before another launch. Do not repeatedly start additional copies or change protection settings. Steam may retain Running after HD2 exits; this remains under investigation.

@@ -1,0 +1,19 @@
+{
+  "name": "clonedivers-telemetry",
+  "private": true,
+  "type": "module",
+  "packageManager": "pnpm@11.25.0",
+  "scripts": {
+    "types": "wrangler types",
+    "check": "tsc --noEmit",
+    "test": "node --test test/*.test.ts",
+    "dev": "wrangler dev",
+    "deploy": "wrangler deploy"
+  },
+  "devDependencies": {
+    "@cloudflare/workers-types": "5.20260923.1",
+    "@types/node": "^24.0.0",
+    "typescript": "^5.9.0",
+    "wrangler": "4.137.0"
+  }
+}

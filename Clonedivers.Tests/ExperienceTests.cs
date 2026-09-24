@@ -54,9 +54,46 @@ static class ExperienceTests
         {
             const System.Reflection.BindingFlags flags = System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic;
             var buttons = (List<RoundButton>)typeof(MainForm).GetField("optionButtons", flags)!.GetValue(preview)!;
-            check(buttons.Count == 2 && buttons.All(b => !b.Text.StartsWith("✓")), "preview with unavailable saved profile renders available choices without claiming one selected");
-            typeof(MainForm).GetMethod("OnTextureProfile", flags)!.Invoke(preview, new object[] { new PackTextureProfile { Id = "lighter", Name = "Lighter textures" } });
-            check(previewSettings.TextureProfile == "lighter" && buttons.Count(b => b.Text.StartsWith("✓")) == 1, "preview can recover from unavailable preference by selecting an available texture profile");
+            check(buttons.Count == 1 && buttons[0].Text == PackProfiles.PotatoName + ": Off", "one potato toggle replaces the texture choices");
+            typeof(MainForm).GetMethod("OnPotatoToggle", flags)!.Invoke(preview, null);
+            check(previewSettings.TextureProfile == "lighter" && buttons[0].Text.EndsWith(": On"), "potato toggle recovers an unavailable preference with the supported lighter profile");
+            typeof(MainForm).GetMethod("OnPotatoToggle", flags)!.Invoke(preview, null);
+            check(previewSettings.TextureProfile == "full" && buttons[0].Text.EndsWith(": Off"), "potato toggle returns to full textures");
+        }
+        var extrasManifest = Manifest.Parse(System.Text.Json.JsonSerializer.Serialize(manifest));
+        extrasManifest.Pack!.Options.Add(new PackOption { Id = "droids", Name = "Droid skins", Default = true });
+        var extrasSettings = new Settings();
+        using (var preview = new MainForm(extrasSettings, null, preview: true, previewManifest: extrasManifest))
+        {
+            const System.Reflection.BindingFlags flags = System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic;
+            var extras = (List<RoundButton>)typeof(MainForm).GetField("extraButtons", flags)!.GetValue(preview)!;
+            check(extras.Count == 1 && extras[0].Text == "Droid skins: On", "pack extras display manifest defaults without duplicating universe or texture controls");
+            typeof(MainForm).GetMethod("OnOptionToggle", flags)!.Invoke(preview, new object[] { extrasManifest.Pack.Options.Last() });
+            check(!extrasSettings.Options["droids"] && extras[0].Text == "Droid skins: Off", "extra choice works before installation and updates its visible state");
+            var clones = LauncherModes.OptionsFor(extrasSettings, extrasManifest.Pack, LauncherMode.Clonedivers);
+            var commandos = LauncherModes.OptionsFor(extrasSettings, extrasManifest.Pack, LauncherMode.CommandoDivers);
+            check(!clones["droids"] && !commandos["droids"] && !clones["commandos"] && commandos["commandos"], "switching universes preserves the independent droid preference");
+            extrasManifest.Pack.CombinedRoster = true;
+            extrasSettings.Options["commandos"] = true;
+            typeof(MainForm).GetMethod("RefreshPreview", flags)!.Invoke(preview, null);
+            check(extras.Count == 1 && extras.All(b => (string)b.Tag! == "droids"), "combined roster keeps Delta always on without a control");
+            check(LauncherModes.Current(ModState.On, extrasSettings, extrasManifest.Pack) == LauncherMode.Clonedivers,
+                "an existing Delta preference selects the combined modded mode");
+            check(LauncherModes.OptionsFor(extrasSettings, extrasManifest.Pack, LauncherMode.Clonedivers)["commandos"],
+                "returning from vanilla preserves the existing Delta voice preference");
+            extrasSettings.Options["commandos"] = false;
+            extrasManifest.Pack.Options.Add(new PackOption { Id = "aimpoints", Default = false });
+            extrasSettings.Options["aimpoints"] = false;
+            var forced = LauncherModes.OptionsFor(extrasSettings, extrasManifest.Pack, LauncherMode.Clonedivers);
+            check(forced["commandos"] && forced["aimpoints"] && !forced["droids"],
+                "old disabled Delta and walker flags are overridden while droid choice remains independent");
+            extrasManifest.Pack.Files.Add(new PackFile { Name = "delta.patch_0", Size = 0, Sha256 = PackFile.EmptySha, Option = "commandos" });
+            extrasManifest.Pack.Files.Add(new PackFile { Name = "walker.patch_0", Size = 0, Sha256 = PackFile.EmptySha, Option = "aimpoints" });
+            check(Pack.EffectiveFiles(extrasManifest.Pack, _ => false, "full").Count == 3,
+                "file selection enforces required features even with a stale false option callback");
+            extrasManifest.Pack.Options.Clear();
+            typeof(MainForm).GetMethod("RefreshPreview", flags)!.Invoke(preview, null);
+            check(extras.Count == 0, "changing to a feed without extras removes stale controls");
         }
         var afterSettings = File.Exists(Settings.FilePath) ? File.ReadAllBytes(Settings.FilePath) : null;
         check(beforeSettings is null ? afterSettings is null : afterSettings is not null && beforeSettings.SequenceEqual(afterSettings), "preview interaction leaves real saved settings byte-identical");

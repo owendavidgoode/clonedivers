@@ -58,6 +58,8 @@ static class TestProgram
             HashCacheAndCleanupTests(root);
             OperationTests.Run(root).GetAwaiter().GetResult();
             ExperienceTests.Run(root, Check);
+            SessionLogTests.Run(root, Check);
+            TelemetryTests.Run(root, Check);
             SelfUpdateAndAcfTests(root);
         }
         finally
