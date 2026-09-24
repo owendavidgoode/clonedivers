@@ -1,0 +1,25 @@
+{
+  "app": "1.6.0",
+  "pack": "2026.09.24-r10",
+  "gameBuild": "25480438",
+  "sourceCommit": "e81b9118935242d955832b61429f9b744264a2ce",
+  "feedCommit": "5f8e96388898001a509858959ca49c8380a8bf3e",
+  "appSha256": "41fe5dd742084471e9315edf215263946201804547484dc20eedb7a747a8e605",
+  "manifestV3Sha256": "8c2edecefc99ca579c5291bfc8fc9d8e7745a2eb263da033c4436cbeb9f94519",
+  "compatibilityFeedSha256": "a83314f681a7e6e8457c923f6e7c59b84f5d695bf420a5a256960162554c09cf",
+  "newPackAssets": 128,
+  "nativeTests": "passed",
+  "profileChecks": "Full 1133 / Lighter 1135, exact source hashes; 16 option/profile combinations passed",
+  "hotfixComparison": "65 rebased banks, English text and Watcher bank unchanged",
+  "hostedVerification": "Every referenced asset size/SHA-256 verified; public launcher downloaded and checked; public feeds and latest release verified",
+  "gameplay": "ADS on 7.1 candidate, startup on 7.1.1; not exhaustive",
+  "experimentalIncluded": [
+    "Supply FRV mesh port",
+    "Watcher probe loop"
+  ],
+  "unfinished": [
+    "AT-TE camera",
+    "Eye/vent aim markers",
+    "Steam Running after normal game exit"
+  ]
+}

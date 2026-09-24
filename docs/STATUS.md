@@ -1,18 +1,21 @@
 # Current status
 
-## September 24: coordinated 1.6.0 / r10 release prepared
+## September 24: 1.6.0 / r10 published
 
 The combined roster, ADS repair, expanded voices/armor, droid toggle, JohnsonPotatoMode,
-vehicle replacements, Guard Dog cleanup and optional performance sharing are prepared
-for launcher 1.6.0 / pack 2026.09.24-r10. The owner explicitly approved including the
+vehicle replacements, Guard Dog cleanup and optional performance sharing are published
+in launcher 1.6.0 / pack 2026.09.24-r10. The owner explicitly approved including the
 experimental Supply FRV mesh port and Watcher probe loop. Their gameplay checks remain
 open. Camera experiments remain excluded; eye/vent markers are unfinished.
 
 Startup passed on today's installed build 25480438 (7.1.1). All 65 rebased banks,
 English text and the Watcher bank are byte-identical to the audited 7.1 sources.
 All native tests, 16 option/profile combinations and the telemetry sampler passed.
-Publication follows the sealed release workflow; see the public feeds and release
-notes for the published version. Older dated sections below are historical snapshots.
+Publication completed through the sealed release workflow. GitHub asset sizes and
+SHA-256 digests, the downloaded launcher, latest-release target and both public feeds
+were verified. This machine now uses release 1.6.0/r10 and the public feed; the desktop
+shortcut no longer starts a preview server. Performance enrollment was preserved.
+Older dated sections below are historical snapshots.
 
 Details: [1.6.0 release notes](releases/v1.6.0.md).
 
