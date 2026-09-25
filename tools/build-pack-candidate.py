@@ -28,6 +28,7 @@ ARCHIVE = '9ba626afa44a3aa3'
 URL = 'https://github.com/owendavidgoode/clonedivers/releases/download/pack-{version}-files/'
 PATCH = re.compile(r'^(?P<arch>.+?)\.patch_(?P<idx>\d+)(?P<comp>\.(?:gpu_resources|stream))?$')
 V = 'dist/venator-intro-2026-09-24'
+F = 'dist/voice-fill-2026-09-24/v1'
 R11_NOTES = ('r11 opening, Boss/Temuera voice fill and Spider Droid markers are validated offline; '
              'not yet played in game. Supply FRV and Watcher audio remain experimental.')
 # Per release: base feed version, verified base profile folders, manifest name ->
@@ -63,6 +64,22 @@ RELEASES = {
         'notes': 'Clones and commandos, together. Venator fleet opening.',
         'statusNotes': 'r12 trims the Coastlake logo from the opening. ' + R11_NOTES.replace('r11 ', 'The '),
         'changes': ['Venator opening trimmed before the Coastlake end logo (patch_249/250)'],
+    },
+    '2026.09.24-r13': {
+        'base': '2026.09.24-r12', 'profiles': 'dist/release-r12-inputs/profiles',
+        'replace': {
+            f'{ARCHIVE}.patch_251': ('b9f77af19cef', f'{F}/rc/9ba626afa44a3aa3.patch_0'),
+            f'{ARCHIVE}.patch_251.stream': ('138b9c901c60', f'{F}/rc/9ba626afa44a3aa3.patch_0.stream'),
+            f'{ARCHIVE}.patch_251.gpu_resources': ('e3b0c44298fc', f'{F}/rc/9ba626afa44a3aa3.patch_0.gpu_resources'),
+            # Only the Delta label bank; the same-named regular-clone variant (335c3ac8…) is unchanged.
+            f'{ARCHIVE}.patch_252': ('e9905cc405f6', f'{F}/labels/9ba626afa44a3aa3.patch_0'),
+        },
+        'append': [], 'appendSha': None,
+        'notes': 'Clones and commandos, together. Venator fleet opening.',
+        'statusNotes': 'r13 fills 318 silent or Battlefront-clone voice lines and labels voice 4 Boss/Clone. '
+                       + R11_NOTES.replace('r11 ', 'The '),
+        'changes': ['Voice gap fill: 318 lines use RC or Temuera recordings (patch_251)',
+                    'Voice 4 labelled Boss/Clone (Delta patch_252)'],
     },
 }
 
@@ -122,7 +139,9 @@ def build(out: Path, version: str, base_feed: Path) -> None:
         if f['name'] in spec['replace']:
             expected, source = spec['replace'][f['name']]
             if not f['sha256'].startswith(expected):
-                raise ValueError(f'{f["name"]} is not the expected {spec["base"]} file')
+                continue  # a same-named entry for another mode/profile stays as it is
+            if f['name'] in seen:
+                raise ValueError(f'{f["name"]} matches more than one base entry')
             path = ROOT / source
             f['sha256'], f['size'] = sha(path), path.stat().st_size
             f['url'] = url + f['sha256'] if f['size'] else ''

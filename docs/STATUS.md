@@ -1,6 +1,6 @@
 # Current status
 
-## September 24 (late night): voice gap fill prepared
+## September 24 (late night): voice gap fill prepared as launcher 1.6.2 / pack r13
 
 318 silent or Battlefront-clone lines now play Republic Commando or Temuera Morrison recordings,
 and voice 4 is labelled "Boss/Clone". Still silent per voice: about 105-121 lines, mostly numbers,
