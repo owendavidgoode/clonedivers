@@ -1,5 +1,5 @@
 #!/usr/bin/env -S uv run
-"""Build a video-only RC intro override from an existing working HD2 intro patch.
+"""Build a startup intro video override from an existing working HD2 intro patch.
 
 HD2 plays the intro soundtrack through a separate Wwise stream. Pass the audio
 patch built by build-rc-intro-audio.py to package both. Writes only staging files.
@@ -62,7 +62,13 @@ def bink_info(data: bytes) -> dict[str, int | float | str]:
             "audioTracks": tracks, "flags": flags, "slices": 4, "bytes": len(data)}
 
 
-def build(template: Path, video: Path, out: Path, audio_patch: Path | None = None) -> Path:
+RC_CREDITS = ("Republic Commando remaster by WoofWoofWolffe and collaborators.\n"
+              "Source: https://www.youtube.com/watch?v=CL5i33CTld8\n"
+              "Trim: 8.4 to 172.166667 seconds, with an ending fade.\n")
+
+
+def build(template: Path, video: Path, out: Path, audio_patch: Path | None = None,
+          title: str = "Republic Commando Remastered Intro", credits: str = RC_CREDITS) -> Path:
     source = template.read_bytes()
     movie = video.read_bytes()
     info = bink_info(movie)
@@ -113,7 +119,7 @@ def build(template: Path, video: Path, out: Path, audio_patch: Path | None = Non
                          "sha256": sha256_file(p)}
                         for p in (patch_path, stream_path)]}
     (out / "build-report.json").write_text(json.dumps(report, indent=2) + "\n", encoding="utf-8")
-    zip_path = out / ("Republic Commando Remastered Intro.zip" if audio_patch else "RC Intro Video Only.zip")
+    zip_path = out / (f"{title}.zip" if audio_patch else f"{title} (video only).zip")
     with zipfile.ZipFile(zip_path, "w", compression=zipfile.ZIP_STORED) as archive:
         for p in (patch_path, stream_path):
             archive.write(p, "RC Intro/" + p.name)
@@ -121,10 +127,8 @@ def build(template: Path, video: Path, out: Path, audio_patch: Path | None = Non
             for suffix in ("", ".stream"):
                 audio_file = audio_patch / f"{ARCHIVE}.patch_0{suffix}"
                 archive.write(audio_file, f"RC Intro/{ARCHIVE}.patch_1{suffix}")
-        archive.writestr("README.txt", "Republic Commando remaster by WoofWoofWolffe and collaborators.\n"
-                         "Source: https://www.youtube.com/watch?v=CL5i33CTld8\n"
-                         "Load after Clone Armory Opening Videos. Soundtrack requires the separate English audio patch.\n"
-                         "Trim: 8.4 to 172.166667 seconds, with an ending fade.\n")
+        archive.writestr("README.txt", credits.rstrip("\n") + "\n"
+                         "Load after Clone Armory Opening Videos. Soundtrack requires the separate English audio patch.\n")
     LOG.info("Built %s: %.3fs, %s frames, four slices", zip_path, info["seconds"], info["frames"])
     return zip_path
 
@@ -135,10 +139,12 @@ def main() -> int:
     parser.add_argument("--video", type=Path, required=True)
     parser.add_argument("--out", type=Path, required=True)
     parser.add_argument("--audio-patch", type=Path, help="Audio staging directory to include in the complete zip")
+    parser.add_argument("--title", default="Republic Commando Remastered Intro", help="Zip/package name")
+    parser.add_argument("--credits", help="README credit text (default: the RC remaster credits)")
     args = parser.parse_args()
     logging.basicConfig(level=logging.INFO, format="%(message)s")
     try:
-        build(args.template, args.video, args.out, args.audio_patch)
+        build(args.template, args.video, args.out, args.audio_patch, args.title, args.credits or RC_CREDITS)
         return 0
     except (OSError, ValueError, struct.error, StopIteration) as exc:
         LOG.error("Build failed: %s", exc)

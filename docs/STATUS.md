@@ -1,5 +1,28 @@
 # Current status
 
+## September 24 (night): pack r11 prepared for release (launcher unchanged)
+
+Owner-authorized release without a prior in-game boot: pack 2026.09.24-r11 on launcher 1.6.0.
+It replaces the opening with Coastlake's Venator fleet animation (four-slice Bink 2, 1080p/24,
+82.1 s, plus a PCM English soundtrack; the only header differences from the shipped RC intro
+patches are length fields). Boss gains 263 Temuera Morrison fill lines, and Spider Droid eye/vent
+markers ship as manifest `patch_318` (option `droids`). Inputs: `tools/build-r11-candidate.py`
+→ `dist/release-r11-inputs`; notes: [pack r11](releases/pack-2026.09.24-r11.md). In game still
+pending: opening playback, Boss fill lines, markers, and the unexplained exit-time crash dump of
+the 19:55 session (access violation in `helldivers2.exe`, written just after settings save).
+
+## September 24 (evening): marker candidate installed locally; fifth voice blocked
+
+Spider Droid eye/vent marker candidate v4 passes independent Filediver validation: 28/28
+original primitives intact, markers skinned to `turret` (eye) and `boss` (vents). It is
+installed locally as `9ba626afa44a3aa3.patch_304` for a gameplay test, with a receipt. It is not
+in any feed. A fifth selectable voice cannot be added with asset patches: the game has exactly
+four voice identities, defined in protected executable data. The owner kept Boss and asked
+for Temuera Morrison clone lines to fill his gaps: 263 Temuera recordings now cover calls
+that played Battlefront clone lines or silence. That is installed locally as additive
+`patch_305`. Markers and Boss merge await one gameplay session; neither is published.
+Details: [markers and fifth voice](AIM-MARKERS-AND-FIFTH-VOICE.md).
+
 ## September 24: 1.6.0 / r10 published
 
 The combined roster, ADS repair, expanded voices/armor, droid toggle, JohnsonPotatoMode,
