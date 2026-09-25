@@ -1,7 +1,7 @@
 {
     "format":  3,
     "pack":  {
-                 "version":  "2026.09.24-r11",
+                 "version":  "2026.09.24-r12",
                  "name":  "Clonedivers pack",
                  "notes":  "Clones and commandos, together. Venator fleet opening.",
                  "gameBuild":  "25480438",
@@ -13,7 +13,7 @@
                                     "3382210389809902281"
                                 ],
                  "status":  "ok",
-                 "statusNotes":  "r11 opening, Boss/Temuera voice fill and Spider Droid markers are validated offline; not yet played in game. Supply FRV and Watcher audio remain experimental.",
+                 "statusNotes":  "r12 trims the Coastlake logo from the opening. The opening, Boss/Temuera voice fill and Spider Droid markers are validated offline; not yet played in game. Supply FRV and Watcher audio remain experimental.",
                  "options":  [
                                  {
                                      "id":  "commandos",
@@ -4110,9 +4110,9 @@
                                },
                                {
                                    "name":  "9ba626afa44a3aa3.patch_249",
-                                   "url":  "https://github.com/owendavidgoode/clonedivers/releases/download/pack-2026.09.24-r11-files/f07bb0be73099fe424faf012c25f930b4e3f9ed0c2a3d73d88e052bfed30c563",
+                                   "url":  "https://github.com/owendavidgoode/clonedivers/releases/download/pack-2026.09.24-r12-files/1cb8365095537fcb24ab1e5beed67798b5c0192ef3adf33ea8c4728dab0fcc57",
                                    "size":  256,
-                                   "sha256":  "f07bb0be73099fe424faf012c25f930b4e3f9ed0c2a3d73d88e052bfed30c563",
+                                   "sha256":  "1cb8365095537fcb24ab1e5beed67798b5c0192ef3adf33ea8c4728dab0fcc57",
                                    "modes":  [
                                                  "commandos"
                                              ],
@@ -4123,9 +4123,9 @@
                                },
                                {
                                    "name":  "9ba626afa44a3aa3.patch_249.stream",
-                                   "url":  "https://github.com/owendavidgoode/clonedivers/releases/download/pack-2026.09.24-r11-files/efd4d27e74b8eb3ed9d4c264b48dc3271ce25c3c0e19026f6c7a851a183316d9",
-                                   "size":  14184768,
-                                   "sha256":  "efd4d27e74b8eb3ed9d4c264b48dc3271ce25c3c0e19026f6c7a851a183316d9",
+                                   "url":  "https://github.com/owendavidgoode/clonedivers/releases/download/pack-2026.09.24-r12-files/65cd124966de151c931229a173eff785420c62ee68f00cc96f36561f2b908148",
+                                   "size":  75998480,
+                                   "sha256":  "65cd124966de151c931229a173eff785420c62ee68f00cc96f36561f2b908148",
                                    "modes":  [
                                                  "commandos"
                                              ],
@@ -4178,9 +4178,9 @@
                                },
                                {
                                    "name":  "9ba626afa44a3aa3.patch_250",
-                                   "url":  "https://github.com/owendavidgoode/clonedivers/releases/download/pack-2026.09.24-r11-files/13803d0f8ed7bbf93cea06be323d7d9eb437e99b0c44925a25fcb29dfb1a29ef",
+                                   "url":  "https://github.com/owendavidgoode/clonedivers/releases/download/pack-2026.09.24-r12-files/e42de2cbd3e5899ebf1f930f9912d37ded581204c897cf8139bbb679e1f069ba",
                                    "size":  17312,
-                                   "sha256":  "13803d0f8ed7bbf93cea06be323d7d9eb437e99b0c44925a25fcb29dfb1a29ef",
+                                   "sha256":  "e42de2cbd3e5899ebf1f930f9912d37ded581204c897cf8139bbb679e1f069ba",
                                    "modes":  [
                                                  "commandos"
                                              ],
@@ -4191,9 +4191,9 @@
                                },
                                {
                                    "name":  "9ba626afa44a3aa3.patch_250.stream",
-                                   "url":  "https://github.com/owendavidgoode/clonedivers/releases/download/pack-2026.09.24-r11-files/8f7e49de03a86c00522ede32aed61a6ddd6957bbb6dbb51a8ceff01d1e955eea",
-                                   "size":  15764384,
-                                   "sha256":  "8f7e49de03a86c00522ede32aed61a6ddd6957bbb6dbb51a8ceff01d1e955eea",
+                                   "url":  "https://github.com/owendavidgoode/clonedivers/releases/download/pack-2026.09.24-r12-files/00789904829540e7039af011c627f3a84ee4034f890f2a7b08386950acc867d8",
+                                   "size":  14592064,
+                                   "sha256":  "00789904829540e7039af011c627f3a84ee4034f890f2a7b08386950acc867d8",
                                    "modes":  [
                                                  "commandos"
                                              ],
@@ -15263,7 +15263,7 @@
                                    "option":  "droids"
                                }
                            ],
-                 "totalSize":  18337504590,
+                 "totalSize":  18398145982,
                  "isBroken":  false,
                  "isPublished":  true,
                  "isPerFile":  true,
@@ -15282,9 +15282,9 @@
                  "combinedRoster":  true
              },
     "app":  {
-                "version":  "1.6.0",
-                "url":  "https://github.com/owendavidgoode/clonedivers/releases/download/v1.6.0/Clonedivers.exe",
-                "size":  66403695,
-                "sha256":  "41fe5dd742084471e9315edf215263946201804547484dc20eedb7a747a8e605"
+                "version":  "1.6.1",
+                "url":  "https://github.com/owendavidgoode/clonedivers/releases/download/v1.6.1/Clonedivers.exe",
+                "size":  66403699,
+                "sha256":  "973b74f0f18791c23e0c7299f932157da0a8c61e7d272e73e5fda8f711651ed1"
             }
 }
