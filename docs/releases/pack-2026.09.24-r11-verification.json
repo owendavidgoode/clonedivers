@@ -1,0 +1,27 @@
+{
+  "app": "1.6.0 (unchanged)",
+  "pack": "2026.09.24-r11",
+  "gameBuild": "25480438",
+  "sourceCommit": "8e6a5a5d4ae61b0b4e6869369b93615b41fbd0f2",
+  "feedCommit": "27dc6d5ec7c2c21a252af4681d902339ac4ce389",
+  "appSha256": "41fe5dd742084471e9315edf215263946201804547484dc20eedb7a747a8e605",
+  "manifestV3Sha256": "94b4a50d136660bbbc049b2c85f391ab00f0f088ab70ad8ac679c5a3f8b30560",
+  "compatibilityFeed": "manifest.json unchanged (r8 pack for older launchers)",
+  "newPackAssets": 8,
+  "newAssetBytes": 94458260,
+  "nativeTests": "passed",
+  "profileChecks": "Full 1136 / Lighter 1138, exact source hashes; both modes gap-free",
+  "hostedVerification": "Every referenced asset size/SHA-256 verified by release.ps1; anonymous downloads of two new assets re-hashed; latest release still v1.6.0; API feed shows r11",
+  "changes": [
+    "Venator fleet opening (Coastlake animation) replaces the RC opening",
+    "Boss: 263 Temuera Morrison fill lines",
+    "Spider Droid eye/vent markers (option droids)"
+  ],
+  "gameplay": "Released at the owner's request without an in-game boot of r11. Opening playback, Boss fill lines and markers are unverified.",
+  "unfinished": [
+    "Top eye marker",
+    "AT-TE camera",
+    "Steam Running after normal game exit",
+    "Exit-time crash dump of 2026-09-24 19:55 session unexplained"
+  ]
+}

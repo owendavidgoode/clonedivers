@@ -1,8 +1,8 @@
 # Current status
 
-## September 24 (night): pack r11 prepared for release (launcher unchanged)
+## September 24 (night): pack r11 published (launcher unchanged)
 
-Owner-authorized release without a prior in-game boot: pack 2026.09.24-r11 on launcher 1.6.0.
+Published through the sealed workflow (feed commit `27dc6d5`; [verification](releases/pack-2026.09.24-r11-verification.json)). Owner-authorized release without a prior in-game boot: pack 2026.09.24-r11 on launcher 1.6.0.
 It replaces the opening with Coastlake's Venator fleet animation (four-slice Bink 2, 1080p/24,
 82.1 s, plus a PCM English soundtrack; the only header differences from the shipped RC intro
 patches are length fields). Boss gains 263 Temuera Morrison fill lines, and Spider Droid eye/vent
