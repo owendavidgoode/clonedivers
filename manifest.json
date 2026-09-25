@@ -8116,9 +8116,9 @@
                  "isPerFile":  true
              },
     "app":  {
-                "version":  "1.6.2",
-                "url":  "https://github.com/owendavidgoode/clonedivers/releases/download/v1.6.2/Clonedivers.exe",
-                "size":  66403702,
-                "sha256":  "036d5b0f4a7074637411e109bbe68bd2e1488bbe2736a0820917f44e20cbe4d9"
+                "version":  "1.6.3",
+                "url":  "https://github.com/owendavidgoode/clonedivers/releases/download/v1.6.3/Clonedivers.exe",
+                "size":  66403707,
+                "sha256":  "0a111d72cb7329858497490fae5b97d7fdd3d8f9ada0c876de6ea7a8b5909089"
             }
 }
