@@ -1,0 +1,19 @@
+{
+  "app": "1.6.3",
+  "pack": "2026.09.25-r14",
+  "gameBuild": "25480438",
+  "sourceCommit": "7ae11bf406a81965c61e39a21df99dbc5ba93eeb",
+  "feedCommit": "ff172affcc0bfad9582532c55660ba1ce6ab86af",
+  "appSha256": "0a111d72cb7329858497490fae5b97d7fdd3d8f9ada0c876de6ea7a8b5909089",
+  "appChange": "Version bump only (1.6.2 -> 1.6.3)",
+  "manifestV3Sha256": "c316617558d308944de8c982dac2e66b0e4b86f4c71ac1dd3b86f646829c19d3",
+  "compatibilityFeedSha256": "9de8382e642c0e82f1823d3a770a3a80579d870664ceb5957c78e6e10b8e8f2f",
+  "newPackAssets": 0,
+  "changes": [
+    "Spider Droid eye/vent markers removed (manifest patch_318) at the owner's request"
+  ],
+  "nativeTests": "passed",
+  "profileChecks": "Full 1133 / Lighter 1135, exact source hashes; both modes gap-free",
+  "hostedVerification": "release.ps1 verified hosted assets and exe; independently: latest release v1.6.3, public exe equals local build, live feed r14 has no patch_318",
+  "gameplay": "Owner saw the markers in game before removal (rendered; judged not right). Opening and voice fills: no recorded gameplay check."
+}
