@@ -1,7 +1,7 @@
 # Team setup
 
-1. Download [Clonedivers.exe](https://github.com/owendavidgoode/clonedivers/releases/latest/download/Clonedivers.exe), version **1.6.2**. Close the old launcher before replacing it.
-2. Keep Helldivers 2 closed, choose **Clonedivers**, set **Droid skins** and **JohnsonPotatoMode™**, then update to pack **2026.09.24-r13**.
+1. Download [Clonedivers.exe](https://github.com/owendavidgoode/clonedivers/releases/latest/download/Clonedivers.exe), version **1.6.3**. Close the old launcher before replacing it.
+2. Keep Helldivers 2 closed, choose **Clonedivers**, set **Droid skins** and **JohnsonPotatoMode™**, then update to pack **2026.09.25-r14**.
 3. Launch through Steam. Everyone installs the pack locally to see and hear the same replacements. **Helldivers** parks the pack for original-game sessions.
 
 ## Delta Squad equipment
@@ -27,8 +27,8 @@ Use **Help & diagnostics → Save report** for a local report. Optional **Perfor
 
 ## Remaining checks
 
-ADS passed local testing. The Venator opening, Boss's added Temuera lines and the Spider Droid markers have not been played yet. Supply FRV seating, weapon/supply access, deformation and destruction, Watcher probe-loop timing/stopping, multiplayer voices and walker weapon alignment need more gameplay checks. The Supply FRV and Watcher changes are experimental. Report the vehicle/enemy, selected profile and what happened.
+ADS passed local testing. The Venator opening and the added voice lines still need a full squad check. Supply FRV seating, weapon/supply access, deformation and destruction, Watcher probe-loop timing/stopping, multiplayer voices and walker weapon alignment need more gameplay checks. The Supply FRV and Watcher changes are experimental. Report the vehicle/enemy, selected profile and what happened.
 
-The AT-TE camera remains unchanged. FOV is a personal setting; the launcher does not force it. With **Droid skins** on, Spider Droids show red eye and vent markers; the top eye is not marked.
+The AT-TE camera remains unchanged. FOV is a personal setting; the launcher does not force it.
 
 If GameGuard repeatedly fails, restart Windows before another launch. Do not repeatedly start additional copies or change protection settings. Steam may retain Running after HD2 exits; this remains under investigation.

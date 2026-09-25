@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Assemble pack release inputs from the previous published feed (r11, r12 specs below).
+"""Assemble pack release inputs from the previous published feed (per-release specs below).
 
 r11 against r10 (everything else keeps its previous name, bytes and URL):
 - manifest patch_249/patch_250: Venator fleet opening (video + separate English soundtrack),
@@ -7,6 +7,8 @@ r11 against r10 (everything else keeps its previous name, bytes and URL):
 - manifest patch_251: Delta voice bundle with Temuera Morrison lines filling Boss's non-RC calls.
 - manifest patch_318 (new, last, option droids): Spider Droid eye/vent aim markers.
 r12 against r11: patch_249/patch_250 replaced by the opening trimmed before the Coastlake logo.
+r13 against r12: voice gap fill (patch_251) and the Boss/Clone label (Delta patch_252).
+r14 against r13: Spider Droid markers (patch_318) removed at the owner's request.
 
 Writes a fresh folder with the candidate manifest (no app block; release.ps1 adds it),
 hash-named new assets, hard-linked per-profile source folders and directories.json for
@@ -81,6 +83,18 @@ RELEASES = {
         'changes': ['Voice gap fill: 318 lines use RC or Temuera recordings (patch_251)',
                     'Voice 4 labelled Boss/Clone (Delta patch_252)'],
     },
+    '2026.09.25-r14': {
+        'base': '2026.09.24-r13', 'profiles': 'dist/release-r13-inputs/profiles',
+        'replace': {}, 'append': [], 'appendSha': None,
+        # Owner saw the markers in game and asked to remove them. They were the last entries,
+        # so removal renumbers nothing; the Spider Droid unit falls back to the CIS patch.
+        'remove': {f'{ARCHIVE}.patch_318': '3cf552b99700', f'{ARCHIVE}.patch_318.gpu_resources': '68721704b73f',
+                   f'{ARCHIVE}.patch_318.stream': 'e3b0c44298fc'},
+        'notes': 'Clones and commandos, together. Venator fleet opening.',
+        'statusNotes': 'r14 removes the Spider Droid aim markers. The opening and voice fills are validated '
+                       'offline. Supply FRV and Watcher audio remain experimental.',
+        'changes': ['Spider Droid eye/vent markers removed (patch_318)'],
+    },
 }
 
 
@@ -150,6 +164,11 @@ def build(out: Path, version: str, base_feed: Path) -> None:
             seen.add(f['name'])
     if seen != set(spec['replace']):
         raise ValueError(f'Missing base entries: {sorted(set(spec["replace"]) - seen)}')
+    removal = spec.get('remove', {})
+    removed = [f for f in pack['files'] if f['name'] in removal and f['sha256'].startswith(removal[f['name']])]
+    if {f['name'] for f in removed} != set(removal) or len(removed) != len(removal):
+        raise ValueError('Entries to remove do not match the base feed exactly')
+    pack['files'] = [f for f in pack['files'] if f not in removed]
     if spec['append']:
         if sha(ROOT / spec['append'][0][1]) != spec['appendSha']:
             raise ValueError('Appended patch is not the validated candidate')

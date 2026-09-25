@@ -1,5 +1,12 @@
 # Current status
 
+## September 25: launcher 1.6.3 / pack r14 prepared (markers removed)
+
+The owner saw the Spider Droid markers in game, judged they didn't look right, and asked for
+them to be removed. r14 is r13 without manifest `patch_318`: no new assets, nothing renumbered,
+and the Spider Droid unit falls back to the CIS patch. They rendered in game, so the UV3 layout
+change was accepted; there is no other gameplay evidence yet.
+
 ## September 24 (late night): launcher 1.6.2 / pack r13 published (voice gap fill)
 
 Published through the sealed workflow (feed commit `0a973e3`; [verification](releases/v1.6.2-verification.json)).

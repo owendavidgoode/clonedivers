@@ -5,6 +5,11 @@ marker candidate is installed **locally only** for gameplay testing.
 
 ## Spider Droid eye and vent markers
 
+**Removed in 1.6.3 / pack r14 (2026-09-25).** The owner played with v4 (shipped in 1.6.1–1.6.2 as
+manifest `patch_318`) and judged that the markers did not look right. The notes below
+document the attempt. Markers did render in game, which confirms the engine accepted the
+UV3 layout change, but no specific visual feedback was recorded.
+
 ### Where the weak points are
 
 The Spider Droid replaces the War Strider's visuals only. Its physics, hitboxes and state
