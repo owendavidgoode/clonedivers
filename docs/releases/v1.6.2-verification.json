@@ -1,0 +1,39 @@
+{
+  "app": "1.6.2",
+  "pack": "2026.09.24-r13",
+  "gameBuild": "25480438",
+  "sourceCommit": "e787efc0fd72ddbdbef2cfbb553df3543809ec34",
+  "feedCommit": "0a973e34ce6f17b137e00db9c90daf580fee0ede",
+  "appSha256": "036d5b0f4a7074637411e109bbe68bd2e1488bbe2736a0820917f44e20cbe4d9",
+  "appChange": "Version bump only (1.6.1 -> 1.6.2)",
+  "manifestV3Sha256": "1ebb2c0fc06e7b46145f10ed76105dbeed5372d85f1e704f12ddfa77d802255e",
+  "compatibilityFeedSha256": "8cd16a50c4c55005d29f42db5b4125da0568b58b571f11c02a80877e2acaff75",
+  "newPackAssets": 3,
+  "newAssetBytes": 45810096,
+  "nativeTests": "passed",
+  "profileChecks": "Full 1136 / Lighter 1138, exact source hashes; both modes gap-free",
+  "hostedVerification": "release.ps1 verified every asset and the downloaded exe; independently: latest release v1.6.2, public exe hash equals local build, both feeds show app 1.6.2, label asset re-hashed",
+  "changes": [
+    "Voice gap fill: 318 lines use RC or Temuera recordings",
+    "Voice 4 labelled Boss/Clone"
+  ],
+  "silentLines": {
+    "Sev": {
+      "before": 193,
+      "after": 105
+    },
+    "Fixer": {
+      "before": 190,
+      "after": 107
+    },
+    "Scorch": {
+      "before": 202,
+      "after": 116
+    },
+    "Boss": {
+      "before": 179,
+      "after": 121
+    }
+  },
+  "gameplay": "Not played in game: voice fills, opening playback, Boss lines, markers."
+}
