@@ -1,6 +1,6 @@
 # Team setup
 
-1. Download [Clonedivers.exe](https://github.com/owendavidgoode/clonedivers/releases/latest/download/Clonedivers.exe), version **1.6.0**. Close the old launcher before replacing it.
+1. Download [Clonedivers.exe](https://github.com/owendavidgoode/clonedivers/releases/latest/download/Clonedivers.exe), version **1.6.1**. Close the old launcher before replacing it.
 2. Keep Helldivers 2 closed, choose **Clonedivers**, set **Droid skins** and **JohnsonPotatoMode™**, then update to pack **2026.09.24-r12**.
 3. Launch through Steam. Everyone installs the pack locally to see and hear the same replacements. **Helldivers** parks the pack for original-game sessions.
 

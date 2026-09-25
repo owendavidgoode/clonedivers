@@ -1,7 +1,9 @@
 # Current status
 
-## September 24 (late night): pack r12 prepared (opening logo trimmed)
+## September 24 (late night): launcher 1.6.1 + pack r12 prepared (opening logo trimmed)
 
+The owner asked to publish r12 as **1.6.1**: the launcher is rebuilt with only its version bumped, and
+[1.6.1 notes](releases/v1.6.1.md) cover r11 and r12. The earlier pack-only staging `dist/release-ready-r12` is unused.
 r12 changes only the opening: Coastlake's end logo is removed. Video 0-75.0 s plus 1.0 s black
 (the shot's own fade reaches black at 74.71 s; the logo starts at 75.42 s), 1,824 frames, four-slice
 Bink 2; soundtrack 76.0 s with a 74.5-76.0 s fade. Built with `tools/build-pack-candidate.py
