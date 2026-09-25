@@ -1,7 +1,7 @@
 {
     "format":  3,
     "pack":  {
-                 "version":  "2026.09.24-r12",
+                 "version":  "2026.09.24-r13",
                  "name":  "Clonedivers pack",
                  "notes":  "Clones and commandos, together. Venator fleet opening.",
                  "gameBuild":  "25480438",
@@ -13,7 +13,7 @@
                                     "3382210389809902281"
                                 ],
                  "status":  "ok",
-                 "statusNotes":  "r12 trims the Coastlake logo from the opening. The opening, Boss/Temuera voice fill and Spider Droid markers are validated offline; not yet played in game. Supply FRV and Watcher audio remain experimental.",
+                 "statusNotes":  "r13 fills 318 silent or Battlefront-clone voice lines and labels voice 4 Boss/Clone. The opening, Boss/Temuera voice fill and Spider Droid markers are validated offline; not yet played in game. Supply FRV and Watcher audio remain experimental.",
                  "options":  [
                                  {
                                      "id":  "commandos",
@@ -13237,9 +13237,9 @@
                                },
                                {
                                    "name":  "9ba626afa44a3aa3.patch_251",
-                                   "url":  "https://github.com/owendavidgoode/clonedivers/releases/download/pack-2026.09.24-r11-files/b9f77af19ceff3e3710cd42b93b731cfcc489804829041f4a4fd420daf4daaf9",
-                                   "size":  886560,
-                                   "sha256":  "b9f77af19ceff3e3710cd42b93b731cfcc489804829041f4a4fd420daf4daaf9",
+                                   "url":  "https://github.com/owendavidgoode/clonedivers/releases/download/pack-2026.09.24-r13-files/143b856d82c806475b38b862e4fcf7dee573a26e7b7749b163f9af15b5711d0c",
+                                   "size":  917088,
+                                   "sha256":  "143b856d82c806475b38b862e4fcf7dee573a26e7b7749b163f9af15b5711d0c",
                                    "option":  "commandos",
                                    "modes":  [
                                                  "commandos"
@@ -13257,9 +13257,9 @@
                                },
                                {
                                    "name":  "9ba626afa44a3aa3.patch_251.stream",
-                                   "url":  "https://github.com/owendavidgoode/clonedivers/releases/download/pack-2026.09.24-r11-files/138b9c901c60f413ad3b9d31279e41dbf993fa822625825ff4ccce43921a66bc",
-                                   "size":  38117936,
-                                   "sha256":  "138b9c901c60f413ad3b9d31279e41dbf993fa822625825ff4ccce43921a66bc",
+                                   "url":  "https://github.com/owendavidgoode/clonedivers/releases/download/pack-2026.09.24-r13-files/c9818f8e294f87fe41c2e08a83d0fb389879478da8b9201f8c0b030dfbe037fb",
+                                   "size":  44720160,
+                                   "sha256":  "c9818f8e294f87fe41c2e08a83d0fb389879478da8b9201f8c0b030dfbe037fb",
                                    "option":  "commandos",
                                    "modes":  [
                                                  "commandos"
@@ -13267,9 +13267,9 @@
                                },
                                {
                                    "name":  "9ba626afa44a3aa3.patch_252",
-                                   "url":  "https://github.com/owendavidgoode/clonedivers/releases/download/pack-2026.09.24-r10-files/e9905cc405f61aa4c9b6cbe919c79d26c23730f317f49754115177233f7f23c9",
-                                   "size":  172832,
-                                   "sha256":  "e9905cc405f61aa4c9b6cbe919c79d26c23730f317f49754115177233f7f23c9",
+                                   "url":  "https://github.com/owendavidgoode/clonedivers/releases/download/pack-2026.09.24-r13-files/fde8fa1c36f8cddefaaa7f05b8ed62e8d2dc34ed72d26d7f779abf498ebaf449",
+                                   "size":  172848,
+                                   "sha256":  "fde8fa1c36f8cddefaaa7f05b8ed62e8d2dc34ed72d26d7f779abf498ebaf449",
                                    "option":  "commandos",
                                    "modes":  [
                                                  "commandos"
@@ -15263,7 +15263,7 @@
                                    "option":  "droids"
                                }
                            ],
-                 "totalSize":  18398145982,
+                 "totalSize":  18404778750,
                  "isBroken":  false,
                  "isPublished":  true,
                  "isPerFile":  true,
@@ -15282,9 +15282,9 @@
                  "combinedRoster":  true
              },
     "app":  {
-                "version":  "1.6.1",
-                "url":  "https://github.com/owendavidgoode/clonedivers/releases/download/v1.6.1/Clonedivers.exe",
-                "size":  66403699,
-                "sha256":  "973b74f0f18791c23e0c7299f932157da0a8c61e7d272e73e5fda8f711651ed1"
+                "version":  "1.6.2",
+                "url":  "https://github.com/owendavidgoode/clonedivers/releases/download/v1.6.2/Clonedivers.exe",
+                "size":  66403702,
+                "sha256":  "036d5b0f4a7074637411e109bbe68bd2e1488bbe2736a0820917f44e20cbe4d9"
             }
 }
