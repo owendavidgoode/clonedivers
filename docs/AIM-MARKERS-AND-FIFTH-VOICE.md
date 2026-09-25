@@ -161,6 +161,36 @@ normalized (Boss was already reported loud).
   calls now use Temuera. Check a few common calls (reload, stratagem, ping, affirmative) locally
   and from a teammate on voice 4.
 
+### Voice gap fill and "Boss/Clone" label (prepared, not published)
+
+`tools/build-voice-fill.py --out <fresh dir>` edits the published r12 Delta bundle (manifest
+`patch_251`) and label bank (`patch_252`). It changes only lines that are currently silent
+(the Full Clone Voice mod mutes lines it could not match) or Battlefront-clone-voiced.
+RC-mapped lines and Boss's Temuera lines are never replaced.
+
+1. Curated RC recordings per character, chosen by exact transcript from the audited
+   catalog: duration ≤ 2.8 s, subtitle agreement ≥ 0.8, no uncertain/no-speech flag. Two Sev
+   lines failed on subtitle disagreement and were dropped. Categories:
+   - target/ordinal pings → "Enemy spotted.", "Eliminate target.";
+   - walker ping → "Spider Droid!";
+   - "strategy selected" / "loadout confirmed" → "Ready, sir.";
+   - sample/resource pickups → "Got it.";
+   - "found something" and item pings → "There's something here.";
+   - "nice", supplies, equipment, wildlife ("Something's moving."), low visibility and
+     fortifications.
+2. Still-silent lines whose identical text Temuera voiced in another slot: that Temuera recording.
+
+Result: 318 lines filled (42 distinct RC recordings plus Temuera). Silent lines: Sev 193 → 105,
+Fixer 190 → 107, Scorch 202 → 116, Boss 179 → 121. RC fills are PCM, with the bank codec
+field set to PCM for exactly those Sounds. Temuera fills are Vorbis. Restoring the codec
+fields reproduces each base bank, and all other base resources are byte-identical. Sampled
+streams decode with vgmstream.
+
+Still silent, with no clone recording in any available source (both clone voice mods also
+mute these): numbers, NATO letters, compass directions, distances, "code is", "deploying
+flare", "dropping item", and some legendary-item flavour lines. Voice 4 is relabelled
+"Boss/Clone" (keys 3149181118/534138438 only).
+
 ### Star Wars audio inventory (unchanged)
 
 11 installed titles inventoried in `dist/aim-voice-2026-09-24/star-wars-installs.json` and

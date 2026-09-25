@@ -1,5 +1,12 @@
 # Current status
 
+## September 24 (late night): voice gap fill prepared
+
+318 silent or Battlefront-clone lines now play Republic Commando or Temuera Morrison recordings,
+and voice 4 is labelled "Boss/Clone". Still silent per voice: about 105-121 lines, mostly numbers,
+NATO letters, directions and distances, for which no clone recording exists. Built with
+`tools/build-voice-fill.py`; not installed or published. [Details](AIM-MARKERS-AND-FIFTH-VOICE.md).
+
 ## September 24 (late night): launcher 1.6.1 + pack r12 published (opening logo trimmed)
 
 Published through the sealed workflow (feed commit `b4a7c7c`; [verification](releases/v1.6.1-verification.json)).
