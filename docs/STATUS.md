@@ -1,5 +1,12 @@
 # Current status
 
+## September 24 (late night): pack r12 prepared (opening logo trimmed)
+
+r12 changes only the opening: Coastlake's end logo is removed. Video 0-75.0 s plus 1.0 s black
+(the shot's own fade reaches black at 74.71 s; the logo starts at 75.42 s), 1,824 frames, four-slice
+Bink 2; soundtrack 76.0 s with a 74.5-76.0 s fade. Built with `tools/build-pack-candidate.py
+--version 2026.09.24-r12` (the generalised r11 tool; it reproduces the r11 manifest byte for byte).
+
 ## September 24 (night): pack r11 published (launcher unchanged)
 
 Published through the sealed workflow (feed commit `27dc6d5`; [verification](releases/pack-2026.09.24-r11-verification.json)). Owner-authorized release without a prior in-game boot: pack 2026.09.24-r11 on launcher 1.6.0.
