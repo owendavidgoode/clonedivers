@@ -1,0 +1,30 @@
+{
+  "app": "1.6.1",
+  "pack": "2026.09.24-r12",
+  "gameBuild": "25480438",
+  "sourceCommit": "c9a47deb9d761fe3b02cced2da1c3b3a4e89aaaf",
+  "feedCommit": "b4a7c7c226ac546ffba148ac4c6eae70117abec9",
+  "appSha256": "973b74f0f18791c23e0c7299f932157da0a8c61e7d272e73e5fda8f711651ed1",
+  "appChange": "Version bump only (1.6.0 -> 1.6.1)",
+  "manifestV3Sha256": "5373ae34b06262654186b8083ccfaa9a90b41450bc7e00d072843834aa5c582b",
+  "compatibilityFeedSha256": "fb619af2562a26adf699dbf0700b6f7148ee5177272c2040259817b1173e8a1f",
+  "compatibilityFeed": "r8 pack with app 1.6.1 for older launchers",
+  "newPackAssets": 4,
+  "newAssetBytes": 90608112,
+  "downloadFromR10MB": 155.1,
+  "downloadFromR11MB": 90.6,
+  "nativeTests": "passed",
+  "profileChecks": "Full 1136 / Lighter 1138, exact source hashes; both modes gap-free",
+  "hostedVerification": "release.ps1 verified every asset size/SHA-256 and the downloaded exe; independently: latest release is v1.6.1, anonymous exe download matches, both feeds (API) show app 1.6.1, r12 asset re-hashed",
+  "changes": [
+    "Opening trimmed before the Coastlake end logo (76.0 s)",
+    "Carries r11: Venator opening, Boss Temuera fill, Spider Droid markers"
+  ],
+  "gameplay": "Not played in game: opening playback, Boss fill lines, markers.",
+  "unfinished": [
+    "Top eye marker",
+    "AT-TE camera",
+    "Steam Running after normal game exit",
+    "Exit-time crash dump of 2026-09-24 19:55 session unexplained"
+  ]
+}

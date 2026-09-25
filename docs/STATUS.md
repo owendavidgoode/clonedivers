@@ -1,6 +1,8 @@
 # Current status
 
-## September 24 (late night): launcher 1.6.1 + pack r12 prepared (opening logo trimmed)
+## September 24 (late night): launcher 1.6.1 + pack r12 published (opening logo trimmed)
+
+Published through the sealed workflow (feed commit `b4a7c7c`; [verification](releases/v1.6.1-verification.json)).
 
 The owner asked to publish r12 as **1.6.1**: the launcher is rebuilt with only its version bumped, and
 [1.6.1 notes](releases/v1.6.1.md) cover r11 and r12. The earlier pack-only staging `dist/release-ready-r12` is unused.
