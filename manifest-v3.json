@@ -1,9 +1,9 @@
 {
   "format": 3,
   "pack": {
-    "version": "2026.09.26-r15",
+    "version": "2026.09.26-r16",
     "name": "Clonedivers and EmpireDivers",
-    "notes": "EmpireDivers mode and optional Covenant squids. Update the launcher to 1.7.0 first.",
+    "notes": "LAS-12 SAI now includes E-11 firing sounds and blue Battlefront-style blaster bolts in Clonedivers and EmpireDivers.",
     "gameBuild": "25480438",
     "gameDepots": [
       "1883032874832282552",
@@ -13,7 +13,7 @@
       "3382210389809902281"
     ],
     "status": "ok",
-    "statusNotes": "EmpireDivers and Covenant are experimental; released at owner request without a gameplay test. See 1.7.0 notes.",
+    "statusNotes": "SAI sound and projectile payloads checked offline; gameplay unverified. EmpireDivers and Covenant remain experimental.",
     "options": [
       {
         "id": "commandos",
@@ -17967,9 +17967,42 @@
           "empire"
         ],
         "url": "https://github.com/owendavidgoode/clonedivers/releases/download/pack-2026.09.26-r15-files/f331ef7496b8b946effa51e02368ab9fc64d3b8dd3ca97846c1dbff8fff0cead"
+      },
+      {
+        "name": "9ba626afa44a3aa3.patch_321",
+        "size": 2266656,
+        "sha256": "0373608148fd810d4447cf8f05ad475ae12cb198ec90ea925aeb6b3e9e7725bd",
+        "modes": [
+          "clonedivers",
+          "commandos",
+          "empire"
+        ],
+        "url": "https://github.com/owendavidgoode/clonedivers/releases/download/pack-2026.09.26-r16-files/0373608148fd810d4447cf8f05ad475ae12cb198ec90ea925aeb6b3e9e7725bd"
+      },
+      {
+        "name": "9ba626afa44a3aa3.patch_321.stream",
+        "size": 0,
+        "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "modes": [
+          "clonedivers",
+          "commandos",
+          "empire"
+        ],
+        "url": ""
+      },
+      {
+        "name": "9ba626afa44a3aa3.patch_321.gpu_resources",
+        "size": 0,
+        "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "modes": [
+          "clonedivers",
+          "commandos",
+          "empire"
+        ],
+        "url": ""
       }
     ],
-    "totalSize": 20365832921,
+    "totalSize": 20368099577,
     "isBroken": false,
     "isPublished": true,
     "isPerFile": true,
