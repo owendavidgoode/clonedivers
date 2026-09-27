@@ -1,0 +1,19 @@
+{
+  "app": "1.7.0",
+  "pack": "2026.09.26-r15",
+  "gameBuild": "25480438",
+  "sourceCommit": "ad048a3e82299fe967fceb21016d19bc22a96bf8",
+  "feedCommit": "35af359a340256ade4543ae4574b07ee4b6a6ad6",
+  "appSha256": "e5112268fd917c53a13ac9e712d361c93a26657422b857d6d249ac5ff4374e96",
+  "manifestV3Sha256": "d8328091b895615161fa4f1d0bb97ea676de3f02d6a42b110f45660d119d6a4e",
+  "compatibilityFeedSha256": "fc2613adbae0dfa463d6f7b89675dc2b3282aa5c7c8f2473eac2020a8790d841",
+  "newPackAssets": 6,
+  "nativeTests": "passed, including cached Empire/Clone round trips and vanilla parking",
+  "factionChecks": "16 combinations passed; r14 Clone baseline unchanged; Empire isolation and Covenant/Watcher exclusion",
+  "profileChecks": "Full 1133 / Lighter 1135, exact source hashes",
+  "geometryChecks": "51 Imperial, 13 Covenant, 2 AT-ST body models decoded; 4 zero-triangle weapon hiders structurally checked; documented export-only empty-mesh omissions",
+  "hostedVerification": "release.ps1 verified every hosted asset, downloaded executable, and both live feeds; independent check confirms v1.7.0 Latest, public download redirect, executable hash and six non-draft new pack assets",
+  "gameplay": "Not tested. Owner explicitly authorized shipping 1.7 without a gameplay test.",
+  "installedGameChanged": false,
+  "verifiedUtc": "2026-09-27T04:01:03.1464402+00:00"
+}
