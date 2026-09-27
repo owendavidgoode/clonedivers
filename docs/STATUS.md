@@ -1,5 +1,18 @@
 # Current status
 
+## September 26: SAI sound and blaster bolts published in pack r16
+
+Launcher **1.7.0** is unchanged. Pack **2026.09.26-r16** adds LAS-12 SAI E-11
+firing sound and blue Battlefront-style blaster bolts to Clonedivers and
+EmpireDivers, with either profile and Covenant setting. Gun model unchanged.
+One new 2,266,656-byte asset; no existing resource collisions. All native tests,
+16 SAI selection checks and Full/Lighter source hashes pass. Publication completed
+through the sealed workflow (feed `7fb1c44`); the public asset was downloaded and
+re-hashed, both feeds verified, and 1.7.0 remains Latest. Gameplay is unverified
+under the owner's release authorization. Installed game files remain unchanged.
+[Notes and credits](releases/pack-2026.09.26-r16.md),
+[verification](releases/pack-2026.09.26-r16-verification.json).
+
 ## September 26: launcher 1.7.0 / pack r15 published
 
 EmpireDivers is a third mode with Imperial armor, Star Destroyers, gray LAAT,

@@ -1,0 +1,18 @@
+{
+  "app": "1.7.0 (unchanged)",
+  "pack": "2026.09.26-r16",
+  "sourceCommit": "46a63666d7a0f9ce141185c58e5714b80c1e3fd4",
+  "feedCommit": "7fb1c44ff2a4ca1de272e87b50d44fc8c47574c4",
+  "newPackAssets": 1,
+  "newAssetBytes": 2266656,
+  "newAssetSha256": "0373608148fd810d4447cf8f05ad475ae12cb198ec90ea925aeb6b3e9e7725bd",
+  "manifestV3Sha256": "3c4a81c8de63793030732f8daaf8fe800867f6e8cff03d0f0da34fcf2b8ada95",
+  "appSha256": "e5112268fd917c53a13ac9e712d361c93a26657422b857d6d249ac5ff4374e96",
+  "nativeTests": "passed",
+  "profileChecks": "Full 1136 / Lighter 1138, every source hashed",
+  "saiChecks": "16 combinations preserve previous content and add SAI sound/bolts",
+  "hostedVerification": "All referenced sizes/digests and both feeds verified by publisher; independent public SAI download re-hashed; both release notes verified; v1.7.0 remains Latest",
+  "gameplay": "Not tested; owner authorized shipping without gameplay test",
+  "installedGameChanged": false,
+  "verifiedUtc": "2026-09-27T04:17:49.2205240+00:00"
+}
