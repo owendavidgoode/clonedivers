@@ -1,0 +1,41 @@
+{
+  "combinations": 16,
+  "modeSelections": 32,
+  "promotedBundles": 126,
+  "scopeArchives": 90,
+  "verifiedUniqueAssets": 141,
+  "profiles": [
+    {
+      "profile": "full",
+      "files": 355,
+      "bytes": 1284723044,
+      "empireFiles": 1006
+    },
+    {
+      "profile": "lighter",
+      "files": 355,
+      "bytes": 1314174068,
+      "empireFiles": 1008
+    }
+  ],
+  "resourceChecks": [
+    {
+      "profile": "full",
+      "sharedResources": 540,
+      "imperialResources": 148,
+      "allowedIntroAudioOverlaps": 2,
+      "unexpectedOverlaps": 0
+    },
+    {
+      "profile": "lighter",
+      "sharedResources": 540,
+      "imperialResources": 148,
+      "allowedIntroAudioOverlaps": 2,
+      "unexpectedOverlaps": 0
+    }
+  ],
+  "clonediversUnchanged": true,
+  "cloneVoicesExcluded": true,
+  "imperialAssetsUnchanged": true,
+  "gameplayTested": false
+}

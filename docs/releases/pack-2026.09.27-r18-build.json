@@ -1,0 +1,3152 @@
+{
+  "baselineSha256": "20e929f1961e49d0c24be084c206a8389a6c223737165079221725c6c8168b57",
+  "baselineVersion": "2026.09.27-r17",
+  "version": "2026.09.27-r18",
+  "scopeReceiptSha256": "926ea9ac48773dae1e39c29e29d3665262a6cf11a3289dbbbaf2b6d9265d688b",
+  "scopeArchives": 90,
+  "scopeResources": 288,
+  "newAssetBytes": 0,
+  "promotedBundles": 126,
+  "promotedFiles": [
+    {
+      "name": "9ba626afa44a3aa3.patch_10",
+      "sha256": "0c679c838cc939a4d91f70ed39e2ddcd03a690b6c150a7f036f679b12bd8f9ca",
+      "size": 22630,
+      "profiles": [
+        "full"
+      ],
+      "category": "backpacks"
+    },
+    {
+      "name": "9ba626afa44a3aa3.patch_10.gpu_resources",
+      "sha256": "2a40754a8222ba4697b33e9fa4aaebf87785b649294c28ac5b191e746b562477",
+      "size": 18557104,
+      "profiles": [
+        "full"
+      ],
+      "category": "backpacks"
+    },
+    {
+      "name": "9ba626afa44a3aa3.patch_10.stream",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "size": 0,
+      "profiles": [
+        "full"
+      ],
+      "category": "backpacks"
+    },
+    {
+      "name": "9ba626afa44a3aa3.patch_11",
+      "sha256": "28a9e740bc91e33f8107f0f25584185e6225cfc7c0e77fa4d80e4b4fef0ef538",
+      "size": 398783,
+      "profiles": [
+        "full"
+      ],
+      "category": "backpacks"
+    },
+    {
+      "name": "9ba626afa44a3aa3.patch_11.gpu_resources",
+      "sha256": "13cb19741029a56525b8e123da20cc0742d5aaddb16eb6a7ec1a00405d9b0d18",
+      "size": 331363092,
+      "profiles": [
+        "full"
+      ],
+      "category": "backpacks"
+    },
+    {
+      "name": "9ba626afa44a3aa3.patch_11.stream",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "size": 0,
+      "profiles": [
+        "full"
+      ],
+      "category": "backpacks"
+    },
+    {
+      "name": "9ba626afa44a3aa3.patch_12",
+      "sha256": "690b413fabb22c554d788fafc035db7dc8415ebaf61a60723d739f67b8f15094",
+      "size": 1404,
+      "profiles": [
+        "full"
+      ],
+      "category": "backpacks"
+    },
+    {
+      "name": "9ba626afa44a3aa3.patch_12.gpu_resources",
+      "sha256": "3bd31320c683c4f8e6939edd3020166d28baf338e80d04a95c7196c598c36c24",
+      "size": 5592432,
+      "profiles": [
+        "full"
+      ],
+      "category": "backpacks"
+    },
+    {
+      "name": "9ba626afa44a3aa3.patch_12.stream",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "size": 0,
+      "profiles": [
+        "full"
+      ],
+      "category": "backpacks"
+    },
+    {
+      "name": "9ba626afa44a3aa3.patch_13",
+      "sha256": "95933fcfa1bcb0e407b3bace65dbf53cf01ffb9f89f5a894753d38d136707c6f",
+      "size": 14484,
+      "profiles": [
+        "full"
+      ],
+      "category": "backpacks"
+    },
+    {
+      "name": "9ba626afa44a3aa3.patch_13.gpu_resources",
+      "sha256": "3a846933a54e99564ff13ef29390ab87882d1cad2f438942ecd892048a91e7f1",
+      "size": 21177992,
+      "profiles": [
+        "full"
+      ],
+      "category": "backpacks"
+    },
+    {
+      "name": "9ba626afa44a3aa3.patch_13.stream",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "size": 0,
+      "profiles": [
+        "full"
+      ],
+      "category": "backpacks"
+    },
+    {
+      "name": "9ba626afa44a3aa3.patch_14",
+      "sha256": "31c49bbe931df51018db14ec43bf51a35b7b2febb5453244633d78dc793e2745",
+      "size": 31626,
+      "profiles": [
+        "full"
+      ],
+      "category": "backpacks"
+    },
+    {
+      "name": "9ba626afa44a3aa3.patch_14.gpu_resources",
+      "sha256": "560842b32619199d7a0655bfe57ba96ec9c032e30186746e99949d7096ea0bb9",
+      "size": 19594992,
+      "profiles": [
+        "full"
+      ],
+      "category": "backpacks"
+    },
+    {
+      "name": "9ba626afa44a3aa3.patch_14.stream",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "size": 0,
+      "profiles": [
+        "full"
+      ],
+      "category": "backpacks"
+    },
+    {
+      "name": "9ba626afa44a3aa3.patch_161",
+      "sha256": "ebf70e8bb4c95e82957b202cd7b4c802be378cf7e272b07d470e081335398e19",
+      "size": 89600368,
+      "profiles": [
+        "full",
+        "lighter"
+      ],
+      "category": "stratagem input sounds"
+    },
+    {
+      "name": "9ba626afa44a3aa3.patch_161.stream",
+      "sha256": "be420ebc5826b9bc17c3857f6c4a876541773ff37f255c486407fcec66410eaa",
+      "size": 1284304,
+      "profiles": [
+        "full",
+        "lighter"
+      ],
+      "category": "stratagem input sounds"
+    },
+    {
+      "name": "9ba626afa44a3aa3.patch_165",
+      "sha256": "7338dfc5cb8c27d498d36fe873754e8fe4b1e594d20920f65aefd333c42a2a89",
+      "size": 6007424,
+      "profiles": [
+        "full",
+        "lighter"
+      ],
+      "category": "Eagle weapon audio"
+    },
+    {
+      "name": "9ba626afa44a3aa3.patch_165.stream",
+      "sha256": "8b616cdc247cc2a656cbad553d3109188857c85039406321e4825eef8fcc08e4",
+      "size": 552240,
+      "profiles": [
+        "full",
+        "lighter"
+      ],
+      "category": "Eagle weapon audio"
+    },
+    {
+      "name": "9ba626afa44a3aa3.patch_166",
+      "sha256": "69243527820b6ff158e6ba7a2797b09c60a88484ce659ff4ff6051640927a73a",
+      "size": 98823760,
+      "profiles": [
+        "full",
+        "lighter"
+      ],
+      "category": "CIS enemy audio"
+    },
+    {
+      "name": "9ba626afa44a3aa3.patch_166.stream",
+      "sha256": "715c6e33a54801ad5bfd62a0ee2e564d70415e2243089680a40fd6d112ba79be",
+      "size": 4645200,
+      "profiles": [
+        "full",
+        "lighter"
+      ],
+      "category": "CIS enemy audio"
+    },
+    {
+      "name": "9ba626afa44a3aa3.patch_167",
+      "sha256": "c383360dd7bd3224c25d2e1c83c27e0b01ac0d7b5cd97dffa7ecb99f675cc6c9",
+      "size": 2505392,
+      "profiles": [
+        "full",
+        "lighter"
+      ],
+      "category": "orbital and sentry audio"
+    },
+    {
+      "name": "9ba626afa44a3aa3.patch_168",
+      "sha256": "c6099a1b473b6313538ef2797059132a905151adbde17a9b8a202a6573cce2b9",
+      "size": 4963952,
+      "profiles": [
+        "full",
+        "lighter"
+      ],
+      "category": "orbital and sentry audio"
+    },
+    {
+      "name": "9ba626afa44a3aa3.patch_169",
+      "sha256": "69798b32ea9b350dd948012dd3d3457d30b752c44fec0426e44ba7f1fba4c9dd",
+      "size": 1086560,
+      "profiles": [
+        "full",
+        "lighter"
+      ],
+      "category": "orbital and sentry audio"
+    },
+    {
+      "name": "9ba626afa44a3aa3.patch_170",
+      "sha256": "b740bb4a609316b9dff48cad7ad06186386bb442d77751c1d3807ea8a0348603",
+      "size": 2956160,
+      "profiles": [
+        "full",
+        "lighter"
+      ],
+      "category": "orbital and sentry audio"
+    },
+    {
+      "name": "9ba626afa44a3aa3.patch_171",
+      "sha256": "b792b0cd3b8258252b7f808ecaf2d384a2b292237ad79a428a4c4e12b2fea254",
+      "size": 870560,
+      "profiles": [
+        "full",
+        "lighter"
+      ],
+      "category": "orbital and sentry audio"
+    },
+    {
+      "name": "9ba626afa44a3aa3.patch_172",
+      "sha256": "aa2718c92b261720d765eed2f35435c42ef1fd78bc1bab36ccb02e2d974e4578",
+      "size": 1129024,
+      "profiles": [
+        "full",
+        "lighter"
+      ],
+      "category": "orbital and sentry audio"
+    },
+    {
+      "name": "9ba626afa44a3aa3.patch_173",
+      "sha256": "09c3e0e9e33b047cf0a07d3cf8ee60a530935ccf8c55692f4e60b91aa4ca0013",
+      "size": 1336944,
+      "profiles": [
+        "full",
+        "lighter"
+      ],
+      "category": "orbital and sentry audio"
+    },
+    {
+      "name": "9ba626afa44a3aa3.patch_174",
+      "sha256": "e996ba53198b35bee3da7beed2606a237198b97edec996c931dec0131d6c0e75",
+      "size": 3982400,
+      "profiles": [
+        "full",
+        "lighter"
+      ],
+      "category": "orbital and sentry audio"
+    },
+    {
+      "name": "9ba626afa44a3aa3.patch_175",
+      "sha256": "8c7e0e0f3e483912f2afa3252e1d537ce14172f99fed22e584cfabb50b98dcb5",
+      "size": 3654848,
+      "profiles": [
+        "full",
+        "lighter"
+      ],
+      "category": "orbital and sentry audio"
+    },
+    {
+      "name": "9ba626afa44a3aa3.patch_176",
+      "sha256": "384d08638fa694e9c674a4090892653381a6966db3fd88f9973d7c1e97d4cabc",
+      "size": 934080,
+      "profiles": [
+        "full",
+        "lighter"
+      ],
+      "category": "orbital and sentry audio"
+    },
+    {
+      "name": "9ba626afa44a3aa3.patch_224",
+      "sha256": "b96698102a200e3b43cf153f57e0a04b0b1d9c734bafabef3a1db58073ad3fe0",
+      "size": 125036,
+      "profiles": [
+        "full"
+      ],
+      "category": "Y-Wing Eagle"
+    },
+    {
+      "name": "9ba626afa44a3aa3.patch_224.gpu_resources",
+      "sha256": "dfe3359bbf80b6cd494c6b5e095a5fdea1e1abc2fc5afbe8dfaacc66e886c424",
+      "size": 83999088,
+      "profiles": [
+        "full"
+      ],
+      "category": "Y-Wing Eagle"
+    },
+    {
+      "name": "9ba626afa44a3aa3.patch_224.stream",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "size": 0,
+      "profiles": [
+        "full"
+      ],
+      "category": "Y-Wing Eagle"
+    },
+    {
+      "name": "9ba626afa44a3aa3.patch_225",
+      "sha256": "a7cd899a35ad91e1e593d46f3b2cd035b9a6a685657da784f5265473bb4e8dd3",
+      "size": 28424,
+      "profiles": [
+        "full",
+        "lighter"
+      ],
+      "category": "Y-Wing Eagle"
+    },
+    {
+      "name": "9ba626afa44a3aa3.patch_225.gpu_resources",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "size": 0,
+      "profiles": [
+        "full",
+        "lighter"
+      ],
+      "category": "Y-Wing Eagle"
+    },
+    {
+      "name": "9ba626afa44a3aa3.patch_225.stream",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "size": 0,
+      "profiles": [
+        "full",
+        "lighter"
+      ],
+      "category": "Y-Wing Eagle"
+    },
+    {
+      "name": "9ba626afa44a3aa3.patch_226",
+      "sha256": "839a60493271de0bc4f2b0eccef5fbaafc78769ef6b6abf21524210996f1fcf3",
+      "size": 1312,
+      "profiles": [
+        "full"
+      ],
+      "category": "Y-Wing Eagle"
+    },
+    {
+      "name": "9ba626afa44a3aa3.patch_226.gpu_resources",
+      "sha256": "36004254df99022a7f9052c01ab0fbf1014ba7085e955a308c8def2a00a8acb3",
+      "size": 22369648,
+      "profiles": [
+        "full"
+      ],
+      "category": "Y-Wing Eagle"
+    },
+    {
+      "name": "9ba626afa44a3aa3.patch_226.stream",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "size": 0,
+      "profiles": [
+        "full"
+      ],
+      "category": "Y-Wing Eagle"
+    },
+    {
+      "name": "9ba626afa44a3aa3.patch_228",
+      "sha256": "8b818597a612b82006f256907ef01c229f0df5328e33d31b96e02d5769db1196",
+      "size": 395050,
+      "profiles": [
+        "full"
+      ],
+      "category": "LAAT/c transport"
+    },
+    {
+      "name": "9ba626afa44a3aa3.patch_228.gpu_resources",
+      "sha256": "9914c9a2f46fad69300a9cd9ee51da0ae00a6cd2cf299931a593940fcebd2b16",
+      "size": 118411312,
+      "profiles": [
+        "full"
+      ],
+      "category": "LAAT/c transport"
+    },
+    {
+      "name": "9ba626afa44a3aa3.patch_228.stream",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "size": 0,
+      "profiles": [
+        "full"
+      ],
+      "category": "LAAT/c transport"
+    },
+    {
+      "name": "9ba626afa44a3aa3.patch_229",
+      "sha256": "6a7da34710bc1bce05f9dafbfc55f832ba96ae1af6aa4983ecf4a920cb2ba2b8",
+      "size": 7772,
+      "profiles": [
+        "full"
+      ],
+      "category": "LAAT/c transport"
+    },
+    {
+      "name": "9ba626afa44a3aa3.patch_229.gpu_resources",
+      "sha256": "8df4234ae89e24565e750a47c9df2e4cf1df1adbbbab4922e56833e7607d385a",
+      "size": 87644208,
+      "profiles": [
+        "full"
+      ],
+      "category": "LAAT/c transport"
+    },
+    {
+      "name": "9ba626afa44a3aa3.patch_229.stream",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "size": 0,
+      "profiles": [
+        "full"
+      ],
+      "category": "LAAT/c transport"
+    },
+    {
+      "name": "9ba626afa44a3aa3.patch_236",
+      "sha256": "9e8778045dcc1583cb7c6b124f1e460f3611ef20eb9769be3e1c1c398e79587b",
+      "size": 11644,
+      "profiles": [
+        "full",
+        "lighter"
+      ],
+      "category": "transport weapon cleanup"
+    },
+    {
+      "name": "9ba626afa44a3aa3.patch_236.gpu_resources",
+      "sha256": "93249c1646b48e229e0b6600840585c7162ed180a67b08f0cd9d4254f0925850",
+      "size": 49936,
+      "profiles": [
+        "full",
+        "lighter"
+      ],
+      "category": "transport weapon cleanup"
+    },
+    {
+      "name": "9ba626afa44a3aa3.patch_236.stream",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "size": 0,
+      "profiles": [
+        "full",
+        "lighter"
+      ],
+      "category": "transport weapon cleanup"
+    },
+    {
+      "name": "9ba626afa44a3aa3.patch_237",
+      "sha256": "d029ef149be4e1f75ce43ae6313156e53817330454a3709356d363fada81095c",
+      "size": 119852,
+      "profiles": [
+        "full",
+        "lighter"
+      ],
+      "category": "transport thruster cleanup"
+    },
+    {
+      "name": "9ba626afa44a3aa3.patch_237.gpu_resources",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "size": 0,
+      "profiles": [
+        "full",
+        "lighter"
+      ],
+      "category": "transport thruster cleanup"
+    },
+    {
+      "name": "9ba626afa44a3aa3.patch_237.stream",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "size": 0,
+      "profiles": [
+        "full",
+        "lighter"
+      ],
+      "category": "transport thruster cleanup"
+    },
+    {
+      "name": "9ba626afa44a3aa3.patch_239",
+      "sha256": "7807939821116404fde85db75fa4f2045aa9449e0f46d9e113e34295ffc473b5",
+      "size": 1892,
+      "profiles": [
+        "full"
+      ],
+      "category": "TX-130 FRV"
+    },
+    {
+      "name": "9ba626afa44a3aa3.patch_239.gpu_resources",
+      "sha256": "b1684bceed3b777ba94e7bf006afd61bc1c6646feb03fa4a859265960cbf90bc",
+      "size": 55924144,
+      "profiles": [
+        "full"
+      ],
+      "category": "TX-130 FRV"
+    },
+    {
+      "name": "9ba626afa44a3aa3.patch_239.stream",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "size": 0,
+      "profiles": [
+        "full"
+      ],
+      "category": "TX-130 FRV"
+    },
+    {
+      "name": "9ba626afa44a3aa3.patch_240",
+      "sha256": "db5ede07968bf11166f0f609b43c3f410cc119dd50a0052ad424b11337fd3898",
+      "size": 26128,
+      "profiles": [
+        "full",
+        "lighter"
+      ],
+      "category": "TX-130 FRV"
+    },
+    {
+      "name": "9ba626afa44a3aa3.patch_240.gpu_resources",
+      "sha256": "3c3d356896415a0f7fcec2e3bc1f3efd4459b6cf4ced7113db5cc3c66fd6f900",
+      "size": 206960,
+      "profiles": [
+        "full",
+        "lighter"
+      ],
+      "category": "TX-130 FRV"
+    },
+    {
+      "name": "9ba626afa44a3aa3.patch_240.stream",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "size": 0,
+      "profiles": [
+        "full",
+        "lighter"
+      ],
+      "category": "TX-130 FRV"
+    },
+    {
+      "name": "9ba626afa44a3aa3.patch_241",
+      "sha256": "362e5244140972e58108fded3237bc1e52ce7238c8993258e11f755857f7724d",
+      "size": 105352,
+      "profiles": [
+        "full",
+        "lighter"
+      ],
+      "category": "TX-130 FRV"
+    },
+    {
+      "name": "9ba626afa44a3aa3.patch_241.gpu_resources",
+      "sha256": "f4dc3934ea8c73654d39b3cbfd64183bcafb4772d51023614fd373ec5a2cb98c",
+      "size": 22688104,
+      "profiles": [
+        "full",
+        "lighter"
+      ],
+      "category": "TX-130 FRV"
+    },
+    {
+      "name": "9ba626afa44a3aa3.patch_241.stream",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "size": 0,
+      "profiles": [
+        "full",
+        "lighter"
+      ],
+      "category": "TX-130 FRV"
+    },
+    {
+      "name": "9ba626afa44a3aa3.patch_242",
+      "sha256": "6d20162bc192f824d20cf7b018b74ff733e54371517988f241c4c381e1b99041",
+      "size": 24354,
+      "profiles": [
+        "full"
+      ],
+      "category": "GNK hellbomb"
+    },
+    {
+      "name": "9ba626afa44a3aa3.patch_242.gpu_resources",
+      "sha256": "b1788f8b39c1e385b9616d8900d879e2c8cb10e78baf7d20bd024de5bb7f2416",
+      "size": 31170992,
+      "profiles": [
+        "full"
+      ],
+      "category": "GNK hellbomb"
+    },
+    {
+      "name": "9ba626afa44a3aa3.patch_242.stream",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "size": 0,
+      "profiles": [
+        "full"
+      ],
+      "category": "GNK hellbomb"
+    },
+    {
+      "name": "9ba626afa44a3aa3.patch_245",
+      "sha256": "8784117ea881936a3ffa8156cfb832034f65de341b2c010f47b015376b30bf17",
+      "size": 36769,
+      "profiles": [
+        "full",
+        "lighter"
+      ],
+      "category": "invisible capes"
+    },
+    {
+      "name": "9ba626afa44a3aa3.patch_245.gpu_resources",
+      "sha256": "4ca847e3fedbce1aa2f6d371b2c66c40421d056066965dcebf432bf1bd18e439",
+      "size": 664444,
+      "profiles": [
+        "full",
+        "lighter"
+      ],
+      "category": "invisible capes"
+    },
+    {
+      "name": "9ba626afa44a3aa3.patch_245.stream",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "size": 0,
+      "profiles": [
+        "full",
+        "lighter"
+      ],
+      "category": "invisible capes"
+    },
+    {
+      "name": "9ba626afa44a3aa3.patch_8",
+      "sha256": "c94a4e4e6a562e1927f13d8795a4290df7f44280779fb07da5aefeaa67b85c70",
+      "size": 16576,
+      "profiles": [
+        "full"
+      ],
+      "category": "backpacks"
+    },
+    {
+      "name": "9ba626afa44a3aa3.patch_8.gpu_resources",
+      "sha256": "d01c83d2efceffee0914d4eb0ccc229bb0de3e58e223a178429e74c02cc9ed6f",
+      "size": 13753608,
+      "profiles": [
+        "full"
+      ],
+      "category": "backpacks"
+    },
+    {
+      "name": "9ba626afa44a3aa3.patch_8.stream",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "size": 0,
+      "profiles": [
+        "full"
+      ],
+      "category": "backpacks"
+    },
+    {
+      "name": "9ba626afa44a3aa3.patch_9",
+      "sha256": "34ccf3cd5c9fde6b5075757470e8950db4e2fd313bdd5eadfe4ac6b130dfba59",
+      "size": 524,
+      "profiles": [
+        "full"
+      ],
+      "category": "backpacks"
+    },
+    {
+      "name": "9ba626afa44a3aa3.patch_9.gpu_resources",
+      "sha256": "5406d25a9263926f5f29f651ff14ba21b12c0baa417dc07083d3c824679c4f8b",
+      "size": 5592432,
+      "profiles": [
+        "full"
+      ],
+      "category": "backpacks"
+    },
+    {
+      "name": "9ba626afa44a3aa3.patch_9.stream",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "size": 0,
+      "profiles": [
+        "full"
+      ],
+      "category": "backpacks"
+    },
+    {
+      "name": "9ba626afa44a3aa3.patch_10",
+      "sha256": "fa9ea1c54e08c6d28dd95dd9292c31170c705fc46f91f3c1492a1e646563f334",
+      "size": 22630,
+      "profiles": [
+        "lighter"
+      ],
+      "category": "backpacks"
+    },
+    {
+      "name": "9ba626afa44a3aa3.patch_10.gpu_resources",
+      "sha256": "39290582f320bd523ec987dd6e22e32d7ac10c17cecb96f64af8334d6bd90164",
+      "size": 2828464,
+      "profiles": [
+        "lighter"
+      ],
+      "category": "backpacks"
+    },
+    {
+      "name": "9ba626afa44a3aa3.patch_10.stream",
+      "sha256": "8780ac1889b9c3a879eaf9a160ba0269ed51aa592e032887a2bb4e05a2bd313e",
+      "size": 16777328,
+      "profiles": [
+        "lighter"
+      ],
+      "category": "backpacks"
+    },
+    {
+      "name": "9ba626afa44a3aa3.patch_11",
+      "sha256": "0dd5e0ae61a0b969b64ec4552499b3390b032ac50a81888c19fc2c54b11e711a",
+      "size": 398783,
+      "profiles": [
+        "lighter"
+      ],
+      "category": "backpacks"
+    },
+    {
+      "name": "9ba626afa44a3aa3.patch_11.gpu_resources",
+      "sha256": "4cd24e9f6e83d265c2910a6f2f2fc4ad7760a85114068f6ea012f94945eafeda",
+      "size": 162804500,
+      "profiles": [
+        "lighter"
+      ],
+      "category": "backpacks"
+    },
+    {
+      "name": "9ba626afa44a3aa3.patch_11.stream",
+      "sha256": "f344a14f83f54841cb59ef8c52c5dc6ce3d335666c07d8be8b9a86d9fc092d9b",
+      "size": 180706160,
+      "profiles": [
+        "lighter"
+      ],
+      "category": "backpacks"
+    },
+    {
+      "name": "9ba626afa44a3aa3.patch_12",
+      "sha256": "f03069bd7a34593191f55c37a296eb7739f220559689e7b13aeffa0689e32c18",
+      "size": 1404,
+      "profiles": [
+        "lighter"
+      ],
+      "category": "backpacks"
+    },
+    {
+      "name": "9ba626afa44a3aa3.patch_12.gpu_resources",
+      "sha256": "cf47dfc84b3cd818efff79afbb95684f5d65aa8d5b17893839fcc3c4cde5e1c0",
+      "size": 349552,
+      "profiles": [
+        "lighter"
+      ],
+      "category": "backpacks"
+    },
+    {
+      "name": "9ba626afa44a3aa3.patch_12.stream",
+      "sha256": "3bd31320c683c4f8e6939edd3020166d28baf338e80d04a95c7196c598c36c24",
+      "size": 5592432,
+      "profiles": [
+        "lighter"
+      ],
+      "category": "backpacks"
+    },
+    {
+      "name": "9ba626afa44a3aa3.patch_13",
+      "sha256": "4ad5e624afd5021b39cfceaf6799ee8452766947fe7bc023ba2765ddd1c3509b",
+      "size": 14484,
+      "profiles": [
+        "lighter"
+      ],
+      "category": "backpacks"
+    },
+    {
+      "name": "9ba626afa44a3aa3.patch_13.gpu_resources",
+      "sha256": "99a8ac768a2767dd6e42f0f4d0f103613ed6e49b3658aabeeb93ed0ff539c84b",
+      "size": 4400776,
+      "profiles": [
+        "lighter"
+      ],
+      "category": "backpacks"
+    },
+    {
+      "name": "9ba626afa44a3aa3.patch_13.stream",
+      "sha256": "41bba60bdcb0a3160d47ab5e85794701a3dd4755dd3ba7cfb62e650f9338a046",
+      "size": 18175472,
+      "profiles": [
+        "lighter"
+      ],
+      "category": "backpacks"
+    },
+    {
+      "name": "9ba626afa44a3aa3.patch_14",
+      "sha256": "fef13014661ae39aa48487a84a46e45001b26a69eae461a32325d7f507aec8e5",
+      "size": 31626,
+      "profiles": [
+        "lighter"
+      ],
+      "category": "backpacks"
+    },
+    {
+      "name": "9ba626afa44a3aa3.patch_14.gpu_resources",
+      "sha256": "715796be1562ff1278f337375eeccec2b36cccb0104d09701ace6ed32b971a27",
+      "size": 3866352,
+      "profiles": [
+        "lighter"
+      ],
+      "category": "backpacks"
+    },
+    {
+      "name": "9ba626afa44a3aa3.patch_14.stream",
+      "sha256": "224943afac7f83375ea1324317c582d3ef07dba2207b24eeb44565fa56bb8d59",
+      "size": 16777328,
+      "profiles": [
+        "lighter"
+      ],
+      "category": "backpacks"
+    },
+    {
+      "name": "9ba626afa44a3aa3.patch_224",
+      "sha256": "8b96e2c87e7de7e4deba417fcd399ca75961acb6b6a36ed8c80aaca8d061012b",
+      "size": 125036,
+      "profiles": [
+        "lighter"
+      ],
+      "category": "Y-Wing Eagle"
+    },
+    {
+      "name": "9ba626afa44a3aa3.patch_224.gpu_resources",
+      "sha256": "905c530cf0f855cd7cf0579ec56159fd823f1f81921101e8d5a8dc156fa252f3",
+      "size": 14793072,
+      "profiles": [
+        "lighter"
+      ],
+      "category": "Y-Wing Eagle"
+    },
+    {
+      "name": "9ba626afa44a3aa3.patch_224.stream",
+      "sha256": "e229f96eb670c59ed8f87f28f2997c7fdbe7ef07c141cdd913885f730c25c5b2",
+      "size": 71303408,
+      "profiles": [
+        "lighter"
+      ],
+      "category": "Y-Wing Eagle"
+    },
+    {
+      "name": "9ba626afa44a3aa3.patch_226",
+      "sha256": "2c836b5f936ad385f64ec1b3a88940f318c019358b19b6639c1bce3f014a9e35",
+      "size": 1312,
+      "profiles": [
+        "lighter"
+      ],
+      "category": "Y-Wing Eagle"
+    },
+    {
+      "name": "9ba626afa44a3aa3.patch_226.gpu_resources",
+      "sha256": "fdf9fb91bdedb52efa5a162f4a024e6c084fc7542fc5b1b3078cab0f19df039c",
+      "size": 349552,
+      "profiles": [
+        "lighter"
+      ],
+      "category": "Y-Wing Eagle"
+    },
+    {
+      "name": "9ba626afa44a3aa3.patch_226.stream",
+      "sha256": "36004254df99022a7f9052c01ab0fbf1014ba7085e955a308c8def2a00a8acb3",
+      "size": 22369648,
+      "profiles": [
+        "lighter"
+      ],
+      "category": "Y-Wing Eagle"
+    },
+    {
+      "name": "9ba626afa44a3aa3.patch_228",
+      "sha256": "56d23e15d89829f3ff29a99044ff99136947a2eefbb676b222672d867741814b",
+      "size": 395050,
+      "profiles": [
+        "lighter"
+      ],
+      "category": "LAAT/c transport"
+    },
+    {
+      "name": "9ba626afa44a3aa3.patch_228.gpu_resources",
+      "sha256": "80fe59d9354d727f5eb277d0b55ce5b61f37e533ffc05832118c1e9d09efe308",
+      "size": 76468272,
+      "profiles": [
+        "lighter"
+      ],
+      "category": "LAAT/c transport"
+    },
+    {
+      "name": "9ba626afa44a3aa3.patch_228.stream",
+      "sha256": "1676a8dae33627b22eb6159d448c95e0d18c3d3aec51733de25972915ea427d6",
+      "size": 44739568,
+      "profiles": [
+        "lighter"
+      ],
+      "category": "LAAT/c transport"
+    },
+    {
+      "name": "9ba626afa44a3aa3.patch_229",
+      "sha256": "053b9fe7fd606ff6ec1743499f7cc1a6c0859b2b29d44e50f2587d174c6f954c",
+      "size": 7772,
+      "profiles": [
+        "lighter"
+      ],
+      "category": "LAAT/c transport"
+    },
+    {
+      "name": "9ba626afa44a3aa3.patch_229.gpu_resources",
+      "sha256": "f23e59e7590031066a684215364c4ee22dd038c587448efb4da0da0e5184da7d",
+      "size": 3758128,
+      "profiles": [
+        "lighter"
+      ],
+      "category": "LAAT/c transport"
+    },
+    {
+      "name": "9ba626afa44a3aa3.patch_229.stream",
+      "sha256": "993b2b151db6e6bdf2d15144ed6da0e72fceee9197ab77b31819927dae7c3042",
+      "size": 86682608,
+      "profiles": [
+        "lighter"
+      ],
+      "category": "LAAT/c transport"
+    },
+    {
+      "name": "9ba626afa44a3aa3.patch_239",
+      "sha256": "f233670b5c8c81b3167373d231bdf10bd8042098ff7d7d98da3d985c70add7a1",
+      "size": 1892,
+      "profiles": [
+        "lighter"
+      ],
+      "category": "TX-130 FRV"
+    },
+    {
+      "name": "9ba626afa44a3aa3.patch_239.gpu_resources",
+      "sha256": "e2cdf3fcf0cd8467727fa82cb81831fb4b53e738fee714f21ac07311c835b210",
+      "size": 873904,
+      "profiles": [
+        "lighter"
+      ],
+      "category": "TX-130 FRV"
+    },
+    {
+      "name": "9ba626afa44a3aa3.patch_239.stream",
+      "sha256": "b1684bceed3b777ba94e7bf006afd61bc1c6646feb03fa4a859265960cbf90bc",
+      "size": 55924144,
+      "profiles": [
+        "lighter"
+      ],
+      "category": "TX-130 FRV"
+    },
+    {
+      "name": "9ba626afa44a3aa3.patch_242",
+      "sha256": "9afd4d4eb9b1f5f10c87a82810dda5c19eade3680d6886996415cc277e4b4a7e",
+      "size": 24354,
+      "profiles": [
+        "lighter"
+      ],
+      "category": "GNK hellbomb"
+    },
+    {
+      "name": "9ba626afa44a3aa3.patch_242.gpu_resources",
+      "sha256": "3e8dd6da6bc0e2a35aae27e95e10bfa1ed3a354b22d970a2718106d967a17d9c",
+      "size": 12296624,
+      "profiles": [
+        "lighter"
+      ],
+      "category": "GNK hellbomb"
+    },
+    {
+      "name": "9ba626afa44a3aa3.patch_242.stream",
+      "sha256": "6553cbba893220d42f5c33aaca531804bb991a126c1bb69cc93da308e4360615",
+      "size": 20971760,
+      "profiles": [
+        "lighter"
+      ],
+      "category": "GNK hellbomb"
+    },
+    {
+      "name": "9ba626afa44a3aa3.patch_8",
+      "sha256": "a4ddd3253863f483ac459e4db53101846930fbf92259298d85edd4d898d49aef",
+      "size": 16576,
+      "profiles": [
+        "lighter"
+      ],
+      "category": "backpacks"
+    },
+    {
+      "name": "9ba626afa44a3aa3.patch_8.gpu_resources",
+      "sha256": "3fb2d8bca7be39b00bae1eead76130cefd7f4e1eea12f84714c0d0769a090ced",
+      "size": 2219272,
+      "profiles": [
+        "lighter"
+      ],
+      "category": "backpacks"
+    },
+    {
+      "name": "9ba626afa44a3aa3.patch_8.stream",
+      "sha256": "2c7cc7d37408ed9df5fcfdf983c4a29567aeb4da5ebe1cc1773c75490094e8a2",
+      "size": 12583024,
+      "profiles": [
+        "lighter"
+      ],
+      "category": "backpacks"
+    },
+    {
+      "name": "9ba626afa44a3aa3.patch_9",
+      "sha256": "4184441ebcd0a9cdba3e40f6c4bfb729630d770cbb257dcbd1c621d9abc53770",
+      "size": 524,
+      "profiles": [
+        "lighter"
+      ],
+      "category": "backpacks"
+    },
+    {
+      "name": "9ba626afa44a3aa3.patch_9.gpu_resources",
+      "sha256": "8844b1b82dedf45adf8086defccf3a2d2a0953916ea9d783ab6ae8a4819e0abe",
+      "size": 349552,
+      "profiles": [
+        "lighter"
+      ],
+      "category": "backpacks"
+    },
+    {
+      "name": "9ba626afa44a3aa3.patch_9.stream",
+      "sha256": "5406d25a9263926f5f29f651ff14ba21b12c0baa417dc07083d3c824679c4f8b",
+      "size": 5592432,
+      "profiles": [
+        "lighter"
+      ],
+      "category": "backpacks"
+    },
+    {
+      "name": "9ba626afa44a3aa3.patch_164",
+      "sha256": "a8a8a05c943b21db8a5923623fa7179b5bbf1009d2fe0269915bdd84907558ba",
+      "size": 67644864,
+      "profiles": null,
+      "category": "autocannon and LAAT audio"
+    },
+    {
+      "name": "9ba626afa44a3aa3.patch_164.gpu_resources",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "size": 0,
+      "profiles": null,
+      "category": "autocannon and LAAT audio"
+    },
+    {
+      "name": "9ba626afa44a3aa3.patch_164.stream",
+      "sha256": "794b888d8cb05b67c63ecb24f994803302cb02277550abbd7165106c9606a6d1",
+      "size": 7342224,
+      "profiles": null,
+      "category": "autocannon and LAAT audio"
+    },
+    {
+      "name": "9ba626afa44a3aa3.patch_227",
+      "sha256": "34add89661903f687b26b08de68a27f5cb004a15bbc1f5cc55b7c2b3b2aa9d39",
+      "size": 36427664,
+      "profiles": null,
+      "category": "walker audio"
+    },
+    {
+      "name": "9ba626afa44a3aa3.patch_227.gpu_resources",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "size": 0,
+      "profiles": null,
+      "category": "walker audio"
+    },
+    {
+      "name": "9ba626afa44a3aa3.patch_227.stream",
+      "sha256": "c7971d86c99555411439e8b3a65a297c2255f0af979d8e188c8898ebcb6eaba8",
+      "size": 2428064,
+      "profiles": null,
+      "category": "walker audio"
+    },
+    {
+      "name": "0089bbe3e284fcaa.patch_0",
+      "sha256": "9dd29c18a4d304e66075bfe438343ce65043f128d9437ce2e9f5df647ec663b4",
+      "size": 4224,
+      "profiles": null,
+      "category": "complete scope/ADS setup"
+    },
+    {
+      "name": "0089bbe3e284fcaa.patch_0.gpu_resources",
+      "sha256": "88e436d3912394cee3dd6e7381cf98c5d2d1563681c2305317f0744332a6ef72",
+      "size": 1648,
+      "profiles": null,
+      "category": "complete scope/ADS setup"
+    },
+    {
+      "name": "0089bbe3e284fcaa.patch_0.stream",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "size": 0,
+      "profiles": null,
+      "category": "complete scope/ADS setup"
+    },
+    {
+      "name": "03b4b7a46856ccb2.patch_0",
+      "sha256": "9a7273ddb73979cc6c0e8c7126518a4817f974b2a7ae302d99436d404b097768",
+      "size": 4560,
+      "profiles": null,
+      "category": "complete scope/ADS setup"
+    },
+    {
+      "name": "03b4b7a46856ccb2.patch_0.gpu_resources",
+      "sha256": "24a495219d1025f6637849de18445d7afa87db6b78f3f94fa4a8d6374f9ebd8b",
+      "size": 9296,
+      "profiles": null,
+      "category": "complete scope/ADS setup"
+    },
+    {
+      "name": "03b4b7a46856ccb2.patch_0.stream",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "size": 0,
+      "profiles": null,
+      "category": "complete scope/ADS setup"
+    },
+    {
+      "name": "047c26f2f11d253e.patch_0",
+      "sha256": "c857e759d8960460b81c1115607e7aacdf0024eda00a7844a35381fbd750f28b",
+      "size": 4800,
+      "profiles": null,
+      "category": "complete scope/ADS setup"
+    },
+    {
+      "name": "047c26f2f11d253e.patch_0.gpu_resources",
+      "sha256": "113bc9677dbefc03dbf6d0bf6ea67773749b21178a86f0d5a16f2793961ea8d9",
+      "size": 42432,
+      "profiles": null,
+      "category": "complete scope/ADS setup"
+    },
+    {
+      "name": "047c26f2f11d253e.patch_0.stream",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "size": 0,
+      "profiles": null,
+      "category": "complete scope/ADS setup"
+    },
+    {
+      "name": "0601a2f91ec178a9.patch_0",
+      "sha256": "b1263094e9fb86d5ee2f0771fbbac45f90601ec9e3fd37ed16e216861e79c9c3",
+      "size": 4672,
+      "profiles": null,
+      "category": "complete scope/ADS setup"
+    },
+    {
+      "name": "0601a2f91ec178a9.patch_0.gpu_resources",
+      "sha256": "0902b8c994deebfed2f5b32e45fd1d3881fea9b00766f0fca6d2c7058ee9f576",
+      "size": 5840,
+      "profiles": null,
+      "category": "complete scope/ADS setup"
+    },
+    {
+      "name": "0601a2f91ec178a9.patch_0.stream",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "size": 0,
+      "profiles": null,
+      "category": "complete scope/ADS setup"
+    },
+    {
+      "name": "0827284b048bed82.patch_0",
+      "sha256": "b1263094e9fb86d5ee2f0771fbbac45f90601ec9e3fd37ed16e216861e79c9c3",
+      "size": 4672,
+      "profiles": null,
+      "category": "complete scope/ADS setup"
+    },
+    {
+      "name": "0827284b048bed82.patch_0.gpu_resources",
+      "sha256": "0902b8c994deebfed2f5b32e45fd1d3881fea9b00766f0fca6d2c7058ee9f576",
+      "size": 5840,
+      "profiles": null,
+      "category": "complete scope/ADS setup"
+    },
+    {
+      "name": "0827284b048bed82.patch_0.stream",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "size": 0,
+      "profiles": null,
+      "category": "complete scope/ADS setup"
+    },
+    {
+      "name": "0b831a7dd55e8736.patch_0",
+      "sha256": "b1263094e9fb86d5ee2f0771fbbac45f90601ec9e3fd37ed16e216861e79c9c3",
+      "size": 4672,
+      "profiles": null,
+      "category": "complete scope/ADS setup"
+    },
+    {
+      "name": "0b831a7dd55e8736.patch_0.gpu_resources",
+      "sha256": "0902b8c994deebfed2f5b32e45fd1d3881fea9b00766f0fca6d2c7058ee9f576",
+      "size": 5840,
+      "profiles": null,
+      "category": "complete scope/ADS setup"
+    },
+    {
+      "name": "0b831a7dd55e8736.patch_0.stream",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "size": 0,
+      "profiles": null,
+      "category": "complete scope/ADS setup"
+    },
+    {
+      "name": "0cbb8fc14f7d3433.patch_0",
+      "sha256": "d94d5b00f2c817e53518008ca6e3fe0bd33623697feee017ae232f39f5763775",
+      "size": 5264,
+      "profiles": null,
+      "category": "complete scope/ADS setup"
+    },
+    {
+      "name": "0cbb8fc14f7d3433.patch_0.gpu_resources",
+      "sha256": "7ceb1cc5be7a2bd0a3e268f698e1b4f71b5c01a70c88155bbaa32e2de7189b49",
+      "size": 14432,
+      "profiles": null,
+      "category": "complete scope/ADS setup"
+    },
+    {
+      "name": "0cbb8fc14f7d3433.patch_0.stream",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "size": 0,
+      "profiles": null,
+      "category": "complete scope/ADS setup"
+    },
+    {
+      "name": "0e6452d74d3a9dd3.patch_0",
+      "sha256": "88384cece09536a16753f0a67924b3a9402ef772931158850f7ed9b5fb43d4e9",
+      "size": 4992,
+      "profiles": null,
+      "category": "complete scope/ADS setup"
+    },
+    {
+      "name": "0e6452d74d3a9dd3.patch_0.gpu_resources",
+      "sha256": "c24b0e3c4b2a7813f96156840912547411c344c1ea569cfc755901eb3acec498",
+      "size": 4432,
+      "profiles": null,
+      "category": "complete scope/ADS setup"
+    },
+    {
+      "name": "0e6452d74d3a9dd3.patch_0.stream",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "size": 0,
+      "profiles": null,
+      "category": "complete scope/ADS setup"
+    },
+    {
+      "name": "0edad8ddec238bd9.patch_0",
+      "sha256": "9dd29c18a4d304e66075bfe438343ce65043f128d9437ce2e9f5df647ec663b4",
+      "size": 4224,
+      "profiles": null,
+      "category": "complete scope/ADS setup"
+    },
+    {
+      "name": "0edad8ddec238bd9.patch_0.gpu_resources",
+      "sha256": "88e436d3912394cee3dd6e7381cf98c5d2d1563681c2305317f0744332a6ef72",
+      "size": 1648,
+      "profiles": null,
+      "category": "complete scope/ADS setup"
+    },
+    {
+      "name": "0edad8ddec238bd9.patch_0.stream",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "size": 0,
+      "profiles": null,
+      "category": "complete scope/ADS setup"
+    },
+    {
+      "name": "10a7605527187ef5.patch_0",
+      "sha256": "5566295e4ce947c2b347803d05761576b25c5e7c4f0e5c16c5f59d7bd1342491",
+      "size": 5040,
+      "profiles": null,
+      "category": "complete scope/ADS setup"
+    },
+    {
+      "name": "10a7605527187ef5.patch_0.gpu_resources",
+      "sha256": "d2b9c229a7ed0dc297d40f587d9f0ad80af663e885466adc4d6b91027422f17a",
+      "size": 4432,
+      "profiles": null,
+      "category": "complete scope/ADS setup"
+    },
+    {
+      "name": "10a7605527187ef5.patch_0.stream",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "size": 0,
+      "profiles": null,
+      "category": "complete scope/ADS setup"
+    },
+    {
+      "name": "1b006880ac88d1cd.patch_0",
+      "sha256": "17ccb32ef475547cc13349785bd7070a427eb47e484c9323ff0aa1b1187ee4a5",
+      "size": 4656,
+      "profiles": null,
+      "category": "complete scope/ADS setup"
+    },
+    {
+      "name": "1b006880ac88d1cd.patch_0.gpu_resources",
+      "sha256": "708da57309a58753f591107dd7c63bc8c1cadfd795163a01c71f7b08f2e5f6e8",
+      "size": 2464,
+      "profiles": null,
+      "category": "complete scope/ADS setup"
+    },
+    {
+      "name": "1b006880ac88d1cd.patch_0.stream",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "size": 0,
+      "profiles": null,
+      "category": "complete scope/ADS setup"
+    },
+    {
+      "name": "1b8308d020ce682d.patch_0",
+      "sha256": "29facce0b218fafab8cec4dc9503e18de4571a90f06fbffd2dff388f041ac7c8",
+      "size": 896,
+      "profiles": null,
+      "category": "complete scope/ADS setup"
+    },
+    {
+      "name": "1b8308d020ce682d.patch_0.gpu_resources",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "size": 0,
+      "profiles": null,
+      "category": "complete scope/ADS setup"
+    },
+    {
+      "name": "1b8308d020ce682d.patch_0.stream",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "size": 0,
+      "profiles": null,
+      "category": "complete scope/ADS setup"
+    },
+    {
+      "name": "2404fa21fe49c32d.patch_0",
+      "sha256": "ac6d406f2b48be13ce7c3272d457b58791646b103db42ca6fe7eeb5968b5bfb3",
+      "size": 9248,
+      "profiles": null,
+      "category": "complete scope/ADS setup"
+    },
+    {
+      "name": "2404fa21fe49c32d.patch_0.gpu_resources",
+      "sha256": "9ec24e8dadf71bfc52a133f39e26e86f7a8b8e1a402848f8a4d786e4e581d06b",
+      "size": 22560,
+      "profiles": null,
+      "category": "complete scope/ADS setup"
+    },
+    {
+      "name": "2404fa21fe49c32d.patch_0.stream",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "size": 0,
+      "profiles": null,
+      "category": "complete scope/ADS setup"
+    },
+    {
+      "name": "2947afe42093062f.patch_0",
+      "sha256": "9a7273ddb73979cc6c0e8c7126518a4817f974b2a7ae302d99436d404b097768",
+      "size": 4560,
+      "profiles": null,
+      "category": "complete scope/ADS setup"
+    },
+    {
+      "name": "2947afe42093062f.patch_0.gpu_resources",
+      "sha256": "24a495219d1025f6637849de18445d7afa87db6b78f3f94fa4a8d6374f9ebd8b",
+      "size": 9296,
+      "profiles": null,
+      "category": "complete scope/ADS setup"
+    },
+    {
+      "name": "2947afe42093062f.patch_0.stream",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "size": 0,
+      "profiles": null,
+      "category": "complete scope/ADS setup"
+    },
+    {
+      "name": "2a9fb8f5d0576eae.patch_0",
+      "sha256": "cfa7cd82317e7316601564613e6647cecdb6a6a8389c6886a471a0e171a38cb5",
+      "size": 5504,
+      "profiles": null,
+      "category": "complete scope/ADS setup"
+    },
+    {
+      "name": "2a9fb8f5d0576eae.patch_0.gpu_resources",
+      "sha256": "7f9eea73f777d0de2b51ff0f6673996effd497df43736635b6d72dd0ec6cac16",
+      "size": 3600,
+      "profiles": null,
+      "category": "complete scope/ADS setup"
+    },
+    {
+      "name": "2a9fb8f5d0576eae.patch_0.stream",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "size": 0,
+      "profiles": null,
+      "category": "complete scope/ADS setup"
+    },
+    {
+      "name": "2d821486db99d8cb.patch_0",
+      "sha256": "358886990d52cf59b9be64ebc7610c51bf0e90ea29540a4ebfd363338762b99e",
+      "size": 7248,
+      "profiles": null,
+      "category": "complete scope/ADS setup"
+    },
+    {
+      "name": "2d821486db99d8cb.patch_0.gpu_resources",
+      "sha256": "4c71b67f951ed8b3086a09f0eeff48d13631fedf7a4c30d8ce8b1094447e5697",
+      "size": 16256,
+      "profiles": null,
+      "category": "complete scope/ADS setup"
+    },
+    {
+      "name": "2d821486db99d8cb.patch_0.stream",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "size": 0,
+      "profiles": null,
+      "category": "complete scope/ADS setup"
+    },
+    {
+      "name": "2fe755e42b659f64.patch_0",
+      "sha256": "9dd29c18a4d304e66075bfe438343ce65043f128d9437ce2e9f5df647ec663b4",
+      "size": 4224,
+      "profiles": null,
+      "category": "complete scope/ADS setup"
+    },
+    {
+      "name": "2fe755e42b659f64.patch_0.gpu_resources",
+      "sha256": "88e436d3912394cee3dd6e7381cf98c5d2d1563681c2305317f0744332a6ef72",
+      "size": 1648,
+      "profiles": null,
+      "category": "complete scope/ADS setup"
+    },
+    {
+      "name": "2fe755e42b659f64.patch_0.stream",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "size": 0,
+      "profiles": null,
+      "category": "complete scope/ADS setup"
+    },
+    {
+      "name": "32cb44321da1b5a0.patch_0",
+      "sha256": "88384cece09536a16753f0a67924b3a9402ef772931158850f7ed9b5fb43d4e9",
+      "size": 4992,
+      "profiles": null,
+      "category": "complete scope/ADS setup"
+    },
+    {
+      "name": "32cb44321da1b5a0.patch_0.gpu_resources",
+      "sha256": "c24b0e3c4b2a7813f96156840912547411c344c1ea569cfc755901eb3acec498",
+      "size": 4432,
+      "profiles": null,
+      "category": "complete scope/ADS setup"
+    },
+    {
+      "name": "32cb44321da1b5a0.patch_0.stream",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "size": 0,
+      "profiles": null,
+      "category": "complete scope/ADS setup"
+    },
+    {
+      "name": "351506bb55187cf9.patch_0",
+      "sha256": "358886990d52cf59b9be64ebc7610c51bf0e90ea29540a4ebfd363338762b99e",
+      "size": 7248,
+      "profiles": null,
+      "category": "complete scope/ADS setup"
+    },
+    {
+      "name": "351506bb55187cf9.patch_0.gpu_resources",
+      "sha256": "4c71b67f951ed8b3086a09f0eeff48d13631fedf7a4c30d8ce8b1094447e5697",
+      "size": 16256,
+      "profiles": null,
+      "category": "complete scope/ADS setup"
+    },
+    {
+      "name": "351506bb55187cf9.patch_0.stream",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "size": 0,
+      "profiles": null,
+      "category": "complete scope/ADS setup"
+    },
+    {
+      "name": "3a49b4448eaa94fe.patch_0",
+      "sha256": "88384cece09536a16753f0a67924b3a9402ef772931158850f7ed9b5fb43d4e9",
+      "size": 4992,
+      "profiles": null,
+      "category": "complete scope/ADS setup"
+    },
+    {
+      "name": "3a49b4448eaa94fe.patch_0.gpu_resources",
+      "sha256": "c24b0e3c4b2a7813f96156840912547411c344c1ea569cfc755901eb3acec498",
+      "size": 4432,
+      "profiles": null,
+      "category": "complete scope/ADS setup"
+    },
+    {
+      "name": "3a49b4448eaa94fe.patch_0.stream",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "size": 0,
+      "profiles": null,
+      "category": "complete scope/ADS setup"
+    },
+    {
+      "name": "3b2c86dd5b316eb2.patch_0",
+      "sha256": "a15d479f26257a9d87844e74afa774cbae9f6b70c8e638102860a0d152d324a8",
+      "size": 18752,
+      "profiles": null,
+      "category": "complete scope/ADS setup"
+    },
+    {
+      "name": "3b2c86dd5b316eb2.patch_0.gpu_resources",
+      "sha256": "3b67b39f3ac326162189308536174253b39dd7652252fb42b5f1153d9b9c63a4",
+      "size": 20624,
+      "profiles": null,
+      "category": "complete scope/ADS setup"
+    },
+    {
+      "name": "3b2c86dd5b316eb2.patch_0.stream",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "size": 0,
+      "profiles": null,
+      "category": "complete scope/ADS setup"
+    },
+    {
+      "name": "4307bf2d275eec1d.patch_0",
+      "sha256": "b1263094e9fb86d5ee2f0771fbbac45f90601ec9e3fd37ed16e216861e79c9c3",
+      "size": 4672,
+      "profiles": null,
+      "category": "complete scope/ADS setup"
+    },
+    {
+      "name": "4307bf2d275eec1d.patch_0.gpu_resources",
+      "sha256": "0902b8c994deebfed2f5b32e45fd1d3881fea9b00766f0fca6d2c7058ee9f576",
+      "size": 5840,
+      "profiles": null,
+      "category": "complete scope/ADS setup"
+    },
+    {
+      "name": "4307bf2d275eec1d.patch_0.stream",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "size": 0,
+      "profiles": null,
+      "category": "complete scope/ADS setup"
+    },
+    {
+      "name": "45730e588f30a508.patch_0",
+      "sha256": "6105c6f6d7efca11fe49fe29de0429f63e3e00b05fc03cd36234f31b3e393c2a",
+      "size": 4640,
+      "profiles": null,
+      "category": "complete scope/ADS setup"
+    },
+    {
+      "name": "45730e588f30a508.patch_0.gpu_resources",
+      "sha256": "58856892edf23737341846e945e4381aea7c7d1ecaef4f2dd7fe3456e4640827",
+      "size": 4432,
+      "profiles": null,
+      "category": "complete scope/ADS setup"
+    },
+    {
+      "name": "45730e588f30a508.patch_0.stream",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "size": 0,
+      "profiles": null,
+      "category": "complete scope/ADS setup"
+    },
+    {
+      "name": "4709331e1a3c3ac9.patch_0",
+      "sha256": "17ccb32ef475547cc13349785bd7070a427eb47e484c9323ff0aa1b1187ee4a5",
+      "size": 4656,
+      "profiles": null,
+      "category": "complete scope/ADS setup"
+    },
+    {
+      "name": "4709331e1a3c3ac9.patch_0.gpu_resources",
+      "sha256": "708da57309a58753f591107dd7c63bc8c1cadfd795163a01c71f7b08f2e5f6e8",
+      "size": 2464,
+      "profiles": null,
+      "category": "complete scope/ADS setup"
+    },
+    {
+      "name": "4709331e1a3c3ac9.patch_0.stream",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "size": 0,
+      "profiles": null,
+      "category": "complete scope/ADS setup"
+    },
+    {
+      "name": "487bcf38276eb725.patch_0",
+      "sha256": "88384cece09536a16753f0a67924b3a9402ef772931158850f7ed9b5fb43d4e9",
+      "size": 4992,
+      "profiles": null,
+      "category": "complete scope/ADS setup"
+    },
+    {
+      "name": "487bcf38276eb725.patch_0.gpu_resources",
+      "sha256": "c24b0e3c4b2a7813f96156840912547411c344c1ea569cfc755901eb3acec498",
+      "size": 4432,
+      "profiles": null,
+      "category": "complete scope/ADS setup"
+    },
+    {
+      "name": "487bcf38276eb725.patch_0.stream",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "size": 0,
+      "profiles": null,
+      "category": "complete scope/ADS setup"
+    },
+    {
+      "name": "49f1972458f7ccec.patch_0",
+      "sha256": "88384cece09536a16753f0a67924b3a9402ef772931158850f7ed9b5fb43d4e9",
+      "size": 4992,
+      "profiles": null,
+      "category": "complete scope/ADS setup"
+    },
+    {
+      "name": "49f1972458f7ccec.patch_0.gpu_resources",
+      "sha256": "c24b0e3c4b2a7813f96156840912547411c344c1ea569cfc755901eb3acec498",
+      "size": 4432,
+      "profiles": null,
+      "category": "complete scope/ADS setup"
+    },
+    {
+      "name": "49f1972458f7ccec.patch_0.stream",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "size": 0,
+      "profiles": null,
+      "category": "complete scope/ADS setup"
+    },
+    {
+      "name": "4fee9cc13c0b4cec.patch_0",
+      "sha256": "9dd29c18a4d304e66075bfe438343ce65043f128d9437ce2e9f5df647ec663b4",
+      "size": 4224,
+      "profiles": null,
+      "category": "complete scope/ADS setup"
+    },
+    {
+      "name": "4fee9cc13c0b4cec.patch_0.gpu_resources",
+      "sha256": "88e436d3912394cee3dd6e7381cf98c5d2d1563681c2305317f0744332a6ef72",
+      "size": 1648,
+      "profiles": null,
+      "category": "complete scope/ADS setup"
+    },
+    {
+      "name": "4fee9cc13c0b4cec.patch_0.stream",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "size": 0,
+      "profiles": null,
+      "category": "complete scope/ADS setup"
+    },
+    {
+      "name": "5193b8a6d77f5a0a.patch_0",
+      "sha256": "b1263094e9fb86d5ee2f0771fbbac45f90601ec9e3fd37ed16e216861e79c9c3",
+      "size": 4672,
+      "profiles": null,
+      "category": "complete scope/ADS setup"
+    },
+    {
+      "name": "5193b8a6d77f5a0a.patch_0.gpu_resources",
+      "sha256": "0902b8c994deebfed2f5b32e45fd1d3881fea9b00766f0fca6d2c7058ee9f576",
+      "size": 5840,
+      "profiles": null,
+      "category": "complete scope/ADS setup"
+    },
+    {
+      "name": "5193b8a6d77f5a0a.patch_0.stream",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "size": 0,
+      "profiles": null,
+      "category": "complete scope/ADS setup"
+    },
+    {
+      "name": "522be23400cc6086.patch_0",
+      "sha256": "5566295e4ce947c2b347803d05761576b25c5e7c4f0e5c16c5f59d7bd1342491",
+      "size": 5040,
+      "profiles": null,
+      "category": "complete scope/ADS setup"
+    },
+    {
+      "name": "522be23400cc6086.patch_0.gpu_resources",
+      "sha256": "d2b9c229a7ed0dc297d40f587d9f0ad80af663e885466adc4d6b91027422f17a",
+      "size": 4432,
+      "profiles": null,
+      "category": "complete scope/ADS setup"
+    },
+    {
+      "name": "522be23400cc6086.patch_0.stream",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "size": 0,
+      "profiles": null,
+      "category": "complete scope/ADS setup"
+    },
+    {
+      "name": "52ebdf76131c8f38.patch_0",
+      "sha256": "5020f8882e87100c0b9059d3bb36f59f1f33381e907998ee5a269b1cabcaca99",
+      "size": 4864,
+      "profiles": null,
+      "category": "complete scope/ADS setup"
+    },
+    {
+      "name": "52ebdf76131c8f38.patch_0.gpu_resources",
+      "sha256": "20b1433457a5261c3384b4de2443822d3ecd4a23866bced4ff6e43c318f3a74c",
+      "size": 13264,
+      "profiles": null,
+      "category": "complete scope/ADS setup"
+    },
+    {
+      "name": "52ebdf76131c8f38.patch_0.stream",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "size": 0,
+      "profiles": null,
+      "category": "complete scope/ADS setup"
+    },
+    {
+      "name": "55938279f6ef8664.patch_0",
+      "sha256": "b1263094e9fb86d5ee2f0771fbbac45f90601ec9e3fd37ed16e216861e79c9c3",
+      "size": 4672,
+      "profiles": null,
+      "category": "complete scope/ADS setup"
+    },
+    {
+      "name": "55938279f6ef8664.patch_0.gpu_resources",
+      "sha256": "0902b8c994deebfed2f5b32e45fd1d3881fea9b00766f0fca6d2c7058ee9f576",
+      "size": 5840,
+      "profiles": null,
+      "category": "complete scope/ADS setup"
+    },
+    {
+      "name": "55938279f6ef8664.patch_0.stream",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "size": 0,
+      "profiles": null,
+      "category": "complete scope/ADS setup"
+    },
+    {
+      "name": "5d68e55823acd1bf.patch_0",
+      "sha256": "6105c6f6d7efca11fe49fe29de0429f63e3e00b05fc03cd36234f31b3e393c2a",
+      "size": 4640,
+      "profiles": null,
+      "category": "complete scope/ADS setup"
+    },
+    {
+      "name": "5d68e55823acd1bf.patch_0.gpu_resources",
+      "sha256": "58856892edf23737341846e945e4381aea7c7d1ecaef4f2dd7fe3456e4640827",
+      "size": 4432,
+      "profiles": null,
+      "category": "complete scope/ADS setup"
+    },
+    {
+      "name": "5d68e55823acd1bf.patch_0.stream",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "size": 0,
+      "profiles": null,
+      "category": "complete scope/ADS setup"
+    },
+    {
+      "name": "6657e3ccf2960f28.patch_0",
+      "sha256": "17ccb32ef475547cc13349785bd7070a427eb47e484c9323ff0aa1b1187ee4a5",
+      "size": 4656,
+      "profiles": null,
+      "category": "complete scope/ADS setup"
+    },
+    {
+      "name": "6657e3ccf2960f28.patch_0.gpu_resources",
+      "sha256": "708da57309a58753f591107dd7c63bc8c1cadfd795163a01c71f7b08f2e5f6e8",
+      "size": 2464,
+      "profiles": null,
+      "category": "complete scope/ADS setup"
+    },
+    {
+      "name": "6657e3ccf2960f28.patch_0.stream",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "size": 0,
+      "profiles": null,
+      "category": "complete scope/ADS setup"
+    },
+    {
+      "name": "686c085d91781491.patch_0",
+      "sha256": "c857e759d8960460b81c1115607e7aacdf0024eda00a7844a35381fbd750f28b",
+      "size": 4800,
+      "profiles": null,
+      "category": "complete scope/ADS setup"
+    },
+    {
+      "name": "686c085d91781491.patch_0.gpu_resources",
+      "sha256": "113bc9677dbefc03dbf6d0bf6ea67773749b21178a86f0d5a16f2793961ea8d9",
+      "size": 42432,
+      "profiles": null,
+      "category": "complete scope/ADS setup"
+    },
+    {
+      "name": "686c085d91781491.patch_0.stream",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "size": 0,
+      "profiles": null,
+      "category": "complete scope/ADS setup"
+    },
+    {
+      "name": "695ba4a2683b4ce3.patch_0",
+      "sha256": "5566295e4ce947c2b347803d05761576b25c5e7c4f0e5c16c5f59d7bd1342491",
+      "size": 5040,
+      "profiles": null,
+      "category": "complete scope/ADS setup"
+    },
+    {
+      "name": "695ba4a2683b4ce3.patch_0.gpu_resources",
+      "sha256": "d2b9c229a7ed0dc297d40f587d9f0ad80af663e885466adc4d6b91027422f17a",
+      "size": 4432,
+      "profiles": null,
+      "category": "complete scope/ADS setup"
+    },
+    {
+      "name": "695ba4a2683b4ce3.patch_0.stream",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "size": 0,
+      "profiles": null,
+      "category": "complete scope/ADS setup"
+    },
+    {
+      "name": "6ad7cc21015a5f85.patch_0",
+      "sha256": "6105c6f6d7efca11fe49fe29de0429f63e3e00b05fc03cd36234f31b3e393c2a",
+      "size": 4640,
+      "profiles": null,
+      "category": "complete scope/ADS setup"
+    },
+    {
+      "name": "6ad7cc21015a5f85.patch_0.gpu_resources",
+      "sha256": "58856892edf23737341846e945e4381aea7c7d1ecaef4f2dd7fe3456e4640827",
+      "size": 4432,
+      "profiles": null,
+      "category": "complete scope/ADS setup"
+    },
+    {
+      "name": "6ad7cc21015a5f85.patch_0.stream",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "size": 0,
+      "profiles": null,
+      "category": "complete scope/ADS setup"
+    },
+    {
+      "name": "6ca87637eaeb5923.patch_0",
+      "sha256": "6105c6f6d7efca11fe49fe29de0429f63e3e00b05fc03cd36234f31b3e393c2a",
+      "size": 4640,
+      "profiles": null,
+      "category": "complete scope/ADS setup"
+    },
+    {
+      "name": "6ca87637eaeb5923.patch_0.gpu_resources",
+      "sha256": "58856892edf23737341846e945e4381aea7c7d1ecaef4f2dd7fe3456e4640827",
+      "size": 4432,
+      "profiles": null,
+      "category": "complete scope/ADS setup"
+    },
+    {
+      "name": "6ca87637eaeb5923.patch_0.stream",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "size": 0,
+      "profiles": null,
+      "category": "complete scope/ADS setup"
+    },
+    {
+      "name": "6db0c562c2bc10b3.patch_0",
+      "sha256": "88384cece09536a16753f0a67924b3a9402ef772931158850f7ed9b5fb43d4e9",
+      "size": 4992,
+      "profiles": null,
+      "category": "complete scope/ADS setup"
+    },
+    {
+      "name": "6db0c562c2bc10b3.patch_0.gpu_resources",
+      "sha256": "c24b0e3c4b2a7813f96156840912547411c344c1ea569cfc755901eb3acec498",
+      "size": 4432,
+      "profiles": null,
+      "category": "complete scope/ADS setup"
+    },
+    {
+      "name": "6db0c562c2bc10b3.patch_0.stream",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "size": 0,
+      "profiles": null,
+      "category": "complete scope/ADS setup"
+    },
+    {
+      "name": "6f605198a099fcf2.patch_0",
+      "sha256": "5566295e4ce947c2b347803d05761576b25c5e7c4f0e5c16c5f59d7bd1342491",
+      "size": 5040,
+      "profiles": null,
+      "category": "complete scope/ADS setup"
+    },
+    {
+      "name": "6f605198a099fcf2.patch_0.gpu_resources",
+      "sha256": "d2b9c229a7ed0dc297d40f587d9f0ad80af663e885466adc4d6b91027422f17a",
+      "size": 4432,
+      "profiles": null,
+      "category": "complete scope/ADS setup"
+    },
+    {
+      "name": "6f605198a099fcf2.patch_0.stream",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "size": 0,
+      "profiles": null,
+      "category": "complete scope/ADS setup"
+    },
+    {
+      "name": "70d708e5fd627493.patch_0",
+      "sha256": "5566295e4ce947c2b347803d05761576b25c5e7c4f0e5c16c5f59d7bd1342491",
+      "size": 5040,
+      "profiles": null,
+      "category": "complete scope/ADS setup"
+    },
+    {
+      "name": "70d708e5fd627493.patch_0.gpu_resources",
+      "sha256": "d2b9c229a7ed0dc297d40f587d9f0ad80af663e885466adc4d6b91027422f17a",
+      "size": 4432,
+      "profiles": null,
+      "category": "complete scope/ADS setup"
+    },
+    {
+      "name": "70d708e5fd627493.patch_0.stream",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "size": 0,
+      "profiles": null,
+      "category": "complete scope/ADS setup"
+    },
+    {
+      "name": "7356dd3333111570.patch_0",
+      "sha256": "9a7273ddb73979cc6c0e8c7126518a4817f974b2a7ae302d99436d404b097768",
+      "size": 4560,
+      "profiles": null,
+      "category": "complete scope/ADS setup"
+    },
+    {
+      "name": "7356dd3333111570.patch_0.gpu_resources",
+      "sha256": "24a495219d1025f6637849de18445d7afa87db6b78f3f94fa4a8d6374f9ebd8b",
+      "size": 9296,
+      "profiles": null,
+      "category": "complete scope/ADS setup"
+    },
+    {
+      "name": "7356dd3333111570.patch_0.stream",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "size": 0,
+      "profiles": null,
+      "category": "complete scope/ADS setup"
+    },
+    {
+      "name": "73cfbbf2e883af96.patch_0",
+      "sha256": "5566295e4ce947c2b347803d05761576b25c5e7c4f0e5c16c5f59d7bd1342491",
+      "size": 5040,
+      "profiles": null,
+      "category": "complete scope/ADS setup"
+    },
+    {
+      "name": "73cfbbf2e883af96.patch_0.gpu_resources",
+      "sha256": "d2b9c229a7ed0dc297d40f587d9f0ad80af663e885466adc4d6b91027422f17a",
+      "size": 4432,
+      "profiles": null,
+      "category": "complete scope/ADS setup"
+    },
+    {
+      "name": "73cfbbf2e883af96.patch_0.stream",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "size": 0,
+      "profiles": null,
+      "category": "complete scope/ADS setup"
+    },
+    {
+      "name": "792b2a2ba11ae85d.patch_0",
+      "sha256": "c857e759d8960460b81c1115607e7aacdf0024eda00a7844a35381fbd750f28b",
+      "size": 4800,
+      "profiles": null,
+      "category": "complete scope/ADS setup"
+    },
+    {
+      "name": "792b2a2ba11ae85d.patch_0.gpu_resources",
+      "sha256": "113bc9677dbefc03dbf6d0bf6ea67773749b21178a86f0d5a16f2793961ea8d9",
+      "size": 42432,
+      "profiles": null,
+      "category": "complete scope/ADS setup"
+    },
+    {
+      "name": "792b2a2ba11ae85d.patch_0.stream",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "size": 0,
+      "profiles": null,
+      "category": "complete scope/ADS setup"
+    },
+    {
+      "name": "7af5df78217fd645.patch_0",
+      "sha256": "b1263094e9fb86d5ee2f0771fbbac45f90601ec9e3fd37ed16e216861e79c9c3",
+      "size": 4672,
+      "profiles": null,
+      "category": "complete scope/ADS setup"
+    },
+    {
+      "name": "7af5df78217fd645.patch_0.gpu_resources",
+      "sha256": "0902b8c994deebfed2f5b32e45fd1d3881fea9b00766f0fca6d2c7058ee9f576",
+      "size": 5840,
+      "profiles": null,
+      "category": "complete scope/ADS setup"
+    },
+    {
+      "name": "7af5df78217fd645.patch_0.stream",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "size": 0,
+      "profiles": null,
+      "category": "complete scope/ADS setup"
+    },
+    {
+      "name": "7f37db9b767844c2.patch_0",
+      "sha256": "cfa7cd82317e7316601564613e6647cecdb6a6a8389c6886a471a0e171a38cb5",
+      "size": 5504,
+      "profiles": null,
+      "category": "complete scope/ADS setup"
+    },
+    {
+      "name": "7f37db9b767844c2.patch_0.gpu_resources",
+      "sha256": "7f9eea73f777d0de2b51ff0f6673996effd497df43736635b6d72dd0ec6cac16",
+      "size": 3600,
+      "profiles": null,
+      "category": "complete scope/ADS setup"
+    },
+    {
+      "name": "7f37db9b767844c2.patch_0.stream",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "size": 0,
+      "profiles": null,
+      "category": "complete scope/ADS setup"
+    },
+    {
+      "name": "7f927f50fa6c50e8.patch_0",
+      "sha256": "88384cece09536a16753f0a67924b3a9402ef772931158850f7ed9b5fb43d4e9",
+      "size": 4992,
+      "profiles": null,
+      "category": "complete scope/ADS setup"
+    },
+    {
+      "name": "7f927f50fa6c50e8.patch_0.gpu_resources",
+      "sha256": "c24b0e3c4b2a7813f96156840912547411c344c1ea569cfc755901eb3acec498",
+      "size": 4432,
+      "profiles": null,
+      "category": "complete scope/ADS setup"
+    },
+    {
+      "name": "7f927f50fa6c50e8.patch_0.stream",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "size": 0,
+      "profiles": null,
+      "category": "complete scope/ADS setup"
+    },
+    {
+      "name": "82751a054bdfd075.patch_0",
+      "sha256": "b1263094e9fb86d5ee2f0771fbbac45f90601ec9e3fd37ed16e216861e79c9c3",
+      "size": 4672,
+      "profiles": null,
+      "category": "complete scope/ADS setup"
+    },
+    {
+      "name": "82751a054bdfd075.patch_0.gpu_resources",
+      "sha256": "0902b8c994deebfed2f5b32e45fd1d3881fea9b00766f0fca6d2c7058ee9f576",
+      "size": 5840,
+      "profiles": null,
+      "category": "complete scope/ADS setup"
+    },
+    {
+      "name": "82751a054bdfd075.patch_0.stream",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "size": 0,
+      "profiles": null,
+      "category": "complete scope/ADS setup"
+    },
+    {
+      "name": "82dcd83d81a385f3.patch_0",
+      "sha256": "dae7fdbd089eefa4d62b82ff8fe9e568b2d2640c8efb5e5d405bcf56307c03a6",
+      "size": 5264,
+      "profiles": null,
+      "category": "complete scope/ADS setup"
+    },
+    {
+      "name": "82dcd83d81a385f3.patch_0.gpu_resources",
+      "sha256": "80d3fc2c81639ced9169206050709d8793c1383ffa4e8c3a4679ab3a8ae40556",
+      "size": 1568,
+      "profiles": null,
+      "category": "complete scope/ADS setup"
+    },
+    {
+      "name": "82dcd83d81a385f3.patch_0.stream",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "size": 0,
+      "profiles": null,
+      "category": "complete scope/ADS setup"
+    },
+    {
+      "name": "899923de5ebeb3a2.patch_0",
+      "sha256": "cfa7cd82317e7316601564613e6647cecdb6a6a8389c6886a471a0e171a38cb5",
+      "size": 5504,
+      "profiles": null,
+      "category": "complete scope/ADS setup"
+    },
+    {
+      "name": "899923de5ebeb3a2.patch_0.gpu_resources",
+      "sha256": "7f9eea73f777d0de2b51ff0f6673996effd497df43736635b6d72dd0ec6cac16",
+      "size": 3600,
+      "profiles": null,
+      "category": "complete scope/ADS setup"
+    },
+    {
+      "name": "899923de5ebeb3a2.patch_0.stream",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "size": 0,
+      "profiles": null,
+      "category": "complete scope/ADS setup"
+    },
+    {
+      "name": "8f295b4d04c3a06c.patch_0",
+      "sha256": "17ccb32ef475547cc13349785bd7070a427eb47e484c9323ff0aa1b1187ee4a5",
+      "size": 4656,
+      "profiles": null,
+      "category": "complete scope/ADS setup"
+    },
+    {
+      "name": "8f295b4d04c3a06c.patch_0.gpu_resources",
+      "sha256": "708da57309a58753f591107dd7c63bc8c1cadfd795163a01c71f7b08f2e5f6e8",
+      "size": 2464,
+      "profiles": null,
+      "category": "complete scope/ADS setup"
+    },
+    {
+      "name": "8f295b4d04c3a06c.patch_0.stream",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "size": 0,
+      "profiles": null,
+      "category": "complete scope/ADS setup"
+    },
+    {
+      "name": "902c54afb4ed396f.patch_0",
+      "sha256": "17ccb32ef475547cc13349785bd7070a427eb47e484c9323ff0aa1b1187ee4a5",
+      "size": 4656,
+      "profiles": null,
+      "category": "complete scope/ADS setup"
+    },
+    {
+      "name": "902c54afb4ed396f.patch_0.gpu_resources",
+      "sha256": "708da57309a58753f591107dd7c63bc8c1cadfd795163a01c71f7b08f2e5f6e8",
+      "size": 2464,
+      "profiles": null,
+      "category": "complete scope/ADS setup"
+    },
+    {
+      "name": "902c54afb4ed396f.patch_0.stream",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "size": 0,
+      "profiles": null,
+      "category": "complete scope/ADS setup"
+    },
+    {
+      "name": "914e182a431a53a6.patch_0",
+      "sha256": "d94d5b00f2c817e53518008ca6e3fe0bd33623697feee017ae232f39f5763775",
+      "size": 5264,
+      "profiles": null,
+      "category": "complete scope/ADS setup"
+    },
+    {
+      "name": "914e182a431a53a6.patch_0.gpu_resources",
+      "sha256": "7ceb1cc5be7a2bd0a3e268f698e1b4f71b5c01a70c88155bbaa32e2de7189b49",
+      "size": 14432,
+      "profiles": null,
+      "category": "complete scope/ADS setup"
+    },
+    {
+      "name": "914e182a431a53a6.patch_0.stream",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "size": 0,
+      "profiles": null,
+      "category": "complete scope/ADS setup"
+    },
+    {
+      "name": "94eaeaffd878dd6d.patch_0",
+      "sha256": "b1263094e9fb86d5ee2f0771fbbac45f90601ec9e3fd37ed16e216861e79c9c3",
+      "size": 4672,
+      "profiles": null,
+      "category": "complete scope/ADS setup"
+    },
+    {
+      "name": "94eaeaffd878dd6d.patch_0.gpu_resources",
+      "sha256": "0902b8c994deebfed2f5b32e45fd1d3881fea9b00766f0fca6d2c7058ee9f576",
+      "size": 5840,
+      "profiles": null,
+      "category": "complete scope/ADS setup"
+    },
+    {
+      "name": "94eaeaffd878dd6d.patch_0.stream",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "size": 0,
+      "profiles": null,
+      "category": "complete scope/ADS setup"
+    },
+    {
+      "name": "9974f498c67d5e20.patch_0",
+      "sha256": "9a7273ddb73979cc6c0e8c7126518a4817f974b2a7ae302d99436d404b097768",
+      "size": 4560,
+      "profiles": null,
+      "category": "complete scope/ADS setup"
+    },
+    {
+      "name": "9974f498c67d5e20.patch_0.gpu_resources",
+      "sha256": "24a495219d1025f6637849de18445d7afa87db6b78f3f94fa4a8d6374f9ebd8b",
+      "size": 9296,
+      "profiles": null,
+      "category": "complete scope/ADS setup"
+    },
+    {
+      "name": "9974f498c67d5e20.patch_0.stream",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "size": 0,
+      "profiles": null,
+      "category": "complete scope/ADS setup"
+    },
+    {
+      "name": "99f20df1c4cf885a.patch_0",
+      "sha256": "dae7fdbd089eefa4d62b82ff8fe9e568b2d2640c8efb5e5d405bcf56307c03a6",
+      "size": 5264,
+      "profiles": null,
+      "category": "complete scope/ADS setup"
+    },
+    {
+      "name": "99f20df1c4cf885a.patch_0.gpu_resources",
+      "sha256": "80d3fc2c81639ced9169206050709d8793c1383ffa4e8c3a4679ab3a8ae40556",
+      "size": 1568,
+      "profiles": null,
+      "category": "complete scope/ADS setup"
+    },
+    {
+      "name": "99f20df1c4cf885a.patch_0.stream",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "size": 0,
+      "profiles": null,
+      "category": "complete scope/ADS setup"
+    },
+    {
+      "name": "9ba626afa44a3aa3.patch_313",
+      "sha256": "b36924471c81aed6d7159bb9fd05a11166b3129f0c533025e099f97b455c99b8",
+      "size": 18416,
+      "profiles": null,
+      "category": "complete scope/ADS setup"
+    },
+    {
+      "name": "9ba626afa44a3aa3.patch_313.gpu_resources",
+      "sha256": "7662c3cab54c13ce86507a62b46bacafe794ec1f64c9680c9d15f2b332ce537d",
+      "size": 15958976,
+      "profiles": null,
+      "category": "complete scope/ADS setup"
+    },
+    {
+      "name": "9ba626afa44a3aa3.patch_313.stream",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "size": 0,
+      "profiles": null,
+      "category": "complete scope/ADS setup"
+    },
+    {
+      "name": "9ceed8ae1331d7bf.patch_0",
+      "sha256": "88384cece09536a16753f0a67924b3a9402ef772931158850f7ed9b5fb43d4e9",
+      "size": 4992,
+      "profiles": null,
+      "category": "complete scope/ADS setup"
+    },
+    {
+      "name": "9ceed8ae1331d7bf.patch_0.gpu_resources",
+      "sha256": "c24b0e3c4b2a7813f96156840912547411c344c1ea569cfc755901eb3acec498",
+      "size": 4432,
+      "profiles": null,
+      "category": "complete scope/ADS setup"
+    },
+    {
+      "name": "9ceed8ae1331d7bf.patch_0.stream",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "size": 0,
+      "profiles": null,
+      "category": "complete scope/ADS setup"
+    },
+    {
+      "name": "9d4eb484c405e7a2.patch_0",
+      "sha256": "9dd29c18a4d304e66075bfe438343ce65043f128d9437ce2e9f5df647ec663b4",
+      "size": 4224,
+      "profiles": null,
+      "category": "complete scope/ADS setup"
+    },
+    {
+      "name": "9d4eb484c405e7a2.patch_0.gpu_resources",
+      "sha256": "88e436d3912394cee3dd6e7381cf98c5d2d1563681c2305317f0744332a6ef72",
+      "size": 1648,
+      "profiles": null,
+      "category": "complete scope/ADS setup"
+    },
+    {
+      "name": "9d4eb484c405e7a2.patch_0.stream",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "size": 0,
+      "profiles": null,
+      "category": "complete scope/ADS setup"
+    },
+    {
+      "name": "a14f1a98c80575af.patch_0",
+      "sha256": "88384cece09536a16753f0a67924b3a9402ef772931158850f7ed9b5fb43d4e9",
+      "size": 4992,
+      "profiles": null,
+      "category": "complete scope/ADS setup"
+    },
+    {
+      "name": "a14f1a98c80575af.patch_0.gpu_resources",
+      "sha256": "c24b0e3c4b2a7813f96156840912547411c344c1ea569cfc755901eb3acec498",
+      "size": 4432,
+      "profiles": null,
+      "category": "complete scope/ADS setup"
+    },
+    {
+      "name": "a14f1a98c80575af.patch_0.stream",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "size": 0,
+      "profiles": null,
+      "category": "complete scope/ADS setup"
+    },
+    {
+      "name": "a37891d879cb3b1d.patch_0",
+      "sha256": "4bb3f41bc68292c270de88e69491971cb5bbce3ecf5b4b3fbeb5c4277afa1933",
+      "size": 9728,
+      "profiles": null,
+      "category": "complete scope/ADS setup"
+    },
+    {
+      "name": "a37891d879cb3b1d.patch_0.gpu_resources",
+      "sha256": "f5a0a6ead7ea81650adfe8475c5d3b18395b7d472e9bcb59305581fd16a6af1f",
+      "size": 17696,
+      "profiles": null,
+      "category": "complete scope/ADS setup"
+    },
+    {
+      "name": "a37891d879cb3b1d.patch_0.stream",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "size": 0,
+      "profiles": null,
+      "category": "complete scope/ADS setup"
+    },
+    {
+      "name": "a66d7cf238070ca7.patch_0",
+      "sha256": "88384cece09536a16753f0a67924b3a9402ef772931158850f7ed9b5fb43d4e9",
+      "size": 4992,
+      "profiles": null,
+      "category": "complete scope/ADS setup"
+    },
+    {
+      "name": "a66d7cf238070ca7.patch_0.gpu_resources",
+      "sha256": "c24b0e3c4b2a7813f96156840912547411c344c1ea569cfc755901eb3acec498",
+      "size": 4432,
+      "profiles": null,
+      "category": "complete scope/ADS setup"
+    },
+    {
+      "name": "a66d7cf238070ca7.patch_0.stream",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "size": 0,
+      "profiles": null,
+      "category": "complete scope/ADS setup"
+    },
+    {
+      "name": "a7b23b55209766ae.patch_0",
+      "sha256": "6105c6f6d7efca11fe49fe29de0429f63e3e00b05fc03cd36234f31b3e393c2a",
+      "size": 4640,
+      "profiles": null,
+      "category": "complete scope/ADS setup"
+    },
+    {
+      "name": "a7b23b55209766ae.patch_0.gpu_resources",
+      "sha256": "58856892edf23737341846e945e4381aea7c7d1ecaef4f2dd7fe3456e4640827",
+      "size": 4432,
+      "profiles": null,
+      "category": "complete scope/ADS setup"
+    },
+    {
+      "name": "a7b23b55209766ae.patch_0.stream",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "size": 0,
+      "profiles": null,
+      "category": "complete scope/ADS setup"
+    },
+    {
+      "name": "ad393286210eef73.patch_0",
+      "sha256": "9dd29c18a4d304e66075bfe438343ce65043f128d9437ce2e9f5df647ec663b4",
+      "size": 4224,
+      "profiles": null,
+      "category": "complete scope/ADS setup"
+    },
+    {
+      "name": "ad393286210eef73.patch_0.gpu_resources",
+      "sha256": "88e436d3912394cee3dd6e7381cf98c5d2d1563681c2305317f0744332a6ef72",
+      "size": 1648,
+      "profiles": null,
+      "category": "complete scope/ADS setup"
+    },
+    {
+      "name": "ad393286210eef73.patch_0.stream",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "size": 0,
+      "profiles": null,
+      "category": "complete scope/ADS setup"
+    },
+    {
+      "name": "ae4f2e79b546847c.patch_0",
+      "sha256": "6105c6f6d7efca11fe49fe29de0429f63e3e00b05fc03cd36234f31b3e393c2a",
+      "size": 4640,
+      "profiles": null,
+      "category": "complete scope/ADS setup"
+    },
+    {
+      "name": "ae4f2e79b546847c.patch_0.gpu_resources",
+      "sha256": "58856892edf23737341846e945e4381aea7c7d1ecaef4f2dd7fe3456e4640827",
+      "size": 4432,
+      "profiles": null,
+      "category": "complete scope/ADS setup"
+    },
+    {
+      "name": "ae4f2e79b546847c.patch_0.stream",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "size": 0,
+      "profiles": null,
+      "category": "complete scope/ADS setup"
+    },
+    {
+      "name": "b29a2fa06fdd99d2.patch_0",
+      "sha256": "dae7fdbd089eefa4d62b82ff8fe9e568b2d2640c8efb5e5d405bcf56307c03a6",
+      "size": 5264,
+      "profiles": null,
+      "category": "complete scope/ADS setup"
+    },
+    {
+      "name": "b29a2fa06fdd99d2.patch_0.gpu_resources",
+      "sha256": "80d3fc2c81639ced9169206050709d8793c1383ffa4e8c3a4679ab3a8ae40556",
+      "size": 1568,
+      "profiles": null,
+      "category": "complete scope/ADS setup"
+    },
+    {
+      "name": "b29a2fa06fdd99d2.patch_0.stream",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "size": 0,
+      "profiles": null,
+      "category": "complete scope/ADS setup"
+    },
+    {
+      "name": "b779a2f9d0928e03.patch_0",
+      "sha256": "b1263094e9fb86d5ee2f0771fbbac45f90601ec9e3fd37ed16e216861e79c9c3",
+      "size": 4672,
+      "profiles": null,
+      "category": "complete scope/ADS setup"
+    },
+    {
+      "name": "b779a2f9d0928e03.patch_0.gpu_resources",
+      "sha256": "0902b8c994deebfed2f5b32e45fd1d3881fea9b00766f0fca6d2c7058ee9f576",
+      "size": 5840,
+      "profiles": null,
+      "category": "complete scope/ADS setup"
+    },
+    {
+      "name": "b779a2f9d0928e03.patch_0.stream",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "size": 0,
+      "profiles": null,
+      "category": "complete scope/ADS setup"
+    },
+    {
+      "name": "ba40a2814d01bda0.patch_0",
+      "sha256": "5566295e4ce947c2b347803d05761576b25c5e7c4f0e5c16c5f59d7bd1342491",
+      "size": 5040,
+      "profiles": null,
+      "category": "complete scope/ADS setup"
+    },
+    {
+      "name": "ba40a2814d01bda0.patch_0.gpu_resources",
+      "sha256": "d2b9c229a7ed0dc297d40f587d9f0ad80af663e885466adc4d6b91027422f17a",
+      "size": 4432,
+      "profiles": null,
+      "category": "complete scope/ADS setup"
+    },
+    {
+      "name": "ba40a2814d01bda0.patch_0.stream",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "size": 0,
+      "profiles": null,
+      "category": "complete scope/ADS setup"
+    },
+    {
+      "name": "c0052e5b38e18c33.patch_0",
+      "sha256": "6105c6f6d7efca11fe49fe29de0429f63e3e00b05fc03cd36234f31b3e393c2a",
+      "size": 4640,
+      "profiles": null,
+      "category": "complete scope/ADS setup"
+    },
+    {
+      "name": "c0052e5b38e18c33.patch_0.gpu_resources",
+      "sha256": "58856892edf23737341846e945e4381aea7c7d1ecaef4f2dd7fe3456e4640827",
+      "size": 4432,
+      "profiles": null,
+      "category": "complete scope/ADS setup"
+    },
+    {
+      "name": "c0052e5b38e18c33.patch_0.stream",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "size": 0,
+      "profiles": null,
+      "category": "complete scope/ADS setup"
+    },
+    {
+      "name": "c024a2e8ae639757.patch_0",
+      "sha256": "5566295e4ce947c2b347803d05761576b25c5e7c4f0e5c16c5f59d7bd1342491",
+      "size": 5040,
+      "profiles": null,
+      "category": "complete scope/ADS setup"
+    },
+    {
+      "name": "c024a2e8ae639757.patch_0.gpu_resources",
+      "sha256": "d2b9c229a7ed0dc297d40f587d9f0ad80af663e885466adc4d6b91027422f17a",
+      "size": 4432,
+      "profiles": null,
+      "category": "complete scope/ADS setup"
+    },
+    {
+      "name": "c024a2e8ae639757.patch_0.stream",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "size": 0,
+      "profiles": null,
+      "category": "complete scope/ADS setup"
+    },
+    {
+      "name": "c46cf24278594a7d.patch_0",
+      "sha256": "17ccb32ef475547cc13349785bd7070a427eb47e484c9323ff0aa1b1187ee4a5",
+      "size": 4656,
+      "profiles": null,
+      "category": "complete scope/ADS setup"
+    },
+    {
+      "name": "c46cf24278594a7d.patch_0.gpu_resources",
+      "sha256": "708da57309a58753f591107dd7c63bc8c1cadfd795163a01c71f7b08f2e5f6e8",
+      "size": 2464,
+      "profiles": null,
+      "category": "complete scope/ADS setup"
+    },
+    {
+      "name": "c46cf24278594a7d.patch_0.stream",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "size": 0,
+      "profiles": null,
+      "category": "complete scope/ADS setup"
+    },
+    {
+      "name": "c51f160470b34ae3.patch_0",
+      "sha256": "5566295e4ce947c2b347803d05761576b25c5e7c4f0e5c16c5f59d7bd1342491",
+      "size": 5040,
+      "profiles": null,
+      "category": "complete scope/ADS setup"
+    },
+    {
+      "name": "c51f160470b34ae3.patch_0.gpu_resources",
+      "sha256": "d2b9c229a7ed0dc297d40f587d9f0ad80af663e885466adc4d6b91027422f17a",
+      "size": 4432,
+      "profiles": null,
+      "category": "complete scope/ADS setup"
+    },
+    {
+      "name": "c51f160470b34ae3.patch_0.stream",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "size": 0,
+      "profiles": null,
+      "category": "complete scope/ADS setup"
+    },
+    {
+      "name": "c5a05d09369d0670.patch_0",
+      "sha256": "c4d59ec21956e41a82ec232831ab0965d896fea040dbccda27faeb17df0855a9",
+      "size": 9184,
+      "profiles": null,
+      "category": "complete scope/ADS setup"
+    },
+    {
+      "name": "c5a05d09369d0670.patch_0.gpu_resources",
+      "sha256": "c6b783d37ee5a3b49ccd02d450e34c0228384cbb8edd729a792064e42a77bbb6",
+      "size": 8304,
+      "profiles": null,
+      "category": "complete scope/ADS setup"
+    },
+    {
+      "name": "c5a05d09369d0670.patch_0.stream",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "size": 0,
+      "profiles": null,
+      "category": "complete scope/ADS setup"
+    },
+    {
+      "name": "ca8d89f4fb0ce5ef.patch_0",
+      "sha256": "9dd29c18a4d304e66075bfe438343ce65043f128d9437ce2e9f5df647ec663b4",
+      "size": 4224,
+      "profiles": null,
+      "category": "complete scope/ADS setup"
+    },
+    {
+      "name": "ca8d89f4fb0ce5ef.patch_0.gpu_resources",
+      "sha256": "88e436d3912394cee3dd6e7381cf98c5d2d1563681c2305317f0744332a6ef72",
+      "size": 1648,
+      "profiles": null,
+      "category": "complete scope/ADS setup"
+    },
+    {
+      "name": "ca8d89f4fb0ce5ef.patch_0.stream",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "size": 0,
+      "profiles": null,
+      "category": "complete scope/ADS setup"
+    },
+    {
+      "name": "cae3f1e8a44a80b3.patch_0",
+      "sha256": "88384cece09536a16753f0a67924b3a9402ef772931158850f7ed9b5fb43d4e9",
+      "size": 4992,
+      "profiles": null,
+      "category": "complete scope/ADS setup"
+    },
+    {
+      "name": "cae3f1e8a44a80b3.patch_0.gpu_resources",
+      "sha256": "c24b0e3c4b2a7813f96156840912547411c344c1ea569cfc755901eb3acec498",
+      "size": 4432,
+      "profiles": null,
+      "category": "complete scope/ADS setup"
+    },
+    {
+      "name": "cae3f1e8a44a80b3.patch_0.stream",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "size": 0,
+      "profiles": null,
+      "category": "complete scope/ADS setup"
+    },
+    {
+      "name": "cf1acde501ccfa1b.patch_0",
+      "sha256": "6105c6f6d7efca11fe49fe29de0429f63e3e00b05fc03cd36234f31b3e393c2a",
+      "size": 4640,
+      "profiles": null,
+      "category": "complete scope/ADS setup"
+    },
+    {
+      "name": "cf1acde501ccfa1b.patch_0.gpu_resources",
+      "sha256": "58856892edf23737341846e945e4381aea7c7d1ecaef4f2dd7fe3456e4640827",
+      "size": 4432,
+      "profiles": null,
+      "category": "complete scope/ADS setup"
+    },
+    {
+      "name": "cf1acde501ccfa1b.patch_0.stream",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "size": 0,
+      "profiles": null,
+      "category": "complete scope/ADS setup"
+    },
+    {
+      "name": "d1968909ea085527.patch_0",
+      "sha256": "88384cece09536a16753f0a67924b3a9402ef772931158850f7ed9b5fb43d4e9",
+      "size": 4992,
+      "profiles": null,
+      "category": "complete scope/ADS setup"
+    },
+    {
+      "name": "d1968909ea085527.patch_0.gpu_resources",
+      "sha256": "c24b0e3c4b2a7813f96156840912547411c344c1ea569cfc755901eb3acec498",
+      "size": 4432,
+      "profiles": null,
+      "category": "complete scope/ADS setup"
+    },
+    {
+      "name": "d1968909ea085527.patch_0.stream",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "size": 0,
+      "profiles": null,
+      "category": "complete scope/ADS setup"
+    },
+    {
+      "name": "dbd9381f9ea9788f.patch_0",
+      "sha256": "0dbf7aa14cc198d49f5e26d8072b8930ee6bb378e10d7b16c4b8574589f616b5",
+      "size": 14240,
+      "profiles": null,
+      "category": "complete scope/ADS setup"
+    },
+    {
+      "name": "dbd9381f9ea9788f.patch_0.gpu_resources",
+      "sha256": "3a6373654b43589c876ed191df47768dbbf599ae40fa4f78bd9000d0f32e8d6e",
+      "size": 18160,
+      "profiles": null,
+      "category": "complete scope/ADS setup"
+    },
+    {
+      "name": "dbd9381f9ea9788f.patch_0.stream",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "size": 0,
+      "profiles": null,
+      "category": "complete scope/ADS setup"
+    },
+    {
+      "name": "de96cd7cc69628bc.patch_0",
+      "sha256": "21633994941676eab60ed4c750d46d22280e89329c94674d63bd387113c5db44",
+      "size": 896,
+      "profiles": null,
+      "category": "complete scope/ADS setup"
+    },
+    {
+      "name": "de96cd7cc69628bc.patch_0.gpu_resources",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "size": 0,
+      "profiles": null,
+      "category": "complete scope/ADS setup"
+    },
+    {
+      "name": "de96cd7cc69628bc.patch_0.stream",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "size": 0,
+      "profiles": null,
+      "category": "complete scope/ADS setup"
+    },
+    {
+      "name": "e0807831d6f456c8.patch_0",
+      "sha256": "5020f8882e87100c0b9059d3bb36f59f1f33381e907998ee5a269b1cabcaca99",
+      "size": 4864,
+      "profiles": null,
+      "category": "complete scope/ADS setup"
+    },
+    {
+      "name": "e0807831d6f456c8.patch_0.gpu_resources",
+      "sha256": "20b1433457a5261c3384b4de2443822d3ecd4a23866bced4ff6e43c318f3a74c",
+      "size": 13264,
+      "profiles": null,
+      "category": "complete scope/ADS setup"
+    },
+    {
+      "name": "e0807831d6f456c8.patch_0.stream",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "size": 0,
+      "profiles": null,
+      "category": "complete scope/ADS setup"
+    },
+    {
+      "name": "e0d35fe7ce80e3f0.patch_0",
+      "sha256": "21633994941676eab60ed4c750d46d22280e89329c94674d63bd387113c5db44",
+      "size": 896,
+      "profiles": null,
+      "category": "complete scope/ADS setup"
+    },
+    {
+      "name": "e0d35fe7ce80e3f0.patch_0.gpu_resources",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "size": 0,
+      "profiles": null,
+      "category": "complete scope/ADS setup"
+    },
+    {
+      "name": "e0d35fe7ce80e3f0.patch_0.stream",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "size": 0,
+      "profiles": null,
+      "category": "complete scope/ADS setup"
+    },
+    {
+      "name": "e566e3aaf90db459.patch_0",
+      "sha256": "b1263094e9fb86d5ee2f0771fbbac45f90601ec9e3fd37ed16e216861e79c9c3",
+      "size": 4672,
+      "profiles": null,
+      "category": "complete scope/ADS setup"
+    },
+    {
+      "name": "e566e3aaf90db459.patch_0.gpu_resources",
+      "sha256": "0902b8c994deebfed2f5b32e45fd1d3881fea9b00766f0fca6d2c7058ee9f576",
+      "size": 5840,
+      "profiles": null,
+      "category": "complete scope/ADS setup"
+    },
+    {
+      "name": "e566e3aaf90db459.patch_0.stream",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "size": 0,
+      "profiles": null,
+      "category": "complete scope/ADS setup"
+    },
+    {
+      "name": "e7ecee81b70d696f.patch_0",
+      "sha256": "b1263094e9fb86d5ee2f0771fbbac45f90601ec9e3fd37ed16e216861e79c9c3",
+      "size": 4672,
+      "profiles": null,
+      "category": "complete scope/ADS setup"
+    },
+    {
+      "name": "e7ecee81b70d696f.patch_0.gpu_resources",
+      "sha256": "0902b8c994deebfed2f5b32e45fd1d3881fea9b00766f0fca6d2c7058ee9f576",
+      "size": 5840,
+      "profiles": null,
+      "category": "complete scope/ADS setup"
+    },
+    {
+      "name": "e7ecee81b70d696f.patch_0.stream",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "size": 0,
+      "profiles": null,
+      "category": "complete scope/ADS setup"
+    },
+    {
+      "name": "e829d44fb5653ec4.patch_0",
+      "sha256": "9a7273ddb73979cc6c0e8c7126518a4817f974b2a7ae302d99436d404b097768",
+      "size": 4560,
+      "profiles": null,
+      "category": "complete scope/ADS setup"
+    },
+    {
+      "name": "e829d44fb5653ec4.patch_0.gpu_resources",
+      "sha256": "24a495219d1025f6637849de18445d7afa87db6b78f3f94fa4a8d6374f9ebd8b",
+      "size": 9296,
+      "profiles": null,
+      "category": "complete scope/ADS setup"
+    },
+    {
+      "name": "e829d44fb5653ec4.patch_0.stream",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "size": 0,
+      "profiles": null,
+      "category": "complete scope/ADS setup"
+    },
+    {
+      "name": "ea1b5bcaaf3eef23.patch_0",
+      "sha256": "b1263094e9fb86d5ee2f0771fbbac45f90601ec9e3fd37ed16e216861e79c9c3",
+      "size": 4672,
+      "profiles": null,
+      "category": "complete scope/ADS setup"
+    },
+    {
+      "name": "ea1b5bcaaf3eef23.patch_0.gpu_resources",
+      "sha256": "0902b8c994deebfed2f5b32e45fd1d3881fea9b00766f0fca6d2c7058ee9f576",
+      "size": 5840,
+      "profiles": null,
+      "category": "complete scope/ADS setup"
+    },
+    {
+      "name": "ea1b5bcaaf3eef23.patch_0.stream",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "size": 0,
+      "profiles": null,
+      "category": "complete scope/ADS setup"
+    },
+    {
+      "name": "ea6967f8565a2d76.patch_0",
+      "sha256": "5020f8882e87100c0b9059d3bb36f59f1f33381e907998ee5a269b1cabcaca99",
+      "size": 4864,
+      "profiles": null,
+      "category": "complete scope/ADS setup"
+    },
+    {
+      "name": "ea6967f8565a2d76.patch_0.gpu_resources",
+      "sha256": "20b1433457a5261c3384b4de2443822d3ecd4a23866bced4ff6e43c318f3a74c",
+      "size": 13264,
+      "profiles": null,
+      "category": "complete scope/ADS setup"
+    },
+    {
+      "name": "ea6967f8565a2d76.patch_0.stream",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "size": 0,
+      "profiles": null,
+      "category": "complete scope/ADS setup"
+    },
+    {
+      "name": "f230d2d2adcc034a.patch_0",
+      "sha256": "b1263094e9fb86d5ee2f0771fbbac45f90601ec9e3fd37ed16e216861e79c9c3",
+      "size": 4672,
+      "profiles": null,
+      "category": "complete scope/ADS setup"
+    },
+    {
+      "name": "f230d2d2adcc034a.patch_0.gpu_resources",
+      "sha256": "0902b8c994deebfed2f5b32e45fd1d3881fea9b00766f0fca6d2c7058ee9f576",
+      "size": 5840,
+      "profiles": null,
+      "category": "complete scope/ADS setup"
+    },
+    {
+      "name": "f230d2d2adcc034a.patch_0.stream",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "size": 0,
+      "profiles": null,
+      "category": "complete scope/ADS setup"
+    },
+    {
+      "name": "f7646e79610c124d.patch_0",
+      "sha256": "6105c6f6d7efca11fe49fe29de0429f63e3e00b05fc03cd36234f31b3e393c2a",
+      "size": 4640,
+      "profiles": null,
+      "category": "complete scope/ADS setup"
+    },
+    {
+      "name": "f7646e79610c124d.patch_0.gpu_resources",
+      "sha256": "58856892edf23737341846e945e4381aea7c7d1ecaef4f2dd7fe3456e4640827",
+      "size": 4432,
+      "profiles": null,
+      "category": "complete scope/ADS setup"
+    },
+    {
+      "name": "f7646e79610c124d.patch_0.stream",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "size": 0,
+      "profiles": null,
+      "category": "complete scope/ADS setup"
+    },
+    {
+      "name": "f79b65e482594bef.patch_0",
+      "sha256": "5566295e4ce947c2b347803d05761576b25c5e7c4f0e5c16c5f59d7bd1342491",
+      "size": 5040,
+      "profiles": null,
+      "category": "complete scope/ADS setup"
+    },
+    {
+      "name": "f79b65e482594bef.patch_0.gpu_resources",
+      "sha256": "d2b9c229a7ed0dc297d40f587d9f0ad80af663e885466adc4d6b91027422f17a",
+      "size": 4432,
+      "profiles": null,
+      "category": "complete scope/ADS setup"
+    },
+    {
+      "name": "f79b65e482594bef.patch_0.stream",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "size": 0,
+      "profiles": null,
+      "category": "complete scope/ADS setup"
+    },
+    {
+      "name": "fc5b6bff0db90aab.patch_0",
+      "sha256": "a67cbdc232d10a1567c7cea8f5ace35a7ad9f2af5d2d7bc382a69fb1f92b9ed1",
+      "size": 14384,
+      "profiles": null,
+      "category": "complete scope/ADS setup"
+    },
+    {
+      "name": "fc5b6bff0db90aab.patch_0.gpu_resources",
+      "sha256": "76dc0d63019ab02240793844e3098653a0b988bb58d85d85c9e553de0847c983",
+      "size": 14704,
+      "profiles": null,
+      "category": "complete scope/ADS setup"
+    },
+    {
+      "name": "fc5b6bff0db90aab.patch_0.stream",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "size": 0,
+      "profiles": null,
+      "category": "complete scope/ADS setup"
+    },
+    {
+      "name": "fe0fbe8486d53767.patch_0",
+      "sha256": "dae7fdbd089eefa4d62b82ff8fe9e568b2d2640c8efb5e5d405bcf56307c03a6",
+      "size": 5264,
+      "profiles": null,
+      "category": "complete scope/ADS setup"
+    },
+    {
+      "name": "fe0fbe8486d53767.patch_0.gpu_resources",
+      "sha256": "80d3fc2c81639ced9169206050709d8793c1383ffa4e8c3a4679ab3a8ae40556",
+      "size": 1568,
+      "profiles": null,
+      "category": "complete scope/ADS setup"
+    },
+    {
+      "name": "fe0fbe8486d53767.patch_0.stream",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "size": 0,
+      "profiles": null,
+      "category": "complete scope/ADS setup"
+    },
+    {
+      "name": "9ba626afa44a3aa3.patch_315",
+      "sha256": "42ccc87c5334c58d587e737bf756fa61ade7ff3fb90cb2c985ba7424d2a87f82",
+      "size": 270944,
+      "profiles": [
+        "full"
+      ],
+      "category": "Falchion Bastion"
+    },
+    {
+      "name": "9ba626afa44a3aa3.patch_315.gpu_resources",
+      "sha256": "0917fecc33e15f62ebdecbb073164932667625ab32ce08534efab6eed0302388",
+      "size": 71484912,
+      "profiles": [
+        "full"
+      ],
+      "category": "Falchion Bastion"
+    },
+    {
+      "name": "9ba626afa44a3aa3.patch_315.stream",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "size": 0,
+      "profiles": [
+        "full"
+      ],
+      "category": "Falchion Bastion"
+    },
+    {
+      "name": "9ba626afa44a3aa3.patch_316",
+      "sha256": "7a50d89e23c863e46be95ef23e413d41383a36e5f2fb29dc7301f387122f309d",
+      "size": 153200,
+      "profiles": [
+        "full"
+      ],
+      "category": "Supply FRV port"
+    },
+    {
+      "name": "9ba626afa44a3aa3.patch_316.gpu_resources",
+      "sha256": "c49c44e16b304502587ad640a54925ab40437474f809dedc610d09ad7eb992f6",
+      "size": 17423344,
+      "profiles": [
+        "full"
+      ],
+      "category": "Supply FRV port"
+    },
+    {
+      "name": "9ba626afa44a3aa3.patch_316.stream",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "size": 0,
+      "profiles": [
+        "full"
+      ],
+      "category": "Supply FRV port"
+    },
+    {
+      "name": "9ba626afa44a3aa3.patch_315",
+      "sha256": "bf79facef1188fa3ab8fee864b021d01d9dd5b65c14e8dee513c2b5f41631062",
+      "size": 270944,
+      "profiles": [
+        "lighter"
+      ],
+      "category": "Falchion Bastion"
+    },
+    {
+      "name": "9ba626afa44a3aa3.patch_315.gpu_resources",
+      "sha256": "cd6dd19ef9973861dba50d75efd450f5eb87f2009ccd7744603aecb261b02a30",
+      "size": 5424680,
+      "profiles": [
+        "lighter"
+      ],
+      "category": "Falchion Bastion"
+    },
+    {
+      "name": "9ba626afa44a3aa3.patch_315.stream",
+      "sha256": "174f633a2654b3b6bf077b9a5d0da528c3066bd1136c2400c59c76a9867f09b4",
+      "size": 67108976,
+      "profiles": [
+        "lighter"
+      ],
+      "category": "Falchion Bastion"
+    },
+    {
+      "name": "9ba626afa44a3aa3.patch_316",
+      "sha256": "7a50d89e23c863e46be95ef23e413d41383a36e5f2fb29dc7301f387122f309d",
+      "size": 153200,
+      "profiles": [
+        "lighter"
+      ],
+      "category": "Supply FRV port"
+    },
+    {
+      "name": "9ba626afa44a3aa3.patch_316.gpu_resources",
+      "sha256": "21157dbc2ed4595f322393e98406e60d4565231f8b3872a7c134c7711cf2cc5a",
+      "size": 17423336,
+      "profiles": [
+        "lighter"
+      ],
+      "category": "Supply FRV port"
+    },
+    {
+      "name": "9ba626afa44a3aa3.patch_316.stream",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "size": 0,
+      "profiles": [
+        "lighter"
+      ],
+      "category": "Supply FRV port"
+    }
+  ],
+  "cloneOnlyBundles": {
+    "9ba626afa44a3aa3.patch_0": "Clone armor, Republic opening and title screen",
+    "9ba626afa44a3aa3.patch_2": "Clone armor, Republic opening and title screen",
+    "9ba626afa44a3aa3.patch_15": "Clone armor accessories and Republic decals",
+    "9ba626afa44a3aa3.patch_159": "Temuera officer voices",
+    "9ba626afa44a3aa3.patch_16": "Clone armor accessories and Republic decals",
+    "9ba626afa44a3aa3.patch_162": "Clone officers",
+    "9ba626afa44a3aa3.patch_163": "Clone SEAF voices",
+    "9ba626afa44a3aa3.patch_17": "Clone armor accessories and Republic decals",
+    "9ba626afa44a3aa3.patch_178": "Clone SEAF models",
+    "9ba626afa44a3aa3.patch_179": "Clone SEAF models",
+    "9ba626afa44a3aa3.patch_18": "Clone armor accessories and Republic decals",
+    "9ba626afa44a3aa3.patch_180": "Clone SEAF models",
+    "9ba626afa44a3aa3.patch_19": "Clone armor accessories and Republic decals",
+    "9ba626afa44a3aa3.patch_4": "Clone armor, Republic opening and title screen",
+    "9ba626afa44a3aa3.patch_214": "Venator and Republic background ships",
+    "9ba626afa44a3aa3.patch_215": "Venator and Republic background ships",
+    "9ba626afa44a3aa3.patch_216": "Venator and Republic background ships",
+    "9ba626afa44a3aa3.patch_217": "Venator and Republic background ships",
+    "9ba626afa44a3aa3.patch_218": "Venator and Republic background ships",
+    "9ba626afa44a3aa3.patch_219": "Venator and Republic background ships",
+    "9ba626afa44a3aa3.patch_221": "Republic LAAT livery (Empire retains gray)",
+    "9ba626afa44a3aa3.patch_230": "AT-TE models and textures (Empire retains AT-ST)",
+    "9ba626afa44a3aa3.patch_231": "AT-TE models and textures (Empire retains AT-ST)",
+    "9ba626afa44a3aa3.patch_232": "AT-TE models and textures (Empire retains AT-ST)",
+    "9ba626afa44a3aa3.patch_233": "AT-TE models and textures (Empire retains AT-ST)",
+    "9ba626afa44a3aa3.patch_234": "AT-TE models and textures (Empire retains AT-ST)",
+    "9ba626afa44a3aa3.patch_235": "AT-TE models and textures (Empire retains AT-ST)",
+    "9ba626afa44a3aa3.patch_238": "AT-TE-specific animation edits",
+    "9ba626afa44a3aa3.patch_243": "Clone Eagle pilot voice",
+    "9ba626afa44a3aa3.patch_244": "Clone Pelican pilot voice",
+    "9ba626afa44a3aa3.patch_246": "Republic map presentation",
+    "9ba626afa44a3aa3.patch_247": "Republic map presentation",
+    "9ba626afa44a3aa3.patch_248": "Republic map presentation",
+    "9ba626afa44a3aa3.patch_249": "Venator video",
+    "9ba626afa44a3aa3.patch_250": "Venator soundtrack",
+    "9ba626afa44a3aa3.patch_254": "Commando armor and helmets",
+    "9ba626afa44a3aa3.patch_256": "Commando armor and helmets",
+    "9ba626afa44a3aa3.patch_258": "Commando armor and helmets",
+    "9ba626afa44a3aa3.patch_260": "Commando armor and helmets",
+    "9ba626afa44a3aa3.patch_5": "Clone armor, Republic opening and title screen",
+    "9ba626afa44a3aa3.patch_6": "Clone armor, Republic opening and title screen",
+    "9ba626afa44a3aa3.patch_7": "Clone armor, Republic opening and title screen",
+    "9ba626afa44a3aa3.patch_3": "Clone armor, Republic opening and title screen",
+    "9ba626afa44a3aa3.patch_1": "Clone armor, Republic opening and title screen",
+    "9ba626afa44a3aa3.patch_160": "Clone player voices",
+    "9ba626afa44a3aa3.patch_251": "Commando voices",
+    "9ba626afa44a3aa3.patch_252": "Clone armor and voice labels",
+    "9ba626afa44a3aa3.patch_253": "Commando armor and helmets",
+    "9ba626afa44a3aa3.patch_255": "Commando armor and helmets",
+    "9ba626afa44a3aa3.patch_257": "Commando armor and helmets",
+    "9ba626afa44a3aa3.patch_259": "Commando armor and helmets",
+    "9ba626afa44a3aa3.patch_261": "Commando armor and helmets",
+    "9ba626afa44a3aa3.patch_312": "mixed Clone armor roster"
+  },
+  "cloneVoicesExclusive": true,
+  "clonediversUnchanged": true,
+  "gameplayTested": false
+}
