@@ -1,9 +1,9 @@
 {
   "format": 3,
   "pack": {
-    "version": "2026.09.27-r17",
+    "version": "2026.09.27-r18",
     "name": "Clonedivers and EmpireDivers",
-    "notes": "EmpireDivers: Helldivers vs Star Wars battle intro with matching audio and startup logo cards removed. Clonedivers keeps the Venator intro. Covenant and SAI E-11 sound/blue bolts retained.",
+    "notes": "EmpireDivers now includes the complete Clonedivers weapon/ADS setup, shared backpacks, stratagem and sentry sounds, transports, tanks, GNK hellbomb and cape changes. Clone voices stay exclusive to Clonedivers.",
     "gameBuild": "25480438",
     "gameDepots": [
       "1883032874832282552",
@@ -13,7 +13,7 @@
       "3382210389809902281"
     ],
     "status": "ok",
-    "statusNotes": "Intro and mode combinations checked offline; gameplay unverified. EmpireDivers and Covenant remain experimental.",
+    "statusNotes": "Shared assets retain their shipped bytes. Mode and resource checks pass offline; gameplay remains unverified. Empire armor, AT-STs, ships and intro retained.",
     "options": [
       {
         "id": "commandos",
@@ -43,7 +43,7 @@
         "id": "empire",
         "name": "EmpireDivers",
         "default": false,
-        "description": "Imperial armor, Star Destroyers, gray LAAT and AT-ST exosuits."
+        "description": "Imperial armor, Star Destroyers, gray LAAT, AT-STs and battle intro with the shared Clonedivers weapon and vehicle setup."
       }
     ],
     "files": [
@@ -132,7 +132,8 @@
         "sha256": "0c679c838cc939a4d91f70ed39e2ddcd03a690b6c150a7f036f679b12bd8f9ca",
         "modes": [
           "clonedivers",
-          "commandos"
+          "commandos",
+          "empire"
         ],
         "textureProfiles": [
           "full"
@@ -145,7 +146,8 @@
         "sha256": "2a40754a8222ba4697b33e9fa4aaebf87785b649294c28ac5b191e746b562477",
         "modes": [
           "clonedivers",
-          "commandos"
+          "commandos",
+          "empire"
         ],
         "textureProfiles": [
           "full"
@@ -158,7 +160,8 @@
         "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
         "modes": [
           "clonedivers",
-          "commandos"
+          "commandos",
+          "empire"
         ],
         "textureProfiles": [
           "full"
@@ -502,7 +505,8 @@
         "sha256": "28a9e740bc91e33f8107f0f25584185e6225cfc7c0e77fa4d80e4b4fef0ef538",
         "modes": [
           "clonedivers",
-          "commandos"
+          "commandos",
+          "empire"
         ],
         "textureProfiles": [
           "full"
@@ -515,7 +519,8 @@
         "sha256": "13cb19741029a56525b8e123da20cc0742d5aaddb16eb6a7ec1a00405d9b0d18",
         "modes": [
           "clonedivers",
-          "commandos"
+          "commandos",
+          "empire"
         ],
         "textureProfiles": [
           "full"
@@ -528,7 +533,8 @@
         "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
         "modes": [
           "clonedivers",
-          "commandos"
+          "commandos",
+          "empire"
         ],
         "textureProfiles": [
           "full"
@@ -541,7 +547,8 @@
         "sha256": "690b413fabb22c554d788fafc035db7dc8415ebaf61a60723d739f67b8f15094",
         "modes": [
           "clonedivers",
-          "commandos"
+          "commandos",
+          "empire"
         ],
         "textureProfiles": [
           "full"
@@ -554,7 +561,8 @@
         "sha256": "3bd31320c683c4f8e6939edd3020166d28baf338e80d04a95c7196c598c36c24",
         "modes": [
           "clonedivers",
-          "commandos"
+          "commandos",
+          "empire"
         ],
         "textureProfiles": [
           "full"
@@ -567,7 +575,8 @@
         "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
         "modes": [
           "clonedivers",
-          "commandos"
+          "commandos",
+          "empire"
         ],
         "textureProfiles": [
           "full"
@@ -580,7 +589,8 @@
         "sha256": "95933fcfa1bcb0e407b3bace65dbf53cf01ffb9f89f5a894753d38d136707c6f",
         "modes": [
           "clonedivers",
-          "commandos"
+          "commandos",
+          "empire"
         ],
         "textureProfiles": [
           "full"
@@ -593,7 +603,8 @@
         "sha256": "3a846933a54e99564ff13ef29390ab87882d1cad2f438942ecd892048a91e7f1",
         "modes": [
           "clonedivers",
-          "commandos"
+          "commandos",
+          "empire"
         ],
         "textureProfiles": [
           "full"
@@ -606,7 +617,8 @@
         "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
         "modes": [
           "clonedivers",
-          "commandos"
+          "commandos",
+          "empire"
         ],
         "textureProfiles": [
           "full"
@@ -619,7 +631,8 @@
         "sha256": "31c49bbe931df51018db14ec43bf51a35b7b2febb5453244633d78dc793e2745",
         "modes": [
           "clonedivers",
-          "commandos"
+          "commandos",
+          "empire"
         ],
         "textureProfiles": [
           "full"
@@ -632,7 +645,8 @@
         "sha256": "560842b32619199d7a0655bfe57ba96ec9c032e30186746e99949d7096ea0bb9",
         "modes": [
           "clonedivers",
-          "commandos"
+          "commandos",
+          "empire"
         ],
         "textureProfiles": [
           "full"
@@ -645,7 +659,8 @@
         "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
         "modes": [
           "clonedivers",
-          "commandos"
+          "commandos",
+          "empire"
         ],
         "textureProfiles": [
           "full"
@@ -764,7 +779,8 @@
         "sha256": "ebf70e8bb4c95e82957b202cd7b4c802be378cf7e272b07d470e081335398e19",
         "modes": [
           "clonedivers",
-          "commandos"
+          "commandos",
+          "empire"
         ],
         "textureProfiles": [
           "full",
@@ -778,7 +794,8 @@
         "sha256": "be420ebc5826b9bc17c3857f6c4a876541773ff37f255c486407fcec66410eaa",
         "modes": [
           "clonedivers",
-          "commandos"
+          "commandos",
+          "empire"
         ],
         "textureProfiles": [
           "full",
@@ -848,7 +865,8 @@
         "sha256": "7338dfc5cb8c27d498d36fe873754e8fe4b1e594d20920f65aefd333c42a2a89",
         "modes": [
           "clonedivers",
-          "commandos"
+          "commandos",
+          "empire"
         ],
         "textureProfiles": [
           "full",
@@ -862,7 +880,8 @@
         "sha256": "8b616cdc247cc2a656cbad553d3109188857c85039406321e4825eef8fcc08e4",
         "modes": [
           "clonedivers",
-          "commandos"
+          "commandos",
+          "empire"
         ],
         "textureProfiles": [
           "full",
@@ -876,7 +895,8 @@
         "sha256": "69243527820b6ff158e6ba7a2797b09c60a88484ce659ff4ff6051640927a73a",
         "modes": [
           "clonedivers",
-          "commandos"
+          "commandos",
+          "empire"
         ],
         "textureProfiles": [
           "full",
@@ -890,7 +910,8 @@
         "sha256": "715c6e33a54801ad5bfd62a0ee2e564d70415e2243089680a40fd6d112ba79be",
         "modes": [
           "clonedivers",
-          "commandos"
+          "commandos",
+          "empire"
         ],
         "textureProfiles": [
           "full",
@@ -904,7 +925,8 @@
         "sha256": "c383360dd7bd3224c25d2e1c83c27e0b01ac0d7b5cd97dffa7ecb99f675cc6c9",
         "modes": [
           "clonedivers",
-          "commandos"
+          "commandos",
+          "empire"
         ],
         "textureProfiles": [
           "full",
@@ -918,7 +940,8 @@
         "sha256": "c6099a1b473b6313538ef2797059132a905151adbde17a9b8a202a6573cce2b9",
         "modes": [
           "clonedivers",
-          "commandos"
+          "commandos",
+          "empire"
         ],
         "textureProfiles": [
           "full",
@@ -932,7 +955,8 @@
         "sha256": "69798b32ea9b350dd948012dd3d3457d30b752c44fec0426e44ba7f1fba4c9dd",
         "modes": [
           "clonedivers",
-          "commandos"
+          "commandos",
+          "empire"
         ],
         "textureProfiles": [
           "full",
@@ -985,7 +1009,8 @@
         "sha256": "b740bb4a609316b9dff48cad7ad06186386bb442d77751c1d3807ea8a0348603",
         "modes": [
           "clonedivers",
-          "commandos"
+          "commandos",
+          "empire"
         ],
         "textureProfiles": [
           "full",
@@ -999,7 +1024,8 @@
         "sha256": "b792b0cd3b8258252b7f808ecaf2d384a2b292237ad79a428a4c4e12b2fea254",
         "modes": [
           "clonedivers",
-          "commandos"
+          "commandos",
+          "empire"
         ],
         "textureProfiles": [
           "full",
@@ -1013,7 +1039,8 @@
         "sha256": "aa2718c92b261720d765eed2f35435c42ef1fd78bc1bab36ccb02e2d974e4578",
         "modes": [
           "clonedivers",
-          "commandos"
+          "commandos",
+          "empire"
         ],
         "textureProfiles": [
           "full",
@@ -1027,7 +1054,8 @@
         "sha256": "09c3e0e9e33b047cf0a07d3cf8ee60a530935ccf8c55692f4e60b91aa4ca0013",
         "modes": [
           "clonedivers",
-          "commandos"
+          "commandos",
+          "empire"
         ],
         "textureProfiles": [
           "full",
@@ -1041,7 +1069,8 @@
         "sha256": "e996ba53198b35bee3da7beed2606a237198b97edec996c931dec0131d6c0e75",
         "modes": [
           "clonedivers",
-          "commandos"
+          "commandos",
+          "empire"
         ],
         "textureProfiles": [
           "full",
@@ -1055,7 +1084,8 @@
         "sha256": "8c7e0e0f3e483912f2afa3252e1d537ce14172f99fed22e584cfabb50b98dcb5",
         "modes": [
           "clonedivers",
-          "commandos"
+          "commandos",
+          "empire"
         ],
         "textureProfiles": [
           "full",
@@ -1069,7 +1099,8 @@
         "sha256": "384d08638fa694e9c674a4090892653381a6966db3fd88f9973d7c1e97d4cabc",
         "modes": [
           "clonedivers",
-          "commandos"
+          "commandos",
+          "empire"
         ],
         "textureProfiles": [
           "full",
@@ -3278,7 +3309,8 @@
         "sha256": "b96698102a200e3b43cf153f57e0a04b0b1d9c734bafabef3a1db58073ad3fe0",
         "modes": [
           "clonedivers",
-          "commandos"
+          "commandos",
+          "empire"
         ],
         "textureProfiles": [
           "full"
@@ -3291,7 +3323,8 @@
         "sha256": "dfe3359bbf80b6cd494c6b5e095a5fdea1e1abc2fc5afbe8dfaacc66e886c424",
         "modes": [
           "clonedivers",
-          "commandos"
+          "commandos",
+          "empire"
         ],
         "textureProfiles": [
           "full"
@@ -3304,7 +3337,8 @@
         "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
         "modes": [
           "clonedivers",
-          "commandos"
+          "commandos",
+          "empire"
         ],
         "textureProfiles": [
           "full"
@@ -3317,7 +3351,8 @@
         "sha256": "a7cd899a35ad91e1e593d46f3b2cd035b9a6a685657da784f5265473bb4e8dd3",
         "modes": [
           "clonedivers",
-          "commandos"
+          "commandos",
+          "empire"
         ],
         "textureProfiles": [
           "full",
@@ -3331,7 +3366,8 @@
         "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
         "modes": [
           "clonedivers",
-          "commandos"
+          "commandos",
+          "empire"
         ],
         "textureProfiles": [
           "full",
@@ -3345,7 +3381,8 @@
         "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
         "modes": [
           "clonedivers",
-          "commandos"
+          "commandos",
+          "empire"
         ],
         "textureProfiles": [
           "full",
@@ -3359,7 +3396,8 @@
         "sha256": "839a60493271de0bc4f2b0eccef5fbaafc78769ef6b6abf21524210996f1fcf3",
         "modes": [
           "clonedivers",
-          "commandos"
+          "commandos",
+          "empire"
         ],
         "textureProfiles": [
           "full"
@@ -3372,7 +3410,8 @@
         "sha256": "36004254df99022a7f9052c01ab0fbf1014ba7085e955a308c8def2a00a8acb3",
         "modes": [
           "clonedivers",
-          "commandos"
+          "commandos",
+          "empire"
         ],
         "textureProfiles": [
           "full"
@@ -3385,7 +3424,8 @@
         "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
         "modes": [
           "clonedivers",
-          "commandos"
+          "commandos",
+          "empire"
         ],
         "textureProfiles": [
           "full"
@@ -3398,7 +3438,8 @@
         "sha256": "8b818597a612b82006f256907ef01c229f0df5328e33d31b96e02d5769db1196",
         "modes": [
           "clonedivers",
-          "commandos"
+          "commandos",
+          "empire"
         ],
         "textureProfiles": [
           "full"
@@ -3411,7 +3452,8 @@
         "sha256": "9914c9a2f46fad69300a9cd9ee51da0ae00a6cd2cf299931a593940fcebd2b16",
         "modes": [
           "clonedivers",
-          "commandos"
+          "commandos",
+          "empire"
         ],
         "textureProfiles": [
           "full"
@@ -3424,7 +3466,8 @@
         "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
         "modes": [
           "clonedivers",
-          "commandos"
+          "commandos",
+          "empire"
         ],
         "textureProfiles": [
           "full"
@@ -3437,7 +3480,8 @@
         "sha256": "6a7da34710bc1bce05f9dafbfc55f832ba96ae1af6aa4983ecf4a920cb2ba2b8",
         "modes": [
           "clonedivers",
-          "commandos"
+          "commandos",
+          "empire"
         ],
         "textureProfiles": [
           "full"
@@ -3450,7 +3494,8 @@
         "sha256": "8df4234ae89e24565e750a47c9df2e4cf1df1adbbbab4922e56833e7607d385a",
         "modes": [
           "clonedivers",
-          "commandos"
+          "commandos",
+          "empire"
         ],
         "textureProfiles": [
           "full"
@@ -3463,7 +3508,8 @@
         "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
         "modes": [
           "clonedivers",
-          "commandos"
+          "commandos",
+          "empire"
         ],
         "textureProfiles": [
           "full"
@@ -3755,7 +3801,8 @@
         "sha256": "9e8778045dcc1583cb7c6b124f1e460f3611ef20eb9769be3e1c1c398e79587b",
         "modes": [
           "clonedivers",
-          "commandos"
+          "commandos",
+          "empire"
         ],
         "textureProfiles": [
           "full",
@@ -3769,7 +3816,8 @@
         "sha256": "93249c1646b48e229e0b6600840585c7162ed180a67b08f0cd9d4254f0925850",
         "modes": [
           "clonedivers",
-          "commandos"
+          "commandos",
+          "empire"
         ],
         "textureProfiles": [
           "full",
@@ -3783,7 +3831,8 @@
         "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
         "modes": [
           "clonedivers",
-          "commandos"
+          "commandos",
+          "empire"
         ],
         "textureProfiles": [
           "full",
@@ -3797,7 +3846,8 @@
         "sha256": "d029ef149be4e1f75ce43ae6313156e53817330454a3709356d363fada81095c",
         "modes": [
           "clonedivers",
-          "commandos"
+          "commandos",
+          "empire"
         ],
         "textureProfiles": [
           "full",
@@ -3811,7 +3861,8 @@
         "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
         "modes": [
           "clonedivers",
-          "commandos"
+          "commandos",
+          "empire"
         ],
         "textureProfiles": [
           "full",
@@ -3825,7 +3876,8 @@
         "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
         "modes": [
           "clonedivers",
-          "commandos"
+          "commandos",
+          "empire"
         ],
         "textureProfiles": [
           "full",
@@ -3881,7 +3933,8 @@
         "sha256": "7807939821116404fde85db75fa4f2045aa9449e0f46d9e113e34295ffc473b5",
         "modes": [
           "clonedivers",
-          "commandos"
+          "commandos",
+          "empire"
         ],
         "textureProfiles": [
           "full"
@@ -3894,7 +3947,8 @@
         "sha256": "b1684bceed3b777ba94e7bf006afd61bc1c6646feb03fa4a859265960cbf90bc",
         "modes": [
           "clonedivers",
-          "commandos"
+          "commandos",
+          "empire"
         ],
         "textureProfiles": [
           "full"
@@ -3907,7 +3961,8 @@
         "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
         "modes": [
           "clonedivers",
-          "commandos"
+          "commandos",
+          "empire"
         ],
         "textureProfiles": [
           "full"
@@ -3965,7 +4020,8 @@
         "sha256": "db5ede07968bf11166f0f609b43c3f410cc119dd50a0052ad424b11337fd3898",
         "modes": [
           "clonedivers",
-          "commandos"
+          "commandos",
+          "empire"
         ],
         "textureProfiles": [
           "full",
@@ -3979,7 +4035,8 @@
         "sha256": "3c3d356896415a0f7fcec2e3bc1f3efd4459b6cf4ced7113db5cc3c66fd6f900",
         "modes": [
           "clonedivers",
-          "commandos"
+          "commandos",
+          "empire"
         ],
         "textureProfiles": [
           "full",
@@ -3993,7 +4050,8 @@
         "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
         "modes": [
           "clonedivers",
-          "commandos"
+          "commandos",
+          "empire"
         ],
         "textureProfiles": [
           "full",
@@ -4007,7 +4065,8 @@
         "sha256": "362e5244140972e58108fded3237bc1e52ce7238c8993258e11f755857f7724d",
         "modes": [
           "clonedivers",
-          "commandos"
+          "commandos",
+          "empire"
         ],
         "textureProfiles": [
           "full",
@@ -4021,7 +4080,8 @@
         "sha256": "f4dc3934ea8c73654d39b3cbfd64183bcafb4772d51023614fd373ec5a2cb98c",
         "modes": [
           "clonedivers",
-          "commandos"
+          "commandos",
+          "empire"
         ],
         "textureProfiles": [
           "full",
@@ -4035,7 +4095,8 @@
         "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
         "modes": [
           "clonedivers",
-          "commandos"
+          "commandos",
+          "empire"
         ],
         "textureProfiles": [
           "full",
@@ -4049,7 +4110,8 @@
         "sha256": "6d20162bc192f824d20cf7b018b74ff733e54371517988f241c4c381e1b99041",
         "modes": [
           "clonedivers",
-          "commandos"
+          "commandos",
+          "empire"
         ],
         "textureProfiles": [
           "full"
@@ -4062,7 +4124,8 @@
         "sha256": "b1788f8b39c1e385b9616d8900d879e2c8cb10e78baf7d20bd024de5bb7f2416",
         "modes": [
           "clonedivers",
-          "commandos"
+          "commandos",
+          "empire"
         ],
         "textureProfiles": [
           "full"
@@ -4075,7 +4138,8 @@
         "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
         "modes": [
           "clonedivers",
-          "commandos"
+          "commandos",
+          "empire"
         ],
         "textureProfiles": [
           "full"
@@ -4144,7 +4208,8 @@
         "sha256": "8784117ea881936a3ffa8156cfb832034f65de341b2c010f47b015376b30bf17",
         "modes": [
           "clonedivers",
-          "commandos"
+          "commandos",
+          "empire"
         ],
         "textureProfiles": [
           "full",
@@ -4158,7 +4223,8 @@
         "sha256": "4ca847e3fedbce1aa2f6d371b2c66c40421d056066965dcebf432bf1bd18e439",
         "modes": [
           "clonedivers",
-          "commandos"
+          "commandos",
+          "empire"
         ],
         "textureProfiles": [
           "full",
@@ -4172,7 +4238,8 @@
         "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
         "modes": [
           "clonedivers",
-          "commandos"
+          "commandos",
+          "empire"
         ],
         "textureProfiles": [
           "full",
@@ -8856,7 +8923,8 @@
         "sha256": "c94a4e4e6a562e1927f13d8795a4290df7f44280779fb07da5aefeaa67b85c70",
         "modes": [
           "clonedivers",
-          "commandos"
+          "commandos",
+          "empire"
         ],
         "textureProfiles": [
           "full"
@@ -8869,7 +8937,8 @@
         "sha256": "d01c83d2efceffee0914d4eb0ccc229bb0de3e58e223a178429e74c02cc9ed6f",
         "modes": [
           "clonedivers",
-          "commandos"
+          "commandos",
+          "empire"
         ],
         "textureProfiles": [
           "full"
@@ -8882,7 +8951,8 @@
         "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
         "modes": [
           "clonedivers",
-          "commandos"
+          "commandos",
+          "empire"
         ],
         "textureProfiles": [
           "full"
@@ -9336,7 +9406,8 @@
         "sha256": "34ccf3cd5c9fde6b5075757470e8950db4e2fd313bdd5eadfe4ac6b130dfba59",
         "modes": [
           "clonedivers",
-          "commandos"
+          "commandos",
+          "empire"
         ],
         "textureProfiles": [
           "full"
@@ -9349,7 +9420,8 @@
         "sha256": "5406d25a9263926f5f29f651ff14ba21b12c0baa417dc07083d3c824679c4f8b",
         "modes": [
           "clonedivers",
-          "commandos"
+          "commandos",
+          "empire"
         ],
         "textureProfiles": [
           "full"
@@ -9362,7 +9434,8 @@
         "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
         "modes": [
           "clonedivers",
-          "commandos"
+          "commandos",
+          "empire"
         ],
         "textureProfiles": [
           "full"
@@ -9861,7 +9934,8 @@
         "sha256": "fa9ea1c54e08c6d28dd95dd9292c31170c705fc46f91f3c1492a1e646563f334",
         "modes": [
           "clonedivers",
-          "commandos"
+          "commandos",
+          "empire"
         ],
         "textureProfiles": [
           "lighter"
@@ -9874,7 +9948,8 @@
         "sha256": "39290582f320bd523ec987dd6e22e32d7ac10c17cecb96f64af8334d6bd90164",
         "modes": [
           "clonedivers",
-          "commandos"
+          "commandos",
+          "empire"
         ],
         "textureProfiles": [
           "lighter"
@@ -9887,7 +9962,8 @@
         "sha256": "8780ac1889b9c3a879eaf9a160ba0269ed51aa592e032887a2bb4e05a2bd313e",
         "modes": [
           "clonedivers",
-          "commandos"
+          "commandos",
+          "empire"
         ],
         "textureProfiles": [
           "lighter"
@@ -10110,7 +10186,8 @@
         "sha256": "0dd5e0ae61a0b969b64ec4552499b3390b032ac50a81888c19fc2c54b11e711a",
         "modes": [
           "clonedivers",
-          "commandos"
+          "commandos",
+          "empire"
         ],
         "textureProfiles": [
           "lighter"
@@ -10123,7 +10200,8 @@
         "sha256": "4cd24e9f6e83d265c2910a6f2f2fc4ad7760a85114068f6ea012f94945eafeda",
         "modes": [
           "clonedivers",
-          "commandos"
+          "commandos",
+          "empire"
         ],
         "textureProfiles": [
           "lighter"
@@ -10136,7 +10214,8 @@
         "sha256": "f344a14f83f54841cb59ef8c52c5dc6ce3d335666c07d8be8b9a86d9fc092d9b",
         "modes": [
           "clonedivers",
-          "commandos"
+          "commandos",
+          "empire"
         ],
         "textureProfiles": [
           "lighter"
@@ -10149,7 +10228,8 @@
         "sha256": "f03069bd7a34593191f55c37a296eb7739f220559689e7b13aeffa0689e32c18",
         "modes": [
           "clonedivers",
-          "commandos"
+          "commandos",
+          "empire"
         ],
         "textureProfiles": [
           "lighter"
@@ -10162,7 +10242,8 @@
         "sha256": "cf47dfc84b3cd818efff79afbb95684f5d65aa8d5b17893839fcc3c4cde5e1c0",
         "modes": [
           "clonedivers",
-          "commandos"
+          "commandos",
+          "empire"
         ],
         "textureProfiles": [
           "lighter"
@@ -10175,7 +10256,8 @@
         "sha256": "3bd31320c683c4f8e6939edd3020166d28baf338e80d04a95c7196c598c36c24",
         "modes": [
           "clonedivers",
-          "commandos"
+          "commandos",
+          "empire"
         ],
         "textureProfiles": [
           "lighter"
@@ -10188,7 +10270,8 @@
         "sha256": "4ad5e624afd5021b39cfceaf6799ee8452766947fe7bc023ba2765ddd1c3509b",
         "modes": [
           "clonedivers",
-          "commandos"
+          "commandos",
+          "empire"
         ],
         "textureProfiles": [
           "lighter"
@@ -10201,7 +10284,8 @@
         "sha256": "99a8ac768a2767dd6e42f0f4d0f103613ed6e49b3658aabeeb93ed0ff539c84b",
         "modes": [
           "clonedivers",
-          "commandos"
+          "commandos",
+          "empire"
         ],
         "textureProfiles": [
           "lighter"
@@ -10214,7 +10298,8 @@
         "sha256": "41bba60bdcb0a3160d47ab5e85794701a3dd4755dd3ba7cfb62e650f9338a046",
         "modes": [
           "clonedivers",
-          "commandos"
+          "commandos",
+          "empire"
         ],
         "textureProfiles": [
           "lighter"
@@ -10227,7 +10312,8 @@
         "sha256": "fef13014661ae39aa48487a84a46e45001b26a69eae461a32325d7f507aec8e5",
         "modes": [
           "clonedivers",
-          "commandos"
+          "commandos",
+          "empire"
         ],
         "textureProfiles": [
           "lighter"
@@ -10240,7 +10326,8 @@
         "sha256": "715796be1562ff1278f337375eeccec2b36cccb0104d09701ace6ed32b971a27",
         "modes": [
           "clonedivers",
-          "commandos"
+          "commandos",
+          "empire"
         ],
         "textureProfiles": [
           "lighter"
@@ -10253,7 +10340,8 @@
         "sha256": "224943afac7f83375ea1324317c582d3ef07dba2207b24eeb44565fa56bb8d59",
         "modes": [
           "clonedivers",
-          "commandos"
+          "commandos",
+          "empire"
         ],
         "textureProfiles": [
           "lighter"
@@ -11817,7 +11905,8 @@
         "sha256": "8b96e2c87e7de7e4deba417fcd399ca75961acb6b6a36ed8c80aaca8d061012b",
         "modes": [
           "clonedivers",
-          "commandos"
+          "commandos",
+          "empire"
         ],
         "textureProfiles": [
           "lighter"
@@ -11830,7 +11919,8 @@
         "sha256": "905c530cf0f855cd7cf0579ec56159fd823f1f81921101e8d5a8dc156fa252f3",
         "modes": [
           "clonedivers",
-          "commandos"
+          "commandos",
+          "empire"
         ],
         "textureProfiles": [
           "lighter"
@@ -11843,7 +11933,8 @@
         "sha256": "e229f96eb670c59ed8f87f28f2997c7fdbe7ef07c141cdd913885f730c25c5b2",
         "modes": [
           "clonedivers",
-          "commandos"
+          "commandos",
+          "empire"
         ],
         "textureProfiles": [
           "lighter"
@@ -11856,7 +11947,8 @@
         "sha256": "2c836b5f936ad385f64ec1b3a88940f318c019358b19b6639c1bce3f014a9e35",
         "modes": [
           "clonedivers",
-          "commandos"
+          "commandos",
+          "empire"
         ],
         "textureProfiles": [
           "lighter"
@@ -11869,7 +11961,8 @@
         "sha256": "fdf9fb91bdedb52efa5a162f4a024e6c084fc7542fc5b1b3078cab0f19df039c",
         "modes": [
           "clonedivers",
-          "commandos"
+          "commandos",
+          "empire"
         ],
         "textureProfiles": [
           "lighter"
@@ -11882,7 +11975,8 @@
         "sha256": "36004254df99022a7f9052c01ab0fbf1014ba7085e955a308c8def2a00a8acb3",
         "modes": [
           "clonedivers",
-          "commandos"
+          "commandos",
+          "empire"
         ],
         "textureProfiles": [
           "lighter"
@@ -11895,7 +11989,8 @@
         "sha256": "56d23e15d89829f3ff29a99044ff99136947a2eefbb676b222672d867741814b",
         "modes": [
           "clonedivers",
-          "commandos"
+          "commandos",
+          "empire"
         ],
         "textureProfiles": [
           "lighter"
@@ -11908,7 +12003,8 @@
         "sha256": "80fe59d9354d727f5eb277d0b55ce5b61f37e533ffc05832118c1e9d09efe308",
         "modes": [
           "clonedivers",
-          "commandos"
+          "commandos",
+          "empire"
         ],
         "textureProfiles": [
           "lighter"
@@ -11921,7 +12017,8 @@
         "sha256": "1676a8dae33627b22eb6159d448c95e0d18c3d3aec51733de25972915ea427d6",
         "modes": [
           "clonedivers",
-          "commandos"
+          "commandos",
+          "empire"
         ],
         "textureProfiles": [
           "lighter"
@@ -11934,7 +12031,8 @@
         "sha256": "053b9fe7fd606ff6ec1743499f7cc1a6c0859b2b29d44e50f2587d174c6f954c",
         "modes": [
           "clonedivers",
-          "commandos"
+          "commandos",
+          "empire"
         ],
         "textureProfiles": [
           "lighter"
@@ -11947,7 +12045,8 @@
         "sha256": "f23e59e7590031066a684215364c4ee22dd038c587448efb4da0da0e5184da7d",
         "modes": [
           "clonedivers",
-          "commandos"
+          "commandos",
+          "empire"
         ],
         "textureProfiles": [
           "lighter"
@@ -11960,7 +12059,8 @@
         "sha256": "993b2b151db6e6bdf2d15144ed6da0e72fceee9197ab77b31819927dae7c3042",
         "modes": [
           "clonedivers",
-          "commandos"
+          "commandos",
+          "empire"
         ],
         "textureProfiles": [
           "lighter"
@@ -12207,7 +12307,8 @@
         "sha256": "f233670b5c8c81b3167373d231bdf10bd8042098ff7d7d98da3d985c70add7a1",
         "modes": [
           "clonedivers",
-          "commandos"
+          "commandos",
+          "empire"
         ],
         "textureProfiles": [
           "lighter"
@@ -12220,7 +12321,8 @@
         "sha256": "e2cdf3fcf0cd8467727fa82cb81831fb4b53e738fee714f21ac07311c835b210",
         "modes": [
           "clonedivers",
-          "commandos"
+          "commandos",
+          "empire"
         ],
         "textureProfiles": [
           "lighter"
@@ -12233,7 +12335,8 @@
         "sha256": "b1684bceed3b777ba94e7bf006afd61bc1c6646feb03fa4a859265960cbf90bc",
         "modes": [
           "clonedivers",
-          "commandos"
+          "commandos",
+          "empire"
         ],
         "textureProfiles": [
           "lighter"
@@ -12246,7 +12349,8 @@
         "sha256": "9afd4d4eb9b1f5f10c87a82810dda5c19eade3680d6886996415cc277e4b4a7e",
         "modes": [
           "clonedivers",
-          "commandos"
+          "commandos",
+          "empire"
         ],
         "textureProfiles": [
           "lighter"
@@ -12259,7 +12363,8 @@
         "sha256": "3e8dd6da6bc0e2a35aae27e95e10bfa1ed3a354b22d970a2718106d967a17d9c",
         "modes": [
           "clonedivers",
-          "commandos"
+          "commandos",
+          "empire"
         ],
         "textureProfiles": [
           "lighter"
@@ -12272,7 +12377,8 @@
         "sha256": "6553cbba893220d42f5c33aaca531804bb991a126c1bb69cc93da308e4360615",
         "modes": [
           "clonedivers",
-          "commandos"
+          "commandos",
+          "empire"
         ],
         "textureProfiles": [
           "lighter"
@@ -12480,7 +12586,8 @@
         "sha256": "a4ddd3253863f483ac459e4db53101846930fbf92259298d85edd4d898d49aef",
         "modes": [
           "clonedivers",
-          "commandos"
+          "commandos",
+          "empire"
         ],
         "textureProfiles": [
           "lighter"
@@ -12493,7 +12600,8 @@
         "sha256": "3fb2d8bca7be39b00bae1eead76130cefd7f4e1eea12f84714c0d0769a090ced",
         "modes": [
           "clonedivers",
-          "commandos"
+          "commandos",
+          "empire"
         ],
         "textureProfiles": [
           "lighter"
@@ -12506,7 +12614,8 @@
         "sha256": "2c7cc7d37408ed9df5fcfdf983c4a29567aeb4da5ebe1cc1773c75490094e8a2",
         "modes": [
           "clonedivers",
-          "commandos"
+          "commandos",
+          "empire"
         ],
         "textureProfiles": [
           "lighter"
@@ -12645,7 +12754,8 @@
         "sha256": "4184441ebcd0a9cdba3e40f6c4bfb729630d770cbb257dcbd1c621d9abc53770",
         "modes": [
           "clonedivers",
-          "commandos"
+          "commandos",
+          "empire"
         ],
         "textureProfiles": [
           "lighter"
@@ -12658,7 +12768,8 @@
         "sha256": "8844b1b82dedf45adf8086defccf3a2d2a0953916ea9d783ab6ae8a4819e0abe",
         "modes": [
           "clonedivers",
-          "commandos"
+          "commandos",
+          "empire"
         ],
         "textureProfiles": [
           "lighter"
@@ -12671,7 +12782,8 @@
         "sha256": "5406d25a9263926f5f29f651ff14ba21b12c0baa417dc07083d3c824679c4f8b",
         "modes": [
           "clonedivers",
-          "commandos"
+          "commandos",
+          "empire"
         ],
         "textureProfiles": [
           "lighter"
@@ -14565,7 +14677,8 @@
         "sha256": "a8a8a05c943b21db8a5923623fa7179b5bbf1009d2fe0269915bdd84907558ba",
         "modes": [
           "clonedivers",
-          "commandos"
+          "commandos",
+          "empire"
         ]
       },
       {
@@ -14575,7 +14688,8 @@
         "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
         "modes": [
           "clonedivers",
-          "commandos"
+          "commandos",
+          "empire"
         ]
       },
       {
@@ -14585,7 +14699,8 @@
         "sha256": "794b888d8cb05b67c63ecb24f994803302cb02277550abbd7165106c9606a6d1",
         "modes": [
           "clonedivers",
-          "commandos"
+          "commandos",
+          "empire"
         ]
       },
       {
@@ -14595,7 +14710,8 @@
         "sha256": "34add89661903f687b26b08de68a27f5cb004a15bbc1f5cc55b7c2b3b2aa9d39",
         "modes": [
           "clonedivers",
-          "commandos"
+          "commandos",
+          "empire"
         ]
       },
       {
@@ -14605,7 +14721,8 @@
         "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
         "modes": [
           "clonedivers",
-          "commandos"
+          "commandos",
+          "empire"
         ]
       },
       {
@@ -14615,7 +14732,8 @@
         "sha256": "c7971d86c99555411439e8b3a65a297c2255f0af979d8e188c8898ebcb6eaba8",
         "modes": [
           "clonedivers",
-          "commandos"
+          "commandos",
+          "empire"
         ]
       },
       {
@@ -14861,7 +14979,8 @@
         "sha256": "9dd29c18a4d304e66075bfe438343ce65043f128d9437ce2e9f5df647ec663b4",
         "modes": [
           "clonedivers",
-          "commandos"
+          "commandos",
+          "empire"
         ]
       },
       {
@@ -14871,7 +14990,8 @@
         "sha256": "88e436d3912394cee3dd6e7381cf98c5d2d1563681c2305317f0744332a6ef72",
         "modes": [
           "clonedivers",
-          "commandos"
+          "commandos",
+          "empire"
         ]
       },
       {
@@ -14881,7 +15001,8 @@
         "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
         "modes": [
           "clonedivers",
-          "commandos"
+          "commandos",
+          "empire"
         ]
       },
       {
@@ -14891,7 +15012,8 @@
         "sha256": "9a7273ddb73979cc6c0e8c7126518a4817f974b2a7ae302d99436d404b097768",
         "modes": [
           "clonedivers",
-          "commandos"
+          "commandos",
+          "empire"
         ]
       },
       {
@@ -14901,7 +15023,8 @@
         "sha256": "24a495219d1025f6637849de18445d7afa87db6b78f3f94fa4a8d6374f9ebd8b",
         "modes": [
           "clonedivers",
-          "commandos"
+          "commandos",
+          "empire"
         ]
       },
       {
@@ -14911,7 +15034,8 @@
         "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
         "modes": [
           "clonedivers",
-          "commandos"
+          "commandos",
+          "empire"
         ]
       },
       {
@@ -14921,7 +15045,8 @@
         "sha256": "c857e759d8960460b81c1115607e7aacdf0024eda00a7844a35381fbd750f28b",
         "modes": [
           "clonedivers",
-          "commandos"
+          "commandos",
+          "empire"
         ]
       },
       {
@@ -14931,7 +15056,8 @@
         "sha256": "113bc9677dbefc03dbf6d0bf6ea67773749b21178a86f0d5a16f2793961ea8d9",
         "modes": [
           "clonedivers",
-          "commandos"
+          "commandos",
+          "empire"
         ]
       },
       {
@@ -14941,7 +15067,8 @@
         "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
         "modes": [
           "clonedivers",
-          "commandos"
+          "commandos",
+          "empire"
         ]
       },
       {
@@ -14951,7 +15078,8 @@
         "sha256": "b1263094e9fb86d5ee2f0771fbbac45f90601ec9e3fd37ed16e216861e79c9c3",
         "modes": [
           "clonedivers",
-          "commandos"
+          "commandos",
+          "empire"
         ]
       },
       {
@@ -14961,7 +15089,8 @@
         "sha256": "0902b8c994deebfed2f5b32e45fd1d3881fea9b00766f0fca6d2c7058ee9f576",
         "modes": [
           "clonedivers",
-          "commandos"
+          "commandos",
+          "empire"
         ]
       },
       {
@@ -14971,7 +15100,8 @@
         "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
         "modes": [
           "clonedivers",
-          "commandos"
+          "commandos",
+          "empire"
         ]
       },
       {
@@ -14981,7 +15111,8 @@
         "sha256": "b1263094e9fb86d5ee2f0771fbbac45f90601ec9e3fd37ed16e216861e79c9c3",
         "modes": [
           "clonedivers",
-          "commandos"
+          "commandos",
+          "empire"
         ]
       },
       {
@@ -14991,7 +15122,8 @@
         "sha256": "0902b8c994deebfed2f5b32e45fd1d3881fea9b00766f0fca6d2c7058ee9f576",
         "modes": [
           "clonedivers",
-          "commandos"
+          "commandos",
+          "empire"
         ]
       },
       {
@@ -15001,7 +15133,8 @@
         "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
         "modes": [
           "clonedivers",
-          "commandos"
+          "commandos",
+          "empire"
         ]
       },
       {
@@ -15011,7 +15144,8 @@
         "sha256": "b1263094e9fb86d5ee2f0771fbbac45f90601ec9e3fd37ed16e216861e79c9c3",
         "modes": [
           "clonedivers",
-          "commandos"
+          "commandos",
+          "empire"
         ]
       },
       {
@@ -15021,7 +15155,8 @@
         "sha256": "0902b8c994deebfed2f5b32e45fd1d3881fea9b00766f0fca6d2c7058ee9f576",
         "modes": [
           "clonedivers",
-          "commandos"
+          "commandos",
+          "empire"
         ]
       },
       {
@@ -15031,7 +15166,8 @@
         "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
         "modes": [
           "clonedivers",
-          "commandos"
+          "commandos",
+          "empire"
         ]
       },
       {
@@ -15041,7 +15177,8 @@
         "sha256": "d94d5b00f2c817e53518008ca6e3fe0bd33623697feee017ae232f39f5763775",
         "modes": [
           "clonedivers",
-          "commandos"
+          "commandos",
+          "empire"
         ]
       },
       {
@@ -15051,7 +15188,8 @@
         "sha256": "7ceb1cc5be7a2bd0a3e268f698e1b4f71b5c01a70c88155bbaa32e2de7189b49",
         "modes": [
           "clonedivers",
-          "commandos"
+          "commandos",
+          "empire"
         ]
       },
       {
@@ -15061,7 +15199,8 @@
         "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
         "modes": [
           "clonedivers",
-          "commandos"
+          "commandos",
+          "empire"
         ]
       },
       {
@@ -15071,7 +15210,8 @@
         "sha256": "88384cece09536a16753f0a67924b3a9402ef772931158850f7ed9b5fb43d4e9",
         "modes": [
           "clonedivers",
-          "commandos"
+          "commandos",
+          "empire"
         ]
       },
       {
@@ -15081,7 +15221,8 @@
         "sha256": "c24b0e3c4b2a7813f96156840912547411c344c1ea569cfc755901eb3acec498",
         "modes": [
           "clonedivers",
-          "commandos"
+          "commandos",
+          "empire"
         ]
       },
       {
@@ -15091,7 +15232,8 @@
         "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
         "modes": [
           "clonedivers",
-          "commandos"
+          "commandos",
+          "empire"
         ]
       },
       {
@@ -15101,7 +15243,8 @@
         "sha256": "9dd29c18a4d304e66075bfe438343ce65043f128d9437ce2e9f5df647ec663b4",
         "modes": [
           "clonedivers",
-          "commandos"
+          "commandos",
+          "empire"
         ]
       },
       {
@@ -15111,7 +15254,8 @@
         "sha256": "88e436d3912394cee3dd6e7381cf98c5d2d1563681c2305317f0744332a6ef72",
         "modes": [
           "clonedivers",
-          "commandos"
+          "commandos",
+          "empire"
         ]
       },
       {
@@ -15121,7 +15265,8 @@
         "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
         "modes": [
           "clonedivers",
-          "commandos"
+          "commandos",
+          "empire"
         ]
       },
       {
@@ -15131,7 +15276,8 @@
         "sha256": "5566295e4ce947c2b347803d05761576b25c5e7c4f0e5c16c5f59d7bd1342491",
         "modes": [
           "clonedivers",
-          "commandos"
+          "commandos",
+          "empire"
         ]
       },
       {
@@ -15141,7 +15287,8 @@
         "sha256": "d2b9c229a7ed0dc297d40f587d9f0ad80af663e885466adc4d6b91027422f17a",
         "modes": [
           "clonedivers",
-          "commandos"
+          "commandos",
+          "empire"
         ]
       },
       {
@@ -15151,7 +15298,8 @@
         "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
         "modes": [
           "clonedivers",
-          "commandos"
+          "commandos",
+          "empire"
         ]
       },
       {
@@ -15161,7 +15309,8 @@
         "sha256": "17ccb32ef475547cc13349785bd7070a427eb47e484c9323ff0aa1b1187ee4a5",
         "modes": [
           "clonedivers",
-          "commandos"
+          "commandos",
+          "empire"
         ]
       },
       {
@@ -15171,7 +15320,8 @@
         "sha256": "708da57309a58753f591107dd7c63bc8c1cadfd795163a01c71f7b08f2e5f6e8",
         "modes": [
           "clonedivers",
-          "commandos"
+          "commandos",
+          "empire"
         ]
       },
       {
@@ -15181,7 +15331,8 @@
         "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
         "modes": [
           "clonedivers",
-          "commandos"
+          "commandos",
+          "empire"
         ]
       },
       {
@@ -15191,7 +15342,8 @@
         "sha256": "29facce0b218fafab8cec4dc9503e18de4571a90f06fbffd2dff388f041ac7c8",
         "modes": [
           "clonedivers",
-          "commandos"
+          "commandos",
+          "empire"
         ]
       },
       {
@@ -15201,7 +15353,8 @@
         "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
         "modes": [
           "clonedivers",
-          "commandos"
+          "commandos",
+          "empire"
         ]
       },
       {
@@ -15211,7 +15364,8 @@
         "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
         "modes": [
           "clonedivers",
-          "commandos"
+          "commandos",
+          "empire"
         ]
       },
       {
@@ -15221,7 +15375,8 @@
         "sha256": "ac6d406f2b48be13ce7c3272d457b58791646b103db42ca6fe7eeb5968b5bfb3",
         "modes": [
           "clonedivers",
-          "commandos"
+          "commandos",
+          "empire"
         ]
       },
       {
@@ -15231,7 +15386,8 @@
         "sha256": "9ec24e8dadf71bfc52a133f39e26e86f7a8b8e1a402848f8a4d786e4e581d06b",
         "modes": [
           "clonedivers",
-          "commandos"
+          "commandos",
+          "empire"
         ]
       },
       {
@@ -15241,7 +15397,8 @@
         "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
         "modes": [
           "clonedivers",
-          "commandos"
+          "commandos",
+          "empire"
         ]
       },
       {
@@ -15251,7 +15408,8 @@
         "sha256": "9a7273ddb73979cc6c0e8c7126518a4817f974b2a7ae302d99436d404b097768",
         "modes": [
           "clonedivers",
-          "commandos"
+          "commandos",
+          "empire"
         ]
       },
       {
@@ -15261,7 +15419,8 @@
         "sha256": "24a495219d1025f6637849de18445d7afa87db6b78f3f94fa4a8d6374f9ebd8b",
         "modes": [
           "clonedivers",
-          "commandos"
+          "commandos",
+          "empire"
         ]
       },
       {
@@ -15271,7 +15430,8 @@
         "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
         "modes": [
           "clonedivers",
-          "commandos"
+          "commandos",
+          "empire"
         ]
       },
       {
@@ -15281,7 +15441,8 @@
         "sha256": "cfa7cd82317e7316601564613e6647cecdb6a6a8389c6886a471a0e171a38cb5",
         "modes": [
           "clonedivers",
-          "commandos"
+          "commandos",
+          "empire"
         ]
       },
       {
@@ -15291,7 +15452,8 @@
         "sha256": "7f9eea73f777d0de2b51ff0f6673996effd497df43736635b6d72dd0ec6cac16",
         "modes": [
           "clonedivers",
-          "commandos"
+          "commandos",
+          "empire"
         ]
       },
       {
@@ -15301,7 +15463,8 @@
         "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
         "modes": [
           "clonedivers",
-          "commandos"
+          "commandos",
+          "empire"
         ]
       },
       {
@@ -15311,7 +15474,8 @@
         "sha256": "358886990d52cf59b9be64ebc7610c51bf0e90ea29540a4ebfd363338762b99e",
         "modes": [
           "clonedivers",
-          "commandos"
+          "commandos",
+          "empire"
         ]
       },
       {
@@ -15321,7 +15485,8 @@
         "sha256": "4c71b67f951ed8b3086a09f0eeff48d13631fedf7a4c30d8ce8b1094447e5697",
         "modes": [
           "clonedivers",
-          "commandos"
+          "commandos",
+          "empire"
         ]
       },
       {
@@ -15331,7 +15496,8 @@
         "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
         "modes": [
           "clonedivers",
-          "commandos"
+          "commandos",
+          "empire"
         ]
       },
       {
@@ -15341,7 +15507,8 @@
         "sha256": "9dd29c18a4d304e66075bfe438343ce65043f128d9437ce2e9f5df647ec663b4",
         "modes": [
           "clonedivers",
-          "commandos"
+          "commandos",
+          "empire"
         ]
       },
       {
@@ -15351,7 +15518,8 @@
         "sha256": "88e436d3912394cee3dd6e7381cf98c5d2d1563681c2305317f0744332a6ef72",
         "modes": [
           "clonedivers",
-          "commandos"
+          "commandos",
+          "empire"
         ]
       },
       {
@@ -15361,7 +15529,8 @@
         "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
         "modes": [
           "clonedivers",
-          "commandos"
+          "commandos",
+          "empire"
         ]
       },
       {
@@ -15371,7 +15540,8 @@
         "sha256": "88384cece09536a16753f0a67924b3a9402ef772931158850f7ed9b5fb43d4e9",
         "modes": [
           "clonedivers",
-          "commandos"
+          "commandos",
+          "empire"
         ]
       },
       {
@@ -15381,7 +15551,8 @@
         "sha256": "c24b0e3c4b2a7813f96156840912547411c344c1ea569cfc755901eb3acec498",
         "modes": [
           "clonedivers",
-          "commandos"
+          "commandos",
+          "empire"
         ]
       },
       {
@@ -15391,7 +15562,8 @@
         "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
         "modes": [
           "clonedivers",
-          "commandos"
+          "commandos",
+          "empire"
         ]
       },
       {
@@ -15401,7 +15573,8 @@
         "sha256": "358886990d52cf59b9be64ebc7610c51bf0e90ea29540a4ebfd363338762b99e",
         "modes": [
           "clonedivers",
-          "commandos"
+          "commandos",
+          "empire"
         ]
       },
       {
@@ -15411,7 +15584,8 @@
         "sha256": "4c71b67f951ed8b3086a09f0eeff48d13631fedf7a4c30d8ce8b1094447e5697",
         "modes": [
           "clonedivers",
-          "commandos"
+          "commandos",
+          "empire"
         ]
       },
       {
@@ -15421,7 +15595,8 @@
         "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
         "modes": [
           "clonedivers",
-          "commandos"
+          "commandos",
+          "empire"
         ]
       },
       {
@@ -15431,7 +15606,8 @@
         "sha256": "88384cece09536a16753f0a67924b3a9402ef772931158850f7ed9b5fb43d4e9",
         "modes": [
           "clonedivers",
-          "commandos"
+          "commandos",
+          "empire"
         ]
       },
       {
@@ -15441,7 +15617,8 @@
         "sha256": "c24b0e3c4b2a7813f96156840912547411c344c1ea569cfc755901eb3acec498",
         "modes": [
           "clonedivers",
-          "commandos"
+          "commandos",
+          "empire"
         ]
       },
       {
@@ -15451,7 +15628,8 @@
         "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
         "modes": [
           "clonedivers",
-          "commandos"
+          "commandos",
+          "empire"
         ]
       },
       {
@@ -15461,7 +15639,8 @@
         "sha256": "a15d479f26257a9d87844e74afa774cbae9f6b70c8e638102860a0d152d324a8",
         "modes": [
           "clonedivers",
-          "commandos"
+          "commandos",
+          "empire"
         ]
       },
       {
@@ -15471,7 +15650,8 @@
         "sha256": "3b67b39f3ac326162189308536174253b39dd7652252fb42b5f1153d9b9c63a4",
         "modes": [
           "clonedivers",
-          "commandos"
+          "commandos",
+          "empire"
         ]
       },
       {
@@ -15481,7 +15661,8 @@
         "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
         "modes": [
           "clonedivers",
-          "commandos"
+          "commandos",
+          "empire"
         ]
       },
       {
@@ -15491,7 +15672,8 @@
         "sha256": "b1263094e9fb86d5ee2f0771fbbac45f90601ec9e3fd37ed16e216861e79c9c3",
         "modes": [
           "clonedivers",
-          "commandos"
+          "commandos",
+          "empire"
         ]
       },
       {
@@ -15501,7 +15683,8 @@
         "sha256": "0902b8c994deebfed2f5b32e45fd1d3881fea9b00766f0fca6d2c7058ee9f576",
         "modes": [
           "clonedivers",
-          "commandos"
+          "commandos",
+          "empire"
         ]
       },
       {
@@ -15511,7 +15694,8 @@
         "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
         "modes": [
           "clonedivers",
-          "commandos"
+          "commandos",
+          "empire"
         ]
       },
       {
@@ -15521,7 +15705,8 @@
         "sha256": "6105c6f6d7efca11fe49fe29de0429f63e3e00b05fc03cd36234f31b3e393c2a",
         "modes": [
           "clonedivers",
-          "commandos"
+          "commandos",
+          "empire"
         ]
       },
       {
@@ -15531,7 +15716,8 @@
         "sha256": "58856892edf23737341846e945e4381aea7c7d1ecaef4f2dd7fe3456e4640827",
         "modes": [
           "clonedivers",
-          "commandos"
+          "commandos",
+          "empire"
         ]
       },
       {
@@ -15541,7 +15727,8 @@
         "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
         "modes": [
           "clonedivers",
-          "commandos"
+          "commandos",
+          "empire"
         ]
       },
       {
@@ -15551,7 +15738,8 @@
         "sha256": "17ccb32ef475547cc13349785bd7070a427eb47e484c9323ff0aa1b1187ee4a5",
         "modes": [
           "clonedivers",
-          "commandos"
+          "commandos",
+          "empire"
         ]
       },
       {
@@ -15561,7 +15749,8 @@
         "sha256": "708da57309a58753f591107dd7c63bc8c1cadfd795163a01c71f7b08f2e5f6e8",
         "modes": [
           "clonedivers",
-          "commandos"
+          "commandos",
+          "empire"
         ]
       },
       {
@@ -15571,7 +15760,8 @@
         "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
         "modes": [
           "clonedivers",
-          "commandos"
+          "commandos",
+          "empire"
         ]
       },
       {
@@ -15581,7 +15771,8 @@
         "sha256": "88384cece09536a16753f0a67924b3a9402ef772931158850f7ed9b5fb43d4e9",
         "modes": [
           "clonedivers",
-          "commandos"
+          "commandos",
+          "empire"
         ]
       },
       {
@@ -15591,7 +15782,8 @@
         "sha256": "c24b0e3c4b2a7813f96156840912547411c344c1ea569cfc755901eb3acec498",
         "modes": [
           "clonedivers",
-          "commandos"
+          "commandos",
+          "empire"
         ]
       },
       {
@@ -15601,7 +15793,8 @@
         "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
         "modes": [
           "clonedivers",
-          "commandos"
+          "commandos",
+          "empire"
         ]
       },
       {
@@ -15611,7 +15804,8 @@
         "sha256": "88384cece09536a16753f0a67924b3a9402ef772931158850f7ed9b5fb43d4e9",
         "modes": [
           "clonedivers",
-          "commandos"
+          "commandos",
+          "empire"
         ]
       },
       {
@@ -15621,7 +15815,8 @@
         "sha256": "c24b0e3c4b2a7813f96156840912547411c344c1ea569cfc755901eb3acec498",
         "modes": [
           "clonedivers",
-          "commandos"
+          "commandos",
+          "empire"
         ]
       },
       {
@@ -15631,7 +15826,8 @@
         "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
         "modes": [
           "clonedivers",
-          "commandos"
+          "commandos",
+          "empire"
         ]
       },
       {
@@ -15641,7 +15837,8 @@
         "sha256": "9dd29c18a4d304e66075bfe438343ce65043f128d9437ce2e9f5df647ec663b4",
         "modes": [
           "clonedivers",
-          "commandos"
+          "commandos",
+          "empire"
         ]
       },
       {
@@ -15651,7 +15848,8 @@
         "sha256": "88e436d3912394cee3dd6e7381cf98c5d2d1563681c2305317f0744332a6ef72",
         "modes": [
           "clonedivers",
-          "commandos"
+          "commandos",
+          "empire"
         ]
       },
       {
@@ -15661,7 +15859,8 @@
         "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
         "modes": [
           "clonedivers",
-          "commandos"
+          "commandos",
+          "empire"
         ]
       },
       {
@@ -15671,7 +15870,8 @@
         "sha256": "b1263094e9fb86d5ee2f0771fbbac45f90601ec9e3fd37ed16e216861e79c9c3",
         "modes": [
           "clonedivers",
-          "commandos"
+          "commandos",
+          "empire"
         ]
       },
       {
@@ -15681,7 +15881,8 @@
         "sha256": "0902b8c994deebfed2f5b32e45fd1d3881fea9b00766f0fca6d2c7058ee9f576",
         "modes": [
           "clonedivers",
-          "commandos"
+          "commandos",
+          "empire"
         ]
       },
       {
@@ -15691,7 +15892,8 @@
         "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
         "modes": [
           "clonedivers",
-          "commandos"
+          "commandos",
+          "empire"
         ]
       },
       {
@@ -15701,7 +15903,8 @@
         "sha256": "5566295e4ce947c2b347803d05761576b25c5e7c4f0e5c16c5f59d7bd1342491",
         "modes": [
           "clonedivers",
-          "commandos"
+          "commandos",
+          "empire"
         ]
       },
       {
@@ -15711,7 +15914,8 @@
         "sha256": "d2b9c229a7ed0dc297d40f587d9f0ad80af663e885466adc4d6b91027422f17a",
         "modes": [
           "clonedivers",
-          "commandos"
+          "commandos",
+          "empire"
         ]
       },
       {
@@ -15721,7 +15925,8 @@
         "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
         "modes": [
           "clonedivers",
-          "commandos"
+          "commandos",
+          "empire"
         ]
       },
       {
@@ -15731,7 +15936,8 @@
         "sha256": "5020f8882e87100c0b9059d3bb36f59f1f33381e907998ee5a269b1cabcaca99",
         "modes": [
           "clonedivers",
-          "commandos"
+          "commandos",
+          "empire"
         ]
       },
       {
@@ -15741,7 +15947,8 @@
         "sha256": "20b1433457a5261c3384b4de2443822d3ecd4a23866bced4ff6e43c318f3a74c",
         "modes": [
           "clonedivers",
-          "commandos"
+          "commandos",
+          "empire"
         ]
       },
       {
@@ -15751,7 +15958,8 @@
         "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
         "modes": [
           "clonedivers",
-          "commandos"
+          "commandos",
+          "empire"
         ]
       },
       {
@@ -15761,7 +15969,8 @@
         "sha256": "b1263094e9fb86d5ee2f0771fbbac45f90601ec9e3fd37ed16e216861e79c9c3",
         "modes": [
           "clonedivers",
-          "commandos"
+          "commandos",
+          "empire"
         ]
       },
       {
@@ -15771,7 +15980,8 @@
         "sha256": "0902b8c994deebfed2f5b32e45fd1d3881fea9b00766f0fca6d2c7058ee9f576",
         "modes": [
           "clonedivers",
-          "commandos"
+          "commandos",
+          "empire"
         ]
       },
       {
@@ -15781,7 +15991,8 @@
         "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
         "modes": [
           "clonedivers",
-          "commandos"
+          "commandos",
+          "empire"
         ]
       },
       {
@@ -15791,7 +16002,8 @@
         "sha256": "6105c6f6d7efca11fe49fe29de0429f63e3e00b05fc03cd36234f31b3e393c2a",
         "modes": [
           "clonedivers",
-          "commandos"
+          "commandos",
+          "empire"
         ]
       },
       {
@@ -15801,7 +16013,8 @@
         "sha256": "58856892edf23737341846e945e4381aea7c7d1ecaef4f2dd7fe3456e4640827",
         "modes": [
           "clonedivers",
-          "commandos"
+          "commandos",
+          "empire"
         ]
       },
       {
@@ -15811,7 +16024,8 @@
         "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
         "modes": [
           "clonedivers",
-          "commandos"
+          "commandos",
+          "empire"
         ]
       },
       {
@@ -15821,7 +16035,8 @@
         "sha256": "17ccb32ef475547cc13349785bd7070a427eb47e484c9323ff0aa1b1187ee4a5",
         "modes": [
           "clonedivers",
-          "commandos"
+          "commandos",
+          "empire"
         ]
       },
       {
@@ -15831,7 +16046,8 @@
         "sha256": "708da57309a58753f591107dd7c63bc8c1cadfd795163a01c71f7b08f2e5f6e8",
         "modes": [
           "clonedivers",
-          "commandos"
+          "commandos",
+          "empire"
         ]
       },
       {
@@ -15841,7 +16057,8 @@
         "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
         "modes": [
           "clonedivers",
-          "commandos"
+          "commandos",
+          "empire"
         ]
       },
       {
@@ -15851,7 +16068,8 @@
         "sha256": "c857e759d8960460b81c1115607e7aacdf0024eda00a7844a35381fbd750f28b",
         "modes": [
           "clonedivers",
-          "commandos"
+          "commandos",
+          "empire"
         ]
       },
       {
@@ -15861,7 +16079,8 @@
         "sha256": "113bc9677dbefc03dbf6d0bf6ea67773749b21178a86f0d5a16f2793961ea8d9",
         "modes": [
           "clonedivers",
-          "commandos"
+          "commandos",
+          "empire"
         ]
       },
       {
@@ -15871,7 +16090,8 @@
         "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
         "modes": [
           "clonedivers",
-          "commandos"
+          "commandos",
+          "empire"
         ]
       },
       {
@@ -15881,7 +16101,8 @@
         "sha256": "5566295e4ce947c2b347803d05761576b25c5e7c4f0e5c16c5f59d7bd1342491",
         "modes": [
           "clonedivers",
-          "commandos"
+          "commandos",
+          "empire"
         ]
       },
       {
@@ -15891,7 +16112,8 @@
         "sha256": "d2b9c229a7ed0dc297d40f587d9f0ad80af663e885466adc4d6b91027422f17a",
         "modes": [
           "clonedivers",
-          "commandos"
+          "commandos",
+          "empire"
         ]
       },
       {
@@ -15901,7 +16123,8 @@
         "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
         "modes": [
           "clonedivers",
-          "commandos"
+          "commandos",
+          "empire"
         ]
       },
       {
@@ -15911,7 +16134,8 @@
         "sha256": "6105c6f6d7efca11fe49fe29de0429f63e3e00b05fc03cd36234f31b3e393c2a",
         "modes": [
           "clonedivers",
-          "commandos"
+          "commandos",
+          "empire"
         ]
       },
       {
@@ -15921,7 +16145,8 @@
         "sha256": "58856892edf23737341846e945e4381aea7c7d1ecaef4f2dd7fe3456e4640827",
         "modes": [
           "clonedivers",
-          "commandos"
+          "commandos",
+          "empire"
         ]
       },
       {
@@ -15931,7 +16156,8 @@
         "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
         "modes": [
           "clonedivers",
-          "commandos"
+          "commandos",
+          "empire"
         ]
       },
       {
@@ -15941,7 +16167,8 @@
         "sha256": "6105c6f6d7efca11fe49fe29de0429f63e3e00b05fc03cd36234f31b3e393c2a",
         "modes": [
           "clonedivers",
-          "commandos"
+          "commandos",
+          "empire"
         ]
       },
       {
@@ -15951,7 +16178,8 @@
         "sha256": "58856892edf23737341846e945e4381aea7c7d1ecaef4f2dd7fe3456e4640827",
         "modes": [
           "clonedivers",
-          "commandos"
+          "commandos",
+          "empire"
         ]
       },
       {
@@ -15961,7 +16189,8 @@
         "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
         "modes": [
           "clonedivers",
-          "commandos"
+          "commandos",
+          "empire"
         ]
       },
       {
@@ -15971,7 +16200,8 @@
         "sha256": "88384cece09536a16753f0a67924b3a9402ef772931158850f7ed9b5fb43d4e9",
         "modes": [
           "clonedivers",
-          "commandos"
+          "commandos",
+          "empire"
         ]
       },
       {
@@ -15981,7 +16211,8 @@
         "sha256": "c24b0e3c4b2a7813f96156840912547411c344c1ea569cfc755901eb3acec498",
         "modes": [
           "clonedivers",
-          "commandos"
+          "commandos",
+          "empire"
         ]
       },
       {
@@ -15991,7 +16222,8 @@
         "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
         "modes": [
           "clonedivers",
-          "commandos"
+          "commandos",
+          "empire"
         ]
       },
       {
@@ -16001,7 +16233,8 @@
         "sha256": "5566295e4ce947c2b347803d05761576b25c5e7c4f0e5c16c5f59d7bd1342491",
         "modes": [
           "clonedivers",
-          "commandos"
+          "commandos",
+          "empire"
         ]
       },
       {
@@ -16011,7 +16244,8 @@
         "sha256": "d2b9c229a7ed0dc297d40f587d9f0ad80af663e885466adc4d6b91027422f17a",
         "modes": [
           "clonedivers",
-          "commandos"
+          "commandos",
+          "empire"
         ]
       },
       {
@@ -16021,7 +16255,8 @@
         "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
         "modes": [
           "clonedivers",
-          "commandos"
+          "commandos",
+          "empire"
         ]
       },
       {
@@ -16031,7 +16266,8 @@
         "sha256": "5566295e4ce947c2b347803d05761576b25c5e7c4f0e5c16c5f59d7bd1342491",
         "modes": [
           "clonedivers",
-          "commandos"
+          "commandos",
+          "empire"
         ]
       },
       {
@@ -16041,7 +16277,8 @@
         "sha256": "d2b9c229a7ed0dc297d40f587d9f0ad80af663e885466adc4d6b91027422f17a",
         "modes": [
           "clonedivers",
-          "commandos"
+          "commandos",
+          "empire"
         ]
       },
       {
@@ -16051,7 +16288,8 @@
         "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
         "modes": [
           "clonedivers",
-          "commandos"
+          "commandos",
+          "empire"
         ]
       },
       {
@@ -16061,7 +16299,8 @@
         "sha256": "9a7273ddb73979cc6c0e8c7126518a4817f974b2a7ae302d99436d404b097768",
         "modes": [
           "clonedivers",
-          "commandos"
+          "commandos",
+          "empire"
         ]
       },
       {
@@ -16071,7 +16310,8 @@
         "sha256": "24a495219d1025f6637849de18445d7afa87db6b78f3f94fa4a8d6374f9ebd8b",
         "modes": [
           "clonedivers",
-          "commandos"
+          "commandos",
+          "empire"
         ]
       },
       {
@@ -16081,7 +16321,8 @@
         "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
         "modes": [
           "clonedivers",
-          "commandos"
+          "commandos",
+          "empire"
         ]
       },
       {
@@ -16091,7 +16332,8 @@
         "sha256": "5566295e4ce947c2b347803d05761576b25c5e7c4f0e5c16c5f59d7bd1342491",
         "modes": [
           "clonedivers",
-          "commandos"
+          "commandos",
+          "empire"
         ]
       },
       {
@@ -16101,7 +16343,8 @@
         "sha256": "d2b9c229a7ed0dc297d40f587d9f0ad80af663e885466adc4d6b91027422f17a",
         "modes": [
           "clonedivers",
-          "commandos"
+          "commandos",
+          "empire"
         ]
       },
       {
@@ -16111,7 +16354,8 @@
         "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
         "modes": [
           "clonedivers",
-          "commandos"
+          "commandos",
+          "empire"
         ]
       },
       {
@@ -16121,7 +16365,8 @@
         "sha256": "c857e759d8960460b81c1115607e7aacdf0024eda00a7844a35381fbd750f28b",
         "modes": [
           "clonedivers",
-          "commandos"
+          "commandos",
+          "empire"
         ]
       },
       {
@@ -16131,7 +16376,8 @@
         "sha256": "113bc9677dbefc03dbf6d0bf6ea67773749b21178a86f0d5a16f2793961ea8d9",
         "modes": [
           "clonedivers",
-          "commandos"
+          "commandos",
+          "empire"
         ]
       },
       {
@@ -16141,7 +16387,8 @@
         "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
         "modes": [
           "clonedivers",
-          "commandos"
+          "commandos",
+          "empire"
         ]
       },
       {
@@ -16151,7 +16398,8 @@
         "sha256": "b1263094e9fb86d5ee2f0771fbbac45f90601ec9e3fd37ed16e216861e79c9c3",
         "modes": [
           "clonedivers",
-          "commandos"
+          "commandos",
+          "empire"
         ]
       },
       {
@@ -16161,7 +16409,8 @@
         "sha256": "0902b8c994deebfed2f5b32e45fd1d3881fea9b00766f0fca6d2c7058ee9f576",
         "modes": [
           "clonedivers",
-          "commandos"
+          "commandos",
+          "empire"
         ]
       },
       {
@@ -16171,7 +16420,8 @@
         "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
         "modes": [
           "clonedivers",
-          "commandos"
+          "commandos",
+          "empire"
         ]
       },
       {
@@ -16181,7 +16431,8 @@
         "sha256": "cfa7cd82317e7316601564613e6647cecdb6a6a8389c6886a471a0e171a38cb5",
         "modes": [
           "clonedivers",
-          "commandos"
+          "commandos",
+          "empire"
         ]
       },
       {
@@ -16191,7 +16442,8 @@
         "sha256": "7f9eea73f777d0de2b51ff0f6673996effd497df43736635b6d72dd0ec6cac16",
         "modes": [
           "clonedivers",
-          "commandos"
+          "commandos",
+          "empire"
         ]
       },
       {
@@ -16201,7 +16453,8 @@
         "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
         "modes": [
           "clonedivers",
-          "commandos"
+          "commandos",
+          "empire"
         ]
       },
       {
@@ -16211,7 +16464,8 @@
         "sha256": "88384cece09536a16753f0a67924b3a9402ef772931158850f7ed9b5fb43d4e9",
         "modes": [
           "clonedivers",
-          "commandos"
+          "commandos",
+          "empire"
         ]
       },
       {
@@ -16221,7 +16475,8 @@
         "sha256": "c24b0e3c4b2a7813f96156840912547411c344c1ea569cfc755901eb3acec498",
         "modes": [
           "clonedivers",
-          "commandos"
+          "commandos",
+          "empire"
         ]
       },
       {
@@ -16231,7 +16486,8 @@
         "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
         "modes": [
           "clonedivers",
-          "commandos"
+          "commandos",
+          "empire"
         ]
       },
       {
@@ -16241,7 +16497,8 @@
         "sha256": "b1263094e9fb86d5ee2f0771fbbac45f90601ec9e3fd37ed16e216861e79c9c3",
         "modes": [
           "clonedivers",
-          "commandos"
+          "commandos",
+          "empire"
         ]
       },
       {
@@ -16251,7 +16508,8 @@
         "sha256": "0902b8c994deebfed2f5b32e45fd1d3881fea9b00766f0fca6d2c7058ee9f576",
         "modes": [
           "clonedivers",
-          "commandos"
+          "commandos",
+          "empire"
         ]
       },
       {
@@ -16261,7 +16519,8 @@
         "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
         "modes": [
           "clonedivers",
-          "commandos"
+          "commandos",
+          "empire"
         ]
       },
       {
@@ -16271,7 +16530,8 @@
         "sha256": "dae7fdbd089eefa4d62b82ff8fe9e568b2d2640c8efb5e5d405bcf56307c03a6",
         "modes": [
           "clonedivers",
-          "commandos"
+          "commandos",
+          "empire"
         ]
       },
       {
@@ -16281,7 +16541,8 @@
         "sha256": "80d3fc2c81639ced9169206050709d8793c1383ffa4e8c3a4679ab3a8ae40556",
         "modes": [
           "clonedivers",
-          "commandos"
+          "commandos",
+          "empire"
         ]
       },
       {
@@ -16291,7 +16552,8 @@
         "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
         "modes": [
           "clonedivers",
-          "commandos"
+          "commandos",
+          "empire"
         ]
       },
       {
@@ -16301,7 +16563,8 @@
         "sha256": "cfa7cd82317e7316601564613e6647cecdb6a6a8389c6886a471a0e171a38cb5",
         "modes": [
           "clonedivers",
-          "commandos"
+          "commandos",
+          "empire"
         ]
       },
       {
@@ -16311,7 +16574,8 @@
         "sha256": "7f9eea73f777d0de2b51ff0f6673996effd497df43736635b6d72dd0ec6cac16",
         "modes": [
           "clonedivers",
-          "commandos"
+          "commandos",
+          "empire"
         ]
       },
       {
@@ -16321,7 +16585,8 @@
         "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
         "modes": [
           "clonedivers",
-          "commandos"
+          "commandos",
+          "empire"
         ]
       },
       {
@@ -16331,7 +16596,8 @@
         "sha256": "17ccb32ef475547cc13349785bd7070a427eb47e484c9323ff0aa1b1187ee4a5",
         "modes": [
           "clonedivers",
-          "commandos"
+          "commandos",
+          "empire"
         ]
       },
       {
@@ -16341,7 +16607,8 @@
         "sha256": "708da57309a58753f591107dd7c63bc8c1cadfd795163a01c71f7b08f2e5f6e8",
         "modes": [
           "clonedivers",
-          "commandos"
+          "commandos",
+          "empire"
         ]
       },
       {
@@ -16351,7 +16618,8 @@
         "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
         "modes": [
           "clonedivers",
-          "commandos"
+          "commandos",
+          "empire"
         ]
       },
       {
@@ -16361,7 +16629,8 @@
         "sha256": "17ccb32ef475547cc13349785bd7070a427eb47e484c9323ff0aa1b1187ee4a5",
         "modes": [
           "clonedivers",
-          "commandos"
+          "commandos",
+          "empire"
         ]
       },
       {
@@ -16371,7 +16640,8 @@
         "sha256": "708da57309a58753f591107dd7c63bc8c1cadfd795163a01c71f7b08f2e5f6e8",
         "modes": [
           "clonedivers",
-          "commandos"
+          "commandos",
+          "empire"
         ]
       },
       {
@@ -16381,7 +16651,8 @@
         "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
         "modes": [
           "clonedivers",
-          "commandos"
+          "commandos",
+          "empire"
         ]
       },
       {
@@ -16391,7 +16662,8 @@
         "sha256": "d94d5b00f2c817e53518008ca6e3fe0bd33623697feee017ae232f39f5763775",
         "modes": [
           "clonedivers",
-          "commandos"
+          "commandos",
+          "empire"
         ]
       },
       {
@@ -16401,7 +16673,8 @@
         "sha256": "7ceb1cc5be7a2bd0a3e268f698e1b4f71b5c01a70c88155bbaa32e2de7189b49",
         "modes": [
           "clonedivers",
-          "commandos"
+          "commandos",
+          "empire"
         ]
       },
       {
@@ -16411,7 +16684,8 @@
         "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
         "modes": [
           "clonedivers",
-          "commandos"
+          "commandos",
+          "empire"
         ]
       },
       {
@@ -16421,7 +16695,8 @@
         "sha256": "b1263094e9fb86d5ee2f0771fbbac45f90601ec9e3fd37ed16e216861e79c9c3",
         "modes": [
           "clonedivers",
-          "commandos"
+          "commandos",
+          "empire"
         ]
       },
       {
@@ -16431,7 +16706,8 @@
         "sha256": "0902b8c994deebfed2f5b32e45fd1d3881fea9b00766f0fca6d2c7058ee9f576",
         "modes": [
           "clonedivers",
-          "commandos"
+          "commandos",
+          "empire"
         ]
       },
       {
@@ -16441,7 +16717,8 @@
         "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
         "modes": [
           "clonedivers",
-          "commandos"
+          "commandos",
+          "empire"
         ]
       },
       {
@@ -16451,7 +16728,8 @@
         "sha256": "9a7273ddb73979cc6c0e8c7126518a4817f974b2a7ae302d99436d404b097768",
         "modes": [
           "clonedivers",
-          "commandos"
+          "commandos",
+          "empire"
         ]
       },
       {
@@ -16461,7 +16739,8 @@
         "sha256": "24a495219d1025f6637849de18445d7afa87db6b78f3f94fa4a8d6374f9ebd8b",
         "modes": [
           "clonedivers",
-          "commandos"
+          "commandos",
+          "empire"
         ]
       },
       {
@@ -16471,7 +16750,8 @@
         "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
         "modes": [
           "clonedivers",
-          "commandos"
+          "commandos",
+          "empire"
         ]
       },
       {
@@ -16481,7 +16761,8 @@
         "sha256": "dae7fdbd089eefa4d62b82ff8fe9e568b2d2640c8efb5e5d405bcf56307c03a6",
         "modes": [
           "clonedivers",
-          "commandos"
+          "commandos",
+          "empire"
         ]
       },
       {
@@ -16491,7 +16772,8 @@
         "sha256": "80d3fc2c81639ced9169206050709d8793c1383ffa4e8c3a4679ab3a8ae40556",
         "modes": [
           "clonedivers",
-          "commandos"
+          "commandos",
+          "empire"
         ]
       },
       {
@@ -16501,7 +16783,8 @@
         "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
         "modes": [
           "clonedivers",
-          "commandos"
+          "commandos",
+          "empire"
         ]
       },
       {
@@ -16511,7 +16794,8 @@
         "sha256": "b36924471c81aed6d7159bb9fd05a11166b3129f0c533025e099f97b455c99b8",
         "modes": [
           "clonedivers",
-          "commandos"
+          "commandos",
+          "empire"
         ]
       },
       {
@@ -16521,7 +16805,8 @@
         "sha256": "7662c3cab54c13ce86507a62b46bacafe794ec1f64c9680c9d15f2b332ce537d",
         "modes": [
           "clonedivers",
-          "commandos"
+          "commandos",
+          "empire"
         ]
       },
       {
@@ -16531,7 +16816,8 @@
         "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
         "modes": [
           "clonedivers",
-          "commandos"
+          "commandos",
+          "empire"
         ]
       },
       {
@@ -16541,7 +16827,8 @@
         "sha256": "88384cece09536a16753f0a67924b3a9402ef772931158850f7ed9b5fb43d4e9",
         "modes": [
           "clonedivers",
-          "commandos"
+          "commandos",
+          "empire"
         ]
       },
       {
@@ -16551,7 +16838,8 @@
         "sha256": "c24b0e3c4b2a7813f96156840912547411c344c1ea569cfc755901eb3acec498",
         "modes": [
           "clonedivers",
-          "commandos"
+          "commandos",
+          "empire"
         ]
       },
       {
@@ -16561,7 +16849,8 @@
         "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
         "modes": [
           "clonedivers",
-          "commandos"
+          "commandos",
+          "empire"
         ]
       },
       {
@@ -16571,7 +16860,8 @@
         "sha256": "9dd29c18a4d304e66075bfe438343ce65043f128d9437ce2e9f5df647ec663b4",
         "modes": [
           "clonedivers",
-          "commandos"
+          "commandos",
+          "empire"
         ]
       },
       {
@@ -16581,7 +16871,8 @@
         "sha256": "88e436d3912394cee3dd6e7381cf98c5d2d1563681c2305317f0744332a6ef72",
         "modes": [
           "clonedivers",
-          "commandos"
+          "commandos",
+          "empire"
         ]
       },
       {
@@ -16591,7 +16882,8 @@
         "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
         "modes": [
           "clonedivers",
-          "commandos"
+          "commandos",
+          "empire"
         ]
       },
       {
@@ -16601,7 +16893,8 @@
         "sha256": "88384cece09536a16753f0a67924b3a9402ef772931158850f7ed9b5fb43d4e9",
         "modes": [
           "clonedivers",
-          "commandos"
+          "commandos",
+          "empire"
         ]
       },
       {
@@ -16611,7 +16904,8 @@
         "sha256": "c24b0e3c4b2a7813f96156840912547411c344c1ea569cfc755901eb3acec498",
         "modes": [
           "clonedivers",
-          "commandos"
+          "commandos",
+          "empire"
         ]
       },
       {
@@ -16621,7 +16915,8 @@
         "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
         "modes": [
           "clonedivers",
-          "commandos"
+          "commandos",
+          "empire"
         ]
       },
       {
@@ -16631,7 +16926,8 @@
         "sha256": "4bb3f41bc68292c270de88e69491971cb5bbce3ecf5b4b3fbeb5c4277afa1933",
         "modes": [
           "clonedivers",
-          "commandos"
+          "commandos",
+          "empire"
         ]
       },
       {
@@ -16641,7 +16937,8 @@
         "sha256": "f5a0a6ead7ea81650adfe8475c5d3b18395b7d472e9bcb59305581fd16a6af1f",
         "modes": [
           "clonedivers",
-          "commandos"
+          "commandos",
+          "empire"
         ]
       },
       {
@@ -16651,7 +16948,8 @@
         "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
         "modes": [
           "clonedivers",
-          "commandos"
+          "commandos",
+          "empire"
         ]
       },
       {
@@ -16661,7 +16959,8 @@
         "sha256": "88384cece09536a16753f0a67924b3a9402ef772931158850f7ed9b5fb43d4e9",
         "modes": [
           "clonedivers",
-          "commandos"
+          "commandos",
+          "empire"
         ]
       },
       {
@@ -16671,7 +16970,8 @@
         "sha256": "c24b0e3c4b2a7813f96156840912547411c344c1ea569cfc755901eb3acec498",
         "modes": [
           "clonedivers",
-          "commandos"
+          "commandos",
+          "empire"
         ]
       },
       {
@@ -16681,7 +16981,8 @@
         "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
         "modes": [
           "clonedivers",
-          "commandos"
+          "commandos",
+          "empire"
         ]
       },
       {
@@ -16691,7 +16992,8 @@
         "sha256": "6105c6f6d7efca11fe49fe29de0429f63e3e00b05fc03cd36234f31b3e393c2a",
         "modes": [
           "clonedivers",
-          "commandos"
+          "commandos",
+          "empire"
         ]
       },
       {
@@ -16701,7 +17003,8 @@
         "sha256": "58856892edf23737341846e945e4381aea7c7d1ecaef4f2dd7fe3456e4640827",
         "modes": [
           "clonedivers",
-          "commandos"
+          "commandos",
+          "empire"
         ]
       },
       {
@@ -16711,7 +17014,8 @@
         "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
         "modes": [
           "clonedivers",
-          "commandos"
+          "commandos",
+          "empire"
         ]
       },
       {
@@ -16721,7 +17025,8 @@
         "sha256": "9dd29c18a4d304e66075bfe438343ce65043f128d9437ce2e9f5df647ec663b4",
         "modes": [
           "clonedivers",
-          "commandos"
+          "commandos",
+          "empire"
         ]
       },
       {
@@ -16731,7 +17036,8 @@
         "sha256": "88e436d3912394cee3dd6e7381cf98c5d2d1563681c2305317f0744332a6ef72",
         "modes": [
           "clonedivers",
-          "commandos"
+          "commandos",
+          "empire"
         ]
       },
       {
@@ -16741,7 +17047,8 @@
         "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
         "modes": [
           "clonedivers",
-          "commandos"
+          "commandos",
+          "empire"
         ]
       },
       {
@@ -16751,7 +17058,8 @@
         "sha256": "6105c6f6d7efca11fe49fe29de0429f63e3e00b05fc03cd36234f31b3e393c2a",
         "modes": [
           "clonedivers",
-          "commandos"
+          "commandos",
+          "empire"
         ]
       },
       {
@@ -16761,7 +17069,8 @@
         "sha256": "58856892edf23737341846e945e4381aea7c7d1ecaef4f2dd7fe3456e4640827",
         "modes": [
           "clonedivers",
-          "commandos"
+          "commandos",
+          "empire"
         ]
       },
       {
@@ -16771,7 +17080,8 @@
         "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
         "modes": [
           "clonedivers",
-          "commandos"
+          "commandos",
+          "empire"
         ]
       },
       {
@@ -16781,7 +17091,8 @@
         "sha256": "dae7fdbd089eefa4d62b82ff8fe9e568b2d2640c8efb5e5d405bcf56307c03a6",
         "modes": [
           "clonedivers",
-          "commandos"
+          "commandos",
+          "empire"
         ]
       },
       {
@@ -16791,7 +17102,8 @@
         "sha256": "80d3fc2c81639ced9169206050709d8793c1383ffa4e8c3a4679ab3a8ae40556",
         "modes": [
           "clonedivers",
-          "commandos"
+          "commandos",
+          "empire"
         ]
       },
       {
@@ -16801,7 +17113,8 @@
         "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
         "modes": [
           "clonedivers",
-          "commandos"
+          "commandos",
+          "empire"
         ]
       },
       {
@@ -16811,7 +17124,8 @@
         "sha256": "b1263094e9fb86d5ee2f0771fbbac45f90601ec9e3fd37ed16e216861e79c9c3",
         "modes": [
           "clonedivers",
-          "commandos"
+          "commandos",
+          "empire"
         ]
       },
       {
@@ -16821,7 +17135,8 @@
         "sha256": "0902b8c994deebfed2f5b32e45fd1d3881fea9b00766f0fca6d2c7058ee9f576",
         "modes": [
           "clonedivers",
-          "commandos"
+          "commandos",
+          "empire"
         ]
       },
       {
@@ -16831,7 +17146,8 @@
         "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
         "modes": [
           "clonedivers",
-          "commandos"
+          "commandos",
+          "empire"
         ]
       },
       {
@@ -16841,7 +17157,8 @@
         "sha256": "5566295e4ce947c2b347803d05761576b25c5e7c4f0e5c16c5f59d7bd1342491",
         "modes": [
           "clonedivers",
-          "commandos"
+          "commandos",
+          "empire"
         ]
       },
       {
@@ -16851,7 +17168,8 @@
         "sha256": "d2b9c229a7ed0dc297d40f587d9f0ad80af663e885466adc4d6b91027422f17a",
         "modes": [
           "clonedivers",
-          "commandos"
+          "commandos",
+          "empire"
         ]
       },
       {
@@ -16861,7 +17179,8 @@
         "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
         "modes": [
           "clonedivers",
-          "commandos"
+          "commandos",
+          "empire"
         ]
       },
       {
@@ -16871,7 +17190,8 @@
         "sha256": "6105c6f6d7efca11fe49fe29de0429f63e3e00b05fc03cd36234f31b3e393c2a",
         "modes": [
           "clonedivers",
-          "commandos"
+          "commandos",
+          "empire"
         ]
       },
       {
@@ -16881,7 +17201,8 @@
         "sha256": "58856892edf23737341846e945e4381aea7c7d1ecaef4f2dd7fe3456e4640827",
         "modes": [
           "clonedivers",
-          "commandos"
+          "commandos",
+          "empire"
         ]
       },
       {
@@ -16891,7 +17212,8 @@
         "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
         "modes": [
           "clonedivers",
-          "commandos"
+          "commandos",
+          "empire"
         ]
       },
       {
@@ -16901,7 +17223,8 @@
         "sha256": "5566295e4ce947c2b347803d05761576b25c5e7c4f0e5c16c5f59d7bd1342491",
         "modes": [
           "clonedivers",
-          "commandos"
+          "commandos",
+          "empire"
         ]
       },
       {
@@ -16911,7 +17234,8 @@
         "sha256": "d2b9c229a7ed0dc297d40f587d9f0ad80af663e885466adc4d6b91027422f17a",
         "modes": [
           "clonedivers",
-          "commandos"
+          "commandos",
+          "empire"
         ]
       },
       {
@@ -16921,7 +17245,8 @@
         "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
         "modes": [
           "clonedivers",
-          "commandos"
+          "commandos",
+          "empire"
         ]
       },
       {
@@ -16931,7 +17256,8 @@
         "sha256": "17ccb32ef475547cc13349785bd7070a427eb47e484c9323ff0aa1b1187ee4a5",
         "modes": [
           "clonedivers",
-          "commandos"
+          "commandos",
+          "empire"
         ]
       },
       {
@@ -16941,7 +17267,8 @@
         "sha256": "708da57309a58753f591107dd7c63bc8c1cadfd795163a01c71f7b08f2e5f6e8",
         "modes": [
           "clonedivers",
-          "commandos"
+          "commandos",
+          "empire"
         ]
       },
       {
@@ -16951,7 +17278,8 @@
         "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
         "modes": [
           "clonedivers",
-          "commandos"
+          "commandos",
+          "empire"
         ]
       },
       {
@@ -16961,7 +17289,8 @@
         "sha256": "5566295e4ce947c2b347803d05761576b25c5e7c4f0e5c16c5f59d7bd1342491",
         "modes": [
           "clonedivers",
-          "commandos"
+          "commandos",
+          "empire"
         ]
       },
       {
@@ -16971,7 +17300,8 @@
         "sha256": "d2b9c229a7ed0dc297d40f587d9f0ad80af663e885466adc4d6b91027422f17a",
         "modes": [
           "clonedivers",
-          "commandos"
+          "commandos",
+          "empire"
         ]
       },
       {
@@ -16981,7 +17311,8 @@
         "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
         "modes": [
           "clonedivers",
-          "commandos"
+          "commandos",
+          "empire"
         ]
       },
       {
@@ -16991,7 +17322,8 @@
         "sha256": "c4d59ec21956e41a82ec232831ab0965d896fea040dbccda27faeb17df0855a9",
         "modes": [
           "clonedivers",
-          "commandos"
+          "commandos",
+          "empire"
         ]
       },
       {
@@ -17001,7 +17333,8 @@
         "sha256": "c6b783d37ee5a3b49ccd02d450e34c0228384cbb8edd729a792064e42a77bbb6",
         "modes": [
           "clonedivers",
-          "commandos"
+          "commandos",
+          "empire"
         ]
       },
       {
@@ -17011,7 +17344,8 @@
         "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
         "modes": [
           "clonedivers",
-          "commandos"
+          "commandos",
+          "empire"
         ]
       },
       {
@@ -17021,7 +17355,8 @@
         "sha256": "9dd29c18a4d304e66075bfe438343ce65043f128d9437ce2e9f5df647ec663b4",
         "modes": [
           "clonedivers",
-          "commandos"
+          "commandos",
+          "empire"
         ]
       },
       {
@@ -17031,7 +17366,8 @@
         "sha256": "88e436d3912394cee3dd6e7381cf98c5d2d1563681c2305317f0744332a6ef72",
         "modes": [
           "clonedivers",
-          "commandos"
+          "commandos",
+          "empire"
         ]
       },
       {
@@ -17041,7 +17377,8 @@
         "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
         "modes": [
           "clonedivers",
-          "commandos"
+          "commandos",
+          "empire"
         ]
       },
       {
@@ -17051,7 +17388,8 @@
         "sha256": "88384cece09536a16753f0a67924b3a9402ef772931158850f7ed9b5fb43d4e9",
         "modes": [
           "clonedivers",
-          "commandos"
+          "commandos",
+          "empire"
         ]
       },
       {
@@ -17061,7 +17399,8 @@
         "sha256": "c24b0e3c4b2a7813f96156840912547411c344c1ea569cfc755901eb3acec498",
         "modes": [
           "clonedivers",
-          "commandos"
+          "commandos",
+          "empire"
         ]
       },
       {
@@ -17071,7 +17410,8 @@
         "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
         "modes": [
           "clonedivers",
-          "commandos"
+          "commandos",
+          "empire"
         ]
       },
       {
@@ -17081,7 +17421,8 @@
         "sha256": "6105c6f6d7efca11fe49fe29de0429f63e3e00b05fc03cd36234f31b3e393c2a",
         "modes": [
           "clonedivers",
-          "commandos"
+          "commandos",
+          "empire"
         ]
       },
       {
@@ -17091,7 +17432,8 @@
         "sha256": "58856892edf23737341846e945e4381aea7c7d1ecaef4f2dd7fe3456e4640827",
         "modes": [
           "clonedivers",
-          "commandos"
+          "commandos",
+          "empire"
         ]
       },
       {
@@ -17101,7 +17443,8 @@
         "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
         "modes": [
           "clonedivers",
-          "commandos"
+          "commandos",
+          "empire"
         ]
       },
       {
@@ -17111,7 +17454,8 @@
         "sha256": "88384cece09536a16753f0a67924b3a9402ef772931158850f7ed9b5fb43d4e9",
         "modes": [
           "clonedivers",
-          "commandos"
+          "commandos",
+          "empire"
         ]
       },
       {
@@ -17121,7 +17465,8 @@
         "sha256": "c24b0e3c4b2a7813f96156840912547411c344c1ea569cfc755901eb3acec498",
         "modes": [
           "clonedivers",
-          "commandos"
+          "commandos",
+          "empire"
         ]
       },
       {
@@ -17131,7 +17476,8 @@
         "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
         "modes": [
           "clonedivers",
-          "commandos"
+          "commandos",
+          "empire"
         ]
       },
       {
@@ -17141,7 +17487,8 @@
         "sha256": "0dbf7aa14cc198d49f5e26d8072b8930ee6bb378e10d7b16c4b8574589f616b5",
         "modes": [
           "clonedivers",
-          "commandos"
+          "commandos",
+          "empire"
         ]
       },
       {
@@ -17151,7 +17498,8 @@
         "sha256": "3a6373654b43589c876ed191df47768dbbf599ae40fa4f78bd9000d0f32e8d6e",
         "modes": [
           "clonedivers",
-          "commandos"
+          "commandos",
+          "empire"
         ]
       },
       {
@@ -17161,7 +17509,8 @@
         "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
         "modes": [
           "clonedivers",
-          "commandos"
+          "commandos",
+          "empire"
         ]
       },
       {
@@ -17171,7 +17520,8 @@
         "sha256": "21633994941676eab60ed4c750d46d22280e89329c94674d63bd387113c5db44",
         "modes": [
           "clonedivers",
-          "commandos"
+          "commandos",
+          "empire"
         ]
       },
       {
@@ -17181,7 +17531,8 @@
         "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
         "modes": [
           "clonedivers",
-          "commandos"
+          "commandos",
+          "empire"
         ]
       },
       {
@@ -17191,7 +17542,8 @@
         "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
         "modes": [
           "clonedivers",
-          "commandos"
+          "commandos",
+          "empire"
         ]
       },
       {
@@ -17201,7 +17553,8 @@
         "sha256": "5020f8882e87100c0b9059d3bb36f59f1f33381e907998ee5a269b1cabcaca99",
         "modes": [
           "clonedivers",
-          "commandos"
+          "commandos",
+          "empire"
         ]
       },
       {
@@ -17211,7 +17564,8 @@
         "sha256": "20b1433457a5261c3384b4de2443822d3ecd4a23866bced4ff6e43c318f3a74c",
         "modes": [
           "clonedivers",
-          "commandos"
+          "commandos",
+          "empire"
         ]
       },
       {
@@ -17221,7 +17575,8 @@
         "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
         "modes": [
           "clonedivers",
-          "commandos"
+          "commandos",
+          "empire"
         ]
       },
       {
@@ -17231,7 +17586,8 @@
         "sha256": "21633994941676eab60ed4c750d46d22280e89329c94674d63bd387113c5db44",
         "modes": [
           "clonedivers",
-          "commandos"
+          "commandos",
+          "empire"
         ]
       },
       {
@@ -17241,7 +17597,8 @@
         "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
         "modes": [
           "clonedivers",
-          "commandos"
+          "commandos",
+          "empire"
         ]
       },
       {
@@ -17251,7 +17608,8 @@
         "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
         "modes": [
           "clonedivers",
-          "commandos"
+          "commandos",
+          "empire"
         ]
       },
       {
@@ -17261,7 +17619,8 @@
         "sha256": "b1263094e9fb86d5ee2f0771fbbac45f90601ec9e3fd37ed16e216861e79c9c3",
         "modes": [
           "clonedivers",
-          "commandos"
+          "commandos",
+          "empire"
         ]
       },
       {
@@ -17271,7 +17630,8 @@
         "sha256": "0902b8c994deebfed2f5b32e45fd1d3881fea9b00766f0fca6d2c7058ee9f576",
         "modes": [
           "clonedivers",
-          "commandos"
+          "commandos",
+          "empire"
         ]
       },
       {
@@ -17281,7 +17641,8 @@
         "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
         "modes": [
           "clonedivers",
-          "commandos"
+          "commandos",
+          "empire"
         ]
       },
       {
@@ -17291,7 +17652,8 @@
         "sha256": "b1263094e9fb86d5ee2f0771fbbac45f90601ec9e3fd37ed16e216861e79c9c3",
         "modes": [
           "clonedivers",
-          "commandos"
+          "commandos",
+          "empire"
         ]
       },
       {
@@ -17301,7 +17663,8 @@
         "sha256": "0902b8c994deebfed2f5b32e45fd1d3881fea9b00766f0fca6d2c7058ee9f576",
         "modes": [
           "clonedivers",
-          "commandos"
+          "commandos",
+          "empire"
         ]
       },
       {
@@ -17311,7 +17674,8 @@
         "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
         "modes": [
           "clonedivers",
-          "commandos"
+          "commandos",
+          "empire"
         ]
       },
       {
@@ -17321,7 +17685,8 @@
         "sha256": "9a7273ddb73979cc6c0e8c7126518a4817f974b2a7ae302d99436d404b097768",
         "modes": [
           "clonedivers",
-          "commandos"
+          "commandos",
+          "empire"
         ]
       },
       {
@@ -17331,7 +17696,8 @@
         "sha256": "24a495219d1025f6637849de18445d7afa87db6b78f3f94fa4a8d6374f9ebd8b",
         "modes": [
           "clonedivers",
-          "commandos"
+          "commandos",
+          "empire"
         ]
       },
       {
@@ -17341,7 +17707,8 @@
         "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
         "modes": [
           "clonedivers",
-          "commandos"
+          "commandos",
+          "empire"
         ]
       },
       {
@@ -17351,7 +17718,8 @@
         "sha256": "b1263094e9fb86d5ee2f0771fbbac45f90601ec9e3fd37ed16e216861e79c9c3",
         "modes": [
           "clonedivers",
-          "commandos"
+          "commandos",
+          "empire"
         ]
       },
       {
@@ -17361,7 +17729,8 @@
         "sha256": "0902b8c994deebfed2f5b32e45fd1d3881fea9b00766f0fca6d2c7058ee9f576",
         "modes": [
           "clonedivers",
-          "commandos"
+          "commandos",
+          "empire"
         ]
       },
       {
@@ -17371,7 +17740,8 @@
         "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
         "modes": [
           "clonedivers",
-          "commandos"
+          "commandos",
+          "empire"
         ]
       },
       {
@@ -17381,7 +17751,8 @@
         "sha256": "5020f8882e87100c0b9059d3bb36f59f1f33381e907998ee5a269b1cabcaca99",
         "modes": [
           "clonedivers",
-          "commandos"
+          "commandos",
+          "empire"
         ]
       },
       {
@@ -17391,7 +17762,8 @@
         "sha256": "20b1433457a5261c3384b4de2443822d3ecd4a23866bced4ff6e43c318f3a74c",
         "modes": [
           "clonedivers",
-          "commandos"
+          "commandos",
+          "empire"
         ]
       },
       {
@@ -17401,7 +17773,8 @@
         "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
         "modes": [
           "clonedivers",
-          "commandos"
+          "commandos",
+          "empire"
         ]
       },
       {
@@ -17411,7 +17784,8 @@
         "sha256": "b1263094e9fb86d5ee2f0771fbbac45f90601ec9e3fd37ed16e216861e79c9c3",
         "modes": [
           "clonedivers",
-          "commandos"
+          "commandos",
+          "empire"
         ]
       },
       {
@@ -17421,7 +17795,8 @@
         "sha256": "0902b8c994deebfed2f5b32e45fd1d3881fea9b00766f0fca6d2c7058ee9f576",
         "modes": [
           "clonedivers",
-          "commandos"
+          "commandos",
+          "empire"
         ]
       },
       {
@@ -17431,7 +17806,8 @@
         "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
         "modes": [
           "clonedivers",
-          "commandos"
+          "commandos",
+          "empire"
         ]
       },
       {
@@ -17441,7 +17817,8 @@
         "sha256": "6105c6f6d7efca11fe49fe29de0429f63e3e00b05fc03cd36234f31b3e393c2a",
         "modes": [
           "clonedivers",
-          "commandos"
+          "commandos",
+          "empire"
         ]
       },
       {
@@ -17451,7 +17828,8 @@
         "sha256": "58856892edf23737341846e945e4381aea7c7d1ecaef4f2dd7fe3456e4640827",
         "modes": [
           "clonedivers",
-          "commandos"
+          "commandos",
+          "empire"
         ]
       },
       {
@@ -17461,7 +17839,8 @@
         "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
         "modes": [
           "clonedivers",
-          "commandos"
+          "commandos",
+          "empire"
         ]
       },
       {
@@ -17471,7 +17850,8 @@
         "sha256": "5566295e4ce947c2b347803d05761576b25c5e7c4f0e5c16c5f59d7bd1342491",
         "modes": [
           "clonedivers",
-          "commandos"
+          "commandos",
+          "empire"
         ]
       },
       {
@@ -17481,7 +17861,8 @@
         "sha256": "d2b9c229a7ed0dc297d40f587d9f0ad80af663e885466adc4d6b91027422f17a",
         "modes": [
           "clonedivers",
-          "commandos"
+          "commandos",
+          "empire"
         ]
       },
       {
@@ -17491,7 +17872,8 @@
         "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
         "modes": [
           "clonedivers",
-          "commandos"
+          "commandos",
+          "empire"
         ]
       },
       {
@@ -17501,7 +17883,8 @@
         "sha256": "a67cbdc232d10a1567c7cea8f5ace35a7ad9f2af5d2d7bc382a69fb1f92b9ed1",
         "modes": [
           "clonedivers",
-          "commandos"
+          "commandos",
+          "empire"
         ]
       },
       {
@@ -17511,7 +17894,8 @@
         "sha256": "76dc0d63019ab02240793844e3098653a0b988bb58d85d85c9e553de0847c983",
         "modes": [
           "clonedivers",
-          "commandos"
+          "commandos",
+          "empire"
         ]
       },
       {
@@ -17521,7 +17905,8 @@
         "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
         "modes": [
           "clonedivers",
-          "commandos"
+          "commandos",
+          "empire"
         ]
       },
       {
@@ -17531,7 +17916,8 @@
         "sha256": "dae7fdbd089eefa4d62b82ff8fe9e568b2d2640c8efb5e5d405bcf56307c03a6",
         "modes": [
           "clonedivers",
-          "commandos"
+          "commandos",
+          "empire"
         ]
       },
       {
@@ -17541,7 +17927,8 @@
         "sha256": "80d3fc2c81639ced9169206050709d8793c1383ffa4e8c3a4679ab3a8ae40556",
         "modes": [
           "clonedivers",
-          "commandos"
+          "commandos",
+          "empire"
         ]
       },
       {
@@ -17551,7 +17938,8 @@
         "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
         "modes": [
           "clonedivers",
-          "commandos"
+          "commandos",
+          "empire"
         ]
       },
       {
@@ -17642,7 +18030,8 @@
         ],
         "modes": [
           "clonedivers",
-          "commandos"
+          "commandos",
+          "empire"
         ]
       },
       {
@@ -17655,7 +18044,8 @@
         ],
         "modes": [
           "clonedivers",
-          "commandos"
+          "commandos",
+          "empire"
         ]
       },
       {
@@ -17668,7 +18058,8 @@
         ],
         "modes": [
           "clonedivers",
-          "commandos"
+          "commandos",
+          "empire"
         ]
       },
       {
@@ -17681,7 +18072,8 @@
         ],
         "modes": [
           "clonedivers",
-          "commandos"
+          "commandos",
+          "empire"
         ]
       },
       {
@@ -17694,7 +18086,8 @@
         ],
         "modes": [
           "clonedivers",
-          "commandos"
+          "commandos",
+          "empire"
         ]
       },
       {
@@ -17707,7 +18100,8 @@
         ],
         "modes": [
           "clonedivers",
-          "commandos"
+          "commandos",
+          "empire"
         ]
       },
       {
@@ -17765,7 +18159,8 @@
         ],
         "modes": [
           "clonedivers",
-          "commandos"
+          "commandos",
+          "empire"
         ]
       },
       {
@@ -17778,7 +18173,8 @@
         ],
         "modes": [
           "clonedivers",
-          "commandos"
+          "commandos",
+          "empire"
         ]
       },
       {
@@ -17791,7 +18187,8 @@
         ],
         "modes": [
           "clonedivers",
-          "commandos"
+          "commandos",
+          "empire"
         ]
       },
       {
@@ -17804,7 +18201,8 @@
         ],
         "modes": [
           "clonedivers",
-          "commandos"
+          "commandos",
+          "empire"
         ]
       },
       {
@@ -17817,7 +18215,8 @@
         ],
         "modes": [
           "clonedivers",
-          "commandos"
+          "commandos",
+          "empire"
         ]
       },
       {
@@ -17830,7 +18229,8 @@
         ],
         "modes": [
           "clonedivers",
-          "commandos"
+          "commandos",
+          "empire"
         ]
       },
       {
