@@ -1,0 +1,44 @@
+{
+  "packVersion": "2026.09.27-r19",
+  "appVersion": "1.7.1",
+  "sourceCommit": "924c3657cea00a932a533b4d680f09e6c44d5a25",
+  "feedCommit": "9761f106b3f530b97d9fae8b89b3251227f0b5a6",
+  "phase": "complete",
+  "feeds": [
+    {
+      "feed": "manifest.json",
+      "sha256": "eac9ae78fc16df5327d3e7c7b430181ce65e40239dc3d558d7fb28d1a82a7c90",
+      "packVersion": "2026.09.12-r8",
+      "appVersion": "1.7.1"
+    },
+    {
+      "feed": "manifest-v3.json",
+      "sha256": "8340ee05c10df1d743e164b0351a926f9d989086fc9a7cd0361a6c6aa143a654",
+      "packVersion": "2026.09.27-r19",
+      "appVersion": "1.7.1"
+    },
+    {
+      "feed": "manifest-v3-current.json",
+      "sha256": "1e7e7c77d604fc754dff1d4ac71bcf2bf6dd5c1fbeee0d668fc7b86320108240",
+      "packVersion": "2026.09.27-r19",
+      "appVersion": "1.7.1"
+    }
+  ],
+  "allHostedAssetDigestsVerified": true,
+  "downloadedAppSha256": "850dd52fead99c72d6573031adc1f0ce5d8ac735c6df9003fe03b06551c41b6a",
+  "app": {
+    "version": "1.7.1",
+    "url": "https://github.com/owendavidgoode/clonedivers/releases/download/v1.7.1/Clonedivers.exe",
+    "size": 66404248,
+    "sha256": "850dd52fead99c72d6573031adc1f0ce5d8ac735c6df9003fe03b06551c41b6a"
+  },
+  "modeChecks": {
+    "modeSelections": 32,
+    "clonediversUnchanged": true,
+    "cloneVoicesExclusive": true,
+    "saiPreserved": true,
+    "gameplayTested": false
+  },
+  "gameplayTested": false,
+  "verifiedUtc": "2026-09-27T05:42:49.9002048Z"
+}
