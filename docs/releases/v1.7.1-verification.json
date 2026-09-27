@@ -1,0 +1,71 @@
+{
+  "version": "1.7.1",
+  "packVersion": "2026.09.27-r17",
+  "sourceCommit": "16e714ea0092518d7f2a000d34629c70d6438f3c",
+  "feedCommit": "baad7aa005fd84b76fc72137f77cecd84002e06d",
+  "phase": "complete",
+  "app": {
+    "version": "1.7.1",
+    "url": "https://github.com/owendavidgoode/clonedivers/releases/download/v1.7.1/Clonedivers.exe",
+    "size": 66404248,
+    "sha256": "850dd52fead99c72d6573031adc1f0ce5d8ac735c6df9003fe03b06551c41b6a"
+  },
+  "feeds": [
+    {
+      "name": "manifest.json",
+      "sha256": "eac9ae78fc16df5327d3e7c7b430181ce65e40239dc3d558d7fb28d1a82a7c90",
+      "appVersion": "1.7.1",
+      "packVersion": "2026.09.12-r8"
+    },
+    {
+      "name": "manifest-v3.json",
+      "sha256": "6b57afd7b369ce165a7af267d27a39cd79166629d403e3e2c8e739d97a784980",
+      "appVersion": "1.7.1",
+      "packVersion": "2026.09.27-r17"
+    },
+    {
+      "name": "manifest-v3-current.json",
+      "sha256": "2103cd9ff7bab1f12067c4ccc52b8300cc4e12fdad369c22159a2fd37361532d",
+      "appVersion": "1.7.1",
+      "packVersion": "2026.09.27-r17"
+    }
+  ],
+  "downloadedIntroAssets": [
+    {
+      "name": "4747c2c2d0274c6c90fd27c7c2fccea2da753219a72d391c386555afe2933e69",
+      "size": 34746944,
+      "sha256": "4747c2c2d0274c6c90fd27c7c2fccea2da753219a72d391c386555afe2933e69"
+    },
+    {
+      "name": "6d31c0e07f56b3ac9f7056a8e894b285475cbd8be7695967d66265b1a65a7c7d",
+      "size": 17456,
+      "sha256": "6d31c0e07f56b3ac9f7056a8e894b285475cbd8be7695967d66265b1a65a7c7d"
+    },
+    {
+      "name": "8659c19a2b0074597c2585a38999cc6cc7aeed261f75aa244cc6dc381f5d5dc1",
+      "size": 4832,
+      "sha256": "8659c19a2b0074597c2585a38999cc6cc7aeed261f75aa244cc6dc381f5d5dc1"
+    },
+    {
+      "name": "99422a5f6f345ded52102bde670029d79fcff259c4198926cc96e9725fa2e193",
+      "size": 256,
+      "sha256": "99422a5f6f345ded52102bde670029d79fcff259c4198926cc96e9725fa2e193"
+    },
+    {
+      "name": "b05caa1f74ece061ba042caa6e00ef46c1b3c4683ee26230014e0c1e21387af2",
+      "size": 7299136,
+      "sha256": "b05caa1f74ece061ba042caa6e00ef46c1b3c4683ee26230014e0c1e21387af2"
+    },
+    {
+      "name": "ec9756be1b504f41adf1924abbe74f1469140aae8ea149a75e4c1acf66daf25a",
+      "size": 7612608,
+      "sha256": "ec9756be1b504f41adf1924abbe74f1469140aae8ea149a75e4c1acf66daf25a"
+    }
+  ],
+  "nativeTestsPassed": true,
+  "profileSourceHashesPassed": true,
+  "modeCombinations": 16,
+  "original163Offers171": true,
+  "gameplayTested": false,
+  "verifiedUtc": "2026-09-27T04:48:59.4906129Z"
+}

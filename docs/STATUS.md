@@ -1,6 +1,6 @@
 # Current status
 
-## September 27: launcher 1.7.1 / Empire intro r17 prepared
+## September 27: launcher 1.7.1 / Empire intro r17 published
 
 EmpireDivers receives the requested Helldivers vs Star Wars intro with matching
 audio, a trimmed black tail and short silent logo replacements. Clonedivers keeps
@@ -9,8 +9,11 @@ All 912 Bink frames decode offline using the installed game's decoder; 16 mode
 combinations pass. The original 1.6.3 reader accepts the compatibility projection
 and offers the launcher update. Native and publication workflow tests pass.
 The new launcher polls for updates and preserves app metadata during profile-feed
-fallback. Three feeds publish atomically after hosted-asset verification.
-Gameplay remains unverified. [Release notes](releases/v1.7.1.md).
+fallback. Three feeds published together after hosted-asset verification (feed
+commit `baad7aa`); the Latest executable and all six new intro assets have been
+downloaded and hashed. Gameplay remains unverified.
+[Release notes](releases/v1.7.1.md),
+[public verification](releases/v1.7.1-verification.json).
 
 ## September 26: SAI sound and blaster bolts published in pack r16
 
