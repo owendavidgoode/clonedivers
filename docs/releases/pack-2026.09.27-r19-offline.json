@@ -1,0 +1,61 @@
+{
+  "modes": {
+    "modeSelections": 32,
+    "clonediversUnchanged": true,
+    "cloneVoicesExclusive": true,
+    "saiPreserved": true,
+    "gameplayTested": false
+  },
+  "ships": {
+    "patchSha256": "852278dd8644489f9d79362f78e81ac74a07310289f1bd3bfe020f166cdac7dd",
+    "decodedModels": [
+      {
+        "id": "0c6567f9e37920e1",
+        "meshes": 7,
+        "primitives": 10,
+        "trianglesAcrossLods": 100035,
+        "glb": "dist\\empire-refinement\\ships-check-v2\\export\\0x5eed00000000c008.unit.glb",
+        "sha256": "70512a02b4c7a2b33c0a35c13b929e1232d118c2fc1103037cc84ffd505dcdb8"
+      },
+      {
+        "id": "7dcb6f44af36ada1",
+        "meshes": 7,
+        "primitives": 10,
+        "trianglesAcrossLods": 100035,
+        "glb": "dist\\empire-refinement\\ships-check-v2\\export\\0x5eed00000000c009.unit.glb",
+        "sha256": "ff2701214730d83295e6800e489336d8b545e65a63eaa502965b01fa57450c21"
+      },
+      {
+        "id": "bb3881db2f8d8164",
+        "meshes": 11,
+        "primitives": 42,
+        "trianglesAcrossLods": 231773,
+        "glb": "dist\\empire-refinement\\ships-check-v2\\export\\0x5eed00000000c00a.unit.glb",
+        "sha256": "94e98bb5853d4022a20389e245af04ab1194b82725f3d5f107d91974fe581d61"
+      }
+    ],
+    "hiddenModels": [],
+    "exportOnlyOmissions": [],
+    "runtimeTested": false,
+    "published": false
+  },
+  "capes": {
+    "patchSha256": "c654f9b3ed7bfda8c3334e41540bc8e1bcfd59a5f7c5d31762068552923827fd",
+    "decodedModels": [],
+    "hiddenModels": [
+      {
+        "id": "3c33cf10a26cbb3e",
+        "triangles": 0,
+        "check": "Zero draw groups and index buffers; not a renderable mesh."
+      },
+      {
+        "id": "ea846ef460cc5ba0",
+        "triangles": 0,
+        "check": "Zero draw groups and index buffers; not a renderable mesh."
+      }
+    ],
+    "exportOnlyOmissions": [],
+    "runtimeTested": false,
+    "published": false
+  }
+}

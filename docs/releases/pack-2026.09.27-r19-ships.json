@@ -1,0 +1,63 @@
+{
+  "source": "https://www.nexusmods.com/helldivers2/mods/52",
+  "authors": [
+    "Kboy",
+    "Irastris"
+  ],
+  "sourceSha256": "8c8a38ded81dd179ada41e5512708badd08e8eba8b22a03b1d80461067385194",
+  "units": [
+    {
+      "id": "bb3881db2f8d8164",
+      "nativeSha256": "92c1b3e6b8b28faf655b5b0ac3c5b14d5d7dec3f04c5e25d641952464c3961e8",
+      "donorSha256": "e26e16bb3ff055718abdd63f1a2ddaed5cab5e3b8775b5c3f7501eb5a05d7046",
+      "joints": 139,
+      "layoutsMigrated": 6,
+      "nativeMetadataPreserved": true,
+      "gpuUnchanged": true
+    },
+    {
+      "id": "0c6567f9e37920e1",
+      "nativeSha256": "2244126c85e6963e579f0c3dbf52f11cd2dbe227326669c86c8f662ab20ea273",
+      "donorSha256": "f5b93c38e6543d4d5aa2957e25cf71618f377af48e94cd024772812be3f91a5d",
+      "joints": 65,
+      "layoutsMigrated": 3,
+      "nativeMetadataPreserved": true,
+      "gpuUnchanged": true
+    },
+    {
+      "id": "7dcb6f44af36ada1",
+      "nativeSha256": "050ae5c9d8cf2862883d5d7f237ed3ff96ecc852334cac9e5b08369b15cd72a2",
+      "donorSha256": "92ee97cfb53edf3d27941310c2a3c6c91664b3857e844337f9996235aa9288a2",
+      "joints": 65,
+      "layoutsMigrated": 3,
+      "nativeMetadataPreserved": true,
+      "gpuUnchanged": true
+    }
+  ],
+  "files": [
+    {
+      "name": "9ba626afa44a3aa3.patch_0",
+      "size": 159280,
+      "sha256": "852278dd8644489f9d79362f78e81ac74a07310289f1bd3bfe020f166cdac7dd"
+    },
+    {
+      "name": "9ba626afa44a3aa3.patch_0.stream",
+      "size": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "name": "9ba626afa44a3aa3.patch_0.gpu_resources",
+      "size": 183649744,
+      "sha256": "daaebcc032a8181285019230db1ae321bac4db8025768ada39c00c277df1b52f"
+    }
+  ],
+  "resources": 12,
+  "stockTextureFallbacks": [
+    "09f9aaa5b7b5e872",
+    "2145cc6c16fe306f",
+    "21febe3fab02797b",
+    "27afe0de8043d31b",
+    "354d1e93ad48975c"
+  ],
+  "gameplayTested": false
+}

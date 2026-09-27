@@ -1,0 +1,267 @@
+{
+  "191": {
+    "sha": "9add7b74edd6512a19746e919718278bb8e8924ba5d040e1e845a87fde0919ed",
+    "transcript": "Halt!",
+    "duration": 0.4899375
+  },
+  "61": {
+    "sha": "2ac76413cf3200d5a71f46e13ea0dd6e4a83566c34cd1638499d283bb77b1a33",
+    "transcript": "Fire at will!",
+    "duration": 0.82075
+  },
+  "130": {
+    "sha": "f93f18c6f79449c5a9d458a344e2d0ed5ea772218b2de2f56b2b3ff03dec06d7",
+    "transcript": "Gonna need a second.",
+    "duration": 0.9416875
+  },
+  "264": {
+    "sha": "b132d1b74b81963b6ebf7e0fb5c30a5cccdfcb1cf24b1d185dc71365d77dbb27",
+    "transcript": "It burns!",
+    "duration": 1.5365625
+  },
+  "232": {
+    "sha": "ce1f46584f01bd1e8e309d51eceba06a9f148ed51168abbbdc7d1bcadfbf0854",
+    "transcript": "I apologize.",
+    "duration": 1.0573125
+  },
+  "179": {
+    "sha": "7799d26c83cbd5a6f9e5c795f1d2d8fb56da7dc6584aa19b6f7a2b9a9b894a53",
+    "transcript": "Hurry before it explodes!",
+    "duration": 1.689625
+  },
+  "219": {
+    "sha": "6215777cd111b28cf56e4c042b56376cde29e04bb3b94490da76bac93d376252",
+    "transcript": "Nice work.",
+    "duration": 0.950625
+  },
+  "102": {
+    "sha": "97b56a566641d589b00d19a11fe7763872817b96fb4fe17ad7a8f8bc9c202a0e",
+    "transcript": "Charged and ready.",
+    "duration": 0.744625
+  },
+  "231": {
+    "sha": "78c9245c927d7bb8203588e9ac86e1c2a054e3c20e5dc47d1e619333fd3d8403",
+    "transcript": "Sorry.",
+    "duration": 0.9310625
+  },
+  "8": {
+    "sha": "e63846ae780b2347d46d9915517150c25eac18cacdb711c18b445b3ee631f581",
+    "transcript": "Blast it, flying creature!",
+    "duration": 1.372
+  },
+  "20": {
+    "sha": "ffa3371b0ddd8170bbe5d56e7bea353a1bbaf3c292dab0e805c5b3eda0a597cf",
+    "transcript": "This one's mine!",
+    "duration": 1.4363125
+  },
+  "308": {
+    "sha": "07d1e286d63236ce71c68987d406fb12d68591755f6814de6fdf98911e4e356d",
+    "transcript": "Enemy contact!",
+    "duration": 1.0036875
+  },
+  "10": {
+    "sha": "9773748d7f05c9eee50dfbd357543158734471648a532ebdd21a7487103d6442",
+    "transcript": "Understood, sir.",
+    "duration": 0.963625
+  },
+  "324": {
+    "sha": "32968f2d7de3348fb0541c1dc8b482dd6b8bf9f6f09304dca7ff2e4a9a8df875",
+    "transcript": "Something's over here.",
+    "duration": 0.957125
+  },
+  "330": {
+    "sha": "e581fbf0916a80bd1d9ef97b560ee2481b9d102dc8ba68aae1bd22d130c05cd8",
+    "transcript": "Whoa, watch it!",
+    "duration": 0.792875
+  },
+  "105": {
+    "sha": "9966923f4950abf0be2efab1e7df5f7c88588df099da4a5160e3ffa05b4d9999",
+    "transcript": "Someone? Anyone? Help?",
+    "duration": 2.1293125
+  },
+  "230": {
+    "sha": "f65af5d1743e5ac183841ac43dab7c85e53f727b44e8f4078dc2787ea868b2a9",
+    "transcript": "No, no, no, no, no!",
+    "duration": 2.064
+  },
+  "133": {
+    "sha": "ce1ed245fc4404b7084c0a31bb3440f2c822e55e826633bae2798844e3bd439e",
+    "transcript": "Aim! Fire!",
+    "duration": 0.9115
+  },
+  "59": {
+    "sha": "b19e12a03841bf79108b13c27f6c7d7dc21acaee4658e5e8293b3461923c2e4a",
+    "transcript": "I'm ready.",
+    "duration": 0.9059375
+  },
+  "81": {
+    "sha": "cd8064d810f8b6ab743b5a8ad5148cd824ee024a7066bb546f4267beec5af0ab",
+    "transcript": "I'm getting chilly. Anyone else chilly?",
+    "duration": 2.995
+  },
+  "161": {
+    "sha": "0f900fdec3836eeb212d98bda476c55ee0417186389e1baa2da4948d4b11fb4f",
+    "transcript": "I need help!",
+    "duration": 1.233875
+  },
+  "291": {
+    "sha": "3d010886fc8e5c7b84953a185d6a20fc5eddf98300d1990379c165ed51d7154a",
+    "transcript": "Nice hit!",
+    "duration": 0.673625
+  },
+  "262": {
+    "sha": "e6f126f1533d249fe6824a61ec85f3b114a4f6ef1418a86e19e9585495955e03",
+    "transcript": "COVER ME!",
+    "duration": 0.5436875
+  },
+  "252": {
+    "sha": "37c5e1c25ac6a4de80bf3547b9ade08765e74dee349d1a2e0320e89dfa638ddc",
+    "transcript": "Move up!",
+    "duration": 0.603125
+  },
+  "175": {
+    "sha": "8b0de98b6b129ed836a44f3d05ce0b44f8249e96f89afe22a11e483aaea717d8",
+    "transcript": "It's going to blow!",
+    "duration": 0.9245625
+  },
+  "321": {
+    "sha": "7b93d535db3295efe0467dc9d1767b597bffedbc21ef96b20f949897ec810fdd",
+    "transcript": "Yes, sir. Thank you, sir.",
+    "duration": 1.629875
+  },
+  "190": {
+    "sha": "d79dc8d04bb447ca0a9e433b0df25f5462d11c8bc9aef033fdb4fdb30182788d",
+    "transcript": "Take position.",
+    "duration": 0.6330625
+  },
+  "125": {
+    "sha": "a19966fbda7c9b1e203b1a0cb660683227604ce62b01a465ab79683985b8dda3",
+    "transcript": "Better get a closer look.",
+    "duration": 1.110125
+  },
+  "204": {
+    "sha": "59c1c649b41f250e88adbbceb9a71f73caeda6c12ee0b85f40d71d8801e514b0",
+    "transcript": "Please assist!",
+    "duration": 1.2045
+  },
+  "127": {
+    "sha": "238e4e8e34ff85b58b7b0819e70b38e265b713692fa1cd48dfad85cb965a1113",
+    "transcript": "Identifying an attacker.",
+    "duration": 1.295875
+  },
+  "334": {
+    "sha": "65378a057963731cfefa21e601ffa7e7931f980d4492a9296da17b20f8c82756",
+    "transcript": "Copy.",
+    "duration": 0.349875
+  },
+  "165": {
+    "sha": "0f7413dae2917bd77ee70ddc0046c09bc5920c6b344198e1c270f0e48f6e1725",
+    "transcript": "RELOADING!",
+    "duration": 0.657625
+  },
+  "156": {
+    "sha": "7d1d09eb24c5feef12b3f6ef46ae7dede0cc3c2c0d5ac84457390f42c8ed6509",
+    "transcript": "Were you aiming for me?",
+    "duration": 1.2483125
+  },
+  "94": {
+    "sha": "403d37165f2808611849025161e9a178ad12935e3ece0a39bb19cad25e9317c4",
+    "transcript": "Local fauna is highly aggressive.",
+    "duration": 1.7384375
+  },
+  "141": {
+    "sha": "473a094e96f12c148dba99e085e852435bacdc1d2d689c4010f9c657bef1ce57",
+    "transcript": "I can't move!",
+    "duration": 2.555125
+  },
+  "128": {
+    "sha": "2c44571fca7a119dfa5f36471f31c3a2e70d31718be89a7f7b5432c7e51291a3",
+    "transcript": "Eyes over there.",
+    "duration": 0.8955
+  },
+  "186": {
+    "sha": "febdedf31fa425118aeb684e8a252547e44657e6f073087339fbe2f43474df4a",
+    "transcript": "I'll take it.",
+    "duration": 0.60225
+  },
+  "286": {
+    "sha": "7299e0da12caf6cd0565b7b6c0e4835f62da7c0de19b7fa1490b9c7f75b3ef2c",
+    "transcript": "I can't do this without cover!",
+    "duration": 1.422625
+  },
+  "143": {
+    "sha": "2603f2c74ee93a9eade9b9e8a0c2a1793ab43e3fe34e9fb86fc8c2499cd9e702",
+    "transcript": "This way.",
+    "duration": 0.4818125
+  },
+  "7": {
+    "sha": "def07df623945acdd11d9f7c0e5b9410233a38281ab3b39c7171aa7fd61cd74d",
+    "transcript": "Flying creature, over here!",
+    "duration": 1.231875
+  },
+  "4": {
+    "sha": "e6e9daca04f100bb8ade1c422d196865b423bcb57b133380f3ad3a93fcbb7d6f",
+    "transcript": "Go, go, go!",
+    "duration": 0.7829375
+  },
+  "208": {
+    "sha": "7869c9122fac64636d0eca8613bf0f8a6176a596d54df066f3c819a0761597d2",
+    "transcript": "I can't fight anymore!",
+    "duration": 1.2956875
+  },
+  "214": {
+    "sha": "03896a12615e74f688b47db4f6095c0f4c7aafa0d248c11a8f3a6e7b25f92ad7",
+    "transcript": "Got one.",
+    "duration": 0.7145625
+  },
+  "84": {
+    "sha": "85ff81fff5869e9d7732bd53b0d2f6935665433bb3829b23c680ea99bc8d6a7f",
+    "transcript": "Watch my back!",
+    "duration": 0.7975
+  },
+  "11": {
+    "sha": "e49ad40f9b835f8964f965e4a1cde6569a217205cc330a3962213d2f1c311efe",
+    "transcript": "Yes, sir.",
+    "duration": 0.5340625
+  },
+  "29": {
+    "sha": "5c5268a01f6e9a68bba6aa3da8f594040cbc9072718cc6ba6846339ea8e6bb4c",
+    "transcript": "Destroy it!",
+    "duration": 0.84625
+  },
+  "76": {
+    "sha": "aee103dabde535842e19ba3bfe1b993b6c20aa0c5dd211abe05ae7af377927bb",
+    "transcript": "I'M INJURED!",
+    "duration": 1.8139375
+  },
+  "253": {
+    "sha": "a7169f95cfe51985915e2ae4cc5a90bac5380bf8660c3da87da37ca9aeba9798",
+    "transcript": "It burns!",
+    "duration": 1.0938125
+  },
+  "298": {
+    "sha": "3d4e51ff01e06d0c6bdef1452a399418ac5020c0affcd681da8016671aad49b8",
+    "transcript": "Artillery.",
+    "duration": 0.6600625
+  },
+  "9": {
+    "sha": "595a02541f6f17eb63d1390d0c0e3b3b015030933b519f39813125bba6cab9ca",
+    "transcript": "Affirmative.",
+    "duration": 0.7433125
+  },
+  "327": {
+    "sha": "467ee62aff4667194de746613e7d115ecadc62881ff884504f013c422874bdbe",
+    "transcript": "I can't really see.",
+    "duration": 0.775
+  },
+  "134": {
+    "sha": "abe13d980479ed177cc7fe9ae1bb7b6f139f67c1799f6dd9d83ade630084bd18",
+    "transcript": "Get back!",
+    "duration": 0.6625
+  },
+  "170": {
+    "sha": "01b59819776f49c295ce2361c07ec795fd5e55ed2faf186de01f22608d92ae8c",
+    "transcript": "I'm lucky to stand with you, Stormtrooper.",
+    "duration": 1.8751875
+  }
+}
