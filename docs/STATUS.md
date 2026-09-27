@@ -1,5 +1,15 @@
 # Current status
 
+## September 26: 1.7.0 / r15 release preparation
+
+EmpireDivers is a third mode with Imperial armor, Star Destroyers, gray LAAT,
+shared blasters, and repaired Patriot/Emancipator AT-STs. Covenant is independent
+and off by default. Native installer round trips, 16 selection checks and model
+decoding pass. The owner requested shipping 1.7 without gameplay acceptance;
+runtime remains unverified. Publication is being prepared through the sealed
+workflow. Installed mods/settings remain unchanged while the game is running.
+[Scope, credits, receipts and limitations](EMPIREDIVERS-AND-COVENANT.md).
+
 ## September 25: launcher 1.6.3 / pack r14 published (markers removed)
 
 Published through the sealed workflow (feed commit `ff172af`; [verification](releases/v1.6.3-verification.json)).

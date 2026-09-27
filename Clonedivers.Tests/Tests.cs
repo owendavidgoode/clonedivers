@@ -48,6 +48,7 @@ static class TestProgram
             ManifestV2Tests();
             EffectiveFilesTests();
             LauncherModeTests(root).GetAwaiter().GetResult();
+            EmpireRoundTripTests(root).GetAwaiter().GetResult();
             PlanAndApplyTests(root).GetAwaiter().GetResult();
             SurplusAndParkNamingTests(root);
             InterruptedAndReplayTests(root);
@@ -150,6 +151,37 @@ static class TestProgram
             ModFiles.Toggle(game);
             Check(ModFiles.ListPatchFiles(data).Length == 0 && LauncherModes.Current(ModFiles.GetState(game), settings, pack) == LauncherMode.Helldivers, "Helldivers parks every active mod file");
             Check(settings.Options["skinny"] && !settings.Options["optics"], "vanilla transition retains extras");
+        }
+    }
+
+    static async Task EmpireRoundTripTests(string root)
+    {
+        var pack = new PackManifest { Version = "empire-roundtrip", CombinedRoster = true,
+            Options = new() { new() { Id = "commandos" }, new() { Id = "empire", Default = false }, new() { Id = "covenant", Default = false } },
+            Files = new() { F("a.patch_0", "clone"), F("a.patch_1", "imperial"), F("a.patch_2", "covenant", "covenant") } };
+        pack.Files[0].Modes = new() { "clonedivers", "commandos" };
+        pack.Files[1].Modes = new() { "empire" };
+        var settings = new Settings { Options = new() { ["covenant"] = true } };
+        var game = MakeGame(root, "Empire roundtrip");
+        var old = Path.Combine(game, Pack.OldFolder); Directory.CreateDirectory(old);
+        foreach (var (body, index) in new[] { "clone", "imperial", "covenant" }.Select((body, index) => (body, index)))
+            File.WriteAllText(Path.Combine(old, $"cached.patch_{index}"), body);
+        foreach (var mode in new[] { LauncherMode.EmpireDivers, LauncherMode.Clonedivers, LauncherMode.EmpireDivers })
+        {
+            var options = LauncherModes.OptionsFor(settings, pack, mode);
+            var wanted = Pack.EffectiveFiles(pack, id => options[id], "full");
+            var cache = new HashCache();
+            var inventory = await Pack.InventoryAsync(game, wanted, cache, true, null, CancellationToken.None);
+            var plan = Pack.Plan(game, wanted, inventory, new HashSet<string>());
+            Check(plan.Downloads.Count == 0, "Empire round trip reuses cached assets");
+            var result = Pack.Apply(game, plan, Path.Combine(game, "empire-plan.json"), pack.Version, null, null, options: options);
+            Check(!result.Interrupted, "Empire mode transition applies successfully");
+            settings.RecordInstall(result);
+            Check(LauncherModes.Current(ModFiles.GetState(game), settings, pack) == mode, "Receipt selects the applied Empire/Clone mode");
+            var bodies = ModFiles.ListPatchFiles(Path.Combine(game, ModFiles.DataFolder)).Select(File.ReadAllText);
+            Check(SameSet(bodies, new[] { mode == LauncherMode.EmpireDivers ? "imperial" : "clone", "covenant" }), "Mode transition preserves Covenant and excludes the other faction");
+            ModFiles.Toggle(game);
+            Check(LauncherModes.Current(ModFiles.GetState(game), settings, pack) == LauncherMode.Helldivers, "Vanilla parks Empire files");
         }
     }
 

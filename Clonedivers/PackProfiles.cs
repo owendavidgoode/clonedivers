@@ -46,7 +46,7 @@ public static class PackProfiles
         if (!profiles.Contains("full")) throw new InvalidDataException("Format 3 must include the full texture profile.");
         if (pack.Options.Any(o => string.IsNullOrWhiteSpace(o.Id)) || pack.Options.Select(o => o.Id).Distinct(StringComparer.OrdinalIgnoreCase).Count() != pack.Options.Count)
             throw new InvalidDataException("Format 3 option IDs must be nonempty and unique.");
-        var modes = new HashSet<string>(new[] { "clonedivers", "commandos" }, StringComparer.OrdinalIgnoreCase);
+        var modes = new HashSet<string>(new[] { "clonedivers", "commandos", "empire" }, StringComparer.OrdinalIgnoreCase);
         foreach (var file in pack.Files)
         {
             ValidateSet(file.Modes, modes, "mode", file.Name);
@@ -76,8 +76,9 @@ public static class PackProfiles
     static bool CanCoexist(PackFile a, PackFile b, string mode, string profile)
     {
         var requirements = new Dictionary<string, bool>(StringComparer.OrdinalIgnoreCase) {
-            ["commandos"] = mode == "commandos", ["skinny"] = profile != "full"
+            ["empire"] = mode == "empire", ["skinny"] = profile != "full"
         };
+        if (mode != "empire") requirements["commandos"] = mode == "commandos";
         foreach (var file in new[] { a, b })
         {
             if (!Require(file.Option, true) || !Require(file.UnlessOption, false)) return false;

@@ -963,7 +963,8 @@ public static class Pack
     {
         var profile = PackProfiles.Resolve(pack, optionEnabled, textureProfile);
         bool Enabled(string id) => PackExtras.AlwaysOn(pack, id) || (string.Equals(id, "skinny", StringComparison.OrdinalIgnoreCase) ? profile != "full" : optionEnabled(id));
-        var mode = (pack.TextureProfiles.Count > 0 || pack.Options.Any(o => string.Equals(o.Id, "commandos", StringComparison.OrdinalIgnoreCase))) && Enabled("commandos") ? "commandos" : "clonedivers";
+        var mode = LauncherModes.SupportsEmpire(pack) && Enabled(LauncherModes.EmpireOption) ? "empire" :
+            (pack.TextureProfiles.Count > 0 || pack.Options.Any(o => string.Equals(o.Id, "commandos", StringComparison.OrdinalIgnoreCase))) && Enabled("commandos") ? "commandos" : "clonedivers";
         var kept = pack.Files.Where(f => PackProfiles.Includes(f, mode, profile) && (f.Option is null || Enabled(f.Option)) && (f.UnlessOption is null || !Enabled(f.UnlessOption))).Select(f => f.Clone()).ToList();
         var dup = kept.GroupBy(f => f.Name, StringComparer.OrdinalIgnoreCase).FirstOrDefault(g => g.Count() > 1);
         if (dup is not null) throw new InvalidDataException($"manifest.json: {dup.Key} is listed twice for the same option choice");
@@ -1919,7 +1920,7 @@ public sealed partial class MainForm : Form
         header.Controls.Add(subtitle, 1, 1);
 
         modeRow.Dock = DockStyle.Fill;
-        modeRow.ColumnCount = 3;
+        modeRow.ColumnCount = Enum.GetValues<LauncherMode>().Length;
         modeRow.RowCount = 1;
         modeRow.RowStyles.Add(new RowStyle(SizeType.Percent, 100));
         modeRow.BackColor = Bg;
@@ -2233,12 +2234,13 @@ public sealed partial class MainForm : Form
         if (state == ModState.NoModFiles) detail += "\nChoose a modded mode to install its pack.";
         foreach (var button in modeButtons)
         {
-            var supported = button.Mode != LauncherMode.CommandoDivers || pack?.Options.Any(o => o.Id.Equals(LauncherModes.CommandoOption, StringComparison.OrdinalIgnoreCase)) == true;
+            var supported = button.Mode == LauncherMode.EmpireDivers ? LauncherModes.SupportsEmpire(pack) :
+                button.Mode != LauncherMode.CommandoDivers || pack?.Options.Any(o => o.Id.Equals(LauncherModes.CommandoOption, StringComparison.OrdinalIgnoreCase)) == true;
             button.Enabled = !Busy && !staged && !running && state != ModState.GameNotFound &&
                 (button.Mode == LauncherMode.Helldivers || usable && supported);
             button.Selected = !staged && button.Mode == selected;
             button.AccessibleDescription = button.Selected ? "Selected. " + ModeDescription(button.Mode) : ModeDescription(button.Mode);
-            Tip(button, !supported ? "This pack does not include Commandodivers yet." :
+            Tip(button, !supported ? $"This pack does not include {LauncherModes.Name(button.Mode)} yet." :
                 running ? "Close Helldivers 2 before changing modes." : ModeDescription(button.Mode));
         }
         // Warnings under the switch, in precedence order: game running > pack broken > Steam update pending > game build changed.
@@ -2378,7 +2380,7 @@ public sealed partial class MainForm : Form
 
         // Option toggles
         RebuildOptions();
-        optionsRow.Visible = selected is LauncherMode.Clonedivers or LauncherMode.CommandoDivers;
+        optionsRow.Visible = selected is LauncherMode.Clonedivers or LauncherMode.CommandoDivers or LauncherMode.EmpireDivers;
         foreach (var b in optionButtons)
         {
             var o = PackProfiles.Supported(pack ?? new PackManifest()).FirstOrDefault(x => string.Equals(x.Id, (string)b.Tag!, StringComparison.OrdinalIgnoreCase));
@@ -2861,6 +2863,7 @@ public sealed partial class MainForm : Form
         var pack = manifest?.Pack;
         if (pack is null || !pack.IsPublished || !pack.IsPerFile) return;
         if (mode == LauncherMode.CommandoDivers && !pack.Options.Any(o => o.Id.Equals(LauncherModes.CommandoOption, StringComparison.OrdinalIgnoreCase))) return;
+        if (mode == LauncherMode.EmpireDivers && !LauncherModes.SupportsEmpire(pack)) return;
         // Always plan the requested file set, including when an old pack is parked. Restoring it
         // with Toggle would silently enable RC content after choosing ordinary clonedivers.
         _ = RunPackAsync(pack, verify: false, optionChange: null, modeChange: mode,
@@ -2897,7 +2900,7 @@ public sealed partial class MainForm : Form
         diagnosticsButton.Enabled = false;
         pathCaption.Text = "Preview";
         pathValue.Text = "No game files or settings are changed";
-        footer.Text = "Launcher preview  ·  For the Republic.";
+        footer.Text = "Launcher preview  ·  " + (previewMode == LauncherMode.EmpireDivers ? "For the Empire." : "For the Republic.");
     }
 
     string ModeDescription(LauncherMode mode) => mode switch
@@ -2905,6 +2908,7 @@ public sealed partial class MainForm : Form
         LauncherMode.Helldivers => "Standard Helldivers 2.",
         LauncherMode.Clonedivers when manifest?.Pack?.CombinedRoster == true => "For the Republic.\nCommando armor needs Brawny body type.",
         LauncherMode.Clonedivers => "For the Republic.",
+        LauncherMode.EmpireDivers => "For the Empire.\nB-01: Brawny · Bloodhound: Lean.",
         _ => "Delta Squad is elite.\nRequires Brawny body type.",
     };
 

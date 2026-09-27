@@ -50,12 +50,15 @@ public sealed partial class MainForm
     void RefreshModeLayout()
     {
         var combined = manifest?.Pack?.CombinedRoster == true;
+        var empire = LauncherModes.SupportsEmpire(manifest?.Pack);
+        var count = (combined ? 2 : 3) + (empire ? 1 : 0);
         for (int i = 0; i < modeButtons.Count; i++)
         {
-            var visible = !combined || modeButtons[i].Mode != LauncherMode.CommandoDivers;
+            var visible = modeButtons[i].Mode == LauncherMode.EmpireDivers ? empire :
+                !combined || modeButtons[i].Mode != LauncherMode.CommandoDivers;
             modeButtons[i].Visible = visible;
             modeRow.ColumnStyles[i].SizeType = visible ? SizeType.Percent : SizeType.Absolute;
-            modeRow.ColumnStyles[i].Width = visible ? 100F / (combined ? 2 : 3) : 0;
+            modeRow.ColumnStyles[i].Width = visible ? 100F / count : 0;
         }
     }
 
@@ -93,7 +96,8 @@ public sealed partial class MainForm
     void UpdateMetadataFooter()
     {
         var source = string.IsNullOrWhiteSpace(settings.ManifestUrl) ? "" : $"  ·  test feed: {HostOf(settings.ManifestUrl)}";
-        footer.Text = $"v{AppInfo.Version}{source}  ·  " + (metadataOffline ? "Offline · saved pack information" : "For the Republic.");
+        footer.Text = $"v{AppInfo.Version}{source}  ·  " + (metadataOffline ? "Offline · saved pack information" :
+            LauncherModes.SupportsEmpire(manifest?.Pack) && settings.Options.GetValueOrDefault(LauncherModes.EmpireOption) ? "For the Empire." : "For the Republic.");
     }
 
     void OnPotatoToggle()

@@ -1,0 +1,137 @@
+{
+  "version": "1.7.0",
+  "pack": "2026.09.26-r15",
+  "runtimeTested": false,
+  "ownerAuthorizedWithoutGameplayTest": true,
+  "atst": {
+    "patchSha256": "e2d24501aabe7aceffbf526507ddb56c955bdf51cd99c9344e91c91604743850",
+    "decodedModels": 2,
+    "hiddenModels": 4,
+    "exportOnlyOmissions": []
+  },
+  "covenant": {
+    "patchSha256": "1c9bd613a421123a715b7b2e9116345ddf619cd1e1d192dd31f7a84e1dcbb4ad",
+    "decodedModels": 13,
+    "hiddenModels": 0,
+    "exportOnlyOmissions": [
+      {
+        "id": "e8f19a0aa958e46d",
+        "emptyMeshes": 8,
+        "reason": "Filediver zero-index division workaround, export copy only"
+      }
+    ]
+  },
+  "empire": {
+    "patchSha256": "5d27fbf73bae9708396458b0b3cff56a5c01914c8623acc6cda90649da3d455b",
+    "decodedModels": 51,
+    "hiddenModels": 0,
+    "exportOnlyOmissions": [
+      {
+        "id": "01144a44b65471bd",
+        "emptyMeshes": 4,
+        "reason": "Filediver zero-index division workaround, export copy only"
+      },
+      {
+        "id": "02ecb3e7587540bb",
+        "emptyMeshes": 4,
+        "reason": "Filediver zero-index division workaround, export copy only"
+      },
+      {
+        "id": "1202202bbfb7a58e",
+        "emptyMeshes": 4,
+        "reason": "Filediver zero-index division workaround, export copy only"
+      },
+      {
+        "id": "1eb11e6e1644ef83",
+        "emptyMeshes": 4,
+        "reason": "Filediver zero-index division workaround, export copy only"
+      },
+      {
+        "id": "2598829bc4aca31d",
+        "emptyMeshes": 4,
+        "reason": "Filediver zero-index division workaround, export copy only"
+      },
+      {
+        "id": "29b877b122acc704",
+        "emptyMeshes": 4,
+        "reason": "Filediver zero-index division workaround, export copy only"
+      },
+      {
+        "id": "3b913ad76446da76",
+        "emptyMeshes": 4,
+        "reason": "Filediver zero-index division workaround, export copy only"
+      },
+      {
+        "id": "40b23d9faeb7f3da",
+        "emptyMeshes": 4,
+        "reason": "Filediver zero-index division workaround, export copy only"
+      },
+      {
+        "id": "41cce3f64f2eaf3a",
+        "emptyMeshes": 4,
+        "reason": "Filediver zero-index division workaround, export copy only"
+      },
+      {
+        "id": "51bebdd0bfbaaeee",
+        "emptyMeshes": 4,
+        "reason": "Filediver zero-index division workaround, export copy only"
+      },
+      {
+        "id": "689396fdd9841801",
+        "emptyMeshes": 4,
+        "reason": "Filediver zero-index division workaround, export copy only"
+      },
+      {
+        "id": "79740c9dbb23a2d8",
+        "emptyMeshes": 4,
+        "reason": "Filediver zero-index division workaround, export copy only"
+      },
+      {
+        "id": "7d58699ca4df3c1a",
+        "emptyMeshes": 4,
+        "reason": "Filediver zero-index division workaround, export copy only"
+      },
+      {
+        "id": "970cef3ae566058c",
+        "emptyMeshes": 4,
+        "reason": "Filediver zero-index division workaround, export copy only"
+      },
+      {
+        "id": "9ef5adcfb96fdc57",
+        "emptyMeshes": 4,
+        "reason": "Filediver zero-index division workaround, export copy only"
+      },
+      {
+        "id": "c6876f8f1c031137",
+        "emptyMeshes": 4,
+        "reason": "Filediver zero-index division workaround, export copy only"
+      },
+      {
+        "id": "d1674382476d544d",
+        "emptyMeshes": 4,
+        "reason": "Filediver zero-index division workaround, export copy only"
+      },
+      {
+        "id": "d6c3bdee3a651796",
+        "emptyMeshes": 4,
+        "reason": "Filediver zero-index division workaround, export copy only"
+      },
+      {
+        "id": "f1516791ba364337",
+        "emptyMeshes": 4,
+        "reason": "Filediver zero-index division workaround, export copy only"
+      },
+      {
+        "id": "f7f232ee26ec35fb",
+        "emptyMeshes": 4,
+        "reason": "Filediver zero-index division workaround, export copy only"
+      }
+    ]
+  },
+  "candidateManifestSha256": "d1bdfd2aca38a2db37c34e4ff362858c0e95f0b948bf362d21e306b8ec12150b",
+  "checks": {
+    "nativeTests": "passed, including installer mode round trips",
+    "factionCombinations": 16,
+    "geometry": "passed with documented empty-mesh exporter workaround"
+  }
+}

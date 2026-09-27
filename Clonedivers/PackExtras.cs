@@ -6,5 +6,6 @@ public static class PackExtras
         (id.Equals("commandos", StringComparison.OrdinalIgnoreCase) || id.Equals("aimpoints", StringComparison.OrdinalIgnoreCase));
     public static IEnumerable<PackOption> Visible(PackManifest? pack) =>
         pack?.Options.Where(o => !AlwaysOn(pack, o.Id) && !o.Id.Equals("commandos", StringComparison.OrdinalIgnoreCase) &&
-            !o.Id.Equals("skinny", StringComparison.OrdinalIgnoreCase)) ?? Enumerable.Empty<PackOption>();
+            !o.Id.Equals("skinny", StringComparison.OrdinalIgnoreCase) &&
+            !o.Id.Equals(LauncherModes.EmpireOption, StringComparison.OrdinalIgnoreCase)) ?? Enumerable.Empty<PackOption>();
 }

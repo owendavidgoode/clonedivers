@@ -3,21 +3,25 @@ using static Clonedivers.Palette;
 
 namespace Clonedivers;
 
-public enum LauncherMode { Helldivers, Clonedivers, CommandoDivers }
+public enum LauncherMode { Helldivers, Clonedivers, CommandoDivers, EmpireDivers }
 
 public static class LauncherModes
 {
     public const string CommandoOption = "commandos";
+    public const string EmpireOption = "empire";
+    public static bool SupportsEmpire(PackManifest? pack) => pack?.Options.Any(o => o.Id.Equals(EmpireOption, StringComparison.OrdinalIgnoreCase)) == true;
     public static string Name(LauncherMode mode) => mode switch
     {
         LauncherMode.Helldivers => "Helldivers",
         LauncherMode.Clonedivers => "Clonedivers",
+        LauncherMode.EmpireDivers => "EmpireDivers",
         _ => "Commandodivers",
     };
 
     public static LauncherMode? Current(ModState state, Settings settings, PackManifest? pack) => state switch
     {
         ModState.Off or ModState.NoModFiles => LauncherMode.Helldivers,
+        ModState.On when SupportsEmpire(pack) && settings.Options.GetValueOrDefault(EmpireOption) => LauncherMode.EmpireDivers,
         ModState.On when pack?.CombinedRoster == true => LauncherMode.Clonedivers,
         ModState.On => (settings.Options.TryGetValue(CommandoOption, out var on) ? on :
             pack?.Options.FirstOrDefault(o => o.Id.Equals(CommandoOption, StringComparison.OrdinalIgnoreCase))?.Default ?? false)
@@ -28,11 +32,14 @@ public static class LauncherModes
     public static Dictionary<string, bool> OptionsFor(Settings settings, PackManifest pack, LauncherMode mode)
     {
         if (mode == LauncherMode.Helldivers) throw new ArgumentException("Vanilla mode parks the pack; it does not change pack options.", nameof(mode));
+        if (mode == LauncherMode.EmpireDivers && !SupportsEmpire(pack))
+            throw new InvalidOperationException("This pack does not include EmpireDivers yet.");
         if (mode == LauncherMode.CommandoDivers && !pack.Options.Any(o => o.Id.Equals(CommandoOption, StringComparison.OrdinalIgnoreCase)))
             throw new InvalidOperationException("This pack does not include Commandodivers yet.");
-        if (pack.CombinedRoster && mode == LauncherMode.Clonedivers)
-            return settings.OptionsFor(pack);
-        return settings.OptionsFor(pack, CommandoOption, mode == LauncherMode.CommandoDivers);
+        var options = pack.CombinedRoster ? settings.OptionsFor(pack) :
+            settings.OptionsFor(pack, CommandoOption, mode == LauncherMode.CommandoDivers);
+        if (SupportsEmpire(pack)) options[EmpireOption] = mode == LauncherMode.EmpireDivers;
+        return options;
     }
 }
 
@@ -70,6 +77,15 @@ internal static class ModeHelmets
             g.FillPolygon(dark, new PointF[] { new(22, 40), new(78, 40), new(73, 51), new(56, 53), new(54, 74), new(46, 74), new(44, 53), new(27, 51) });
             g.FillEllipse(trim, 24, 67, 14, 11); g.FillEllipse(trim, 62, 67, 14, 11);
             g.FillRectangle(dark, 39, 82, 22, 4);
+        }
+        else if (mode == LauncherMode.EmpireDivers)
+        {
+            g.FillPolygon(dark, new PointF[] { new(22, 40), new(44, 44), new(42, 53), new(25, 51) });
+            g.FillPolygon(dark, new PointF[] { new(78, 40), new(56, 44), new(58, 53), new(75, 51) });
+            g.FillPolygon(trim, new PointF[] { new(42, 55), new(58, 55), new(65, 73), new(35, 73) });
+            for (int x = 40; x <= 58; x += 6) g.FillRectangle(dark, x, 62, 3, 10);
+            g.FillEllipse(dark, 23, 73, 14, 12); g.FillEllipse(dark, 63, 73, 14, 12);
+            g.FillRectangle(dark, 41, 82, 18, 4);
         }
         else
         {

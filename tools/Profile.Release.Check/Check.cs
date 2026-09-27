@@ -19,7 +19,7 @@ static class ProfileReleaseCheck
             if (!sources.TryGetValue(profile.Id, out var folder)) throw new InvalidDataException("Missing source directory: " + profile.Id);
             foreach (var commandos in new[] { false, true })
             {
-                bool Enabled(string id) => id == "commandos" ? commandos : id == "skinny" ? profile.Id != "full" : baseline.Options.FirstOrDefault(o => o.Id == id)?.Default ?? true;
+                bool Enabled(string id) => id == "commandos" ? commandos : id == "skinny" ? profile.Id != "full" : pack.Options.FirstOrDefault(o => o.Id == id)?.Default ?? true;
                 var files = Pack.EffectiveFiles(pack, Enabled, profile.Id);
                 FileSafety.ValidateTargets(files);
                 foreach (var group in files.GroupBy(f => f.Name.Split('.')[0]))
