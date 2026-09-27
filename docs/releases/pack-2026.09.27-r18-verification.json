@@ -1,0 +1,79 @@
+{
+  "packVersion": "2026.09.27-r18",
+  "appVersion": "1.7.1",
+  "sourceCommit": "bbe770fbbda9e469521814cfdb40e44a6a0b9da3",
+  "feedCommit": "ccc56cd3e7a2791258be232d78766a9f5e38e90c",
+  "phase": "complete",
+  "feeds": [
+    {
+      "feed": "manifest.json",
+      "sha256": "eac9ae78fc16df5327d3e7c7b430181ce65e40239dc3d558d7fb28d1a82a7c90",
+      "packVersion": "2026.09.12-r8",
+      "appVersion": "1.7.1"
+    },
+    {
+      "feed": "manifest-v3.json",
+      "sha256": "ec5ae294ed0a6824c70af9cf423df592c252c9eb646b100036fc7a4d699f9718",
+      "packVersion": "2026.09.27-r18",
+      "appVersion": "1.7.1"
+    },
+    {
+      "feed": "manifest-v3-current.json",
+      "sha256": "058011a91b5abbda60df9bf891f55bc9583a37054a0fca17643ad6b614bb636b",
+      "packVersion": "2026.09.27-r18",
+      "appVersion": "1.7.1"
+    }
+  ],
+  "newAssetBytes": 0,
+  "allHostedAssetDigestsVerified": true,
+  "downloadedAppSha256": "850dd52fead99c72d6573031adc1f0ce5d8ac735c6df9003fe03b06551c41b6a",
+  "app": {
+    "version": "1.7.1",
+    "url": "https://github.com/owendavidgoode/clonedivers/releases/download/v1.7.1/Clonedivers.exe",
+    "size": 66404248,
+    "sha256": "850dd52fead99c72d6573031adc1f0ce5d8ac735c6df9003fe03b06551c41b6a"
+  },
+  "parity": {
+    "combinations": 16,
+    "modeSelections": 32,
+    "promotedBundles": 126,
+    "scopeArchives": 90,
+    "verifiedUniqueAssets": 141,
+    "profiles": [
+      {
+        "profile": "full",
+        "files": 355,
+        "bytes": 1284723044,
+        "empireFiles": 1006
+      },
+      {
+        "profile": "lighter",
+        "files": 355,
+        "bytes": 1314174068,
+        "empireFiles": 1008
+      }
+    ],
+    "resourceChecks": [
+      {
+        "profile": "full",
+        "sharedResources": 540,
+        "imperialResources": 148,
+        "allowedIntroAudioOverlaps": 2,
+        "unexpectedOverlaps": 0
+      },
+      {
+        "profile": "lighter",
+        "sharedResources": 540,
+        "imperialResources": 148,
+        "allowedIntroAudioOverlaps": 2,
+        "unexpectedOverlaps": 0
+      }
+    ],
+    "clonediversUnchanged": true,
+    "cloneVoicesExcluded": true,
+    "imperialAssetsUnchanged": true,
+    "gameplayTested": false
+  },
+  "gameplayTested": false,
+  "verifiedUtc": "2026-09-27T05:04:19.4592792Z"
+}

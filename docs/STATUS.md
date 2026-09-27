@@ -1,12 +1,16 @@
 # Current status
 
-## September 27: Empire equipment parity r18 prepared
+## September 27: Empire equipment parity r18 published
 
 Pack **2026.09.27-r18** reuses launcher **1.7.1**. Empire now includes the complete
 90-archive scope/ADS setup and 36 other shared equipment, audio and vehicle
 bundles. No asset bytes or URLs change. Clonedivers and its Venator intro remain
 identical; clone/Commando voices stay exclusive. Imperial models and battle intro
 remain intact. [Scope and validation](releases/pack-2026.09.27-r18.md).
+All three public feeds are verified at feed commit `ccc56cd`; the original 1.6.3
+reader offers launcher 1.7.1. The live pack passes all 32 mode selections, source
+hash checks and resource overlap checks. Gameplay remains unverified.
+[Public verification](releases/pack-2026.09.27-r18-verification.json).
 
 ## September 27: launcher 1.7.1 / Empire intro r17 published
 
