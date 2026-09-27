@@ -8,7 +8,7 @@ The owner requested EmpireDivers and an optional Covenant conversion together, w
 - Shared blaster models, weapon sounds, effects and scope fixes. Droid skins and JohnsonPotatoMode remain independent options.
 - **Covenant squids**, off by default, works in both modded modes. Core Illuminate models and voices change; newer units stay vanilla.
 - EmpireDivers excludes Clone/Commando armor, voices, the Republic opening, Venator, and AT-TE replacements. Other armor, voices, opening, and Lumberer/Bastion are vanilla in this first Imperial roster. No new music or Imperial voice set is claimed.
-- Returning to Clonedivers with Covenant off reproduces r14's effective files exactly. Helldivers parks every mod. Mode changes preserve independent options and reuse verified downloads.
+- Returning to Clonedivers with Covenant off reproduces r14's content plus the [r16 SAI sound/blue-bolt bundle](releases/pack-2026.09.26-r16.md). The original r15 reproduced r14 exactly. Helldivers parks every mod. Mode changes preserve independent options and reuse verified downloads.
 - New Empire predicates use format-3 metadata. Older launchers reject the unknown mode and fall back to the compatibility feed, where they can discover the new executable. **Update the launcher first.**
 
 ## Sources

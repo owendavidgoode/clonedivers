@@ -13,7 +13,7 @@ Choose Helldivers, Clonedivers, or EmpireDivers. Launch through Steam.</p>
 2. Keep the game closed. Choose **Clonedivers** or **EmpireDivers**, set **Droid skins**, optional **Covenant squids** and **JohnsonPotatoMode™**, then download the pack. The launcher shows the download size and resumes interrupted downloads.
 3. Click **Launch**. Steam starts Helldivers 2. Each player installs the pack locally to see and hear its replacements.
 
-Current release: **launcher 1.7.0 / pack 2026.09.26-r15**. Existing players should update the launcher first, then **Update pack**. Unchanged downloads are reused. [Release notes](docs/releases/v1.7.0.md) cover the changes and remaining gameplay checks.
+Current release: **launcher 1.7.0 / pack 2026.09.26-r16**. Existing players should update the launcher first, then **Update pack**. Unchanged downloads are reused. [Release notes](docs/releases/v1.7.0.md) cover the changes and remaining gameplay checks. [The SAI update](docs/releases/pack-2026.09.26-r16.md) adds E-11 firing sound and blue blaster bolts in both modded modes.
 
 **Vanilla night?** Choose **Helldivers** while the game is closed. It parks the mods and hides mod options. Cached mode changes don't ask for confirmation. **Check and repair** verifies installed files while preserving the selected mode.
 
