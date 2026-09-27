@@ -1,4 +1,4 @@
-# EmpireDivers and Covenant: 1.7.0 / r15
+# EmpireDivers and Covenant
 
 The owner requested EmpireDivers and an optional Covenant conversion together, without added music. Work resumed from Claude session `492261cc-3794-4c69-8b1b-abcfa0c04552`. After the AT-ST repair, the owner explicitly authorized release without gameplay acceptance: “just assume it will work and ship 1.7”. This is authorization, not evidence of runtime compatibility.
 
@@ -7,9 +7,9 @@ The owner requested EmpireDivers and an optional Covenant conversion together, w
 - **EmpireDivers** is a third universe: B-01 Tactical Stormtrooper armor on **Brawny**, Helldiverized Bloodhound armor on **Lean**, Star Destroyers, a gray LAAT, and AT-ST Patriot/Emancipator exosuits.
 - Shared blaster models, weapon sounds, effects and scope fixes. Droid skins and JohnsonPotatoMode remain independent options.
 - **Covenant squids**, off by default, works in both modded modes. Core Illuminate models and voices change; newer units stay vanilla.
-- EmpireDivers excludes Clone/Commando armor, voices, the Republic opening, Venator, and AT-TE replacements. Other armor, voices, opening, and Lumberer/Bastion are vanilla in this first Imperial roster. No new music or Imperial voice set is claimed.
+- EmpireDivers excludes Clone/Commando armor, voices, the Republic opening, Venator, and AT-TE replacements. Other armor, voices, and Lumberer/Bastion are vanilla. Since [1.7.1 / r17](releases/v1.7.1.md), Empire opens with the requested Helldivers vs Star Wars battle video and matching soundtrack. Clonedivers retains its Venator intro. No Imperial voice set is claimed.
 - Returning to Clonedivers with Covenant off reproduces r14's content plus the [r16 SAI sound/blue-bolt bundle](releases/pack-2026.09.26-r16.md). The original r15 reproduced r14 exactly. Helldivers parks every mod. Mode changes preserve independent options and reuse verified downloads.
-- New Empire predicates use format-3 metadata. Older launchers reject the unknown mode and fall back to the compatibility feed, where they can discover the new executable. **Update the launcher first.**
+- New Empire predicates use format-3 metadata. Since 1.7.1, older launchers receive a separate compatible profile feed so unsupported Empire predicates cannot hide the executable update. **Update the launcher first.**
 
 ## Sources
 

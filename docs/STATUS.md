@@ -1,5 +1,17 @@
 # Current status
 
+## September 27: launcher 1.7.1 / Empire intro r17 prepared
+
+EmpireDivers receives the requested Helldivers vs Star Wars intro with matching
+audio, a trimmed black tail and short silent logo replacements. Clonedivers keeps
+the Venator intro exactly. Covenant and SAI E-11 sound/blue bolts are retained.
+All 912 Bink frames decode offline using the installed game's decoder; 16 mode
+combinations pass. The original 1.6.3 reader accepts the compatibility projection
+and offers the launcher update. Native and publication workflow tests pass.
+The new launcher polls for updates and preserves app metadata during profile-feed
+fallback. Three feeds publish atomically after hosted-asset verification.
+Gameplay remains unverified. [Release notes](releases/v1.7.1.md).
+
 ## September 26: SAI sound and blaster bolts published in pack r16
 
 Launcher **1.7.0** is unchanged. Pack **2026.09.26-r16** adds LAS-12 SAI E-11

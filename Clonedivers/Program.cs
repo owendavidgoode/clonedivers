@@ -1831,13 +1831,19 @@ public sealed partial class MainForm : Form
         refresh.Tick += (_, _) =>
         {
             ObserveSession(); // Continue low-frequency observations while minimized.
-            // Offline at start? Ask GitHub again once a minute until manifest.json answers.
-            if (manifestError is not null && !loadingManifest && DateTime.UtcNow - lastManifestTry > TimeSpan.FromSeconds(60))
+            // Also discover releases while the launcher stays open.
+            var interval = manifestError is not null ? TimeSpan.FromMinutes(1) : TimeSpan.FromMinutes(5);
+            if (!preview && !Busy && !loadingManifest && DateTime.UtcNow - lastManifestTry > interval)
                 _ = LoadManifestAsync();
             if (WindowState == FormWindowState.Minimized && !Busy) return;
             RefreshState();
         };
-        Activated += (_, _) => RefreshState();
+        Activated += (_, _) =>
+        {
+            RefreshState();
+            if (!preview && !Busy && !loadingManifest && DateTime.UtcNow - lastManifestTry > TimeSpan.FromMinutes(1))
+                _ = LoadManifestAsync();
+        };
         Shown += (_, _) =>
         {
             if (preview) { RefreshPreview(); return; }
@@ -2426,13 +2432,12 @@ public sealed partial class MainForm : Form
         {
             var fresh = await ManifestStore.FetchAsync(settings.ManifestUrl, CancellationToken.None);
             ManifestStore.ValidateForUse(fresh);
-            if (manifest?.Format == 3 && fresh.Format < 3)
-                throw new IOException("The profile feed is unavailable. Using the saved pack information.");
-            manifest = fresh;
-            try { ManifestStore.Save(ManifestStore.CachePath(settings.ManifestUrl), fresh); }
+            var usingSavedPack = manifest?.Format == 3 && fresh.Format < 3;
+            manifest = ManifestStore.PreserveProfiles(manifest, fresh);
+            try { ManifestStore.Save(ManifestStore.CachePath(settings.ManifestUrl), manifest); }
             catch (Exception e) when (e is IOException or UnauthorizedAccessException) { /* Online use still works when caching is unavailable. */ }
-            metadataOffline = false;
-            manifestError = null;
+            metadataOffline = usingSavedPack;
+            manifestError = usingSavedPack ? "The profile feed is unavailable. Using the saved pack information." : null;
         }
         catch (Exception ex) { metadataOffline = manifest is not null; manifestError = ex.Message; }
         finally { loadingManifest = false; }

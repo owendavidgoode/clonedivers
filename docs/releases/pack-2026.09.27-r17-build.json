@@ -1,0 +1,111 @@
+{
+  "source": "https://www.youtube.com/watch?v=c8bCzPS9DMI",
+  "title": "Helldivers vs Star Wars",
+  "author": "ChrisMastree Productions",
+  "musicCredit": "DaricShireMusic (source description)",
+  "trim": "0\u201338s; picture fade 36.9\u201337.4s, audio fade 36.9\u201338s; trailing black removed",
+  "video": {
+    "signature": "KB2n",
+    "frames": 912,
+    "width": 1920,
+    "height": 1080,
+    "fpsNumerator": 24,
+    "fpsDenominator": 1,
+    "seconds": 38.0,
+    "audioTracks": 1,
+    "flags": 262162,
+    "slices": 4,
+    "bytes": 34746932
+  },
+  "blankLogos": {
+    "signature": "KB2n",
+    "frames": 2,
+    "width": 1920,
+    "height": 1080,
+    "fpsNumerator": 24,
+    "fpsDenominator": 1,
+    "seconds": 0.08333333333333333,
+    "audioTracks": 1,
+    "flags": 262162,
+    "slices": 4,
+    "bytes": 2408
+  },
+  "videoSha256": "90fc8df0abfee0891ed6329b0ee2c3fd6e9ebf5b33b97d4ca498e9b742ec849e",
+  "wemSha256": "b05caa1f74ece061ba042caa6e00ef46c1b3c4683ee26230014e0c1e21387af2",
+  "logoResources": [
+    "5263c1fe0615c6ad",
+    "c08afc84be2bc3fa"
+  ],
+  "mutedLogoMedia": [
+    63626870,
+    213438122,
+    252576456,
+    318194401,
+    409631480,
+    616399245,
+    790470122,
+    937110951,
+    1030219909
+  ],
+  "nativeLogoBankSha256": "8202ee7a26b4ad3b1914e9530d8af06fa32f263c36fe313fc9ecc057fd072166",
+  "nativeCutsceneBankSha256": "fcdbe3d65c5b73597103fc0526af406cfaa97118cd60278c31233d203daf4878",
+  "cutsceneBankChange": "Only English intro source codec: Vorbis to PCM",
+  "cutsceneSources": [
+    {
+      "sound_id": 628788775,
+      "media_id": 193288922,
+      "codec_offset": 6213
+    }
+  ],
+  "mode": "empire",
+  "clonediversVenatorUnchanged": true,
+  "existingCutsceneSfxSuppressionPreserved": true,
+  "files": [
+    {
+      "name": "9ba626afa44a3aa3.patch_322",
+      "size": 7612608,
+      "sha256": "ec9756be1b504f41adf1924abbe74f1469140aae8ea149a75e4c1acf66daf25a"
+    },
+    {
+      "name": "9ba626afa44a3aa3.patch_322.stream",
+      "size": 4832,
+      "sha256": "8659c19a2b0074597c2585a38999cc6cc7aeed261f75aa244cc6dc381f5d5dc1"
+    },
+    {
+      "name": "9ba626afa44a3aa3.patch_322.gpu_resources",
+      "size": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "name": "9ba626afa44a3aa3.patch_323",
+      "size": 256,
+      "sha256": "99422a5f6f345ded52102bde670029d79fcff259c4198926cc96e9725fa2e193"
+    },
+    {
+      "name": "9ba626afa44a3aa3.patch_323.stream",
+      "size": 34746944,
+      "sha256": "4747c2c2d0274c6c90fd27c7c2fccea2da753219a72d391c386555afe2933e69"
+    },
+    {
+      "name": "9ba626afa44a3aa3.patch_323.gpu_resources",
+      "size": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "name": "9ba626afa44a3aa3.patch_324",
+      "size": 17456,
+      "sha256": "6d31c0e07f56b3ac9f7056a8e894b285475cbd8be7695967d66265b1a65a7c7d"
+    },
+    {
+      "name": "9ba626afa44a3aa3.patch_324.stream",
+      "size": 7299136,
+      "sha256": "b05caa1f74ece061ba042caa6e00ef46c1b3c4683ee26230014e0c1e21387af2"
+    },
+    {
+      "name": "9ba626afa44a3aa3.patch_324.gpu_resources",
+      "size": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    }
+  ],
+  "gameplayTested": false
+}

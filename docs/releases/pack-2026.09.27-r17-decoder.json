@@ -1,0 +1,18 @@
+[
+  {
+    "file": "intro.bk2",
+    "width": 1920,
+    "height": 1080,
+    "framesDecoded": 912,
+    "decoder": "C:\\Program Files (x86)\\Steam\\steamapps\\common\\Helldivers 2\\bin\\bink2w64.dll",
+    "gameLaunched": false
+  },
+  {
+    "file": "blank.bk2",
+    "width": 1920,
+    "height": 1080,
+    "framesDecoded": 2,
+    "decoder": "C:\\Program Files (x86)\\Steam\\steamapps\\common\\Helldivers 2\\bin\\bink2w64.dll",
+    "gameLaunched": false
+  }
+]

@@ -13,7 +13,7 @@ Choose Helldivers, Clonedivers, or EmpireDivers. Launch through Steam.</p>
 2. Keep the game closed. Choose **Clonedivers** or **EmpireDivers**, set **Droid skins**, optional **Covenant squids** and **JohnsonPotatoMode™**, then download the pack. The launcher shows the download size and resumes interrupted downloads.
 3. Click **Launch**. Steam starts Helldivers 2. Each player installs the pack locally to see and hear its replacements.
 
-Current release: **launcher 1.7.0 / pack 2026.09.26-r16**. Existing players should update the launcher first, then **Update pack**. Unchanged downloads are reused. [Release notes](docs/releases/v1.7.0.md) cover the changes and remaining gameplay checks. [The SAI update](docs/releases/pack-2026.09.26-r16.md) adds E-11 firing sound and blue blaster bolts in both modded modes.
+Current release: **launcher 1.7.1 / pack 2026.09.27-r17**. Existing players should update the launcher first, then **Update pack**. Unchanged downloads are reused. [Release notes](docs/releases/v1.7.1.md) cover the Empire battle intro and update detection fix. Clonedivers keeps the Venator intro; SAI E-11 firing sound and blue blaster bolts remain included in both modded modes.
 
 **Vanilla night?** Choose **Helldivers** while the game is closed. It parks the mods and hides mod options. Cached mode changes don't ask for confirmation. **Check and repair** verifies installed files while preserving the selected mode.
 
@@ -21,7 +21,7 @@ Current release: **launcher 1.7.0 / pack 2026.09.26-r16**. Existing players shou
 
 ## What's included
 
-**EmpireDivers** adds Stormtrooper armor (B-01 Tactical on Brawny, Bloodhound on Lean), Star Destroyers, a gray LAAT and AT-ST Patriot/Emancipator exosuits, with shared blasters. Other armor, voices, opening and Lumberer/Bastion remain vanilla. **Covenant squids** adds optional core Illuminate models and voices in either modded universe. No new music is included. These additions were released at the owner's request without gameplay testing; [scope and limitations](docs/EMPIREDIVERS-AND-COVENANT.md) include known shoulder deformation and hitbox mismatches.
+**EmpireDivers** adds Stormtrooper armor (B-01 Tactical on Brawny, Bloodhound on Lean), Star Destroyers, a gray LAAT and AT-ST Patriot/Emancipator exosuits, with shared blasters and the Helldivers vs Star Wars battle intro. Other armor, voices and Lumberer/Bastion remain vanilla. **Covenant squids** adds optional core Illuminate models and voices in either modded universe. These additions were released at the owner's request without gameplay testing; [scope and limitations](docs/EMPIREDIVERS-AND-COVENANT.md) include known shoulder deformation and hitbox mismatches.
 
 Clone and Commando armor share one roster, with more clone colors and clearer English equipment names. Delta Squad voices and the opening are always included. **Commando bodies require Brawny**; choose your voice separately. See [team setup and equipment](docs/TEAM-SETUP.md).
 

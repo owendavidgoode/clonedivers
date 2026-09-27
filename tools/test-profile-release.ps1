@@ -70,6 +70,27 @@ Check (Rejected {Get-ReleaseFeedTargets $f.dir $legacyReceipt}) 'Downgraded rece
 Write-ContractJson (Join-Path $f.dir 'manifest.json') $f.legacy
 $legacyFeeds=@(Get-ReleaseFeedTargets $f.dir $legacyReceipt)
 Check ($legacyFeeds.Count -eq 1 -and $legacyFeeds[0].target -eq 'manifest.json' -and $legacyFeeds[0].prepared -eq 'manifest.json') 'Legacy receipt keeps single-feed mapping'
+$f=Fixture 'three-feeds'
+$f.candidate.pack | Add-Member -NotePropertyName options -NotePropertyValue @([pscustomobject]@{id='empire'},[pscustomobject]@{id='covenant'})
+$f.candidate.pack | Add-Member -NotePropertyName totalSize -NotePropertyValue 30
+$f.candidate.pack.files=@([pscustomobject]@{name='shared';size=10;modes=@('clonedivers','commandos','empire')},[pscustomobject]@{name='imperial';size=20;modes=@('empire')})
+Write-ContractJson (Join-Path $f.dir 'manifest.json') $f.candidate
+Write-ContractJson (Join-Path $f.dir 'compatibility-manifest.json') (New-CompatibilityManifest $f.legacy $f.candidate)
+$projection=New-ProfileCompatibilityManifest $f.candidate
+Write-ContractJson (Join-Path $f.dir 'profile-compatibility-manifest.json') $projection
+$plan=Get-Content (Join-Path $f.dir 'feed-plan.json') -Raw | ConvertFrom-Json
+$plan.format=2;$plan.feeds[1].prepared='profile-compatibility-manifest.json'
+$plan.feeds+= [pscustomobject]@{target='manifest-v3-current.json';prepared='manifest.json';baselineExists=$false;baselineSha256=$null}
+Write-ContractJson (Join-Path $f.dir 'feed-plan.json') $plan
+$f.receipt=Seal $f.dir
+Assert-PreparedRelease $f.dir $f.receipt
+Check (@(Get-ReleaseFeedTargets $f.dir $f.receipt).Count -eq 3) 'Modern and old profile feeds publish in one sealed plan'
+Check ($projection.pack.files.Count -eq 1 -and ($projection.pack.files[0].modes -join ',') -eq 'clonedivers,commandos' -and $projection.pack.totalSize -eq 10) 'Old launcher projection excludes Empire-only content and predicates'
+Check ($projection.pack.options.Count -eq 1 -and $projection.pack.options[0].id -eq 'covenant' -and $f.candidate.pack.files.Count -eq 2) 'Compatibility projection preserves independent extras without mutating candidate'
+$projection.pack.files[0].size=11
+Write-ContractJson (Join-Path $f.dir 'profile-compatibility-manifest.json') $projection
+$f.receipt=Seal $f.dir
+Check (Rejected {Assert-PreparedRelease $f.dir $f.receipt}) 'Resealed profile compatibility mutation is rejected'
 $tokens=$null;$errors=$null
 [Management.Automation.Language.Parser]::ParseFile((Join-Path $PSScriptRoot 'release.ps1'),[ref]$tokens,[ref]$errors) | Out-Null
 Check ($errors.Count -eq 0) 'Release entrypoint parses without invoking network or Stage'

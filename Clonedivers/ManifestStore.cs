@@ -7,7 +7,18 @@ namespace Clonedivers;
 /// <summary>Validated, source-scoped metadata for offline use. Test feeds never replace the public cache.</summary>
 public static class ManifestStore
 {
-    public const string ProfileFeed = "https://raw.githubusercontent.com/owendavidgoode/clonedivers/main/manifest-v3.json";
+    public const string ProfileFeed = "https://raw.githubusercontent.com/owendavidgoode/clonedivers/main/manifest-v3-current.json";
+
+    // Keep a usable profile pack during a feed outage, but do not lose the independent
+    // launcher upgrade advertised by the legacy fallback. CanSelfUpdate still checks
+    // the release URL, version and digest before the UI offers it.
+    public static Manifest PreserveProfiles(Manifest? saved, Manifest fresh)
+    {
+        ValidateForUse(fresh);
+        return saved?.Format == 3 && fresh.Format < 3
+            ? new Manifest { Format = saved.Format, Pack = saved.Pack, App = fresh.App ?? saved.App }
+            : fresh;
+    }
 
     public static void ValidateForUse(Manifest manifest)
     {

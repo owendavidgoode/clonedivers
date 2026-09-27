@@ -43,12 +43,15 @@ For a format-3 profile release, use `-ProfileDirectories` with an array of
 Stage runs `Profile.Release.Check` against those source folders and the format-2
 baseline. `-GameDir` and `-TestedManifest` are only required for legacy releases.
 
-Format-3 staging seals two feeds. `compatibility-manifest.json` retains the existing
+Format-3 staging seals three feeds. `compatibility-manifest.json` retains the existing
 format-2 pack and changes only app metadata; it publishes as root `manifest.json`.
-The new candidate publishes as `manifest-v3.json`. Both feed files are committed
-together after asset verification. Existing 1.4.1 clients can discover the new
-launcher without parsing unsupported profile metadata. The new launcher caches
-validated metadata by source and reads the versioned feed first.
+`profile-compatibility-manifest.json` projects the candidate onto Clonedivers and
+Commandos for older profile-aware launchers and publishes as `manifest-v3.json`.
+The full candidate, including Empire, publishes as `manifest-v3-current.json`, read
+by launcher 1.7.1 and later. All three files are committed together after asset
+verification. This lets 1.4.x and 1.6.x clients discover the launcher update without
+parsing unsupported pack metadata. Stage validates the compatibility projection,
+including its content identities; the old two-feed plan remains resumable.
 
 Do not include Reduced profiles or additional RC streaming until their gameplay
 acceptance is recorded. The 1.5.0/r9 release spec is

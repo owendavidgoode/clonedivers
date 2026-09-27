@@ -12,6 +12,22 @@ function New-CompatibilityManifest($Legacy,$Candidate) {
     $copy | Add-Member -Force -NotePropertyName app -NotePropertyValue $Candidate.app
     $copy
 }
+function New-ProfileCompatibilityManifest($Candidate) {
+    if ([int]$Candidate.format -ne 3) { throw 'Profile compatibility requires format 3.' }
+    $copy=$Candidate | ConvertTo-Json -Depth 12 | ConvertFrom-Json
+    $copy.pack.options=@($copy.pack.options | Where-Object id -ne 'empire')
+    $copy.pack.files=@(foreach ($file in $copy.pack.files) {
+        if ($file.modes) {
+            $file.modes=@($file.modes | Where-Object { $_ -in @('clonedivers','commandos') })
+            if ($file.modes.Count -eq 0) { continue }
+        }
+        if ($file.option -eq 'empire') { throw 'Unexpected Empire option predicate in compatibility feed.' }
+        if ($file.unlessOption -eq 'empire') { $file.PSObject.Properties.Remove('unlessOption') }
+        $file
+    })
+    $copy.pack.totalSize=($copy.pack.files | Measure-Object size -Sum).Sum
+    $copy
+}
 function Get-ReleaseFeedTargets([string]$Directory,$Receipt) {
     if ([int]$Receipt.format -eq 1) {
         $legacyCandidate=Get-Content -LiteralPath (Join-Path $Directory 'manifest.json') -Raw | ConvertFrom-Json
@@ -22,7 +38,10 @@ function Get-ReleaseFeedTargets([string]$Directory,$Receipt) {
     $plan=Get-Content -LiteralPath (Join-Path $Directory 'feed-plan.json') -Raw | ConvertFrom-Json
     $candidate=Get-Content -LiteralPath (Join-Path $Directory 'manifest.json') -Raw | ConvertFrom-Json
     $expected=@{'manifest-v3.json'='manifest.json';'manifest.json'='compatibility-manifest.json'}
-    if ([int]$candidate.format -ne 3 -or [int]$plan.format -ne 1 -or @($plan.feeds).Count -ne 2) { throw 'Invalid coordinated feed plan.' }
+    if ([int]$plan.format -eq 2) {
+        $expected=@{'manifest-v3-current.json'='manifest.json';'manifest-v3.json'='profile-compatibility-manifest.json';'manifest.json'='compatibility-manifest.json'}
+    }
+    if ([int]$candidate.format -ne 3 -or [int]$plan.format -notin @(1,2) -or @($plan.feeds).Count -ne $expected.Count) { throw 'Invalid coordinated feed plan.' }
     $seen=@{}
     foreach ($feed in $plan.feeds) {
         if (!$expected.ContainsKey([string]$feed.target) -or $seen.ContainsKey([string]$feed.target) -or $expected[$feed.target] -cne $feed.prepared) { throw 'Release feed target mapping is not allowed.' }
@@ -36,6 +55,11 @@ function Get-ReleaseFeedTargets([string]$Directory,$Receipt) {
     $compatibility=Get-Content -LiteralPath (Join-Path $Directory 'compatibility-manifest.json') -Raw | ConvertFrom-Json
     $expectedCompatibility=New-CompatibilityManifest $legacy $candidate
     if (($compatibility | ConvertTo-Json -Depth 12 -Compress) -cne ($expectedCompatibility | ConvertTo-Json -Depth 12 -Compress)) { throw 'Compatibility feed changed fields other than app metadata.' }
+    if ([int]$plan.format -eq 2) {
+        $profileCompatibility=Get-Content -LiteralPath (Join-Path $Directory 'profile-compatibility-manifest.json') -Raw | ConvertFrom-Json
+        $expectedProfile=New-ProfileCompatibilityManifest $candidate
+        if (($profileCompatibility | ConvertTo-Json -Depth 12 -Compress) -cne ($expectedProfile | ConvertTo-Json -Depth 12 -Compress)) { throw 'Profile compatibility feed differs from the supported-mode projection.' }
+    }
     $legacyFeed=$plan.feeds | Where-Object target -CEQ 'manifest.json'
     if (!$legacyFeed.baselineExists -or $legacyFeed.baselineSha256 -ne (Get-ContentHash (Join-Path $Directory 'baseline-compatibility.json'))) { throw 'Legacy feed baseline is not the preserved source.' }
     @($plan.feeds)
@@ -45,7 +69,7 @@ function Assert-PreparedRelease([string]$Directory,$Receipt) {
     $seen=@{}
     foreach ($file in $Receipt.sealedFiles) {
         # Prepared identities never grant permission to access arbitrary paths.
-        if ($file.path -notmatch '^(manifest\.json|compatibility-manifest\.json|baseline-compatibility\.json|feed-plan\.json|Clonedivers\.exe|notes\.md|assets[\\/][a-f0-9]{64})$' -or $seen.ContainsKey([string]$file.path)) { throw 'Invalid sealed release path.' }
+        if ($file.path -notmatch '^(manifest\.json|profile-compatibility-manifest\.json|compatibility-manifest\.json|baseline-compatibility\.json|feed-plan\.json|Clonedivers\.exe|notes\.md|assets[\\/][a-f0-9]{64})$' -or $seen.ContainsKey([string]$file.path)) { throw 'Invalid sealed release path.' }
         $seen[$file.path]=$true
         if ($file.sha256 -notmatch '^[a-f0-9]{64}$' -or (Get-ContentHash (Join-Path $Directory $file.path)) -ne $file.sha256) { throw "Prepared release changed: $($file.path)" }
     }

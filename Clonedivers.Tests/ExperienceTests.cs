@@ -25,6 +25,17 @@ static class ExperienceTests
         var invalidRejected = false;
         try { ManifestStore.Save(publicPath, new Manifest()); } catch (InvalidDataException) { invalidRejected = true; }
         check(invalidRejected, "an unusable online response cannot replace usable cached metadata");
+        var profileCache = new Manifest { Format = 3, Pack = manifest.Pack, App = new AppRelease { Version = "1.6.3" } };
+        var fallback = new Manifest { Format = 2, Pack = new PackManifest { Version = "legacy", Files = manifest.Pack!.Files },
+            App = new AppRelease { Version = "1.7.1" } };
+        var merged = ManifestStore.PreserveProfiles(profileCache, fallback);
+        check(merged.Format == 3 && ReferenceEquals(merged.Pack, profileCache.Pack) && merged.App?.Version == "1.7.1",
+            "legacy fallback preserves cached profile pack while exposing the launcher update");
+        check(profileCache.App?.Version == "1.6.3" && ReferenceEquals(ManifestStore.PreserveProfiles(null, fallback), fallback),
+            "fallback merge does not mutate cached metadata and supports a cold start");
+        var freshProfiles = new Manifest { Format = 3, Pack = manifest.Pack };
+        check(ReferenceEquals(ManifestStore.PreserveProfiles(profileCache, freshProfiles), freshProfiles),
+            "fresh profile metadata replaces saved metadata normally");
         var settings = new Settings { Options = new() { ["skinny"] = true } };
         check(settings.ProfileFor(manifest.Pack!) == "lighter", "existing skinny preference migrates to Lighter");
         settings.TextureProfile = "full";

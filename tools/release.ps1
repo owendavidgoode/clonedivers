@@ -38,9 +38,11 @@ if ($Action -eq 'Stage') {
     $known=@{}; $old=Get-Content (Join-Path $root 'manifest.json') -Raw | ConvertFrom-Json
     $compatibility=if ($profiles) { New-CompatibilityManifest $old $manifest } else { $null }
     foreach ($a in (Get-ReleaseAssets $old)) { $known[$a.url]=$a.sha256 }
-    if ($profiles -and (Test-Path -LiteralPath (Join-Path $root 'manifest-v3.json'))) {
-        $previousProfile=Get-Content -LiteralPath (Join-Path $root 'manifest-v3.json') -Raw | ConvertFrom-Json
-        foreach ($a in (Get-ReleaseAssets $previousProfile)) { $known[$a.url]=$a.sha256 }
+    foreach ($feedName in @('manifest-v3.json','manifest-v3-current.json')) {
+        if ($profiles -and (Test-Path -LiteralPath (Join-Path $root $feedName))) {
+            $previousProfile=Get-Content -LiteralPath (Join-Path $root $feedName) -Raw | ConvertFrom-Json
+            foreach ($a in (Get-ReleaseAssets $previousProfile)) { $known[$a.url]=$a.sha256 }
+        }
     }
     $copies=@()
     foreach ($a in $assets) {
@@ -59,11 +61,15 @@ if ($Action -eq 'Stage') {
     if ($profiles) {
         Copy-Item -LiteralPath (Join-Path $root 'manifest.json') -Destination (Join-Path $Directory 'baseline-compatibility.json')
         Write-ContractJson (Join-Path $Directory 'compatibility-manifest.json') $compatibility
+        Write-ContractJson (Join-Path $Directory 'profile-compatibility-manifest.json') (New-ProfileCompatibilityManifest $manifest)
         $profilePath=Join-Path $root 'manifest-v3.json';$profileExists=Test-Path -LiteralPath $profilePath -PathType Leaf
         $profileHash=if ($profileExists) {Get-ContentHash $profilePath} else {$null}
-        Write-ContractJson (Join-Path $Directory 'feed-plan.json') ([ordered]@{format=1;feeds=@(
+        $currentPath=Join-Path $root 'manifest-v3-current.json';$currentExists=Test-Path -LiteralPath $currentPath -PathType Leaf
+        $currentHash=if ($currentExists) {Get-ContentHash $currentPath} else {$null}
+        Write-ContractJson (Join-Path $Directory 'feed-plan.json') ([ordered]@{format=2;feeds=@(
             [ordered]@{target='manifest.json';prepared='compatibility-manifest.json';baselineExists=$true;baselineSha256=(Get-ContentHash (Join-Path $root 'manifest.json'))},
-            [ordered]@{target='manifest-v3.json';prepared='manifest.json';baselineExists=[bool]$profileExists;baselineSha256=$profileHash}
+            [ordered]@{target='manifest-v3.json';prepared='profile-compatibility-manifest.json';baselineExists=[bool]$profileExists;baselineSha256=$profileHash},
+            [ordered]@{target='manifest-v3-current.json';prepared='manifest.json';baselineExists=[bool]$currentExists;baselineSha256=$currentHash}
         )})
     }
     $sealed=@(Get-ChildItem -LiteralPath $Directory -File -Recurse | ForEach-Object { [pscustomobject]@{path=$_.FullName.Substring($Directory.Length+1);sha256=(Get-ContentHash $_.FullName)} })
