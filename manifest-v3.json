@@ -1,9 +1,9 @@
 {
   "format": 3,
   "pack": {
-    "version": "2026.09.27-r18",
+    "version": "2026.09.27-r19",
     "name": "Clonedivers and EmpireDivers",
-    "notes": "EmpireDivers now includes the complete Clonedivers weapon/ADS setup, shared backpacks, stratagem and sentry sounds, transports, tanks, GNK hellbomb and cape changes. Clone voices stay exclusive to Clonedivers.",
+    "notes": "EmpireDivers: detailed Star Destroyers, no capes, curated stormtrooper callouts and Imperial command voices, Imperial map UI and shared SEAF weapon sounds.",
     "gameBuild": "25480438",
     "gameDepots": [
       "1883032874832282552",
@@ -13,7 +13,7 @@
       "3382210389809902281"
     ],
     "status": "ok",
-    "statusNotes": "Shared assets retain their shipped bytes. Mode and resource checks pass offline; gameplay remains unverified. Empire armor, AT-STs, ships and intro retained.",
+    "statusNotes": "Validated offline; gameplay remains unverified. Unmapped stormtrooper callouts retain native HD2 voices. Clone voices and Venator remain exclusive to Clonedivers.",
     "options": [
       {
         "id": "commandos",
