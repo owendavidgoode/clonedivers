@@ -17205,9 +17205,9 @@
     "combinedRoster": true
   },
   "app": {
-    "version": "1.7.1",
-    "url": "https://github.com/owendavidgoode/clonedivers/releases/download/v1.7.1/Clonedivers.exe",
-    "size": 66404248,
-    "sha256": "850dd52fead99c72d6573031adc1f0ce5d8ac735c6df9003fe03b06551c41b6a"
+    "version": "1.7.2",
+    "url": "https://github.com/owendavidgoode/clonedivers/releases/download/v1.7.2/Clonedivers.exe",
+    "size": 66404538,
+    "sha256": "11679aac84b34bfa460126121acb14e8432247f8accd45e2776c34ff7f46e473"
   }
 }
