@@ -57,6 +57,12 @@ internal static class ModeHelmets
         using var dark = new SolidBrush(Bg);
         using var accent = new SolidBrush(enabled ? mode == LauncherMode.Helldivers ? Warn : mode == LauncherMode.CommandoDivers ? Color.FromArgb(83, 200, 249) : BlueHot : Slate);
         using var trim = new SolidBrush(enabled ? Color.FromArgb(153, 168, 190) : Slate);
+        if (mode == LauncherMode.EmpireDivers)
+        {
+            DrawImperial(g, shell, dark, trim);
+            g.Restore(saved);
+            return;
+        }
         using var outline = new GraphicsPath();
         outline.AddBezier(18, 45, 15, 0, 85, 0, 82, 45);
         outline.AddLines(new PointF[] { new(82, 45), new(86, 75), new(72, 92), new(28, 92), new(14, 75), new(18, 45) });
@@ -78,15 +84,6 @@ internal static class ModeHelmets
             g.FillEllipse(trim, 24, 67, 14, 11); g.FillEllipse(trim, 62, 67, 14, 11);
             g.FillRectangle(dark, 39, 82, 22, 4);
         }
-        else if (mode == LauncherMode.EmpireDivers)
-        {
-            g.FillPolygon(dark, new PointF[] { new(22, 40), new(44, 44), new(42, 53), new(25, 51) });
-            g.FillPolygon(dark, new PointF[] { new(78, 40), new(56, 44), new(58, 53), new(75, 51) });
-            g.FillPolygon(trim, new PointF[] { new(42, 55), new(58, 55), new(65, 73), new(35, 73) });
-            for (int x = 40; x <= 58; x += 6) g.FillRectangle(dark, x, 62, 3, 10);
-            g.FillEllipse(dark, 23, 73, 14, 12); g.FillEllipse(dark, 63, 73, 14, 12);
-            g.FillRectangle(dark, 41, 82, 18, 4);
-        }
         else
         {
             g.FillRectangle(accent, 39, 12, 22, 8);
@@ -97,6 +94,31 @@ internal static class ModeHelmets
             g.FillRectangle(dark, 42, 81, 16, 5);
         }
         g.Restore(saved);
+    }
+
+    // Separate Imperial proportions: broad dome, low brow, recessed lenses and flared jaw.
+    static void DrawImperial(Graphics g, Brush shell, Brush dark, Brush trim)
+    {
+        using var dome = new GraphicsPath();
+        dome.AddBezier(14, 40, 13, -1, 87, -1, 86, 40);
+        dome.AddLines(new PointF[] { new(86, 40), new(90, 51), new(87, 65), new(94, 81), new(81, 93), new(66, 94), new(58, 88), new(42, 88), new(34, 94), new(19, 93), new(6, 81), new(13, 65), new(10, 51), new(14, 40) });
+        dome.CloseFigure();
+        g.FillPath(shell, dome);
+
+        // A continuous brow and tapered lenses remain readable at the 82 px card size.
+        g.FillPolygon(dark, new PointF[] { new(14, 34), new(32, 31), new(68, 31), new(86, 34), new(87, 40), new(67, 37), new(33, 37), new(13, 40) });
+        g.FillPolygon(dark, new PointF[] { new(19, 43), new(31, 40), new(46, 46), new(42, 55), new(25, 53) });
+        g.FillPolygon(dark, new PointF[] { new(81, 43), new(69, 40), new(54, 46), new(58, 55), new(75, 53) });
+        g.FillPolygon(trim, new PointF[] { new(18, 56), new(30, 61), new(37, 72), new(25, 67), new(14, 66) });
+        g.FillPolygon(trim, new PointF[] { new(82, 56), new(70, 61), new(63, 72), new(75, 67), new(86, 66) });
+
+        // The inverted-V frown, cheek tubes and two recessed aerators identify the helmet.
+        g.FillPolygon(dark, new PointF[] { new(31, 73), new(42, 61), new(50, 57), new(58, 61), new(69, 73), new(59, 69), new(50, 64), new(41, 69) });
+        g.FillPolygon(trim, new PointF[] { new(11, 77), new(20, 71), new(30, 76), new(35, 87), new(29, 90), new(20, 86) });
+        g.FillPolygon(trim, new PointF[] { new(89, 77), new(80, 71), new(70, 76), new(65, 87), new(71, 90), new(80, 86) });
+        g.FillEllipse(dark, 25, 76, 11, 12);
+        g.FillEllipse(dark, 64, 76, 11, 12);
+        g.FillPolygon(dark, new PointF[] { new(40, 78), new(60, 78), new(57, 85), new(43, 85) });
     }
 }
 

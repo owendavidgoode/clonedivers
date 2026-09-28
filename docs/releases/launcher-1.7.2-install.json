@@ -1,0 +1,16 @@
+{
+  "manifestHash": "3e1ce557609f4f3482e8d167157dcec28bb2cd89e670cebb18b813b25190250c",
+  "Version": "2026.09.27-r19",
+  "profile": "full",
+  "options": {
+    "commandos": true,
+    "skinny": false,
+    "droids": true,
+    "aimpoints": true,
+    "covenant": true,
+    "empire": true
+  },
+  "files": 1027,
+  "utc": "2026-09-28T00:43:48.3797393+00:00",
+  "gameplayTested": false
+}

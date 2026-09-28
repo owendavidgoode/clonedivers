@@ -1,0 +1,237 @@
+{
+  "selections": [
+    {
+      "mode": "EmpireDivers",
+      "profile": "full",
+      "droids": false,
+      "covenant": false,
+      "resourcesChecked": 4477,
+      "capes": [
+        {
+          "unit": "ea846ef460cc5ba0",
+          "winner": "9ba626afa44a3aa3.patch_225",
+          "overridden": [
+            "9ba626afa44a3aa3.patch_175"
+          ],
+          "layouts": 11,
+          "groups": 4,
+          "drawableIndices": 0
+        },
+        {
+          "unit": "3c33cf10a26cbb3e",
+          "winner": "9ba626afa44a3aa3.patch_225",
+          "overridden": [
+            "9ba626afa44a3aa3.patch_175"
+          ],
+          "layouts": 11,
+          "groups": 4,
+          "drawableIndices": 0
+        }
+      ]
+    },
+    {
+      "mode": "EmpireDivers",
+      "profile": "full",
+      "droids": false,
+      "covenant": true,
+      "resourcesChecked": 4693,
+      "capes": [
+        {
+          "unit": "ea846ef460cc5ba0",
+          "winner": "9ba626afa44a3aa3.patch_225",
+          "overridden": [
+            "9ba626afa44a3aa3.patch_175"
+          ],
+          "layouts": 11,
+          "groups": 4,
+          "drawableIndices": 0
+        },
+        {
+          "unit": "3c33cf10a26cbb3e",
+          "winner": "9ba626afa44a3aa3.patch_225",
+          "overridden": [
+            "9ba626afa44a3aa3.patch_175"
+          ],
+          "layouts": 11,
+          "groups": 4,
+          "drawableIndices": 0
+        }
+      ]
+    },
+    {
+      "mode": "EmpireDivers",
+      "profile": "full",
+      "droids": true,
+      "covenant": false,
+      "resourcesChecked": 5327,
+      "capes": [
+        {
+          "unit": "ea846ef460cc5ba0",
+          "winner": "9ba626afa44a3aa3.patch_257",
+          "overridden": [
+            "9ba626afa44a3aa3.patch_207"
+          ],
+          "layouts": 11,
+          "groups": 4,
+          "drawableIndices": 0
+        },
+        {
+          "unit": "3c33cf10a26cbb3e",
+          "winner": "9ba626afa44a3aa3.patch_257",
+          "overridden": [
+            "9ba626afa44a3aa3.patch_207"
+          ],
+          "layouts": 11,
+          "groups": 4,
+          "drawableIndices": 0
+        }
+      ]
+    },
+    {
+      "mode": "EmpireDivers",
+      "profile": "full",
+      "droids": true,
+      "covenant": true,
+      "resourcesChecked": 5543,
+      "capes": [
+        {
+          "unit": "ea846ef460cc5ba0",
+          "winner": "9ba626afa44a3aa3.patch_257",
+          "overridden": [
+            "9ba626afa44a3aa3.patch_207"
+          ],
+          "layouts": 11,
+          "groups": 4,
+          "drawableIndices": 0
+        },
+        {
+          "unit": "3c33cf10a26cbb3e",
+          "winner": "9ba626afa44a3aa3.patch_257",
+          "overridden": [
+            "9ba626afa44a3aa3.patch_207"
+          ],
+          "layouts": 11,
+          "groups": 4,
+          "drawableIndices": 0
+        }
+      ]
+    },
+    {
+      "mode": "EmpireDivers",
+      "profile": "lighter",
+      "droids": false,
+      "covenant": false,
+      "resourcesChecked": 4477,
+      "capes": [
+        {
+          "unit": "ea846ef460cc5ba0",
+          "winner": "9ba626afa44a3aa3.patch_225",
+          "overridden": [
+            "9ba626afa44a3aa3.patch_175"
+          ],
+          "layouts": 11,
+          "groups": 4,
+          "drawableIndices": 0
+        },
+        {
+          "unit": "3c33cf10a26cbb3e",
+          "winner": "9ba626afa44a3aa3.patch_225",
+          "overridden": [
+            "9ba626afa44a3aa3.patch_175"
+          ],
+          "layouts": 11,
+          "groups": 4,
+          "drawableIndices": 0
+        }
+      ]
+    },
+    {
+      "mode": "EmpireDivers",
+      "profile": "lighter",
+      "droids": false,
+      "covenant": true,
+      "resourcesChecked": 4693,
+      "capes": [
+        {
+          "unit": "ea846ef460cc5ba0",
+          "winner": "9ba626afa44a3aa3.patch_225",
+          "overridden": [
+            "9ba626afa44a3aa3.patch_175"
+          ],
+          "layouts": 11,
+          "groups": 4,
+          "drawableIndices": 0
+        },
+        {
+          "unit": "3c33cf10a26cbb3e",
+          "winner": "9ba626afa44a3aa3.patch_225",
+          "overridden": [
+            "9ba626afa44a3aa3.patch_175"
+          ],
+          "layouts": 11,
+          "groups": 4,
+          "drawableIndices": 0
+        }
+      ]
+    },
+    {
+      "mode": "EmpireDivers",
+      "profile": "lighter",
+      "droids": true,
+      "covenant": false,
+      "resourcesChecked": 5327,
+      "capes": [
+        {
+          "unit": "ea846ef460cc5ba0",
+          "winner": "9ba626afa44a3aa3.patch_257",
+          "overridden": [
+            "9ba626afa44a3aa3.patch_207"
+          ],
+          "layouts": 11,
+          "groups": 4,
+          "drawableIndices": 0
+        },
+        {
+          "unit": "3c33cf10a26cbb3e",
+          "winner": "9ba626afa44a3aa3.patch_257",
+          "overridden": [
+            "9ba626afa44a3aa3.patch_207"
+          ],
+          "layouts": 11,
+          "groups": 4,
+          "drawableIndices": 0
+        }
+      ]
+    },
+    {
+      "mode": "EmpireDivers",
+      "profile": "lighter",
+      "droids": true,
+      "covenant": true,
+      "resourcesChecked": 5543,
+      "capes": [
+        {
+          "unit": "ea846ef460cc5ba0",
+          "winner": "9ba626afa44a3aa3.patch_257",
+          "overridden": [
+            "9ba626afa44a3aa3.patch_207"
+          ],
+          "layouts": 11,
+          "groups": 4,
+          "drawableIndices": 0
+        },
+        {
+          "unit": "3c33cf10a26cbb3e",
+          "winner": "9ba626afa44a3aa3.patch_257",
+          "overridden": [
+            "9ba626afa44a3aa3.patch_207"
+          ],
+          "layouts": 11,
+          "groups": 4,
+          "drawableIndices": 0
+        }
+      ]
+    }
+  ],
+  "gameplayTested": false
+}
