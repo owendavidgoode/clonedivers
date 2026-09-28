@@ -22,9 +22,15 @@ Validation artifacts:
 - [Cape/load-order audit](launcher-1.7.2-capes.json)
 - [Verified local installation](launcher-1.7.2-install.json)
 - [Enabled/disabled icon previews](launcher-1.7.2-icons.png)
+- [Published feeds, update discovery and executable verification](launcher-1.7.2-verification.json)
 - `tools/Empire.Qa` uses native mode selection and the production installer.
 - `tools/audit-empire-capes.py` independently reads the selected archives.
 - `tools/Launcher.Preview --icons` renders enabled/disabled icons at 32–164 pixels.
+
+The native launcher test suite and both full profile hash checks passed. All three
+public feed URLs advertise 1.7.2, including successful update discovery using the
+original 1.6.3 parser. The downloaded executable matches the published SHA-256;
+the local launcher was replaced with that verified download after backing up 1.7.1.
 
 These are installer, asset and visual-preview checks. Gameplay was not launched
 for this QA pass; cape cloth behavior, ship presentation and voice timing still
