@@ -61,6 +61,7 @@ static class TestProgram
             ExperienceTests.Run(root, Check);
             SessionLogTests.Run(root, Check);
             TelemetryTests.Run(root, Check);
+            FpvDefaultsTests.Run(root, Check);
             SelfUpdateAndAcfTests(root);
         }
         finally

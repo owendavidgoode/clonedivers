@@ -2592,6 +2592,7 @@ public sealed partial class MainForm : Form
                 if (result.Interrupted) { ReportApply(result, 0); return; }
                 settings.RecordInstall(result, preserveTexturePreference: !targetActive && textureProfileChange is null);
                 settings.Save();
+                FpvDefaults.EnsureForInstalledPack(gameDir!);
                 lastOperationError = null;
                 SupportHistory.Record(verify ? "verified" : "installed", targetVersion, targetProfile);
                 ShowProgressDone(verify ? $"Verified: all {wanted.Count:N0} files match {targetVersion}." : optionChange is { } oc ? $"{oc.option.Name} is now {(oc.on ? "on" : "off")}; nothing to change." : "Ready — nothing to download.");
@@ -2674,6 +2675,7 @@ public sealed partial class MainForm : Form
         }
         settings.RecordInstall(result, preserveTexturePreference);
         settings.Save();
+        FpvDefaults.EnsureForInstalledPack(gameDir!);
         lastOperationError = null;
         SupportHistory.Record("installed", result.PackVersion, result.TextureProfile);
         var parts = new List<string>();
@@ -2932,6 +2934,15 @@ public sealed partial class MainForm : Form
                 "Clonedivers", MessageBoxButtons.YesNoCancel, MessageBoxIcon.Warning);
             if (answer == DialogResult.Cancel) return;
             if (answer == DialogResult.Yes && !TryToggle()) { RefreshState(); return; }
+        }
+        try { FpvDefaults.EnsureForInstalledPack(gameDir); }
+        catch (Exception ex)
+        {
+            lastOperationError = ex.Message;
+            SupportHistory.Record("error", settings.InstalledPackVersion, settings.InstalledTextureProfile, ex.Message);
+            ShowProgressDone("FPV options need attention. Launch stopped.");
+            MessageBox.Show(this, ex.Message, "FPV options", MessageBoxButtons.OK, MessageBoxIcon.Error);
+            return;
         }
         try
         {
