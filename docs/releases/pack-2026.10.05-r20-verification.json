@@ -1,0 +1,526 @@
+{
+  "format": 1,
+  "phase": "complete",
+  "verifiedUtc": "2026-10-05T19:30:36.9231527Z",
+  "appVersion": "1.7.3",
+  "packVersion": "2026.10.05-r20",
+  "sourceCommit": "e858b8c5b695c2191794bc0c4d1afc3090c19ac0",
+  "feedCommit": "89c983d5b02c7e91bd6b530668044942dd12be4f",
+  "app": {
+    "version": "1.7.3",
+    "url": "https://github.com/owendavidgoode/clonedivers/releases/download/v1.7.3/Clonedivers.exe",
+    "size": 66408567,
+    "sha256": "2effe777eb2673d7237b5fc9aed1cbe85434ba86f3c31fbae9f73129a06cd51e"
+  },
+  "downloadedAppSha256": "2effe777eb2673d7237b5fc9aed1cbe85434ba86f3c31fbae9f73129a06cd51e",
+  "feeds": [
+    {
+      "feed": "manifest.json",
+      "url": "https://raw.githubusercontent.com/owendavidgoode/clonedivers/main/manifest.json",
+      "sha256": "008e6c1926a985b27098b20737ca1efac15fbcc74ff4c2e519424347376c43e7",
+      "sealedSha256": "922c5b33d91aa2dd5e5d7ec8b3f24cfd9c82b90e4f3b40444e16e0ee3c140bba",
+      "appVersion": "1.7.3",
+      "packVersion": "2026.09.12-r8",
+      "gitLfBytesMatch": true,
+      "semanticContentMatch": true
+    },
+    {
+      "feed": "manifest-v3.json",
+      "url": "https://raw.githubusercontent.com/owendavidgoode/clonedivers/main/manifest-v3.json",
+      "sha256": "4ce56ceb035360575c9124e4632ad6efde3ff14ed1c7398718794f3416f4aedc",
+      "sealedSha256": "742ff67226d65f22cd805926ad646d4a378afff6acc3de428d98b7597a570458",
+      "appVersion": "1.7.3",
+      "packVersion": "2026.10.05-r20",
+      "gitLfBytesMatch": true,
+      "semanticContentMatch": true
+    },
+    {
+      "feed": "manifest-v3-current.json",
+      "url": "https://raw.githubusercontent.com/owendavidgoode/clonedivers/main/manifest-v3-current.json",
+      "sha256": "e745ccd12c6e82445134da64cdf99d38803a6d33b6f460efd51f03d96c4bc116",
+      "sealedSha256": "383f6cfd04be47639d4921ee974782e49e2b432a3ace89c26014195b3389d635",
+      "appVersion": "1.7.3",
+      "packVersion": "2026.10.05-r20",
+      "gitLfBytesMatch": true,
+      "semanticContentMatch": true
+    }
+  ],
+  "readmeLatestRedirectPassed": true,
+  "allHostedAssetSizesAndDigestsVerified": true,
+  "newUniqueAssets": 60,
+  "newAssetBytes": 1028484966,
+  "reusedHostedUniqueAssets": 805,
+  "combinedPack": {
+    "rows": 1518,
+    "privateBaselineSha256": "56f6b1f3e91c0b432f702a00cb16efedfec460def5608934ce366d1886d61716",
+    "preparedManifestSha256": "383f6cfd04be47639d4921ee974782e49e2b432a3ace89c26014195b3389d635",
+    "allPayloadsAndConditionsPreserved": true,
+    "empireIncluded": true,
+    "phaseIHelmetVisibilityAcceptedByOwner": true,
+    "cameraArchivesUnchanged": true
+  },
+  "validation": {
+    "nativeSuitePassed": true,
+    "fpvFocusedChecks": 44,
+    "actualPackagedLauncherSelectorPassed": true,
+    "requestedStates": 96,
+    "uniqueFileSets": 16,
+    "extractedAssemblySha256": "9938efbe97190dc7e5f4a4b7a0ea5c654ee9e1bb8664ad6dd0d2215aa2702a60",
+    "finalSourceSelectorSha256": "73353a382c0f008b1b6c928fe42abc34173956c50e1934d77e269cc00e5d1093",
+    "fullLighterSourceHashesVerified": true,
+    "defaultCloneFullFiles": 1175,
+    "defaultCloneLighterFiles": 1177,
+    "original163ParserAcceptsCompatibilityFeed": true,
+    "original163Offers173": true,
+    "independentPublicProofSha256": "d87e3d9744f00ed15da962b00bcd09ee8752b8652783aecd968b785fc78ef069"
+  },
+  "fpv": {
+    "freshInstallEnabled": false,
+    "existingChoicesPreserved": true,
+    "bridgeProcedureRequiredEachGameSession": true,
+    "bridgeProcedure": "With FPV disabled, set Engine camera bridge On/APPLY then Off/APPLY; leave EXPERIMENT sync Off; enable FPV after landing."
+  },
+  "independentPublicVerification": {
+    "format": 1,
+    "checkedAtUtc": "2026-10-05T19:29:30.3004652Z",
+    "passed": true,
+    "scope": "Independent public metadata and coordinated live feed reads; no publication or game mutations",
+    "repository": "owendavidgoode/clonedivers",
+    "sourceCommit": "e858b8c5b695c2191794bc0c4d1afc3090c19ac0",
+    "feedCommit": "89c983d5b02c7e91bd6b530668044942dd12be4f",
+    "observedMainCommit": "89c983d5b02c7e91bd6b530668044942dd12be4f",
+    "latestTag": "v1.7.3",
+    "app": {
+      "tag": "v1.7.3",
+      "draft": false,
+      "prerelease": false,
+      "target": "e858b8c5b695c2191794bc0c4d1afc3090c19ac0",
+      "publishedAt": "2026-10-05T19:25:10Z",
+      "size": 66408567,
+      "digest": "sha256:2effe777eb2673d7237b5fc9aed1cbe85434ba86f3c31fbae9f73129a06cd51e",
+      "url": "https://github.com/owendavidgoode/clonedivers/releases/tag/v1.7.3"
+    },
+    "pack": {
+      "tag": "pack-2026.10.05-r20-files",
+      "draft": false,
+      "prerelease": false,
+      "target": "e858b8c5b695c2191794bc0c4d1afc3090c19ac0",
+      "publishedAt": "2026-10-05T19:25:03Z",
+      "assetsCount": 60,
+      "url": "https://github.com/owendavidgoode/clonedivers/releases/tag/pack-2026.10.05-r20-files"
+    },
+    "assets": [
+      {
+        "name": "054dc2bbe3c9d992b07af63a0028f114de52fb8574608b8e0a748c2354512ec2",
+        "size": 70512,
+        "sha256": "054dc2bbe3c9d992b07af63a0028f114de52fb8574608b8e0a748c2354512ec2",
+        "matched": true
+      },
+      {
+        "name": "072bfdd2fa73be3200a48cf6cd6cf071cbf50c43c033aec0e63d3c94cc94f8a6",
+        "size": 334832,
+        "sha256": "072bfdd2fa73be3200a48cf6cd6cf071cbf50c43c033aec0e63d3c94cc94f8a6",
+        "matched": true
+      },
+      {
+        "name": "11c195ba2957f6fdff22615ba8362f82b1ebd2de0569ad3d04001240de214c03",
+        "size": 2019296,
+        "sha256": "11c195ba2957f6fdff22615ba8362f82b1ebd2de0569ad3d04001240de214c03",
+        "matched": true
+      },
+      {
+        "name": "1a83726e7fc30d907c849bbc997b2944a98d90c28fc7811536cad2edd2eab906",
+        "size": 179680,
+        "sha256": "1a83726e7fc30d907c849bbc997b2944a98d90c28fc7811536cad2edd2eab906",
+        "matched": true
+      },
+      {
+        "name": "21641051831cc710993e463335ee43fa8c73740d18108de7d75cbff23b6d2434",
+        "size": 35184,
+        "sha256": "21641051831cc710993e463335ee43fa8c73740d18108de7d75cbff23b6d2434",
+        "matched": true
+      },
+      {
+        "name": "295488f31ff583118bf9f3dbe05c096ddbcdd493bde33513b3219e683d3f08ea",
+        "size": 41616,
+        "sha256": "295488f31ff583118bf9f3dbe05c096ddbcdd493bde33513b3219e683d3f08ea",
+        "matched": true
+      },
+      {
+        "name": "387b8410a291af3443334179973e50f29c65ab0f7a6c6a79186c6d0448b7731a",
+        "size": 6467600,
+        "sha256": "387b8410a291af3443334179973e50f29c65ab0f7a6c6a79186c6d0448b7731a",
+        "matched": true
+      },
+      {
+        "name": "38d23ce49922d14ea0697913577d4d41a3ed5bb480205f356ea4cc72f82ac904",
+        "size": 218405600,
+        "sha256": "38d23ce49922d14ea0697913577d4d41a3ed5bb480205f356ea4cc72f82ac904",
+        "matched": true
+      },
+      {
+        "name": "394dba797553c8b8829973aa3760d2cdc1458e9f3123a9e05948a44b74905f52",
+        "size": 200592,
+        "sha256": "394dba797553c8b8829973aa3760d2cdc1458e9f3123a9e05948a44b74905f52",
+        "matched": true
+      },
+      {
+        "name": "3bd7893ccfc603c2bd73c8df7aeccd132003bcf2563619962eb5777d868642a1",
+        "size": 289456,
+        "sha256": "3bd7893ccfc603c2bd73c8df7aeccd132003bcf2563619962eb5777d868642a1",
+        "matched": true
+      },
+      {
+        "name": "3fbb7a069c5e6ad43351ae4666afacf184d9231d0df55d0e408d6ed07c0bb5d7",
+        "size": 27452704,
+        "sha256": "3fbb7a069c5e6ad43351ae4666afacf184d9231d0df55d0e408d6ed07c0bb5d7",
+        "matched": true
+      },
+      {
+        "name": "417fb7dd0321e45cf4fbb07c3aea7203c570a791e21fbec4f4d254003ce07bb0",
+        "size": 22404480,
+        "sha256": "417fb7dd0321e45cf4fbb07c3aea7203c570a791e21fbec4f4d254003ce07bb0",
+        "matched": true
+      },
+      {
+        "name": "4d50d8d18c330365e2e2bbfd58fadec5481bfbddfd18892e3092a4d21a6ac87f",
+        "size": 83185360,
+        "sha256": "4d50d8d18c330365e2e2bbfd58fadec5481bfbddfd18892e3092a4d21a6ac87f",
+        "matched": true
+      },
+      {
+        "name": "4e025a2fc1337cd757d96422b9db520af363c04676746e1a86df9645ab4048bc",
+        "size": 32512,
+        "sha256": "4e025a2fc1337cd757d96422b9db520af363c04676746e1a86df9645ab4048bc",
+        "matched": true
+      },
+      {
+        "name": "4fe18e2a114251316db62df952dd4e7e2e86aafb508419ef92fb9ff360912162",
+        "size": 3950976,
+        "sha256": "4fe18e2a114251316db62df952dd4e7e2e86aafb508419ef92fb9ff360912162",
+        "matched": true
+      },
+      {
+        "name": "52a7b7409e63b6c111c844b4bcb98486724ce9fc98f899b000c37a277d7fb2c5",
+        "size": 2806480,
+        "sha256": "52a7b7409e63b6c111c844b4bcb98486724ce9fc98f899b000c37a277d7fb2c5",
+        "matched": true
+      },
+      {
+        "name": "53d5cf890d8fc654c9e6e7970d855a73142695a35f08c339ced3b9abd35749e5",
+        "size": 90214,
+        "sha256": "53d5cf890d8fc654c9e6e7970d855a73142695a35f08c339ced3b9abd35749e5",
+        "matched": true
+      },
+      {
+        "name": "5d3ed11e5f73692e463cc8dafbbf2fcd657e2e2f9ba3ffc63fd9dd67fbfcd590",
+        "size": 736704,
+        "sha256": "5d3ed11e5f73692e463cc8dafbbf2fcd657e2e2f9ba3ffc63fd9dd67fbfcd590",
+        "matched": true
+      },
+      {
+        "name": "613dd33164128da539f99bdca8005f4a8844bdfb770928a65be2cef23909e7ab",
+        "size": 161776,
+        "sha256": "613dd33164128da539f99bdca8005f4a8844bdfb770928a65be2cef23909e7ab",
+        "matched": true
+      },
+      {
+        "name": "62bead1e2e5ec2434abf88793047863f424e0d59f8139bb47550f169d3e1af0b",
+        "size": 680928,
+        "sha256": "62bead1e2e5ec2434abf88793047863f424e0d59f8139bb47550f169d3e1af0b",
+        "matched": true
+      },
+      {
+        "name": "62d9a9a791139186a1433d4d6e5aee6a33cc45defc3703f7e22caa5702d54870",
+        "size": 632240,
+        "sha256": "62d9a9a791139186a1433d4d6e5aee6a33cc45defc3703f7e22caa5702d54870",
+        "matched": true
+      },
+      {
+        "name": "643ad239a9776321910ceceda58bd0428e65e6dc77145133d994a33d8826b54e",
+        "size": 732624,
+        "sha256": "643ad239a9776321910ceceda58bd0428e65e6dc77145133d994a33d8826b54e",
+        "matched": true
+      },
+      {
+        "name": "6485ad5c95ea3f823cdd26c34a98ab6e82cbbaf413ec5a5eb6d407edfaef78b3",
+        "size": 13886736,
+        "sha256": "6485ad5c95ea3f823cdd26c34a98ab6e82cbbaf413ec5a5eb6d407edfaef78b3",
+        "matched": true
+      },
+      {
+        "name": "6602d1e2beef9b97bf63020b5544b031d7bb42c98aee56415716f546ca92f9b5",
+        "size": 117216,
+        "sha256": "6602d1e2beef9b97bf63020b5544b031d7bb42c98aee56415716f546ca92f9b5",
+        "matched": true
+      },
+      {
+        "name": "674b87ee3583626c935f8080f28ff1df1712f5d50e0ef29460b06b4bf36263ca",
+        "size": 11184864,
+        "sha256": "674b87ee3583626c935f8080f28ff1df1712f5d50e0ef29460b06b4bf36263ca",
+        "matched": true
+      },
+      {
+        "name": "6efb95b780857c3a407a2a227800d6d23d8f82429c140fd7a5adce6d28709d5f",
+        "size": 236768,
+        "sha256": "6efb95b780857c3a407a2a227800d6d23d8f82429c140fd7a5adce6d28709d5f",
+        "matched": true
+      },
+      {
+        "name": "72579c5faf009c3062cae6a53a439dc823cf2f7c146dc437d78a0240eb6a9294",
+        "size": 1589616,
+        "sha256": "72579c5faf009c3062cae6a53a439dc823cf2f7c146dc437d78a0240eb6a9294",
+        "matched": true
+      },
+      {
+        "name": "7276209c6bde6931ac425a735c1580cedbbfe81d000ffb4af599690416199344",
+        "size": 15945408,
+        "sha256": "7276209c6bde6931ac425a735c1580cedbbfe81d000ffb4af599690416199344",
+        "matched": true
+      },
+      {
+        "name": "744db888a90633da4fb32884d57aceabb5031c01496d421a1aa72c313351aa34",
+        "size": 1731632,
+        "sha256": "744db888a90633da4fb32884d57aceabb5031c01496d421a1aa72c313351aa34",
+        "matched": true
+      },
+      {
+        "name": "78f63c67f35f7645e3a2bbf006b328d3c6328ecceb00947a020e66a22c72655d",
+        "size": 18368,
+        "sha256": "78f63c67f35f7645e3a2bbf006b328d3c6328ecceb00947a020e66a22c72655d",
+        "matched": true
+      },
+      {
+        "name": "7f57655bde6cdc629228f2b08075f089e7f2fbcbf7fe73194f08dfa085242c86",
+        "size": 262208,
+        "sha256": "7f57655bde6cdc629228f2b08075f089e7f2fbcbf7fe73194f08dfa085242c86",
+        "matched": true
+      },
+      {
+        "name": "83a8f315f7579728b66b8c6aabcd7965d5902aafcc7e873a16af168535c55db6",
+        "size": 110896,
+        "sha256": "83a8f315f7579728b66b8c6aabcd7965d5902aafcc7e873a16af168535c55db6",
+        "matched": true
+      },
+      {
+        "name": "841bb0c3445e772f1ebccd1208cd9ed9a6872701eaaac8da749f29b3f26464db",
+        "size": 52912,
+        "sha256": "841bb0c3445e772f1ebccd1208cd9ed9a6872701eaaac8da749f29b3f26464db",
+        "matched": true
+      },
+      {
+        "name": "860808dcf44b430bea2cdd341ec1e7edfcfc91fcaae12be0ed523d4057e52634",
+        "size": 119872,
+        "sha256": "860808dcf44b430bea2cdd341ec1e7edfcfc91fcaae12be0ed523d4057e52634",
+        "matched": true
+      },
+      {
+        "name": "8853424ee74120adec0cd1bfa348be3294baf60bf6492b40905acc7118e41528",
+        "size": 184864,
+        "sha256": "8853424ee74120adec0cd1bfa348be3294baf60bf6492b40905acc7118e41528",
+        "matched": true
+      },
+      {
+        "name": "89f346b8303ff8337bb60d20bd004635b7390db2d115d04bfe6e1dd24d0b2441",
+        "size": 281698320,
+        "sha256": "89f346b8303ff8337bb60d20bd004635b7390db2d115d04bfe6e1dd24d0b2441",
+        "matched": true
+      },
+      {
+        "name": "8f66af099bf7e790738efc60e619989b1bd9d10594a4caa569a474495c009675",
+        "size": 581568,
+        "sha256": "8f66af099bf7e790738efc60e619989b1bd9d10594a4caa569a474495c009675",
+        "matched": true
+      },
+      {
+        "name": "910e7b2082ee6e07fd01f9c4eb620dd8e883d187754fb358fe2266b8b8a32acd",
+        "size": 79776,
+        "sha256": "910e7b2082ee6e07fd01f9c4eb620dd8e883d187754fb358fe2266b8b8a32acd",
+        "matched": true
+      },
+      {
+        "name": "988f28f14fe163469215e745c43e6db01b648d3ff4eaa6b8735950f9bb960069",
+        "size": 7168,
+        "sha256": "988f28f14fe163469215e745c43e6db01b648d3ff4eaa6b8735950f9bb960069",
+        "matched": true
+      },
+      {
+        "name": "9b199c9192298b06ea3228a805a1046137c0f5140a223e76e9b36fe9a53c8bee",
+        "size": 22536768,
+        "sha256": "9b199c9192298b06ea3228a805a1046137c0f5140a223e76e9b36fe9a53c8bee",
+        "matched": true
+      },
+      {
+        "name": "a7e316f5cea62133e971b3fd33e7ace94ab3dc8bf90039ed5a5ddb90a31fbbf7",
+        "size": 139344,
+        "sha256": "a7e316f5cea62133e971b3fd33e7ace94ab3dc8bf90039ed5a5ddb90a31fbbf7",
+        "matched": true
+      },
+      {
+        "name": "ab4421aeb03555a5c5b489c019414f0fdaa86f959ab6d9eb46e0fad87cce223a",
+        "size": 144890480,
+        "sha256": "ab4421aeb03555a5c5b489c019414f0fdaa86f959ab6d9eb46e0fad87cce223a",
+        "matched": true
+      },
+      {
+        "name": "adf5faf02972a63f922be77008b4d65aab3f207075666e1aafae6703f2c77bd4",
+        "size": 561056,
+        "sha256": "adf5faf02972a63f922be77008b4d65aab3f207075666e1aafae6703f2c77bd4",
+        "matched": true
+      },
+      {
+        "name": "aee816f0bbd5a6417ead7ea46051d45b5882fcb01acc06ad41f3ac43cba6b957",
+        "size": 132624,
+        "sha256": "aee816f0bbd5a6417ead7ea46051d45b5882fcb01acc06ad41f3ac43cba6b957",
+        "matched": true
+      },
+      {
+        "name": "b323186f70205c555bff13f1d3322006ff651a2922c94810abf2d65d7bf020a7",
+        "size": 136368,
+        "sha256": "b323186f70205c555bff13f1d3322006ff651a2922c94810abf2d65d7bf020a7",
+        "matched": true
+      },
+      {
+        "name": "b9c7068cf29c9aa4803a8369a0ac98c51488b05becd65635c8b5f2597d8ef640",
+        "size": 645744,
+        "sha256": "b9c7068cf29c9aa4803a8369a0ac98c51488b05becd65635c8b5f2597d8ef640",
+        "matched": true
+      },
+      {
+        "name": "baca80c27ae1764d0d8c94ce2b5a01c5c89ee308fc9cd80617ecbb1ec66bb993",
+        "size": 49072,
+        "sha256": "baca80c27ae1764d0d8c94ce2b5a01c5c89ee308fc9cd80617ecbb1ec66bb993",
+        "matched": true
+      },
+      {
+        "name": "bf75ad4f116e93798fa41bd0120e048855eb7a9c3079925b49ca9157d19f6a8b",
+        "size": 2959600,
+        "sha256": "bf75ad4f116e93798fa41bd0120e048855eb7a9c3079925b49ca9157d19f6a8b",
+        "matched": true
+      },
+      {
+        "name": "c2b747369e49882deef0733db899c3dfeb9e3f1043d672b3464617a2537cb783",
+        "size": 60595776,
+        "sha256": "c2b747369e49882deef0733db899c3dfeb9e3f1043d672b3464617a2537cb783",
+        "matched": true
+      },
+      {
+        "name": "c73be862e8169c292f72938595ad459b12aeb5c53978a4d47518ac9068343891",
+        "size": 262208,
+        "sha256": "c73be862e8169c292f72938595ad459b12aeb5c53978a4d47518ac9068343891",
+        "matched": true
+      },
+      {
+        "name": "ccecf40c7c6071c36c02051cf0e2ce90bb342ed1c182f102f45fbd4c47608189",
+        "size": 71818256,
+        "sha256": "ccecf40c7c6071c36c02051cf0e2ce90bb342ed1c182f102f45fbd4c47608189",
+        "matched": true
+      },
+      {
+        "name": "ce6229cffe8c78706a37293ac64f553becb7f3816aa0cc6fbb108d74956b68a5",
+        "size": 139136,
+        "sha256": "ce6229cffe8c78706a37293ac64f553becb7f3816aa0cc6fbb108d74956b68a5",
+        "matched": true
+      },
+      {
+        "name": "cfa51700b5f0b2bee99ca12793add91f7746070d934ef7c1ced9601f73b4a384",
+        "size": 11184864,
+        "sha256": "cfa51700b5f0b2bee99ca12793add91f7746070d934ef7c1ced9601f73b4a384",
+        "matched": true
+      },
+      {
+        "name": "d5c99d2a65bbdf135846a3e631dbf7731e9ed9c6e4f5d3771b88376f1bc5a4a6",
+        "size": 3289152,
+        "sha256": "d5c99d2a65bbdf135846a3e631dbf7731e9ed9c6e4f5d3771b88376f1bc5a4a6",
+        "matched": true
+      },
+      {
+        "name": "da6054d1b771becc9f1f426bcaf99bc2a945d130a1738826e0859b28e0f97ecb",
+        "size": 4639888,
+        "sha256": "da6054d1b771becc9f1f426bcaf99bc2a945d130a1738826e0859b28e0f97ecb",
+        "matched": true
+      },
+      {
+        "name": "e2cae496a379ff2d6bfc306af56d0183542f470d39a2edde20a42a2d57cbba30",
+        "size": 172896,
+        "sha256": "e2cae496a379ff2d6bfc306af56d0183542f470d39a2edde20a42a2d57cbba30",
+        "matched": true
+      },
+      {
+        "name": "efb6f6d3c1ef1bcc56dc89f7071e198270230b4907509cc43189303f7711333b",
+        "size": 423872,
+        "sha256": "efb6f6d3c1ef1bcc56dc89f7071e198270230b4907509cc43189303f7711333b",
+        "matched": true
+      },
+      {
+        "name": "f543bf5818c370cb6afc8686d87fb240a9c48f61cdb3ffc23d4375d5abc317c9",
+        "size": 696000,
+        "sha256": "f543bf5818c370cb6afc8686d87fb240a9c48f61cdb3ffc23d4375d5abc317c9",
+        "matched": true
+      },
+      {
+        "name": "f62b37cd582b912fc78fd2f6806c548d733b663d38fc0028df0082dc5cf5c2b8",
+        "size": 4460048,
+        "sha256": "f62b37cd582b912fc78fd2f6806c548d733b663d38fc0028df0082dc5cf5c2b8",
+        "matched": true
+      },
+      {
+        "name": "fa8eaabba8de37ec588cfed7b2956fa5aaf64e37c4f0c61211a939a8ef4821d3",
+        "size": 32256,
+        "sha256": "fa8eaabba8de37ec588cfed7b2956fa5aaf64e37c4f0c61211a939a8ef4821d3",
+        "matched": true
+      }
+    ],
+    "feeds": [
+      {
+        "target": "manifest.json",
+        "prepared": "compatibility-manifest.json",
+        "preparedSha256": "922c5b33d91aa2dd5e5d7ec8b3f24cfd9c82b90e4f3b40444e16e0ee3c140bba",
+        "liveSha256": "008e6c1926a985b27098b20737ca1efac15fbcc74ff4c2e519424347376c43e7",
+        "normalizedPreparedSha256": "008e6c1926a985b27098b20737ca1efac15fbcc74ff4c2e519424347376c43e7",
+        "normalizedBytesMatch": true,
+        "semanticMatch": true,
+        "format": 2,
+        "appVersion": "1.7.3",
+        "packVersion": "2026.09.12-r8",
+        "rows": 1010,
+        "appSha256": "2effe777eb2673d7237b5fc9aed1cbe85434ba86f3c31fbae9f73129a06cd51e"
+      },
+      {
+        "target": "manifest-v3.json",
+        "prepared": "profile-compatibility-manifest.json",
+        "preparedSha256": "742ff67226d65f22cd805926ad646d4a378afff6acc3de428d98b7597a570458",
+        "liveSha256": "4ce56ceb035360575c9124e4632ad6efde3ff14ed1c7398718794f3416f4aedc",
+        "normalizedPreparedSha256": "4ce56ceb035360575c9124e4632ad6efde3ff14ed1c7398718794f3416f4aedc",
+        "normalizedBytesMatch": true,
+        "semanticMatch": true,
+        "format": 3,
+        "appVersion": "1.7.3",
+        "packVersion": "2026.10.05-r20",
+        "rows": 1416,
+        "appSha256": "2effe777eb2673d7237b5fc9aed1cbe85434ba86f3c31fbae9f73129a06cd51e"
+      },
+      {
+        "target": "manifest-v3-current.json",
+        "prepared": "manifest.json",
+        "preparedSha256": "383f6cfd04be47639d4921ee974782e49e2b432a3ace89c26014195b3389d635",
+        "liveSha256": "e745ccd12c6e82445134da64cdf99d38803a6d33b6f460efd51f03d96c4bc116",
+        "normalizedPreparedSha256": "e745ccd12c6e82445134da64cdf99d38803a6d33b6f460efd51f03d96c4bc116",
+        "normalizedBytesMatch": true,
+        "semanticMatch": true,
+        "format": 3,
+        "appVersion": "1.7.3",
+        "packVersion": "2026.10.05-r20",
+        "rows": 1518,
+        "appSha256": "2effe777eb2673d7237b5fc9aed1cbe85434ba86f3c31fbae9f73129a06cd51e"
+      }
+    ],
+    "issues": []
+  },
+  "originalPrivateDevelopmentFeedChanged": false,
+  "gameOrSettingsChangedDuringPromotion": false,
+  "missionDropTested": false,
+  "atTeCameraGameplayAccepted": false,
+  "empireGameplayAccepted": false,
+  "gameplayLimits": "Helmet visibility is accepted. Mission drop, ADS, AT-TE camera/vehicle/restoration and remaining Empire gameplay checks stay open; see the pack notes."
+}

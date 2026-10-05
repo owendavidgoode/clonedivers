@@ -1,11 +1,11 @@
 # Current status
 
-## October 5: Clonedivers production promotion prepared
+## October 5: Clonedivers 1.7.3 / combined r20 published
 
 Launcher **1.7.3** and pack **2026.10.05-r20** retain the complete reviewed
 combined Clonedivers/Commando/Empire content, including the user-confirmed
 Phase I Shiny DP-8 helmet repair and experimental First Person v2.9.14.
-Production asset preparation verifies 60 new hashes, all 96 requested launcher
+Production validation verified 60 new hashes, all 96 requested launcher
 selections, and the Full/Lighter source files. Existing mode/profile/option
 conditions and game payloads remain exact.
 
@@ -16,11 +16,16 @@ values. Native regression and the 44 focused FPV checks pass. First Person code
 and archives are unchanged. Each game session still requires Engine camera
 bridge On/APPLY then Off/APPLY while FPV is disabled before enabling it.
 
-Publication uses the sealed release workflow. Preparation alone does not prove
-a published feed or gameplay acceptance. See the
-[pack notes](releases/pack-2026.10.05-r20.md) and
-[launcher change](releases/launcher-1.7.3.md) for the exact scope and remaining
-mission, AT-TE and Empire gameplay checks.
+Publication completed through the sealed release workflow at feed commit
+`89c983d5b02c7e91bd6b530668044942dd12be4f`. All hosted asset sizes/digests,
+the downloaded launcher, all three API and public raw feeds, and the README
+Latest download link are verified. The packaged 1.7.3 selector passes all 96
+states; the original 1.6.3 reader accepts its compatibility feed and offers 1.7.3.
+The complete Empire roster remains included. The owner's private development
+feed and installed game files were left in place. Mission and AT-TE gameplay
+acceptance remains open. See the [pack notes](releases/pack-2026.10.05-r20.md),
+[launcher change](releases/launcher-1.7.3.md), and
+[public verification](releases/pack-2026.10.05-r20-verification.json).
 
 ## September 27: Empire equipment parity r18 published
 
