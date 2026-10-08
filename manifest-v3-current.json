@@ -1,9 +1,9 @@
 {
   "format": 3,
   "pack": {
-    "version": "2026.10.05-r20",
+    "version": "2026.10.08-r21",
     "name": "Clonedivers and EmpireDivers",
-    "notes": "Phase I Shiny — DP-8 helmet visibility confirmed. Combined Clonedivers/Commando/Empire roster retained; camera and new Empire gameplay remain experimental.",
+    "notes": "Expanded Imperial armor, film-scale AT-ST, aircraft, weapons and voices; deep-QA audio and visibility repairs.",
     "gameBuild": "25480438",
     "gameDepots": [
       "1883032874832282552",
@@ -13,7 +13,7 @@
       "3382210389809902281"
     ],
     "status": "ok",
-    "statusNotes": "Use launcher 1.7.3. First Person starts disabled on fresh installs; saved user choices are retained. Follow the session camera-bridge procedure in release notes. Mission drop, AT-TE camera/aim/restoration, and the included Empire gameplay checks remain open.",
+    "statusNotes": "Experimental Empire update. Star Destroyer visibility, mission physics, armor damage pieces and audio mix still require gameplay testing. Launcher1.7.3 camera procedure retained.",
     "options": [
       {
         "id": "commandos",
@@ -19729,9 +19729,2724 @@
           "lighter"
         ],
         "url": ""
+      },
+      {
+        "name": "9ba626afa44a3aa3.patch_367",
+        "url": "https://github.com/owendavidgoode/clonedivers/releases/download/pack-2026.10.08-r21-files/41fb2865535364c708b3b347b65124c2ca23fad43f95dd17d2ff236f47ffaa82",
+        "size": 279824,
+        "sha256": "41fb2865535364c708b3b347b65124c2ca23fad43f95dd17d2ff236f47ffaa82",
+        "modes": [
+          "empire"
+        ]
+      },
+      {
+        "name": "9ba626afa44a3aa3.patch_367.stream",
+        "url": "",
+        "size": 0,
+        "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "modes": [
+          "empire"
+        ]
+      },
+      {
+        "name": "9ba626afa44a3aa3.patch_367.gpu_resources",
+        "url": "https://github.com/owendavidgoode/clonedivers/releases/download/pack-2026.10.08-r21-files/d035193d866cda4d4d56eda281400a3f0719bf1e3d19a32d63f48d73e7eaa8c9",
+        "size": 6684240,
+        "sha256": "d035193d866cda4d4d56eda281400a3f0719bf1e3d19a32d63f48d73e7eaa8c9",
+        "modes": [
+          "empire"
+        ]
+      },
+      {
+        "name": "9ba626afa44a3aa3.patch_368",
+        "url": "https://github.com/owendavidgoode/clonedivers/releases/download/pack-2026.10.08-r21-files/499a9bade6b8cbcf685075121e18ee2393f7fb575d98369d3fb9819d88e7186f",
+        "size": 412592,
+        "sha256": "499a9bade6b8cbcf685075121e18ee2393f7fb575d98369d3fb9819d88e7186f",
+        "modes": [
+          "empire"
+        ]
+      },
+      {
+        "name": "9ba626afa44a3aa3.patch_368.stream",
+        "url": "",
+        "size": 0,
+        "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "modes": [
+          "empire"
+        ]
+      },
+      {
+        "name": "9ba626afa44a3aa3.patch_368.gpu_resources",
+        "url": "https://github.com/owendavidgoode/clonedivers/releases/download/pack-2026.10.08-r21-files/8cf07fdeca71bd2cfd8551de08d7747ba620b6e88836d8ef832ad25644b0a44e",
+        "size": 46234800,
+        "sha256": "8cf07fdeca71bd2cfd8551de08d7747ba620b6e88836d8ef832ad25644b0a44e",
+        "modes": [
+          "empire"
+        ]
+      },
+      {
+        "name": "9ba626afa44a3aa3.patch_369",
+        "url": "https://github.com/owendavidgoode/clonedivers/releases/download/pack-2026.10.08-r21-files/a059fdb6cf322fd49cbf1e14dfb591b71acb6075dedfbf10e3b9cb0138d06fc9",
+        "size": 73136,
+        "sha256": "a059fdb6cf322fd49cbf1e14dfb591b71acb6075dedfbf10e3b9cb0138d06fc9",
+        "modes": [
+          "empire"
+        ]
+      },
+      {
+        "name": "9ba626afa44a3aa3.patch_369.stream",
+        "url": "",
+        "size": 0,
+        "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "modes": [
+          "empire"
+        ]
+      },
+      {
+        "name": "9ba626afa44a3aa3.patch_369.gpu_resources",
+        "url": "https://github.com/owendavidgoode/clonedivers/releases/download/pack-2026.10.08-r21-files/42338a1b459ac2c7e133bf0caec0dffceb09f81733dd9c54fa8d0c2b6f19e79a",
+        "size": 2401200,
+        "sha256": "42338a1b459ac2c7e133bf0caec0dffceb09f81733dd9c54fa8d0c2b6f19e79a",
+        "modes": [
+          "empire"
+        ]
+      },
+      {
+        "name": "9ba626afa44a3aa3.patch_370",
+        "url": "https://github.com/owendavidgoode/clonedivers/releases/download/pack-2026.10.08-r21-files/a4af4696e5488fcd35b3ccc39bf9189f0d9794089255c043032ebdc15e2911b5",
+        "size": 179792,
+        "sha256": "a4af4696e5488fcd35b3ccc39bf9189f0d9794089255c043032ebdc15e2911b5",
+        "modes": [
+          "empire"
+        ]
+      },
+      {
+        "name": "9ba626afa44a3aa3.patch_370.stream",
+        "url": "",
+        "size": 0,
+        "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "modes": [
+          "empire"
+        ]
+      },
+      {
+        "name": "9ba626afa44a3aa3.patch_370.gpu_resources",
+        "url": "",
+        "size": 0,
+        "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "modes": [
+          "empire"
+        ]
+      },
+      {
+        "name": "9ba626afa44a3aa3.patch_371",
+        "url": "https://github.com/owendavidgoode/clonedivers/releases/download/pack-2026.10.08-r21-files/bf52c4ff45ef42ebbb3346ad8376e98a1ea87ef96d7535f5961db9d528ce8f5f",
+        "size": 2560,
+        "sha256": "bf52c4ff45ef42ebbb3346ad8376e98a1ea87ef96d7535f5961db9d528ce8f5f",
+        "modes": [
+          "empire"
+        ]
+      },
+      {
+        "name": "9ba626afa44a3aa3.patch_371.stream",
+        "url": "https://github.com/owendavidgoode/clonedivers/releases/download/pack-2026.10.08-r21-files/d46cc809d52ad3afcc5fe4935dbdc49dd4cba33ba78743c31e37472703dd7be4",
+        "size": 291648,
+        "sha256": "d46cc809d52ad3afcc5fe4935dbdc49dd4cba33ba78743c31e37472703dd7be4",
+        "modes": [
+          "empire"
+        ]
+      },
+      {
+        "name": "9ba626afa44a3aa3.patch_371.gpu_resources",
+        "url": "",
+        "size": 0,
+        "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "modes": [
+          "empire"
+        ]
+      },
+      {
+        "name": "9ba626afa44a3aa3.patch_372",
+        "url": "https://github.com/owendavidgoode/clonedivers/releases/download/pack-2026.10.08-r21-files/31a811eb621e7f5d7f95b215d977e1e6d129be7766b24f0e63129193cdbe9f16",
+        "size": 11018400,
+        "sha256": "31a811eb621e7f5d7f95b215d977e1e6d129be7766b24f0e63129193cdbe9f16",
+        "modes": [
+          "empire"
+        ]
+      },
+      {
+        "name": "9ba626afa44a3aa3.patch_372.stream",
+        "url": "",
+        "size": 0,
+        "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "modes": [
+          "empire"
+        ]
+      },
+      {
+        "name": "9ba626afa44a3aa3.patch_372.gpu_resources",
+        "url": "",
+        "size": 0,
+        "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "modes": [
+          "empire"
+        ]
+      },
+      {
+        "name": "9ba626afa44a3aa3.patch_373",
+        "url": "https://github.com/owendavidgoode/clonedivers/releases/download/pack-2026.10.08-r21-files/151f0462edf9263b6392f297b59a7fc2113d53da96e99885a239ded255978148",
+        "size": 17168,
+        "sha256": "151f0462edf9263b6392f297b59a7fc2113d53da96e99885a239ded255978148",
+        "modes": [
+          "clonedivers",
+          "commandos"
+        ]
+      },
+      {
+        "name": "9ba626afa44a3aa3.patch_373.stream",
+        "url": "",
+        "size": 0,
+        "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "modes": [
+          "clonedivers",
+          "commandos"
+        ]
+      },
+      {
+        "name": "9ba626afa44a3aa3.patch_373.gpu_resources",
+        "url": "",
+        "size": 0,
+        "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "modes": [
+          "clonedivers",
+          "commandos"
+        ]
+      },
+      {
+        "name": "9ba626afa44a3aa3.patch_374",
+        "url": "https://github.com/owendavidgoode/clonedivers/releases/download/pack-2026.10.08-r21-files/a4b654aa95c4e1a67d33479bc9cb16fe24cb14fcaee79b90012f3b84215b0bb9",
+        "size": 1074176,
+        "sha256": "a4b654aa95c4e1a67d33479bc9cb16fe24cb14fcaee79b90012f3b84215b0bb9",
+        "modes": [
+          "empire"
+        ]
+      },
+      {
+        "name": "9ba626afa44a3aa3.patch_374.stream",
+        "url": "",
+        "size": 0,
+        "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "modes": [
+          "empire"
+        ]
+      },
+      {
+        "name": "9ba626afa44a3aa3.patch_374.gpu_resources",
+        "url": "https://github.com/owendavidgoode/clonedivers/releases/download/pack-2026.10.08-r21-files/11259733b488016598c40ddca53e2f3cf3304a9fd8147ec6e8ba02d835ff31df",
+        "size": 19632,
+        "sha256": "11259733b488016598c40ddca53e2f3cf3304a9fd8147ec6e8ba02d835ff31df",
+        "modes": [
+          "empire"
+        ]
+      },
+      {
+        "name": "9ba626afa44a3aa3.patch_375",
+        "url": "https://github.com/owendavidgoode/clonedivers/releases/download/pack-2026.10.08-r21-files/0b92e1f779ca71507bf40c59303b7e562177c29ba9dbaea8565ada89617e9a73",
+        "size": 361712,
+        "sha256": "0b92e1f779ca71507bf40c59303b7e562177c29ba9dbaea8565ada89617e9a73",
+        "modes": [
+          "empire"
+        ]
+      },
+      {
+        "name": "9ba626afa44a3aa3.patch_375.stream",
+        "url": "",
+        "size": 0,
+        "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "modes": [
+          "empire"
+        ]
+      },
+      {
+        "name": "9ba626afa44a3aa3.patch_375.gpu_resources",
+        "url": "https://github.com/owendavidgoode/clonedivers/releases/download/pack-2026.10.08-r21-files/0913c684dba63adcef4106eefaa222d1c0b631a209f9456e1882726bfd72005c",
+        "size": 6148768,
+        "sha256": "0913c684dba63adcef4106eefaa222d1c0b631a209f9456e1882726bfd72005c",
+        "modes": [
+          "empire"
+        ]
+      },
+      {
+        "name": "9ba626afa44a3aa3.patch_376",
+        "url": "https://github.com/owendavidgoode/clonedivers/releases/download/pack-2026.10.08-r21-files/125c29a73c22fcc428a71040ada1c2797810bf65ecbab9d44c71002d485678dc",
+        "size": 25296,
+        "sha256": "125c29a73c22fcc428a71040ada1c2797810bf65ecbab9d44c71002d485678dc",
+        "modes": [
+          "empire"
+        ]
+      },
+      {
+        "name": "9ba626afa44a3aa3.patch_376.stream",
+        "url": "",
+        "size": 0,
+        "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "modes": [
+          "empire"
+        ]
+      },
+      {
+        "name": "9ba626afa44a3aa3.patch_376.gpu_resources",
+        "url": "",
+        "size": 0,
+        "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "modes": [
+          "empire"
+        ]
+      },
+      {
+        "name": "9ba626afa44a3aa3.patch_377",
+        "url": "https://github.com/owendavidgoode/clonedivers/releases/download/pack-2026.10.08-r21-files/4556678c4ba776a461145a1e5a0c8b485d48af42eab4c35707480e5f54cd4589",
+        "size": 12659296,
+        "sha256": "4556678c4ba776a461145a1e5a0c8b485d48af42eab4c35707480e5f54cd4589",
+        "modes": [
+          "clonedivers",
+          "commandos",
+          "empire"
+        ]
+      },
+      {
+        "name": "9ba626afa44a3aa3.patch_377.stream",
+        "url": "",
+        "size": 0,
+        "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "modes": [
+          "clonedivers",
+          "commandos",
+          "empire"
+        ]
+      },
+      {
+        "name": "9ba626afa44a3aa3.patch_377.gpu_resources",
+        "url": "",
+        "size": 0,
+        "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "modes": [
+          "clonedivers",
+          "commandos",
+          "empire"
+        ]
+      },
+      {
+        "name": "9ba626afa44a3aa3.patch_378",
+        "url": "https://github.com/owendavidgoode/clonedivers/releases/download/pack-2026.10.08-r21-files/a51fcfda88e7370e26056f31d80dda26b4292dda0fa88612335c5942e3997c49",
+        "size": 301232,
+        "sha256": "a51fcfda88e7370e26056f31d80dda26b4292dda0fa88612335c5942e3997c49",
+        "modes": [
+          "empire"
+        ]
+      },
+      {
+        "name": "9ba626afa44a3aa3.patch_378.stream",
+        "url": "",
+        "size": 0,
+        "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "modes": [
+          "empire"
+        ]
+      },
+      {
+        "name": "9ba626afa44a3aa3.patch_378.gpu_resources",
+        "url": "https://github.com/owendavidgoode/clonedivers/releases/download/pack-2026.10.08-r21-files/108caedcc1a95e213c6b8b2c164f193c46c371ccef3b66dbd1880c86e5f22e1a",
+        "size": 3660560,
+        "sha256": "108caedcc1a95e213c6b8b2c164f193c46c371ccef3b66dbd1880c86e5f22e1a",
+        "modes": [
+          "empire"
+        ]
+      },
+      {
+        "name": "9ba626afa44a3aa3.patch_379",
+        "url": "https://github.com/owendavidgoode/clonedivers/releases/download/pack-2026.10.08-r21-files/1e11258a780e38ec912db880d65bba4c3a9c9efff307e9bb7d714c707eec8408",
+        "size": 16224,
+        "sha256": "1e11258a780e38ec912db880d65bba4c3a9c9efff307e9bb7d714c707eec8408",
+        "modes": [
+          "empire"
+        ]
+      },
+      {
+        "name": "9ba626afa44a3aa3.patch_379.stream",
+        "url": "",
+        "size": 0,
+        "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "modes": [
+          "empire"
+        ]
+      },
+      {
+        "name": "9ba626afa44a3aa3.patch_379.gpu_resources",
+        "url": "https://github.com/owendavidgoode/clonedivers/releases/download/pack-2026.10.08-r21-files/c74384199d532d13242febfa98cd691641b56930e9be042415034059c4f5c31d",
+        "size": 1947456,
+        "sha256": "c74384199d532d13242febfa98cd691641b56930e9be042415034059c4f5c31d",
+        "modes": [
+          "empire"
+        ]
+      },
+      {
+        "name": "9ba626afa44a3aa3.patch_380",
+        "url": "https://github.com/owendavidgoode/clonedivers/releases/download/pack-2026.10.08-r21-files/fb7b316e34c8466e025b1ce9d18eb13a5b5b079dc57a06e0c6d7dac21d7bc8c2",
+        "size": 152400,
+        "sha256": "fb7b316e34c8466e025b1ce9d18eb13a5b5b079dc57a06e0c6d7dac21d7bc8c2",
+        "modes": [
+          "empire"
+        ]
+      },
+      {
+        "name": "9ba626afa44a3aa3.patch_380.stream",
+        "url": "",
+        "size": 0,
+        "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "modes": [
+          "empire"
+        ]
+      },
+      {
+        "name": "9ba626afa44a3aa3.patch_380.gpu_resources",
+        "url": "https://github.com/owendavidgoode/clonedivers/releases/download/pack-2026.10.08-r21-files/18096c55af1459c5508b689f2223895267fc5473ee892bc12abac3253fca4456",
+        "size": 290643200,
+        "sha256": "18096c55af1459c5508b689f2223895267fc5473ee892bc12abac3253fca4456",
+        "modes": [
+          "empire"
+        ]
+      },
+      {
+        "name": "9ba626afa44a3aa3.patch_381",
+        "url": "https://github.com/owendavidgoode/clonedivers/releases/download/pack-2026.10.08-r21-files/b78082f216ddcb8f608f6ff12567e5b3a0d47f068a90b6b3b6000af2be6165dd",
+        "size": 49328,
+        "sha256": "b78082f216ddcb8f608f6ff12567e5b3a0d47f068a90b6b3b6000af2be6165dd",
+        "modes": [
+          "empire"
+        ]
+      },
+      {
+        "name": "9ba626afa44a3aa3.patch_381.stream",
+        "url": "",
+        "size": 0,
+        "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "modes": [
+          "empire"
+        ]
+      },
+      {
+        "name": "9ba626afa44a3aa3.patch_381.gpu_resources",
+        "url": "",
+        "size": 0,
+        "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "modes": [
+          "empire"
+        ]
+      },
+      {
+        "name": "9ba626afa44a3aa3.patch_382",
+        "url": "https://github.com/owendavidgoode/clonedivers/releases/download/pack-2026.10.08-r21-files/902fb289808a3cedae81e67d3a6902efb424ea9fd1a3b9043af9f6dfb12f3f47",
+        "size": 16449360,
+        "sha256": "902fb289808a3cedae81e67d3a6902efb424ea9fd1a3b9043af9f6dfb12f3f47",
+        "modes": [
+          "empire"
+        ]
+      },
+      {
+        "name": "9ba626afa44a3aa3.patch_382.stream",
+        "url": "",
+        "size": 0,
+        "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "modes": [
+          "empire"
+        ]
+      },
+      {
+        "name": "9ba626afa44a3aa3.patch_382.gpu_resources",
+        "url": "",
+        "size": 0,
+        "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "modes": [
+          "empire"
+        ]
+      },
+      {
+        "name": "9ba626afa44a3aa3.patch_383",
+        "url": "https://github.com/owendavidgoode/clonedivers/releases/download/pack-2026.10.08-r21-files/406e3592e2f63f148cfdba7268dbe6f8f6fbf8076100c6ff5a8e4e88c03501cc",
+        "size": 311200,
+        "sha256": "406e3592e2f63f148cfdba7268dbe6f8f6fbf8076100c6ff5a8e4e88c03501cc",
+        "modes": [
+          "empire"
+        ]
+      },
+      {
+        "name": "9ba626afa44a3aa3.patch_383.stream",
+        "url": "",
+        "size": 0,
+        "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "modes": [
+          "empire"
+        ]
+      },
+      {
+        "name": "9ba626afa44a3aa3.patch_383.gpu_resources",
+        "url": "https://github.com/owendavidgoode/clonedivers/releases/download/pack-2026.10.08-r21-files/0c69a3c064ee5461f9f1f6e1546f5b4de70f26a446c4c111fc445ec2d33bb812",
+        "size": 412724528,
+        "sha256": "0c69a3c064ee5461f9f1f6e1546f5b4de70f26a446c4c111fc445ec2d33bb812",
+        "modes": [
+          "empire"
+        ]
+      },
+      {
+        "name": "9ba626afa44a3aa3.patch_384",
+        "url": "https://github.com/owendavidgoode/clonedivers/releases/download/pack-2026.10.08-r21-files/242d9489f48d9806b80018ae82f3d226c714e3c43a1f47e7beba7495dfc1b4ed",
+        "size": 312448,
+        "sha256": "242d9489f48d9806b80018ae82f3d226c714e3c43a1f47e7beba7495dfc1b4ed",
+        "modes": [
+          "empire"
+        ]
+      },
+      {
+        "name": "9ba626afa44a3aa3.patch_384.stream",
+        "url": "",
+        "size": 0,
+        "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "modes": [
+          "empire"
+        ]
+      },
+      {
+        "name": "9ba626afa44a3aa3.patch_384.gpu_resources",
+        "url": "https://github.com/owendavidgoode/clonedivers/releases/download/pack-2026.10.08-r21-files/79ca7988e801eba0d049289b4c92e3b4fdae6b8ca35b98dc32b448011f6554a3",
+        "size": 98725536,
+        "sha256": "79ca7988e801eba0d049289b4c92e3b4fdae6b8ca35b98dc32b448011f6554a3",
+        "modes": [
+          "empire"
+        ]
+      },
+      {
+        "name": "9ba626afa44a3aa3.patch_385",
+        "url": "https://github.com/owendavidgoode/clonedivers/releases/download/pack-2026.10.08-r21-files/09a773b46fb9e881377481173d97b81c488e0def917eb090c65de4e36c8c7f68",
+        "size": 179824,
+        "sha256": "09a773b46fb9e881377481173d97b81c488e0def917eb090c65de4e36c8c7f68",
+        "modes": [
+          "empire"
+        ]
+      },
+      {
+        "name": "9ba626afa44a3aa3.patch_385.stream",
+        "url": "",
+        "size": 0,
+        "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "modes": [
+          "empire"
+        ]
+      },
+      {
+        "name": "9ba626afa44a3aa3.patch_385.gpu_resources",
+        "url": "",
+        "size": 0,
+        "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "modes": [
+          "empire"
+        ]
+      },
+      {
+        "name": "9ba626afa44a3aa3.patch_386",
+        "url": "https://github.com/owendavidgoode/clonedivers/releases/download/pack-2026.10.08-r21-files/919b6377e183cb0cc54d1b0fe0eae91790a439af060143c52d6f6bfa47024f91",
+        "size": 81952,
+        "sha256": "919b6377e183cb0cc54d1b0fe0eae91790a439af060143c52d6f6bfa47024f91",
+        "modes": [
+          "empire"
+        ]
+      },
+      {
+        "name": "9ba626afa44a3aa3.patch_386.stream",
+        "url": "",
+        "size": 0,
+        "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "modes": [
+          "empire"
+        ]
+      },
+      {
+        "name": "9ba626afa44a3aa3.patch_386.gpu_resources",
+        "url": "https://github.com/owendavidgoode/clonedivers/releases/download/pack-2026.10.08-r21-files/39bcc7ba548bb1cd192d329eecba203296872c87763857fa1cd995e728b01b88",
+        "size": 617680,
+        "sha256": "39bcc7ba548bb1cd192d329eecba203296872c87763857fa1cd995e728b01b88",
+        "modes": [
+          "empire"
+        ]
+      },
+      {
+        "name": "9ba626afa44a3aa3.patch_387",
+        "url": "https://github.com/owendavidgoode/clonedivers/releases/download/pack-2026.10.08-r21-files/32cf3d6bf9ce0e9b84aa4f833a4f644eceecea04c8d69edc23fc4280dd99cc78",
+        "size": 34592,
+        "sha256": "32cf3d6bf9ce0e9b84aa4f833a4f644eceecea04c8d69edc23fc4280dd99cc78",
+        "modes": [
+          "empire"
+        ]
+      },
+      {
+        "name": "9ba626afa44a3aa3.patch_387.stream",
+        "url": "https://github.com/owendavidgoode/clonedivers/releases/download/pack-2026.10.08-r21-files/2626a0dae55653b4126a2b83bc63a24518b2ddb5695d384a3ea8594e7a6c34c5",
+        "size": 524400,
+        "sha256": "2626a0dae55653b4126a2b83bc63a24518b2ddb5695d384a3ea8594e7a6c34c5",
+        "modes": [
+          "empire"
+        ]
+      },
+      {
+        "name": "9ba626afa44a3aa3.patch_387.gpu_resources",
+        "url": "https://github.com/owendavidgoode/clonedivers/releases/download/pack-2026.10.08-r21-files/2a7bbd4fac63898dcad46b3fcf9b510a7ac229290bc6e3395198b8bed1d20f2d",
+        "size": 52904752,
+        "sha256": "2a7bbd4fac63898dcad46b3fcf9b510a7ac229290bc6e3395198b8bed1d20f2d",
+        "modes": [
+          "empire"
+        ]
+      },
+      {
+        "name": "9ba626afa44a3aa3.patch_388",
+        "url": "https://github.com/owendavidgoode/clonedivers/releases/download/pack-2026.10.08-r21-files/b4be5cdcecd6acb34672d71a4241a9e46a3ed3ddf340025d1c351a26660ae395",
+        "size": 25792,
+        "sha256": "b4be5cdcecd6acb34672d71a4241a9e46a3ed3ddf340025d1c351a26660ae395",
+        "modes": [
+          "empire"
+        ],
+        "textureProfiles": [
+          "full"
+        ]
+      },
+      {
+        "name": "9ba626afa44a3aa3.patch_388.stream",
+        "url": "",
+        "size": 0,
+        "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "modes": [
+          "empire"
+        ],
+        "textureProfiles": [
+          "full"
+        ]
+      },
+      {
+        "name": "9ba626afa44a3aa3.patch_388.gpu_resources",
+        "url": "",
+        "size": 0,
+        "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "modes": [
+          "empire"
+        ],
+        "textureProfiles": [
+          "full"
+        ]
+      },
+      {
+        "name": "9ba626afa44a3aa3.patch_389",
+        "url": "https://github.com/owendavidgoode/clonedivers/releases/download/pack-2026.10.08-r21-files/0a5a3cdc7e2e03510bb738285cac6b4d7ce2bb04d2509b375214bf8d7ce920bc",
+        "size": 250688,
+        "sha256": "0a5a3cdc7e2e03510bb738285cac6b4d7ce2bb04d2509b375214bf8d7ce920bc",
+        "modes": [
+          "empire"
+        ]
+      },
+      {
+        "name": "9ba626afa44a3aa3.patch_389.stream",
+        "url": "",
+        "size": 0,
+        "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "modes": [
+          "empire"
+        ]
+      },
+      {
+        "name": "9ba626afa44a3aa3.patch_389.gpu_resources",
+        "url": "https://github.com/owendavidgoode/clonedivers/releases/download/pack-2026.10.08-r21-files/d11fbaad682ebf106bcc0e7adfd401597d5ee9e2512d8c6424a2d037d9567af4",
+        "size": 38579152,
+        "sha256": "d11fbaad682ebf106bcc0e7adfd401597d5ee9e2512d8c6424a2d037d9567af4",
+        "modes": [
+          "empire"
+        ]
+      },
+      {
+        "name": "9ba626afa44a3aa3.patch_390",
+        "url": "https://github.com/owendavidgoode/clonedivers/releases/download/pack-2026.10.08-r21-files/ca40b6fe0bfc3b1f3b4ad8339d05e4e10a3aa7e2435572f9b4f0c56b6a71f757",
+        "size": 249792,
+        "sha256": "ca40b6fe0bfc3b1f3b4ad8339d05e4e10a3aa7e2435572f9b4f0c56b6a71f757",
+        "modes": [
+          "empire"
+        ]
+      },
+      {
+        "name": "9ba626afa44a3aa3.patch_390.stream",
+        "url": "",
+        "size": 0,
+        "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "modes": [
+          "empire"
+        ]
+      },
+      {
+        "name": "9ba626afa44a3aa3.patch_390.gpu_resources",
+        "url": "https://github.com/owendavidgoode/clonedivers/releases/download/pack-2026.10.08-r21-files/062a7b4b4a11ae27809753920a67fb88051cfd5e4606b824aba8ef2e0488d8af",
+        "size": 44925120,
+        "sha256": "062a7b4b4a11ae27809753920a67fb88051cfd5e4606b824aba8ef2e0488d8af",
+        "modes": [
+          "empire"
+        ]
+      },
+      {
+        "name": "9ba626afa44a3aa3.patch_391",
+        "url": "https://github.com/owendavidgoode/clonedivers/releases/download/pack-2026.10.08-r21-files/fe74812265dc0f211a9bcfed8780f12a966f440a1efc149f75de2853f9dd8842",
+        "size": 179904,
+        "sha256": "fe74812265dc0f211a9bcfed8780f12a966f440a1efc149f75de2853f9dd8842",
+        "modes": [
+          "empire"
+        ]
+      },
+      {
+        "name": "9ba626afa44a3aa3.patch_391.stream",
+        "url": "",
+        "size": 0,
+        "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "modes": [
+          "empire"
+        ]
+      },
+      {
+        "name": "9ba626afa44a3aa3.patch_391.gpu_resources",
+        "url": "",
+        "size": 0,
+        "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "modes": [
+          "empire"
+        ]
+      },
+      {
+        "name": "9ba626afa44a3aa3.patch_392",
+        "url": "https://github.com/owendavidgoode/clonedivers/releases/download/pack-2026.10.08-r21-files/2569fe383dd1805853a52d1f4578fb98566d908b13b809ed9c46a43468ea446b",
+        "size": 49328,
+        "sha256": "2569fe383dd1805853a52d1f4578fb98566d908b13b809ed9c46a43468ea446b",
+        "modes": [
+          "empire"
+        ]
+      },
+      {
+        "name": "9ba626afa44a3aa3.patch_392.stream",
+        "url": "",
+        "size": 0,
+        "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "modes": [
+          "empire"
+        ]
+      },
+      {
+        "name": "9ba626afa44a3aa3.patch_392.gpu_resources",
+        "url": "",
+        "size": 0,
+        "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "modes": [
+          "empire"
+        ]
+      },
+      {
+        "name": "9ba626afa44a3aa3.patch_393",
+        "url": "https://github.com/owendavidgoode/clonedivers/releases/download/pack-2026.10.08-r21-files/69b4bd9b20dc5839b5f7c42394f2e6a03b6920580461a98bd239f55b5873cf62",
+        "size": 25792,
+        "sha256": "69b4bd9b20dc5839b5f7c42394f2e6a03b6920580461a98bd239f55b5873cf62",
+        "modes": [
+          "empire"
+        ],
+        "textureProfiles": [
+          "full"
+        ]
+      },
+      {
+        "name": "9ba626afa44a3aa3.patch_393.stream",
+        "url": "",
+        "size": 0,
+        "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "modes": [
+          "empire"
+        ],
+        "textureProfiles": [
+          "full"
+        ]
+      },
+      {
+        "name": "9ba626afa44a3aa3.patch_393.gpu_resources",
+        "url": "",
+        "size": 0,
+        "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "modes": [
+          "empire"
+        ],
+        "textureProfiles": [
+          "full"
+        ]
+      },
+      {
+        "name": "9ba626afa44a3aa3.patch_394",
+        "url": "https://github.com/owendavidgoode/clonedivers/releases/download/pack-2026.10.08-r21-files/c0752b040cde2f2cc598074604bae9f670a7815d71b4b2082739106c7bcc40b4",
+        "size": 263328,
+        "sha256": "c0752b040cde2f2cc598074604bae9f670a7815d71b4b2082739106c7bcc40b4",
+        "modes": [
+          "empire"
+        ]
+      },
+      {
+        "name": "9ba626afa44a3aa3.patch_394.stream",
+        "url": "",
+        "size": 0,
+        "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "modes": [
+          "empire"
+        ]
+      },
+      {
+        "name": "9ba626afa44a3aa3.patch_394.gpu_resources",
+        "url": "https://github.com/owendavidgoode/clonedivers/releases/download/pack-2026.10.08-r21-files/03c6ca2884c7ddde3f73154269978f84b75bf738f03848f4b59c9123cde13384",
+        "size": 3910592,
+        "sha256": "03c6ca2884c7ddde3f73154269978f84b75bf738f03848f4b59c9123cde13384",
+        "modes": [
+          "empire"
+        ]
+      },
+      {
+        "name": "9ba626afa44a3aa3.patch_395",
+        "url": "https://github.com/owendavidgoode/clonedivers/releases/download/pack-2026.10.08-r21-files/32d11e50a328aa5093d5e48599ba18f9ff0e184b141f0cdce3e0ec6847aa882d",
+        "size": 179936,
+        "sha256": "32d11e50a328aa5093d5e48599ba18f9ff0e184b141f0cdce3e0ec6847aa882d",
+        "modes": [
+          "empire"
+        ]
+      },
+      {
+        "name": "9ba626afa44a3aa3.patch_395.stream",
+        "url": "",
+        "size": 0,
+        "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "modes": [
+          "empire"
+        ]
+      },
+      {
+        "name": "9ba626afa44a3aa3.patch_395.gpu_resources",
+        "url": "",
+        "size": 0,
+        "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "modes": [
+          "empire"
+        ]
+      },
+      {
+        "name": "9ba626afa44a3aa3.patch_396",
+        "url": "https://github.com/owendavidgoode/clonedivers/releases/download/pack-2026.10.08-r21-files/0ea6fbd3e4bc0aa71859a8345ec72c1e2c3ea68cc99c4f3d75eefce9d748147d",
+        "size": 2048,
+        "sha256": "0ea6fbd3e4bc0aa71859a8345ec72c1e2c3ea68cc99c4f3d75eefce9d748147d",
+        "modes": [
+          "empire"
+        ]
+      },
+      {
+        "name": "9ba626afa44a3aa3.patch_396.stream",
+        "url": "https://github.com/owendavidgoode/clonedivers/releases/download/pack-2026.10.08-r21-files/652fe8610fbd24bf53790036073b0df223b2d19bc81488b6f3df383b27f6305e",
+        "size": 28080,
+        "sha256": "652fe8610fbd24bf53790036073b0df223b2d19bc81488b6f3df383b27f6305e",
+        "modes": [
+          "empire"
+        ]
+      },
+      {
+        "name": "9ba626afa44a3aa3.patch_396.gpu_resources",
+        "url": "",
+        "size": 0,
+        "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "modes": [
+          "empire"
+        ]
+      },
+      {
+        "name": "9ba626afa44a3aa3.patch_397",
+        "url": "https://github.com/owendavidgoode/clonedivers/releases/download/pack-2026.10.08-r21-files/5095477b233a8fdf88b0e88730baa7326c87a82053b24ecf23c4bb225b4447db",
+        "size": 5152,
+        "sha256": "5095477b233a8fdf88b0e88730baa7326c87a82053b24ecf23c4bb225b4447db",
+        "modes": [
+          "empire"
+        ]
+      },
+      {
+        "name": "9ba626afa44a3aa3.patch_397.stream",
+        "url": "",
+        "size": 0,
+        "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "modes": [
+          "empire"
+        ]
+      },
+      {
+        "name": "9ba626afa44a3aa3.patch_397.gpu_resources",
+        "url": "",
+        "size": 0,
+        "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "modes": [
+          "empire"
+        ]
+      },
+      {
+        "name": "9ba626afa44a3aa3.patch_398",
+        "url": "https://github.com/owendavidgoode/clonedivers/releases/download/pack-2026.10.08-r21-files/f787aa90adf73a1880e7cb6a90652b80a46cf4872abb727d3e6861fb61924007",
+        "size": 380064,
+        "sha256": "f787aa90adf73a1880e7cb6a90652b80a46cf4872abb727d3e6861fb61924007",
+        "modes": [
+          "empire"
+        ]
+      },
+      {
+        "name": "9ba626afa44a3aa3.patch_398.stream",
+        "url": "",
+        "size": 0,
+        "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "modes": [
+          "empire"
+        ]
+      },
+      {
+        "name": "9ba626afa44a3aa3.patch_398.gpu_resources",
+        "url": "https://github.com/owendavidgoode/clonedivers/releases/download/pack-2026.10.08-r21-files/e07610d7216780c3a308aeea1deb250c4ab237234bcb61cf36bd489d4d520685",
+        "size": 62074800,
+        "sha256": "e07610d7216780c3a308aeea1deb250c4ab237234bcb61cf36bd489d4d520685",
+        "modes": [
+          "empire"
+        ]
+      },
+      {
+        "name": "9ba626afa44a3aa3.patch_399",
+        "url": "https://github.com/owendavidgoode/clonedivers/releases/download/pack-2026.10.08-r21-files/5f598132dc1651fe1bf94ffa1a4b5dd5cad92dc57aec753a277ef536af48c589",
+        "size": 49344,
+        "sha256": "5f598132dc1651fe1bf94ffa1a4b5dd5cad92dc57aec753a277ef536af48c589",
+        "modes": [
+          "empire"
+        ]
+      },
+      {
+        "name": "9ba626afa44a3aa3.patch_399.stream",
+        "url": "",
+        "size": 0,
+        "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "modes": [
+          "empire"
+        ]
+      },
+      {
+        "name": "9ba626afa44a3aa3.patch_399.gpu_resources",
+        "url": "",
+        "size": 0,
+        "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "modes": [
+          "empire"
+        ]
+      },
+      {
+        "name": "9ba626afa44a3aa3.patch_400",
+        "url": "https://github.com/owendavidgoode/clonedivers/releases/download/pack-2026.10.08-r21-files/30d9e4eff9882ef21a3983baaba6e76be2b6952e541b67a643ea8db2cfaa945f",
+        "size": 25808,
+        "sha256": "30d9e4eff9882ef21a3983baaba6e76be2b6952e541b67a643ea8db2cfaa945f",
+        "modes": [
+          "empire"
+        ],
+        "textureProfiles": [
+          "full"
+        ]
+      },
+      {
+        "name": "9ba626afa44a3aa3.patch_400.stream",
+        "url": "",
+        "size": 0,
+        "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "modes": [
+          "empire"
+        ],
+        "textureProfiles": [
+          "full"
+        ]
+      },
+      {
+        "name": "9ba626afa44a3aa3.patch_400.gpu_resources",
+        "url": "",
+        "size": 0,
+        "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "modes": [
+          "empire"
+        ],
+        "textureProfiles": [
+          "full"
+        ]
+      },
+      {
+        "name": "9ba626afa44a3aa3.patch_401",
+        "url": "https://github.com/owendavidgoode/clonedivers/releases/download/pack-2026.10.08-r21-files/b25f547ce45a84343c30173678bd60f1a63e8216649e3bcc2dba83ba68724f48",
+        "size": 12288,
+        "sha256": "b25f547ce45a84343c30173678bd60f1a63e8216649e3bcc2dba83ba68724f48",
+        "modes": [
+          "empire"
+        ]
+      },
+      {
+        "name": "9ba626afa44a3aa3.patch_401.stream",
+        "url": "https://github.com/owendavidgoode/clonedivers/releases/download/pack-2026.10.08-r21-files/d1db88839aef11cadd88e7943e162c56fef3d7db3d2df49e8e2b8214676664df",
+        "size": 395008,
+        "sha256": "d1db88839aef11cadd88e7943e162c56fef3d7db3d2df49e8e2b8214676664df",
+        "modes": [
+          "empire"
+        ]
+      },
+      {
+        "name": "9ba626afa44a3aa3.patch_401.gpu_resources",
+        "url": "",
+        "size": 0,
+        "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "modes": [
+          "empire"
+        ]
+      },
+      {
+        "name": "9ba626afa44a3aa3.patch_402",
+        "url": "https://github.com/owendavidgoode/clonedivers/releases/download/pack-2026.10.08-r21-files/c547e8e93a1b0fd0a7dc12bf023a9eda5f3d69dd6cbf1c338573166f97c3f330",
+        "size": 24400,
+        "sha256": "c547e8e93a1b0fd0a7dc12bf023a9eda5f3d69dd6cbf1c338573166f97c3f330",
+        "modes": [
+          "empire"
+        ]
+      },
+      {
+        "name": "9ba626afa44a3aa3.patch_402.stream",
+        "url": "",
+        "size": 0,
+        "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "modes": [
+          "empire"
+        ]
+      },
+      {
+        "name": "9ba626afa44a3aa3.patch_402.gpu_resources",
+        "url": "",
+        "size": 0,
+        "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "modes": [
+          "empire"
+        ]
+      },
+      {
+        "name": "9ba626afa44a3aa3.patch_403",
+        "url": "https://github.com/owendavidgoode/clonedivers/releases/download/pack-2026.10.08-r21-files/b70cffc36e3114e47f81909f54f752094cf6cf3677db22b968de64f6f736c764",
+        "size": 822064,
+        "sha256": "b70cffc36e3114e47f81909f54f752094cf6cf3677db22b968de64f6f736c764",
+        "modes": [
+          "empire"
+        ]
+      },
+      {
+        "name": "9ba626afa44a3aa3.patch_403.stream",
+        "url": "",
+        "size": 0,
+        "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "modes": [
+          "empire"
+        ]
+      },
+      {
+        "name": "9ba626afa44a3aa3.patch_403.gpu_resources",
+        "url": "",
+        "size": 0,
+        "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "modes": [
+          "empire"
+        ]
+      },
+      {
+        "name": "9ba626afa44a3aa3.patch_404",
+        "url": "https://github.com/owendavidgoode/clonedivers/releases/download/pack-2026.10.08-r21-files/7b2062f37f78b7a0b0c17cf5b7f59126054480881762e10769707a486408602d",
+        "size": 22160,
+        "sha256": "7b2062f37f78b7a0b0c17cf5b7f59126054480881762e10769707a486408602d",
+        "modes": [
+          "empire"
+        ]
+      },
+      {
+        "name": "9ba626afa44a3aa3.patch_404.stream",
+        "url": "",
+        "size": 0,
+        "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "modes": [
+          "empire"
+        ]
+      },
+      {
+        "name": "9ba626afa44a3aa3.patch_404.gpu_resources",
+        "url": "https://github.com/owendavidgoode/clonedivers/releases/download/pack-2026.10.08-r21-files/0fc5621bf2d21cb0b51605a3c645845bfb4c009a4a9c47ceff84e51e12aed70c",
+        "size": 6272784,
+        "sha256": "0fc5621bf2d21cb0b51605a3c645845bfb4c009a4a9c47ceff84e51e12aed70c",
+        "modes": [
+          "empire"
+        ]
+      },
+      {
+        "name": "9ba626afa44a3aa3.patch_405",
+        "url": "https://github.com/owendavidgoode/clonedivers/releases/download/pack-2026.10.08-r21-files/b0ca65699ef8b0e4ba706d07dbd09c36548b99920038df6720658baa49b7e5bc",
+        "size": 49328,
+        "sha256": "b0ca65699ef8b0e4ba706d07dbd09c36548b99920038df6720658baa49b7e5bc",
+        "modes": [
+          "empire"
+        ]
+      },
+      {
+        "name": "9ba626afa44a3aa3.patch_405.stream",
+        "url": "",
+        "size": 0,
+        "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "modes": [
+          "empire"
+        ]
+      },
+      {
+        "name": "9ba626afa44a3aa3.patch_405.gpu_resources",
+        "url": "",
+        "size": 0,
+        "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "modes": [
+          "empire"
+        ]
+      },
+      {
+        "name": "9ba626afa44a3aa3.patch_406",
+        "url": "https://github.com/owendavidgoode/clonedivers/releases/download/pack-2026.10.08-r21-files/d96dddfdb80ca5264fb7dbfbd841e371214c5bf7b28ab9a233dca20e4fface5b",
+        "size": 25808,
+        "sha256": "d96dddfdb80ca5264fb7dbfbd841e371214c5bf7b28ab9a233dca20e4fface5b",
+        "modes": [
+          "empire"
+        ],
+        "textureProfiles": [
+          "full"
+        ]
+      },
+      {
+        "name": "9ba626afa44a3aa3.patch_406.stream",
+        "url": "",
+        "size": 0,
+        "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "modes": [
+          "empire"
+        ],
+        "textureProfiles": [
+          "full"
+        ]
+      },
+      {
+        "name": "9ba626afa44a3aa3.patch_406.gpu_resources",
+        "url": "",
+        "size": 0,
+        "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "modes": [
+          "empire"
+        ],
+        "textureProfiles": [
+          "full"
+        ]
+      },
+      {
+        "name": "9ba626afa44a3aa3.patch_407",
+        "url": "https://github.com/owendavidgoode/clonedivers/releases/download/pack-2026.10.08-r21-files/54afb1c0651c3b63e3f7ea04512942e48b60719c2fca12acccbbd285275dbbbd",
+        "size": 3840,
+        "sha256": "54afb1c0651c3b63e3f7ea04512942e48b60719c2fca12acccbbd285275dbbbd",
+        "modes": [
+          "empire"
+        ]
+      },
+      {
+        "name": "9ba626afa44a3aa3.patch_407.stream",
+        "url": "https://github.com/owendavidgoode/clonedivers/releases/download/pack-2026.10.08-r21-files/0fb9ea2cc23690ad504574e31150afb23ef0a5b56bb88187c26ad8c6b3831b5f",
+        "size": 145600,
+        "sha256": "0fb9ea2cc23690ad504574e31150afb23ef0a5b56bb88187c26ad8c6b3831b5f",
+        "modes": [
+          "empire"
+        ]
+      },
+      {
+        "name": "9ba626afa44a3aa3.patch_407.gpu_resources",
+        "url": "",
+        "size": 0,
+        "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "modes": [
+          "empire"
+        ]
+      },
+      {
+        "name": "9ba626afa44a3aa3.patch_408",
+        "url": "https://github.com/owendavidgoode/clonedivers/releases/download/pack-2026.10.08-r21-files/88fa06a7f2ded7798f8b174c9f64f9eeae96fc960461fc618827e66685bebc92",
+        "size": 460976,
+        "sha256": "88fa06a7f2ded7798f8b174c9f64f9eeae96fc960461fc618827e66685bebc92",
+        "modes": [
+          "empire"
+        ]
+      },
+      {
+        "name": "9ba626afa44a3aa3.patch_408.stream",
+        "url": "",
+        "size": 0,
+        "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "modes": [
+          "empire"
+        ]
+      },
+      {
+        "name": "9ba626afa44a3aa3.patch_408.gpu_resources",
+        "url": "https://github.com/owendavidgoode/clonedivers/releases/download/pack-2026.10.08-r21-files/716022c54fd2c6135a83e8e6589c2f68d1f7515603a272ec00ad1bdf2cb78ed7",
+        "size": 617680,
+        "sha256": "716022c54fd2c6135a83e8e6589c2f68d1f7515603a272ec00ad1bdf2cb78ed7",
+        "modes": [
+          "empire"
+        ]
+      },
+      {
+        "name": "9ba626afa44a3aa3.patch_409",
+        "url": "https://github.com/owendavidgoode/clonedivers/releases/download/pack-2026.10.08-r21-files/5494d2af4920fa14a29e3a98f4c0b6fd3b9b22a9e880ff561d371d578de6b60e",
+        "size": 243616,
+        "sha256": "5494d2af4920fa14a29e3a98f4c0b6fd3b9b22a9e880ff561d371d578de6b60e",
+        "modes": [
+          "empire"
+        ]
+      },
+      {
+        "name": "9ba626afa44a3aa3.patch_409.stream",
+        "url": "",
+        "size": 0,
+        "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "modes": [
+          "empire"
+        ]
+      },
+      {
+        "name": "9ba626afa44a3aa3.patch_409.gpu_resources",
+        "url": "https://github.com/owendavidgoode/clonedivers/releases/download/pack-2026.10.08-r21-files/f6014301adaaa67f9d80e4a6bf3b9cdee007a316d202c855064b7ede5798f965",
+        "size": 404808016,
+        "sha256": "f6014301adaaa67f9d80e4a6bf3b9cdee007a316d202c855064b7ede5798f965",
+        "modes": [
+          "empire"
+        ]
+      },
+      {
+        "name": "9ba626afa44a3aa3.patch_410",
+        "url": "https://github.com/owendavidgoode/clonedivers/releases/download/pack-2026.10.08-r21-files/01584f5d91f6ad50aea27ad2998cc976f1af6f42488b35acfd0db3b3bbeffbdd",
+        "size": 179984,
+        "sha256": "01584f5d91f6ad50aea27ad2998cc976f1af6f42488b35acfd0db3b3bbeffbdd",
+        "modes": [
+          "empire"
+        ]
+      },
+      {
+        "name": "9ba626afa44a3aa3.patch_410.stream",
+        "url": "",
+        "size": 0,
+        "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "modes": [
+          "empire"
+        ]
+      },
+      {
+        "name": "9ba626afa44a3aa3.patch_410.gpu_resources",
+        "url": "",
+        "size": 0,
+        "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "modes": [
+          "empire"
+        ]
+      },
+      {
+        "name": "9ba626afa44a3aa3.patch_411",
+        "url": "https://github.com/owendavidgoode/clonedivers/releases/download/pack-2026.10.08-r21-files/368f475b8791b283c4f2c6f538f805c1e2dd76f3f3fab40ee17251778e1bdbc7",
+        "size": 49328,
+        "sha256": "368f475b8791b283c4f2c6f538f805c1e2dd76f3f3fab40ee17251778e1bdbc7",
+        "modes": [
+          "empire"
+        ]
+      },
+      {
+        "name": "9ba626afa44a3aa3.patch_411.stream",
+        "url": "",
+        "size": 0,
+        "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "modes": [
+          "empire"
+        ]
+      },
+      {
+        "name": "9ba626afa44a3aa3.patch_411.gpu_resources",
+        "url": "",
+        "size": 0,
+        "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "modes": [
+          "empire"
+        ]
+      },
+      {
+        "name": "9ba626afa44a3aa3.patch_412",
+        "url": "https://github.com/owendavidgoode/clonedivers/releases/download/pack-2026.10.08-r21-files/c3dfaa1ed2a6f3539f9dc0f7d2f7e6b09036293f3a2abf7df03829a8b9fbf1a3",
+        "size": 25808,
+        "sha256": "c3dfaa1ed2a6f3539f9dc0f7d2f7e6b09036293f3a2abf7df03829a8b9fbf1a3",
+        "modes": [
+          "empire"
+        ],
+        "textureProfiles": [
+          "full"
+        ]
+      },
+      {
+        "name": "9ba626afa44a3aa3.patch_412.stream",
+        "url": "",
+        "size": 0,
+        "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "modes": [
+          "empire"
+        ],
+        "textureProfiles": [
+          "full"
+        ]
+      },
+      {
+        "name": "9ba626afa44a3aa3.patch_412.gpu_resources",
+        "url": "",
+        "size": 0,
+        "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "modes": [
+          "empire"
+        ],
+        "textureProfiles": [
+          "full"
+        ]
+      },
+      {
+        "name": "9ba626afa44a3aa3.patch_413",
+        "url": "https://github.com/owendavidgoode/clonedivers/releases/download/pack-2026.10.08-r21-files/03db1277ccc47aca707152cacf03c30eadcbd59dc271cb67bdf7ce7369d0123a",
+        "size": 58928,
+        "sha256": "03db1277ccc47aca707152cacf03c30eadcbd59dc271cb67bdf7ce7369d0123a",
+        "modes": [
+          "empire"
+        ]
+      },
+      {
+        "name": "9ba626afa44a3aa3.patch_413.stream",
+        "url": "",
+        "size": 0,
+        "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "modes": [
+          "empire"
+        ]
+      },
+      {
+        "name": "9ba626afa44a3aa3.patch_413.gpu_resources",
+        "url": "https://github.com/owendavidgoode/clonedivers/releases/download/pack-2026.10.08-r21-files/545f1c654b9a5b4da19475f3c0930ac62f9f64200f37a9992c3fa26734f4d6fb",
+        "size": 870368,
+        "sha256": "545f1c654b9a5b4da19475f3c0930ac62f9f64200f37a9992c3fa26734f4d6fb",
+        "modes": [
+          "empire"
+        ]
+      },
+      {
+        "name": "9ba626afa44a3aa3.patch_414",
+        "url": "https://github.com/owendavidgoode/clonedivers/releases/download/pack-2026.10.08-r21-files/5fbac3a9ef12f13ef82132e98e4053ba8fe660eae7be2d3aff1a2d4751cbc105",
+        "size": 49328,
+        "sha256": "5fbac3a9ef12f13ef82132e98e4053ba8fe660eae7be2d3aff1a2d4751cbc105",
+        "modes": [
+          "empire"
+        ]
+      },
+      {
+        "name": "9ba626afa44a3aa3.patch_414.stream",
+        "url": "",
+        "size": 0,
+        "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "modes": [
+          "empire"
+        ]
+      },
+      {
+        "name": "9ba626afa44a3aa3.patch_414.gpu_resources",
+        "url": "",
+        "size": 0,
+        "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "modes": [
+          "empire"
+        ]
+      },
+      {
+        "name": "9ba626afa44a3aa3.patch_415",
+        "url": "https://github.com/owendavidgoode/clonedivers/releases/download/pack-2026.10.08-r21-files/082da4f84840cd81df7f8d33b080497d6861c7f605793ebbc676754976196623",
+        "size": 25792,
+        "sha256": "082da4f84840cd81df7f8d33b080497d6861c7f605793ebbc676754976196623",
+        "modes": [
+          "empire"
+        ],
+        "textureProfiles": [
+          "full"
+        ]
+      },
+      {
+        "name": "9ba626afa44a3aa3.patch_415.stream",
+        "url": "",
+        "size": 0,
+        "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "modes": [
+          "empire"
+        ],
+        "textureProfiles": [
+          "full"
+        ]
+      },
+      {
+        "name": "9ba626afa44a3aa3.patch_415.gpu_resources",
+        "url": "",
+        "size": 0,
+        "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "modes": [
+          "empire"
+        ],
+        "textureProfiles": [
+          "full"
+        ]
+      },
+      {
+        "name": "9ba626afa44a3aa3.patch_416",
+        "url": "https://github.com/owendavidgoode/clonedivers/releases/download/pack-2026.10.08-r21-files/b1723c62c41a865c8ba0c9ff032f257731e9a566af2fe3e3ceac7e40185b7522",
+        "size": 29184,
+        "sha256": "b1723c62c41a865c8ba0c9ff032f257731e9a566af2fe3e3ceac7e40185b7522",
+        "modes": [
+          "empire"
+        ],
+        "textureProfiles": [
+          "full"
+        ]
+      },
+      {
+        "name": "9ba626afa44a3aa3.patch_416.stream",
+        "url": "",
+        "size": 0,
+        "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "modes": [
+          "empire"
+        ],
+        "textureProfiles": [
+          "full"
+        ]
+      },
+      {
+        "name": "9ba626afa44a3aa3.patch_416.gpu_resources",
+        "url": "",
+        "size": 0,
+        "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "modes": [
+          "empire"
+        ],
+        "textureProfiles": [
+          "full"
+        ]
+      },
+      {
+        "name": "9ba626afa44a3aa3.patch_417",
+        "url": "https://github.com/owendavidgoode/clonedivers/releases/download/pack-2026.10.08-r21-files/7db8c0fd69f4c9906a7eecfc90f727bd8766709b0ac35fd99b033901e81952b8",
+        "size": 49328,
+        "sha256": "7db8c0fd69f4c9906a7eecfc90f727bd8766709b0ac35fd99b033901e81952b8",
+        "modes": [
+          "empire"
+        ]
+      },
+      {
+        "name": "9ba626afa44a3aa3.patch_417.stream",
+        "url": "",
+        "size": 0,
+        "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "modes": [
+          "empire"
+        ]
+      },
+      {
+        "name": "9ba626afa44a3aa3.patch_417.gpu_resources",
+        "url": "",
+        "size": 0,
+        "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "modes": [
+          "empire"
+        ]
+      },
+      {
+        "name": "9ba626afa44a3aa3.patch_418",
+        "url": "https://github.com/owendavidgoode/clonedivers/releases/download/pack-2026.10.08-r21-files/3561e220cafdac5afdc05e0f08f4cfc7e3d388166ebbd5169d1fb641e06bef6e",
+        "size": 25792,
+        "sha256": "3561e220cafdac5afdc05e0f08f4cfc7e3d388166ebbd5169d1fb641e06bef6e",
+        "modes": [
+          "empire"
+        ],
+        "textureProfiles": [
+          "full"
+        ]
+      },
+      {
+        "name": "9ba626afa44a3aa3.patch_418.stream",
+        "url": "",
+        "size": 0,
+        "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "modes": [
+          "empire"
+        ],
+        "textureProfiles": [
+          "full"
+        ]
+      },
+      {
+        "name": "9ba626afa44a3aa3.patch_418.gpu_resources",
+        "url": "",
+        "size": 0,
+        "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "modes": [
+          "empire"
+        ],
+        "textureProfiles": [
+          "full"
+        ]
+      },
+      {
+        "name": "9ba626afa44a3aa3.patch_419",
+        "url": "https://github.com/owendavidgoode/clonedivers/releases/download/pack-2026.10.08-r21-files/a30ff2da7150e358e62bd876aaab47df059670b91e259c2644560621a4957055",
+        "size": 2288524,
+        "sha256": "a30ff2da7150e358e62bd876aaab47df059670b91e259c2644560621a4957055",
+        "modes": [
+          "empire"
+        ],
+        "textureProfiles": [
+          "full"
+        ]
+      },
+      {
+        "name": "9ba626afa44a3aa3.patch_419.stream",
+        "url": "",
+        "size": 0,
+        "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "modes": [
+          "empire"
+        ],
+        "textureProfiles": [
+          "full"
+        ]
+      },
+      {
+        "name": "9ba626afa44a3aa3.patch_419.gpu_resources",
+        "url": "https://github.com/owendavidgoode/clonedivers/releases/download/pack-2026.10.08-r21-files/b1c2337af5b2a569d9c0d2f54af67674335d2a03525795c33fef3f9859425eef",
+        "size": 63476160,
+        "sha256": "b1c2337af5b2a569d9c0d2f54af67674335d2a03525795c33fef3f9859425eef",
+        "modes": [
+          "empire"
+        ],
+        "textureProfiles": [
+          "full"
+        ]
+      },
+      {
+        "name": "9ba626afa44a3aa3.patch_420",
+        "url": "https://github.com/owendavidgoode/clonedivers/releases/download/pack-2026.10.08-r21-files/d87cbb3cfc5c8d7db21cb4674ce085999c2880997a070c0ea97471686dd6dc1e",
+        "size": 359664,
+        "sha256": "d87cbb3cfc5c8d7db21cb4674ce085999c2880997a070c0ea97471686dd6dc1e",
+        "modes": [
+          "empire"
+        ],
+        "textureProfiles": [
+          "full"
+        ]
+      },
+      {
+        "name": "9ba626afa44a3aa3.patch_420.stream",
+        "url": "",
+        "size": 0,
+        "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "modes": [
+          "empire"
+        ],
+        "textureProfiles": [
+          "full"
+        ]
+      },
+      {
+        "name": "9ba626afa44a3aa3.patch_420.gpu_resources",
+        "url": "",
+        "size": 0,
+        "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "modes": [
+          "empire"
+        ],
+        "textureProfiles": [
+          "full"
+        ]
+      },
+      {
+        "name": "9ba626afa44a3aa3.patch_421",
+        "url": "https://github.com/owendavidgoode/clonedivers/releases/download/pack-2026.10.08-r21-files/d3f1f08b3de3acbc07db8b19806b20f000dd0f1fecca04d1dc786bb353aa30aa",
+        "size": 624,
+        "sha256": "d3f1f08b3de3acbc07db8b19806b20f000dd0f1fecca04d1dc786bb353aa30aa",
+        "modes": [
+          "empire"
+        ],
+        "textureProfiles": [
+          "full"
+        ]
+      },
+      {
+        "name": "9ba626afa44a3aa3.patch_421.stream",
+        "url": "",
+        "size": 0,
+        "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "modes": [
+          "empire"
+        ],
+        "textureProfiles": [
+          "full"
+        ]
+      },
+      {
+        "name": "9ba626afa44a3aa3.patch_421.gpu_resources",
+        "url": "",
+        "size": 0,
+        "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "modes": [
+          "empire"
+        ],
+        "textureProfiles": [
+          "full"
+        ]
+      },
+      {
+        "name": "9ba626afa44a3aa3.patch_422",
+        "url": "https://github.com/owendavidgoode/clonedivers/releases/download/pack-2026.10.08-r21-files/b33e41ec986f826f9345de797d83af1cc6dbe8669474b8edb01f2ae37062d4ae",
+        "size": 49328,
+        "sha256": "b33e41ec986f826f9345de797d83af1cc6dbe8669474b8edb01f2ae37062d4ae",
+        "modes": [
+          "empire"
+        ]
+      },
+      {
+        "name": "9ba626afa44a3aa3.patch_422.stream",
+        "url": "",
+        "size": 0,
+        "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "modes": [
+          "empire"
+        ]
+      },
+      {
+        "name": "9ba626afa44a3aa3.patch_422.gpu_resources",
+        "url": "",
+        "size": 0,
+        "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "modes": [
+          "empire"
+        ]
+      },
+      {
+        "name": "9ba626afa44a3aa3.patch_423",
+        "url": "https://github.com/owendavidgoode/clonedivers/releases/download/pack-2026.10.08-r21-files/b75685ec215c7760880517e1a94d7e3b803955ae403d7b89cd5e381ccbf3c1f8",
+        "size": 25808,
+        "sha256": "b75685ec215c7760880517e1a94d7e3b803955ae403d7b89cd5e381ccbf3c1f8",
+        "modes": [
+          "empire"
+        ],
+        "textureProfiles": [
+          "full"
+        ]
+      },
+      {
+        "name": "9ba626afa44a3aa3.patch_423.stream",
+        "url": "",
+        "size": 0,
+        "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "modes": [
+          "empire"
+        ],
+        "textureProfiles": [
+          "full"
+        ]
+      },
+      {
+        "name": "9ba626afa44a3aa3.patch_423.gpu_resources",
+        "url": "",
+        "size": 0,
+        "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "modes": [
+          "empire"
+        ],
+        "textureProfiles": [
+          "full"
+        ]
+      },
+      {
+        "name": "9ba626afa44a3aa3.patch_424",
+        "url": "https://github.com/owendavidgoode/clonedivers/releases/download/pack-2026.10.08-r21-files/371a4193aa7a296cf55e91bce0831122368ada43a17c98dbb5545e64230d338a",
+        "size": 504152,
+        "sha256": "371a4193aa7a296cf55e91bce0831122368ada43a17c98dbb5545e64230d338a",
+        "modes": [
+          "empire"
+        ]
+      },
+      {
+        "name": "9ba626afa44a3aa3.patch_424.stream",
+        "url": "",
+        "size": 0,
+        "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "modes": [
+          "empire"
+        ]
+      },
+      {
+        "name": "9ba626afa44a3aa3.patch_424.gpu_resources",
+        "url": "https://github.com/owendavidgoode/clonedivers/releases/download/pack-2026.10.08-r21-files/a548dedd6e71761ef6c41824d3903184b1374d738b13eb0ecffebb99e66fd212",
+        "size": 5857024,
+        "sha256": "a548dedd6e71761ef6c41824d3903184b1374d738b13eb0ecffebb99e66fd212",
+        "modes": [
+          "empire"
+        ]
+      },
+      {
+        "name": "9ba626afa44a3aa3.patch_425",
+        "url": "https://github.com/owendavidgoode/clonedivers/releases/download/pack-2026.10.08-r21-files/89c0c549aa9eaf4f50f476040992fa283226af152437802e019db1f5c9e5a88e",
+        "size": 24208,
+        "sha256": "89c0c549aa9eaf4f50f476040992fa283226af152437802e019db1f5c9e5a88e",
+        "modes": [
+          "empire"
+        ]
+      },
+      {
+        "name": "9ba626afa44a3aa3.patch_425.stream",
+        "url": "",
+        "size": 0,
+        "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "modes": [
+          "empire"
+        ]
+      },
+      {
+        "name": "9ba626afa44a3aa3.patch_425.gpu_resources",
+        "url": "https://github.com/owendavidgoode/clonedivers/releases/download/pack-2026.10.08-r21-files/256cc08ca740b21edef9d1c8beb2b311213b8ee36906d6551d9cc227b723d4c9",
+        "size": 546768,
+        "sha256": "256cc08ca740b21edef9d1c8beb2b311213b8ee36906d6551d9cc227b723d4c9",
+        "modes": [
+          "empire"
+        ]
+      },
+      {
+        "name": "9ba626afa44a3aa3.patch_426",
+        "url": "https://github.com/owendavidgoode/clonedivers/releases/download/pack-2026.10.08-r21-files/6abaff265487aa8a28742f8d8e06d7565cffe32f7ceafa2729bf04af82e8419e",
+        "size": 850008,
+        "sha256": "6abaff265487aa8a28742f8d8e06d7565cffe32f7ceafa2729bf04af82e8419e",
+        "modes": [
+          "empire"
+        ]
+      },
+      {
+        "name": "9ba626afa44a3aa3.patch_426.stream",
+        "url": "",
+        "size": 0,
+        "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "modes": [
+          "empire"
+        ]
+      },
+      {
+        "name": "9ba626afa44a3aa3.patch_426.gpu_resources",
+        "url": "https://github.com/owendavidgoode/clonedivers/releases/download/pack-2026.10.08-r21-files/fc639a9e23385d5a2911fde590eb3c707313c5a30dab15369cba0dd90c173612",
+        "size": 23557168,
+        "sha256": "fc639a9e23385d5a2911fde590eb3c707313c5a30dab15369cba0dd90c173612",
+        "modes": [
+          "empire"
+        ]
+      },
+      {
+        "name": "9ba626afa44a3aa3.patch_427",
+        "url": "https://github.com/owendavidgoode/clonedivers/releases/download/pack-2026.10.08-r21-files/43ea1789c3d8d451ae43025876e8ba5bf98945cd3ada41699809a0e689d4c843",
+        "size": 202896,
+        "sha256": "43ea1789c3d8d451ae43025876e8ba5bf98945cd3ada41699809a0e689d4c843",
+        "modes": [
+          "empire"
+        ]
+      },
+      {
+        "name": "9ba626afa44a3aa3.patch_427.stream",
+        "url": "",
+        "size": 0,
+        "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "modes": [
+          "empire"
+        ]
+      },
+      {
+        "name": "9ba626afa44a3aa3.patch_427.gpu_resources",
+        "url": "https://github.com/owendavidgoode/clonedivers/releases/download/pack-2026.10.08-r21-files/502de46e96b70a4fb78751bd5c3b737a98bd634b70a09b178a05a142bdb57ac6",
+        "size": 2891616,
+        "sha256": "502de46e96b70a4fb78751bd5c3b737a98bd634b70a09b178a05a142bdb57ac6",
+        "modes": [
+          "empire"
+        ]
+      },
+      {
+        "name": "9ba626afa44a3aa3.patch_428",
+        "url": "https://github.com/owendavidgoode/clonedivers/releases/download/pack-2026.10.08-r21-files/e2d6fafcec4dd060e1649efd8a05f8feeb76a4e264b3a7d192fe46dbf4cc804d",
+        "size": 2304,
+        "sha256": "e2d6fafcec4dd060e1649efd8a05f8feeb76a4e264b3a7d192fe46dbf4cc804d",
+        "modes": [
+          "empire"
+        ]
+      },
+      {
+        "name": "9ba626afa44a3aa3.patch_428.stream",
+        "url": "https://github.com/owendavidgoode/clonedivers/releases/download/pack-2026.10.08-r21-files/7a423ba8f02ff460e1c6fa040a7225597d38ffee870239c6e6d3b471967f67df",
+        "size": 55968,
+        "sha256": "7a423ba8f02ff460e1c6fa040a7225597d38ffee870239c6e6d3b471967f67df",
+        "modes": [
+          "empire"
+        ]
+      },
+      {
+        "name": "9ba626afa44a3aa3.patch_428.gpu_resources",
+        "url": "",
+        "size": 0,
+        "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "modes": [
+          "empire"
+        ]
+      },
+      {
+        "name": "9ba626afa44a3aa3.patch_429",
+        "url": "https://github.com/owendavidgoode/clonedivers/releases/download/pack-2026.10.08-r21-files/8672ec27fa2e94a52f2734b93b3015ef2388f1bd6d5795b283902f4dd2fb4b90",
+        "size": 279824,
+        "sha256": "8672ec27fa2e94a52f2734b93b3015ef2388f1bd6d5795b283902f4dd2fb4b90",
+        "modes": [
+          "empire"
+        ]
+      },
+      {
+        "name": "9ba626afa44a3aa3.patch_429.stream",
+        "url": "",
+        "size": 0,
+        "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "modes": [
+          "empire"
+        ]
+      },
+      {
+        "name": "9ba626afa44a3aa3.patch_429.gpu_resources",
+        "url": "https://github.com/owendavidgoode/clonedivers/releases/download/pack-2026.10.08-r21-files/f985df9ea3b0d0cb5ac195df6e197ad37463ec38819cc0adc52417c57b37eb95",
+        "size": 6684610,
+        "sha256": "f985df9ea3b0d0cb5ac195df6e197ad37463ec38819cc0adc52417c57b37eb95",
+        "modes": [
+          "empire"
+        ]
+      },
+      {
+        "name": "9ba626afa44a3aa3.patch_430",
+        "url": "https://github.com/owendavidgoode/clonedivers/releases/download/pack-2026.10.08-r21-files/b0154f6fd4dfd5539af0d2b773029232e753dff1800eda0056e5065e53945934",
+        "size": 49328,
+        "sha256": "b0154f6fd4dfd5539af0d2b773029232e753dff1800eda0056e5065e53945934",
+        "modes": [
+          "empire"
+        ]
+      },
+      {
+        "name": "9ba626afa44a3aa3.patch_430.stream",
+        "url": "",
+        "size": 0,
+        "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "modes": [
+          "empire"
+        ]
+      },
+      {
+        "name": "9ba626afa44a3aa3.patch_430.gpu_resources",
+        "url": "",
+        "size": 0,
+        "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "modes": [
+          "empire"
+        ]
+      },
+      {
+        "name": "9ba626afa44a3aa3.patch_431",
+        "url": "https://github.com/owendavidgoode/clonedivers/releases/download/pack-2026.10.08-r21-files/a42b0fd7cd98cf2ae89689aedb83c251b31a7b2258f16f9e032beb2455d4403d",
+        "size": 25792,
+        "sha256": "a42b0fd7cd98cf2ae89689aedb83c251b31a7b2258f16f9e032beb2455d4403d",
+        "modes": [
+          "empire"
+        ],
+        "textureProfiles": [
+          "full"
+        ]
+      },
+      {
+        "name": "9ba626afa44a3aa3.patch_431.stream",
+        "url": "",
+        "size": 0,
+        "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "modes": [
+          "empire"
+        ],
+        "textureProfiles": [
+          "full"
+        ]
+      },
+      {
+        "name": "9ba626afa44a3aa3.patch_431.gpu_resources",
+        "url": "",
+        "size": 0,
+        "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "modes": [
+          "empire"
+        ],
+        "textureProfiles": [
+          "full"
+        ]
+      },
+      {
+        "name": "9ba626afa44a3aa3.patch_432",
+        "url": "https://github.com/owendavidgoode/clonedivers/releases/download/pack-2026.10.08-r21-files/07813f6593a6563d670bf80b3728d0df66be179bc48cc0d5b19b7cdef6890a93",
+        "size": 450128,
+        "sha256": "07813f6593a6563d670bf80b3728d0df66be179bc48cc0d5b19b7cdef6890a93",
+        "modes": [
+          "empire"
+        ],
+        "textureProfiles": [
+          "full"
+        ]
+      },
+      {
+        "name": "9ba626afa44a3aa3.patch_432.stream",
+        "url": "",
+        "size": 0,
+        "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "modes": [
+          "empire"
+        ],
+        "textureProfiles": [
+          "full"
+        ]
+      },
+      {
+        "name": "9ba626afa44a3aa3.patch_432.gpu_resources",
+        "url": "",
+        "size": 0,
+        "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "modes": [
+          "empire"
+        ],
+        "textureProfiles": [
+          "full"
+        ]
+      },
+      {
+        "name": "9ba626afa44a3aa3.patch_433",
+        "url": "https://github.com/owendavidgoode/clonedivers/releases/download/pack-2026.10.08-r21-files/108a61d388166677c562e6caf96c5b12a940aeafb9fd39d4b5573f733b3db6d2",
+        "size": 4420,
+        "sha256": "108a61d388166677c562e6caf96c5b12a940aeafb9fd39d4b5573f733b3db6d2",
+        "modes": [
+          "empire"
+        ]
+      },
+      {
+        "name": "9ba626afa44a3aa3.patch_433.stream",
+        "url": "",
+        "size": 0,
+        "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "modes": [
+          "empire"
+        ]
+      },
+      {
+        "name": "9ba626afa44a3aa3.patch_433.gpu_resources",
+        "url": "https://github.com/owendavidgoode/clonedivers/releases/download/pack-2026.10.08-r21-files/e63c2c251a582134250d66cd0124f01a59c7fda344eb283f208e6f1ba18674c5",
+        "size": 12584276,
+        "sha256": "e63c2c251a582134250d66cd0124f01a59c7fda344eb283f208e6f1ba18674c5",
+        "modes": [
+          "empire"
+        ]
+      },
+      {
+        "name": "9ba626afa44a3aa3.patch_434",
+        "url": "https://github.com/owendavidgoode/clonedivers/releases/download/pack-2026.10.08-r21-files/61f0e9b82ac3415933fd0534d8cdbe19d36e94243368841fe5a71a420bdea321",
+        "size": 180024,
+        "sha256": "61f0e9b82ac3415933fd0534d8cdbe19d36e94243368841fe5a71a420bdea321",
+        "modes": [
+          "empire"
+        ]
+      },
+      {
+        "name": "9ba626afa44a3aa3.patch_434.stream",
+        "url": "",
+        "size": 0,
+        "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "modes": [
+          "empire"
+        ]
+      },
+      {
+        "name": "9ba626afa44a3aa3.patch_434.gpu_resources",
+        "url": "",
+        "size": 0,
+        "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "modes": [
+          "empire"
+        ]
+      },
+      {
+        "name": "9ba626afa44a3aa3.patch_435",
+        "url": "https://github.com/owendavidgoode/clonedivers/releases/download/pack-2026.10.08-r21-files/0d3a37551aa591588d34f5a1edfe2262e89304b93832c6c90d0a3f8b066c119b",
+        "size": 18112,
+        "sha256": "0d3a37551aa591588d34f5a1edfe2262e89304b93832c6c90d0a3f8b066c119b",
+        "modes": [
+          "empire"
+        ]
+      },
+      {
+        "name": "9ba626afa44a3aa3.patch_435.stream",
+        "url": "",
+        "size": 0,
+        "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "modes": [
+          "empire"
+        ]
+      },
+      {
+        "name": "9ba626afa44a3aa3.patch_435.gpu_resources",
+        "url": "https://github.com/owendavidgoode/clonedivers/releases/download/pack-2026.10.08-r21-files/747a6a65b542026eacae2bc43c5c190da6e2d9f4538dd10436b72ba99290943a",
+        "size": 1810120,
+        "sha256": "747a6a65b542026eacae2bc43c5c190da6e2d9f4538dd10436b72ba99290943a",
+        "modes": [
+          "empire"
+        ]
+      },
+      {
+        "name": "9ba626afa44a3aa3.patch_436",
+        "url": "https://github.com/owendavidgoode/clonedivers/releases/download/pack-2026.10.08-r21-files/725b4c25e657cbf16d235159aef0a1bb8a8a080ef71339242e1e1d512a42f5b6",
+        "size": 34672,
+        "sha256": "725b4c25e657cbf16d235159aef0a1bb8a8a080ef71339242e1e1d512a42f5b6",
+        "modes": [
+          "empire"
+        ]
+      },
+      {
+        "name": "9ba626afa44a3aa3.patch_436.stream",
+        "url": "",
+        "size": 0,
+        "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "modes": [
+          "empire"
+        ]
+      },
+      {
+        "name": "9ba626afa44a3aa3.patch_436.gpu_resources",
+        "url": "https://github.com/owendavidgoode/clonedivers/releases/download/pack-2026.10.08-r21-files/6e257b3039d343774201c37abd519447f375c285a6bb8f37410d70372dd13913",
+        "size": 2847416,
+        "sha256": "6e257b3039d343774201c37abd519447f375c285a6bb8f37410d70372dd13913",
+        "modes": [
+          "empire"
+        ]
+      },
+      {
+        "name": "9ba626afa44a3aa3.patch_437",
+        "url": "https://github.com/owendavidgoode/clonedivers/releases/download/pack-2026.10.08-r21-files/5ea9dbc8c8cf026fe600c1f297ebef9bd87877fcd9522521eed4d2ad1b872655",
+        "size": 4404371,
+        "sha256": "5ea9dbc8c8cf026fe600c1f297ebef9bd87877fcd9522521eed4d2ad1b872655",
+        "modes": [
+          "empire"
+        ]
+      },
+      {
+        "name": "9ba626afa44a3aa3.patch_437.stream",
+        "url": "https://github.com/owendavidgoode/clonedivers/releases/download/pack-2026.10.08-r21-files/b3507f067dc3895aed896c1531151ad27266f248656a5e69117402b01f153440",
+        "size": 133142384,
+        "sha256": "b3507f067dc3895aed896c1531151ad27266f248656a5e69117402b01f153440",
+        "modes": [
+          "empire"
+        ]
+      },
+      {
+        "name": "9ba626afa44a3aa3.patch_437.gpu_resources",
+        "url": "",
+        "size": 0,
+        "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "modes": [
+          "empire"
+        ]
+      },
+      {
+        "name": "9ba626afa44a3aa3.patch_438",
+        "url": "https://github.com/owendavidgoode/clonedivers/releases/download/pack-2026.10.08-r21-files/5fc0da5370f4fb2c05946b555debc0923cbbf6ac2aa957851945172a8415641f",
+        "size": 49328,
+        "sha256": "5fc0da5370f4fb2c05946b555debc0923cbbf6ac2aa957851945172a8415641f",
+        "modes": [
+          "empire"
+        ]
+      },
+      {
+        "name": "9ba626afa44a3aa3.patch_438.stream",
+        "url": "",
+        "size": 0,
+        "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "modes": [
+          "empire"
+        ]
+      },
+      {
+        "name": "9ba626afa44a3aa3.patch_438.gpu_resources",
+        "url": "",
+        "size": 0,
+        "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "modes": [
+          "empire"
+        ]
+      },
+      {
+        "name": "9ba626afa44a3aa3.patch_439",
+        "url": "https://github.com/owendavidgoode/clonedivers/releases/download/pack-2026.10.08-r21-files/5febde849a3c2fe8987c4043ece9888bc589b2065fff72576f55fee90a6eafac",
+        "size": 25808,
+        "sha256": "5febde849a3c2fe8987c4043ece9888bc589b2065fff72576f55fee90a6eafac",
+        "textureProfiles": [
+          "full"
+        ],
+        "modes": [
+          "empire"
+        ]
+      },
+      {
+        "name": "9ba626afa44a3aa3.patch_439.stream",
+        "url": "",
+        "size": 0,
+        "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "textureProfiles": [
+          "full"
+        ],
+        "modes": [
+          "empire"
+        ]
+      },
+      {
+        "name": "9ba626afa44a3aa3.patch_439.gpu_resources",
+        "url": "",
+        "size": 0,
+        "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "textureProfiles": [
+          "full"
+        ],
+        "modes": [
+          "empire"
+        ]
+      },
+      {
+        "name": "9ba626afa44a3aa3.patch_440",
+        "url": "https://github.com/owendavidgoode/clonedivers/releases/download/pack-2026.10.08-r21-files/1d2cd2d0dff4165ba8f82f884ccc404cb55045fffdf29f35e52c5ea968928205",
+        "size": 256,
+        "sha256": "1d2cd2d0dff4165ba8f82f884ccc404cb55045fffdf29f35e52c5ea968928205",
+        "modes": [
+          "clonedivers",
+          "commandos"
+        ]
+      },
+      {
+        "name": "9ba626afa44a3aa3.patch_440.stream",
+        "url": "https://github.com/owendavidgoode/clonedivers/releases/download/pack-2026.09.05-r3-files/edb59498f300866fc7b11279e8423b78045169b7995baf546317767d378c357c",
+        "size": 549204,
+        "sha256": "edb59498f300866fc7b11279e8423b78045169b7995baf546317767d378c357c",
+        "modes": [
+          "clonedivers",
+          "commandos"
+        ]
+      },
+      {
+        "name": "9ba626afa44a3aa3.patch_440.gpu_resources",
+        "url": "",
+        "size": 0,
+        "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "modes": [
+          "clonedivers",
+          "commandos"
+        ]
+      },
+      {
+        "name": "9ba626afa44a3aa3.patch_441",
+        "url": "https://github.com/owendavidgoode/clonedivers/releases/download/pack-2026.10.08-r21-files/9f965bec80841e220e7339d04c99dfa9f92bbf0412328bb01173b2ee0493fe9d",
+        "size": 23392,
+        "sha256": "9f965bec80841e220e7339d04c99dfa9f92bbf0412328bb01173b2ee0493fe9d",
+        "option": "droids",
+        "modes": [
+          "clonedivers",
+          "commandos",
+          "empire"
+        ]
+      },
+      {
+        "name": "9ba626afa44a3aa3.patch_441.stream",
+        "url": "",
+        "size": 0,
+        "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "option": "droids",
+        "modes": [
+          "clonedivers",
+          "commandos",
+          "empire"
+        ]
+      },
+      {
+        "name": "9ba626afa44a3aa3.patch_441.gpu_resources",
+        "url": "https://github.com/owendavidgoode/clonedivers/releases/download/pack-2026.10.08-r21-files/ab8c8de872fdec9004db9569ff5face9258025d72546b3ed3a7b7a8bfdd06d84",
+        "size": 2286744,
+        "sha256": "ab8c8de872fdec9004db9569ff5face9258025d72546b3ed3a7b7a8bfdd06d84",
+        "option": "droids",
+        "modes": [
+          "clonedivers",
+          "commandos",
+          "empire"
+        ]
+      },
+      {
+        "name": "9ba626afa44a3aa3.patch_442",
+        "url": "https://github.com/owendavidgoode/clonedivers/releases/download/pack-2026.10.08-r21-files/633562a92b8f87f12c88a21b9a9c282bc582c33b978256304179dd8e608b3600",
+        "size": 1955824,
+        "sha256": "633562a92b8f87f12c88a21b9a9c282bc582c33b978256304179dd8e608b3600",
+        "modes": [
+          "empire"
+        ]
+      },
+      {
+        "name": "9ba626afa44a3aa3.patch_442.stream",
+        "url": "",
+        "size": 0,
+        "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "modes": [
+          "empire"
+        ]
+      },
+      {
+        "name": "9ba626afa44a3aa3.patch_442.gpu_resources",
+        "url": "",
+        "size": 0,
+        "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "modes": [
+          "empire"
+        ]
+      },
+      {
+        "name": "9ba626afa44a3aa3.patch_443",
+        "url": "https://github.com/owendavidgoode/clonedivers/releases/download/pack-2026.10.08-r21-files/a9ca528f271f20e20a83797cf9c686d43c17acb25172633a037a954052350f63",
+        "size": 1955824,
+        "sha256": "a9ca528f271f20e20a83797cf9c686d43c17acb25172633a037a954052350f63",
+        "modes": [
+          "clonedivers",
+          "commandos"
+        ]
+      },
+      {
+        "name": "9ba626afa44a3aa3.patch_443.stream",
+        "url": "",
+        "size": 0,
+        "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "modes": [
+          "clonedivers",
+          "commandos"
+        ]
+      },
+      {
+        "name": "9ba626afa44a3aa3.patch_443.gpu_resources",
+        "url": "",
+        "size": 0,
+        "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "modes": [
+          "clonedivers",
+          "commandos"
+        ]
+      },
+      {
+        "name": "9ba626afa44a3aa3.patch_444",
+        "url": "https://github.com/owendavidgoode/clonedivers/releases/download/pack-2026.10.08-r21-files/46546811998148c6efc2386dbf2cf8d404e2d14fc50c5625f93ec67885585b18",
+        "size": 17160,
+        "sha256": "46546811998148c6efc2386dbf2cf8d404e2d14fc50c5625f93ec67885585b18",
+        "modes": [
+          "clonedivers",
+          "commandos"
+        ]
+      },
+      {
+        "name": "9ba626afa44a3aa3.patch_444.stream",
+        "url": "",
+        "size": 0,
+        "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "modes": [
+          "clonedivers",
+          "commandos"
+        ]
+      },
+      {
+        "name": "9ba626afa44a3aa3.patch_444.gpu_resources",
+        "url": "",
+        "size": 0,
+        "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "modes": [
+          "clonedivers",
+          "commandos"
+        ]
+      },
+      {
+        "name": "9ba626afa44a3aa3.patch_445",
+        "url": "https://github.com/owendavidgoode/clonedivers/releases/download/pack-2026.10.08-r21-files/0194677c36195cd79052b3e0204ba81b209b3061f2371860624e3d82d3dc9726",
+        "size": 247924,
+        "sha256": "0194677c36195cd79052b3e0204ba81b209b3061f2371860624e3d82d3dc9726",
+        "modes": [
+          "empire"
+        ]
+      },
+      {
+        "name": "9ba626afa44a3aa3.patch_445.stream",
+        "url": "",
+        "size": 0,
+        "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "modes": [
+          "empire"
+        ]
+      },
+      {
+        "name": "9ba626afa44a3aa3.patch_445.gpu_resources",
+        "url": "https://github.com/owendavidgoode/clonedivers/releases/download/pack-2026.10.08-r21-files/6ff55cfbda244aa471e677a9c319dde9d6394f8677eb9f46e9a537373e75ae39",
+        "size": 3033064,
+        "sha256": "6ff55cfbda244aa471e677a9c319dde9d6394f8677eb9f46e9a537373e75ae39",
+        "modes": [
+          "empire"
+        ]
+      },
+      {
+        "name": "9ba626afa44a3aa3.patch_446",
+        "url": "https://github.com/owendavidgoode/clonedivers/releases/download/pack-2026.10.08-r21-files/3161d6b2ed080ef23900c57655e587f27ef535c13a53e6088e1459c058644c6c",
+        "size": 1165136,
+        "sha256": "3161d6b2ed080ef23900c57655e587f27ef535c13a53e6088e1459c058644c6c",
+        "modes": [
+          "empire"
+        ]
+      },
+      {
+        "name": "9ba626afa44a3aa3.patch_446.stream",
+        "url": "",
+        "size": 0,
+        "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "modes": [
+          "empire"
+        ]
+      },
+      {
+        "name": "9ba626afa44a3aa3.patch_446.gpu_resources",
+        "url": "https://github.com/owendavidgoode/clonedivers/releases/download/pack-2026.10.08-r21-files/d2c4a8aa759bcf84320ee5ad14f7c88ab64431e9fca209e24be5317a7bcf8c85",
+        "size": 41845760,
+        "sha256": "d2c4a8aa759bcf84320ee5ad14f7c88ab64431e9fca209e24be5317a7bcf8c85",
+        "modes": [
+          "empire"
+        ]
+      },
+      {
+        "name": "9ba626afa44a3aa3.patch_447",
+        "url": "https://github.com/owendavidgoode/clonedivers/releases/download/pack-2026.10.08-r21-files/8c4094a85864f0415c57cf222d2a70698d7ce9be958f6448f9bf35c22bc0e25c",
+        "size": 49328,
+        "sha256": "8c4094a85864f0415c57cf222d2a70698d7ce9be958f6448f9bf35c22bc0e25c",
+        "modes": [
+          "empire"
+        ]
+      },
+      {
+        "name": "9ba626afa44a3aa3.patch_447.stream",
+        "url": "",
+        "size": 0,
+        "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "modes": [
+          "empire"
+        ]
+      },
+      {
+        "name": "9ba626afa44a3aa3.patch_447.gpu_resources",
+        "url": "",
+        "size": 0,
+        "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "modes": [
+          "empire"
+        ]
+      },
+      {
+        "name": "9ba626afa44a3aa3.patch_448",
+        "url": "https://github.com/owendavidgoode/clonedivers/releases/download/pack-2026.10.08-r21-files/ee96d4c419f4b2a7c2f6f22aae335bbe90b8e8ee12826075721ca49095c8c71a",
+        "size": 25808,
+        "sha256": "ee96d4c419f4b2a7c2f6f22aae335bbe90b8e8ee12826075721ca49095c8c71a",
+        "textureProfiles": [
+          "full"
+        ],
+        "modes": [
+          "empire"
+        ]
+      },
+      {
+        "name": "9ba626afa44a3aa3.patch_448.stream",
+        "url": "",
+        "size": 0,
+        "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "textureProfiles": [
+          "full"
+        ],
+        "modes": [
+          "empire"
+        ]
+      },
+      {
+        "name": "9ba626afa44a3aa3.patch_448.gpu_resources",
+        "url": "",
+        "size": 0,
+        "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "textureProfiles": [
+          "full"
+        ],
+        "modes": [
+          "empire"
+        ]
+      },
+      {
+        "name": "9ba626afa44a3aa3.patch_449",
+        "url": "https://github.com/owendavidgoode/clonedivers/releases/download/pack-2026.10.08-r21-files/4290407dd80aceec5fc83cc9e65989b1ea92f56760513375d656d4ceb81f6535",
+        "size": 4371635,
+        "sha256": "4290407dd80aceec5fc83cc9e65989b1ea92f56760513375d656d4ceb81f6535",
+        "modes": [
+          "empire"
+        ]
+      },
+      {
+        "name": "9ba626afa44a3aa3.patch_449.stream",
+        "url": "https://github.com/owendavidgoode/clonedivers/releases/download/pack-2026.10.08-r21-files/3d3ea0add5247be35249cdb5bfb6ebff23b70a2f4202884e77eaedbe9f55b60b",
+        "size": 18258960,
+        "sha256": "3d3ea0add5247be35249cdb5bfb6ebff23b70a2f4202884e77eaedbe9f55b60b",
+        "modes": [
+          "empire"
+        ]
+      },
+      {
+        "name": "9ba626afa44a3aa3.patch_449.gpu_resources",
+        "url": "",
+        "size": 0,
+        "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "modes": [
+          "empire"
+        ]
+      },
+      {
+        "name": "9ba626afa44a3aa3.patch_450",
+        "url": "https://github.com/owendavidgoode/clonedivers/releases/download/pack-2026.10.08-r21-files/bca3035245670e7f8c13a13203f95545a69d3e0adc122220b4182c3822bfdbb8",
+        "size": 49328,
+        "sha256": "bca3035245670e7f8c13a13203f95545a69d3e0adc122220b4182c3822bfdbb8",
+        "modes": [
+          "empire"
+        ]
+      },
+      {
+        "name": "9ba626afa44a3aa3.patch_450.stream",
+        "url": "",
+        "size": 0,
+        "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "modes": [
+          "empire"
+        ]
+      },
+      {
+        "name": "9ba626afa44a3aa3.patch_450.gpu_resources",
+        "url": "",
+        "size": 0,
+        "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "modes": [
+          "empire"
+        ]
+      },
+      {
+        "name": "9ba626afa44a3aa3.patch_451",
+        "url": "https://github.com/owendavidgoode/clonedivers/releases/download/pack-2026.10.08-r21-files/fafb777470a2d56679b1c77357bce021990f29eebc44c4c7d703954a816edb73",
+        "size": 25808,
+        "sha256": "fafb777470a2d56679b1c77357bce021990f29eebc44c4c7d703954a816edb73",
+        "modes": [
+          "empire"
+        ],
+        "textureProfiles": [
+          "full"
+        ]
+      },
+      {
+        "name": "9ba626afa44a3aa3.patch_451.stream",
+        "url": "",
+        "size": 0,
+        "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "modes": [
+          "empire"
+        ],
+        "textureProfiles": [
+          "full"
+        ]
+      },
+      {
+        "name": "9ba626afa44a3aa3.patch_451.gpu_resources",
+        "url": "",
+        "size": 0,
+        "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "modes": [
+          "empire"
+        ],
+        "textureProfiles": [
+          "full"
+        ]
+      },
+      {
+        "name": "9ba626afa44a3aa3.patch_452",
+        "url": "https://github.com/owendavidgoode/clonedivers/releases/download/pack-2026.10.08-r21-files/08930c13a9cff76c12c1739a1cf5f3aaa3417a8f4bd5cb973ac7cbf9155845b4",
+        "size": 17160,
+        "sha256": "08930c13a9cff76c12c1739a1cf5f3aaa3417a8f4bd5cb973ac7cbf9155845b4",
+        "modes": [
+          "clonedivers",
+          "commandos"
+        ]
+      },
+      {
+        "name": "9ba626afa44a3aa3.patch_452.stream",
+        "url": "",
+        "size": 0,
+        "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "modes": [
+          "clonedivers",
+          "commandos"
+        ]
+      },
+      {
+        "name": "9ba626afa44a3aa3.patch_452.gpu_resources",
+        "url": "",
+        "size": 0,
+        "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "modes": [
+          "clonedivers",
+          "commandos"
+        ]
+      },
+      {
+        "name": "9ba626afa44a3aa3.patch_453",
+        "url": "https://github.com/owendavidgoode/clonedivers/releases/download/pack-2026.10.08-r21-files/7db519ad43cfd67b3d75c853afa63c82ff8c17fe82fc9b04bc0dd7479cbf4204",
+        "size": 204,
+        "sha256": "7db519ad43cfd67b3d75c853afa63c82ff8c17fe82fc9b04bc0dd7479cbf4204",
+        "modes": [
+          "clonedivers",
+          "commandos",
+          "empire"
+        ]
+      },
+      {
+        "name": "9ba626afa44a3aa3.patch_453.stream",
+        "url": "https://github.com/owendavidgoode/clonedivers/releases/download/pack-2026.10.08-r21-files/6faf756c755ebd75d7cd46d2d5e2cc92853e9919277927afafb4253d40c1bac1",
+        "size": 447764,
+        "sha256": "6faf756c755ebd75d7cd46d2d5e2cc92853e9919277927afafb4253d40c1bac1",
+        "modes": [
+          "clonedivers",
+          "commandos",
+          "empire"
+        ]
+      },
+      {
+        "name": "9ba626afa44a3aa3.patch_453.gpu_resources",
+        "url": "",
+        "size": 0,
+        "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "modes": [
+          "clonedivers",
+          "commandos",
+          "empire"
+        ]
+      },
+      {
+        "name": "9ba626afa44a3aa3.patch_454",
+        "url": "https://github.com/owendavidgoode/clonedivers/releases/download/pack-2026.10.08-r21-files/0461f9587717433bacc3ac88dae3a35c62e98a4c30cbf496ac70181989a387c9",
+        "size": 82304,
+        "sha256": "0461f9587717433bacc3ac88dae3a35c62e98a4c30cbf496ac70181989a387c9",
+        "modes": [
+          "empire"
+        ],
+        "textureProfiles": null,
+        "option": null,
+        "unlessOption": null
+      },
+      {
+        "name": "9ba626afa44a3aa3.patch_454.stream",
+        "url": "",
+        "size": 0,
+        "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "modes": [
+          "empire"
+        ],
+        "textureProfiles": null,
+        "option": null,
+        "unlessOption": null
+      },
+      {
+        "name": "9ba626afa44a3aa3.patch_454.gpu_resources",
+        "url": "https://github.com/owendavidgoode/clonedivers/releases/download/pack-2026.10.08-r21-files/3e3b9d69a290517f546869444a7d268cbf7ef6d82bd0204bc3dd349ffa629a71",
+        "size": 1752944,
+        "sha256": "3e3b9d69a290517f546869444a7d268cbf7ef6d82bd0204bc3dd349ffa629a71",
+        "modes": [
+          "empire"
+        ],
+        "textureProfiles": null,
+        "option": null,
+        "unlessOption": null
+      },
+      {
+        "name": "9ba626afa44a3aa3.patch_455",
+        "url": "https://github.com/owendavidgoode/clonedivers/releases/download/pack-2026.10.08-r21-files/28630be15072da5148c56a3ddefcbe546cb7e1f927f8853c6547a3068d666e65",
+        "size": 104864,
+        "sha256": "28630be15072da5148c56a3ddefcbe546cb7e1f927f8853c6547a3068d666e65",
+        "modes": [
+          "empire"
+        ],
+        "textureProfiles": null,
+        "option": null,
+        "unlessOption": null
+      },
+      {
+        "name": "9ba626afa44a3aa3.patch_455.stream",
+        "url": "",
+        "size": 0,
+        "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "modes": [
+          "empire"
+        ],
+        "textureProfiles": null,
+        "option": null,
+        "unlessOption": null
+      },
+      {
+        "name": "9ba626afa44a3aa3.patch_455.gpu_resources",
+        "url": "https://github.com/owendavidgoode/clonedivers/releases/download/pack-2026.10.08-r21-files/716022c54fd2c6135a83e8e6589c2f68d1f7515603a272ec00ad1bdf2cb78ed7",
+        "size": 617680,
+        "sha256": "716022c54fd2c6135a83e8e6589c2f68d1f7515603a272ec00ad1bdf2cb78ed7",
+        "modes": [
+          "empire"
+        ],
+        "textureProfiles": null,
+        "option": null,
+        "unlessOption": null
+      },
+      {
+        "name": "9ba626afa44a3aa3.patch_456",
+        "url": "https://github.com/owendavidgoode/clonedivers/releases/download/pack-2026.10.08-r21-files/30e4f0dd55253a7bf5eeb093a20e9ea878bd5467a9a7db4e2dfcf50a2fef69db",
+        "size": 259952,
+        "sha256": "30e4f0dd55253a7bf5eeb093a20e9ea878bd5467a9a7db4e2dfcf50a2fef69db",
+        "modes": [
+          "empire"
+        ],
+        "textureProfiles": [
+          "full"
+        ],
+        "option": null,
+        "unlessOption": null
+      },
+      {
+        "name": "9ba626afa44a3aa3.patch_456.stream",
+        "url": "",
+        "size": 0,
+        "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "modes": [
+          "empire"
+        ],
+        "textureProfiles": [
+          "full"
+        ],
+        "option": null,
+        "unlessOption": null
+      },
+      {
+        "name": "9ba626afa44a3aa3.patch_456.gpu_resources",
+        "url": "https://github.com/owendavidgoode/clonedivers/releases/download/pack-2026.10.08-r21-files/aae82174170a099d9423ab4c2183c70a65e8bc8c055ce80c70eccc0faa654647",
+        "size": 44522688,
+        "sha256": "aae82174170a099d9423ab4c2183c70a65e8bc8c055ce80c70eccc0faa654647",
+        "modes": [
+          "empire"
+        ],
+        "textureProfiles": [
+          "full"
+        ],
+        "option": null,
+        "unlessOption": null
+      },
+      {
+        "name": "9ba626afa44a3aa3.patch_457",
+        "url": "https://github.com/owendavidgoode/clonedivers/releases/download/pack-2026.10.08-r21-files/f34d73c5d3e111bc935cc8f690b9b92a20fc910e8997558584560f3addc3e270",
+        "size": 52096,
+        "sha256": "f34d73c5d3e111bc935cc8f690b9b92a20fc910e8997558584560f3addc3e270",
+        "modes": [
+          "empire"
+        ]
+      },
+      {
+        "name": "9ba626afa44a3aa3.patch_457.stream",
+        "url": "",
+        "size": 0,
+        "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "modes": [
+          "empire"
+        ]
+      },
+      {
+        "name": "9ba626afa44a3aa3.patch_457.gpu_resources",
+        "url": "",
+        "size": 0,
+        "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "modes": [
+          "empire"
+        ]
+      },
+      {
+        "name": "9ba626afa44a3aa3.patch_458",
+        "url": "https://github.com/owendavidgoode/clonedivers/releases/download/pack-2026.10.08-r21-files/39ed19f63a36c14dbc135cc63a5d4c1ab29b6328976466a12330430ff715a2e3",
+        "size": 28624,
+        "sha256": "39ed19f63a36c14dbc135cc63a5d4c1ab29b6328976466a12330430ff715a2e3",
+        "modes": [
+          "empire"
+        ],
+        "textureProfiles": [
+          "full"
+        ]
+      },
+      {
+        "name": "9ba626afa44a3aa3.patch_458.stream",
+        "url": "",
+        "size": 0,
+        "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "modes": [
+          "empire"
+        ],
+        "textureProfiles": [
+          "full"
+        ]
+      },
+      {
+        "name": "9ba626afa44a3aa3.patch_458.gpu_resources",
+        "url": "",
+        "size": 0,
+        "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "modes": [
+          "empire"
+        ],
+        "textureProfiles": [
+          "full"
+        ]
       }
     ],
-    "totalSize": 21683165791,
+    "totalSize": 23604189099,
     "isBroken": false,
     "isPublished": true,
     "isPerFile": true,
