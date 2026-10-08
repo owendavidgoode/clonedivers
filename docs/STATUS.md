@@ -1,5 +1,31 @@
 # Current status
 
+## October 8: cumulative Empire r21 published
+
+Pack **2026.10.08-r21** reuses the published launcher **1.7.3** and promotes the
+current reviewed combined Clonedivers, CommandoDivers and EmpireDivers pack.
+All 1,794 logical rows retain their mode/profile/option conditions and order.
+The cumulative Imperial armor, film-scale AT-ST, Lambda, Star Destroyer, Eagle,
+weapon, audio and voice work is included, together with the final deep-QA repairs.
+The two runtime helpers now have portable installation contexts; automatic walker
+capture is disabled in the public pack. The baked walker remains independent of it.
+
+Native regression checks, all 96 actual launcher selections, Full/Lighter source
+hashes, 68 portable-helper fixtures and independent context rejection/path tests
+pass. Publication uploaded **135 new files / 1,919,856,424 bytes**, verified all
+**1,100 hosted asset identities**, and activated the coordinated feeds at commit
+`4efd48c460f5d3c395721f4fd7d8c843f520850e`. Both GitHub API and raw readbacks match all three sealed feeds.
+The downloaded 1.7.3 launcher and README Latest link are verified independently.
+
+Star Destroyer rendering, mission physics/animation, Eagle dispatch and audio mix
+still need gameplay acceptance. The 120 model-specific armor damage/cap routes and
+separate missing native Constitution source remain open. The owner's private feed,
+installed files and saved settings remain in place.
+
+See [release notes](releases/pack-2026.10.08-r21.md),
+[source credits](releases/pack-2026.10.08-r21-sources.md), and
+[public verification](releases/pack-2026.10.08-r21-verification.json).
+
 ## October 5: Clonedivers 1.7.3 / combined r20 published
 
 Launcher **1.7.3** and pack **2026.10.05-r20** retain the complete reviewed

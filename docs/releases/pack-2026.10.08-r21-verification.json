@@ -1,0 +1,58 @@
+{
+  "passed": true,
+  "utc": "2026-10-08T23:38:36.1976849+00:00",
+  "packVersion": "2026.10.08-r21",
+  "launcherVersion": "1.7.3",
+  "sourceCommit": "e116a1a675310921f906774869e02e18a45ad261",
+  "feedCommit": "4efd48c460f5d3c395721f4fd7d8c843f520850e",
+  "sourcePrivateManifestSha256": "4c29b2ca52dc83af8ca3918c8c8a50f5ca2656146b40f3fa3e041bf915fffc8d",
+  "publishedManifestSha256": "55d5297988c0b134eef4738edf81026ebbbe688c917ad97c6170ff7ef1b59c2e",
+  "logicalRows": 1794,
+  "actualLauncherSelections": 96,
+  "effectiveFileSets": 16,
+  "newPublicAssets": 135,
+  "newPublicAssetBytes": 1919856424,
+  "allHostedAssetIdentitiesVerified": 1100,
+  "feeds": [
+    {
+      "rows": 1010,
+      "feed": "manifest.json",
+      "packVersion": "2026.09.12-r8",
+      "apiEqualsPrepared": true,
+      "rawEqualsPrepared": true,
+      "appVersion": "1.7.3"
+    },
+    {
+      "rows": 1440,
+      "feed": "manifest-v3.json",
+      "packVersion": "2026.10.08-r21",
+      "apiEqualsPrepared": true,
+      "rawEqualsPrepared": true,
+      "appVersion": "1.7.3"
+    },
+    {
+      "rows": 1794,
+      "feed": "manifest-v3-current.json",
+      "packVersion": "2026.10.08-r21",
+      "apiEqualsPrepared": true,
+      "rawEqualsPrepared": true,
+      "appVersion": "1.7.3"
+    }
+  ],
+  "publicLauncherDownloadSha256": "2effe777eb2673d7237b5fc9aed1cbe85434ba86f3c31fbae9f73129a06cd51e",
+  "readmeLatestDownloadVerified": true,
+  "publicVerificationSha256": "b6db6371ff4aaae527d17d099d882a5ceb06fc37513c2394a34e5d19a077a7ac",
+  "independentPublicVerificationSha256": "394625d5710a6938d4e3e86cd024dbfd77f48ea4222f142ebf6ee8295778619a",
+  "independentPromotionQaSha256": "fb1bb7ae98be4a7ee1b3eb107fdcbd4f77b8b6197d57b43936fc8a564852b87e",
+  "actualLauncherBinaryParitySha256": "8c45f9d45ea26d0b902af96e59197dd47c39844bbeffb5c5e76b3e0dc4f903a7",
+  "portableHelperContextFixtures": 68,
+  "publicWalkerCaptureEnabled": false,
+  "ownerPrivateInstallationUnchanged": true,
+  "gameplayAccepted": false,
+  "limitations": [
+    "Star Destroyer rendering remains unconfirmed.",
+    "120 model-specific armor damage/cap routes remain unfinished.",
+    "Mission physics, animation, Eagle dispatch and audio mix require playtesting.",
+    "Separate missing native Constitution source remains unresolved."
+  ]
+}
