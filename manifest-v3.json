@@ -1,9 +1,9 @@
 {
   "format": 3,
   "pack": {
-    "version": "2026.10.08-r21",
+    "version": "2026.10.08-r22",
     "name": "Clonedivers and EmpireDivers",
-    "notes": "Expanded Imperial armor, film-scale AT-ST, aircraft, weapons and voices; deep-QA audio and visibility repairs.",
+    "notes": "Five additional authentic Imperial effort/injury cues; Full and Lighter now share reviewed walker geometry and Eagle dispatch support.",
     "gameBuild": "25480438",
     "gameDepots": [
       "1883032874832282552",

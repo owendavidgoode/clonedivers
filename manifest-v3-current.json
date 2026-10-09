@@ -1,9 +1,9 @@
 {
   "format": 3,
   "pack": {
-    "version": "2026.10.08-r21",
+    "version": "2026.10.08-r22",
     "name": "Clonedivers and EmpireDivers",
-    "notes": "Expanded Imperial armor, film-scale AT-ST, aircraft, weapons and voices; deep-QA audio and visibility repairs.",
+    "notes": "Five additional authentic Imperial effort/injury cues; Full and Lighter now share reviewed walker geometry and Eagle dispatch support.",
     "gameBuild": "25480438",
     "gameDepots": [
       "1883032874832282552",
@@ -21224,7 +21224,8 @@
           "empire"
         ],
         "textureProfiles": [
-          "full"
+          "full",
+          "lighter"
         ]
       },
       {
@@ -21236,7 +21237,8 @@
           "empire"
         ],
         "textureProfiles": [
-          "full"
+          "full",
+          "lighter"
         ]
       },
       {
@@ -21248,7 +21250,8 @@
           "empire"
         ],
         "textureProfiles": [
-          "full"
+          "full",
+          "lighter"
         ]
       },
       {
@@ -21260,7 +21263,8 @@
           "empire"
         ],
         "textureProfiles": [
-          "full"
+          "full",
+          "lighter"
         ]
       },
       {
@@ -21272,7 +21276,8 @@
           "empire"
         ],
         "textureProfiles": [
-          "full"
+          "full",
+          "lighter"
         ]
       },
       {
@@ -21284,7 +21289,8 @@
           "empire"
         ],
         "textureProfiles": [
-          "full"
+          "full",
+          "lighter"
         ]
       },
       {
@@ -21620,7 +21626,8 @@
           "empire"
         ],
         "textureProfiles": [
-          "full"
+          "full",
+          "lighter"
         ]
       },
       {
@@ -21632,7 +21639,8 @@
           "empire"
         ],
         "textureProfiles": [
-          "full"
+          "full",
+          "lighter"
         ]
       },
       {
@@ -21644,7 +21652,8 @@
           "empire"
         ],
         "textureProfiles": [
-          "full"
+          "full",
+          "lighter"
         ]
       },
       {
@@ -22349,7 +22358,8 @@
           "empire"
         ],
         "textureProfiles": [
-          "full"
+          "full",
+          "lighter"
         ],
         "option": null,
         "unlessOption": null
@@ -22363,7 +22373,8 @@
           "empire"
         ],
         "textureProfiles": [
-          "full"
+          "full",
+          "lighter"
         ],
         "option": null,
         "unlessOption": null
@@ -22377,7 +22388,8 @@
           "empire"
         ],
         "textureProfiles": [
-          "full"
+          "full",
+          "lighter"
         ],
         "option": null,
         "unlessOption": null
@@ -22444,9 +22456,63 @@
         "textureProfiles": [
           "full"
         ]
+      },
+      {
+        "name": "9ba626afa44a3aa3.patch_459",
+        "url": "https://github.com/owendavidgoode/clonedivers/releases/download/pack-2026.10.08-r22-files/a822e74fd3ce50f92db7855d8a14ccc7ad9d7291c14aefceaf4f8b7843442333",
+        "size": 592,
+        "sha256": "a822e74fd3ce50f92db7855d8a14ccc7ad9d7291c14aefceaf4f8b7843442333",
+        "modes": [
+          "empire"
+        ]
+      },
+      {
+        "name": "9ba626afa44a3aa3.patch_459.stream",
+        "url": "https://github.com/owendavidgoode/clonedivers/releases/download/pack-2026.10.08-r22-files/d73b12f1d18428a5e5270683d5d66c125b522c39108af93499909cb3627ebdae",
+        "size": 132648,
+        "sha256": "d73b12f1d18428a5e5270683d5d66c125b522c39108af93499909cb3627ebdae",
+        "modes": [
+          "empire"
+        ]
+      },
+      {
+        "name": "9ba626afa44a3aa3.patch_459.gpu_resources",
+        "url": "",
+        "size": 0,
+        "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "modes": [
+          "empire"
+        ]
+      },
+      {
+        "name": "9ba626afa44a3aa3.patch_460",
+        "url": "https://github.com/owendavidgoode/clonedivers/releases/download/pack-2026.10.08-r22-files/18c3f428677e0cb31b86959dfa5db27fc406abb2d602f7a93eaafc1c13b721d2",
+        "size": 52144,
+        "sha256": "18c3f428677e0cb31b86959dfa5db27fc406abb2d602f7a93eaafc1c13b721d2",
+        "modes": [
+          "empire"
+        ]
+      },
+      {
+        "name": "9ba626afa44a3aa3.patch_460.stream",
+        "url": "",
+        "size": 0,
+        "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "modes": [
+          "empire"
+        ]
+      },
+      {
+        "name": "9ba626afa44a3aa3.patch_460.gpu_resources",
+        "url": "",
+        "size": 0,
+        "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "modes": [
+          "empire"
+        ]
       }
     ],
-    "totalSize": 23604189099,
+    "totalSize": 23604374483,
     "isBroken": false,
     "isPublished": true,
     "isPerFile": true,
