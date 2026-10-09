@@ -1,9 +1,9 @@
 {
   "format": 3,
   "pack": {
-    "version": "2026.10.08-r22",
+    "version": "2026.10.08-r23",
     "name": "Clonedivers and EmpireDivers",
-    "notes": "Five additional authentic Imperial effort/injury cues; Full and Lighter now share reviewed walker geometry and Eagle dispatch support.",
+    "notes": "Classic LEGO Star Wars Yoda death scream for the local player's LEGO Stormtrooper and LEGO Bikini Stormtrooper armor.",
     "gameBuild": "25480438",
     "gameDepots": [
       "1883032874832282552",
@@ -13,7 +13,7 @@
       "3382210389809902281"
     ],
     "status": "ok",
-    "statusNotes": "Experimental Empire update. Star Destroyer visibility, mission physics, armor damage pieces and audio mix still require gameplay testing. Launcher1.7.3 camera procedure retained.",
+    "statusNotes": "Experimental Empire update. LEGO death routing and sound playback require gameplay testing; existing visual, physics and audio playtest checklist remains applicable. Launcher1.7.3 retained.",
     "options": [
       {
         "id": "commandos",

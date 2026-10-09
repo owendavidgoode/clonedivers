@@ -1,9 +1,9 @@
 {
   "format": 3,
   "pack": {
-    "version": "2026.10.08-r22",
+    "version": "2026.10.08-r23",
     "name": "Clonedivers and EmpireDivers",
-    "notes": "Five additional authentic Imperial effort/injury cues; Full and Lighter now share reviewed walker geometry and Eagle dispatch support.",
+    "notes": "Classic LEGO Star Wars Yoda death scream for the local player's LEGO Stormtrooper and LEGO Bikini Stormtrooper armor.",
     "gameBuild": "25480438",
     "gameDepots": [
       "1883032874832282552",
@@ -13,7 +13,7 @@
       "3382210389809902281"
     ],
     "status": "ok",
-    "statusNotes": "Experimental Empire update. Star Destroyer visibility, mission physics, armor damage pieces and audio mix still require gameplay testing. Launcher1.7.3 camera procedure retained.",
+    "statusNotes": "Experimental Empire update. LEGO death routing and sound playback require gameplay testing; existing visual, physics and audio playtest checklist remains applicable. Launcher1.7.3 retained.",
     "options": [
       {
         "id": "commandos",
@@ -22510,9 +22510,90 @@
         "modes": [
           "empire"
         ]
+      },
+      {
+        "name": "9ba626afa44a3aa3.patch_461",
+        "url": "https://github.com/owendavidgoode/clonedivers/releases/download/pack-2026.10.08-r23-files/f7c777c65d8b6b343e8b8f89d5c6f20ac3c156a7f5be981134a4f000fc984816",
+        "size": 4372192,
+        "sha256": "f7c777c65d8b6b343e8b8f89d5c6f20ac3c156a7f5be981134a4f000fc984816",
+        "modes": [
+          "empire"
+        ]
+      },
+      {
+        "name": "9ba626afa44a3aa3.patch_461.stream",
+        "url": "",
+        "size": 0,
+        "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "modes": [
+          "empire"
+        ]
+      },
+      {
+        "name": "9ba626afa44a3aa3.patch_461.gpu_resources",
+        "url": "",
+        "size": 0,
+        "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "modes": [
+          "empire"
+        ]
+      },
+      {
+        "name": "9ba626afa44a3aa3.patch_462",
+        "url": "https://github.com/owendavidgoode/clonedivers/releases/download/pack-2026.10.08-r23-files/47bd034fe7ec5e84ed6fda7ed4ec219b69261d2658d22f73ed6853b293b87d86",
+        "size": 134752,
+        "sha256": "47bd034fe7ec5e84ed6fda7ed4ec219b69261d2658d22f73ed6853b293b87d86",
+        "modes": [
+          "empire"
+        ]
+      },
+      {
+        "name": "9ba626afa44a3aa3.patch_462.stream",
+        "url": "",
+        "size": 0,
+        "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "modes": [
+          "empire"
+        ]
+      },
+      {
+        "name": "9ba626afa44a3aa3.patch_462.gpu_resources",
+        "url": "",
+        "size": 0,
+        "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "modes": [
+          "empire"
+        ]
+      },
+      {
+        "name": "9ba626afa44a3aa3.patch_463",
+        "url": "https://github.com/owendavidgoode/clonedivers/releases/download/pack-2026.10.08-r23-files/04eef25bcd1f5300b7bd93f8bcb7a3d737fc689b98034da3d2a08365a48d04bb",
+        "size": 52144,
+        "sha256": "04eef25bcd1f5300b7bd93f8bcb7a3d737fc689b98034da3d2a08365a48d04bb",
+        "modes": [
+          "empire"
+        ]
+      },
+      {
+        "name": "9ba626afa44a3aa3.patch_463.stream",
+        "url": "",
+        "size": 0,
+        "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "modes": [
+          "empire"
+        ]
+      },
+      {
+        "name": "9ba626afa44a3aa3.patch_463.gpu_resources",
+        "url": "",
+        "size": 0,
+        "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "modes": [
+          "empire"
+        ]
       }
     ],
-    "totalSize": 23604374483,
+    "totalSize": 23608933571,
     "isBroken": false,
     "isPublished": true,
     "isPerFile": true,
