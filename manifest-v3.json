@@ -1,9 +1,9 @@
 {
   "format": 3,
   "pack": {
-    "version": "2026.10.08-r23",
+    "version": "2026.10.09-r24",
     "name": "Clonedivers and EmpireDivers",
-    "notes": "Classic LEGO Star Wars Yoda death scream for the local player's LEGO Stormtrooper and LEGO Bikini Stormtrooper armor.",
+    "notes": "Startup repair for Clonedivers and EmpireDivers; full Star Destroyer models, audio and existing features retained.",
     "gameBuild": "25480438",
     "gameDepots": [
       "1883032874832282552",
@@ -13,7 +13,7 @@
       "3382210389809902281"
     ],
     "status": "ok",
-    "statusNotes": "Experimental Empire update. LEGO death routing and sound playback require gameplay testing; existing visual, physics and audio playtest checklist remains applicable. Launcher1.7.3 retained.",
+    "statusNotes": "Startup archive corrections with matching Eagle and LEGO Yoda runtime contexts. Existing in-mission visual, physics and audio playtest checklist remains applicable. Launcher 1.7.3 retained.",
     "options": [
       {
         "id": "commandos",
@@ -17802,9 +17802,9 @@
       },
       {
         "name": "9ba626afa44a3aa3.patch_453",
-        "url": "https://github.com/owendavidgoode/clonedivers/releases/download/pack-2026.10.08-r21-files/7db519ad43cfd67b3d75c853afa63c82ff8c17fe82fc9b04bc0dd7479cbf4204",
-        "size": 204,
-        "sha256": "7db519ad43cfd67b3d75c853afa63c82ff8c17fe82fc9b04bc0dd7479cbf4204",
+        "url": "https://github.com/owendavidgoode/clonedivers/releases/download/pack-2026.10.09-r24-files/25b90ccff893f69b3d59ebc9057f040c4cccaad54ea44c1822dbaf94d2a7c11b",
+        "size": 256,
+        "sha256": "25b90ccff893f69b3d59ebc9057f040c4cccaad54ea44c1822dbaf94d2a7c11b",
         "modes": [
           "clonedivers",
           "commandos"
@@ -17831,7 +17831,7 @@
         ]
       }
     ],
-    "totalSize": 20428038619.0,
+    "totalSize": 20428038671.0,
     "isBroken": false,
     "isPublished": true,
     "isPerFile": true,

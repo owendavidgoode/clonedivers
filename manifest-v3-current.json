@@ -1,9 +1,9 @@
 {
   "format": 3,
   "pack": {
-    "version": "2026.10.08-r23",
+    "version": "2026.10.09-r24",
     "name": "Clonedivers and EmpireDivers",
-    "notes": "Classic LEGO Star Wars Yoda death scream for the local player's LEGO Stormtrooper and LEGO Bikini Stormtrooper armor.",
+    "notes": "Startup repair for Clonedivers and EmpireDivers; full Star Destroyer models, audio and existing features retained.",
     "gameBuild": "25480438",
     "gameDepots": [
       "1883032874832282552",
@@ -13,7 +13,7 @@
       "3382210389809902281"
     ],
     "status": "ok",
-    "statusNotes": "Experimental Empire update. LEGO death routing and sound playback require gameplay testing; existing visual, physics and audio playtest checklist remains applicable. Launcher1.7.3 retained.",
+    "statusNotes": "Startup archive corrections with matching Eagle and LEGO Yoda runtime contexts. Existing in-mission visual, physics and audio playtest checklist remains applicable. Launcher 1.7.3 retained.",
     "options": [
       {
         "id": "commandos",
@@ -21529,9 +21529,9 @@
       },
       {
         "name": "9ba626afa44a3aa3.patch_429",
-        "url": "https://github.com/owendavidgoode/clonedivers/releases/download/pack-2026.10.08-r21-files/8672ec27fa2e94a52f2734b93b3015ef2388f1bd6d5795b283902f4dd2fb4b90",
+        "url": "https://github.com/owendavidgoode/clonedivers/releases/download/pack-2026.10.09-r24-files/17e367a3ab6ecbfbd9dc91f7eb6c1b6620703b0cd914407dc6ca306e2d695806",
         "size": 279824,
-        "sha256": "8672ec27fa2e94a52f2734b93b3015ef2388f1bd6d5795b283902f4dd2fb4b90",
+        "sha256": "17e367a3ab6ecbfbd9dc91f7eb6c1b6620703b0cd914407dc6ca306e2d695806",
         "modes": [
           "empire"
         ]
@@ -22246,9 +22246,9 @@
       },
       {
         "name": "9ba626afa44a3aa3.patch_453",
-        "url": "https://github.com/owendavidgoode/clonedivers/releases/download/pack-2026.10.08-r21-files/7db519ad43cfd67b3d75c853afa63c82ff8c17fe82fc9b04bc0dd7479cbf4204",
-        "size": 204,
-        "sha256": "7db519ad43cfd67b3d75c853afa63c82ff8c17fe82fc9b04bc0dd7479cbf4204",
+        "url": "https://github.com/owendavidgoode/clonedivers/releases/download/pack-2026.10.09-r24-files/25b90ccff893f69b3d59ebc9057f040c4cccaad54ea44c1822dbaf94d2a7c11b",
+        "size": 256,
+        "sha256": "25b90ccff893f69b3d59ebc9057f040c4cccaad54ea44c1822dbaf94d2a7c11b",
         "modes": [
           "clonedivers",
           "commandos",
@@ -22540,9 +22540,9 @@
       },
       {
         "name": "9ba626afa44a3aa3.patch_462",
-        "url": "https://github.com/owendavidgoode/clonedivers/releases/download/pack-2026.10.08-r23-files/47bd034fe7ec5e84ed6fda7ed4ec219b69261d2658d22f73ed6853b293b87d86",
+        "url": "https://github.com/owendavidgoode/clonedivers/releases/download/pack-2026.10.09-r24-files/000631d37639b47ff6de0006602bda023aa1e778150ff2a8f546376781ca6cac",
         "size": 134752,
-        "sha256": "47bd034fe7ec5e84ed6fda7ed4ec219b69261d2658d22f73ed6853b293b87d86",
+        "sha256": "000631d37639b47ff6de0006602bda023aa1e778150ff2a8f546376781ca6cac",
         "modes": [
           "empire"
         ]
@@ -22567,9 +22567,9 @@
       },
       {
         "name": "9ba626afa44a3aa3.patch_463",
-        "url": "https://github.com/owendavidgoode/clonedivers/releases/download/pack-2026.10.08-r23-files/04eef25bcd1f5300b7bd93f8bcb7a3d737fc689b98034da3d2a08365a48d04bb",
+        "url": "https://github.com/owendavidgoode/clonedivers/releases/download/pack-2026.10.09-r24-files/c9fb9b9c79f5589a5aaae5d4198f7925f25ec2a6c888b41069a287cc47a791c1",
         "size": 52144,
-        "sha256": "04eef25bcd1f5300b7bd93f8bcb7a3d737fc689b98034da3d2a08365a48d04bb",
+        "sha256": "c9fb9b9c79f5589a5aaae5d4198f7925f25ec2a6c888b41069a287cc47a791c1",
         "modes": [
           "empire"
         ]
@@ -22593,7 +22593,7 @@
         ]
       }
     ],
-    "totalSize": 23608933571,
+    "totalSize": 23608933623,
     "isBroken": false,
     "isPublished": true,
     "isPerFile": true,
