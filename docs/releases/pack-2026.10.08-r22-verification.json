@@ -1,0 +1,71 @@
+{
+  "passed": true,
+  "version": "2026.10.08-r22",
+  "launcherVersion": "1.7.3",
+  "sourceCommit": "6a9344981aad543906ae470ee07f3019de2d6717",
+  "feedCommit": "b21ddcdd02f7318f7cdeb5926c45d81692a71887",
+  "sealedManifestSha256": "3a70933d5a1f7efb60627224a6befcdcdbe235c957032834101560b4383e0a03",
+  "logicalRows": 1800,
+  "newAssetBytes": 185384,
+  "newUniqueAssets": 3,
+  "actualLauncherStates": 96,
+  "actualLauncherFileSets": 16,
+  "nativeTestsPassed": true,
+  "fullAndLighterReleaseProfilesPassed": true,
+  "contextFixtures": 56,
+  "hostedAssetIdentities": 1103,
+  "threePublicFeedsIndependentlyRead": true,
+  "actualNewAssetDownloadsVerified": true,
+  "publicLauncherDownloadVerified": true,
+  "installedEmpireFiles": 1387,
+  "actualDesktopAssemblyReceiptInventoryPassed": true,
+  "allThreeModesZeroDownloads": true,
+  "gameBuild": "25480438",
+  "authenticNonverbalAssignments": 308,
+  "filteredNativeNonverbalAssignments": 336,
+  "spokenAssignmentsUnchanged": 217,
+  "armorDamagePrototypesDeployed": false,
+  "gameplayAccepted": false,
+  "proofs": [
+    {
+      "path": "qa/voice-peer-v1/report.json",
+      "sha256": "eda6dbc83e6a65408ab5ecb2f7d177654d0680620c3178fb5fe619bc02027143"
+    },
+    {
+      "path": "qa/runtime-peer-v1/report.json",
+      "sha256": "b5823c09feee7dfb0416dbc7aabc053022575175a68c0f646bcb2cec00739ab2"
+    },
+    {
+      "path": "qa/composition-peer-v1/report.json",
+      "sha256": "13f5d5a3c5f763e141632ed1ccefbcff5bd51ca09e40c3521e31257184d8d86f"
+    },
+    {
+      "path": "qa/release-peer-v1/report.json",
+      "sha256": "15771626c0d4f5f2467f39ee482de9f169df02486fe2a8c08e4c107fe0c8c163"
+    },
+    {
+      "path": "qa/remote-peer-v1/report.json",
+      "sha256": "efbaf4a5b39d5f56fa64ca8a7805ce509dfd37ed439bae0fa1cd7b20ca4cd8e1"
+    },
+    {
+      "path": "public-readback-v1/verification.json",
+      "sha256": "f468c9e860553a882151953e506db35876f23eff7d9916edb2c99520ff1accf5"
+    },
+    {
+      "path": "local-promotion-v1/installed-v1/verified-install.json",
+      "sha256": "3cd1740922fd9b76328ac9c35a73463a7f5bedc83b25933a1c4e0b9ed02d0cf9"
+    },
+    {
+      "path": "local-promotion-v1/installed-context-v1/report.json",
+      "sha256": "d966765b962ef6b7e498eb09ab1e6ea6eed608a5f3bff552a644a0e4471a00a0"
+    },
+    {
+      "path": "local-promotion-v1/peer-installed-v1/report.json",
+      "sha256": "6d944a6d8edb59d9156bf432ebe1a2e8323179ee59ba95ba6ad815f2f4f6e9d3"
+    },
+    {
+      "path": "local-promotion-v1/peer-installed-v1/native-desktop-proof.json",
+      "sha256": "2a04a0dc1174605fc2b3bc4f64ff4b870a0732969cea5cb350a375352cd8d9d8"
+    }
+  ]
+}
