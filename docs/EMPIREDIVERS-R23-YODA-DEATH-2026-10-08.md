@@ -1,6 +1,6 @@
 # EmpireDivers r23 LEGO Yoda death sound
 
-The r23 candidate adds the classic Complete Saga `YODADEATH.WAV` to the local player's LEGO Stormtrooper (DP-40, body ID `B513FD54`) and LEGO Bikini Stormtrooper (AF-02, `E9ADD047`). Both body types qualify; helmet choices are irrelevant. Ordinary body armor with a LEGO helmet does not qualify.
+Public pack `2026.10.08-r23` adds the classic Complete Saga `YODADEATH.WAV` to the local player's LEGO Stormtrooper (DP-40, body ID `B513FD54`) and LEGO Bikini Stormtrooper (AF-02, `E9ADD047`). Both body types qualify; helmet choices are irrelevant. Ordinary body armor with a LEGO helmet does not qualify.
 
 An isolated event in the common player voice BANK adds four HIRC objects and one embedded PCM recording. All 2,640 old HIRC objects, 604 events, 644 sound contracts and 335 resident media entries remain exact. Two independent parsers and a fresh decoder validate the new graph and unchanged 14,705-frame, mono 11,025-Hz recording. New IDs do not collide with 479 native BANKs or the 116 effective Empire BANK providers.
 
@@ -15,5 +15,9 @@ Independent checks pass 81 armor/death-policy cases and 63 real Windows/Bcrypt c
 Test one confirmed death in each LEGO body, then ordinary armor, respawn and mission exit. The effect adds its own one-shot; existing death audio remains. The previous Star Destroyer, walker, Eagle and audio playtest checklist remains applicable.
 
 Uses code / research from **HD2Runtime by SkyeShade**: https://github.com/SkyeShade/HD2Runtime, commit `41184521ce6021bf15a294d2debdee3da30d931a`, under its copying-with-credit permission. Recording and extraction credits are in [the release notes](releases/pack-2026.10.08-r23.md).
+
+The public release is published from source `c4e962e8aa69496bb9f307d49f5e5a22504767db` and feed commit `25b67e4284f95345fa2fbcbfaced6c5dda49c151`. The sealed manifest SHA-256 is `b08614df277dad2388a70ddeab7e230fa9990b7045e0abbe3c687e2c6966e5f7`. All three coordinated feeds match their sealed preparations. The complete public check verifies 1,106 hosted asset identities and the launcher download; an independent peer downloaded and hashed all three new assets (4,559,088 bytes). The latest launcher remains 1.7.3.
+
+Local installation is queued behind the closed-game/closed-launcher guard. A plan attempt refused a running launcher before any changes; the installed checkpoint remains r22. This is separate from the completed public publication. The guarded local helper and its independent source review are ready. See [the verification record](releases/pack-2026.10.08-r23-verification.json) for the exact scope.
 
 Versioned evidence is retained under `dist/empire-yoda-death-2026-10-08` and `dist/production-r23-2026-10-08`.

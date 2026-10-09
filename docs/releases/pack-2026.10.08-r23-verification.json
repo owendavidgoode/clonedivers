@@ -1,0 +1,134 @@
+{
+  "passed": true,
+  "publicQaPassed": true,
+  "version": "2026.10.08-r23",
+  "launcherVersion": "1.7.3",
+  "sourceCommit": "c4e962e8aa69496bb9f307d49f5e5a22504767db",
+  "feedCommit": "25b67e4284f95345fa2fbcbfaced6c5dda49c151",
+  "sealedManifestSha256": "b08614df277dad2388a70ddeab7e230fa9990b7045e0abbe3c687e2c6966e5f7",
+  "logicalRows": 1809,
+  "newAssetBytes": 4559088,
+  "newUniqueAssets": 3,
+  "actualLauncherStates": 96,
+  "actualLauncherFileSets": 16,
+  "nativeRoutingFixtures": 57,
+  "contextFixtures": 63,
+  "eagleContextFixtures": 56,
+  "fullAndLighterActualSelectionsPassed": true,
+  "hostedAssetIdentities": 1106,
+  "threePublicFeedsIndependentlyRead": true,
+  "actualNewAssetDownloadsVerified": true,
+  "publicLauncherDownloadVerified": true,
+  "gameBuild": "25480438",
+  "scope": {
+    "mode": "EmpireDivers",
+    "profiles": [
+      "full",
+      "lighter"
+    ],
+    "localPlayerOnly": true,
+    "bodyArmorOnly": [
+      "DP-40 Hero of the Federation / LEGO Stormtrooper",
+      "AF-02 Haz-Master / LEGO Bikini Stormtrooper"
+    ],
+    "helmetOnlyRejected": true,
+    "remoteRouting": false,
+    "normalVoiceAssignmentsChanged": 0,
+    "newEvent": "clonedivers_lego_yoda_death",
+    "eventFnv1": 4055635130,
+    "nativeVoiceBusRouting": "Existing generic voice root; no new attenuation object",
+    "gibOrRemovalBetweenPollsMayMissCue": true
+  },
+  "localInstalled": false,
+  "localInstallationStatus": "awaiting-launcher-closure",
+  "lastKnownInstalledVersion": "2026.10.08-r22",
+  "lastKnownInstalledEmpireFiles": 1387,
+  "expectedR23EmpireFiles": 1396,
+  "latestPlanOutcome": "Closed() guard refused before changes because launcher or game was running",
+  "actualR23DesktopReceiptInventoryVerified": false,
+  "audibleGameplayTested": false,
+  "gameplayAccepted": false,
+  "proofPathBase": "dist/",
+  "proofs": [
+    {
+      "path": "empire-yoda-death-2026-10-08/runtime/candidate-v4/report.json",
+      "sha256": "204e10bfbdca5085b7518d051fc6b0242c8c07e348bc9a32f11861506f355cf3"
+    },
+    {
+      "path": "empire-yoda-death-2026-10-08/runtime/fixtures-v1/report.json",
+      "sha256": "2ade34aed0e13ee4e93b4d7c026eb6a976a0aaaf5001dd5cbdd8d08be53c6175"
+    },
+    {
+      "path": "empire-yoda-death-2026-10-08/armor/package-peer-v2/report.json",
+      "sha256": "4e02c49734194a86f650f10f1969410737c2c191f388ca333735867b14e0a111"
+    },
+    {
+      "path": "empire-yoda-death-2026-10-08/armor/identity-peer-v1/report.json",
+      "sha256": "49298e4e4e197edb144457dc0facd09252e41241ed72e12b43e1be703729839d"
+    },
+    {
+      "path": "empire-yoda-death-2026-10-08/source-v1/source-verification.json",
+      "sha256": "b095b603eacce289a73187812fbd67402b5b0cb94b3c71cd59fca258acda2dfe"
+    },
+    {
+      "path": "empire-yoda-death-2026-10-08/audio/candidate-v1/report.json",
+      "sha256": "994b87c9c7f78d5841b10f6dbec1d65c82ffb1f1ec818523a12c53e0051981f5"
+    },
+    {
+      "path": "empire-yoda-death-2026-10-08/armor/audio-peer-v1/report.json",
+      "sha256": "de8d0cba9b710e7421a1e1df6c1dab1f04e578e4200adaac93362210f739338e"
+    },
+    {
+      "path": "empire-yoda-death-2026-10-08/audio/wwiser-peer-v2/report.json",
+      "sha256": "4017e9fd1762d50cccca975df6fde1e09c24fd490446b22cdd118a62629988a9"
+    },
+    {
+      "path": "empire-yoda-death-2026-10-08/audio/native-closure-v1/report.json",
+      "sha256": "96aaf33c537dfb447ea45ff0077d15fe1c2f721c3de1097a5867600981d7438a"
+    },
+    {
+      "path": "empire-yoda-death-2026-10-08/audio/effective-collision-peer-v1/report.json",
+      "sha256": "1454492648febd74fa5dda52bf16f728afb283cea43c64ef70c8661f0eaed0a6"
+    },
+    {
+      "path": "production-r23-2026-10-08/eagle-v1/report.json",
+      "sha256": "8adebe21f416a55cdfe9cc7291307f50db4dc878cc1c62f3d37756ec572c1dba"
+    },
+    {
+      "path": "production-r23-2026-10-08/qa/context-delta-peer-v1/report.json",
+      "sha256": "a3087281e5b6e3eb55bd6dba880c8d6540b3fff996d2ce390d362b75c8d38492"
+    },
+    {
+      "path": "production-r23-2026-10-08/inputs-v2/composition.json",
+      "sha256": "db099c56868e5c46b924bc4e685da5a5d37889d167ebb178ed64de3baa64c726"
+    },
+    {
+      "path": "production-r23-2026-10-08/inputs-v2/production96.json",
+      "sha256": "150b0d4550507173dace20fbf9335ba11fa632c3ab0ccc08d4a6996215b96a1e"
+    },
+    {
+      "path": "production-r23-2026-10-08/inputs-v2/selection-qa.json",
+      "sha256": "37f77f41b679dd61c6404bcd265ebe091da23217398f8e25d3154e2c50a9f871"
+    },
+    {
+      "path": "production-r23-2026-10-08/qa/composition-peer-v2/report.json",
+      "sha256": "39ad5fbea8f8f7d4a96609e896a8708fd878a21b1f739365e526d63e5ecdeb3c"
+    },
+    {
+      "path": "production-r23-2026-10-08/public-readback-v1/verification.json",
+      "sha256": "0705ddbeb01a13f43a04aae71724e65f647f49cb31add4397648e6420fa17540"
+    },
+    {
+      "path": "production-r23-2026-10-08/qa/public-peer-v4/report.json",
+      "sha256": "47be12db6a37bf4034515426d7763d34d964b4791abecaf3beea3355e365d5cc"
+    },
+    {
+      "path": "production-r23-2026-10-08/qa/local-source-peer-v1/report.json",
+      "sha256": "55f136886ace9f09a89a7b8430a4991d2228810d7e1cf8c343126040b5078ecc"
+    },
+    {
+      "path": "production-r23-2026-10-08/qa/final-handoff-v1/report.json",
+      "sha256": "eabb61de7aed1d90c1a61db05871b1d7f1158d37af4bdbad9f11ccabbf08e583"
+    }
+  ]
+}
