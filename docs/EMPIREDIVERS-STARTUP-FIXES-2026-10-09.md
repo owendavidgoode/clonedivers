@@ -2,8 +2,8 @@
 
 The owner authorized unattended actual launches, forced HD2 closure between tests,
 and continued repair without questions. The owner then requested inspection of
-Claude's findings before proceeding. Public releases remain unchanged while the
-repairs are tested privately.
+Claude's findings before proceeding. Public releases stayed unchanged during the
+private repair tests; r24 was published after runtime and release qualification.
 
 ## Claude findings verified locally
 
@@ -97,6 +97,38 @@ regressions reject the original malformed archives and accept their corrections.
 The r24 contexts pass 121 fixtures; the actual successful Empire runtime logs and
 installed context checks have independent peer reviews.
 
-Next: stage and publish r24, run actual Check/Repair against the public release,
-and repeat Empire startup. The new version ensures saved receipts adopt the
-corrections. Gameplay, audible Yoda playback and vehicle physics remain untested.
+## Publication and repair acceptance
+
+Coordinated Stage passed all native launcher tests and freshly hashed both
+profile exports. Independent review verified all eleven sealed files, exact
+candidate semantics, four assets totaling 466,976 bytes, the unchanged launcher
+1.7.3 and all three feed projections. Prepared files are retained at
+`D:/clonedivers-release-r24-20261009/release-ready-v1` because C: was low on space.
+The bundled SDK was NTFS-compressed with paths and contents retained; game files
+were not compressed or relocated.
+
+The coordinated publication completed. Source commit:
+`491d16ba40d4c75f0193aae056337b7bc8204af0`; feed commit:
+`dcff6d7a8f01022b2102a520539444a450112c9f`. The serialized public current manifest
+has SHA256 `5c9e6230f3f3d36394af0ba5cbd9cd8030f62081195791e267d0a6fa580e26df`
+and exactly the runtime-tested candidate's parsed contents. Fresh downloads of
+all four new assets match their hashes; all three API/raw feeds match the sealed
+projections. Latest launcher remains 1.7.3. Evidence:
+`dist/production-r24-2026-10-09/qa/public-peer-v2/report.json`.
+
+At 18:09, actual desktop launcher Check/Repair reported
+**Verified: all 1,396 files match 2026.10.09-r24.** Selected receipt rows stayed
+exact, camera settings stayed exact and no pending transaction remained.
+Independent installed Eagle/Yoda context checks still pass against the published
+manifest. Evidence: `qa/public-repair-after-v1` and
+`qa/installed-context-after-public-repair-v1` under the r24 evidence tree.
+
+At 18:10, Empire was launched again through the desktop launcher. The solo bridge,
+Imperial character, HUD and exterior Star Destroyers were directly observed.
+No new dump or DirectStorage log; receipt unchanged. A 182-second soak after
+direct ship observation passed with the bridge still visible and process
+responding. HD2 was force-closed as authorized, its exit confirmed, and the
+launcher closed. Empire / Full r24 remains installed and selected.
+Evidence: `loop-2026-10-09/attempt-006-public-r24-empire`.
+
+Gameplay, audible Yoda playback and vehicle physics remain untested.
