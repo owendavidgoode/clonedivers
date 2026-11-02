@@ -9,6 +9,11 @@ Choose Helldivers, Clonedivers, or EmpireDivers. Launch through Steam.</p>
 
 ## Get started
 
+**Linux / Steam Deck:** a native terminal launcher is available as a
+[Linux preview](https://github.com/owendavidgoode/clonedivers/releases/tag/linux-v0.1.0).
+See [Linux setup and commands](docs/LINUX.md). Pack gameplay under Proton still needs
+player testing.
+
 1. Download [Clonedivers.exe](https://github.com/owendavidgoode/clonedivers/releases/latest/download/Clonedivers.exe). Close any older launcher before replacing it. The executable is unsigned; Windows may show a SmartScreen prompt.
 2. Keep the game closed. Choose **Clonedivers** or **EmpireDivers**, set **Droid skins**, optional **Covenant squids** and **JohnsonPotatoMode™**, then download the pack. The launcher shows the download size and resumes interrupted downloads.
 3. Click **Launch**. Steam starts Helldivers 2. Each player installs the pack locally to see and hear its replacements.

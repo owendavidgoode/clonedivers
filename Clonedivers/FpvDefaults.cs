@@ -31,7 +31,7 @@ public static class FpvDefaults
     {
         if (ModFiles.GetState(gameDir) != ModState.On) return false;
         // Resolve the values path only after recognizing installed FPV: vanilla/non-FPV never touch this setting.
-        return EnsureForInstalledPack(gameDir!, ValuesPath, CameraSize, CameraSha256,
+        return EnsureForInstalledPack(gameDir!, () => OperatingSystem.IsLinux() ? LinuxPlatform.FpvValuesPath(gameDir!) : ValuesPath(), CameraSize, CameraSha256,
             InstallReceipt.Load(Settings.ReceiptPathFor(gameDir!), gameDir!)?.Files.Select(f => f.File).ToList(), dependencies: Dependencies);
     }
 
@@ -152,7 +152,7 @@ public static class FpvDefaults
     {
         path = Path.GetFullPath(path);
         var backup = path + ".clonedivers-seed-backup";
-        var mutexName = "Local\\Clonedivers-FpvDefaults-" + Convert.ToHexString(SHA256.HashData(Utf8.GetBytes(path.ToUpperInvariant())));
+        var mutexName = (OperatingSystem.IsWindows() ? "Local\\" : "") + "Clonedivers-FpvDefaults-" + Convert.ToHexString(SHA256.HashData(Utf8.GetBytes(PlatformPaths.Identity(path))));
         using var mutex = new Mutex(false, mutexName);
         bool held;
         try { held = mutex.WaitOne(0); }

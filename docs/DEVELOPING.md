@@ -4,9 +4,12 @@ Current state: [STATUS.md](STATUS.md). Team instructions: [TEAM-SETUP.md](TEAM-S
 Release workflow: [PUBLISHING.md](PUBLISHING.md). Older preflight details are
 [archived](archive/2026-09-12-session/DEVELOPING.md).
 
-The Windows launcher is .NET 8 WinForms. `Clonedivers/Program.cs` implements pack
-verification, recovery and the main UI. `Clonedivers/LauncherModes.cs` provides the
-three mode controls. The native console test project compiles those same sources.
+The Windows launcher is .NET 8 WinForms. `Clonedivers/PackCore.cs` implements pack
+verification and recovery; `Clonedivers/Program.cs` contains the main Windows UI.
+`Clonedivers/ModeSelection.cs` provides shared selection rules and
+`Clonedivers/LauncherModes.cs` contains the Windows mode controls. The native console
+test project compiles those same sources. `Clonedivers.Linux` links the shared core
+into a terminal launcher; see [Linux setup and checks](LINUX.md).
 
 ```powershell
 ./dist/dotnet-sdk/dotnet.exe run --project Clonedivers.Tests

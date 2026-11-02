@@ -1,0 +1,67 @@
+name: Linux launcher
+on:
+  workflow_dispatch:
+  push:
+    branches: [main, codex/linux-launcher]
+    tags: ['linux-v*']
+    paths:
+      - 'Clonedivers/**'
+      - 'Clonedivers.Linux/**'
+      - 'Clonedivers.Linux.Tests/**'
+      - '.github/workflows/linux-launcher.yml'
+      - 'docs/LINUX.md'
+  pull_request:
+    paths:
+      - 'Clonedivers/**'
+      - 'Clonedivers.Linux/**'
+      - 'Clonedivers.Linux.Tests/**'
+      - '.github/workflows/linux-launcher.yml'
+jobs:
+  build:
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '8.0.x'
+      - name: Test Linux installation and recovery
+        run: dotnet run --project Clonedivers.Linux.Tests -c Release
+      - name: Publish self-contained Linux packages
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p artifacts
+          for arch in x64 arm64; do
+            dotnet publish Clonedivers.Linux -c Release -r linux-$arch --self-contained true -o dist/linux-$arch -p:DebugType=None -p:DebugSymbols=false
+            cp docs/LINUX.md dist/linux-$arch/README.md
+            cp LICENSE dist/linux-$arch/LICENSE
+            chmod +x dist/linux-$arch/clonedivers
+            tar -C dist/linux-$arch -czf artifacts/Clonedivers-linux-$arch.tar.gz clonedivers README.md LICENSE
+          done
+          ./dist/linux-x64/clonedivers --help
+          ./dist/linux-x64/clonedivers --version
+          cd artifacts
+          sha256sum Clonedivers-linux-*.tar.gz > SHA256SUMS
+      - uses: actions/upload-artifact@v4
+        with:
+          name: Clonedivers-linux
+          path: artifacts/*
+          if-no-files-found: error
+  release:
+    if: startsWith(github.ref, 'refs/tags/linux-v')
+    needs: build
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with:
+          name: Clonedivers-linux
+          path: artifacts
+      - name: Publish Linux preview
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh release create "$GITHUB_REF_NAME" artifacts/* --prerelease --latest=false --title "Clonedivers Linux ${GITHUB_REF_NAME#linux-} (preview)" --notes-file docs/releases/linux-0.1.0.md
