@@ -10,7 +10,7 @@ Choose Helldivers, Clonedivers, or EmpireDivers. Launch through Steam.</p>
 ## Get started
 
 **Linux / Steam Deck:** a native terminal launcher is available as a
-[Linux preview](https://github.com/owendavidgoode/clonedivers/releases/tag/linux-v0.1.0).
+[Linux preview](https://github.com/owendavidgoode/clonedivers/releases/tag/linux-v0.1.1).
 See [Linux setup and commands](docs/LINUX.md). Pack gameplay under Proton still needs
 player testing.
 

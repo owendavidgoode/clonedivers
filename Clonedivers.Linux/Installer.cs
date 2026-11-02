@@ -2,6 +2,26 @@ namespace Clonedivers;
 
 public static class LinuxInstaller
 {
+    public static string PlanPathFor(string gameDir)
+    {
+        var scoped = Path.Combine(PlatformPaths.ConfigDirectory, "updates", Path.GetFileName(Settings.ReceiptPathFor(gameDir)));
+        // Finish a 0.1.0 recovery target in place; other installations use their own file.
+        return !File.Exists(scoped) && RecoveryTarget.Read(gameDir, Settings.PlanPath) is not null ? Settings.PlanPath : scoped;
+    }
+
+    public static RecoveryTarget RepairTarget(string gameDir, InstallReceipt receipt) => receipt.ToRecoveryTarget(ModFiles.GetState(gameDir) switch
+    {
+        ModState.On => true,
+        ModState.Off => false,
+        _ => receipt.TargetActive
+    });
+
+    public static void RequireNoSteamUpdate(string gameDir)
+    {
+        if (SteamAcf.Read(gameDir)?.UpdatePending == true)
+            throw new InvalidOperationException("Steam has a game update queued. Finish it before changing or launching the pack.");
+    }
+
     public static void RequireClosed()
     {
         if (Game.IsRunning()) throw new InvalidOperationException("Close Helldivers 2 before changing or launching the pack.");
@@ -26,14 +46,20 @@ public static class LinuxInstaller
         Func<UpdatePlan, bool> confirm, IProgress<(long done, long total, int file, int files)>? progress, CancellationToken ct)
     {
         RequireClosed();
+        RequireNoSteamUpdate(gameDir);
+        var observedBuild = SteamAcf.Read(gameDir)?.BuildId;
         var plan = await PlanAsync(gameDir, target.Files, target.TargetActive, ct);
         if (!confirm(plan)) throw new OperationCanceledException("No files changed.");
         await Pack.DownloadPlanAsync(plan, Path.Combine(gameDir, Pack.DownloadFolder), progress, ct);
         ct.ThrowIfCancellationRequested();
         RequireClosed();
+        RequireNoSteamUpdate(gameDir);
         // Re-inventory after downloading: the game, Steam or a manual edit may have changed files.
         plan = await PlanAsync(gameDir, target.Files, target.TargetActive, ct);
         if (plan.Downloads.Count > 0) throw new IOException("Some downloads are missing. Retry to resume.");
+        RequireNoSteamUpdate(gameDir);
+        if (SteamAcf.Read(gameDir)?.BuildId != observedBuild)
+            throw new IOException("Steam changed the game build during preparation. Retry to review compatibility with the new build; installed mods were left untouched.");
         return Pack.Apply(gameDir, plan, planPath, target.PackVersion, null, null,
             target.GameBuild, target.Options, target.TextureProfile, true, receiptPath);
     }

@@ -10,12 +10,14 @@ on:
       - 'Clonedivers.Linux.Tests/**'
       - '.github/workflows/linux-launcher.yml'
       - 'docs/LINUX.md'
+      - 'tools/qa-linux-package.sh'
   pull_request:
     paths:
       - 'Clonedivers/**'
       - 'Clonedivers.Linux/**'
       - 'Clonedivers.Linux.Tests/**'
       - '.github/workflows/linux-launcher.yml'
+      - 'tools/qa-linux-package.sh'
 jobs:
   build:
     runs-on: ubuntu-24.04
@@ -49,9 +51,28 @@ jobs:
           name: Clonedivers-linux
           path: artifacts/*
           if-no-files-found: error
+  package-qa:
+    needs: build
+    strategy:
+      matrix:
+        os: [ubuntu-22.04, ubuntu-24.04]
+    runs-on: ${{ matrix.os }}
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '8.0.x'
+      - uses: actions/download-artifact@v4
+        with:
+          name: Clonedivers-linux
+          path: artifacts
+      - name: Verify extracted packages and run real executable integration tests
+        run: bash tools/qa-linux-package.sh artifacts
   release:
     if: startsWith(github.ref, 'refs/tags/linux-v')
-    needs: build
+    needs: [build, package-qa]
     runs-on: ubuntu-24.04
     permissions:
       contents: write
@@ -64,4 +85,21 @@ jobs:
       - name: Publish Linux preview
         env:
           GH_TOKEN: ${{ github.token }}
-        run: gh release create "$GITHUB_REF_NAME" artifacts/* --prerelease --latest=false --title "Clonedivers Linux ${GITHUB_REF_NAME#linux-} (preview)" --notes-file docs/releases/linux-0.1.0.md
+        run: gh release create "$GITHUB_REF_NAME" artifacts/* --prerelease --latest=false --title "Clonedivers Linux ${GITHUB_REF_NAME#linux-} (preview)" --notes-file "docs/releases/linux-${GITHUB_REF_NAME#linux-v}.md"
+  hosted-qa:
+    if: startsWith(github.ref, 'refs/tags/linux-v')
+    needs: release
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '8.0.x'
+      - name: Download the published release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh release download "$GITHUB_REF_NAME" --dir hosted-release
+      - name: Validate hosted checksums, archives, architecture and executable behavior
+        run: bash tools/qa-linux-package.sh hosted-release

@@ -8,6 +8,7 @@ internal static class LinuxProgram
     static string? gameDir, source;
     static Manifest? manifest;
     static bool yes;
+    static string PlanPath => LinuxInstaller.PlanPathFor(gameDir!);
     static readonly CancellationTokenSource cancellation = new();
 
     public static async Task<int> Main(string[] args)
@@ -21,7 +22,7 @@ internal static class LinuxProgram
                 switch (args[i])
                 {
                     case "--help": case "-h": Help(); return 0;
-                    case "--version": Console.WriteLine("Clonedivers Linux 0.1.0"); return 0;
+                    case "--version": Console.WriteLine($"Clonedivers Linux {AppInfo.Version}"); return 0;
                     case "--yes": yes = true; break;
                     case "--game": gameDir = Value(args, ref i); break;
                     case "--manifest": source = Value(args, ref i); break;
@@ -59,8 +60,8 @@ internal static class LinuxProgram
     }
 
     static string Value(string[] args, ref int i) => ++i < args.Length ? args[i] : throw new ArgumentException("Missing option value.");
-    static void Help() => Console.WriteLine("""
-        Clonedivers Linux 0.1.0 — terminal launcher
+    static void Help() => Console.WriteLine($"""
+        Clonedivers Linux {AppInfo.Version} — terminal launcher
         Usage: ./clonedivers [--game '/path/to/Helldivers 2'] [--yes] [command]
         No command: open the menu.
           status                  Show local installation state
@@ -114,13 +115,13 @@ internal static class LinuxProgram
 
     static void Status()
     {
-        Console.WriteLine($"\nClonedivers Linux 0.1.0\nGame: {gameDir}");
+        Console.WriteLine($"\nClonedivers Linux {AppInfo.Version}\nGame: {gameDir}");
         Console.WriteLine($"Mods: {ModFiles.GetState(gameDir)} | Game: {(Game.IsRunning() ? "running" : "closed")}");
         var receipt = InstallReceipt.Load(Settings.ReceiptPathFor(gameDir!), gameDir!);
         Console.WriteLine(receipt is not null && receipt.MatchesLayout(gameDir!)
             ? $"Installed pack: {receipt.PackVersion} | textures: {receipt.TextureProfile} | universe: {(receipt.Options.GetValueOrDefault("empire") ? "EmpireDivers" : "Clonedivers")}"
             : "Installed selection is unrecorded or changed; use Check and repair.");
-        if (Pack.HasPendingUpdate(gameDir, Settings.PlanPath)) Console.WriteLine("An interrupted update needs Finish before switching modes or launching.");
+        if (Pack.HasPendingUpdate(gameDir, PlanPath)) Console.WriteLine("An interrupted update needs Finish before switching modes or launching.");
     }
 
     static async Task<PackManifest> Feed()
@@ -171,16 +172,22 @@ internal static class LinuxProgram
         using var gameLock = LinuxInstaller.Lock(gameDir!);
         if (command == "finish")
         {
-            var saved = RecoveryTarget.Read(gameDir!, Settings.PlanPath) ?? throw new InvalidOperationException("No valid saved update target. Use repair to rebuild an unrecorded staged installation.");
+            var saved = RecoveryTarget.Read(gameDir!, PlanPath) ?? throw new InvalidOperationException("No valid saved update target. Use repair to rebuild an unrecorded staged installation.");
             await Apply(saved); return;
         }
-        if (Pack.HasPendingUpdate(gameDir, Settings.PlanPath) &&
-            (RecoveryTarget.Read(gameDir!, Settings.PlanPath) is not null || command is not ("repair" or "install")))
+        if (Pack.HasPendingUpdate(gameDir, PlanPath) &&
+            (RecoveryTarget.Read(gameDir!, PlanPath) is not null || command is not ("repair" or "install")))
             throw new InvalidOperationException("An interrupted update needs 'finish' before switching, repairing or launching. For orphaned staged files, use repair or install.");
         if (command == "vanilla")
         {
             LinuxInstaller.RequireClosed();
             var count = ModFiles.MoveAllPatchFiles(Path.Combine(gameDir!, ModFiles.DataFolder), Path.Combine(gameDir!, ModFiles.OffFolder));
+            var receipt = InstallReceipt.Load(Settings.ReceiptPathFor(gameDir!), gameDir!);
+            if (receipt is not null && receipt.MatchesLayout(gameDir!))
+            {
+                var parked = receipt.ToApplyResult(); parked.TargetActive = false;
+                InstallReceipt.Write(Settings.ReceiptPathFor(gameDir!), gameDir!, receipt.Files.Select(f => f.File).ToList(), parked);
+            }
             Console.WriteLine($"Vanilla selected. Parked {count} mod files.");
             settings.Save(); return;
         }
@@ -201,7 +208,7 @@ internal static class LinuxProgram
         {
             var receipt = InstallReceipt.Load(Settings.ReceiptPathFor(gameDir!), gameDir!);
             if (receipt is null) throw new InvalidOperationException("No installed selection recorded. Use install clone or install empire to verify and repair existing files.");
-            await Apply(receipt.ToRecoveryTarget(ModFiles.GetState(gameDir) == ModState.On)); return;
+            await Apply(LinuxInstaller.RepairTarget(gameDir!, receipt)); return;
         }
         var selected = mode switch
         {
@@ -211,7 +218,6 @@ internal static class LinuxProgram
         };
         var pack = await Feed();
         if (pack.IsBroken) throw new InvalidOperationException($"Pack updates are paused: {pack.StatusNotes}");
-        CheckBuild(pack.GameBuild);
         var options = LauncherModes.OptionsFor(settings, pack, selected);
         var profile = settings.ProfileFor(pack);
         await Apply(new RecoveryTarget { PackVersion = pack.Version, GameBuild = pack.GameBuild, Options = options,
@@ -221,7 +227,7 @@ internal static class LinuxProgram
     static void CheckBuild(string? tested)
     {
         var actual = SteamAcf.Read(gameDir);
-        if (actual?.UpdatePending == true) throw new InvalidOperationException("Steam has a game update queued. Finish it before changing or launching the pack.");
+        LinuxInstaller.RequireNoSteamUpdate(gameDir!);
         if (tested is null || actual?.BuildId != tested)
             if (!Confirm($"Game build {actual?.BuildId ?? "unknown"}; pack tested against {tested ?? "unknown"}. Compatibility with this build is unverified."))
                 throw new OperationCanceledException();
@@ -229,13 +235,14 @@ internal static class LinuxProgram
 
     static async Task Apply(RecoveryTarget target)
     {
+        CheckBuild(target.GameBuild);
         var last = Stopwatch.StartNew();
         var progress = new SyncProgress<(long done, long total, int file, int files)>(p =>
         {
             if (last.ElapsedMilliseconds < 1000 && p.done < p.total) return;
             Console.WriteLine($"Download {p.file}/{p.files}: {Pack.FormatBytes(p.done)} / {Pack.FormatBytes(p.total)}"); last.Restart();
         });
-        var result = await LinuxInstaller.ApplyAsync(gameDir!, target, Settings.PlanPath, Settings.ReceiptPathFor(gameDir!), plan =>
+        var result = await LinuxInstaller.ApplyAsync(gameDir!, target, PlanPath, Settings.ReceiptPathFor(gameDir!), plan =>
             Confirm($"Pack {target.PackVersion}, textures {target.TextureProfile}. Download {Pack.FormatBytes(plan.BytesToDownload)}, copy {Pack.FormatBytes(plan.BytesToCopy)}, park {plan.ParkCount} files. Replaced files are kept in mods_old."), progress, cancellation.Token);
         if (result.Interrupted) throw new IOException($"Update interrupted: {result.Reason} {string.Join(", ", result.Failed)}. Close the game and run finish.");
         settings.RecordInstall(result);

@@ -7,7 +7,7 @@ Helldivers 2 through Steam. No separate .NET install is needed for release packa
 ## Start
 
 Download `Clonedivers-linux-x64.tar.gz` from the
-[Linux preview release](https://github.com/owendavidgoode/clonedivers/releases/tag/linux-v0.1.0).
+[Linux preview release](https://github.com/owendavidgoode/clonedivers/releases/tag/linux-v0.1.1).
 Most desktop PCs and Steam Deck use x64. The arm64 package is also built, but that
 does not establish that Helldivers 2 can run on an ARM machine.
 
@@ -64,6 +64,9 @@ patch files in `mods_off`, including manually installed mods, as on Windows.
 Settings live in `${XDG_CONFIG_HOME:-$HOME/.config}/clonedivers`. The launcher holds a
 per-game lock against a second Linux launcher while changing files. Close any other
 mod managers too. `--manifest URL` uses a separate metadata cache for testing.
+Recovery targets are scoped to each game folder; saved 0.1.0 recovery targets remain
+finishable after upgrading. Repair preserves the recorded active/vanilla selection
+even if every mod file has been deleted. Repair and finish refuse queued Steam updates.
 
 FPV/ModOptions defaults are prepared inside
 `steamapps/compatdata/553850/pfx/drive_c/users/steamuser/AppData/Local`. Existing
@@ -97,6 +100,8 @@ dotnet publish Clonedivers.Linux -c Release -r linux-x64 --self-contained true -
 ```
 
 The Linux and Windows launchers compile the same pack, validation, download and
-recovery sources. Linux CI builds both x64 and arm64 packages and executes the x64
-binary. A `linux-v*` tag publishes a prerelease without changing the Windows latest
-release or the public pack feeds.
+recovery sources. Linux CI builds both x64 and arm64 packages, verifies archive
+contents, executable permissions, architecture and checksums, then runs the extracted
+x64 executable through installation/launch/repair/recovery scenarios on Ubuntu 22.04
+and 24.04. A `linux-v*` tag publishes a prerelease and downloads it again for hosted
+package verification, without changing the Windows latest release or public pack feeds.

@@ -84,6 +84,19 @@ try
     Check(new FileInfo(Path.Combine(game, "data", empty.Name)).Length == 0 && !File.Exists(planPath), "zero-byte companions finalize and recovery plan clears");
     var receipt = InstallReceipt.Load(receiptPath, game)!;
     Check(receipt.MatchesLayout(game), "successful install writes a matching receipt");
+    var beforeDecline = server.Requests;
+    try { await LinuxInstaller.ApplyAsync(game, Target(empire, "empire"), planPath, receiptPath, _ => false, null, default); throw new Exception("declined install accepted"); }
+    catch (OperationCanceledException) { Check(server.Requests == beforeDecline && !File.Exists(planPath), "declining a plan leaves downloads and installed files untouched"); }
+    try
+    {
+        await LinuxInstaller.ApplyAsync(game, Target(clone, "clone"), planPath, receiptPath, _ =>
+        {
+            File.WriteAllText(SteamAcf.AcfPath(game), "\"buildid\" \"99999999\""); return true;
+        }, null, default);
+        throw new Exception("changed game build accepted");
+    }
+    catch (IOException ex) { Check(ex.Message.Contains("changed the game build") && !File.Exists(planPath), "a Steam build change during preparation stops before writing a recovery plan or changing mods"); }
+    File.WriteAllText(SteamAcf.AcfPath(game), "\"buildid\" \"25480438\"");
     Game.IsRunningCheck = () => true;
     try { await LinuxInstaller.ApplyAsync(game, Target(empire, "empire"), planPath, receiptPath, _ => true, null, default); throw new Exception("running game accepted"); }
     catch (InvalidOperationException) { Check(File.ReadAllBytes(Path.Combine(game, "data", clone.Name)).SequenceEqual(cloneBytes), "running-game guard preserves installed files"); }
@@ -130,9 +143,11 @@ try
         Directory.CreateDirectory(Path.Combine(cliGame, "data")); Directory.CreateDirectory(Path.Combine(cliGame, "bin"));
         File.WriteAllText(Path.Combine(cliGame, "bin", "helldivers2.exe"), "fixture");
         File.WriteAllText(Path.Combine(cliGame, "..", "..", "appmanifest_553850.acf"), "\"buildid\" \"25480438\"");
+        var cloneVariant = clone.Clone(); cloneVariant.Modes = new() { "clonedivers", "commandos" };
+        var empireVariant = empire.Clone(); empireVariant.Modes = new() { "empire" };
         var feed = new Manifest { Format = 3, Pack = new PackManifest { Version = "fixture", GameBuild = "25480438", CombinedRoster = true,
             Options = new() { new() { Id = "empire", Default = false } }, TextureProfiles = new() { new() { Id = "full", Name = "Full" } },
-            Files = new() { clone, empty } } };
+            Files = new() { cloneVariant, empireVariant, empty } } };
         var feedUrl = server.Add("manifest", JsonSerializer.SerializeToUtf8Bytes(feed, new JsonSerializerOptions { PropertyNamingPolicy = JsonNamingPolicy.CamelCase }));
         var launcherDll = typeof(LinuxInstaller).Assembly.Location;
         var fakeBin = Path.Combine(root, "fake-bin"); Directory.CreateDirectory(fakeBin);
@@ -140,19 +155,27 @@ try
         File.WriteAllText(open, "#!/bin/sh\nprintf '%s' \"$1\" > \"$CLONEDIVERS_TEST_URI\"\n");
         File.SetUnixFileMode(open, UnixFileMode.UserRead | UnixFileMode.UserWrite | UnixFileMode.UserExecute);
         var uriFile = Path.Combine(root, "uri");
-        async Task<string> Cli(string command)
+        async Task<string> Cli(string command, int expectedExit = 0, string? chosenGame = null, bool accept = true)
         {
-            var start = new ProcessStartInfo("dotnet") { RedirectStandardOutput = true, RedirectStandardError = true, RedirectStandardInput = true };
-            foreach (var arg in new[] { launcherDll, "--game", cliGame, "--manifest", feedUrl, "--yes" }.Concat(command.Split(' '))) start.ArgumentList.Add(arg);
+            var binary = Environment.GetEnvironmentVariable("CLONEDIVERS_TEST_BINARY");
+            var start = new ProcessStartInfo(binary ?? "dotnet") { RedirectStandardOutput = true, RedirectStandardError = true, RedirectStandardInput = true };
+            if (binary is null) start.ArgumentList.Add(launcherDll);
+            foreach (var arg in new[] { "--game", chosenGame ?? cliGame, "--manifest", feedUrl }) start.ArgumentList.Add(arg);
+            if (accept) start.ArgumentList.Add("--yes");
+            foreach (var arg in command.Split(' ')) start.ArgumentList.Add(arg);
             start.Environment["XDG_CONFIG_HOME"] = Path.Combine(root, "config");
+            start.Environment["DOTNET_ROOT"] = Path.Combine(root, "no-runtime-installation");
+            start.Environment["DOTNET_MULTILEVEL_LOOKUP"] = "0";
             start.Environment["PATH"] = fakeBin + ":" + Environment.GetEnvironmentVariable("PATH");
             start.Environment["CLONEDIVERS_TEST_URI"] = uriFile;
             using var child = Process.Start(start)!;
             child.StandardInput.Close();
             var stdout = child.StandardOutput.ReadToEndAsync(); var stderr = child.StandardError.ReadToEndAsync();
-            await child.WaitForExitAsync();
+            using var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(60));
+            try { await child.WaitForExitAsync(timeout.Token); }
+            catch (OperationCanceledException) { child.Kill(entireProcessTree: true); throw new Exception("CLI command timed out: " + command); }
             var output = await stdout + await stderr;
-            Check(child.ExitCode == 0, "CLI " + command + " exits successfully: " + output.Trim());
+            Check(child.ExitCode == expectedExit, $"CLI {command} exits {expectedExit}: " + output.Trim());
             return output;
         }
         await Cli("install clone");
@@ -163,6 +186,46 @@ try
         await Cli("vanilla");
         await Cli("repair");
         Check(ModFiles.GetState(cliGame) == ModState.Off, "actual CLI repair preserves a vanilla selection");
+        await Cli("install empire");
+        Check(File.ReadAllBytes(Path.Combine(cliGame, "data", empire.Name)).SequenceEqual(empireBytes), "CLI Empire mode installs distinct Imperial content");
+        await Cli("install clone");
+        foreach (var path in ModFiles.ListPatchFiles(Path.Combine(cliGame, "data"))) File.Delete(path);
+        await Cli("repair");
+        Check(ModFiles.GetState(cliGame) == ModState.On, "repair restores active selection when every active patch was deleted");
+        await Cli("vanilla");
+        foreach (var path in ModFiles.ListPatchFiles(Path.Combine(cliGame, ModFiles.OffFolder))) File.Delete(path);
+        await Cli("repair");
+        Check(ModFiles.GetState(cliGame) == ModState.Off, "repair keeps vanilla selected even when every parked patch was deleted");
+
+        var cliConfig = Path.Combine(root, "config", "clonedivers");
+        var cliReceipt = Directory.EnumerateFiles(Path.Combine(cliConfig, "receipts")).Single();
+        var saved = new { Format = 2, GameDir = cliGame, PackVersion = "fixture", GameBuild = "25480438", TargetActive = true,
+            TextureProfile = "full", Options = new Dictionary<string, bool> { ["empire"] = false }, TargetFiles = new[] { clone, empty }, Actions = Array.Empty<object>() };
+        var legacyPlan = Path.Combine(cliConfig, "apply-plan.json");
+        var legacyBytes = JsonSerializer.SerializeToUtf8Bytes(saved); File.WriteAllBytes(legacyPlan, legacyBytes);
+        var acf = SteamAcf.AcfPath(cliGame);
+        File.WriteAllText(acf, "\"buildid\" \"25480438\"\n\"TargetBuildID\" \"99999999\"");
+        Check((await Cli("finish", 1)).Contains("update queued"), "finish refuses a queued Steam update");
+        Check(File.ReadAllBytes(legacyPlan).SequenceEqual(legacyBytes), "blocked recovery preserves the exact saved target");
+        File.Delete(legacyPlan);
+        Check((await Cli("repair", 1)).Contains("update queued"), "repair refuses a queued Steam update");
+        File.WriteAllText(acf, "\"buildid\" \"25480438\"");
+
+        File.WriteAllBytes(legacyPlan, legacyBytes);
+        var otherGame = Path.Combine(root, "other-game");
+        Directory.CreateDirectory(Path.Combine(otherGame, "data")); Directory.CreateDirectory(Path.Combine(otherGame, "bin"));
+        File.WriteAllText(Path.Combine(otherGame, "bin", "helldivers2.exe"), "fixture");
+        await Cli("install clone", chosenGame: otherGame);
+        Check(File.ReadAllBytes(legacyPlan).SequenceEqual(legacyBytes), "installing into a second game folder cannot overwrite the first recovery target");
+        await Cli("finish");
+        Check(!File.Exists(legacyPlan) && ModFiles.GetState(cliGame) == ModState.On, "0.1.0 legacy recovery remains finishable after another installation");
+
+        feed.Pack.Status = "broken";
+        server.Add("manifest", JsonSerializer.SerializeToUtf8Bytes(feed, new JsonSerializerOptions { PropertyNamingPolicy = JsonNamingPolicy.CamelCase }));
+        Check((await Cli("install clone", 1)).Contains("updates are paused"), "broken pack feed blocks installation");
+        feed.Pack.Status = "ok";
+        server.Add("manifest", JsonSerializer.SerializeToUtf8Bytes(feed, new JsonSerializerOptions { PropertyNamingPolicy = JsonNamingPolicy.CamelCase }));
+        Check((await Cli("install clone", 1, accept: false)).Contains("--yes"), "noninteractive operations require explicit prompt acceptance");
     }
     var repository = Path.GetFullPath(Path.Combine(AppContext.BaseDirectory, "../../../.."));
     var published = Manifest.Parse(File.ReadAllText(Path.Combine(repository, "manifest-v3-current.json"))).Pack!;
