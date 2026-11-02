@@ -1480,4 +1480,3 @@ internal static class AppInfo
     public static readonly string Version =
         typeof(AppInfo).Assembly.GetName().Version is { } v ? $"{v.Major}.{v.Minor}.{v.Build}" : "dev";
 }
-
