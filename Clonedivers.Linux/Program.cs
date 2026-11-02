@@ -11,7 +11,7 @@ internal static class LinuxProgram
     static string PlanPath => LinuxInstaller.PlanPathFor(gameDir!);
     static readonly CancellationTokenSource cancellation = new();
 
-    public static async Task<int> Main(string[] args)
+    public static async Task<int> RunAsync(string[] args)
     {
         Console.CancelKeyPress += (_, e) => { e.Cancel = true; cancellation.Cancel(); };
         try
@@ -24,6 +24,7 @@ internal static class LinuxProgram
                     case "--help": case "-h": Help(); return 0;
                     case "--version": Console.WriteLine($"Clonedivers Linux {AppInfo.Version}"); return 0;
                     case "--yes": yes = true; break;
+                    case "--terminal": break;
                     case "--game": gameDir = Value(args, ref i); break;
                     case "--manifest": source = Value(args, ref i); break;
                     default:
@@ -63,7 +64,7 @@ internal static class LinuxProgram
     static void Help() => Console.WriteLine($"""
         Clonedivers Linux {AppInfo.Version} — terminal launcher
         Usage: ./clonedivers [--game '/path/to/Helldivers 2'] [--yes] [command]
-        No command: open the menu.
+        No command: open the desktop window. --terminal opens the optional terminal menu.
           status                  Show local installation state
           install [clone|empire]  Download/update and enable the chosen mode
           vanilla                 Park mods for ordinary Helldivers

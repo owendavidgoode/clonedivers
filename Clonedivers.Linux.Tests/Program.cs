@@ -262,7 +262,7 @@ try
 
         // The default user journey is a menu on a terminal, so exercise it with a real PTY.
         var menuScript = Path.Combine(fakeBin, "launch-menu");
-        File.WriteAllText(menuScript, "#!/bin/sh\nif [ -n \"$CLONEDIVERS_TEST_BINARY\" ]; then exec \"$CLONEDIVERS_TEST_BINARY\" --game \"$CLONEDIVERS_TEST_GAME\" --manifest \"$CLONEDIVERS_TEST_FEED\"; else exec dotnet \"$CLONEDIVERS_TEST_DLL\" --game \"$CLONEDIVERS_TEST_GAME\" --manifest \"$CLONEDIVERS_TEST_FEED\"; fi\n");
+        File.WriteAllText(menuScript, "#!/bin/sh\nif [ -n \"$CLONEDIVERS_TEST_BINARY\" ]; then exec \"$CLONEDIVERS_TEST_BINARY\" --terminal --game \"$CLONEDIVERS_TEST_GAME\" --manifest \"$CLONEDIVERS_TEST_FEED\"; else exec dotnet \"$CLONEDIVERS_TEST_DLL\" --terminal --game \"$CLONEDIVERS_TEST_GAME\" --manifest \"$CLONEDIVERS_TEST_FEED\"; fi\n");
         File.SetUnixFileMode(menuScript, UnixFileMode.UserRead | UnixFileMode.UserWrite | UnixFileMode.UserExecute);
         var menuStart = new ProcessStartInfo("script") { RedirectStandardInput = true, RedirectStandardOutput = true, RedirectStandardError = true };
         foreach (var arg in new[] { "-q", "-e", "-c", "exec \"$CLONEDIVERS_TEST_MENU_SCRIPT\"", "/dev/null" }) menuStart.ArgumentList.Add(arg);
@@ -345,6 +345,33 @@ try
         await Cli("record");
         await RunWrapper(0, produceMetrics: false);
         Check((await Cli("record-status")).Contains("No MangoHud CSV was produced"), "missing MangoHud layer is reported without claiming that performance capture succeeded");
+
+        var guiGame = Path.Combine(root, "GUI Library", "steamapps", "common", "Helldivers 2");
+        Directory.CreateDirectory(Path.Combine(guiGame, "data")); Directory.CreateDirectory(Path.Combine(guiGame, "bin"));
+        File.WriteAllText(Path.Combine(guiGame, "bin", "helldivers2.exe"), "fixture");
+        File.WriteAllText(Path.Combine(guiGame, ".clonedivers-ui-fixture"), "explicit synthetic UI test");
+        File.WriteAllText(Path.Combine(guiGame, "data", "base-archive"), "untouched");
+        File.WriteAllText(SteamAcf.AcfPath(guiGame), "\"buildid\" \"25480438\"");
+        var screenshot = Environment.GetEnvironmentVariable("CLONEDIVERS_GUI_SCREENSHOT") ?? Path.Combine(root, "gui.png");
+        Directory.CreateDirectory(Path.GetDirectoryName(Path.GetFullPath(screenshot))!);
+        var guiStart = new ProcessStartInfo("xvfb-run") { RedirectStandardOutput = true, RedirectStandardError = true };
+        guiStart.ArgumentList.Add("-a");
+        var guiBinary = Environment.GetEnvironmentVariable("CLONEDIVERS_TEST_BINARY");
+        guiStart.ArgumentList.Add(guiBinary ?? "dotnet");
+        if (guiBinary is null) guiStart.ArgumentList.Add(launcherDll);
+        foreach (var arg in new[] { "--gui", "--game", guiGame, "--manifest", feedUrl, "--ui-smoke", screenshot }) guiStart.ArgumentList.Add(arg);
+        guiStart.Environment["XDG_CONFIG_HOME"] = Path.Combine(root, "config");
+        guiStart.Environment["XDG_DATA_HOME"] = Path.Combine(root, "desktop-data");
+        guiStart.Environment["PATH"] = fakeBin + ":" + Environment.GetEnvironmentVariable("PATH");
+        guiStart.Environment["CLONEDIVERS_TEST_URI"] = uriFile;
+        using (var gui = Process.Start(guiStart)!)
+        {
+            var stdout = gui.StandardOutput.ReadToEndAsync(); var stderr = gui.StandardError.ReadToEndAsync();
+            using var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(90));
+            try { await gui.WaitForExitAsync(timeout.Token); } catch (OperationCanceledException) { gui.Kill(true); throw new Exception("Native GUI smoke test timed out"); }
+            Check(gui.ExitCode == 0, "native graphical launcher buttons, install/switch/repair/launch and shortcut: " + await stdout + await stderr);
+        }
+        Check(File.Exists(screenshot) && new FileInfo(screenshot).Length > 10000, "graphical launcher renders a real Linux window screenshot");
     }
     var repository = Path.GetFullPath(Path.Combine(AppContext.BaseDirectory, "../../../.."));
     var published = Manifest.Parse(File.ReadAllText(Path.Combine(repository, "manifest-v3-current.json"))).Pack!;

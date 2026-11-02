@@ -5,14 +5,17 @@
     <Nullable>enable</Nullable>
     <ImplicitUsings>enable</ImplicitUsings>
     <AssemblyName>clonedivers</AssemblyName>
-    <Version>0.2.0</Version>
+    <Version>0.3.0</Version>
     <PublishSingleFile>true</PublishSingleFile>
     <SelfContained>false</SelfContained>
     <IncludeNativeLibrariesForSelfExtract>true</IncludeNativeLibrariesForSelfExtract>
     <EnableCompressionInSingleFile>true</EnableCompressionInSingleFile>
   </PropertyGroup>
   <ItemGroup>
+    <PackageReference Include="Avalonia.Desktop" Version="11.3.22" />
+    <PackageReference Include="Avalonia.Themes.Fluent" Version="11.3.22" />
     <InternalsVisibleTo Include="Clonedivers.Linux.Tests" />
+    <EmbeddedResource Include="clonedivers.svg" LogicalName="Clonedivers.desktop.svg" />
     <Compile Include="../Clonedivers/PackCore.cs" Link="Core/PackCore.cs" />
     <Compile Include="../Clonedivers/ModeSelection.cs" Link="Core/ModeSelection.cs" />
     <Compile Include="../Clonedivers/LinuxPlatform.cs" Link="Core/LinuxPlatform.cs" />

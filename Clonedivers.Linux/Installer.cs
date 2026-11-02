@@ -42,14 +42,18 @@ public static class LinuxInstaller
         return Pack.Plan(gameDir, files, inventory, downloads, active);
     }
 
-    public static async Task<ApplyResult> ApplyAsync(string gameDir, RecoveryTarget target, string planPath, string receiptPath,
+    public static Task<ApplyResult> ApplyAsync(string gameDir, RecoveryTarget target, string planPath, string receiptPath,
         Func<UpdatePlan, bool> confirm, IProgress<(long done, long total, int file, int files)>? progress, CancellationToken ct)
+        => ApplyWithConfirmationAsync(gameDir, target, planPath, receiptPath, p => Task.FromResult(confirm(p)), progress, ct);
+
+    public static async Task<ApplyResult> ApplyWithConfirmationAsync(string gameDir, RecoveryTarget target, string planPath, string receiptPath,
+        Func<UpdatePlan, Task<bool>> confirm, IProgress<(long done, long total, int file, int files)>? progress, CancellationToken ct)
     {
         RequireClosed();
         RequireNoSteamUpdate(gameDir);
         var observedBuild = SteamAcf.Read(gameDir)?.BuildId;
         var plan = await PlanAsync(gameDir, target.Files, target.TargetActive, ct);
-        if (!confirm(plan)) throw new OperationCanceledException("No files changed.");
+        if (!await confirm(plan)) throw new OperationCanceledException("No files changed.");
         await Pack.DownloadPlanAsync(plan, Path.Combine(gameDir, Pack.DownloadFolder), progress, ct);
         ct.ThrowIfCancellationRequested();
         RequireClosed();
