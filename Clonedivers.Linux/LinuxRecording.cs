@@ -92,7 +92,7 @@ public static class LinuxRecording
         mv "$request" "$session/request.claimed" || { rmdir "$root/claim-$id"; exec "$@"; }
         rmdir "$root/claim-$id"
         umask 077
-        printf 'Capture started: %s\nSteam environment: %s\n' "$(date -u +%FT%TZ)" "${FLATPAK_ID:-native or unspecified}" > "$session/status.txt"
+        printf 'Capture started: %s\nSteam environment: %s\n' "$(date -u +%FT%TZ)" "${FLATPAK_ID:-${SNAP_NAME:-native or unspecified}}" > "$session/status.txt"
         if [ -f "$root/selection.json" ] && [ ! -L "$root/selection.json" ]; then cp "$root/selection.json" "$session/selection-at-launch.json"; fi
         for argument in "$@"; do
           case "$argument" in */proton) version="$(dirname -- "$argument")/version"; if [ -f "$version" ]; then head -c 4096 "$version" > "$session/proton-version.txt"; fi;; esac

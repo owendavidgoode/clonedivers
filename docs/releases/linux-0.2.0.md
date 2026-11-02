@@ -1,5 +1,8 @@
 Linux terminal launcher preview with local support reports and optional session recording.
 
+- Discover Ubuntu Snap Steam and its external libraries, in addition to native/Flatpak Steam.
+- Simplify extraction instructions to avoid a missing `tar -C` destination.
+
 - **Save support report** / `report`: export pack, build, options, system details,
   recent launcher errors and available Proton/MangoHud log excerpts to a ZIP.
 - **Session recording** / `record-setup`: print a one-time Steam launch wrapper.

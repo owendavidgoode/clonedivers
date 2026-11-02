@@ -13,8 +13,8 @@ does not establish that Helldivers 2 can run on an ARM machine.
 
 ```bash
 mkdir -p ~/Applications/clonedivers
-tar -xzf ~/Downloads/Clonedivers-linux-x64.tar.gz -C ~/Applications/clonedivers
 cd ~/Applications/clonedivers
+tar -xzf ~/Downloads/Clonedivers-linux-x64.tar.gz
 chmod +x clonedivers
 ./clonedivers
 ```
@@ -23,7 +23,11 @@ Run from a terminal. The menu offers install/update, options, vanilla, repair,
 recovery and launch. Choose options before installing; option changes apply on the
 next install/update. The game must be closed when changing files.
 
-Steam discovery includes native Steam, Flatpak Steam and external libraries listed
+Run each complete line separately; if terminal paste markup such as `^[[200~` appears,
+press Ctrl+C and enter the command again. The extraction command runs inside the
+destination folder so there is no separate `tar -C` argument to miss.
+
+Steam discovery includes native Steam, Flatpak Steam, Ubuntu Snap Steam and external libraries listed
 in `libraryfolders.vdf`. If discovery misses your install:
 
 ```bash
@@ -34,6 +38,9 @@ Choose the folder containing `data` and `bin/helldivers2.exe`. Use the real path
 a managed folder is a symlink; the file safety checks reject redirected writes.
 Launching requires a working desktop `steam://` handler (usually provided by Steam
 and `xdg-open`). Flatpak Steam must already have permission to use its game library.
+Snap Steam is checked under `~/snap/steam/common/.local/share/Steam` and
+`~/snap/steam/common/.steam/steam`, including their Steam library lists. You can also
+use Steam's **Manage → Browse local files** to find the game's exact install folder.
 
 ## Commands
 
@@ -94,6 +101,7 @@ includes bounded excerpts of the latest recorded Proton log and MangoHud CSVs, p
 the Proton version observed in the actual Steam command. Without a captured version,
 the report says unknown. The default `~/steam-553850.log` is used when no recorded
 session exists. Missing hardware information or logs remain unavailable.
+The Snap Steam home under `~/snap/steam/common` is also checked for its default Proton log.
 
 Reports work while the game is running and even when game detection fails. The default
 destination is the launcher's config folder under `reports`. Existing output files
@@ -110,6 +118,13 @@ by Steam. For native Debian/Ubuntu Steam, the upstream documented package is
 [MangoHud installation](https://github.com/flightlessmango/MangoHud#installation---pre-packaged-binaries)
 for your distribution and runtime. The launcher never installs packages or changes
 global MangoHud settings.
+
+Snap Steam bundles MangoHud, but [Canonical documents its support as experimental,
+with Vulkan limitations](https://ubuntu.com/docs/steam/howto/configure-mangohud/).
+Installing a host MangoHud package does not make it available inside the Snap. The
+launcher warns when Snap Steam is detected; use `record-status` to verify a CSV rather
+than assuming performance capture worked. Support reports and available Proton logs
+remain useful even when MangoHud cannot capture frames.
 
 1. Run `./clonedivers record-setup`, or use **Session recording → One-time Steam setup**.
 2. In Steam, open **Helldivers 2 → Properties → Launch Options** and paste the printed

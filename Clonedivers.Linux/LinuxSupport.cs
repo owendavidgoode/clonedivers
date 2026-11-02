@@ -164,7 +164,9 @@ public static class LinuxSupport
             }
             else
             {
-                var protonLog = Path.Combine(home ?? Environment.GetFolderPath(Environment.SpecialFolder.UserProfile), "steam-553850.log");
+                var userHome = home ?? Environment.GetFolderPath(Environment.SpecialFolder.UserProfile);
+                var protonLog = new[] { Path.Combine(userHome, "steam-553850.log"), Path.Combine(userHome, "snap/steam/common/steam-553850.log") }
+                    .Where(File.Exists).OrderByDescending(File.GetLastWriteTimeUtc).FirstOrDefault() ?? Path.Combine(userHome, "steam-553850.log");
                 Add("proton.log", Tail(protonLog));
                 Add("session.txt", "No recorded session is available. Selected Proton version is unknown; use recording setup and record a launch to capture the actual runtime version.");
             }

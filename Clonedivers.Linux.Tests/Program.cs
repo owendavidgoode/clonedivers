@@ -46,9 +46,11 @@ try
     var home = Path.Combine(root, "home");
     var library = Path.Combine(root, "External Library");
     var steam = LinuxPlatform.SteamRoots(home).First();
-    var flatpak = LinuxPlatform.SteamRoots(home).Last();
+    var flatpak = LinuxPlatform.SteamRoots(home).Single(p => p.Contains("com.valvesoftware.Steam"));
+    var snap = LinuxPlatform.SteamRoots(home).Single(p => p.Replace('\\', '/').EndsWith("/snap/steam/common/.local/share/Steam", StringComparison.Ordinal));
     Directory.CreateDirectory(Path.Combine(steam, "steamapps"));
     Directory.CreateDirectory(Path.Combine(flatpak, "steamapps"));
+    Directory.CreateDirectory(Path.Combine(snap, "steamapps"));
     File.WriteAllText(Path.Combine(steam, "steamapps", "libraryfolders.vdf"), "\"path\" \"" + library.Replace("\\", "\\\\") + "\"");
     var game = Path.Combine(library, "steamapps", "common", "Helldivers 2");
     Directory.CreateDirectory(Path.Combine(game, "data"));
@@ -57,6 +59,10 @@ try
     File.WriteAllText(Path.Combine(library, "steamapps", "appmanifest_553850.acf"), "\"buildid\" \"25480438\"");
     Check(LinuxPlatform.CandidateGameDirs(home).First() == game, "Steam discovery prefers the external installed library and preserves spaces");
     Check(LinuxPlatform.CandidateGameDirs(home).Any(p => p.StartsWith(flatpak)), "Flatpak Steam is discovered alongside native Steam");
+    Check(LinuxPlatform.CandidateGameDirs(home).Any(p => p.StartsWith(snap)), "Ubuntu Snap Steam's shared data directory is discovered");
+    var snapLibrary = Path.Combine(root, "Snap External Library");
+    File.WriteAllText(Path.Combine(snap, "steamapps", "libraryfolders.vdf"), "\"path\" \"" + snapLibrary.Replace("\\", "\\\\") + "\"");
+    Check(LinuxPlatform.CandidateGameDirs(home).Contains(Path.Combine(snapLibrary, "steamapps", "common", "Helldivers 2")), "Snap Steam external libraries are read from its own libraryfolders.vdf");
     Check(GameLocator.NormalizeGameDir(Path.Combine(game, "data")) == game, "game folder normalization accepts data child");
     var proc = Path.Combine(root, "proc");
     Directory.CreateDirectory(Path.Combine(proc, "123"));
@@ -287,10 +293,10 @@ try
         var fakeProton = Path.Combine(fakeProtonDir, "proton");
         File.WriteAllText(Path.Combine(fakeProtonDir, "version"), "Proton fixture version 9\n");
         var environmentCapture = Path.Combine(root, "captured-environment"); var argumentCapture = Path.Combine(root, "captured-arguments");
-        File.WriteAllText(fakeProton, "#!/bin/sh\nprintf '%s\\n' \"${MANGOHUD-unset}\" \"${PROTON_LOG-unset}\" \"${MANGOHUD_CONFIG-unset}\" > \"$TEST_ENV_FILE\"\nprintf '%s\\0' \"$@\" > \"$TEST_ARG_FILE\"\nif [ \"${MANGOHUD-}\" = 1 ]; then\n  output=$(sed -n 's/^output_folder=//p' \"$MANGOHUD_CONFIGFILE\")\n  printf 'fps,frametime\\n60,16.7\\n' > \"$output/fixture.csv\"\n  printf 'Proton fixture log\\nAuthorization: Bearer fixture-secret\\n' > \"$PROTON_LOG_DIR/steam-553850.log\"\nfi\nexit \"${TEST_EXIT_CODE:-0}\"\n");
+        File.WriteAllText(fakeProton, "#!/bin/sh\nprintf '%s\\n' \"${MANGOHUD-unset}\" \"${PROTON_LOG-unset}\" \"${MANGOHUD_CONFIG-unset}\" > \"$TEST_ENV_FILE\"\nprintf '%s\\0' \"$@\" > \"$TEST_ARG_FILE\"\nif [ \"${MANGOHUD-}\" = 1 ] && [ \"${TEST_NO_CSV:-0}\" != 1 ]; then\n  output=$(sed -n 's/^output_folder=//p' \"$MANGOHUD_CONFIGFILE\")\n  printf 'fps,frametime\\n60,16.7\\n' > \"$output/fixture.csv\"\n  printf 'Proton fixture log\\nAuthorization: Bearer fixture-secret\\n' > \"$PROTON_LOG_DIR/steam-553850.log\"\nfi\nexit \"${TEST_EXIT_CODE:-0}\"\n");
         File.SetUnixFileMode(fakeProton, UnixFileMode.UserRead | UnixFileMode.UserWrite | UnixFileMode.UserExecute);
         var literalArgument = "spaces 'quotes' ; $(touch should-never-execute)";
-        async Task RunWrapper(int expected)
+        async Task RunWrapper(int expected, bool produceMetrics = true)
         {
             var start = new ProcessStartInfo("/bin/sh") { RedirectStandardOutput = true, RedirectStandardError = true };
             foreach (var arg in new[] { wrapper, fakeProton, "waitforexitandrun", literalArgument }) start.ArgumentList.Add(arg);
@@ -298,6 +304,7 @@ try
             start.Environment["MANGOHUD_CONFIG"] = "existing-config";
             start.Environment["TEST_ENV_FILE"] = environmentCapture; start.Environment["TEST_ARG_FILE"] = argumentCapture;
             start.Environment["TEST_EXIT_CODE"] = expected.ToString();
+            start.Environment["TEST_NO_CSV"] = produceMetrics ? "0" : "1";
             using var child = Process.Start(start)!;
             var output = child.StandardOutput.ReadToEndAsync(); var error = child.StandardError.ReadToEndAsync();
             using var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(20));
@@ -335,6 +342,9 @@ try
         var unsafeReport = Path.Combine(root, "unsafe-session.zip");
         await Cli("report", extraArgument: unsafeReport);
         using (var zip = ZipFile.OpenRead(unsafeReport)) Check(zip.GetEntry("collection-note.txt") is not null && zip.GetEntry("session/proton.log") is null, "support collection skips redirected log folders and still saves the report");
+        await Cli("record");
+        await RunWrapper(0, produceMetrics: false);
+        Check((await Cli("record-status")).Contains("No MangoHud CSV was produced"), "missing MangoHud layer is reported without claiming that performance capture succeeded");
     }
     var repository = Path.GetFullPath(Path.Combine(AppContext.BaseDirectory, "../../../.."));
     var published = Manifest.Parse(File.ReadAllText(Path.Combine(repository, "manifest-v3-current.json"))).Pack!;

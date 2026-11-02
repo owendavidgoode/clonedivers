@@ -297,6 +297,8 @@ internal static class LinuxProgram
         var launchOption = LinuxRecording.Setup(gameDir!, settings);
         Console.WriteLine("One-time setup: Steam → Helldivers 2 → Properties → Launch Options.\nFor an empty Launch Options field, paste:\n" + launchOption);
         Console.WriteLine("Keep existing custom options: place this wrapper before their command. Install MangoHud's Vulkan layer in the same native/Flatpak environment as Steam. Recording targets desktop sessions; Gamescope/Gaming Mode requires separate mangoapp integration.");
+        if (LinuxPlatform.SteamRoots().Any(p => p.Replace('\\', '/').Contains("/snap/steam/", StringComparison.Ordinal) && Directory.Exists(p)))
+            Console.WriteLine("Snap Steam detected. Its bundled MangoHud support is experimental and Vulkan capture may be unavailable. A host MangoHud package does not establish that the Snap can load it; verify the CSV with record-status.");
         if (command == "record")
         {
             var session = LinuxRecording.Arm(gameDir!, settings);
