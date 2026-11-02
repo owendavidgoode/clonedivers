@@ -7,14 +7,14 @@ Helldivers 2 through Steam. No separate .NET install is needed for release packa
 ## Start
 
 Download `Clonedivers-linux-x64.tar.gz` from the
-[Linux preview release](https://github.com/owendavidgoode/clonedivers/releases/tag/linux-v0.1.1).
+[Linux preview release](https://github.com/owendavidgoode/clonedivers/releases/tag/linux-v0.2.0).
 Most desktop PCs and Steam Deck use x64. The arm64 package is also built, but that
 does not establish that Helldivers 2 can run on an ARM machine.
 
 ```bash
 mkdir -p ~/Applications/clonedivers
-tar -xzf ~/Downloads/Clonedivers-linux-x64.tar.gz -C ~/Applications/clonedivers
 cd ~/Applications/clonedivers
+tar -xzf ~/Downloads/Clonedivers-linux-x64.tar.gz
 chmod +x clonedivers
 ./clonedivers
 ```
@@ -23,7 +23,11 @@ Run from a terminal. The menu offers install/update, options, vanilla, repair,
 recovery and launch. Choose options before installing; option changes apply on the
 next install/update. The game must be closed when changing files.
 
-Steam discovery includes native Steam, Flatpak Steam and external libraries listed
+Run each complete line separately; if terminal paste markup such as `^[[200~` appears,
+press Ctrl+C and enter the command again. The extraction command runs inside the
+destination folder so there is no separate `tar -C` argument to miss.
+
+Steam discovery includes native Steam, Flatpak Steam, Ubuntu Snap Steam and external libraries listed
 in `libraryfolders.vdf`. If discovery misses your install:
 
 ```bash
@@ -34,6 +38,9 @@ Choose the folder containing `data` and `bin/helldivers2.exe`. Use the real path
 a managed folder is a symlink; the file safety checks reject redirected writes.
 Launching requires a working desktop `steam://` handler (usually provided by Steam
 and `xdg-open`). Flatpak Steam must already have permission to use its game library.
+Snap Steam is checked under `~/snap/steam/common/.local/share/Steam` and
+`~/snap/steam/common/.steam/steam`, including their Steam library lists. You can also
+use Steam's **Manage → Browse local files** to find the game's exact install folder.
 
 ## Commands
 
@@ -45,6 +52,11 @@ and `xdg-open`). Flatpak Steam must already have permission to use its game libr
 ./clonedivers repair
 ./clonedivers finish
 ./clonedivers launch
+./clonedivers report
+./clonedivers record-setup
+./clonedivers record
+./clonedivers record-status
+./clonedivers record-cancel
 ```
 
 Pass `--yes` to accept download and untested-game-build prompts in scripts. Pack
@@ -73,6 +85,85 @@ FPV/ModOptions defaults are prepared inside
 choices are preserved. For a custom Proton prefix, set `STEAM_COMPAT_DATA_PATH` to
 the directory containing `pfx`. Launch the vanilla game once through Steam before
 using FPV so Proton has created its user profile.
+
+## Support reports
+
+Choose **Save support report** in the menu or run:
+
+```bash
+./clonedivers report
+./clonedivers report '/path/to/support.zip'
+```
+
+The ZIP contains distro/kernel and available GPU/driver identifiers, installed pack,
+game build, texture profile/options and recent launcher errors. If available, it also
+includes bounded excerpts of the latest recorded Proton log and MangoHud CSVs, plus
+the Proton version observed in the actual Steam command. Without a captured version,
+the report says unknown. The default `~/steam-553850.log` is used when no recorded
+session exists. Missing hardware information or logs remain unavailable.
+The Snap Steam home under `~/snap/steam/common` is also checked for its default Proton log.
+
+Reports work while the game is running and even when game detection fails. The default
+destination is the launcher's config folder under `reports`. Existing output files
+are never overwritten. Raw settings, telemetry credentials and environment dumps are
+excluded; text redaction filters common credential lines, home paths, Steam IDs and
+URL queries on a best-effort basis. Inspect the ZIP before sharing. Nothing is uploaded.
+
+## Optional session recording
+
+MangoHud is an optional dependency. Install its Vulkan layer in the environment used
+by Steam. For native Debian/Ubuntu Steam, the upstream documented package is
+`sudo apt install mangohud`; for Flatpak Steam, install the matching
+`org.freedesktop.Platform.VulkanLayer.MangoHud` extension. See
+[MangoHud installation](https://github.com/flightlessmango/MangoHud#installation---pre-packaged-binaries)
+for your distribution and runtime. The launcher never installs packages or changes
+global MangoHud settings.
+
+Snap Steam bundles MangoHud, but [Canonical documents its support as experimental,
+with Vulkan limitations](https://ubuntu.com/docs/steam/howto/configure-mangohud/).
+Installing a host MangoHud package does not make it available inside the Snap. The
+launcher warns when Snap Steam is detected; use `record-status` to verify a CSV rather
+than assuming performance capture worked. Support reports and available Proton logs
+remain useful even when MangoHud cannot capture frames.
+
+1. Run `./clonedivers record-setup`, or use **Session recording → One-time Steam setup**.
+2. In Steam, open **Helldivers 2 → Properties → Launch Options** and paste the printed
+   wrapper line. For an empty field it looks like:
+
+   ```text
+   '/path/to/Helldivers 2/mods_diagnostics/steam-capture.sh' %command%
+   ```
+
+   If you already have custom launch options, put the printed wrapper path before
+   their existing command, preserving the rest. Setup prints instructions; it does
+   not edit Steam's configuration.
+3. Run `./clonedivers record` to arm the next launch. Start through the launcher's
+   **Launch** command or directly in Steam. Keep the launcher's terminal closed or
+   open as you prefer; the wrapper handles the capture.
+4. After exiting the game, run `./clonedivers record-status` to check the command exit
+   code and whether a MangoHud CSV was produced. Use `./clonedivers report` to collect
+   a support ZIP. Complete raw files remain under the game's
+   `mods_diagnostics/sessions/<session-id>` folder.
+
+One request records one Steam launch. Ordinary launches forward the original command
+and environment unchanged. A recorded launch enables a hidden MangoHud log after one
+second, records frame data for up to 10 minutes, and enables Proton logging for that
+launch. It applies no FPS cap, texture or rendering overrides. Pack selection is copied
+at launch from the launcher's latest metadata; manual changes outside the launcher
+may not be reflected. Existing session files are retained until you remove them.
+
+`record-cancel` cancels a pending request and keeps existing recordings. No CSV means
+performance capture did not succeed; a launch request alone does not prove that the
+MangoHud layer loaded. `record-status` explains this rather than claiming success.
+
+This integration targets **desktop sessions**. Gamescope and Steam Deck Gaming Mode
+require a separate `mangoapp` integration, which this preview does not configure.
+Flatpak Steam needs its matching MangoHud extension and access to the selected game
+library. The wrapper lives in that library so it does not need to run the host's .NET
+launcher from inside Flatpak. Actual game/driver/Flatpak behavior still needs playtesting.
+
+To remove the integration, remove the wrapper prefix from Steam's Launch Options;
+keep any pre-existing options. The launcher does not need the wrapper for normal use.
 
 ## Preview limits and validation
 
@@ -105,3 +196,5 @@ contents, executable permissions, architecture and checksums, then runs the extr
 x64 executable through installation/launch/repair/recovery scenarios on Ubuntu 22.04
 and 24.04. A `linux-v*` tag publishes a prerelease and downloads it again for hosted
 package verification, without changing the Windows latest release or public pack feeds.
+CI also exercises the recording wrapper and support ZIPs, and records an actual
+MangoHud CSV from a Vulkan demo using software rendering on a virtual X display.

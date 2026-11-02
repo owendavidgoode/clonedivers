@@ -34,6 +34,8 @@ public static class LinuxPlatform
         yield return Path.Combine(home, ".steam/steam");
         yield return Path.Combine(home, ".steam/root");
         yield return Path.Combine(home, ".var/app/com.valvesoftware.Steam/.local/share/Steam");
+        yield return Path.Combine(home, "snap/steam/common/.local/share/Steam");
+        yield return Path.Combine(home, "snap/steam/common/.steam/steam");
     }
 
     public static IEnumerable<string> CandidateGameDirs(string? home = null)
