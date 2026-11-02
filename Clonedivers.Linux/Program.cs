@@ -171,6 +171,7 @@ internal static partial class LinuxProgram
             // Route to the client that owns this library, not the desktop's default URI handler.
             FpvDefaults.EnsureForInstalledPack(gameDir);
             var client = LinuxPlatform.LaunchGame(gameDir!);
+            if (terminal is not null) terminal.Notice = "Launch request sent to " + client + ".";
             LinuxSupport.Record("launch", client + " launch requested. " + ModFiles.GetState(gameDir));
             Console.WriteLine("Launch request sent to " + client + "."); return;
         }
