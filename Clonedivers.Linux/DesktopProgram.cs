@@ -12,7 +12,8 @@ internal static class DesktopProgram
     [STAThread]
     public static int Main(string[] args)
     {
-        var cli = args.Any(a => a is "--terminal" or "--help" or "-h" or "--version" or "status" or "install" or "vanilla" or "repair" or "finish" or "launch" or "report" or "record" or "record-setup" or "record-status" or "record-cancel");
+        var display = !OperatingSystem.IsLinux() || !string.IsNullOrWhiteSpace(Environment.GetEnvironmentVariable("DISPLAY")) || !string.IsNullOrWhiteSpace(Environment.GetEnvironmentVariable("WAYLAND_DISPLAY"));
+        var cli = UseTerminal(args, display);
         if (cli) return LinuxProgram.RunAsync(args).GetAwaiter().GetResult();
         Arguments = args;
         try { return AppBuilder.Configure<LauncherApplication>().UsePlatformDetect().StartWithClassicDesktopLifetime(args); }
@@ -22,6 +23,19 @@ internal static class DesktopProgram
             Console.Error.WriteLine("The desktop window could not open: " + ex.Message + "\nRun from a graphical Linux desktop, or use --terminal for the optional console menu.");
             return 1;
         }
+    }
+
+    internal static bool UseTerminal(string[] args, bool hasDisplay)
+    {
+        var gui = false;
+        for (var i = 0; i < args.Length; i++)
+        {
+            if (args[i] is "--game" or "--manifest" or "--ui-smoke") { i++; continue; }
+            if (args[i] == "--gui") { gui = true; continue; }
+            if (args[i] is "--tui" or "--terminal" or "--plain" or "--help" or "-h" or "--version" or "status" or "install" or "vanilla" or "repair" or "finish" or "launch" or "report" or "record" or "record-setup" or "record-status" or "record-cancel") return true;
+            if (!args[i].StartsWith('-')) return true;
+        }
+        return !gui && !hasDisplay;
     }
 }
 

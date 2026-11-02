@@ -1,20 +1,20 @@
 # Clonedivers for Linux (preview)
 
-A native graphical launcher for Steam/Proton players. Downloads and verifies the same
+A native desktop and terminal launcher for Steam/Proton players. Downloads and verifies the same
 pack as the Windows launcher, switches Clonedivers/EmpireDivers/vanilla, and starts
 Helldivers 2 through Steam. No separate .NET install is needed for release packages.
 
 ## Start
 
 **Ubuntu / Debian:** download
-[Clonedivers-linux-x64.deb](https://github.com/owendavidgoode/clonedivers/releases/download/linux-v0.3.0/Clonedivers-linux-x64.deb),
+[Clonedivers-linux-x64.deb](https://github.com/owendavidgoode/clonedivers/releases/download/linux-v0.4.0/Clonedivers-linux-x64.deb),
 open it with your software installer, and install. Start **Clonedivers** from the
 Applications menu. It opens a desktop window; no terminal is needed for normal use.
 If your desktop does not offer a local package installer, install once with
 `sudo apt install ~/Downloads/Clonedivers-linux-x64.deb`.
 
 **Other distributions / portable install:** download `Clonedivers-linux-x64.tar.gz`
-from the [Linux release](https://github.com/owendavidgoode/clonedivers/releases/tag/linux-v0.3.0)
+from the [Linux release](https://github.com/owendavidgoode/clonedivers/releases/tag/linux-v0.4.0)
 and extract it with your file manager. Open the `clonedivers` executable. In the
 window, **Add app shortcut** adds it to your Applications menu; keep the executable
 in its current folder afterward. If your file manager requires it, enable execution
@@ -59,10 +59,35 @@ Snap Steam is checked under `~/snap/steam/common/.local/share/Steam` and
 `~/snap/steam/common/.steam/steam`, including their Steam library lists. You can also
 use Steam's **Manage → Browse local files** to find the game's exact install folder.
 
+## Terminal dashboard
+
+Both interfaces are included in the same package. Opening **Clonedivers** from
+Applications, or running `clonedivers` on a graphical desktop, opens the window.
+Use `clonedivers --tui` for the terminal dashboard (`./clonedivers --tui` with the
+portable build). `--terminal` is an alias. Without a graphical display, an interactive
+session opens the terminal dashboard automatically.
+
+- **↑/↓** moves, **Enter** selects, and a number or letter jumps to an action.
+- **Space** or **Enter** toggles an option. Choose **Save options** to keep edits;
+  **Esc** or **Back** discards them. Saved options apply on the next install/update.
+- **Esc** goes back or quits from the dashboard. **Home/End** jumps to the first/last action.
+- **Change game folder** works even when discovery fails. Paste the folder from
+  Steam's **Manage → Browse local files**; quoted paths, `~` and `$HOME` are accepted.
+- The dashboard shows the installed universe, game state, pending recovery and next
+  options. Downloads show a progress bar, transferred bytes, speed and estimated time.
+- **Ctrl+C** cancels preparation/downloads and returns to the dashboard. Partial
+  downloads remain for resuming. The brief file-finalization step completes safely.
+- Support and recording results wrap long paths and provide **Next/Previous page**
+  when needed. Reports remain local ZIPs.
+
+Set `NO_COLOR=1` to disable colors. `--plain`, `TERM=dumb`, or redirected output uses
+basic numbered menus. Direct commands below keep their ordinary text output.
+
 ## Commands
 
 Optional terminal commands remain available for troubleshooting and automation.
-Running `./clonedivers` with no command opens the GUI; `--terminal` opens the old text menu.
+Running `./clonedivers` with no command opens the GUI on a desktop; `--tui` opens the
+keyboard dashboard.
 
 ```bash
 ./clonedivers status
@@ -221,3 +246,6 @@ MangoHud CSV from a Vulkan demo using software rendering on a virtual X display.
 Native GUI checks click the real controls to install/switch/repair/launch, preserve
 vanilla and base files, restore missing mods, create an Applications shortcut, and
 render a Linux screenshot. Package QA installs the `.deb` and repeats those checks.
+Real pseudo-terminal checks cover arrow keys, checkbox save/discard, folder changes,
+headless routing, plain menus, NO_COLOR, Ctrl+C during an actual HTTP download and
+resuming its retained bytes. The workflow saves a terminal transcript for inspection.
