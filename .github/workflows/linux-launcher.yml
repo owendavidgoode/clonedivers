@@ -2,7 +2,7 @@ name: Linux launcher
 on:
   workflow_dispatch:
   push:
-    branches: [main, codex/linux-launcher, codex/linux-diagnostics]
+    branches: [main, codex/linux-launcher, codex/linux-diagnostics, codex/linux-gui]
     tags: ['linux-v*']
     paths:
       - 'Clonedivers/**'
@@ -12,6 +12,7 @@ on:
       - 'docs/LINUX.md'
       - 'tools/qa-linux-package.sh'
       - 'tools/qa-linux-mangohud.sh'
+      - 'tools/package-linux-deb.sh'
   pull_request:
     paths:
       - 'Clonedivers/**'
@@ -20,6 +21,7 @@ on:
       - '.github/workflows/linux-launcher.yml'
       - 'tools/qa-linux-package.sh'
       - 'tools/qa-linux-mangohud.sh'
+      - 'tools/package-linux-deb.sh'
 jobs:
   build:
     runs-on: ubuntu-24.04
@@ -30,28 +32,35 @@ jobs:
       - uses: actions/setup-dotnet@v4
         with:
           dotnet-version: '8.0.x'
+      - name: Install desktop and recording smoke-test dependencies
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y mangohud xvfb vulkan-tools mesa-vulkan-drivers libice6 libsm6 libfontconfig1
       - name: Test Linux installation and recovery
-        run: dotnet run --project Clonedivers.Linux.Tests -c Release
+        env:
+          CLONEDIVERS_GUI_SCREENSHOT: ${{ github.workspace }}/artifacts/Clonedivers-linux-gui.png
+        run: |
+          mkdir -p artifacts
+          dotnet run --project Clonedivers.Linux.Tests -c Release
       - name: Publish self-contained Linux packages
         shell: bash
         run: |
           set -euo pipefail
           mkdir -p artifacts
+          version=$(sed -n 's/.*<Version>\([^<]*\)<\/Version>.*/\1/p' Clonedivers.Linux/Clonedivers.Linux.csproj)
           for arch in x64 arm64; do
             dotnet publish Clonedivers.Linux -c Release -r linux-$arch --self-contained true -o dist/linux-$arch -p:DebugType=None -p:DebugSymbols=false
             cp docs/LINUX.md dist/linux-$arch/README.md
             cp LICENSE dist/linux-$arch/LICENSE
+            cp Clonedivers.Linux/THIRD-PARTY-NOTICES.txt dist/linux-$arch/THIRD-PARTY-NOTICES.txt
             chmod +x dist/linux-$arch/clonedivers
-            tar -C dist/linux-$arch -czf artifacts/Clonedivers-linux-$arch.tar.gz clonedivers README.md LICENSE
+            tar -C dist/linux-$arch -czf artifacts/Clonedivers-linux-$arch.tar.gz clonedivers README.md LICENSE THIRD-PARTY-NOTICES.txt
+            bash tools/package-linux-deb.sh dist/linux-$arch/clonedivers "$arch" "$version" artifacts/Clonedivers-linux-$arch.deb
           done
           ./dist/linux-x64/clonedivers --help
           ./dist/linux-x64/clonedivers --version
           cd artifacts
-          sha256sum Clonedivers-linux-*.tar.gz > SHA256SUMS
-      - name: Install optional MangoHud smoke-test dependencies
-        run: |
-          sudo apt-get update -qq
-          sudo apt-get install -y mangohud xvfb vulkan-tools mesa-vulkan-drivers
+          sha256sum Clonedivers-linux-*.tar.gz Clonedivers-linux-*.deb > SHA256SUMS
       - name: Verify a real MangoHud recording with software Vulkan
         run: bash tools/qa-linux-mangohud.sh dist/linux-x64/clonedivers
       - uses: actions/upload-artifact@v4
