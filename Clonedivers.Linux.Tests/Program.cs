@@ -119,8 +119,8 @@ try
         Check(plan.InPlaceCount == 0, "case-different filenames do not count as the correct installed target");
         var fpvValues = Path.Combine(root, "fpv", "ModOptionsMenu.values");
         FpvDefaults.EnsureForInstalledPack(game, () => fpvValues, clone.Size, clone.Sha256);
-        Check(File.ReadAllText(fpvValues).Contains("firstperson.enabled=false"), "FPV seeding uses Linux mutex/filesystem operations and defaults off");
-        File.WriteAllText(fpvValues, "firstperson.enabled=true\nfirstperson.bridge2=2\ncustom=value\n");
+        Check(File.ReadAllText(fpvValues).Contains("firstperson.enabled\tfalse"), "FPV seeding uses Linux mutex/filesystem operations and defaults off");
+        File.WriteAllText(fpvValues, "firstperson.enabled\ttrue\nfirstperson.bridge2\t2\ncustom\tvalue\n");
         var choices = File.ReadAllBytes(fpvValues);
         FpvDefaults.EnsureForInstalledPack(game, () => fpvValues, clone.Size, clone.Sha256);
         Check(File.ReadAllBytes(fpvValues).SequenceEqual(choices), "FPV preparation preserves existing Proton player choices exactly");
