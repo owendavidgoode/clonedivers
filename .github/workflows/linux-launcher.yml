@@ -2,7 +2,7 @@ name: Linux launcher
 on:
   workflow_dispatch:
   push:
-    branches: [main, codex/linux-launcher]
+    branches: [main, codex/linux-launcher, codex/linux-diagnostics]
     tags: ['linux-v*']
     paths:
       - 'Clonedivers/**'
@@ -11,6 +11,7 @@ on:
       - '.github/workflows/linux-launcher.yml'
       - 'docs/LINUX.md'
       - 'tools/qa-linux-package.sh'
+      - 'tools/qa-linux-mangohud.sh'
   pull_request:
     paths:
       - 'Clonedivers/**'
@@ -18,6 +19,7 @@ on:
       - 'Clonedivers.Linux.Tests/**'
       - '.github/workflows/linux-launcher.yml'
       - 'tools/qa-linux-package.sh'
+      - 'tools/qa-linux-mangohud.sh'
 jobs:
   build:
     runs-on: ubuntu-24.04
@@ -46,6 +48,12 @@ jobs:
           ./dist/linux-x64/clonedivers --version
           cd artifacts
           sha256sum Clonedivers-linux-*.tar.gz > SHA256SUMS
+      - name: Install optional MangoHud smoke-test dependencies
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y mangohud xvfb vulkan-tools mesa-vulkan-drivers
+      - name: Verify a real MangoHud recording with software Vulkan
+        run: bash tools/qa-linux-mangohud.sh dist/linux-x64/clonedivers
       - uses: actions/upload-artifact@v4
         with:
           name: Clonedivers-linux

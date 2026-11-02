@@ -4,6 +4,7 @@ using System.Security.Cryptography;
 using System.Text;
 using System.Text.Json;
 using System.Diagnostics;
+using System.IO.Compression;
 using Clonedivers;
 
 var root = Path.Combine(Path.GetTempPath(), "clonedivers-linux-tests-" + Guid.NewGuid().ToString("N"));
@@ -22,6 +23,26 @@ void Throws<T>(Action action, string name) where T : Exception
 try
 {
     Game.IsRunningCheck = () => false;
+    var supportHome = Path.Combine(root, "support-home"); Directory.CreateDirectory(supportHome);
+    var supportConfig = Path.Combine(root, "support-config");
+    File.WriteAllText(Path.Combine(supportHome, "steam-553850.log"), $"Proton fixture\n{supportHome}/private/file\nhttps://example.invalid/log?token=secret-query\nAuthorization: Bearer secret-bearer\nSteam user 76561198000000000\n");
+    for (var i = 0; i < 45; i++) LinuxSupport.Record("error", $"fixture {i}: password=secret-history", supportConfig);
+    var supportSettings = new Settings { InstalledPackVersion = "test-pack", Telemetry = new() { Token = "secret-telemetry" } };
+    var supportZip = LinuxSupport.SaveReport(null, supportSettings, Path.Combine(root, "support.zip"), supportConfig, supportHome);
+    using (var zip = ZipFile.OpenRead(supportZip))
+    {
+        string Contents(string name) { using var reader = new StreamReader(zip.GetEntry(name)!.Open()); return reader.ReadToEnd(); }
+        using var json = JsonDocument.Parse(Contents("report.json"));
+        Check(!json.RootElement.GetProperty("Selection").GetProperty("GameFound").GetBoolean(), "support report works without a detected game");
+        using var history = JsonDocument.Parse(Contents("launcher-history.json"));
+        Check(history.RootElement.GetArrayLength() == 40, "launcher error history is bounded and exported as valid JSON");
+        var all = string.Join("\n", zip.Entries.Select(e => Contents(e.FullName)));
+        Check(!all.Contains("secret-") && !all.Contains(supportHome) && !all.Contains("76561198000000000"), "report redacts home paths, Steam IDs, credentials and URL queries without exporting settings tokens");
+        Check(Contents("session.txt").Contains("unknown"), "missing Proton version is reported as unknown");
+    }
+    Throws<IOException>(() => LinuxSupport.SaveReport(null, supportSettings, supportZip, supportConfig, supportHome), "support export never overwrites an existing report");
+    var oversized = Path.Combine(root, "large.log"); File.WriteAllText(oversized, new string('x', 100000));
+    Check(LinuxSupport.Tail(oversized, 64).Length < 128, "log collection reads a bounded tail instead of loading a full large log");
     var home = Path.Combine(root, "home");
     var library = Path.Combine(root, "External Library");
     var steam = LinuxPlatform.SteamRoots(home).First();
@@ -156,7 +177,7 @@ try
         File.WriteAllText(open, "#!/bin/sh\nprintf '%s' \"$1\" > \"$CLONEDIVERS_TEST_URI\"\n");
         File.SetUnixFileMode(open, UnixFileMode.UserRead | UnixFileMode.UserWrite | UnixFileMode.UserExecute);
         var uriFile = Path.Combine(root, "uri");
-        async Task<string> Cli(string command, int expectedExit = 0, string? chosenGame = null, bool accept = true)
+        async Task<string> Cli(string command, int expectedExit = 0, string? chosenGame = null, bool accept = true, string? extraArgument = null)
         {
             var binary = Environment.GetEnvironmentVariable("CLONEDIVERS_TEST_BINARY");
             var start = new ProcessStartInfo(binary ?? "dotnet") { RedirectStandardOutput = true, RedirectStandardError = true, RedirectStandardInput = true };
@@ -164,6 +185,7 @@ try
             foreach (var arg in new[] { "--game", chosenGame ?? cliGame, "--manifest", feedUrl }) start.ArgumentList.Add(arg);
             if (accept) start.ArgumentList.Add("--yes");
             foreach (var arg in command.Split(' ')) start.ArgumentList.Add(arg);
+            if (extraArgument is not null) start.ArgumentList.Add(extraArgument);
             start.Environment["XDG_CONFIG_HOME"] = Path.Combine(root, "config");
             start.Environment["DOTNET_ROOT"] = Path.Combine(root, "no-runtime-installation");
             start.Environment["DOTNET_MULTILEVEL_LOOKUP"] = "0";
@@ -257,6 +279,62 @@ try
             configured.RootElement.GetProperty("Options").GetProperty("covenant").GetBoolean() &&
             configured.RootElement.GetProperty("TextureProfile").GetString() == "lighter", "interactive options persist droids, Covenant and potato profile choices");
         Check(File.ReadAllBytes(Path.Combine(cliGame, "data", clone.Name)).SequenceEqual(cloneBytes), "editing menu options leaves installed pack content unchanged until install/update");
+
+        await Cli("record-setup");
+        var wrapper = Path.Combine(cliGame, "mods_diagnostics", "steam-capture.sh");
+        Check(File.Exists(wrapper) && LinuxRecording.ArmedSession(cliGame) is null, "recording setup creates a Steam wrapper without enabling recording");
+        var fakeProtonDir = Path.Combine(root, "Fake Proton"); Directory.CreateDirectory(fakeProtonDir);
+        var fakeProton = Path.Combine(fakeProtonDir, "proton");
+        File.WriteAllText(Path.Combine(fakeProtonDir, "version"), "Proton fixture version 9\n");
+        var environmentCapture = Path.Combine(root, "captured-environment"); var argumentCapture = Path.Combine(root, "captured-arguments");
+        File.WriteAllText(fakeProton, "#!/bin/sh\nprintf '%s\\n' \"${MANGOHUD-unset}\" \"${PROTON_LOG-unset}\" \"${MANGOHUD_CONFIG-unset}\" > \"$TEST_ENV_FILE\"\nprintf '%s\\0' \"$@\" > \"$TEST_ARG_FILE\"\nif [ \"${MANGOHUD-}\" = 1 ]; then\n  output=$(sed -n 's/^output_folder=//p' \"$MANGOHUD_CONFIGFILE\")\n  printf 'fps,frametime\\n60,16.7\\n' > \"$output/fixture.csv\"\n  printf 'Proton fixture log\\nAuthorization: Bearer fixture-secret\\n' > \"$PROTON_LOG_DIR/steam-553850.log\"\nfi\nexit \"${TEST_EXIT_CODE:-0}\"\n");
+        File.SetUnixFileMode(fakeProton, UnixFileMode.UserRead | UnixFileMode.UserWrite | UnixFileMode.UserExecute);
+        var literalArgument = "spaces 'quotes' ; $(touch should-never-execute)";
+        async Task RunWrapper(int expected)
+        {
+            var start = new ProcessStartInfo("/bin/sh") { RedirectStandardOutput = true, RedirectStandardError = true };
+            foreach (var arg in new[] { wrapper, fakeProton, "waitforexitandrun", literalArgument }) start.ArgumentList.Add(arg);
+            start.Environment["MANGOHUD"] = "existing"; start.Environment["PROTON_LOG"] = "existing";
+            start.Environment["MANGOHUD_CONFIG"] = "existing-config";
+            start.Environment["TEST_ENV_FILE"] = environmentCapture; start.Environment["TEST_ARG_FILE"] = argumentCapture;
+            start.Environment["TEST_EXIT_CODE"] = expected.ToString();
+            using var child = Process.Start(start)!;
+            var output = child.StandardOutput.ReadToEndAsync(); var error = child.StandardError.ReadToEndAsync();
+            using var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(20));
+            try { await child.WaitForExitAsync(timeout.Token); } catch (OperationCanceledException) { child.Kill(true); throw new Exception("Steam capture wrapper timed out"); }
+            Check(child.ExitCode == expected, $"Steam wrapper preserves command exit code {expected}: " + await output + await error);
+            Check(File.ReadAllText(argumentCapture) == "waitforexitandrun\0" + literalArgument + "\0", "Steam wrapper forwards argument boundaries and shell metacharacters literally");
+        }
+        await RunWrapper(0);
+        Check(File.ReadAllLines(environmentCapture).SequenceEqual(new[] { "existing", "existing", "existing-config" }), "unarmed Steam wrapper leaves the user's environment unchanged");
+        await Cli("record");
+        var armed = LinuxRecording.ArmedSession(cliGame)!;
+        await Cli("record", 1);
+        Check(LinuxRecording.ArmedSession(cliGame) == armed, "duplicate recording request preserves the already-armed session");
+        await RunWrapper(7);
+        Check(File.ReadAllLines(environmentCapture).SequenceEqual(new[] { "1", "1", "unset" }), "armed launch enables MangoHud and Proton logs only in the child command");
+        Check(LinuxRecording.ArmedSession(cliGame) is null && File.Exists(Path.Combine(armed, "mangohud", "fixture.csv")), "recording is consumed once and creates session-local metrics");
+        Check(File.ReadAllText(Path.Combine(armed, "proton-version.txt")).Contains("version 9") && File.Exists(Path.Combine(armed, "selection-at-launch.json")), "recording captures actual Proton tool version and pack selection at launch");
+        Check((await Cli("record-status")).Contains("exit code: 7"), "record-status exposes the recorded command's actual outcome");
+        await RunWrapper(0);
+        Check(File.ReadAllLines(environmentCapture).SequenceEqual(new[] { "existing", "existing", "existing-config" }), "following launch returns to ordinary environment settings automatically");
+        var reportPath = Path.Combine(root, "support report from CLI.zip");
+        await Cli("report", extraArgument: reportPath);
+        using (var zip = ZipFile.OpenRead(reportPath))
+        {
+            Check(zip.GetEntry("session/mangohud-1.csv") is not null && zip.GetEntry("session/proton-version.txt") is not null, "CLI support report includes captured performance data and runtime version");
+            using var reader = new StreamReader(zip.GetEntry("session/proton.log")!.Open());
+            Check(!reader.ReadToEnd().Contains("fixture-secret"), "captured Proton log credentials are redacted in the support ZIP");
+        }
+        await Cli("report", chosenGame: Path.Combine(root, "not-installed"), extraArgument: Path.Combine(root, "undetected.zip"));
+        await Cli("record"); await Cli("record-cancel");
+        Check(LinuxRecording.ArmedSession(cliGame) is null && Directory.Exists(armed), "cancelling an armed recording retains previous session data");
+        // Unsafe session directories must not pull unrelated files into a support report.
+        Directory.Delete(Path.Combine(armed, "proton"), true);
+        Directory.CreateSymbolicLink(Path.Combine(armed, "proton"), supportHome);
+        var unsafeReport = Path.Combine(root, "unsafe-session.zip");
+        await Cli("report", extraArgument: unsafeReport);
+        using (var zip = ZipFile.OpenRead(unsafeReport)) Check(zip.GetEntry("collection-note.txt") is not null && zip.GetEntry("session/proton.log") is null, "support collection skips redirected log folders and still saves the report");
     }
     var repository = Path.GetFullPath(Path.Combine(AppContext.BaseDirectory, "../../../.."));
     var published = Manifest.Parse(File.ReadAllText(Path.Combine(repository, "manifest-v3-current.json"))).Pack!;

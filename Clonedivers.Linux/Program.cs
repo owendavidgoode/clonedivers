@@ -34,17 +34,17 @@ internal static class LinuxProgram
             if (!OperatingSystem.IsLinux()) throw new PlatformNotSupportedException("Run this launcher on Linux. Use Clonedivers.exe on Windows.");
             settings = Settings.Load();
             gameDir = GameLocator.NormalizeGameDir(gameDir ?? settings.GamePath) ?? (gameDir is null ? GameLocator.AutoDetect() : null);
-            if (gameDir is null)
+            if (gameDir is null && words.FirstOrDefault() != "report")
             {
                 if (words.Count > 0 || Console.IsInputRedirected) throw new DirectoryNotFoundException("Game not found. Pass --game '/path/to/steamapps/common/Helldivers 2'.");
                 Console.Write("Helldivers 2 folder (containing data and bin): ");
                 gameDir = GameLocator.NormalizeGameDir(Console.ReadLine());
                 if (gameDir is null) throw new DirectoryNotFoundException("That folder does not contain data and bin/helldivers2.exe.");
             }
-            settings.GamePath = gameDir;
+            if (gameDir is not null) settings.GamePath = gameDir;
             if (words.Count > 0)
             {
-                if (words.Count > (words[0] == "install" ? 2 : 1)) throw new ArgumentException("Too many command arguments. Use --help.");
+                if (words.Count > (words[0] is "install" or "report" ? 2 : 1)) throw new ArgumentException("Too many command arguments. Use --help.");
                 await Command(words[0], words.ElementAtOrDefault(1));
             }
             else
@@ -55,7 +55,7 @@ internal static class LinuxProgram
             return 0;
         }
         catch (OperationCanceledException) { Console.Error.WriteLine("Stopped. Downloads are kept; retry the same command to resume."); return 130; }
-        catch (Exception ex) { Console.Error.WriteLine(ex.Message); return 1; }
+        catch (Exception ex) { LinuxSupport.Record("error", ex.GetType().Name + ": " + ex.Message); Console.Error.WriteLine(ex.Message); return 1; }
         finally { cancellation.Dispose(); }
     }
 
@@ -70,6 +70,11 @@ internal static class LinuxProgram
           repair                  Hash-check and repair the installed selection
           finish                  Recover an interrupted update
           launch                  Ask Steam to launch Helldivers 2
+          report [file.zip]       Save local support report, even if game detection fails
+          record-setup            Print the one-time Steam recording launch option
+          record                  Arm MangoHud + Proton logs for the next Steam launch
+          record-cancel           Cancel the pending recording
+          record-status           Show recording location and last capture result
         --yes accepts download and untested-game-build prompts.
         --manifest URL selects a separate test feed/cache for this run.
         Ctrl+C keeps downloads for resuming. Windows performance sharing is unavailable.
@@ -89,7 +94,7 @@ internal static class LinuxProgram
         while (!cancellation.IsCancellationRequested)
         {
             Status();
-            Console.WriteLine("\n1  Install/update Clonedivers\n2  Install/update EmpireDivers\n3  Vanilla Helldivers\n4  Options\n5  Check and repair\n6  Finish interrupted update\n7  Launch through Steam\n0  Quit");
+            Console.WriteLine("\n1  Install/update Clonedivers\n2  Install/update EmpireDivers\n3  Vanilla Helldivers\n4  Options\n5  Check and repair\n6  Finish interrupted update\n7  Launch through Steam\n8  Save support report\n9  Session recording\n0  Quit");
             Console.Write("Choose: ");
             var choice = Console.ReadLine()?.Trim();
             if (choice is null or "0") return;
@@ -104,10 +109,12 @@ internal static class LinuxProgram
                     case "5": await Command("repair", null); break;
                     case "6": await Command("finish", null); break;
                     case "7": await Command("launch", null); break;
+                    case "8": await Command("report", null); break;
+                    case "9": await RecordingMenu(); break;
                     default: Console.WriteLine("Choose a number from the menu."); break;
                 }
             }
-            catch (Exception ex) when (ex is not OperationCanceledException) { Console.Error.WriteLine(ex.Message); }
+            catch (Exception ex) when (ex is not OperationCanceledException) { LinuxSupport.Record("error", ex.GetType().Name + ": " + ex.Message); Console.Error.WriteLine(ex.Message); }
             Console.WriteLine();
         }
         cancellation.Token.ThrowIfCancellationRequested();
@@ -166,6 +173,12 @@ internal static class LinuxProgram
 
     static async Task Command(string command, string? mode)
     {
+        if (command == "report")
+        {
+            var report = LinuxSupport.SaveReport(gameDir, settings, mode);
+            Console.WriteLine($"Support report saved: {report}\nSaved locally; review the ZIP before sharing. No data was uploaded."); return;
+        }
+        if (command.StartsWith("record", StringComparison.Ordinal)) { RecordingCommand(command); return; }
         if (command == "status") { Status(); return; }
         if (command is not ("install" or "vanilla" or "repair" or "finish" or "launch")) throw new ArgumentException($"Unknown command: {command}");
         LinuxInstaller.RequireClosed();
@@ -189,7 +202,7 @@ internal static class LinuxProgram
                 InstallReceipt.Write(Settings.ReceiptPathFor(gameDir!), gameDir!, receipt.Files.Select(f => f.File).ToList(), parked);
             }
             Console.WriteLine($"Vanilla selected. Parked {count} mod files.");
-            settings.Save(); return;
+            settings.Save(); RefreshRecordingSelection(); return;
         }
         if (command == "launch")
         {
@@ -202,6 +215,7 @@ internal static class LinuxProgram
             // Desktop URI handlers work with native and Flatpak Steam, without spawning Wine ourselves.
             FpvDefaults.EnsureForInstalledPack(gameDir);
             Game.LaunchViaSteam();
+            LinuxSupport.Record("launch", "Steam launch requested. " + ModFiles.GetState(gameDir));
             Console.WriteLine("Launch request sent to Steam."); return;
         }
         if (command == "repair")
@@ -247,6 +261,46 @@ internal static class LinuxProgram
         if (result.Interrupted) throw new IOException($"Update interrupted: {result.Reason} {string.Join(", ", result.Failed)}. Close the game and run finish.");
         settings.RecordInstall(result);
         settings.Save();
+        RefreshRecordingSelection();
+        LinuxSupport.Record("installed", $"Pack {result.PackVersion}, texture profile {result.TextureProfile}.");
         Console.WriteLine($"Pack {result.PackVersion} ready. Use launch to start through Steam.");
+    }
+
+    static void RefreshRecordingSelection()
+    {
+        try { LinuxRecording.RefreshSelection(gameDir!, settings); }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or InvalidDataException) { LinuxSupport.Record("error", "Recording metadata could not be refreshed: " + ex.Message); }
+    }
+
+    static async Task RecordingMenu()
+    {
+        Console.WriteLine("1  One-time Steam setup\n2  Record next session\n3  Cancel pending recording\n4  Show capture result\n0  Back");
+        Console.Write("Choose: ");
+        var command = Console.ReadLine()?.Trim() switch
+        {
+            "1" => "record-setup", "2" => "record", "3" => "record-cancel", "4" => "record-status", _ => null
+        };
+        if (command is not null) await Command(command, null);
+    }
+
+    static void RecordingCommand(string command)
+    {
+        if (command == "record-status")
+        {
+            Console.WriteLine(LinuxRecording.ArmedSession(gameDir!) is { } armed ? "Next recording is armed: " + armed : "No recording is armed.");
+            var last = LinuxRecording.LatestSession(gameDir!);
+            Console.WriteLine(last is null ? "No recordings yet." : "Latest session: " + last + "\n" + LinuxSupport.Tail(Path.Combine(last, "status.txt"), 8192)); return;
+        }
+        using var gameLock = LinuxInstaller.Lock(gameDir!);
+        if (command == "record-cancel") { LinuxRecording.Cancel(gameDir!); Console.WriteLine("Pending recording cancelled. Existing recordings retained."); return; }
+        if (command is not ("record" or "record-setup")) throw new ArgumentException("Unknown recording command. Use --help.");
+        var launchOption = LinuxRecording.Setup(gameDir!, settings);
+        Console.WriteLine("One-time setup: Steam → Helldivers 2 → Properties → Launch Options.\nFor an empty Launch Options field, paste:\n" + launchOption);
+        Console.WriteLine("Keep existing custom options: place this wrapper before their command. Install MangoHud's Vulkan layer in the same native/Flatpak environment as Steam. Recording targets desktop sessions; Gamescope/Gaming Mode requires separate mangoapp integration.");
+        if (command == "record")
+        {
+            var session = LinuxRecording.Arm(gameDir!, settings);
+            Console.WriteLine($"Armed for the next Steam launch. Use Launch or start the game in Steam.\nSession: {session}\nFrame recording runs for up to 10 minutes. Use record-status afterward to check that a CSV was produced.");
+        }
     }
 }
