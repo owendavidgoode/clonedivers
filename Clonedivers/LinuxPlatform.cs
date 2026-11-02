@@ -97,6 +97,15 @@ public static class LinuxPlatform
     public static string LaunchGame(string gameDir)
     {
         var target = SteamLaunchForGame(gameDir);
+        // Process.Start can prefer a sibling of the apphost over PATH (notably /usr/bin).
+        // Resolve explicitly so source, portable and installed builds use the same launcher.
+        if (!Path.IsPathFullyQualified(target.Command.FileName))
+        {
+            var name = target.Command.FileName;
+            target.Command.FileName = (Environment.GetEnvironmentVariable("PATH") ?? "").Split(Path.PathSeparator)
+                .Where(Path.IsPathFullyQualified).Select(dir => Path.Combine(dir, name)).FirstOrDefault(File.Exists)
+                ?? throw new InvalidOperationException(target.Client + " launcher is unavailable on PATH. Open your usual Steam and launch Helldivers 2 there.");
+        }
         using var process = Process.Start(target.Command) ?? throw new IOException("Steam could not be started.");
         return target.Client;
     }
