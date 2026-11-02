@@ -146,7 +146,8 @@ try
         var cloneVariant = clone.Clone(); cloneVariant.Modes = new() { "clonedivers", "commandos" };
         var empireVariant = empire.Clone(); empireVariant.Modes = new() { "empire" };
         var feed = new Manifest { Format = 3, Pack = new PackManifest { Version = "fixture", GameBuild = "25480438", CombinedRoster = true,
-            Options = new() { new() { Id = "empire", Default = false } }, TextureProfiles = new() { new() { Id = "full", Name = "Full" } },
+            Options = new() { new() { Id = "empire", Default = false }, new() { Id = "droids", Name = "Droid skins", Default = true }, new() { Id = "covenant", Name = "Covenant squids", Default = false } },
+            TextureProfiles = new() { new() { Id = "full", Name = "Full" }, new() { Id = "lighter", Name = "Streamed" } },
             Files = new() { cloneVariant, empireVariant, empty } } };
         var feedUrl = server.Add("manifest", JsonSerializer.SerializeToUtf8Bytes(feed, new JsonSerializerOptions { PropertyNamingPolicy = JsonNamingPolicy.CamelCase }));
         var launcherDll = typeof(LinuxInstaller).Assembly.Location;
@@ -226,6 +227,36 @@ try
         feed.Pack.Status = "ok";
         server.Add("manifest", JsonSerializer.SerializeToUtf8Bytes(feed, new JsonSerializerOptions { PropertyNamingPolicy = JsonNamingPolicy.CamelCase }));
         Check((await Cli("install clone", 1, accept: false)).Contains("--yes"), "noninteractive operations require explicit prompt acceptance");
+        await Cli("install clone");
+        server.Remove("manifest");
+        Check((await Cli("install clone")).Contains("Using saved pack information"), "feed outage falls back to previously validated metadata");
+        server.Add("manifest", JsonSerializer.SerializeToUtf8Bytes(feed, new JsonSerializerOptions { PropertyNamingPolicy = JsonNamingPolicy.CamelCase }));
+
+        // The default user journey is a menu on a terminal, so exercise it with a real PTY.
+        var menuScript = Path.Combine(fakeBin, "launch-menu");
+        File.WriteAllText(menuScript, "#!/bin/sh\nif [ -n \"$CLONEDIVERS_TEST_BINARY\" ]; then exec \"$CLONEDIVERS_TEST_BINARY\" --game \"$CLONEDIVERS_TEST_GAME\" --manifest \"$CLONEDIVERS_TEST_FEED\"; else exec dotnet \"$CLONEDIVERS_TEST_DLL\" --game \"$CLONEDIVERS_TEST_GAME\" --manifest \"$CLONEDIVERS_TEST_FEED\"; fi\n");
+        File.SetUnixFileMode(menuScript, UnixFileMode.UserRead | UnixFileMode.UserWrite | UnixFileMode.UserExecute);
+        var menuStart = new ProcessStartInfo("script") { RedirectStandardInput = true, RedirectStandardOutput = true, RedirectStandardError = true };
+        foreach (var arg in new[] { "-q", "-e", "-c", "exec \"$CLONEDIVERS_TEST_MENU_SCRIPT\"", "/dev/null" }) menuStart.ArgumentList.Add(arg);
+        menuStart.Environment["CLONEDIVERS_TEST_MENU_SCRIPT"] = menuScript;
+        menuStart.Environment["CLONEDIVERS_TEST_GAME"] = cliGame;
+        menuStart.Environment["CLONEDIVERS_TEST_FEED"] = feedUrl;
+        menuStart.Environment["CLONEDIVERS_TEST_DLL"] = launcherDll;
+        menuStart.Environment["XDG_CONFIG_HOME"] = Path.Combine(root, "config");
+        using (var menu = Process.Start(menuStart)!)
+        {
+            var menuOutput = menu.StandardOutput.ReadToEndAsync(); var menuError = menu.StandardError.ReadToEndAsync();
+            await menu.StandardInput.WriteAsync("4\ny\ny\ny\n0\n"); await menu.StandardInput.FlushAsync();
+            using var menuTimeout = new CancellationTokenSource(TimeSpan.FromSeconds(30));
+            try { await menu.WaitForExitAsync(menuTimeout.Token); }
+            catch (OperationCanceledException) { menu.Kill(entireProcessTree: true); throw new Exception("Interactive terminal menu timed out"); }
+            Check(menu.ExitCode == 0, "real terminal menu opens, edits options and exits: " + await menuOutput + await menuError);
+        }
+        using var configured = JsonDocument.Parse(File.ReadAllText(Path.Combine(cliConfig, "config.json")));
+        Check(!configured.RootElement.GetProperty("Options").GetProperty("droids").GetBoolean() &&
+            configured.RootElement.GetProperty("Options").GetProperty("covenant").GetBoolean() &&
+            configured.RootElement.GetProperty("TextureProfile").GetString() == "lighter", "interactive options persist droids, Covenant and potato profile choices");
+        Check(File.ReadAllBytes(Path.Combine(cliGame, "data", clone.Name)).SequenceEqual(cloneBytes), "editing menu options leaves installed pack content unchanged until install/update");
     }
     var repository = Path.GetFullPath(Path.Combine(AppContext.BaseDirectory, "../../../.."));
     var published = Manifest.Parse(File.ReadAllText(Path.Combine(repository, "manifest-v3-current.json"))).Pack!;
@@ -260,6 +291,7 @@ sealed class FixtureServer : IDisposable
         content["/" + route] = bytes;
         return $"http://127.0.0.1:{((IPEndPoint)listener.LocalEndpoint).Port}/{route}";
     }
+    public void Remove(string route) => content.Remove("/" + route);
     async Task Serve()
     {
         try
@@ -274,8 +306,9 @@ sealed class FixtureServer : IDisposable
                 while (!string.IsNullOrEmpty(line = await reader.ReadLineAsync()))
                     if (line.StartsWith("Range: bytes=", StringComparison.OrdinalIgnoreCase)) { offset = int.Parse(line[13..].TrimEnd('-')); SawRange = true; }
                 Requests++;
-                var bytes = content[first.Split(' ')[1].Split('?')[0]];
-                var headers = $"HTTP/1.1 {(offset > 0 ? "206 Partial Content" : "200 OK")}\r\nContent-Length: {bytes.Length - offset}\r\nContent-Type: application/octet-stream\r\nConnection: close\r\n";
+                var found = content.TryGetValue(first.Split(' ')[1].Split('?')[0], out var bytes);
+                bytes ??= Encoding.UTF8.GetBytes("fixture feed unavailable");
+                var headers = $"HTTP/1.1 {(!found ? "404 Not Found" : offset > 0 ? "206 Partial Content" : "200 OK")}\r\nContent-Length: {bytes.Length - offset}\r\nContent-Type: application/octet-stream\r\nConnection: close\r\n";
                 if (offset > 0) headers += $"Content-Range: bytes {offset}-{bytes.Length - 1}/{bytes.Length}\r\n";
                 await stream.WriteAsync(Encoding.ASCII.GetBytes(headers + "\r\n"));
                 await stream.WriteAsync(bytes.AsMemory(offset));
