@@ -7,14 +7,14 @@ Helldivers 2 through Steam. No separate .NET install is needed for release packa
 ## Start
 
 **Ubuntu / Debian:** download
-[Clonedivers-linux-x64.deb](https://github.com/owendavidgoode/clonedivers/releases/download/linux-v0.4.0/Clonedivers-linux-x64.deb),
+[Clonedivers-linux-x64.deb](https://github.com/owendavidgoode/clonedivers/releases/download/linux-v0.4.1/Clonedivers-linux-x64.deb),
 open it with your software installer, and install. Start **Clonedivers** from the
 Applications menu. It opens a desktop window; no terminal is needed for normal use.
 If your desktop does not offer a local package installer, install once with
 `sudo apt install ~/Downloads/Clonedivers-linux-x64.deb`.
 
 **Other distributions / portable install:** download `Clonedivers-linux-x64.tar.gz`
-from the [Linux release](https://github.com/owendavidgoode/clonedivers/releases/tag/linux-v0.4.0)
+from the [Linux release](https://github.com/owendavidgoode/clonedivers/releases/tag/linux-v0.4.1)
 and extract it with your file manager. Open the `clonedivers` executable. In the
 window, **Add app shortcut** adds it to your Applications menu; keep the executable
 in its current folder afterward. If your file manager requires it, enable execution
@@ -53,8 +53,18 @@ in `libraryfolders.vdf`. If discovery misses your install:
 
 Choose the folder containing `data` and `bin/helldivers2.exe`. Use the real path if
 a managed folder is a symlink; the file safety checks reject redirected writes.
-Launching requires a working desktop `steam://` handler (usually provided by Steam
-and `xdg-open`). Flatpak Steam must already have permission to use its game library.
+Launch uses the Steam installation that owns the selected game library. Native Steam
+runs its existing `steam.sh`; Snap and Flatpak use their respective app launchers.
+This includes external libraries registered in that client's `libraryfolders.vdf`.
+The launcher bypasses the default `steam://` handler so it cannot select a different
+Steam client just because that client owns the desktop association. No Steam package
+is installed and no global association is changed. Steam can still perform its own
+normal client updates when opened.
+
+If the folder is unregistered or more than one Steam installation lists it, Launch
+explains the ambiguity. Open your usual Steam and start Helldivers 2 there; installed
+mods still apply. `status` and support reports include Steam routing information.
+Flatpak Steam must already have permission to use its game library.
 Snap Steam is checked under `~/snap/steam/common/.local/share/Steam` and
 `~/snap/steam/common/.steam/steam`, including their Steam library lists. You can also
 use Steam's **Manage → Browse local files** to find the game's exact install folder.
@@ -249,3 +259,5 @@ render a Linux screenshot. Package QA installs the `.deb` and repeats those chec
 Real pseudo-terminal checks cover arrow keys, checkbox save/discard, folder changes,
 headless routing, plain menus, NO_COLOR, Ctrl+C during an actual HTTP download and
 resuming its retained bytes. The workflow saves a terminal transcript for inspection.
+Launch checks cover native, Snap and Flatpak libraries with a deliberately wrong
+desktop URI handler, plus symlink aliases and ambiguous/unregistered ownership.

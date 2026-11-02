@@ -2,7 +2,7 @@ name: Linux launcher
 on:
   workflow_dispatch:
   push:
-    branches: [main, codex/linux-launcher, codex/linux-diagnostics, codex/linux-gui, codex/linux-tui]
+    branches: [main, codex/linux-launcher, codex/linux-diagnostics, codex/linux-gui, codex/linux-tui, codex/linux-steam-routing]
     tags: ['linux-v*']
     paths:
       - 'Clonedivers/**'

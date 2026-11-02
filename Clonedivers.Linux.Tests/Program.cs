@@ -74,6 +74,33 @@ try
     var snapLibrary = Path.Combine(root, "Snap External Library");
     File.WriteAllText(Path.Combine(snap, "steamapps", "libraryfolders.vdf"), "\"path\" \"" + snapLibrary.Replace("\\", "\\\\") + "\"");
     Check(LinuxPlatform.CandidateGameDirs(home).Contains(Path.Combine(snapLibrary, "steamapps", "common", "Helldivers 2")), "Snap Steam external libraries are read from its own libraryfolders.vdf");
+    void Libraries(string steamRoot, params string[] paths) => File.WriteAllText(Path.Combine(steamRoot, "steamapps", "libraryfolders.vdf"), string.Join('\n', paths.Select(p => "\"path\" \"" + p.Replace("\\", "\\\\") + "\"")));
+    var nativeScript = Path.Combine(steam, "steam.sh"); File.WriteAllText(nativeScript, "fixture");
+    var nativeLaunch = LinuxPlatform.SteamLaunchForGame(game, home);
+    Check(nativeLaunch.Client == "Native Steam" && nativeLaunch.Command.FileName == Path.GetFullPath(nativeScript) && nativeLaunch.Command.ArgumentList.Single() == "steam://rungameid/553850" && !nativeLaunch.Command.UseShellExecute, "native launch uses the owning Steam root directly, preserving paths with spaces");
+    Libraries(snap, library);
+    Throws<InvalidOperationException>(() => LinuxPlatform.SteamLaunchForGame(game, home), "two Steam clients claiming one library cannot silently pick a default client");
+    Libraries(steam);
+    var snapLaunch = LinuxPlatform.SteamLaunchForGame(game, home);
+    Check(snapLaunch.Client == "Snap Steam" && snapLaunch.Command.FileName == "snap" && snapLaunch.Command.ArgumentList.SequenceEqual(new[] { "run", "steam", "steam://rungameid/553850" }), "an external Snap library launches Snap Steam even with native Steam present");
+    Libraries(snap); Libraries(flatpak, library);
+    var flatpakLaunch = LinuxPlatform.SteamLaunchForGame(game, home);
+    Check(flatpakLaunch.Client == "Flatpak Steam" && flatpakLaunch.Command.FileName == "flatpak" && flatpakLaunch.Command.ArgumentList.SequenceEqual(new[] { "run", "com.valvesoftware.Steam", "steam://rungameid/553850" }), "an external Flatpak library launches its application explicitly");
+    Libraries(flatpak);
+    Throws<InvalidOperationException>(() => LinuxPlatform.SteamLaunchForGame(game, home), "unregistered game folders cannot bootstrap a different Steam through a URI handler");
+    Libraries(steam, library); File.Delete(nativeScript);
+    Throws<InvalidOperationException>(() => LinuxPlatform.SteamLaunchForGame(game, home), "a missing native Steam launcher does not fall back to another installation");
+    File.WriteAllText(nativeScript, "fixture");
+    if (OperatingSystem.IsLinux())
+    {
+        var alias = Path.Combine(home, ".steam", "root"); Directory.CreateDirectory(Path.GetDirectoryName(alias)!); Directory.CreateSymbolicLink(alias, steam);
+        Check(LinuxPlatform.SteamLaunchForGame(game, home).Client == "Native Steam", "Steam root symlink aliases resolve to one owner");
+        var libraryAlias = Path.Combine(root, "library-alias"); Directory.CreateSymbolicLink(libraryAlias, library); Libraries(steam, libraryAlias);
+        Check(LinuxPlatform.SteamLaunchForGame(game, home).Client == "Native Steam", "symlinked library paths match the selected real game folder");
+        Libraries(steam); Libraries(snap, library); Directory.Delete(alias); Directory.CreateSymbolicLink(alias, snap);
+        Check(LinuxPlatform.SteamLaunchForGame(game, home).Client == "Snap Steam", "a generic Steam root alias pointing inside Snap never becomes a native launch");
+        Directory.Delete(alias); Libraries(steam, library); Libraries(snap, snapLibrary);
+    }
     Check(GameLocator.NormalizeGameDir(Path.Combine(game, "data")) == game, "game folder normalization accepts data child");
     var proc = Path.Combine(root, "proc");
     Directory.CreateDirectory(Path.Combine(proc, "123"));
@@ -190,8 +217,24 @@ try
         var feedUrl = server.Add("manifest", JsonSerializer.SerializeToUtf8Bytes(feed, new JsonSerializerOptions { PropertyNamingPolicy = JsonNamingPolicy.CamelCase }));
         var launcherDll = typeof(LinuxInstaller).Assembly.Location;
         var fakeBin = Path.Combine(root, "fake-bin"); Directory.CreateDirectory(fakeBin);
+        var launchHome = Path.Combine(root, "launch-home");
+        var nativeRoot = LinuxPlatform.SteamRoots(launchHome).First();
+        var snapRoot = LinuxPlatform.SteamRoots(launchHome).Single(p => p.Replace('\\', '/').EndsWith("/snap/steam/common/.local/share/Steam", StringComparison.Ordinal));
+        var flatpakRoot = LinuxPlatform.SteamRoots(launchHome).Single(p => p.Contains("com.valvesoftware.Steam"));
+        foreach (var steamRoot in new[] { nativeRoot, snapRoot, flatpakRoot }) Directory.CreateDirectory(Path.Combine(steamRoot, "steamapps"));
+        var cliLibrary = Path.GetFullPath(Path.Combine(cliGame, "..", "..", "..")); Libraries(nativeRoot, cliLibrary);
+        var clientFile = Path.Combine(root, "launched-client");
+        var nativeLauncher = Path.Combine(nativeRoot, "steam.sh");
+        File.WriteAllText(nativeLauncher, "#!/bin/sh\nprintf native > \"$CLONEDIVERS_TEST_CLIENT\"\nprintf '%s' \"$1\" > \"$CLONEDIVERS_TEST_URI\"\n");
+        File.SetUnixFileMode(nativeLauncher, UnixFileMode.UserRead | UnixFileMode.UserWrite | UnixFileMode.UserExecute);
+        foreach (var client in new[] { "snap", "flatpak" })
+        {
+            var command = Path.Combine(fakeBin, client);
+            File.WriteAllText(command, "#!/bin/sh\nprintf '" + client + "' > \"$CLONEDIVERS_TEST_CLIENT\"\nprintf '%s' \"$3\" > \"$CLONEDIVERS_TEST_URI\"\n");
+            File.SetUnixFileMode(command, UnixFileMode.UserRead | UnixFileMode.UserWrite | UnixFileMode.UserExecute);
+        }
         var open = Path.Combine(fakeBin, "xdg-open");
-        File.WriteAllText(open, "#!/bin/sh\nprintf '%s' \"$1\" > \"$CLONEDIVERS_TEST_URI\"\n");
+        File.WriteAllText(open, "#!/bin/sh\nprintf wrong-default-handler > \"$CLONEDIVERS_TEST_URI\"\n");
         File.SetUnixFileMode(open, UnixFileMode.UserRead | UnixFileMode.UserWrite | UnixFileMode.UserExecute);
         var uriFile = Path.Combine(root, "uri");
         async Task<string> Cli(string command, int expectedExit = 0, string? chosenGame = null, bool accept = true, string? extraArgument = null, string? chosenFeed = null)
@@ -204,10 +247,12 @@ try
             foreach (var arg in command.Split(' ')) start.ArgumentList.Add(arg);
             if (extraArgument is not null) start.ArgumentList.Add(extraArgument);
             start.Environment["XDG_CONFIG_HOME"] = Path.Combine(root, "config");
+            start.Environment["HOME"] = launchHome;
             start.Environment["DOTNET_ROOT"] = Path.Combine(root, "no-runtime-installation");
             start.Environment["DOTNET_MULTILEVEL_LOOKUP"] = "0";
             start.Environment["PATH"] = fakeBin + ":" + Environment.GetEnvironmentVariable("PATH");
             start.Environment["CLONEDIVERS_TEST_URI"] = uriFile;
+            start.Environment["CLONEDIVERS_TEST_CLIENT"] = clientFile;
             using var child = Process.Start(start)!;
             child.StandardInput.Close();
             var stdout = child.StandardOutput.ReadToEndAsync(); var stderr = child.StandardError.ReadToEndAsync();
@@ -222,7 +267,20 @@ try
         await Cli("status");
         await Cli("launch");
         for (var i = 0; i < 30 && !File.Exists(uriFile); i++) await Task.Delay(100);
-        Check(File.ReadAllText(uriFile) == "steam://rungameid/553850", "Linux launch hands the correct Steam URI to the desktop handler");
+        Check(File.ReadAllText(uriFile) == "steam://rungameid/553850" && File.ReadAllText(clientFile) == "native", "real CLI launches the owning native Steam without using the wrong desktop handler");
+        Libraries(nativeRoot); Libraries(snapRoot, cliLibrary); File.Delete(uriFile);
+        await Cli("launch");
+        for (var i = 0; i < 30 && !File.Exists(uriFile); i++) await Task.Delay(100);
+        Check(File.ReadAllText(uriFile) == "steam://rungameid/553850" && File.ReadAllText(clientFile) == "snap", "real CLI dispatches a Snap-owned library through snap run steam");
+        Libraries(snapRoot); Libraries(flatpakRoot, cliLibrary); File.Delete(uriFile);
+        await Cli("launch");
+        for (var i = 0; i < 30 && !File.Exists(uriFile); i++) await Task.Delay(100);
+        Check(File.ReadAllText(uriFile) == "steam://rungameid/553850" && File.ReadAllText(clientFile) == "flatpak", "real CLI dispatches a Flatpak-owned library through flatpak run");
+        Libraries(nativeRoot, cliLibrary);
+        Check((await Cli("launch", 1)).Contains("More than one Steam installation"), "CLI explains ambiguous ownership instead of launching the desktop default");
+        Libraries(nativeRoot); Libraries(flatpakRoot);
+        Check((await Cli("launch", 1)).Contains("Cannot determine which Steam installation"), "CLI explains unknown ownership instead of bootstrapping another client");
+        Libraries(nativeRoot, cliLibrary);
         await Cli("vanilla");
         await Cli("repair");
         Check(ModFiles.GetState(cliGame) == ModState.Off, "actual CLI repair preserves a vanilla selection");
@@ -435,6 +493,7 @@ try
         File.WriteAllText(Path.Combine(guiGame, ".clonedivers-ui-fixture"), "explicit synthetic UI test");
         File.WriteAllText(Path.Combine(guiGame, "data", "base-archive"), "untouched");
         File.WriteAllText(SteamAcf.AcfPath(guiGame), "\"buildid\" \"25480438\"");
+        Libraries(snapRoot, Path.GetFullPath(Path.Combine(guiGame, "..", "..", ".."))); File.Delete(uriFile);
         var screenshot = Environment.GetEnvironmentVariable("CLONEDIVERS_GUI_SCREENSHOT") ?? Path.Combine(root, "gui.png");
         Directory.CreateDirectory(Path.GetDirectoryName(Path.GetFullPath(screenshot))!);
         var guiStart = new ProcessStartInfo("xvfb-run") { RedirectStandardOutput = true, RedirectStandardError = true };
@@ -444,9 +503,11 @@ try
         if (guiBinary is null) guiStart.ArgumentList.Add(launcherDll);
         foreach (var arg in new[] { "--gui", "--game", guiGame, "--manifest", feedUrl, "--ui-smoke", screenshot }) guiStart.ArgumentList.Add(arg);
         guiStart.Environment["XDG_CONFIG_HOME"] = Path.Combine(root, "config");
+        guiStart.Environment["HOME"] = launchHome;
         guiStart.Environment["XDG_DATA_HOME"] = Path.Combine(root, "desktop-data");
         guiStart.Environment["PATH"] = fakeBin + ":" + Environment.GetEnvironmentVariable("PATH");
         guiStart.Environment["CLONEDIVERS_TEST_URI"] = uriFile;
+        guiStart.Environment["CLONEDIVERS_TEST_CLIENT"] = clientFile;
         using (var gui = Process.Start(guiStart)!)
         {
             var stdout = gui.StandardOutput.ReadToEndAsync(); var stderr = gui.StandardError.ReadToEndAsync();
@@ -455,6 +516,7 @@ try
             Check(gui.ExitCode == 0, "native graphical launcher buttons, install/switch/repair/launch and shortcut: " + await stdout + await stderr);
         }
         Check(File.Exists(screenshot) && new FileInfo(screenshot).Length > 10000, "graphical launcher renders a real Linux window screenshot");
+        Check(File.ReadAllText(uriFile) == "steam://rungameid/553850" && File.ReadAllText(clientFile) == "snap", "native GUI Launch button uses the game's Snap Steam client despite a different default handler");
     }
     var repository = Path.GetFullPath(Path.Combine(AppContext.BaseDirectory, "../../../.."));
     var published = Manifest.Parse(File.ReadAllText(Path.Combine(repository, "manifest-v3-current.json"))).Pack!;
