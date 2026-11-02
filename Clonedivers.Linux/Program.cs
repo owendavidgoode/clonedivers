@@ -96,6 +96,8 @@ internal static partial class LinuxProgram
     {
         Console.WriteLine($"\nClonedivers Linux {AppInfo.Version}\nGame: {gameDir}");
         Console.WriteLine($"Mods: {ModFiles.GetState(gameDir)} | Game: {(Game.IsRunning() ? "running" : "closed")}");
+        try { Console.WriteLine("Steam client: " + LinuxPlatform.SteamLaunchForGame(gameDir!).Client); }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or InvalidOperationException or ArgumentException) { Console.WriteLine("Steam routing: " + ex.Message); }
         var receipt = InstallReceipt.Load(Settings.ReceiptPathFor(gameDir!), gameDir!);
         Console.WriteLine(receipt is not null && receipt.MatchesLayout(gameDir!)
             ? $"Installed pack: {receipt.PackVersion} | textures: {receipt.TextureProfile} | universe: {(receipt.Options.GetValueOrDefault("empire") ? "EmpireDivers" : "Clonedivers")}"
@@ -166,11 +168,12 @@ internal static partial class LinuxProgram
                 if (receipt is null || !receipt.MatchesLayout(gameDir!)) throw new InvalidOperationException("Run repair or install before launching this unrecorded/changed mod selection.");
                 await CheckBuildAsync(receipt.GameBuild);
             }
-            // Desktop URI handlers work with native and Flatpak Steam, without spawning Wine ourselves.
+            // Route to the client that owns this library, not the desktop's default URI handler.
             FpvDefaults.EnsureForInstalledPack(gameDir);
-            Game.LaunchViaSteam();
-            LinuxSupport.Record("launch", "Steam launch requested. " + ModFiles.GetState(gameDir));
-            Console.WriteLine("Launch request sent to Steam."); return;
+            var client = LinuxPlatform.LaunchGame(gameDir!);
+            if (terminal is not null) terminal.Notice = "Launch request sent to " + client + ".";
+            LinuxSupport.Record("launch", client + " launch requested. " + ModFiles.GetState(gameDir));
+            Console.WriteLine("Launch request sent to " + client + "."); return;
         }
         if (command == "repair")
         {

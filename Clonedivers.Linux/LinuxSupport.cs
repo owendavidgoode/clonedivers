@@ -75,6 +75,7 @@ public static class LinuxSupport
             GameFound = GameLocator.IsGameDir(gameDir),
             ModState = ModFiles.GetState(gameDir).ToString(),
             GameBuild = SteamAcf.Read(gameDir)?.BuildId,
+            SteamRouting = SteamRouting(gameDir),
             Pack = receipt?.PackVersion ?? settings.InstalledPackVersion,
             PackGameBuild = receipt?.GameBuild ?? settings.InstalledGameBuild,
             TextureProfile = receipt?.TextureProfile ?? settings.InstalledTextureProfile,
@@ -82,6 +83,18 @@ public static class LinuxSupport
             ReceiptMatchesLayout = receipt is not null && gameDir is not null && receipt.MatchesLayout(gameDir),
             Note = "Selection is observed from launcher metadata and file layout, not a fresh content hash check."
         };
+    }
+
+    static object SteamRouting(string? gameDir)
+    {
+        if (gameDir is null) return new { Unavailable = "Game folder not selected." };
+        try
+        {
+            var target = LinuxPlatform.SteamLaunchForGame(gameDir);
+            return new { target.Client, target.SteamRoot };
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or InvalidOperationException or ArgumentException)
+        { return new { Unavailable = ex.Message }; }
     }
 
     static object SafeSelection(string? gameDir, Settings settings)

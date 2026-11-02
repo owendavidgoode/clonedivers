@@ -69,7 +69,7 @@ internal static partial class LinuxProgram
                     case "4": await Options(); break;
                     case "5": await Command("repair", null); terminal.Notice = "Repair complete; installed mode preserved."; break;
                     case "6": await Command("finish", null); terminal.Notice = "Interrupted update finished."; break;
-                    case "7": await Command("launch", null); terminal.Notice = "Launch request sent to Steam."; break;
+                    case "7": await Command("launch", null); break;
                     case "f": await ChangeFolder(); break;
                     case "8":
                         var path = LinuxSupport.SaveReport(gameDir, settings);

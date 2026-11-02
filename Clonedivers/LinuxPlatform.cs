@@ -1,4 +1,8 @@
+using System.Diagnostics;
+
 namespace Clonedivers;
+
+public sealed record SteamLaunchTarget(string Client, string SteamRoot, ProcessStartInfo Command);
 
 public static class PlatformPaths
 {
@@ -33,9 +37,77 @@ public static class LinuxPlatform
         yield return Path.Combine(home, ".local/share/Steam");
         yield return Path.Combine(home, ".steam/steam");
         yield return Path.Combine(home, ".steam/root");
+        yield return Path.Combine(home, ".steam/debian-installation");
         yield return Path.Combine(home, ".var/app/com.valvesoftware.Steam/.local/share/Steam");
         yield return Path.Combine(home, "snap/steam/common/.local/share/Steam");
         yield return Path.Combine(home, "snap/steam/common/.steam/steam");
+    }
+
+    // Read-only discovery accepts Steam's usual symlink aliases, including symlinked libraries.
+    static string CanonicalDirectory(string path)
+    {
+        var full = Path.GetFullPath(path); var current = Path.GetPathRoot(full)!;
+        foreach (var part in full[current.Length..].Split(Path.DirectorySeparatorChar, StringSplitOptions.RemoveEmptyEntries))
+        {
+            current = Path.Combine(current, part);
+            var directory = new DirectoryInfo(current);
+            if (directory.LinkTarget is not null) current = directory.ResolveLinkTarget(true)?.FullName ?? throw new IOException("Unresolved Steam folder link.");
+        }
+        return Path.TrimEndingDirectorySeparator(current);
+    }
+
+    static bool Within(string path, string parent) => path.Equals(parent, PlatformPaths.Comparison) || path.StartsWith(parent + Path.DirectorySeparatorChar, PlatformPaths.Comparison);
+
+    public static SteamLaunchTarget SteamLaunchForGame(string gameDir, string? home = null)
+    {
+        home ??= Environment.GetFolderPath(Environment.SpecialFolder.UserProfile);
+        if (!GameLocator.IsGameDir(gameDir) || !File.Exists(SteamAcf.AcfPath(gameDir)))
+            throw new InvalidOperationException("Choose the installed Helldivers 2 folder from Steam → Manage → Browse local files before launching.");
+        var game = CanonicalDirectory(gameDir);
+        var snapHome = CanonicalDirectory(Path.Combine(home, "snap/steam/common"));
+        var flatpakHome = CanonicalDirectory(Path.Combine(home, ".var/app/com.valvesoftware.Steam"));
+        var owners = new List<(string client, string root)>();
+        foreach (var root in SteamRoots(home).Where(Directory.Exists))
+        {
+            var resolved = CanonicalDirectory(root);
+            var libraries = new List<string> { root };
+            try { libraries.AddRange(GameLocator.ParseLibraryPaths(File.ReadAllText(Path.Combine(root, "steamapps", "libraryfolders.vdf"))).Where(Path.IsPathFullyQualified)); }
+            catch (IOException) { /* A missing list does not hide a game in this root's own library. */ }
+            catch (UnauthorizedAccessException) { }
+            if (!libraries.Any(l => CanonicalDirectory(Path.Combine(l, "steamapps", "common", GameLocator.GameFolderName)).Equals(game, PlatformPaths.Comparison))) continue;
+            var client = Within(resolved, snapHome) || Within(Path.GetFullPath(root), Path.GetFullPath(Path.Combine(home, "snap/steam/common"))) ? "Snap Steam"
+                : Within(resolved, flatpakHome) || Within(Path.GetFullPath(root), Path.GetFullPath(Path.Combine(home, ".var/app/com.valvesoftware.Steam"))) ? "Flatpak Steam" : "Native Steam";
+            if (!owners.Any(o => o.client == client && o.root.Equals(resolved, PlatformPaths.Comparison))) owners.Add((client, resolved));
+        }
+        if (owners.Count != 1)
+            throw new InvalidOperationException((owners.Count == 0 ? "Cannot determine which Steam installation owns this game folder." : "More than one Steam installation lists this game folder.") + " Open your usual Steam and launch Helldivers 2 there. The installed mods still apply.");
+        var owner = owners[0];
+        var start = new ProcessStartInfo { UseShellExecute = false };
+        if (owner.client == "Snap Steam") { start.FileName = "snap"; start.ArgumentList.Add("run"); start.ArgumentList.Add("steam"); }
+        else if (owner.client == "Flatpak Steam") { start.FileName = "flatpak"; start.ArgumentList.Add("run"); start.ArgumentList.Add("com.valvesoftware.Steam"); }
+        else
+        {
+            start.FileName = Path.Combine(owner.root, "steam.sh"); start.WorkingDirectory = owner.root;
+            if (!File.Exists(start.FileName)) throw new InvalidOperationException("The owning native Steam installation has no steam.sh launcher. Open your usual Steam and launch Helldivers 2 there.");
+        }
+        start.ArgumentList.Add("steam://rungameid/" + GameLocator.SteamAppId);
+        return new SteamLaunchTarget(owner.client, owner.root, start);
+    }
+
+    public static string LaunchGame(string gameDir)
+    {
+        var target = SteamLaunchForGame(gameDir);
+        // Process.Start can prefer a sibling of the apphost over PATH (notably /usr/bin).
+        // Resolve explicitly so source, portable and installed builds use the same launcher.
+        if (!Path.IsPathFullyQualified(target.Command.FileName))
+        {
+            var name = target.Command.FileName;
+            target.Command.FileName = (Environment.GetEnvironmentVariable("PATH") ?? "").Split(Path.PathSeparator)
+                .Where(Path.IsPathFullyQualified).Select(dir => Path.Combine(dir, name)).FirstOrDefault(File.Exists)
+                ?? throw new InvalidOperationException(target.Client + " launcher is unavailable on PATH. Open your usual Steam and launch Helldivers 2 there.");
+        }
+        using var process = Process.Start(target.Command) ?? throw new IOException("Steam could not be started.");
+        return target.Client;
     }
 
     public static IEnumerable<string> CandidateGameDirs(string? home = null)

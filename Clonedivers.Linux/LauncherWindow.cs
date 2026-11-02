@@ -288,7 +288,7 @@ internal sealed class LauncherWindow : Window
         if (!(selected == LauncherMode.Helldivers && stateOnDisk is ModState.Off or ModState.NoModFiles) && !matches) await ApplySelectedAsync();
         if (selected != LauncherMode.Helldivers) await CheckBuildAsync(InstallReceipt.Load(Settings.ReceiptPathFor(gameDir!), gameDir!)?.GameBuild);
         using var gameLock = LinuxInstaller.Lock(gameDir!); LinuxInstaller.RequireClosed();
-        FpvDefaults.EnsureForInstalledPack(gameDir); Game.LaunchViaSteam(); message.Text = "Launch request sent to Steam."; LinuxSupport.Record("launch", "Desktop Steam launch requested.");
+        FpvDefaults.EnsureForInstalledPack(gameDir); var client = LinuxPlatform.LaunchGame(gameDir!); message.Text = "Launch request sent to " + client + "."; LinuxSupport.Record("launch", "Desktop " + client + " launch requested.");
     }
     async Task SaveReportAsync()
     {
