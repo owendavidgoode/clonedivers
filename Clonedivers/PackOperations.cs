@@ -28,8 +28,7 @@ public sealed class RecoveryTarget
         { return null; }
     }
 
-    internal static bool SameGame(string a, string b) => string.Equals(Path.TrimEndingDirectorySeparator(Path.GetFullPath(a)),
-        Path.TrimEndingDirectorySeparator(Path.GetFullPath(b)), StringComparison.OrdinalIgnoreCase);
+    internal static bool SameGame(string a, string b) => string.Equals(PlatformPaths.Identity(a), PlatformPaths.Identity(b), StringComparison.Ordinal);
 }
 
 public sealed class InstalledFile
