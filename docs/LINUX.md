@@ -1,15 +1,24 @@
 # Clonedivers for Linux (preview)
 
-A native terminal launcher for Steam/Proton players. Downloads and verifies the same
+A native graphical launcher for Steam/Proton players. Downloads and verifies the same
 pack as the Windows launcher, switches Clonedivers/EmpireDivers/vanilla, and starts
 Helldivers 2 through Steam. No separate .NET install is needed for release packages.
 
 ## Start
 
-Download `Clonedivers-linux-x64.tar.gz` from the
-[Linux preview release](https://github.com/owendavidgoode/clonedivers/releases/tag/linux-v0.2.0).
-Most desktop PCs and Steam Deck use x64. The arm64 package is also built, but that
-does not establish that Helldivers 2 can run on an ARM machine.
+**Ubuntu / Debian:** download
+[Clonedivers-linux-x64.deb](https://github.com/owendavidgoode/clonedivers/releases/download/linux-v0.3.0/Clonedivers-linux-x64.deb),
+open it with your software installer, and install. Start **Clonedivers** from the
+Applications menu. It opens a desktop window; no terminal is needed for normal use.
+If your desktop does not offer a local package installer, install once with
+`sudo apt install ~/Downloads/Clonedivers-linux-x64.deb`.
+
+**Other distributions / portable install:** download `Clonedivers-linux-x64.tar.gz`
+from the [Linux release](https://github.com/owendavidgoode/clonedivers/releases/tag/linux-v0.3.0)
+and extract it with your file manager. Open the `clonedivers` executable. In the
+window, **Add app shortcut** adds it to your Applications menu; keep the executable
+in its current folder afterward. If your file manager requires it, enable execution
+in the file's Properties/Permissions. A terminal alternative is:
 
 ```bash
 mkdir -p ~/Applications/clonedivers
@@ -19,9 +28,17 @@ chmod +x clonedivers
 ./clonedivers
 ```
 
-Run from a terminal. The menu offers install/update, options, vanilla, repair,
-recovery and launch. Choose options before installing; option changes apply on the
-next install/update. The game must be closed when changing files.
+The window offers Helldivers/Clonedivers/EmpireDivers cards, pack options,
+install/update with progress and cancellation, repair, recovery and a Steam Launch
+button. Steam native/Flatpak/Snap libraries are detected automatically. Use **Browse**
+to choose the game folder, or paste a path and click **Use folder**. Choose a universe
+and options, then **Install / update pack** or **Launch**. Downloads show their size
+before proceeding. The game must be closed when changing files.
+
+Most PCs and Steam Deck use x64. Use Steam Deck Desktop Mode for this preview.
+ARM64 packages are also built; that does not establish ARM game compatibility.
+The tar build needs the desktop's X11/XWayland and fontconfig libraries. The Ubuntu
+package declares its runtime dependencies. Both include their own .NET runtime.
 
 Run each complete line separately; if terminal paste markup such as `^[[200~` appears,
 press Ctrl+C and enter the command again. The extraction command runs inside the
@@ -43,6 +60,9 @@ Snap Steam is checked under `~/snap/steam/common/.local/share/Steam` and
 use Steam's **Manage → Browse local files** to find the game's exact install folder.
 
 ## Commands
+
+Optional terminal commands remain available for troubleshooting and automation.
+Running `./clonedivers` with no command opens the GUI; `--terminal` opens the old text menu.
 
 ```bash
 ./clonedivers status
@@ -88,7 +108,7 @@ using FPV so Proton has created its user profile.
 
 ## Support reports
 
-Choose **Save support report** in the menu or run:
+Click **Save report** in the window to choose a ZIP destination, or run:
 
 ```bash
 ./clonedivers report
@@ -126,7 +146,7 @@ launcher warns when Snap Steam is detected; use `record-status` to verify a CSV 
 than assuming performance capture worked. Support reports and available Proton logs
 remain useful even when MangoHud cannot capture frames.
 
-1. Run `./clonedivers record-setup`, or use **Session recording → One-time Steam setup**.
+1. Click **Recording…** in the window and **Copy setup**, or run `./clonedivers record-setup`.
 2. In Steam, open **Helldivers 2 → Properties → Launch Options** and paste the printed
    wrapper line. For an empty field it looks like:
 
@@ -137,10 +157,10 @@ remain useful even when MangoHud cannot capture frames.
    If you already have custom launch options, put the printed wrapper path before
    their existing command, preserving the rest. Setup prints instructions; it does
    not edit Steam's configuration.
-3. Run `./clonedivers record` to arm the next launch. Start through the launcher's
+3. Click **Record next session**, or run `./clonedivers record`. Start through the launcher's
    **Launch** command or directly in Steam. Keep the launcher's terminal closed or
    open as you prefer; the wrapper handles the capture.
-4. After exiting the game, run `./clonedivers record-status` to check the command exit
+4. After exiting the game, click **Show result** in the recording dialog, or run `./clonedivers record-status`, to check the command exit
    code and whether a MangoHud CSV was produced. Use `./clonedivers report` to collect
    a support ZIP. Complete raw files remain under the game's
    `mods_diagnostics/sessions/<session-id>` folder.
@@ -167,9 +187,9 @@ keep any pre-existing options. The launcher does not need the wrapper for normal
 
 ## Preview limits and validation
 
-This release has a terminal menu, not the Windows graphical interface. Windows
-performance sharing, PresentMon recording and launcher self-update are unavailable.
-To update the launcher, extract a newer Linux package over it while it is closed.
+This release has its own Linux desktop interface. Windows performance sharing,
+PresentMon recording and launcher self-update are unavailable. Update by installing
+a newer `.deb`, or replace the portable executable while it is closed.
 
 Automated checks cover Linux Steam discovery, process detection, downloads, SHA-256
 verification, recovery, repairs and cached mode changes. The actual mod pack and
@@ -198,3 +218,6 @@ and 24.04. A `linux-v*` tag publishes a prerelease and downloads it again for ho
 package verification, without changing the Windows latest release or public pack feeds.
 CI also exercises the recording wrapper and support ZIPs, and records an actual
 MangoHud CSV from a Vulkan demo using software rendering on a virtual X display.
+Native GUI checks click the real controls to install/switch/repair/launch, preserve
+vanilla and base files, restore missing mods, create an Applications shortcut, and
+render a Linux screenshot. Package QA installs the `.deb` and repeats those checks.
