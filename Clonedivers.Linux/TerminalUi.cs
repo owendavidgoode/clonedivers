@@ -201,7 +201,35 @@ internal sealed class TerminalUi : IDisposable
     }
     public async Task ShowAsync(string title, string body, CancellationToken ct)
     {
-        await SelectAsync(() => new TerminalView(title, body.Split('\n'), new[] { new TerminalItem("0", "Back", "Return to the launcher.") }), ct);
+        if (!ansi)
+        {
+            await SelectAsync(() => new TerminalView(title, body.Split('\n'), new[] { new TerminalItem("0", "Back", "Return to the launcher.") }), ct);
+            return;
+        }
+        // Paths and Steam launch options must remain readable even on a small terminal.
+        var offset = 0;
+        while (true)
+        {
+            var count = Math.Max(1, Height - 13);
+            var lines = body.Split('\n').SelectMany(line => Wrap(line, Width)).ToArray();
+            offset = Math.Min(offset, Math.Max(0, lines.Length - 1));
+            var view = new TerminalView(title, lines.Skip(offset).Take(count).ToArray(), new[]
+            {
+                new TerminalItem("n", "Next page", "Read the rest of this message.", offset + count < lines.Length),
+                new TerminalItem("p", "Previous page", "Read the preceding lines.", offset > 0),
+                new TerminalItem("0", "Back", "Return to the launcher.")
+            }, $"Lines {offset + 1}–{Math.Min(offset + count, lines.Length)} of {lines.Length} · Enter select · Esc back");
+            var choice = await SelectAsync(() => view, ct, "0");
+            if (choice is null) return;
+            offset = choice == "n" ? offset + count : Math.Max(0, offset - count);
+        }
+    }
+    internal static IEnumerable<string> Wrap(string line, int width)
+    {
+        line = Safe(line); width = Math.Max(1, width);
+        if (line.Length == 0) yield return "";
+        for (var start = 0; start < line.Length; start += width)
+            yield return line.Substring(start, Math.Min(width, line.Length - start));
     }
 }
 

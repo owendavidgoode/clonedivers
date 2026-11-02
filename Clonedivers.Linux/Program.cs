@@ -85,7 +85,6 @@ internal static partial class LinuxProgram
 
     static bool Confirm(string message)
     {
-        if (terminal is not null && !yes) return terminal.ConfirmAsync("REVIEW OPERATION", message, cancellation.Token).GetAwaiter().GetResult();
         Console.WriteLine(message);
         if (yes) return true;
         if (Console.IsInputRedirected) throw new InvalidOperationException("Use --yes to accept this operation with redirected input.");
@@ -165,7 +164,7 @@ internal static partial class LinuxProgram
             {
                 var receipt = InstallReceipt.Load(Settings.ReceiptPathFor(gameDir!), gameDir!);
                 if (receipt is null || !receipt.MatchesLayout(gameDir!)) throw new InvalidOperationException("Run repair or install before launching this unrecorded/changed mod selection.");
-                CheckBuild(receipt.GameBuild);
+                await CheckBuildAsync(receipt.GameBuild);
             }
             // Desktop URI handlers work with native and Flatpak Steam, without spawning Wine ourselves.
             FpvDefaults.EnsureForInstalledPack(gameDir);
@@ -193,18 +192,22 @@ internal static partial class LinuxProgram
             TextureProfile = profile, TargetActive = true, Files = Pack.EffectiveFiles(pack, id => options.GetValueOrDefault(id), profile) });
     }
 
-    static void CheckBuild(string? tested)
+    static async Task CheckBuildAsync(string? tested)
     {
         var actual = SteamAcf.Read(gameDir);
         LinuxInstaller.RequireNoSteamUpdate(gameDir!);
         if (tested is null || actual?.BuildId != tested)
-            if (!Confirm($"Game build {actual?.BuildId ?? "unknown"}; pack tested against {tested ?? "unknown"}. Compatibility with this build is unverified."))
+        {
+            var warning = $"Game build {actual?.BuildId ?? "unknown"}; pack tested against {tested ?? "unknown"}.\nCompatibility with this build is unverified.";
+            var accepted = terminal is not null && !yes ? await terminal.ConfirmAsync("GAME COMPATIBILITY", warning, cancellation.Token) : Confirm(warning);
+            if (!accepted)
                 throw new OperationCanceledException();
+        }
     }
 
     static async Task Apply(RecoveryTarget target)
     {
-        CheckBuild(target.GameBuild);
+        await CheckBuildAsync(target.GameBuild);
         var last = Stopwatch.StartNew();
         var transfer = new TerminalTransfer();
         var progress = new SyncProgress<(long done, long total, int file, int files)>(p =>
@@ -215,7 +218,10 @@ internal static partial class LinuxProgram
         });
         var preparation = new SyncProgress<(string phase, long done, long total)>(p => terminal?.Activity(p.phase, p.done, p.total));
         var result = await LinuxInstaller.ApplyWithConfirmationAsync(gameDir!, target, PlanPath, Settings.ReceiptPathFor(gameDir!), plan =>
-            Task.FromResult(Confirm($"Pack {target.PackVersion}, textures {target.TextureProfile}.\nDownload {Pack.FormatBytes(plan.BytesToDownload)}, copy {Pack.FormatBytes(plan.BytesToCopy)}, park {plan.ParkCount} files.\nReplaced files are kept in mods_old.")), progress, cancellation.Token, preparation);
+        {
+            var summary = $"Pack {target.PackVersion}, textures {target.TextureProfile}.\nDownload {Pack.FormatBytes(plan.BytesToDownload)}, copy {Pack.FormatBytes(plan.BytesToCopy)}, park {plan.ParkCount} files.\nReplaced files are kept in mods_old.";
+            return terminal is not null && !yes ? terminal.ConfirmAsync("REVIEW DOWNLOAD", summary, cancellation.Token) : Task.FromResult(Confirm(summary));
+        }, progress, cancellation.Token, preparation);
         if (result.Interrupted) throw new IOException($"Update interrupted: {result.Reason} {string.Join(", ", result.Failed)}. Close the game and run finish.");
         settings.RecordInstall(result);
         settings.Save();

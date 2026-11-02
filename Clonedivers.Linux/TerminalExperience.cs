@@ -6,6 +6,7 @@ internal static partial class LinuxProgram
     {
         var ready = GameLocator.IsGameDir(gameDir); var running = false; var gameState = "UNKNOWN"; var pending = false; var recoverable = false; var universe = "not installed"; var profile = "not selected"; var version = "not recorded";
         InstallReceipt? receipt = null;
+        var diskState = ModState.GameNotFound; var layoutMatches = false;
         try
         {
             running = Game.IsRunning();
@@ -14,9 +15,10 @@ internal static partial class LinuxProgram
             {
                 pending = Pack.HasPendingUpdate(gameDir, PlanPath);
                 recoverable = pending && RecoveryTarget.Read(gameDir, PlanPath) is not null;
-                var state = ModFiles.GetState(gameDir); receipt = InstallReceipt.Load(Settings.ReceiptPathFor(gameDir), gameDir);
-                universe = state is ModState.Off or ModState.NoModFiles ? "Helldivers (vanilla)" : receipt?.Options.GetValueOrDefault("empire") == true ? "EmpireDivers" : "Clonedivers";
-                version = receipt?.PackVersion ?? "unrecorded — install/update to verify"; profile = receipt?.TextureProfile ?? "unknown";
+                diskState = ModFiles.GetState(gameDir); receipt = InstallReceipt.Load(Settings.ReceiptPathFor(gameDir), gameDir);
+                layoutMatches = receipt is not null && receipt.MatchesLayout(gameDir);
+                universe = diskState is ModState.Off or ModState.NoModFiles ? "Helldivers (vanilla)" : receipt?.Options.GetValueOrDefault("empire") == true ? "EmpireDivers" : "Clonedivers";
+                version = receipt is null ? "unrecorded — install/update to verify" : receipt.PackVersion + (layoutMatches ? "" : " (needs repair)"); profile = receipt?.TextureProfile ?? "unknown";
             }
         }
         catch (Exception ex) { ready = false; terminal!.Notice = "Folder inspection failed: " + ex.Message; }
@@ -39,7 +41,7 @@ internal static partial class LinuxProgram
             new TerminalItem("4", "Pack options", "Checkboxes for skins, Covenant and texture streaming; save or discard."),
             new TerminalItem("5", "Check & repair", canInstall && receipt is not null ? "Freshly verify the installed selection and preserve its active/vanilla state." : receipt is null ? "Install/update once to record an installed selection." : unavailable, canInstall && receipt is not null),
             new TerminalItem("6", "Finish interrupted update", recoverable ? "Resume the exact saved update target." : pending ? "Use install/update or repair to rebuild orphaned files." : "There is no interrupted update to finish.", canChange && recoverable),
-            new TerminalItem("7", "Launch " + universe, canLaunch ? "Start the current installed universe through Steam." : unavailable, canLaunch),
+            new TerminalItem("7", "Launch " + universe, canLaunch && (diskState != ModState.On || layoutMatches) ? "Start the current installed universe through Steam." : canLaunch ? "Install/update or repair this unrecorded/changed selection before launching." : unavailable, canLaunch && (diskState != ModState.On || layoutMatches)),
             new TerminalItem("f", "Change game folder", "Paste a folder from Steam → Manage → Browse local files.", !running),
             new TerminalItem("8", "Save support report", "Save a local ZIP with system details and available logs. No upload."),
             new TerminalItem("9", "Session recording", "Setup, arm, cancel or inspect optional MangoHud/Proton recording.", ready),

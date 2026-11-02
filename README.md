@@ -5,19 +5,21 @@ Choose Helldivers, Clonedivers, or EmpireDivers. Launch through Steam.</p>
 
 <p align="center">
   <a href="https://github.com/owendavidgoode/clonedivers/releases/latest/download/Clonedivers.exe"><img alt="Download for Windows" src="https://img.shields.io/badge/Windows-Download_EXE-1f5fcc?style=for-the-badge"></a>
-  <a href="https://github.com/owendavidgoode/clonedivers/releases/download/linux-v0.3.0/Clonedivers-linux-x64.deb"><img alt="Download Linux GUI for Ubuntu or Debian" src="https://img.shields.io/badge/Linux_GUI-Ubuntu_%2F_Debian-e2761c?style=for-the-badge"></a>
+  <a href="https://github.com/owendavidgoode/clonedivers/releases/download/linux-v0.4.0/Clonedivers-linux-x64.deb"><img alt="Download Linux GUI and terminal UI for Ubuntu or Debian" src="https://img.shields.io/badge/Linux-Ubuntu_%2F_Debian-e2761c?style=for-the-badge"></a>
 </p>
-<p align="center">Windows 10/11 64-bit · Linux desktop GUI · Steam copy of Helldivers 2 · no separate .NET install needed</p>
-<p align="center"><a href="https://github.com/owendavidgoode/clonedivers/releases/download/linux-v0.3.0/Clonedivers-linux-x64.tar.gz">Linux portable download</a> · <a href="docs/LINUX.md">Linux setup</a> · <a href="https://github.com/owendavidgoode/clonedivers/releases/tag/linux-v0.3.0">Linux release notes and ARM64 downloads</a></p>
+<p align="center">Windows 10/11 64-bit · Linux desktop and terminal UIs · Steam copy of Helldivers 2 · no separate .NET install needed</p>
+<p align="center"><a href="https://github.com/owendavidgoode/clonedivers/releases/download/linux-v0.4.0/Clonedivers-linux-x64.tar.gz">Linux portable download</a> · <a href="docs/LINUX.md">Linux setup</a> · <a href="https://github.com/owendavidgoode/clonedivers/releases/tag/linux-v0.4.0">Linux release notes and ARM64 downloads</a></p>
 <p align="center"><img src="docs/screenshots/three-modes-1.7.png" width="560" alt="Helldivers, Clonedivers and EmpireDivers launcher"></p>
 
 ## Get started
 
-**Linux:** on Ubuntu/Debian, install the [Linux GUI package](https://github.com/owendavidgoode/clonedivers/releases/download/linux-v0.3.0/Clonedivers-linux-x64.deb)
+**Linux:** on Ubuntu/Debian, install the [Linux launcher package](https://github.com/owendavidgoode/clonedivers/releases/download/linux-v0.4.0/Clonedivers-linux-x64.deb)
 and open **Clonedivers** from Applications. Other distributions can use the portable
 tar download and open its executable. The desktop window has mode cards, pack options,
 download progress, a folder picker, repair, and a Steam Launch button. It also saves
 local support reports and offers optional MangoHud recording for desktop sessions.
+Prefer the terminal? Run `clonedivers --tui` for an arrow-key dashboard, checkbox
+options, live progress and resumable cancellation. Both interfaces are included.
 Steam Deck users should use Desktop Mode for this preview.
 See [Linux setup and commands](docs/LINUX.md). Pack gameplay under Proton still needs
 player testing.

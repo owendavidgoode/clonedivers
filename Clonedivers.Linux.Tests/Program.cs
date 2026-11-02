@@ -31,6 +31,9 @@ try
     Check(frame.Contains("Choice 29") && frame.Split('\n', StringSplitOptions.RemoveEmptyEntries).All(l => l.Length <= 30) && frame.Split('\n').Length <= 12, "narrow terminal viewports keep the selected action visible without overflowing");
     Check(!frame.Contains('\u001b') && !frame.Contains("clipboard-payload"), "terminal rendering strips untrusted ANSI and clipboard-control sequences");
     Check(TerminalUi.NormalizePathInput("\u001b[200~'~/Game files'\u001b[201~", root) == Path.Combine(root, "Game files"), "folder input accepts quoted home paths and removes bracketed-paste artifacts");
+    var longPath = "'/mnt/" + new string('a', 130) + "/Game folder/steam-capture.sh' %command%";
+    var wrappedPath = TerminalUi.Wrap(longPath, 30).ToArray();
+    Check(string.Concat(wrappedPath) == longPath && wrappedPath.All(line => line.Length <= 30), "long Steam launch commands wrap without losing path characters");
     var supportHome = Path.Combine(root, "support-home"); Directory.CreateDirectory(supportHome);
     var supportConfig = Path.Combine(root, "support-config");
     File.WriteAllText(Path.Combine(supportHome, "steam-553850.log"), $"Proton fixture\n{supportHome}/private/file\nhttps://example.invalid/log?token=secret-query\nAuthorization: Bearer secret-bearer\nSteam user 76561198000000000\n");
@@ -272,7 +275,7 @@ try
         var menuScript = Path.Combine(fakeBin, "launch-menu");
         File.WriteAllText(menuScript, """
             #!/bin/sh
-            stty cols 100 rows 32
+            stty cols "${CLONEDIVERS_TEST_COLS:-100}" rows "${CLONEDIVERS_TEST_ROWS:-32}"
             if [ -n "$CLONEDIVERS_TEST_AUTO" ]; then set --; unset DISPLAY WAYLAND_DISPLAY; else set -- --tui; fi
             if [ -n "$CLONEDIVERS_TEST_BINARY" ]; then
               exec "$CLONEDIVERS_TEST_BINARY" "$@" --game "$CLONEDIVERS_TEST_GAME" --manifest "$CLONEDIVERS_TEST_FEED"
@@ -296,7 +299,8 @@ try
             using var menuTimeout = new CancellationTokenSource(TimeSpan.FromSeconds(30));
             try { await menu.WaitForExitAsync(menuTimeout.Token); }
             catch (OperationCanceledException) { menu.Kill(entireProcessTree: true); throw new Exception("Interactive terminal menu timed out"); }
-            Check(menu.ExitCode == 0, "real terminal menu opens, edits options and exits: " + await menuOutput + await menuError);
+            var transcript = await menuOutput + await menuError;
+            Check(menu.ExitCode == 0, "real terminal menu opens, edits options and exits" + (menu.ExitCode == 0 ? "" : ": " + transcript));
         }
         using var configured = JsonDocument.Parse(File.ReadAllText(Path.Combine(cliConfig, "config.json")));
         Check(!configured.RootElement.GetProperty("Options").GetProperty("droids").GetBoolean() &&
@@ -304,7 +308,7 @@ try
             configured.RootElement.GetProperty("TextureProfile").GetString() == "lighter", "interactive options persist droids, Covenant and potato profile choices");
         Check(File.ReadAllBytes(Path.Combine(cliGame, "data", clone.Name)).SequenceEqual(cloneBytes), "editing menu options leaves installed pack content unchanged until install/update");
 
-        async Task<string> Terminal(string term, string chosenGame, (string text, int delay)[] input, bool automatic = false, string? chosenFeed = null, bool cancelTransfer = false)
+        async Task<string> Terminal(string term, string chosenGame, (string text, int delay)[] input, bool automatic = false, string? chosenFeed = null, bool cancelTransfer = false, bool small = false)
         {
             var start = new ProcessStartInfo("script") { RedirectStandardInput = true, RedirectStandardOutput = true, RedirectStandardError = true };
             foreach (var arg in new[] { "-q", "-e", "-c", "exec \"$CLONEDIVERS_TEST_MENU_SCRIPT\"", "/dev/null" }) start.ArgumentList.Add(arg);
@@ -315,6 +319,7 @@ try
             start.Environment["CLONEDIVERS_TEST_DLL"] = launcherDll;
             start.Environment["XDG_CONFIG_HOME"] = Path.Combine(root, "config");
             start.Environment["TERM"] = term; start.Environment["NO_COLOR"] = "1";
+            if (small) { start.Environment["CLONEDIVERS_TEST_COLS"] = "40"; start.Environment["CLONEDIVERS_TEST_ROWS"] = "16"; }
             using var child = Process.Start(start)!;
             var output = child.StandardOutput.ReadToEndAsync(); var errors = child.StandardError.ReadToEndAsync();
             try
@@ -331,7 +336,7 @@ try
             }
             catch { if (!child.HasExited) child.Kill(true); throw; }
             var transcript = await output + await errors;
-            Check(child.ExitCode == 0, "interactive terminal exits cleanly: " + transcript);
+            Check(child.ExitCode == 0, "interactive terminal exits cleanly" + (child.ExitCode == 0 ? "" : ": " + transcript));
             return transcript;
         }
         var beforeDiscard = File.ReadAllBytes(Path.Combine(cliConfig, "config.json"));
@@ -339,6 +344,8 @@ try
         Check(rich.Contains("PACK OPTIONS") && rich.Contains("Space or Enter") && rich.Contains("Option edits discarded"), "arrow keys, Space, Escape and End navigate the live TUI and discard option edits");
         Check(File.ReadAllBytes(Path.Combine(cliConfig, "config.json")).SequenceEqual(beforeDiscard), "discarding TUI edits leaves saved choices byte-identical");
         Check(!System.Text.RegularExpressions.Regex.IsMatch(rich, "\u001b\\[[0-9;]*m"), "NO_COLOR keeps keyboard navigation without emitting color sequences");
+        var paged = await Terminal("xterm-256color", cliGame, new[] { ("9\n1\n", 500), ("n\n", 200), ("p\n", 200), ("0\n0\n", 0) }, small: true);
+        Check(paged.Contains("Lines 1–3") && paged.Contains("Lines 4–6") && paged.Contains("Previous page"), "recording results can page forward and back in a small real terminal");
         var folderFlow = await Terminal("dumb", Path.Combine(root, "not-installed"), new[] { ("f\n" + cliGame + "\n0\n", 0) });
         Check(folderFlow.Contains("Not found") && folderFlow.Contains("Game folder saved"), "TUI starts without game detection and can select a folder without restarting");
         using (var selectedFolder = JsonDocument.Parse(File.ReadAllText(Path.Combine(cliConfig, "config.json"))))
