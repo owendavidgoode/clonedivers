@@ -27,7 +27,7 @@ player testing.
 2. Keep the game closed. Choose **Clonedivers** or **EmpireDivers**, set **Droid skins**, optional **Covenant squids** and **JohnsonPotatoMode™**, then download the pack. The launcher shows the download size and resumes interrupted downloads.
 3. Click **Launch**. Steam starts Helldivers 2. Each player installs the pack locally to see and hear its replacements.
 
-Current release: **launcher 1.7.2 / pack 2026.09.27-r19**. Existing players should update the launcher first, then **Update pack**. Unchanged downloads are reused. [Launcher 1.7.2](docs/releases/launcher-1.7.2.md) redraws the Empire helmet icon and documents the installed-pack and cape load-order QA. [The Empire refinement update](docs/releases/pack-2026.09.27-r19.md) adds detailed Star Destroyers, no capes, stormtrooper combat callouts, Imperial command voices and map UI. Clonedivers keeps the Venator intro and exclusive clone voices; SAI E-11 sound and blue blaster bolts remain included in both modded modes.
+Current release: **launcher 1.7.3 / pack 2026.11.01-r25**, targeting **HD2 7.2.2 / Steam build 26251122**. With the game closed, choose **Update pack**. [The compatibility repair](docs/releases/pack-2026.11.01-r25.md) restores current weapon sound events while retaining replacement audio, refreshes game text and excludes unsupported Lua runtime features. Unchanged downloads are reused. Audible gameplay acceptance remains open.
 
 **Vanilla night?** Choose **Helldivers** while the game is closed. It parks the mods and hides mod options. Cached mode changes don't ask for confirmation. **Check and repair** verifies installed files while preserving the selected mode.
 
@@ -43,7 +43,7 @@ The pack includes clone blasters with repaired ADS scopes, Republic weapon and s
 
 The **Supply FRV mesh port** and **Watcher probe-audio loop** are experimental and included at Owen's request. Guard Dog probe chatter is removed. Vehicle seating, supply access, deformation/destruction and Watcher loop behavior still need squad testing. The AT-TE camera is unchanged; the rejected cutaway and camera loader/probe are excluded.
 
-[Mod credits and source pages](docs/MODS.md), [armor follow-up](docs/PLAYER-QA-FOLLOWUP.md), [vehicle sources](docs/VEHICLES-AND-CLIENT-LOGGING.md), and [7.1 compatibility audit](docs/HD2-7.1-COMPATIBILITY.md) document the underlying work. Startup passed on build 25480438 (7.1.1); the 65 rebased audio banks, Watcher bank and English text are unchanged from the audited 7.1 bases. This is not a claim that every asset has passed gameplay testing.
+[Mod credits and source pages](docs/MODS.md), [armor follow-up](docs/PLAYER-QA-FOLLOWUP.md), [vehicle sources](docs/VEHICLES-AND-CLIENT-LOGGING.md), and the [7.2.2 compatibility repair](docs/releases/pack-2026.11.01-r25.md) document the underlying work. All 96 production selections pass offline routing, codec, stream and archive checks against build 26251122. This is not a claim that every asset has passed gameplay testing.
 
 ## Reports and troubleshooting
 
