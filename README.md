@@ -3,16 +3,24 @@
 <p align="center"><b>Clones and commandos, together.</b><br>
 Choose Helldivers, Clonedivers, or EmpireDivers. Launch through Steam.</p>
 
-<p align="center"><a href="https://github.com/owendavidgoode/clonedivers/releases/latest/download/Clonedivers.exe"><img alt="Download Clonedivers.exe" src="https://img.shields.io/badge/Download-Clonedivers.exe-1f5fcc?style=for-the-badge"></a></p>
-<p align="center">Windows 10/11 64-bit · Steam copy of Helldivers 2 · no separate runtime needed</p>
+<p align="center">
+  <a href="https://github.com/owendavidgoode/clonedivers/releases/latest/download/Clonedivers.exe"><img alt="Download for Windows" src="https://img.shields.io/badge/Windows-Download_EXE-1f5fcc?style=for-the-badge"></a>
+  <a href="https://github.com/owendavidgoode/clonedivers/releases/download/linux-v0.1.1/Clonedivers-linux-x64.tar.gz"><img alt="Download Linux x64 preview" src="https://img.shields.io/badge/Linux_x64-Download_preview-e2761c?style=for-the-badge"></a>
+</p>
+<p align="center">Windows 10/11 64-bit · Linux x64 preview · Steam copy of Helldivers 2 · no separate .NET install needed</p>
+<p align="center"><a href="docs/LINUX.md">Linux setup and commands</a> · <a href="https://github.com/owendavidgoode/clonedivers/releases/tag/linux-v0.1.1">Linux release notes and ARM64 download</a></p>
 <p align="center"><img src="docs/screenshots/three-modes-1.7.png" width="560" alt="Helldivers, Clonedivers and EmpireDivers launcher"></p>
 
 ## Get started
 
-**Linux / Steam Deck:** a native terminal launcher is available as a
-[Linux preview](https://github.com/owendavidgoode/clonedivers/releases/tag/linux-v0.1.1).
+**Linux / Steam Deck:** download the [Linux x64 preview](https://github.com/owendavidgoode/clonedivers/releases/download/linux-v0.1.1/Clonedivers-linux-x64.tar.gz),
+extract it, open a terminal in that folder, and run `./clonedivers` (use
+`chmod +x clonedivers` first if needed). The terminal menu installs/updates the pack,
+switches Clonedivers/EmpireDivers/vanilla, repairs files, and launches through Steam.
 See [Linux setup and commands](docs/LINUX.md). Pack gameplay under Proton still needs
 player testing.
+
+**Windows:**
 
 1. Download [Clonedivers.exe](https://github.com/owendavidgoode/clonedivers/releases/latest/download/Clonedivers.exe). Close any older launcher before replacing it. The executable is unsigned; Windows may show a SmartScreen prompt.
 2. Keep the game closed. Choose **Clonedivers** or **EmpireDivers**, set **Droid skins**, optional **Covenant squids** and **JohnsonPotatoMode™**, then download the pack. The launcher shows the download size and resumes interrupted downloads.
