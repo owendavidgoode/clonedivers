@@ -23,6 +23,14 @@ void Throws<T>(Action action, string name) where T : Exception
 try
 {
     Game.IsRunningCheck = () => false;
+    Check(!DesktopProgram.UseTerminal(Array.Empty<string>(), true) && DesktopProgram.UseTerminal(Array.Empty<string>(), false), "desktop stays default with a display; headless sessions route to the TUI");
+    Check(DesktopProgram.UseTerminal(new[] { "--tui" }, true) && !DesktopProgram.UseTerminal(new[] { "--gui" }, false), "explicit GUI and TUI choices override environment detection");
+    Check(!DesktopProgram.UseTerminal(new[] { "--game", "status", "--manifest", "report" }, true), "option values are never mistaken for command names during interface routing");
+    var view = new TerminalView("TEST", new[] { "\u001b]52;c;clipboard-payload\aSafe status\u001b[2J" }, Enumerable.Range(0, 30).Select(i => new TerminalItem(i.ToString(), "Choice " + i)).ToArray());
+    var frame = TerminalUi.Render(view, 29, 30, 12, false);
+    Check(frame.Contains("Choice 29") && frame.Split('\n', StringSplitOptions.RemoveEmptyEntries).All(l => l.Length <= 30) && frame.Split('\n').Length <= 12, "narrow terminal viewports keep the selected action visible without overflowing");
+    Check(!frame.Contains('\u001b') && !frame.Contains("clipboard-payload"), "terminal rendering strips untrusted ANSI and clipboard-control sequences");
+    Check(TerminalUi.NormalizePathInput("\u001b[200~'~/Game files'\u001b[201~", root) == Path.Combine(root, "Game files"), "folder input accepts quoted home paths and removes bracketed-paste artifacts");
     var supportHome = Path.Combine(root, "support-home"); Directory.CreateDirectory(supportHome);
     var supportConfig = Path.Combine(root, "support-config");
     File.WriteAllText(Path.Combine(supportHome, "steam-553850.log"), $"Proton fixture\n{supportHome}/private/file\nhttps://example.invalid/log?token=secret-query\nAuthorization: Bearer secret-bearer\nSteam user 76561198000000000\n");
@@ -183,12 +191,12 @@ try
         File.WriteAllText(open, "#!/bin/sh\nprintf '%s' \"$1\" > \"$CLONEDIVERS_TEST_URI\"\n");
         File.SetUnixFileMode(open, UnixFileMode.UserRead | UnixFileMode.UserWrite | UnixFileMode.UserExecute);
         var uriFile = Path.Combine(root, "uri");
-        async Task<string> Cli(string command, int expectedExit = 0, string? chosenGame = null, bool accept = true, string? extraArgument = null)
+        async Task<string> Cli(string command, int expectedExit = 0, string? chosenGame = null, bool accept = true, string? extraArgument = null, string? chosenFeed = null)
         {
             var binary = Environment.GetEnvironmentVariable("CLONEDIVERS_TEST_BINARY");
             var start = new ProcessStartInfo(binary ?? "dotnet") { RedirectStandardOutput = true, RedirectStandardError = true, RedirectStandardInput = true };
             if (binary is null) start.ArgumentList.Add(launcherDll);
-            foreach (var arg in new[] { "--game", chosenGame ?? cliGame, "--manifest", feedUrl }) start.ArgumentList.Add(arg);
+            foreach (var arg in new[] { "--game", chosenGame ?? cliGame, "--manifest", chosenFeed ?? feedUrl }) start.ArgumentList.Add(arg);
             if (accept) start.ArgumentList.Add("--yes");
             foreach (var arg in command.Split(' ')) start.ArgumentList.Add(arg);
             if (extraArgument is not null) start.ArgumentList.Add(extraArgument);
@@ -262,7 +270,16 @@ try
 
         // The default user journey is a menu on a terminal, so exercise it with a real PTY.
         var menuScript = Path.Combine(fakeBin, "launch-menu");
-        File.WriteAllText(menuScript, "#!/bin/sh\nif [ -n \"$CLONEDIVERS_TEST_BINARY\" ]; then exec \"$CLONEDIVERS_TEST_BINARY\" --terminal --game \"$CLONEDIVERS_TEST_GAME\" --manifest \"$CLONEDIVERS_TEST_FEED\"; else exec dotnet \"$CLONEDIVERS_TEST_DLL\" --terminal --game \"$CLONEDIVERS_TEST_GAME\" --manifest \"$CLONEDIVERS_TEST_FEED\"; fi\n");
+        File.WriteAllText(menuScript, """
+            #!/bin/sh
+            stty cols 100 rows 32
+            if [ -n "$CLONEDIVERS_TEST_AUTO" ]; then set --; unset DISPLAY WAYLAND_DISPLAY; else set -- --tui; fi
+            if [ -n "$CLONEDIVERS_TEST_BINARY" ]; then
+              exec "$CLONEDIVERS_TEST_BINARY" "$@" --game "$CLONEDIVERS_TEST_GAME" --manifest "$CLONEDIVERS_TEST_FEED"
+            else
+              exec dotnet "$CLONEDIVERS_TEST_DLL" "$@" --game "$CLONEDIVERS_TEST_GAME" --manifest "$CLONEDIVERS_TEST_FEED"
+            fi
+            """);
         File.SetUnixFileMode(menuScript, UnixFileMode.UserRead | UnixFileMode.UserWrite | UnixFileMode.UserExecute);
         var menuStart = new ProcessStartInfo("script") { RedirectStandardInput = true, RedirectStandardOutput = true, RedirectStandardError = true };
         foreach (var arg in new[] { "-q", "-e", "-c", "exec \"$CLONEDIVERS_TEST_MENU_SCRIPT\"", "/dev/null" }) menuStart.ArgumentList.Add(arg);
@@ -271,10 +288,11 @@ try
         menuStart.Environment["CLONEDIVERS_TEST_FEED"] = feedUrl;
         menuStart.Environment["CLONEDIVERS_TEST_DLL"] = launcherDll;
         menuStart.Environment["XDG_CONFIG_HOME"] = Path.Combine(root, "config");
+        menuStart.Environment["TERM"] = "dumb";
         using (var menu = Process.Start(menuStart)!)
         {
             var menuOutput = menu.StandardOutput.ReadToEndAsync(); var menuError = menu.StandardError.ReadToEndAsync();
-            await menu.StandardInput.WriteAsync("4\ny\ny\ny\n0\n"); await menu.StandardInput.FlushAsync();
+            await menu.StandardInput.WriteAsync("4\n1\n2\n3\ns\n0\n"); await menu.StandardInput.FlushAsync();
             using var menuTimeout = new CancellationTokenSource(TimeSpan.FromSeconds(30));
             try { await menu.WaitForExitAsync(menuTimeout.Token); }
             catch (OperationCanceledException) { menu.Kill(entireProcessTree: true); throw new Exception("Interactive terminal menu timed out"); }
@@ -285,6 +303,64 @@ try
             configured.RootElement.GetProperty("Options").GetProperty("covenant").GetBoolean() &&
             configured.RootElement.GetProperty("TextureProfile").GetString() == "lighter", "interactive options persist droids, Covenant and potato profile choices");
         Check(File.ReadAllBytes(Path.Combine(cliGame, "data", clone.Name)).SequenceEqual(cloneBytes), "editing menu options leaves installed pack content unchanged until install/update");
+
+        async Task<string> Terminal(string term, string chosenGame, (string text, int delay)[] input, bool automatic = false, string? chosenFeed = null, bool cancelTransfer = false)
+        {
+            var start = new ProcessStartInfo("script") { RedirectStandardInput = true, RedirectStandardOutput = true, RedirectStandardError = true };
+            foreach (var arg in new[] { "-q", "-e", "-c", "exec \"$CLONEDIVERS_TEST_MENU_SCRIPT\"", "/dev/null" }) start.ArgumentList.Add(arg);
+            start.Environment["CLONEDIVERS_TEST_MENU_SCRIPT"] = menuScript;
+            start.Environment["CLONEDIVERS_TEST_GAME"] = chosenGame;
+            start.Environment["CLONEDIVERS_TEST_FEED"] = chosenFeed ?? feedUrl;
+            start.Environment["CLONEDIVERS_TEST_AUTO"] = automatic ? "1" : "";
+            start.Environment["CLONEDIVERS_TEST_DLL"] = launcherDll;
+            start.Environment["XDG_CONFIG_HOME"] = Path.Combine(root, "config");
+            start.Environment["TERM"] = term; start.Environment["NO_COLOR"] = "1";
+            using var child = Process.Start(start)!;
+            var output = child.StandardOutput.ReadToEndAsync(); var errors = child.StandardError.ReadToEndAsync();
+            try
+            {
+                foreach (var step in input) { await child.StandardInput.WriteAsync(step.text); await child.StandardInput.FlushAsync(); await Task.Delay(step.delay); }
+                if (cancelTransfer)
+                {
+                    await server.SlowStarted.Task.WaitAsync(TimeSpan.FromSeconds(10)); await Task.Delay(200);
+                    await child.StandardInput.WriteAsync("\u0003"); await child.StandardInput.FlushAsync(); await Task.Delay(700);
+                    await child.StandardInput.WriteAsync("0\n"); await child.StandardInput.FlushAsync();
+                }
+                using var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(30));
+                await child.WaitForExitAsync(timeout.Token);
+            }
+            catch { if (!child.HasExited) child.Kill(true); throw; }
+            var transcript = await output + await errors;
+            Check(child.ExitCode == 0, "interactive terminal exits cleanly: " + transcript);
+            return transcript;
+        }
+        var beforeDiscard = File.ReadAllBytes(Path.Combine(cliConfig, "config.json"));
+        var rich = await Terminal("xterm-256color", cliGame, new[] { ("\u001b[B\u001b[B\u001b[B\n", 300), (" ", 200), ("\u001b", 300), ("\u001b[F\n", 0) });
+        Check(rich.Contains("PACK OPTIONS") && rich.Contains("Space or Enter") && rich.Contains("Option edits discarded"), "arrow keys, Space, Escape and End navigate the live TUI and discard option edits");
+        Check(File.ReadAllBytes(Path.Combine(cliConfig, "config.json")).SequenceEqual(beforeDiscard), "discarding TUI edits leaves saved choices byte-identical");
+        Check(!System.Text.RegularExpressions.Regex.IsMatch(rich, "\u001b\\[[0-9;]*m"), "NO_COLOR keeps keyboard navigation without emitting color sequences");
+        var folderFlow = await Terminal("dumb", Path.Combine(root, "not-installed"), new[] { ("f\n" + cliGame + "\n0\n", 0) });
+        Check(folderFlow.Contains("Not found") && folderFlow.Contains("Game folder saved"), "TUI starts without game detection and can select a folder without restarting");
+        using (var selectedFolder = JsonDocument.Parse(File.ReadAllText(Path.Combine(cliConfig, "config.json"))))
+            Check(selectedFolder.RootElement.GetProperty("GamePath").GetString() == cliGame, "TUI folder picker persists the confirmed game path");
+        var transcriptDestination = Environment.GetEnvironmentVariable("CLONEDIVERS_TUI_TRANSCRIPT");
+        if (!string.IsNullOrWhiteSpace(transcriptDestination)) { Directory.CreateDirectory(Path.GetDirectoryName(Path.GetFullPath(transcriptDestination))!); File.WriteAllText(transcriptDestination, rich); }
+        Check((await Terminal("dumb", cliGame, new[] { ("0\n", 0) }, automatic: true)).Contains("YOUR SQUAD LAUNCHER"), "a real headless terminal automatically opens the TUI without a mode flag");
+        await Cli("status", extraArgument: "--terminal");
+
+        var slowGame = Path.Combine(root, "Slow Library", "steamapps", "common", "Helldivers 2");
+        Directory.CreateDirectory(Path.Combine(slowGame, "data")); Directory.CreateDirectory(Path.Combine(slowGame, "bin"));
+        File.WriteAllText(Path.Combine(slowGame, "bin", "helldivers2.exe"), "fixture"); File.WriteAllText(SteamAcf.AcfPath(slowGame), "\"buildid\" \"25480438\"");
+        var slowBytes = new byte[1024 * 1024]; Random.Shared.NextBytes(slowBytes);
+        var slowFile = Entry("slow.patch_0", slowBytes, "slow-file"); server.MarkSlow("slow-file");
+        var slowManifest = new Manifest { Format = 2, Pack = new PackManifest { Version = "slow-fixture", GameBuild = "25480438", Files = new() { slowFile } } };
+        var slowFeed = server.Add("slow-manifest", JsonSerializer.SerializeToUtf8Bytes(slowManifest, new JsonSerializerOptions { PropertyNamingPolicy = JsonNamingPolicy.CamelCase }));
+        var cancelled = await Terminal("xterm-256color", slowGame, new[] { ("1\ny\n", 0) }, chosenFeed: slowFeed, cancelTransfer: true);
+        Check(cancelled.Contains("Cancelled. Partial downloads") && cancelled.Contains("YOUR SQUAD LAUNCHER"), "Ctrl+C during a real TUI download returns to a usable dashboard");
+        var retained = Path.Combine(slowGame, Pack.DownloadFolder, slowFile.Sha256 + Pack.PartialSuffix);
+        Check(File.Exists(retained) && new FileInfo(retained).Length > 0 && new FileInfo(retained).Length < slowFile.Size && ModFiles.GetState(slowGame) == ModState.NoModFiles, "cancelled TUI transfer keeps partial bytes and leaves installed files untouched");
+        await Cli("install clone", chosenGame: slowGame, chosenFeed: slowFeed);
+        Check(server.ResumedSlow && File.ReadAllBytes(Path.Combine(slowGame, "data", slowFile.Name)).SequenceEqual(slowBytes), "a cancelled TUI download resumes by HTTP Range and installs verified bytes");
 
         await Cli("record-setup");
         var wrapper = Path.Combine(cliGame, "mods_diagnostics", "steam-capture.sh");
@@ -396,10 +472,13 @@ sealed class FixtureServer : IDisposable
 {
     readonly TcpListener listener = new(IPAddress.Loopback, 0);
     readonly Dictionary<string, byte[]> content = new();
+    readonly HashSet<string> slow = new();
     readonly CancellationTokenSource stop = new();
     readonly Task serving;
     public bool SawRange { get; private set; }
     public int Requests { get; private set; }
+    public bool ResumedSlow { get; private set; }
+    public TaskCompletionSource<bool> SlowStarted { get; } = new(TaskCreationOptions.RunContinuationsAsynchronously);
     public FixtureServer() { listener.Start(); serving = Serve(); }
     public string Add(string route, byte[] bytes)
     {
@@ -407,6 +486,7 @@ sealed class FixtureServer : IDisposable
         return $"http://127.0.0.1:{((IPEndPoint)listener.LocalEndpoint).Port}/{route}";
     }
     public void Remove(string route) => content.Remove("/" + route);
+    public void MarkSlow(string route) => slow.Add("/" + route);
     async Task Serve()
     {
         try
@@ -414,6 +494,8 @@ sealed class FixtureServer : IDisposable
             while (!stop.IsCancellationRequested)
             {
                 using var client = await listener.AcceptTcpClientAsync(stop.Token);
+                try
+                {
                 await using var stream = client.GetStream();
                 using var reader = new StreamReader(stream, Encoding.ASCII, false, 1024, true);
                 var first = await reader.ReadLineAsync() ?? "";
@@ -421,12 +503,22 @@ sealed class FixtureServer : IDisposable
                 while (!string.IsNullOrEmpty(line = await reader.ReadLineAsync()))
                     if (line.StartsWith("Range: bytes=", StringComparison.OrdinalIgnoreCase)) { offset = int.Parse(line[13..].TrimEnd('-')); SawRange = true; }
                 Requests++;
-                var found = content.TryGetValue(first.Split(' ')[1].Split('?')[0], out var bytes);
+                var route = first.Split(' ')[1].Split('?')[0];
+                var found = content.TryGetValue(route, out var bytes);
                 bytes ??= Encoding.UTF8.GetBytes("fixture feed unavailable");
                 var headers = $"HTTP/1.1 {(!found ? "404 Not Found" : offset > 0 ? "206 Partial Content" : "200 OK")}\r\nContent-Length: {bytes.Length - offset}\r\nContent-Type: application/octet-stream\r\nConnection: close\r\n";
                 if (offset > 0) headers += $"Content-Range: bytes {offset}-{bytes.Length - 1}/{bytes.Length}\r\n";
                 await stream.WriteAsync(Encoding.ASCII.GetBytes(headers + "\r\n"));
-                await stream.WriteAsync(bytes.AsMemory(offset));
+                if (slow.Contains(route))
+                {
+                    if (offset > 0) ResumedSlow = true;
+                    SlowStarted.TrySetResult(true);
+                    for (var at = offset; at < bytes.Length; at += 16384)
+                    { await stream.WriteAsync(bytes.AsMemory(at, Math.Min(16384, bytes.Length - at)), stop.Token); await Task.Delay(35, stop.Token); }
+                }
+                else await stream.WriteAsync(bytes.AsMemory(offset));
+                }
+                catch (IOException) { /* A cancelled client may close during its transfer. */ }
             }
         }
         catch (OperationCanceledException) { }
