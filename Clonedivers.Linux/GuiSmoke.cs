@@ -25,6 +25,10 @@ internal static class GuiSmoke
             if (!File.Exists(Path.Combine(game, ".clonedivers-ui-fixture")) || new FileInfo(exe).Length != 7 || File.ReadAllText(exe) != "fixture")
                 throw new InvalidOperationException("GUI smoke only accepts an explicitly marked synthetic fixture, never a real game.");
             Check(window.IsVisible && window.Modes.Count == 3, "native desktop window and three universe buttons are visible");
+            await window.UpdateOperation;
+            Check(window.ViewUpdateButton.IsVisible && window.UpdateNotice.Text!.Contains("99.0.0"), "desktop shows a cached newer Linux launcher release");
+            Check(window.CheckUpdateButton.IsEnabled, "manual launcher update check stays available");
+            await Click(window.ViewUpdateButton);
             await Click(window.Modes[LauncherMode.Clonedivers]); await Click(window.ApplyButton);
             Check(ModFiles.GetState(game) == ModState.On, "Clonedivers button installs and enables pack");
             await Click(window.Modes[LauncherMode.EmpireDivers]); await Click(window.ApplyButton);

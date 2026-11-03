@@ -7,14 +7,14 @@ Helldivers 2 through Steam. No separate .NET install is needed for release packa
 ## Start
 
 **Ubuntu / Debian:** download
-[Clonedivers-linux-x64.deb](https://github.com/owendavidgoode/clonedivers/releases/download/linux-v0.4.1/Clonedivers-linux-x64.deb),
+[Clonedivers-linux-x64.deb](https://github.com/owendavidgoode/clonedivers/releases/download/linux-v0.5.0/Clonedivers-linux-x64.deb),
 open it with your software installer, and install. Start **Clonedivers** from the
 Applications menu. It opens a desktop window; no terminal is needed for normal use.
 If your desktop does not offer a local package installer, install once with
 `sudo apt install ~/Downloads/Clonedivers-linux-x64.deb`.
 
 **Other distributions / portable install:** download `Clonedivers-linux-x64.tar.gz`
-from the [Linux release](https://github.com/owendavidgoode/clonedivers/releases/tag/linux-v0.4.1)
+from the [Linux release](https://github.com/owendavidgoode/clonedivers/releases/tag/linux-v0.5.0)
 and extract it with your file manager. Open the `clonedivers` executable. In the
 window, **Add app shortcut** adds it to your Applications menu; keep the executable
 in its current folder afterward. If your file manager requires it, enable execution
@@ -92,6 +92,26 @@ session opens the terminal dashboard automatically.
 
 Set `NO_COLOR=1` to disable colors. `--plain`, `TERM=dumb`, or redirected output uses
 basic numbered menus. Direct commands below keep their ordinary text output.
+
+## Launcher updates
+
+The desktop window and terminal dashboard check for newer **Linux launcher** releases
+in the background. A newer version shows an update notice; **View release** opens its
+GitHub download page. In the terminal, choose **Launcher updates** (`u`) to view the
+version and link, open the release page, or check again. The desktop also has a
+**Check for updates** button. These notices are separate from mod-pack updates.
+
+Install the newer `.deb`, or close the portable launcher and replace its executable.
+Installed pack files, cached downloads and settings are preserved. The launcher does
+not download or install its own replacement automatically. Version 0.5.0 must be
+installed once to receive future update notices.
+
+Checks include Linux preview releases and ignore Windows releases. They only offer
+releases with an uploaded package for the launcher's architecture. Successful checks
+are cached for six hours; failures retry after fifteen minutes. Manual checks bypass
+the cache. Offline operation keeps a previously known update, and update-check failure
+does not block playing, pack installs or launcher startup. The check requests public
+GitHub release metadata without credentials; it does not upload game or system data.
 
 ## Commands
 
@@ -227,9 +247,10 @@ PresentMon recording and launcher self-update are unavailable. Update by install
 a newer `.deb`, or replace the portable executable while it is closed.
 
 Automated checks cover Linux Steam discovery, process detection, downloads, SHA-256
-verification, recovery, repairs and cached mode changes. The actual mod pack and
-Steam/Proton gameplay still need testing on a player's Linux machine. First confirm
-vanilla Helldivers 2 works with that machine's Proton setup.
+verification, recovery, repairs and cached mode changes. Successful gameplay has also
+been reported by a player on Ubuntu 26.04. Other mode, GPU and Proton combinations
+remain subject to playtesting. First confirm vanilla Helldivers 2 works with that
+machine's Proton setup.
 
 For a squad playtest, check download/update, Clonedivers launch, EmpireDivers switch,
 vanilla restoration, repair and a cancelled/resumed download. Report distribution,
@@ -248,8 +269,9 @@ dotnet publish Clonedivers.Linux -c Release -r linux-x64 --self-contained true -
 The Linux and Windows launchers compile the same pack, validation, download and
 recovery sources. Linux CI builds both x64 and arm64 packages, verifies archive
 contents, executable permissions, architecture and checksums, then runs the extracted
-x64 executable through installation/launch/repair/recovery scenarios on Ubuntu 22.04
-and 24.04. A `linux-v*` tag publishes a prerelease and downloads it again for hosted
+x64 executable through installation/launch/repair/recovery scenarios on Ubuntu 22.04,
+24.04 and 26.04. A `linux-v*` tag publishes a prerelease and downloads it again on
+Ubuntu 24.04 and 26.04 for hosted
 package verification, without changing the Windows latest release or public pack feeds.
 CI also exercises the recording wrapper and support ZIPs, and records an actual
 MangoHud CSV from a Vulkan demo using software rendering on a virtual X display.
@@ -261,3 +283,6 @@ headless routing, plain menus, NO_COLOR, Ctrl+C during an actual HTTP download a
 resuming its retained bytes. The workflow saves a terminal transcript for inspection.
 Launch checks cover native, Snap and Flatpak libraries with a deliberately wrong
 desktop URI handler, plus symlink aliases and ambiguous/unregistered ownership.
+Update checks cover Linux/Windows channel separation, numeric version ordering,
+architecture filtering, caching, offline failures, and actual desktop/terminal
+notices. The desktop's release button is exercised through a local browser stub.

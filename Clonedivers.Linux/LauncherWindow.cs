@@ -30,6 +30,13 @@ internal sealed class LauncherWindow : Window
     readonly TextBlock state = Text("Choose your universe.", 16), installed = Text("", 12, Dim), message = Text("", 13, Dim), progressText = Text("", 12, Dim);
     readonly ProgressBar progress = new() { Minimum = 0, Maximum = 100, Height = 5 };
     readonly Button browse = ActionButton("Browse…"), report = ActionButton("Save report"), recording = ActionButton("Recording…"), shortcut = ActionButton("Add app shortcut");
+    readonly LauncherUpdates launcherUpdates = new();
+    readonly CancellationTokenSource updateCancellation = new();
+    LauncherUpdateStatus? launcherUpdate;
+    internal readonly TextBlock UpdateNotice = Text("Checking launcher updates…", 12, Dim);
+    internal readonly Button CheckUpdateButton = ActionButton("Check for updates"), ViewUpdateButton = ActionButton("View release");
+    readonly Border updatePanel = new() { IsVisible = false, Background = Brush.Parse("#172440"), CornerRadius = new CornerRadius(7), Padding = new Thickness(12) };
+    internal Task UpdateOperation { get; private set; } = Task.CompletedTask;
     internal bool Smoke { get; }
     internal string? SmokeOutput { get; }
     internal string? GameDirectory => gameDir;
@@ -53,6 +60,8 @@ internal sealed class LauncherWindow : Window
         var header = new StackPanel { Spacing = 3 };
         header.Children.Add(Text("CLONEDIVERS", 30, Brushes.White, FontWeight.Bold));
         header.Children.Add(Text("Clones and commandos, together.  ·  Linux", 13, Dim)); panel.Children.Add(header);
+        var updateRow = new Grid { ColumnDefinitions = new ColumnDefinitions("*,Auto"), ColumnSpacing = 10 };
+        updateRow.Children.Add(UpdateNotice); Grid.SetColumn(ViewUpdateButton, 1); updateRow.Children.Add(ViewUpdateButton); updatePanel.Child = updateRow; panel.Children.Add(updatePanel);
         var modes = new UniformGrid { Columns = 3, Rows = 1 };
         foreach (var mode in new[] { LauncherMode.Helldivers, LauncherMode.Clonedivers, LauncherMode.EmpireDivers })
         {
@@ -82,8 +91,15 @@ internal sealed class LauncherWindow : Window
         folderRow.Children.Add(Folder); Grid.SetColumn(browse, 1); folderRow.Children.Add(browse); Grid.SetColumn(UseFolderButton, 2); folderRow.Children.Add(UseFolderButton);
         panel.Children.Insert(1, folderLabel); panel.Children.Insert(2, folderRow);
         var tools = new WrapPanel { Orientation = Orientation.Horizontal };
-        foreach (var button in new[] { report, recording, shortcut }) { button.Margin = new Thickness(0, 0, 8, 0); tools.Children.Add(button); }
+        foreach (var button in new[] { report, recording, shortcut, CheckUpdateButton }) { button.Margin = new Thickness(0, 0, 8, 0); tools.Children.Add(button); }
         panel.Children.Add(tools); panel.Children.Add(Text($"v{AppInfo.Version}  ·  Steam launches the game normally.  ·  For the Republic.", 11, Dim));
+        ViewUpdateButton.IsVisible = false;
+        CheckUpdateButton.Click += (_, _) => UpdateOperation = CheckLauncherUpdatesAsync(force: true);
+        ViewUpdateButton.Click += (_, _) =>
+        {
+            try { if (launcherUpdate is not null) LauncherUpdates.OpenRelease(launcherUpdate); }
+            catch (Exception ex) { UpdateNotice.Text = "Open " + (launcherUpdate?.Url ?? LauncherUpdates.ReleasesPage) + " in your browser. " + ex.Message; }
+        };
         Content = new ScrollViewer { Content = panel, HorizontalScrollBarVisibility = ScrollBarVisibility.Disabled };
         Folder.Text = gameDir ?? "";
         Folder.TextChanged += (_, _) => { pathDirty = Folder.Text != gameDir; UpdateView(); };
@@ -105,10 +121,28 @@ internal sealed class LauncherWindow : Window
         refresh.Tick += (_, _) => { if (!busy && !closing) UpdateView(); };
         Opened += async (_, _) =>
         {
+            UpdateOperation = CheckLauncherUpdatesAsync();
             AdoptInstalledMode(); Begin(LoadFeedAsync); await Operation; refresh.Start();
             if (Smoke) await GuiSmoke.RunAsync(this);
         };
+        Closed += (_, _) => { closing = true; updateCancellation.Cancel(); updateCancellation.Dispose(); };
         UpdateView();
+    }
+
+    async Task CheckLauncherUpdatesAsync(bool force = false)
+    {
+        CheckUpdateButton.IsEnabled = false; UpdateNotice.Text = "Checking launcher updates…"; if (force) updatePanel.IsVisible = true;
+        try
+        {
+            var result = await launcherUpdates.CheckAsync(updateCancellation.Token, force);
+            if (closing) return;
+            launcherUpdate = result; UpdateNotice.Text = result.Message; ViewUpdateButton.IsVisible = result.Available is not null;
+            updatePanel.IsVisible = force || result.Available is not null;
+            UpdateNotice.Foreground = result.Available is not null ? Orange : Dim;
+            ToolTip.SetTip(ViewUpdateButton, "Download the new launcher, close this window, then install the .deb or replace the portable executable. Pack files and settings are preserved.");
+        }
+        catch (OperationCanceledException) { }
+        finally { if (!closing) CheckUpdateButton.IsEnabled = true; }
     }
 
     static string Next(string[] args, ref int i) => ++i < args.Length ? args[i] : throw new ArgumentException("Missing desktop option value.");

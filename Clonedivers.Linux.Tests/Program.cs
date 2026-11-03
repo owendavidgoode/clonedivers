@@ -121,6 +121,37 @@ try
     Environment.SetEnvironmentVariable("STEAM_COMPAT_DATA_PATH", previousCompat);
 
     using var server = new FixtureServer();
+    object Release(string tag, string arch = "x64", bool draft = false, string state = "uploaded") => new
+    {
+        tag_name = tag, draft, prerelease = true, html_url = "https://untrusted.invalid/ignored",
+        assets = new[] { new { name = $"Clonedivers-linux-{arch}.tar.gz", state } }
+    };
+    var releaseJson = JsonSerializer.Serialize(new[] { Release("v99.0.0"), Release("linux-v1.9.0"), Release("linux-v1.10.0"), Release("linux-v2.0.0", draft: true), Release("linux-v4.0.0", "arm64"), Release("linux-v5.0.0", state: "new"), Release("linux-v6.0.0-beta") });
+    var selectedRelease = LauncherUpdates.SelectRelease(releaseJson, "x64");
+    Check(selectedRelease?.Version == "1.10.0" && selectedRelease.Url == "https://github.com/owendavidgoode/clonedivers/releases/tag/linux-v1.10.0", "update notices choose numeric Linux versions with uploaded matching assets and ignore Windows, drafts and untrusted URLs");
+    Check(LauncherUpdates.SelectRelease(releaseJson, "arm64")?.Version == "4.0.0", "launcher updates follow the current package architecture");
+    var releaseFeed = server.Add("launcher-releases", Encoding.UTF8.GetBytes(releaseJson));
+    var updateDirectory = Path.Combine(root, "update-config");
+    var updateTime = DateTimeOffset.UtcNow;
+    using var updateClient = new HttpClient { Timeout = TimeSpan.FromSeconds(2) };
+    var updateService = new LauncherUpdates(updateClient, releaseFeed, updateDirectory, "x64", () => updateTime);
+    var update = await updateService.CheckAsync();
+    Check(update.CheckSucceeded && update.Available?.Version == "1.10.0", "a release check reports a newer Linux launcher without downloading a package");
+    var releaseRequests = server.Requests; server.Remove("launcher-releases");
+    Check((await updateService.CheckAsync()).Available?.Version == "1.10.0" && server.Requests == releaseRequests, "successful release checks are cached for six hours without another request");
+    updateTime += TimeSpan.FromHours(7);
+    var offlineUpdate = await updateService.CheckAsync();
+    Check(!offlineUpdate.CheckSucceeded && offlineUpdate.Available?.Version == "1.10.0", "a failed refresh retains a previously known update without blocking the launcher");
+    releaseRequests = server.Requests;
+    await updateService.CheckAsync();
+    Check(server.Requests == releaseRequests, "failed release checks are throttled for fifteen minutes");
+    server.Add("launcher-releases", Encoding.UTF8.GetBytes(JsonSerializer.Serialize(new[] { Release("linux-v1.11.0") })));
+    Check((await updateService.CheckAsync(force: true)).Available?.Version == "1.11.0", "manual update checks bypass the automatic cache");
+    server.Add("invalid-releases", Encoding.UTF8.GetBytes("not JSON"));
+    var unavailableUpdate = await new LauncherUpdates(updateClient, releaseFeed.Replace("launcher-releases", "invalid-releases"), Path.Combine(root, "invalid-update-config")).CheckAsync();
+    Check(!unavailableUpdate.CheckSucceeded && unavailableUpdate.Available is null, "invalid release responses remain an optional unavailable notice");
+    File.WriteAllText(Path.Combine(updateDirectory, LauncherUpdates.CacheName), JsonSerializer.Serialize(new LauncherUpdates.Cache(updateTime, "https://untrusted.invalid", true)));
+    Check((await updateService.CheckAsync()).Available?.Version == "1.11.0", "an invalid cached version cannot inject an external download link");
     PackFile Entry(string name, byte[] bytes, string route) => new() { Name = name, Size = bytes.Length,
         Sha256 = Convert.ToHexString(SHA256.HashData(bytes)).ToLowerInvariant(), Url = server.Add(route, bytes) };
     var cloneBytes = Encoding.UTF8.GetBytes("Republic archive fixture");
@@ -234,7 +265,7 @@ try
             File.SetUnixFileMode(command, UnixFileMode.UserRead | UnixFileMode.UserWrite | UnixFileMode.UserExecute);
         }
         var open = Path.Combine(fakeBin, "xdg-open");
-        File.WriteAllText(open, "#!/bin/sh\nprintf wrong-default-handler > \"$CLONEDIVERS_TEST_URI\"\n");
+        File.WriteAllText(open, "#!/bin/sh\ncase \"$1\" in https://github.com/owendavidgoode/clonedivers/releases*) printf '%s' \"$1\" > \"$CLONEDIVERS_TEST_UPDATE_LINK\" ;; *) printf wrong-default-handler > \"$CLONEDIVERS_TEST_URI\" ;; esac\n");
         File.SetUnixFileMode(open, UnixFileMode.UserRead | UnixFileMode.UserWrite | UnixFileMode.UserExecute);
         var uriFile = Path.Combine(root, "uri");
         async Task<string> Cli(string command, int expectedExit = 0, string? chosenGame = null, bool accept = true, string? extraArgument = null, string? chosenFeed = null)
@@ -296,6 +327,7 @@ try
         Check(ModFiles.GetState(cliGame) == ModState.Off, "repair keeps vanilla selected even when every parked patch was deleted");
 
         var cliConfig = Path.Combine(root, "config", "clonedivers");
+        File.WriteAllText(Path.Combine(cliConfig, LauncherUpdates.CacheName), JsonSerializer.Serialize(new LauncherUpdates.Cache(DateTimeOffset.UtcNow, "99.0.0", true)));
         var cliReceipt = Directory.EnumerateFiles(Path.Combine(cliConfig, "receipts")).Single();
         var saved = new { Format = 2, GameDir = cliGame, PackVersion = "fixture", GameBuild = "25480438", TargetActive = true,
             TextureProfile = "full", Options = new Dictionary<string, bool> { ["empire"] = false }, TargetFiles = new[] { clone, empty }, Actions = Array.Empty<object>() };
@@ -402,6 +434,8 @@ try
         Check(rich.Contains("PACK OPTIONS") && rich.Contains("Space or Enter") && rich.Contains("Option edits discarded"), "arrow keys, Space, Escape and End navigate the live TUI and discard option edits");
         Check(File.ReadAllBytes(Path.Combine(cliConfig, "config.json")).SequenceEqual(beforeDiscard), "discarding TUI edits leaves saved choices byte-identical");
         Check(!System.Text.RegularExpressions.Regex.IsMatch(rich, "\u001b\\[[0-9;]*m"), "NO_COLOR keeps keyboard navigation without emitting color sequences");
+        var updateFlow = await Terminal("dumb", cliGame, new[] { ("u\n0\n0\n", 0) });
+        Check(updateFlow.Contains("LAUNCHER UPDATES") && updateFlow.Contains("Launcher v99.0.0 available") && updateFlow.Contains("/tag/linux-v99.0.0"), "terminal update notices show the newer Linux release and manual upgrade instructions");
         var paged = await Terminal("xterm-256color", cliGame, new[] { ("9\n1\n", 500), ("n\n", 200), ("p\n", 200), ("0\n0\n", 0) }, small: true);
         Check(paged.Contains("Lines 1–3") && paged.Contains("Lines 4–6") && paged.Contains("Previous page"), "recording results can page forward and back in a small real terminal");
         var folderFlow = await Terminal("dumb", Path.Combine(root, "not-installed"), new[] { ("f\n" + cliGame + "\n0\n", 0) });
@@ -508,6 +542,7 @@ try
         guiStart.Environment["PATH"] = fakeBin + ":" + Environment.GetEnvironmentVariable("PATH");
         guiStart.Environment["CLONEDIVERS_TEST_URI"] = uriFile;
         guiStart.Environment["CLONEDIVERS_TEST_CLIENT"] = clientFile;
+        var updateLinkFile = Path.Combine(root, "update-link"); guiStart.Environment["CLONEDIVERS_TEST_UPDATE_LINK"] = updateLinkFile;
         using (var gui = Process.Start(guiStart)!)
         {
             var stdout = gui.StandardOutput.ReadToEndAsync(); var stderr = gui.StandardError.ReadToEndAsync();
@@ -516,6 +551,7 @@ try
             Check(gui.ExitCode == 0, "native graphical launcher buttons, install/switch/repair/launch and shortcut: " + await stdout + await stderr);
         }
         Check(File.Exists(screenshot) && new FileInfo(screenshot).Length > 10000, "graphical launcher renders a real Linux window screenshot");
+        Check(File.ReadAllText(updateLinkFile) == "https://github.com/owendavidgoode/clonedivers/releases/tag/linux-v99.0.0", "desktop update button opens only the selected Linux release page");
         Check(File.ReadAllText(uriFile) == "steam://rungameid/553850" && File.ReadAllText(clientFile) == "snap", "native GUI Launch button uses the game's Snap Steam client despite a different default handler");
     }
     var repository = Path.GetFullPath(Path.Combine(AppContext.BaseDirectory, "../../../.."));
