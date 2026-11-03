@@ -2,7 +2,7 @@ name: Linux launcher
 on:
   workflow_dispatch:
   push:
-    branches: [main, codex/linux-launcher, codex/linux-diagnostics, codex/linux-gui, codex/linux-tui, codex/linux-steam-routing]
+    branches: [main, codex/linux-launcher, codex/linux-diagnostics, codex/linux-gui, codex/linux-tui, codex/linux-steam-routing, codex/linux-updates]
     tags: ['linux-v*']
     paths:
       - 'Clonedivers/**'
@@ -73,7 +73,7 @@ jobs:
     needs: build
     strategy:
       matrix:
-        os: [ubuntu-22.04, ubuntu-24.04]
+        os: [ubuntu-22.04, ubuntu-24.04, ubuntu-26.04]
     runs-on: ${{ matrix.os }}
     permissions:
       contents: read
@@ -107,7 +107,10 @@ jobs:
   hosted-qa:
     if: startsWith(github.ref, 'refs/tags/linux-v')
     needs: release
-    runs-on: ubuntu-24.04
+    strategy:
+      matrix:
+        os: [ubuntu-24.04, ubuntu-26.04]
+    runs-on: ${{ matrix.os }}
     permissions:
       contents: read
     steps:

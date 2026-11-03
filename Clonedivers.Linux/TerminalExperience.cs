@@ -2,6 +2,14 @@ namespace Clonedivers;
 
 internal static partial class LinuxProgram
 {
+    static readonly LauncherUpdates launcherUpdates = new();
+    static Task<LauncherUpdateStatus>? launcherUpdateCheck;
+    static LauncherUpdateStatus? LauncherUpdate => launcherUpdateCheck?.IsCompletedSuccessfully == true ? launcherUpdateCheck.Result : null;
+    static async Task<LauncherUpdateStatus> RefreshLauncherUpdateAsync(CancellationToken ct = default, bool force = false)
+    {
+        try { return await launcherUpdates.CheckAsync(ct, force); }
+        catch (OperationCanceledException) { return new LauncherUpdateStatus(null, false); }
+    }
     static TerminalView Dashboard()
     {
         var ready = GameLocator.IsGameDir(gameDir); var running = false; var gameState = "UNKNOWN"; var pending = false; var recoverable = false; var universe = "not installed"; var profile = "not selected"; var version = "not recorded";
@@ -27,6 +35,7 @@ internal static partial class LinuxProgram
         {
             $"CURRENT UNIVERSE  {universe}   |   GAME  {gameState}",
             $"PACK  {version}   |   INSTALLED TEXTURES  {profile}",
+            "LAUNCHER  " + (LauncherUpdate?.Message ?? "Checking for updates…"),
             $"NEXT OPTIONS  Droids {(settings.Options.GetValueOrDefault("droids", true) ? "ON" : "OFF")} · Covenant {(settings.Options.GetValueOrDefault("covenant") ? "ON" : "OFF")} · Potato {(settings.TextureProfile is not (null or "full") ? "ON" : "OFF")}",
             "FOLDER  " + (gameDir ?? "Not found — choose Change game folder"),
             pending ? recoverable ? "RECOVERY  Finish the interrupted update before launching or switching." : "RECOVERY  Unfinished files found. Install/update or repair to restore them." : "Choose an action below. Options apply on install/update.",
@@ -45,12 +54,15 @@ internal static partial class LinuxProgram
             new TerminalItem("f", "Change game folder", "Paste a folder from Steam → Manage → Browse local files.", !running),
             new TerminalItem("8", "Save support report", "Save a local ZIP with system details and available logs. No upload."),
             new TerminalItem("9", "Session recording", "Setup, arm, cancel or inspect optional MangoHud/Proton recording.", ready),
+            new TerminalItem("u", LauncherUpdate?.Available is { } update ? "Launcher update v" + update.Version : "Launcher updates", "Check for a new Linux launcher and open its release page."),
             new TerminalItem("0", "Quit", "Return to your terminal.")
         });
     }
 
     static async Task Menu()
     {
+        // This optional check never blocks opening or quitting the dashboard.
+        launcherUpdateCheck = RefreshLauncherUpdateAsync();
         string? last = null;
         while (true)
         {
@@ -76,6 +88,7 @@ internal static partial class LinuxProgram
                         await terminal.ShowAsync("SUPPORT REPORT SAVED", "Saved locally: " + path + "\nReview before sharing. No data was uploaded.", cancellation.Token);
                         terminal.Notice = "Support report saved: " + path; break;
                     case "9": await RecordingMenu(); break;
+                    case "u": await LauncherUpdateMenu(); break;
                 }
             }
             catch (OperationCanceledException)
@@ -89,6 +102,24 @@ internal static partial class LinuxProgram
                 try { await terminal.ShowAsync("ACTION NEEDS ATTENTION", ex.Message, cancellation.Token); }
                 catch (OperationCanceledException) { ResetCancellation(); }
             }
+        }
+    }
+
+    static async Task LauncherUpdateMenu()
+    {
+        while (true)
+        {
+            if (launcherUpdateCheck is not null) await launcherUpdateCheck.WaitAsync(cancellation.Token);
+            var status = LauncherUpdate ?? new LauncherUpdateStatus(null, false);
+            var choice = await terminal!.SelectAsync(() => new TerminalView("LAUNCHER UPDATES", new[]
+            {
+                "Installed launcher: v" + AppInfo.Version, status.Message, status.Url,
+                "Download the new launcher, close this launcher, then install the .deb",
+                "or replace the portable executable. Pack files and settings are preserved."
+            }, new[] { new TerminalItem("o", "Open release page", "Open the download page in your browser."), new TerminalItem("r", "Check again", "Refresh Linux launcher release information."), new TerminalItem("0", "Back", "Return to the dashboard.") }), cancellation.Token, "0");
+            if (choice is null) return;
+            if (choice == "o") LauncherUpdates.OpenRelease(status);
+            if (choice == "r") launcherUpdateCheck = RefreshLauncherUpdateAsync(cancellation.Token, force: true);
         }
     }
 
