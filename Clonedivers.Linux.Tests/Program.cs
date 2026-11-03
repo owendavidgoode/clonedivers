@@ -121,9 +121,9 @@ try
     Environment.SetEnvironmentVariable("STEAM_COMPAT_DATA_PATH", previousCompat);
 
     using var server = new FixtureServer();
-    object Release(string tag, string arch = "x64", bool draft = false, string state = "uploaded") => new
+    object Release(string tag, string arch = "x64", bool draft = false, string state = "uploaded", string body = "") => new
     {
-        tag_name = tag, draft, prerelease = true, html_url = "https://untrusted.invalid/ignored",
+        tag_name = tag, draft, prerelease = true, body, html_url = "https://untrusted.invalid/ignored",
         assets = new[] { new { name = $"Clonedivers-linux-{arch}.tar.gz", state } }
     };
     var releaseJson = JsonSerializer.Serialize(new[] { Release("v99.0.0"), Release("linux-v1.9.0"), Release("linux-v1.10.0"), Release("linux-v2.0.0", draft: true), Release("linux-v4.0.0", "arm64"), Release("linux-v5.0.0", state: "new"), Release("linux-v6.0.0-beta") });
@@ -147,11 +147,13 @@ try
     Check(server.Requests == releaseRequests, "failed release checks are throttled for fifteen minutes");
     server.Add("launcher-releases", Encoding.UTF8.GetBytes(JsonSerializer.Serialize(new[] { Release("linux-v1.11.0") })));
     Check((await updateService.CheckAsync(force: true)).Available?.Version == "1.11.0", "manual update checks bypass the automatic cache");
+    server.Add("launcher-releases", Encoding.UTF8.GetBytes(JsonSerializer.Serialize(new[] { Release("linux-v1.12.0", body: new string('x', 1_200_000)) })));
+    Check((await updateService.CheckAsync(force: true)).Available?.Version == "1.12.0", "release checks handle large metadata alongside pack release notes");
     server.Add("invalid-releases", Encoding.UTF8.GetBytes("not JSON"));
     var unavailableUpdate = await new LauncherUpdates(updateClient, releaseFeed.Replace("launcher-releases", "invalid-releases"), Path.Combine(root, "invalid-update-config")).CheckAsync();
     Check(!unavailableUpdate.CheckSucceeded && unavailableUpdate.Available is null, "invalid release responses remain an optional unavailable notice");
     File.WriteAllText(Path.Combine(updateDirectory, LauncherUpdates.CacheName), JsonSerializer.Serialize(new LauncherUpdates.Cache(updateTime, "https://untrusted.invalid", true)));
-    Check((await updateService.CheckAsync()).Available?.Version == "1.11.0", "an invalid cached version cannot inject an external download link");
+    Check((await updateService.CheckAsync()).Available?.Version == "1.12.0", "an invalid cached version cannot inject an external download link");
     PackFile Entry(string name, byte[] bytes, string route) => new() { Name = name, Size = bytes.Length,
         Sha256 = Convert.ToHexString(SHA256.HashData(bytes)).ToLowerInvariant(), Url = server.Add(route, bytes) };
     var cloneBytes = Encoding.UTF8.GetBytes("Republic archive fixture");

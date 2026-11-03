@@ -1,4 +1,5 @@
 using System.Diagnostics;
+using System.Net;
 using System.Net.Http.Headers;
 using System.Runtime.InteropServices;
 using System.Text.Json;
@@ -23,6 +24,7 @@ internal sealed class LauncherUpdates
     internal const string ReleasesPage = "https://github.com/owendavidgoode/clonedivers/releases?q=linux-v";
     internal const string Api = "https://api.github.com/repos/owendavidgoode/clonedivers/releases?per_page=100";
     internal const string CacheName = "linux-launcher-update.json";
+    const int MaxMetadataBytes = 8 * 1024 * 1024;
     static readonly HttpClient Web = CreateClient();
     readonly HttpClient client;
     readonly string endpoint, directory, architecture;
@@ -38,7 +40,7 @@ internal sealed class LauncherUpdates
     }
     static HttpClient CreateClient()
     {
-        var web = new HttpClient { Timeout = TimeSpan.FromSeconds(8), MaxResponseContentBufferSize = 1024 * 1024 };
+        var web = new HttpClient(new HttpClientHandler { AutomaticDecompression = DecompressionMethods.All }) { Timeout = TimeSpan.FromSeconds(8), MaxResponseContentBufferSize = MaxMetadataBytes };
         web.DefaultRequestHeaders.UserAgent.ParseAdd("Clonedivers-Linux/" + AppInfo.Version);
         web.DefaultRequestHeaders.Accept.Add(new MediaTypeWithQualityHeaderValue("application/vnd.github+json"));
         return web;
@@ -70,7 +72,7 @@ internal sealed class LauncherUpdates
             var path = FileSafety.Child(directory, CacheName);
             if (!File.Exists(path) || new FileInfo(path).Length > 4096) return null;
             var cache = JsonSerializer.Deserialize<Cache>(File.ReadAllText(path));
-            return cache is not null && (cache.LatestVersion is null || ValidVersion(cache.LatestVersion)) ? cache : null;
+            return cache is not null && (ValidVersion(cache.LatestVersion) || !cache.Succeeded && cache.LatestVersion is null) ? cache : null;
         }
         catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or JsonException or InvalidDataException) { return null; }
     }
@@ -87,7 +89,7 @@ internal sealed class LauncherUpdates
             try
             {
                 var json = await client.GetStringAsync(endpoint, ct);
-                if (json.Length > 1024 * 1024) throw new InvalidDataException("Release list is too large.");
+                if (json.Length > MaxMetadataBytes) throw new InvalidDataException("Release list is too large.");
                 var latest = SelectRelease(json, architecture) ?? throw new InvalidDataException("No Linux release available.");
                 result = new Cache(now(), latest.Version, true);
             }
