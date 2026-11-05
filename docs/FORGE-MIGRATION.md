@@ -2,7 +2,7 @@
 
 Clonedivers is now the Forge launcher: Regular, Clones and Empire run in a
 separate HellForge installation. Launch the official online HD2 game from Steam.
-Windows version 1.10.0 replaces the old launcher through its existing update
+Windows version 1.11.0 replaces the old launcher through its existing update
 button. Linux x86-64 version 0.6.1 replaces the old package/portable launcher.
 
 This changes the launcher. It does not install HellForge, game files, restricted
@@ -11,6 +11,31 @@ multiplayer still require real-machine testing. A successful update is not a
 multiplayer certification.
 
 ## Windows
+
+For a new player, open Clonedivers and press **Set up Clonedivers**. No GitHub
+download, terminal command or manual Locate step is required for the normal path.
+The guided window checks Steam, downloads the pinned author's installer with
+size/SHA256 verification, installs Forge into a separate folder and remembers it.
+The default is `%USERPROFILE%\HellForge`, outside OneDrive; Change folder lets
+the player choose another drive. Allow at least 50 GB plus appearance-pack space.
+Interrupted downloads resume. Existing installations are reused, never silently
+updated or replaced. A new installation is staged and validated before promotion.
+
+Clonedivers then opens the official Forge game-setup window. Click **Start setup**
+there and approve its Windows prompt yourself. Steam login, ownership verification
+and security approval remain player actions. If the current Steam build cannot
+be converted, follow the supported-build download instructions in that window.
+The pinned official CLI does not expose this first game-copy/isolation wizard as
+an unattended setup command; Clonedivers does not bypass it.
+
+The guided window detects completion without a Locate or Refresh step. Return
+to Clonedivers (or close the official manager for automatic return), **Sync HD2
+account**, then **Prepare Star Wars pack**. Matching permitted gameplay mods are
+still required; this installer does not redistribute private Heavy/Squad repairs.
+Closing an unfinished setup remembers the connected installation; **Finish
+setup** resumes the guided flow. Active game sessions are left running and block
+installation. A failed new unpack is retained separately for diagnosis and never
+replaces an existing installation or account.
 
 Close HD2, open the old launcher and accept its launcher update. All three old
 manifest routes advertise the same SHA256-verified Forge executable; their game

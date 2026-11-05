@@ -161,7 +161,11 @@ public sealed class HellForgeForm : Form
             ChangeOptions();
         };
         prepare.Click += async (_, _) => await PrepareAsync();
-        launch.Click += async (_, _) => { if (lastStatus?.Running == true) await EndSessionAsync(); else await LaunchAsync(); };
+        launch.Click += async (_, _) => {
+            if (lastStatus?.Running == true) await EndSessionAsync();
+            else if (preferences.InstallRoot == null || lastStatus is { GameCopyReady: false } or { RunnerReady: false }) await SetupAsync();
+            else await LaunchAsync();
+        };
         timer.Tick += async (_, _) => await RefreshAsync();
         Shown += async (_, _) => { if (!preview) { await RefreshAsync(); if (!IsDisposed && !Disposing) { timer.Start(); await CheckLauncherUpdateAsync(false); } } };
         initializing = false;
@@ -263,6 +267,11 @@ public sealed class HellForgeForm : Form
             if (lastStatus?.Running == true) { prepare.Enabled = false; launch.Text = "END SESSION"; launch.Enabled = true; }
             return;
         }
+        if (lastStatus != null && HellForgeSetup.SupportsVersion(lastStatus.Version) && lastStatus.Build == HellForgePack.SupportedBuild && (!lastStatus.GameCopyReady || !lastStatus.RunnerReady)) {
+            state.Text = "Let’s finish your setup";
+            detail.Text = "Continue the guided Forge setup. Clonedivers will detect when its game copy and Windows approval are complete.";
+            launch.Text = "FINISH SETUP"; launch.Enabled = true; prepare.Enabled = accountSync.Enabled = false; return;
+        }
         if (lastStatus?.CompatibilityProblem is { } compatibility) {
             state.Text = "Check HellForge compatibility"; detail.Text = compatibility;
             prepare.Enabled = accountSync.Enabled = false; return;
@@ -277,7 +286,10 @@ public sealed class HellForgeForm : Form
             launch.Text = "OPEN STEAM"; launch.Enabled = true; return;
         }
         if (lastError != null) { state.Text = "Needs attention"; detail.Text = FailureSummary(lastError); return; }
-        if (preferences.InstallRoot == null) { state.Text = "Install or locate HellForge"; detail.Text = "Setup & mods opens the official download. Use Locate for an existing installation."; return; }
+        if (preferences.InstallRoot == null) {
+            state.Text = "Let’s get you ready"; detail.Text = "Install Forge here. We’ll choose a folder, download the verified installer and guide you through game setup.";
+            launch.Text = "SET UP CLONEDIVERS"; launch.Enabled = true; return;
+        }
         if (lastStatus == null) { state.Text = "Checking HellForge…"; detail.Text = "Reading installation and pack information."; return; }
         if (captureBlock != null) { state.Text = "Finish account sync"; detail.Text = captureBlock; accountSync.Enabled = false; prepare.Enabled = false; return; }
         if (!lastStatus.GameCopyReady || !lastStatus.RunnerReady) { state.Text = "Finish HellForge setup"; detail.Text = "Open HellForge to prepare its separate game copy. Your Star Wars pack can be prepared now."; return; }
@@ -487,14 +499,26 @@ public sealed class HellForgeForm : Form
         }
         catch (Exception e) { MessageBox.Show(this, e.Message, "Locate HellForge", MessageBoxButtons.OK, MessageBoxIcon.Information); }
     }
-    void OpenHellForge()
+    async Task SetupAsync() => await OperationAsync(() => {
+        using var setup = new HellForgeSetupForm(preferences.InstallRoot);
+        setup.Connected += root => { preferences.InstallRoot = HellForgeCommands.ValidateRoot(root); Save(); };
+        setup.ShowDialog(this);
+        if (setup.InstallationRoot is { } root)
+        {
+            preferences.InstallRoot = HellForgeCommands.ValidateRoot(root); Save();
+            lastStatus = null; lastMods = null; lastAccount = null; captureBlock = null;
+            message.Text = "Forge connected. Once its setup finishes, sync your HD2 account and prepare your selected appearance here.";
+        }
+        return Task.CompletedTask;
+    });
+    async void OpenHellForge()
     {
         if (preview || working) return;
         try
         {
-            if (preferences.InstallRoot == null)
+            if (preferences.InstallRoot == null || lastStatus is { GameCopyReady: false } or { RunnerReady: false })
             {
-                Process.Start(new ProcessStartInfo("https://github.com/SkyeShade/HellForge/releases/tag/v0.3.0-beta") { UseShellExecute = true });
+                await SetupAsync();
                 return;
             }
             var client = Client();

@@ -9,7 +9,7 @@ Play the official online Helldivers 2 game directly through Steam.
 
 ## Update or install
 
-Existing Windows launchers receive **1.10.0** through their normal launcher-update
+Existing Windows launchers receive **1.11.0** through their normal launcher-update
 button. Existing Linux launchers show the **0.6.1** release; install its complete
 .deb or extract the full portable archive. Linux updates require a package-manager
 or manual installation; a notice does not silently replace the old application.

@@ -31,6 +31,18 @@ static class TestProgram
 
     static int Main(string[] args)
     {
+        if (args is ["--forge-bootstrap-real", var setupTarget, var setupCache])
+        {
+            Console.WriteLine(HellForgeSetup.InstallAsync(setupTarget, null, CancellationToken.None, setupCache).GetAwaiter().GetResult()); return 0;
+        }
+        if (args.Contains("--forge-setup-preview"))
+        {
+            var ui = new Thread(() => {
+                Application.EnableVisualStyles(); Application.SetDefaultFont(new Font("Segoe UI", 10F));
+                Application.Run(new HellForgeSetupForm(preview: true));
+            });
+            ui.SetApartmentState(ApartmentState.STA); ui.Start(); ui.Join(); return 0;
+        }
         if (args is ["--hellforge-account-lease", var install, var access]) { AccountLeaseTests.Hold(install, access == "read"); return 0; }
         if (args.Contains("--hellforge-account-lease-only")) { Task.Run(() => AccountLeaseTests.Run(Check)).GetAwaiter().GetResult(); return failures == 0 ? 0 : 1; }
         if (args.FirstOrDefault() == "--hellforge-form-layout")
@@ -108,6 +120,7 @@ static class TestProgram
             Task.Run(() => HellForgeTests.Run(root, Check)).GetAwaiter().GetResult();
             Task.Run(() => AccountLeaseTests.Run(Check)).GetAwaiter().GetResult();
             Task.Run(() => ForgeMigrationTests.Run(root, Check)).GetAwaiter().GetResult();
+            Task.Run(() => ForgeSetupTests.Run(root, Check)).GetAwaiter().GetResult();
             FpvDefaultsTests.Run(root, Check);
             SelfUpdateAndAcfTests(root);
         }
@@ -487,7 +500,7 @@ static class TestProgram
     }
 
     /// <summary>Minimal HTTP/1.1 server for the download tests: serves one byte array, honours Range, one request per connection.</summary>
-    sealed class TinyHttp : IDisposable
+    internal sealed class TinyHttp : IDisposable
     {
         readonly System.Net.Sockets.TcpListener listener;
         readonly byte[] body;
