@@ -24,7 +24,8 @@ internal static class GameplayNativeTests
             try { await player.InstallGameplayAsync(); throw new Exception("Active session accepted gameplay changes."); }
             catch (InvalidOperationException) { check(connection.Imported == null, "native gameplay setup refuses an active session before staging or importing"); }
             BridgeSession.Validate(["gameplay-status"]); BridgeSession.Validate(["recover-gameplay"]);
-            BridgeSession.Validate(["install-gameplay", "--file", "C:\\Clonedivers-HellForge-cache\\gameplay\\build25480438-r2"]);
+            var staged = OperatingSystem.IsLinux() ? Path.Combine(fixture, "native-stage", "build25480438-r2") : "C:\\Clonedivers-HellForge-cache\\gameplay\\build25480438-r2";
+            BridgeSession.Validate(["install-gameplay", "--file", staged]);
             check(true, "bridge accepts the complete-preset protocol without exposing executable or account controls");
             foreach (var path in new[] { "Z:\\tmp\\mods", "C:\\cache\\..\\profiles" })
             {
