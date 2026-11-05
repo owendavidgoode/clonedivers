@@ -45,7 +45,11 @@ if (args is ["--cli-sentinel-fixture", var sentinelProbe])
     var folder = Path.GetFullPath(Path.GetDirectoryName(sentinelProbe)!);
     if (!folder.StartsWith(Path.TrimEndingDirectorySeparator(Path.GetFullPath(Path.GetTempPath())) + Path.DirectorySeparatorChar, StringComparison.OrdinalIgnoreCase) ||
         !Path.GetFileName(folder).StartsWith("clonedivers-cli-flood-", StringComparison.Ordinal)) throw new IOException("Invalid independent-child fixture.");
-    await File.WriteAllTextAsync(sentinelProbe, Environment.ProcessId.ToString());
+    // The parent waits for this path before flooding its inherited pipes.
+    // Publish only a complete, closed PID file: existence alone otherwise
+    // races WriteAllTextAsync and Windows readers can see an exclusive writer.
+    await File.WriteAllTextAsync(sentinelProbe + ".tmp", Environment.ProcessId.ToString());
+    File.Move(sentinelProbe + ".tmp", sentinelProbe);
     await Task.Delay(TimeSpan.FromSeconds(30)); return;
 }
 if (args is ["--cli-flood-fixture", var probe, var stream])
