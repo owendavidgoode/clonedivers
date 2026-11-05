@@ -10,7 +10,7 @@ internal sealed record LinuxForgePlan(string Install, string Prefix, string Wind
 {
     internal string? SteamClientRoot { get; init; }
     internal const string BridgeName = "HellForge.Launcher.ClonediversBridge.exe";
-    internal const string BridgeVersion = "0.3.8";
+    internal const string BridgeVersion = "0.3.9";
     internal const string GameBuild = "25480438";
     internal static bool SupportsArchitecture(Architecture architecture) => architecture == Architecture.X64;
     internal static readonly string[] Scripts = ["hellforge-linux.sh", "hellforge-offline.sh", "hf-inner.sh", "hf-bridge-host.sh", "allow-namespace.sh"];

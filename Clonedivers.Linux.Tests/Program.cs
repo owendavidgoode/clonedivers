@@ -79,6 +79,17 @@ try
         Check(Contents("session.txt").Contains("unknown"), "missing Proton version is reported as unknown");
     }
     Throws<IOException>(() => LinuxSupport.SaveReport(null, supportSettings, supportZip, supportConfig, supportHome), "support export never overwrites an existing report");
+    var forgeZip = LinuxSupport.SaveReport(null, supportSettings, Path.Combine(root, "forge-support.zip"), supportConfig, supportHome,
+        new LinuxSupport.ForgeReport(supportHome + "/forge", "clonedivers", new { mods = new[] { "fixture.mod" }, Running = false }, "connection unavailable"));
+    using (var zip = ZipFile.OpenRead(forgeZip))
+    {
+        using var reader = new StreamReader(zip.GetEntry("report.json")!.Open()); using var json = JsonDocument.Parse(reader.ReadToEnd());
+        Check(json.RootElement.GetProperty("Workflow").GetString() == "Forge" && json.RootElement.GetProperty("Selection").ValueKind == JsonValueKind.Null,
+            "Forge support export never represents the Steam fallback as its active installation");
+        Check(json.RootElement.GetProperty("Forge").GetProperty("ObservedState").GetProperty("mods")[0].GetString() == "fixture.mod" &&
+            !json.RootElement.GetProperty("Forge").GetProperty("InstallRoot").GetString()!.Contains(supportHome), "Forge report retains observed mods while redacting owner paths");
+        Check(zip.GetEntry("proton.log") == null, "Forge report excludes unrelated Steam Proton recordings");
+    }
     var oversized = Path.Combine(root, "large.log"); File.WriteAllText(oversized, new string('x', 100000));
     Check(LinuxSupport.Tail(oversized, 64).Length < 128, "log collection reads a bounded tail instead of loading a full large log");
     var home = Path.Combine(root, "home");

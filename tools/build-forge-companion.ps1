@@ -22,7 +22,7 @@ if((Get-FileHash -LiteralPath (Join-Path $sourcePath 'LICENSE')).Hash.ToLowerInv
 if(!(Test-Path -LiteralPath $BridgeBinary)){throw 'Bridge binary missing.'}
 Copy-Item -LiteralPath $BridgeBinary -Destination (Join-Path $outputPath 'HellForge.Launcher.ClonediversBridge.exe')
 Copy-Item -LiteralPath (Join-Path $PSScriptRoot '../LICENSE') -Destination (Join-Path $outputPath 'LICENSE-CLONEDIVERS.txt')
-@{format=1;bridgeVersion='0.3.8';bridgeSha256=(Get-FileHash -LiteralPath $BridgeBinary).Hash.ToLowerInvariant();gameBuild='25480438';
+@{format=1;bridgeVersion='0.3.9';bridgeSha256=(Get-FileHash -LiteralPath $BridgeBinary).Hash.ToLowerInvariant();gameBuild='25480438';
  qualification='Source/package checks only; actual Linux account, Proton gameplay and Windows-Linux multiplayer remain unqualified';
  scripts='GPL-3.0 complete source scripts/COPYING; reviewed lifetime-only adaptation'} |
  ConvertTo-Json | Set-Content -LiteralPath (Join-Path $outputPath 'companion.json') -Encoding utf8

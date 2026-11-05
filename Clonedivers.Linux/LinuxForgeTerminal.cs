@@ -15,6 +15,7 @@ internal static class LinuxForgeTerminal
                 --forge [--forge-root PATH] status Read readiness without starting a game
                 --forge [--forge-root PATH] mods   Read the official mod catalog
                 --forge [--forge-root PATH] account Read verified account import status
+                --forge [--forge-root PATH] report Save a local Forge support ZIP
                 --forge-resources PATH selects the complete companion package.
                 Commands preserve the dedicated prefix and official namespace/sandbox.
                 Linux gameplay/account capture and Windows/Linux co-op are unqualified.
@@ -36,9 +37,19 @@ internal static class LinuxForgeTerminal
                     case "--forge": case "--terminal": case "--tui": case "--plain": break;
                     case "--forge-root": preferences.InstallRoot = Value(args, ref i); break;
                     case "--forge-resources": resources = Value(args, ref i); break;
-                    case "status": case "mods": case "account": command = args[i]; break;
+                    case "status": case "mods": case "account": case "report": command = args[i]; break;
                     default: throw new ArgumentException("Unsupported Forge diagnostic argument. Use --forge --help; player actions are in the desktop trial.");
                 }
+            if (command == "report")
+            {
+                // Export the Forge workflow even if its connection cannot start. Do not
+                // silently fall back to Steam metadata and an unrelated old recording.
+                ForgePlayerState? state = null; string? error = null;
+                try { await using var connection = await LinuxForgePlayer.ConnectAsync(preferences, resources, cancellation.Token); state = connection.State; }
+                catch (Exception ex) when (ex is not OperationCanceledException) { error = ex.Message; }
+                Console.WriteLine(LinuxSupport.SaveReport(null, new Settings(), forge: new(preferences.InstallRoot, preferences.Mode, state, error)));
+                return 0;
+            }
             await using var player = await LinuxForgePlayer.ConnectAsync(preferences, resources, cancellation.Token);
             if (command == "mods") Console.WriteLine(JsonSerializer.Serialize(player.State?.Mods, HellForgePack.Json));
             else if (command == "account") Console.WriteLine(JsonSerializer.Serialize(player.State?.Account, HellForgePack.Json));

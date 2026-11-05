@@ -23,6 +23,7 @@ if (args.Contains("--budget-only"))
 {
     Check(ForgeProtocol.ResultBudget("prepare-pack") >= TimeSpan.FromMinutes(10 + 10 + 20), "pack preparation's reply budget includes official import, recovery and IO work");
     Check(ForgeProtocol.ResultBudget("prepare-regular") == ForgeProtocol.ResultBudget("prepare-pack"), "Regular mode also retains an authoritative reply through bounded rollback");
+    Check(ForgeProtocol.ResultBudget("install-gameplay") >= TimeSpan.FromMinutes(35) && ForgeProtocol.ResultBudget("recover-gameplay") >= TimeSpan.FromMinutes(15), "gameplay setup retains its reply through bounded import and recovery");
     Check(ForgeProtocol.ResultBudget("mod-add") == TimeSpan.FromMinutes(20) && ForgeProtocol.ResultBudget("status") == TimeSpan.FromMinutes(3), "direct imports and diagnostic calls retain their narrower result budgets");
     Console.WriteLine($"{passed} timeout-budget checks passed without a wall-clock delay."); return;
 }
@@ -170,6 +171,7 @@ try { await ForgeProtocol.ReadLineAsync(new StringReader(new string('x', 33)), 3
 catch (InvalidDataException) { Check(true, "native protocol rejects an oversized line before accumulating unbounded output"); }
 
 var fixture = Path.Combine(Path.GetTempPath(), "clonedivers-forge-plan-" + Guid.NewGuid().ToString("N"));
+await Clonedivers.ForgeBridge.Tests.GameplayNativeTests.Run(fixture, Check);
 Check(LinuxForgePlan.SupportsArchitecture(Architecture.X64) && !LinuxForgePlan.SupportsArchitecture(Architecture.Arm64) && !LinuxForgePlan.SupportsArchitecture(Architecture.X86),
     "Forge refuses unsupported architectures without confusing the separate ARM64 Steam package with Proton qualification");
 try
@@ -235,7 +237,7 @@ try
     Check(!accountState.GetProperty("Imported").GetBoolean() && playerOfficial.Calls.Count == 0 && !Directory.Exists(Path.Combine(install, "profiles")),
         "native account status reuses verified account logic without creating/resetting a missing profile");
     try { await player.RunAsync(["play", "--profile", "default"], CancellationToken.None); throw new Exception("FAIL: missing account reached launch"); }
-    catch (InvalidOperationException e) { Check(e.Message.Contains("Import your HD2 account") && playerOfficial.Calls.All(c => c[0] != "play"), "the actual player dispatcher blocks launch without a verified imported account"); }
+    catch (InvalidOperationException e) { Check(e.Message.Contains("No complete HD2 capture") && playerOfficial.Calls.All(c => c[0] != "play"), "the actual player dispatcher blocks launch without a verified imported account"); }
     Check(playerOfficial.Calls.All(c => c[0] != "profiles" || c.Length == 1) && !Directory.Exists(Path.Combine(install, "profiles")),
         "account gating offers no profile creation, lab or unlock-all fallback");
     var selectionArgs = new[] { "select-mode", "--mode", "regular", "--delta", "yes", "--texture", "full", "--droids", "yes", "--covenant", "no" };

@@ -3,6 +3,9 @@ namespace Clonedivers;
 /// <summary>Player preset presence checks. These do not certify artifact hashes or multiplayer.</summary>
 public static class HellForgePreset
 {
+    public static bool IsConflictingAlternative(HellForgeMod mod) => mod.Id == "pack.80a03e3b-a671-4e54-a2ce-52c35bb64c91" ||
+        System.Text.RegularExpressions.Regex.IsMatch(mod.Name, @"(?i)SEAF[ -]?Companion|Pick\s*Your\s*(Bots|Bugs|Squids|Enemies)|Gameplay Reforged|Supreme Command|SEAF Commander|Armored Overhaul") ||
+        mod.Name.Contains("Smarter SEAF", StringComparison.OrdinalIgnoreCase) && mod.Id != "chef.smarter-seaf";
     public const string GuardDogs = "pack.6f1d2c8e-5a47-4b93-9e0a-3c7b1f4d8a21";
     public static readonly (string Id, string Name, string Version)[] Required = [
         ("hellforge.editor", "HellForge Editor", "0.4.2"),
@@ -21,6 +24,7 @@ public static class HellForgePreset
     {
         if (catalog.HostingProblem != null) return catalog.HostingProblem;
         var issues = new List<string>();
+        foreach (var conflict in catalog.Mods.Where(m => m.Enabled && IsConflictingAlternative(m))) issues.Add("Disable conflicting " + conflict.Name);
         foreach (var required in Required)
         {
             var mod = catalog.Mods.SingleOrDefault(m => m.Id == required.Id);
@@ -43,12 +47,12 @@ public static class HellForgePreset
                 if (dogs.Options?.SingleOrDefault(o => o.Name == name) is not { On: true })
                     issues.Add("Enable Guard Dogs option: " + name);
         }
-        return issues.Count == 0 ? null : "Finish the Clonedivers gameplay preset in Setup & mods: " + string.Join("; ", issues) + ". Use the author-provided artifacts and the preset guide; Prepare Star Wars pack applies appearance only.";
+        return issues.Count == 0 ? null : "Required gameplay setup: " + string.Join("; ", issues) + ". Use Install required mods to download and configure the pinned preset.";
     }
 
     public static string? SharingProblem(string? settingsJson)
     {
-        const string instruction = "Turn OFF ‘Share my gameplay mods…’ in Setup & mods → Mods → When I host. Private Heavy/Squad files must stay local.";
+        const string instruction = "Turn OFF ‘Share my gameplay mods…’ in Setup & mods → Mods → When I host. Each player gets required author files through Clonedivers setup; automatic re-sharing has separate author restrictions.";
         if (settingsJson == null) return instruction; // the official default is sharing ON
         try
         {

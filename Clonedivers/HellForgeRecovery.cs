@@ -73,6 +73,7 @@ public sealed partial class HellForgeClient
     }
     void RequireNoInterruptedPack()
     {
+        if (InterruptedGameplayProblem() is { } gameplay) throw new InvalidOperationException(gameplay);
         if (InterruptedPackProblem() is { } problem) throw new InvalidOperationException(problem);
     }
 
@@ -83,7 +84,12 @@ public sealed partial class HellForgeClient
         foreach (var process in Process.GetProcessesByName("HellForge.Cli"))
         {
             using (process)
-                if (!process.HasExited) throw new InvalidOperationException("A HellForge CLI is still running. Wait for it to finish before recovering the appearance.");
+            {
+                if (process.HasExited) continue;
+                // Wine drive aliases and Windows short paths are not reliable installation
+                // identities. Conservatively wait for every CLI rather than missing an orphan.
+                throw new InvalidOperationException("A Forge CLI is still running. Wait for it to finish before changing or recovering mods.");
+            }
         }
     };
     public async Task RecoverInterruptedPackAsync(CancellationToken ct = default)

@@ -191,7 +191,15 @@ public sealed class HellForgeAccount
         ct.ThrowIfCancellationRequested();
         using var review = Lease(review: true);
         return await InspectAsync(ct) is { } capture ? State(capture, ReadReceipt(), ReadPending())
-            : new(false, false, "Import your HD2 account through HellForge: Profile > Account sync > Sync Inventory (profile: default).");
+            : new(false, false, MissingCaptureMessage());
+    }
+    string MissingCaptureMessage()
+    {
+        var missing = new[] { "snapshot.json", "real-inventory.json", "progression.json", "seal.json" }
+            .Where(name => !File.Exists(Checked(snapshot, name))).ToArray();
+        return "No complete HD2 capture for profile default in " + root + ". " +
+            (missing.Length == 0 ? "The capture does not include verified progression. " : "Missing capture files: " + string.Join(", ", missing) + ". ") +
+            "Use Sync HD2 account, then HellForge > Profile > Account sync > Sync Inventory. Pass the HD2 title screen and close the game; Clonedivers will finish the requested import after cleanup.";
     }
 
     void WriteJson(string name, object value)

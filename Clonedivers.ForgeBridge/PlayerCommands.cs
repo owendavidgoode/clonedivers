@@ -46,6 +46,11 @@ internal sealed class PlayerCommands
                 return JsonSerializer.SerializeToElement(new { prepared = true, selection = selection.SelectionKey });
             case "recover-pack":
                 await client.RecoverInterruptedPackAsync(ct); return JsonSerializer.SerializeToElement(new { recovered = true });
+            case "gameplay-status": return JsonSerializer.SerializeToElement(await client.MissingGameplayAsync(ct));
+            case "install-gameplay":
+                await client.InstallGameplayAsync(args[2], ct: ct); return JsonSerializer.SerializeToElement(new { installed = true });
+            case "recover-gameplay":
+                await client.RecoverGameplayAsync(ct); return JsonSerializer.SerializeToElement(new { recovered = true });
             case "player-status": return await StateAsync(ct);
             case "play":
                 // No direct CLI shortcut can skip the one-way account or full appearance verification.

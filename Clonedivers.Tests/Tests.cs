@@ -31,6 +31,37 @@ static class TestProgram
 
     static int Main(string[] args)
     {
+        if (args is ["--gameplay-install-real", var freshRoot])
+        {
+            GameplayInstallTests.RequireIsolated(freshRoot);
+            var client = new HellForgeClient(freshRoot);
+            var missing = client.MissingGameplayAsync().GetAwaiter().GetResult();
+            Console.WriteLine("Missing before: " + missing.Count);
+            HellForgeGameplayCatalog.StageAsync(client.GameplayCache, missing, null).GetAwaiter().GetResult();
+            client.InstallGameplayAsync(client.GameplayCache).GetAwaiter().GetResult();
+            var after = client.MissingGameplayAsync().GetAwaiter().GetResult();
+            Console.WriteLine("Missing after: " + after.Count); return after.Count == 0 ? 0 : 1;
+        }
+        if (args is ["--gameplay-recovery-real", var recoveryRoot]) { GameplayInstallTests.RealRecovery(recoveryRoot).GetAwaiter().GetResult(); return 0; }
+        if (args is ["--gameplay-clean-real", var gameplayRoot, var assetFolder])
+        {
+            var client = new HellForgeClient(gameplayRoot);
+            var pinned = HellForgeGameplayCatalog.Pinned;
+            Directory.CreateDirectory(client.GameplayCache);
+            foreach (var artifact in pinned.Artifacts.Where(a => a.Url.Contains("/owendavidgoode/clonedivers/", StringComparison.Ordinal)))
+                File.Copy(Path.Combine(assetFolder, Uri.UnescapeDataString(new Uri(artifact.Url).Segments.Last())), Path.Combine(client.GameplayCache, artifact.FileName), true);
+            var missing = client.MissingGameplayAsync().GetAwaiter().GetResult();
+            Console.WriteLine("Missing before: " + missing.Count);
+            HellForgeGameplayCatalog.StageAsync(client.GameplayCache, missing, null).GetAwaiter().GetResult();
+            client.InstallGameplayAsync(client.GameplayCache).GetAwaiter().GetResult();
+            Console.WriteLine("Missing after: " + client.MissingGameplayAsync().GetAwaiter().GetResult().Count);
+            return 0;
+        }
+        if (args is ["--gameplay-verify-real", var verifyRoot])
+        {
+            var missing = new HellForgeClient(verifyRoot).MissingGameplayAsync().GetAwaiter().GetResult();
+            Console.WriteLine("Missing or changed artifacts: " + missing.Count); foreach (var artifact in missing) Console.WriteLine(artifact.Name); return missing.Count == 0 ? 0 : 1;
+        }
         if (args is ["--forge-bootstrap-real", var setupTarget, var setupCache])
         {
             Console.WriteLine(HellForgeSetup.InstallAsync(setupTarget, null, CancellationToken.None, setupCache).GetAwaiter().GetResult()); return 0;
@@ -121,6 +152,7 @@ static class TestProgram
             Task.Run(() => AccountLeaseTests.Run(Check)).GetAwaiter().GetResult();
             Task.Run(() => ForgeMigrationTests.Run(root, Check)).GetAwaiter().GetResult();
             Task.Run(() => ForgeSetupTests.Run(root, Check)).GetAwaiter().GetResult();
+            Task.Run(() => GameplayInstallTests.Run(root, Check)).GetAwaiter().GetResult();
             FpvDefaultsTests.Run(root, Check);
             SelfUpdateAndAcfTests(root);
         }

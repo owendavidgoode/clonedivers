@@ -29,7 +29,7 @@ internal sealed class HellForgeSetupForm : Form
         var layout = new TableLayoutPanel { Dock = DockStyle.Fill, Padding = new Padding(26), ColumnCount = 1, AutoScroll = true };
         layout.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100)); Controls.Add(layout);
         layout.Controls.Add(new Label { Text = "LET’S GET YOU READY", Font = new Font("Segoe UI", 20, FontStyle.Bold), AutoSize = true, Margin = new Padding(0, 0, 0, 12) });
-        var intro = Row(); intro.Text = "We’ll install Forge, connect its game copy and bring you back here. Your regular HD2 game stays in Steam."; layout.Controls.Add(intro);
+        var intro = Row(); intro.Text = "We’ll install Forge, connect its game copy, then install the required gameplay mods and selected appearance. Your regular HD2 game stays in Steam."; layout.Controls.Add(intro);
         foreach (var label in new[] { steam, installed, game }) { label.Font = new Font("Segoe UI", 11, FontStyle.Bold); label.Margin = new Padding(0, 10, 0, 8); layout.Controls.Add(label); }
         var pathRow = new TableLayoutPanel { Dock = DockStyle.Top, AutoSize = true, ColumnCount = 2, Margin = new Padding(0, 12, 0, 8) };
         pathRow.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100)); pathRow.ColumnStyles.Add(new ColumnStyle(SizeType.AutoSize));
@@ -86,7 +86,7 @@ internal sealed class HellForgeSetupForm : Form
         cancel.Enabled = !busy || canPause; cancel.Text = busy ? canPause ? "Pause download" : "Installing…" : "Close";
         next.Text = ready ? "RETURN TO CLONEDIVERS" : !steamReady ? "OPEN STEAM" : InstallationRoot == null ? "INSTALL FORGE" : "CONTINUE GAME SETUP";
         if (status?.Running == true || !preview && Game.IsRunning()) detail.Text = "A game session is running. End it in its launcher before continuing setup.";
-        else if (ready) detail.Text = "Forge is ready. Next: Sync HD2 account, then Prepare Star Wars pack in Clonedivers. Forge progress stays local.";
+        else if (ready) detail.Text = "Forge game setup passed. Return to install the required gameplay preset and selected appearance automatically. You’ll then sync your own HD2 account.";
         else if (!busy && string.IsNullOrWhiteSpace(detail.Text)) detail.Text = "No downloads, folders or commands to find. We’ll guide you through each step.";
     }
 

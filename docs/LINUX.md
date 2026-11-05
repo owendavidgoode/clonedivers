@@ -1,6 +1,6 @@
 # Clonedivers Forge for Linux
 
-The current Ubuntu/Debian x86-64 launcher is **0.6.1**, with Forge as its default.
+The current Ubuntu/Debian x86-64 launcher is **0.6.2**, with Forge as its default.
 Use the complete .deb or portable archive, including the adjacent forge/ companion.
 
 See [migration, package installation and first Forge setup](FORGE-MIGRATION.md).
@@ -11,7 +11,12 @@ without changing user configuration or accounts.
 A separate owned HellForge0.3.0-beta/engine0.1.41/game25480438 installation in its
 own Proton prefix and official namespace is required. No game/third-party mods
 are bundled. Actual Linux account capture, Proton gameplay and Windows–Linux
-multiplayer remain unqualified. Missing or incompatible dependencies block play.
+multiplayer remain unqualified. **Set up selected mode** downloads required
+gameplay files in the native frontend, then imports/configures them through the
+bounded bridge in the official namespace. It also prepares the selected appearance.
+Missing or incompatible dependencies block play; imports do not bypass official
+game-copy, isolation or own-account readiness. Confirm host mod sharing OFF in
+the official manager so author archives are obtained per player through setup.
 
 Run `clonedivers --gui` for Regular/Clones/Empire. `clonedivers --help` describes
 read-only terminal diagnostics. Use Steam for the official online game. Explicit

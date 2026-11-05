@@ -209,7 +209,7 @@ public sealed partial class HellForgeClient(string root, IHellForgeCommands comm
         string? notice = null;
         if (!running && failure == null) (failure, notice) = CompletedGameDiagnostic(OptionalText(session, "lastRun"), Text(json, "gameBuild"));
         return new(returned, Text(json, "hellforge"), Text(json, "gameBuild"), Bool(ready, "gameCopy"), Bool(ready, "sessionRunner"),
-            running, Bool(settings, "multiplayer"), Bool(settings, "localPlayFab"), OptionalText(session, "lastStatus"), failure, notice, InterruptedPackProblem(), PinnedProblem(json, LinuxNamespace));
+            running, Bool(settings, "multiplayer"), Bool(settings, "localPlayFab"), OptionalText(session, "lastStatus"), failure, notice, InterruptedGameplayProblem() ?? InterruptedPackProblem(), PinnedProblem(json, LinuxNamespace));
     }
 
     (string? Failure, string? Notice) CompletedGameDiagnostic(string? run, string build)
@@ -276,7 +276,7 @@ public sealed partial class HellForgeClient(string root, IHellForgeCommands comm
         var mods = json.GetProperty("mods").EnumerateArray().Select(m => new HellForgeMod(Text(m, "id"), Text(m, "name"),
             Bool(m, "enabled"), Text(m, "folder"), m.GetProperty("tags").EnumerateArray().Select(t => t.GetString() ?? "").ToArray(),
             OptionalText(m, "version") ?? "", m.TryGetProperty("options", out var options) && options.ValueKind == JsonValueKind.Array
-                ? options.EnumerateArray().Select(o => new HellForgeOption(Text(o, "name"), Bool(o, "on"))).ToArray() : null)).ToList();
+                ? options.EnumerateArray().Select(o => new HellForgeOption(Text(o, "name"), Bool(o, "on"))).ToArray() : null, OptionalText(m, "archive"))).ToList();
         if (mods.Select(m => m.Id).Distinct(StringComparer.Ordinal).Count() != mods.Count) throw new InvalidDataException("HellForge reported duplicate mod IDs.");
         string? hostingProblem;
         try
@@ -316,6 +316,7 @@ public sealed partial class HellForgeClient(string root, IHellForgeCommands comm
     }
     async Task RequireIdleAsync(CancellationToken ct)
     {
+        if (InterruptedGameplayProblem() is { } gameplay) throw new InvalidOperationException(gameplay);
         if (Game.IsRunning()) throw new InvalidOperationException("Keep your game open; finish this step after you close it.");
         var status = await StatusAsync(ct);
         if (status.Running) throw new InvalidOperationException("A HellForge session is already running.");
@@ -660,6 +661,7 @@ public sealed partial class HellForgeClient(string root, IHellForgeCommands comm
         var catalog = await ModsAsync(ct);
         var selected = RequireSelected(catalog, selection);
         if (HellForgePreset.Problem(catalog) is { } preset) throw new InvalidDataException(preset);
+        if ((await MissingGameplayAsync(ct)).Count != 0) throw new InvalidDataException("Required gameplay content changed. Use Prepare Star Wars pack to verify and repair the preset before launching.");
         if (!catalog.Mods.Any(m => m.Id == DifficultyId && m.Enabled)) throw new InvalidDataException("Open HellForge setup to install its built-in difficulty 11, then enable it on the Mods page.");
         ValidateModFolder(selected.Folder);
         await HellForgePack.VerifyAsync(selected.Folder, selection, ct);
@@ -676,6 +678,7 @@ public sealed partial class HellForgeClient(string root, IHellForgeCommands comm
         var catalog = await ModsAsync(ct);
         RequireRegular(catalog);
         if (HellForgePreset.Problem(catalog) is { } preset) throw new InvalidDataException(preset);
+        if ((await MissingGameplayAsync(ct)).Count != 0) throw new InvalidDataException("Required gameplay content changed. Use Prepare to verify and repair the preset before launching.");
         if (!catalog.Mods.Any(m => m.Id == DifficultyId && m.Enabled)) throw new InvalidDataException("Enable HellForge's bundled difficulty mod on its Mods page.");
         return await StartAsync(ct, profile);
     }

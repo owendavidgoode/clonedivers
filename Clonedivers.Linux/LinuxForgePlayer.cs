@@ -143,6 +143,28 @@ internal sealed class LinuxForgePlayer(IForgeConnection connection, LinuxForgePr
         await connection.RunAsync(["recover-pack"], ct);
         await RefreshAsync(ct);
     }
+    internal async Task InstallGameplayAsync(IProgress<string>? progress = null, CancellationToken ct = default)
+    {
+        if (SessionActive || Game.IsRunning()) throw new InvalidOperationException("End HD2 before installing the required gameplay preset.");
+        var missing = (await connection.RunAsync(["gameplay-status"], ct)).Deserialize<List<GameplayArtifact>>(HellForgePack.Json)
+            ?? throw new InvalidDataException("Forge returned no gameplay installation plan.");
+        var pinned = HellForgeGameplayCatalog.Pinned;
+        foreach (var requested in missing)
+            if (!pinned.Artifacts.Contains(requested)) throw new InvalidDataException("Bridge requested an artifact outside the pinned preset.");
+        var root = Preferences.InstallRoot ?? throw new InvalidOperationException("Choose the Forge installation first.");
+        var cache = Path.Combine(Path.GetDirectoryName(root)!, "Clonedivers-HellForge-cache", "gameplay", pinned.Id);
+        var windows = WindowsPath(root, cache);
+        // HTTPS runs here in the native frontend, never in the isolated Wine bridge.
+        await HellForgeGameplayCatalog.StageAsync(cache, missing, progress, ct);
+        if (SessionActive || Game.IsRunning()) throw new InvalidOperationException("HD2 started while downloading; keep the verified files and retry after closing it.");
+        await connection.RunAsync(["install-gameplay", "--file", windows], ct);
+        await RefreshAsync(ct);
+    }
+    internal async Task RecoverGameplayAsync(CancellationToken ct = default)
+    {
+        if (SessionActive) throw new InvalidOperationException("End the session before recovering gameplay mods.");
+        await connection.RunAsync(["recover-gameplay"], ct); await RefreshAsync(ct);
+    }
     internal async Task OpenManagerAsync(CancellationToken ct = default)
     {
         if (SessionActive) throw new InvalidOperationException("End the current session before changing setup or mods.");
