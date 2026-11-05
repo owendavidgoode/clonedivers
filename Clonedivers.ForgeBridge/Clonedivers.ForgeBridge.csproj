@@ -1,0 +1,30 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net8.0</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <!-- The official hf-inner.sh lifetime pattern includes HellForge.Launcher. -->
+    <AssemblyName>HellForge.Launcher.ClonediversBridge</AssemblyName>
+    <Version>0.3.7</Version>
+  </PropertyGroup>
+  <ItemGroup><InternalsVisibleTo Include="Clonedivers.ForgeBridge.Tests" /></ItemGroup>
+  <ItemGroup>
+    <Compile Include="../Clonedivers/PackCore.cs" Link="Core/PackCore.cs" />
+    <Compile Include="../Clonedivers/ModeSelection.cs" Link="Core/ModeSelection.cs" />
+    <Compile Include="../Clonedivers/LinuxPlatform.cs" Link="Core/LinuxPlatform.cs" />
+    <Compile Include="../Clonedivers/PackOperations.cs" Link="Core/PackOperations.cs" />
+    <Compile Include="../Clonedivers/PackExtras.cs" Link="Core/PackExtras.cs" />
+    <Compile Include="../Clonedivers/PackProfiles.cs" Link="Core/PackProfiles.cs" />
+    <Compile Include="../Clonedivers/ManifestStore.cs" Link="Core/ManifestStore.cs" />
+    <Compile Include="../Clonedivers/TelemetryStore.cs" Link="Core/TelemetryStore.cs" />
+    <Compile Include="../Clonedivers/FpvDefaults.cs" Link="Core/FpvDefaults.cs" />
+    <Compile Include="../Clonedivers/HellForgeAccount.cs" Link="Core/HellForgeAccount.cs" />
+    <Compile Include="../Clonedivers/HellForgePack.cs" Link="Core/HellForgePack.cs" />
+    <Compile Include="../Clonedivers/HellForgeClient.cs" Link="Core/HellForgeClient.cs" />
+    <Compile Include="../Clonedivers/HellForgeRecovery.cs" Link="Core/HellForgeRecovery.cs" />
+    <Compile Include="../Clonedivers/HellForgeModels.cs" Link="Core/HellForgeModels.cs" />
+    <Compile Include="../Clonedivers/HellForgePreset.cs" Link="Core/HellForgePreset.cs" />
+    <EmbeddedResource Include="../Clonedivers/Resources/hellforge-r19.json" LogicalName="Clonedivers.HellForge.Manifest.json" />
+  </ItemGroup>
+</Project>

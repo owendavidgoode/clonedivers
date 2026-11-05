@@ -1,0 +1,52 @@
+[
+  {
+    "Repository": "CowboyBingus/ModOptionsMenu",
+    "Tag": "v1.2.1",
+    "Release": "https://github.com/CowboyBingus/ModOptionsMenu/releases/tag/v1.2.1",
+    "Commit": "d07339a2ef5e558864a284e1abee786bd8e3d26b",
+    "Artifacts": [
+      {
+        "Name": "Mod-Options-Menu-v1.2.1.zip",
+        "Url": "https://github.com/CowboyBingus/ModOptionsMenu/releases/download/v1.2.1/Mod-Options-Menu-v1.2.1.zip",
+        "Sha256": "99894d4d38ea79ad78ec9e43e68fd08c54027699dfb4318b768e0247ebe57259",
+        "Bytes": 1179368
+      },
+      {
+        "Name": "ModOptionsMenu-source-v1.2.1.zip",
+        "Url": "https://github.com/CowboyBingus/ModOptionsMenu/releases/download/v1.2.1/ModOptionsMenu-source-v1.2.1.zip",
+        "Sha256": "cfffc781323256e1226dba5eeb8260ee5b54c07ebf7a25ad4bb049425c0e7b89",
+        "Bytes": 1658793
+      }
+    ],
+    "License": "0BSD",
+    "LicenseUrl": "https://github.com/CowboyBingus/ModOptionsMenu/blob/v1.2.1/LICENSE",
+    "LicenseText": "Zero-Clause BSD\n=============\n\nCopyright (C) 2026 by CowboyBingus\n\nPermission to use, copy, modify, and/or distribute this software for any\npurpose with or without fee is hereby granted.\n\nTHE SOFTWARE IS PROVIDED \"AS IS\" AND THE AUTHOR DISCLAIMS ALL WARRANTIES\nWITH REGARD TO THIS SOFTWARE INCLUDING ALL IMPLIED WARRANTIES OF\nMERCHANTABILITY AND FITNESS. IN NO EVENT SHALL THE AUTHOR BE LIABLE FOR\nANY SPECIAL, DIRECT, INDIRECT, OR CONSEQUENTIAL DAMAGES OR ANY DAMAGES\nWHATSOEVER RESULTING FROM LOSS OF USE, DATA OR PROFITS, WHETHER IN AN\nACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING OUT OF\nOR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.\n",
+    "Acquisition": "Author original only; not included in review package",
+    "ObservedDate": "2026-11-04"
+  },
+  {
+    "Repository": "CowboyBingus/BingusSharedLoader",
+    "Tag": "v20",
+    "Release": "https://github.com/CowboyBingus/BingusSharedLoader/releases/tag/v20",
+    "Commit": "17598afb77dcb9155fe20593993ceb82be2ffb6b",
+    "Artifacts": [
+      {
+        "Name": "Bingus-Shared-Loader-v20.zip",
+        "Url": "https://github.com/CowboyBingus/BingusSharedLoader/releases/download/v20/Bingus-Shared-Loader-v20.zip",
+        "Sha256": "a42e43e7afe520d0ccd23fe25f9ac5d818c00419d9401de51e59553c87866742",
+        "Bytes": 2604118
+      },
+      {
+        "Name": "BingusSharedLoader-source-v20.zip",
+        "Url": "https://github.com/CowboyBingus/BingusSharedLoader/releases/download/v20/BingusSharedLoader-source-v20.zip",
+        "Sha256": "fa6f49e682bdd1979bdaba4397fa9ba21b5ecc70e0448791ce8ec67911630cd0",
+        "Bytes": 5301008
+      }
+    ],
+    "License": "0BSD",
+    "LicenseUrl": "https://github.com/CowboyBingus/BingusSharedLoader/blob/v20/LICENSE",
+    "LicenseText": "Zero-Clause BSD\n=============\n\nCopyright (C) 2026 by CowboyBingus\n\nPermission to use, copy, modify, and/or distribute this software for any\npurpose with or without fee is hereby granted.\n\nTHE SOFTWARE IS PROVIDED \"AS IS\" AND THE AUTHOR DISCLAIMS ALL WARRANTIES\nWITH REGARD TO THIS SOFTWARE INCLUDING ALL IMPLIED WARRANTIES OF\nMERCHANTABILITY AND FITNESS. IN NO EVENT SHALL THE AUTHOR BE LIABLE FOR\nANY SPECIAL, DIRECT, INDIRECT, OR CONSEQUENTIAL DAMAGES OR ANY DAMAGES\nWHATSOEVER RESULTING FROM LOSS OF USE, DATA OR PROFITS, WHETHER IN AN\nACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING OUT OF\nOR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.\n",
+    "Acquisition": "Author original only; not included in review package",
+    "ObservedDate": "2026-11-04"
+  }
+]

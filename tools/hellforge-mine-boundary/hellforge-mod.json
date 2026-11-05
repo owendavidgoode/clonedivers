@@ -1,0 +1,9 @@
+{
+  "format": 1,
+  "id": "local.clonedivers-mine-boundary",
+  "name": "D11 Mine Marker Bounds Fix (private)",
+  "version": "0.1.1",
+  "description": "Build25480438: checks the game's 512-entry mine-marker buffer before appending. Preserves valid entries and skips excess markers instead of corrupting the adjacent count. D11/SEAF parameters unchanged. Private trial; mission and multiplayer qualification pending.",
+  "gameplay": true,
+  "code": { "dll": "clonedivers_mine_boundary.dll", "sdk": 8, "game": "25480438" }
+}

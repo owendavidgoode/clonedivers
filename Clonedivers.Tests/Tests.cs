@@ -29,8 +29,52 @@ static class TestProgram
     static bool SameSet(IEnumerable<string> a, IEnumerable<string> b) =>
         a.OrderBy(x => x, StringComparer.OrdinalIgnoreCase).SequenceEqual(b.OrderBy(x => x, StringComparer.OrdinalIgnoreCase), StringComparer.OrdinalIgnoreCase);
 
-    static int Main()
+    static int Main(string[] args)
     {
+        if (args is ["--hellforge-account-lease", var install, var access]) { AccountLeaseTests.Hold(install, access == "read"); return 0; }
+        if (args.Contains("--hellforge-account-lease-only")) { Task.Run(() => AccountLeaseTests.Run(Check)).GetAwaiter().GetResult(); return failures == 0 ? 0 : 1; }
+        if (args.FirstOrDefault() == "--hellforge-form-layout")
+        {
+            Game.IsRunningCheck = () => false;
+            HellForgeTests.FormLayoutTests(Check);
+            return failures == 0 ? 0 : 1;
+        }
+        if (args.FirstOrDefault() == "--hellforge-form-lifecycle")
+        {
+            Game.IsRunningCheck = () => false;
+            Task.Run(() => HellForgeTests.FormLifecycleTests(Check)).GetAwaiter().GetResult();
+            return failures == 0 ? 0 : 1;
+        }
+        if (args.FirstOrDefault() is "--hellforge-preview-wait" or "--hellforge-import-finish")
+        {
+            if (Environment.GetEnvironmentVariable("CLONEDIVERS_TEST_BACKEND_PID_FILE") is { } pidFile)
+                File.WriteAllText(pidFile, Environment.ProcessId.ToString());
+            Thread.Sleep(args[0] == "--hellforge-import-finish" ? 300 : 8000);
+            Console.WriteLine("fixture completed");
+            return 0;
+        }
+        if (args.FirstOrDefault() == "--hellforge-pipe-error") { Console.Error.WriteLine("fixture failure"); return 7; }
+        if (args.FirstOrDefault() is "--hellforge-preview-output" or "--hellforge-preview-errors" or "--hellforge-commit-output" or "--hellforge-commit-errors" or "--hellforge-commit-failure")
+        {
+            if (Environment.GetEnvironmentVariable("CLONEDIVERS_TEST_BACKEND_PID_FILE") is { } pidFile)
+                File.WriteAllText(pidFile, Environment.ProcessId.ToString());
+            var stderr = args[0].EndsWith("errors"); var writer = stderr ? Console.Error : Console.Out;
+            for (int i = 0; i < (stderr ? 24 : 256); i++) writer.Write(new string('x', 8192));
+            writer.Flush();
+            Thread.Sleep(args[0].Contains("preview") ? 8000 : 300);
+            if (args[0] == "--hellforge-commit-failure") { Console.Error.WriteLine("fixture backend refused after diagnostics"); return 7; }
+            if (Environment.GetEnvironmentVariable("CLONEDIVERS_TEST_BACKEND_COMMIT_FILE") is { } completed)
+                File.WriteAllText(completed, "completed naturally; fixture only");
+            Console.WriteLine("fixture completed"); return 0;
+        }
+        if (args.FirstOrDefault() == "--hellforge-pipe-json") { Console.WriteLine("{\n  \"ok\": true\n}"); return 0; }
+        if (args.FirstOrDefault() == "--hellforge-pipe-child") { Thread.Sleep(8000); return 0; }
+        if (args.FirstOrDefault() == "--hellforge-pipe-parent")
+        {
+            using var child = System.Diagnostics.Process.Start(HellForgeTests.PipeFixtureStart("--hellforge-pipe-child", redirect: false))!;
+            Console.WriteLine(System.Text.Json.JsonSerializer.Serialize(new { @event = "started", pid = child.Id }));
+            return 0;
+        }
         Game.IsRunningCheck = () => false;   // the engine refuses to move files while helldivers2.exe runs; tests must not depend on the host PC
         var root = Path.Combine(Path.GetTempPath(), "clonedivers-test-" + Guid.NewGuid().ToString("N"));
         Directory.CreateDirectory(root);
@@ -61,6 +105,8 @@ static class TestProgram
             ExperienceTests.Run(root, Check);
             SessionLogTests.Run(root, Check);
             TelemetryTests.Run(root, Check);
+            Task.Run(() => HellForgeTests.Run(root, Check)).GetAwaiter().GetResult();
+            Task.Run(() => AccountLeaseTests.Run(Check)).GetAwaiter().GetResult();
             FpvDefaultsTests.Run(root, Check);
             SelfUpdateAndAcfTests(root);
         }

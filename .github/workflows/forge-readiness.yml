@@ -1,0 +1,59 @@
+name: Forge source readiness
+on:
+  workflow_dispatch:
+  pull_request:
+    paths:
+      - 'Clonedivers/**'
+      - 'Clonedivers.Tests/**'
+      - 'Clonedivers.ForgeBridge/**'
+      - 'Clonedivers.ForgeBridge.Tests/**'
+      - 'Clonedivers.Linux/**'
+      - 'Clonedivers.Linux.Tests/**'
+      - 'tools/hellforge-linux/**'
+      - 'tools/qa-hellforge-lifetime.sh'
+      - '.github/workflows/forge-readiness.yml'
+permissions:
+  contents: read
+env:
+  DOTNET_CLI_TELEMETRY_OPTOUT: '1'
+  DOTNET_SKIP_FIRST_TIME_EXPERIENCE: '1'
+jobs:
+  windows-source-fixtures:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '8.0.x'
+      - name: Fetch only the pinned licensed build input
+        shell: pwsh
+        run: ./tools/fetch-presentmon.ps1
+      - name: Test Windows account, preset, session and UI boundaries
+        run: dotnet run --project Clonedivers.Tests -c Release
+      - name: Test Windows bridge and process boundaries
+        run: dotnet run --project Clonedivers.ForgeBridge.Tests -c Release
+      # Disposable fixtures only: no actual game, account import, ownership,
+      # multiplayer, telemetry enrollment/upload, public feed or publication.
+  source-fixtures:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '8.0.x'
+      - name: Test bridge, dedicated-prefix paths and native player lifecycle
+        run: dotnet run --project Clonedivers.ForgeBridge.Tests -c Release
+      - name: Check pack recovery result deadline
+        run: dotnet run --project Clonedivers.ForgeBridge.Tests -c Release -- --budget-only
+      - name: Test wrapper lifetime with shell stand-ins
+        run: bash tools/qa-hellforge-lifetime.sh
+      - name: Check Forge edition update-channel isolation
+        run: dotnet run --project Clonedivers.Linux.Tests -c Release -p:ForgeEdition=true -- --forge-channel-only --expected-forge-edition
+      - name: Compile native Forge UI and check terminal help
+        run: |
+          dotnet build Clonedivers.Linux -c Release -p:ForgeEdition=true
+          dotnet Clonedivers.Linux/bin/Release/net8.0/clonedivers.dll --help
+      - name: Cross-publish the Windows-side namespace bridge
+        run: dotnet publish Clonedivers.ForgeBridge -c Release -r win-x64 --self-contained true -p:PublishSingleFile=true -p:EnableCompressionInSingleFile=true -o artifacts/forge-bridge
+      # No game, account capture, real ownership, multiplayer, public feed or release
+      # is tested/published here. Those require distinct owner/PC acceptance evidence.

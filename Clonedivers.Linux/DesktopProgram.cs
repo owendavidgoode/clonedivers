@@ -2,6 +2,7 @@ using Avalonia;
 using Avalonia.Controls.ApplicationLifetimes;
 using Avalonia.Themes.Fluent;
 using Avalonia.Styling;
+using Avalonia.Media;
 
 namespace Clonedivers;
 
@@ -12,9 +13,10 @@ internal static class DesktopProgram
     [STAThread]
     public static int Main(string[] args)
     {
+        args = ForgeEntryPolicy.Normalize(args, ForgeEntryPolicy.ForgeEdition);
         var display = !OperatingSystem.IsLinux() || !string.IsNullOrWhiteSpace(Environment.GetEnvironmentVariable("DISPLAY")) || !string.IsNullOrWhiteSpace(Environment.GetEnvironmentVariable("WAYLAND_DISPLAY"));
         var cli = UseTerminal(args, display);
-        if (cli) return LinuxProgram.RunAsync(args).GetAwaiter().GetResult();
+        if (cli) return args.Contains("--forge") ? LinuxForgeTerminal.RunAsync(args).GetAwaiter().GetResult() : LinuxProgram.RunAsync(args).GetAwaiter().GetResult();
         Arguments = args;
         try { return AppBuilder.Configure<LauncherApplication>().UsePlatformDetect().StartWithClassicDesktopLifetime(args); }
         catch (Exception ex)
@@ -30,7 +32,7 @@ internal static class DesktopProgram
         var gui = false;
         for (var i = 0; i < args.Length; i++)
         {
-            if (args[i] is "--game" or "--manifest" or "--ui-smoke") { i++; continue; }
+            if (args[i] is "--game" or "--manifest" or "--ui-smoke" or "--forge-root" or "--forge-resources" or "--forge-preview" or "--forge-preview-size") { i++; continue; }
             if (args[i] == "--gui") { gui = true; continue; }
             if (args[i] is "--tui" or "--terminal" or "--plain" or "--help" or "-h" or "--version" or "status" or "install" or "vanilla" or "repair" or "finish" or "launch" or "report" or "record" or "record-setup" or "record-status" or "record-cancel") return true;
             if (!args[i].StartsWith('-')) return true;
@@ -44,13 +46,17 @@ internal sealed class LauncherApplication : Application
     public override void Initialize()
     {
         RequestedThemeVariant = ThemeVariant.Dark;
-        Styles.Add(new FluentTheme());
+        var theme = new FluentTheme();
+        if (DesktopProgram.Arguments.Contains("--forge") || DesktopProgram.Arguments.Contains("--forge-preview"))
+            theme.Palettes[ThemeVariant.Dark] = new ColorPaletteResources { Accent = Color.Parse("#3476E6") };
+        Styles.Add(theme);
     }
 
     public override void OnFrameworkInitializationCompleted()
     {
         if (ApplicationLifetime is IClassicDesktopStyleApplicationLifetime desktop)
-            desktop.MainWindow = new LauncherWindow(DesktopProgram.Arguments);
+            desktop.MainWindow = DesktopProgram.Arguments.Contains("--forge") || DesktopProgram.Arguments.Contains("--forge-preview")
+                ? new ForgeWindow(DesktopProgram.Arguments) : new LauncherWindow(DesktopProgram.Arguments);
         base.OnFrameworkInitializationCompleted();
     }
 }

@@ -14,6 +14,7 @@
   </PropertyGroup>
 
   <ItemGroup>
+    <EmbeddedResource Include="../Clonedivers/Resources/hellforge-r19.json" LogicalName="Clonedivers.HellForge.Manifest.json" />
     <Compile Include="..\Clonedivers\*.cs" Link="%(Filename)%(Extension)" />
   </ItemGroup>
 

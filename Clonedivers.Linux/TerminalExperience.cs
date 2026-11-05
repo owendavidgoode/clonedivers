@@ -111,6 +111,12 @@ internal static partial class LinuxProgram
         {
             if (launcherUpdateCheck is not null) await launcherUpdateCheck.WaitAsync(cancellation.Token);
             var status = LauncherUpdate ?? new LauncherUpdateStatus(null, false);
+            if (status.SeparateChannel)
+            {
+                await terminal!.SelectAsync(() => new TerminalView("FORGE PREVIEW UPDATES", new[] { status.Message },
+                    new[] { new TerminalItem("0", "Back", "Return to the dashboard.") }), cancellation.Token, "0");
+                return;
+            }
             var choice = await terminal!.SelectAsync(() => new TerminalView("LAUNCHER UPDATES", new[]
             {
                 "Installed launcher: v" + AppInfo.Version, status.Message, status.Url,
