@@ -19,13 +19,13 @@ for name in hellforge-linux.sh hellforge-offline.sh hf-inner.sh hf-bridge-host.s
   expected=$(jq -r --arg name "$name" '.Scripts[] | select(.Name==$name) | .BundleSha256' "$extract/forge/linux/bundle.json")
   [[ $(sha256sum "$extract/forge/linux/$name" | cut -d' ' -f1) == "$expected" ]]
 done
-"$extract/clonedivers" --version | grep -F 'Clonedivers Forge Linux 0.6.0'
+"$extract/clonedivers" --version | grep -F 'Clonedivers Forge Linux 0.6.1'
 "$extract/clonedivers" --help | grep -F 'Clonedivers Forge for Linux'
 "$extract/clonedivers" --steam --help > /dev/null
-[[ $(dpkg-deb -f "$deb" Package) == clonedivers && $(dpkg-deb -f "$deb" Version) == 0.6.0 ]]
+[[ $(dpkg-deb -f "$deb" Package) == clonedivers && $(dpkg-deb -f "$deb" Version) == 0.6.1 ]]
 sudo apt-get update -qq
 sudo apt-get install -y "$artifacts/$deb"
-clonedivers --version | grep -F 'Clonedivers Forge Linux 0.6.0'
+clonedivers --version | grep -F 'Clonedivers Forge Linux 0.6.1'
 clonedivers --help | grep -F 'Clonedivers Forge for Linux'
 test -f /usr/lib/clonedivers/forge/companion.json
 test -f /usr/lib/clonedivers/forge/linux/COPYING

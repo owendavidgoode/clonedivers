@@ -8,6 +8,7 @@ namespace Clonedivers;
 /// <summary>Prepare only our helper/cache in a dedicated C: prefix; never alter the Forge installation or Steam.</summary>
 internal sealed record LinuxForgePlan(string Install, string Prefix, string WindowsInstall, string Bridge, string Script)
 {
+    internal string? SteamClientRoot { get; init; }
     internal const string BridgeName = "HellForge.Launcher.ClonediversBridge.exe";
     internal const string BridgeVersion = "0.3.8";
     internal const string GameBuild = "25480438";
@@ -73,6 +74,7 @@ internal sealed record LinuxForgePlan(string Install, string Prefix, string Wind
         start.ArgumentList.Add(Script); start.ArgumentList.Add(Bridge); start.ArgumentList.Add("--install"); start.ArgumentList.Add(WindowsInstall);
         start.Environment["INSTALL"] = Install;
         start.Environment["STEAM_COMPAT_DATA_PATH"] = Prefix;
+        if (SteamClientRoot is not null) start.Environment["STEAM_COMPAT_CLIENT_INSTALL_PATH"] = SteamClientRoot;
         start.Environment.Remove("HELLFORGE_LINUX_NETNS"); // only the official wrapper may set its namespace marker
         return start;
     }

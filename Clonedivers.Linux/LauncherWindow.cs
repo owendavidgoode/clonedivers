@@ -277,6 +277,7 @@ internal sealed class LauncherWindow : Window
             plan => ConfirmFromWorker("Apply pack", $"Pack {target.PackVersion}\nDownload: {Pack.FormatBytes(plan.BytesToDownload)}\nLocal copies: {Pack.FormatBytes(plan.BytesToCopy)}\nReplaced files are kept in mods_old for recovery.\n\nContinue?"), reporter, token));
         if (result.Interrupted) throw new IOException("Update interrupted. Use Finish update. " + result.Reason + " " + string.Join(", ", result.Failed));
         settings.RecordInstall(result); settings.Save(); RefreshRecordingSelection();
+        LinuxSupport.Record("installed", $"Pack {result.PackVersion}, texture profile {result.TextureProfile}.");
         selected = target.TargetActive ? target.Options.GetValueOrDefault("empire") ? LauncherMode.EmpireDivers : LauncherMode.Clonedivers : LauncherMode.Helldivers;
         progress.Value = 100; message.Text = "Pack ready. You can launch through Steam.";
     }
@@ -289,7 +290,8 @@ internal sealed class LauncherWindow : Window
             var count = await Task.Run(() => ModFiles.MoveAllPatchFiles(Path.Combine(gameDir!, ModFiles.DataFolder), Path.Combine(gameDir!, ModFiles.OffFolder)));
             var receipt = InstallReceipt.Load(Settings.ReceiptPathFor(gameDir!), gameDir!);
             if (receipt is not null && receipt.MatchesLayout(gameDir!)) { var result = receipt.ToApplyResult(); result.TargetActive = false; InstallReceipt.Write(Settings.ReceiptPathFor(gameDir!), gameDir!, receipt.Files.Select(f => f.File).ToList(), result); }
-            RefreshRecordingSelection(); message.Text = $"Vanilla ready. Parked {count} mod files."; return;
+            RefreshRecordingSelection(); LinuxSupport.Record("vanilla", $"Parked {count} mod files.");
+            message.Text = $"Vanilla ready. Parked {count} mod files."; return;
         }
         if (pack is null) await LoadFeedAsync();
         if (pack!.IsBroken) throw new InvalidOperationException("Pack updates are paused: " + pack.StatusNotes);

@@ -158,7 +158,8 @@ internal static partial class LinuxProgram
                 InstallReceipt.Write(Settings.ReceiptPathFor(gameDir!), gameDir!, receipt.Files.Select(f => f.File).ToList(), parked);
             }
             Console.WriteLine($"Vanilla selected. Parked {count} mod files.");
-            settings.Save(); RefreshRecordingSelection(); return;
+            settings.Save(); RefreshRecordingSelection();
+            LinuxSupport.Record("vanilla", $"Parked {count} mod files."); return;
         }
         if (command == "launch")
         {

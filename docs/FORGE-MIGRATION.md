@@ -3,7 +3,7 @@
 Clonedivers is now the Forge launcher: Regular, Clones and Empire run in a
 separate HellForge installation. Launch the official online HD2 game from Steam.
 Windows version 1.10.0 replaces the old launcher through its existing update
-button. Linux x86-64 version 0.6.0 replaces the old package/portable launcher.
+button. Linux x86-64 version 0.6.1 replaces the old package/portable launcher.
 
 This changes the launcher. It does not install HellForge, game files, restricted
 gameplay mods or another player's account. Linux gameplay and Windows–Linux
@@ -32,8 +32,8 @@ and restarting; this rollout does not force-close anyone's game or launcher.
 ## Ubuntu/Debian x86-64
 
 The old Linux launcher checks for versioned Linux releases and will show the new
-0.6.0 release. It does not replace installed software by itself. Download the
-complete `Clonedivers-linux-x64.deb` from `linux-v0.6.0`, close the launcher, then
+0.6.1 release. It does not replace installed software by itself. Download the
+complete `Clonedivers-linux-x64.deb` from `linux-v0.6.1`, close the launcher, then
 install it with your package manager or:
 
 ```sh
@@ -51,13 +51,17 @@ the executable is insufficient. Keep the old directory for rollback. Later
 Forge update notices use a separate cache and require a Forge channel marker,
 so they cannot accidentally offer a legacy Steam-only package.
 
-Only x86-64 Forge packages are supported. ARM64/Deck/Flatpak/Snap and actual
-Linux account capture are not qualified. No old ARM64 package is relabeled as
-working Forge support.
+Only x86-64 Forge packages are supported. Snap/Flatpak **Steam** roots are
+discovered; Clonedivers and Forge still run outside those application sandboxes,
+with Forge in its own Proton prefix. This is not a Snap/Flatpak package of Forge.
+The pinned upstream scripts describe Snap/Flatpak Steam as untested. Discovery
+fixtures do not qualify their Steam bridge, Proton gameplay or multiplayer.
+ARM64/Deck and actual Linux account capture are also unqualified.
 
 ## First Forge setup
 
-1. Obtain official HellForge **0.3.0-beta**, engine **0.1.41**, SDK **15**, game
+1. Download `HellForge-Setup.exe` from the author's
+   [official 0.3.0-beta release](https://github.com/SkyeShade/HellForge/releases/tag/v0.3.0-beta), engine **0.1.41**, SDK **15**, game
    **25480438**. Keep supported isolation and sandbox enabled. Use a separate
    installation outside Steam. Linux needs the official namespace setup in a
    dedicated Proton prefix with Forge under its `pfx/drive_c`.
@@ -74,6 +78,62 @@ working Forge support.
 5. Manually turn OFF official host gameplay-mod sharing before using private
    adaptations. Each peer needs permitted matching mods. Check account, options,
    startup and mission behavior before a controlled two-PC test.
+
+### Linux setup before Connect
+
+Follow the [pinned author's Linux setup guide](https://github.com/SkyeShade/HellForge/blob/b1aef771474710eab5461d360444cd80a809c70c/docs/linux.md).
+The Clonedivers package does not contain the Windows Forge installer or game.
+Keep your usual owning Steam client running and signed in. Do not install a
+second Steam client or change your desktop URI handler to set up Forge.
+
+1. Install the guide's dependencies (`socat`, `iproute2`, `util-linux`, `procps`
+   on Ubuntu/Debian) and install Proton in your existing Steam client.
+2. Choose the **Steam client root**, not `/mnt/extrassd/SteamLibrary`. For Snap,
+   this is normally `$HOME/snap/steam/common/.local/share/Steam`. For native Steam,
+   normally `$HOME/.local/share/Steam` or `$HOME/.steam/debian-installation`.
+   Find your installed Proton's `proton` script in that client's libraries.
+   Adjust these example paths before running:
+
+   ```sh
+   steam_root="$HOME/snap/steam/common/.local/share/Steam"
+   proton="$steam_root/steamapps/common/Proton 11.0/proton"
+   prefix="$HOME/.local/share/hellforge-prefix"
+   mkdir -p "$prefix"
+   STEAM_COMPAT_CLIENT_INSTALL_PATH="$steam_root" \
+   STEAM_COMPAT_DATA_PATH="$prefix" \
+   "$proton" run "$HOME/Downloads/HellForge-Setup.exe"
+   ```
+
+3. Keep the suggested install inside the prefix's C: drive, usually
+   `pfx/drive_c/users/steamuser/Documents/HellForge`. Close the manager that setup
+   opens outside the namespace. Continue with the author's namespace/depot steps;
+   review any requested administrator action yourself. Do not disable AppArmor
+   or bypass a failed isolation check. The official setup must obtain the pinned
+   game build; your current Steam game is not that copy.
+4. Start the installed official wrapper with the same Steam root:
+
+   ```sh
+   STEAM_COMPAT_CLIENT_INSTALL_PATH="$steam_root" \
+   bash "$prefix/pfx/drive_c/users/steamuser/Documents/HellForge/app/linux/hellforge-linux.sh"
+   ```
+
+   Complete official setup, close its manager/session, then use Clonedivers
+   Locate to select that `HellForge` folder. Terminal diagnostics accept:
+
+   ```sh
+   STEAM_COMPAT_CLIENT_INSTALL_PATH="$steam_root" clonedivers --forge \
+     --forge-root "$prefix/pfx/drive_c/users/steamuser/Documents/HellForge" status
+   ```
+
+Clonedivers reads its saved selection from
+`${XDG_CONFIG_HOME:-$HOME/.config}/clonedivers/forge.json`; it does not scan Steam
+for a Forge installation or create one automatically. Steam ownership discovery
+does scan native, Flatpak and Snap client roots and their `libraryfolders.vdf`.
+Snap `/var/lib/snapd/hostfs/mnt/...` library entries map to host `/mnt/...` paths.
+With multiple clients and no reliable HD2 owner, set the supported
+`STEAM_COMPAT_CLIENT_INSTALL_PATH` explicitly rather than letting another client
+be selected. This variable selects Steam; `STEAM_COMPAT_DATA_PATH` is Forge's
+separate prefix and is not a Steam client root.
 
 ## One-time Steam cleanup and recovery
 

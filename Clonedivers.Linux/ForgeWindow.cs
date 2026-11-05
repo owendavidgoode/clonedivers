@@ -94,7 +94,13 @@ internal sealed class ForgeWindow : Window
         Prepare.Click += (_, _) => Begin(PrepareAsync);
         Launch.Click += (_, _) => Begin(async () => { if (player == null) return; if (player.OwnsSession) await player.EndSessionAsync(lifetime.Token); else await player.LaunchAsync(lifetime.Token); });
         setup.Click += (_, _) => Begin(async () => { if (player != null) await player.OpenManagerAsync(lifetime.Token); else Process.Start(new ProcessStartInfo("xdg-open") { UseShellExecute = false, ArgumentList = { "https://github.com/SkyeShade/HellForge/releases/tag/v0.3.0-beta" } }); });
-        fallback.Click += (_, _) => Begin(() => { Process.Start(new ProcessStartInfo("xdg-open") { UseShellExecute = false, ArgumentList = { "steam://nav/games/details/553850" } }); return Task.CompletedTask; });
+        fallback.Click += (_, _) => Begin(() =>
+        {
+            var game = GameLocator.NormalizeGameDir(Settings.Load().GamePath) ?? GameLocator.AutoDetect()
+                ?? throw new InvalidOperationException("Open your usual Steam client manually. No installed HD2 library was found, so Clonedivers will not choose another client.");
+            message.Text = "Opened HD2 library in " + LinuxPlatform.OpenGameLibrary(game) + ".";
+            return Task.CompletedTask;
+        });
         updates.Click += async (_, _) => await CheckLauncherUpdateAsync(true);
         timer.Tick += (_, _) => { if (!busy && !closing && player != null) Begin(() => player.RefreshAsync(lifetime.Token)); };
         Closing += (_, e) =>

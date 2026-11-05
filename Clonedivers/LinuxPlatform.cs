@@ -58,7 +58,17 @@ public static class LinuxPlatform
 
     static bool Within(string path, string parent) => path.Equals(parent, PlatformPaths.Comparison) || path.StartsWith(parent + Path.DirectorySeparatorChar, PlatformPaths.Comparison);
 
-    public static SteamLaunchTarget SteamLaunchForGame(string gameDir, string? home = null)
+    // Snap records host mounts in its private namespace. Discovery runs on the host.
+    public static string HostLibraryPath(string path)
+    {
+        const string prefix = "/var/lib/snapd/hostfs";
+        return path.StartsWith(prefix + "/", StringComparison.Ordinal) ? path[prefix.Length..] : path;
+    }
+
+    public static SteamLaunchTarget SteamLaunchForGame(string gameDir, string? home = null) => SteamTargetForGame(gameDir, false, home);
+    public static SteamLaunchTarget SteamLibraryForGame(string gameDir, string? home = null) => SteamTargetForGame(gameDir, true, home);
+
+    static SteamLaunchTarget SteamTargetForGame(string gameDir, bool libraryPage, string? home)
     {
         home ??= Environment.GetFolderPath(Environment.SpecialFolder.UserProfile);
         if (!GameLocator.IsGameDir(gameDir) || !File.Exists(SteamAcf.AcfPath(gameDir)))
@@ -74,7 +84,7 @@ public static class LinuxPlatform
             try { libraries.AddRange(GameLocator.ParseLibraryPaths(File.ReadAllText(Path.Combine(root, "steamapps", "libraryfolders.vdf"))).Where(Path.IsPathFullyQualified)); }
             catch (IOException) { /* A missing list does not hide a game in this root's own library. */ }
             catch (UnauthorizedAccessException) { }
-            if (!libraries.Any(l => CanonicalDirectory(Path.Combine(l, "steamapps", "common", GameLocator.GameFolderName)).Equals(game, PlatformPaths.Comparison))) continue;
+            if (!libraries.Any(l => CanonicalDirectory(Path.Combine(HostLibraryPath(l), "steamapps", "common", GameLocator.GameFolderName)).Equals(game, PlatformPaths.Comparison))) continue;
             var client = Within(resolved, snapHome) || Within(Path.GetFullPath(root), Path.GetFullPath(Path.Combine(home, "snap/steam/common"))) ? "Snap Steam"
                 : Within(resolved, flatpakHome) || Within(Path.GetFullPath(root), Path.GetFullPath(Path.Combine(home, ".var/app/com.valvesoftware.Steam"))) ? "Flatpak Steam" : "Native Steam";
             if (!owners.Any(o => o.client == client && o.root.Equals(resolved, PlatformPaths.Comparison))) owners.Add((client, resolved));
@@ -90,13 +100,19 @@ public static class LinuxPlatform
             start.FileName = Path.Combine(owner.root, "steam.sh"); start.WorkingDirectory = owner.root;
             if (!File.Exists(start.FileName)) throw new InvalidOperationException("The owning native Steam installation has no steam.sh launcher. Open your usual Steam and launch Helldivers 2 there.");
         }
-        start.ArgumentList.Add("steam://rungameid/" + GameLocator.SteamAppId);
+        start.ArgumentList.Add((libraryPage ? "steam://nav/games/details/" : "steam://rungameid/") + GameLocator.SteamAppId);
         return new SteamLaunchTarget(owner.client, owner.root, start);
     }
 
     public static string LaunchGame(string gameDir)
     {
-        var target = SteamLaunchForGame(gameDir);
+        return StartSteamTarget(SteamLaunchForGame(gameDir));
+    }
+
+    public static string OpenGameLibrary(string gameDir) => StartSteamTarget(SteamLibraryForGame(gameDir));
+
+    static string StartSteamTarget(SteamLaunchTarget target)
+    {
         // Process.Start can prefer a sibling of the apphost over PATH (notably /usr/bin).
         // Resolve explicitly so source, portable and installed builds use the same launcher.
         if (!Path.IsPathFullyQualified(target.Command.FileName))
@@ -122,10 +138,27 @@ public static class LinuxPlatform
             catch (IOException) { continue; }
             catch (UnauthorizedAccessException) { continue; }
             foreach (var library in GameLocator.ParseLibraryPaths(text))
-                if (Path.IsPathFullyQualified(library)) libraries.Add(library);
+                if (Path.IsPathFullyQualified(library)) libraries.Add(HostLibraryPath(library));
         }
         return libraries.OrderByDescending(l => File.Exists(Path.Combine(l, "steamapps", "appmanifest_553850.acf")))
             .Select(l => Path.Combine(l, "steamapps", "common", GameLocator.GameFolderName));
+    }
+
+    public static string ForgeSteamRoot(string? gameDir, string? configuredRoot, string? home = null)
+    {
+        if (!string.IsNullOrWhiteSpace(configuredRoot))
+        {
+            if (!Path.IsPathFullyQualified(configuredRoot) || !Directory.Exists(Path.Combine(configuredRoot, "steamapps")))
+                throw new InvalidOperationException("STEAM_COMPAT_CLIENT_INSTALL_PATH must name your Steam client root containing steamapps, not a game library or Forge prefix.");
+            return CanonicalDirectory(configuredRoot);
+        }
+        if (GameLocator.IsGameDir(gameDir)) return SteamLaunchForGame(gameDir!, home).SteamRoot;
+        var game = CandidateGameDirs(home).FirstOrDefault(GameLocator.IsGameDir);
+        if (game is not null) return SteamLaunchForGame(game, home).SteamRoot;
+        var roots = SteamRoots(home).Where(r => Directory.Exists(Path.Combine(r, "steamapps")))
+            .Select(CanonicalDirectory).Distinct(PlatformPaths.Comparer).ToArray();
+        if (roots.Length == 1) return roots[0];
+        throw new InvalidOperationException("Cannot select your owning Steam client safely. Set STEAM_COMPAT_CLIENT_INSTALL_PATH to your usual client's root containing steamapps before starting Clonedivers. An official HD2 installation is not required for Forge setup. No Steam client was started.");
     }
 
     public static bool IsGameRunning(string procRoot = "/proc")
