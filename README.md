@@ -9,10 +9,14 @@ Play the official online Helldivers 2 game directly through Steam.
 
 ## Update or install
 
-Existing Windows launchers receive **1.10.0** through their normal launcher-update
+Existing Windows launchers receive **1.11.0** through their normal launcher-update
 button. Existing Linux launchers show the **0.6.1** release; install its complete
 .deb or extract the full portable archive. Linux updates require a package-manager
 or manual installation; a notice does not silently replace the old application.
+
+New Windows players press **Set up Clonedivers**. The launcher downloads and
+installs the verified Forge application, opens its official game-copy setup and
+connects it here. Steam sign-in and Windows approval remain player actions.
 
 Read [the migration and first-setup guide](docs/FORGE-MIGRATION.md). The launcher
 update preserves settings and account data and keeps a verified previous Windows

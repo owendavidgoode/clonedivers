@@ -9,6 +9,11 @@ static class HellForgeTests
 {
     internal static async Task FormLifecycleTests(Action<bool, string> check)
     {
+        using (var firstRun = new HellForgeForm(new HellForgePreferences()))
+        {
+            var primary = (Button)typeof(HellForgeForm).GetField("launch", BindingFlags.NonPublic | BindingFlags.Instance)!.GetValue(firstRun)!;
+            check(primary.Enabled && primary.Text == "SET UP CLONEDIVERS", "a first-time player receives an enabled setup action without locating an engine or reading GitHub");
+        }
         const BindingFlags members = BindingFlags.Instance | BindingFlags.NonPublic;
         using var form = new HellForgeForm(new HellForgePreferences { InstallRoot = Path.GetTempPath() });
         var type = typeof(HellForgeForm);
@@ -66,6 +71,10 @@ static class HellForgeTests
                 CompatibilityProblem: "Fixture engine/SDK/isolation mismatch."));
             type.GetMethod("UpdateView", members)!.Invoke(form, null);
             check(end.Enabled && end.Text == "END SESSION", "compatibility mismatch never hides active-session cleanup");
+            Set("lastStatus", new HellForgeStatus(Path.GetTempPath(), "0.3.0-beta (4a5373b)", HellForgePack.SupportedBuild, false, true, false, true, true, null, null,
+                CompatibilityProblem: "Official WFP isolation has not been set up yet."));
+            type.GetMethod("UpdateView", members)!.Invoke(form, null);
+            check(end.Enabled && end.Text == "FINISH SETUP" && !recover.Enabled && !sync.Enabled, "fresh pinned Forge offers guided setup while copy/isolation and account steps remain incomplete");
         }
         finally { HellForgeForm.SteamReadyCheck = steamReady; SynchronizationContext.SetSynchronizationContext(previousContext); }
     }
@@ -119,6 +128,12 @@ static class HellForgeTests
                     "running preview matches the real account-sync lock during a session");
                 form.Close(); form.Dispose();
                 check(form.IsDisposed, "closing and repeated disposal release launcher resources without a disposed-token exception");
+                using var setup = new HellForgeSetupForm(preview: true);
+                setup.ClientSize = new Size(620, 480); setup.Show(); Application.DoEvents();
+                var setupNext = setup.Controls.Cast<Control>().SelectMany(Children).OfType<Button>().Single(b => b.AccessibleName == "Continue Forge setup");
+                check(setupNext.Text == "INSTALL FORGE" && setup.PointToClient(setupNext.PointToScreen(new Point(0, setupNext.Height))).Y <= setup.ClientSize.Height,
+                    "small first-run windows keep the install action visible outside the scrolling instructions");
+                setup.Close();
             }
             catch (Exception e) { failure = e; }
         });
