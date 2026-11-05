@@ -28,4 +28,4 @@ done
 cd "$repo"
 sudo apt-get update -qq
 sudo apt-get install -y xvfb "$artifacts/Clonedivers-linux-x64.deb"
-CLONEDIVERS_TEST_BINARY=/usr/bin/clonedivers dotnet run --project Clonedivers.Linux.Tests -c Release
+CLONEDIVERS_TEST_BINARY=/usr/bin/clonedivers dotnet run --project Clonedivers.Linux.Tests -c Release -p:ForgeEdition=false

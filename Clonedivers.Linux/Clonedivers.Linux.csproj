@@ -6,13 +6,14 @@
     <ImplicitUsings>enable</ImplicitUsings>
     <AssemblyName>clonedivers</AssemblyName>
     <Version>0.5.0</Version>
+    <ForgeEdition Condition="'$(ForgeEdition)' == ''">true</ForgeEdition>
     <PublishSingleFile>true</PublishSingleFile>
     <SelfContained>false</SelfContained>
     <IncludeNativeLibrariesForSelfExtract>true</IncludeNativeLibrariesForSelfExtract>
     <EnableCompressionInSingleFile>true</EnableCompressionInSingleFile>
   </PropertyGroup>
   <PropertyGroup Condition="'$(ForgeEdition)' == 'true'">
-    <Version>0.6.0-preview.8</Version>
+    <Version>0.6.0</Version>
     <DefineConstants>$(DefineConstants);FORGE_DEFAULT</DefineConstants>
   </PropertyGroup>
   <ItemGroup>

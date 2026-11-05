@@ -25,6 +25,7 @@ internal sealed class LauncherUpdates
     internal const string ReleasesPage = "https://github.com/owendavidgoode/clonedivers/releases?q=linux-v";
     internal const string Api = "https://api.github.com/repos/owendavidgoode/clonedivers/releases?per_page=100";
     internal const string CacheName = "linux-launcher-update.json";
+    internal const string ForgeCacheName = "forge-launcher-update.json";
     const int MaxMetadataBytes = 8 * 1024 * 1024;
     static readonly HttpClient Web = CreateClient();
     readonly HttpClient client;
@@ -49,7 +50,7 @@ internal sealed class LauncherUpdates
         return web;
     }
     internal static bool ValidVersion(string? value) => value is not null && Regex.IsMatch(value, @"^\d+\.\d+\.\d+$") && Version.TryParse(value, out _);
-    internal static LauncherRelease? SelectRelease(string json, string architecture)
+    internal static LauncherRelease? SelectRelease(string json, string architecture, bool forgeOnly = false)
     {
         using var data = JsonDocument.Parse(json);
         if (data.RootElement.ValueKind != JsonValueKind.Array) throw new InvalidDataException("Invalid release list.");
@@ -61,6 +62,8 @@ internal sealed class LauncherUpdates
                 !release.TryGetProperty("assets", out var assets) || assets.ValueKind != JsonValueKind.Array) continue;
             var tag = tagElement.GetString()!;
             if (!tag.StartsWith("linux-v", StringComparison.Ordinal) || !ValidVersion(tag[7..])) continue;
+            if (forgeOnly && !assets.EnumerateArray().Any(a => a.ValueKind == JsonValueKind.Object && a.TryGetProperty("name", out var marker) && marker.ValueKind == JsonValueKind.String && marker.GetString() == "clonedivers-forge-channel.json" &&
+                a.TryGetProperty("state", out var markerState) && markerState.ValueKind == JsonValueKind.String && markerState.GetString() == "uploaded")) continue;
             if (!assets.EnumerateArray().Any(a => a.ValueKind == JsonValueKind.Object && a.TryGetProperty("name", out var name) && name.ValueKind == JsonValueKind.String &&
                 name.GetString() == $"Clonedivers-linux-{architecture}.tar.gz" && a.TryGetProperty("state", out var state) && state.ValueKind == JsonValueKind.String && state.GetString() == "uploaded")) continue;
             var version = tag[7..];
@@ -72,7 +75,7 @@ internal sealed class LauncherUpdates
     {
         try
         {
-            var path = FileSafety.Child(directory, CacheName);
+            var path = FileSafety.Child(directory, allowLegacyChannel ? CacheName : ForgeCacheName);
             if (!File.Exists(path) || new FileInfo(path).Length > 4096) return null;
             var cache = JsonSerializer.Deserialize<Cache>(File.ReadAllText(path));
             return cache is not null && (ValidVersion(cache.LatestVersion) || !cache.Succeeded && cache.LatestVersion is null) ? cache : null;
@@ -84,7 +87,6 @@ internal sealed class LauncherUpdates
     internal async Task<LauncherUpdateStatus> CheckAsync(CancellationToken ct = default, bool force = false)
     {
         ct.ThrowIfCancellationRequested();
-        if (!allowLegacyChannel) return new(null, false, SeparateChannel: true);
         await gate.WaitAsync(ct);
         try
         {
@@ -95,7 +97,7 @@ internal sealed class LauncherUpdates
             {
                 var json = await client.GetStringAsync(endpoint, ct);
                 if (json.Length > MaxMetadataBytes) throw new InvalidDataException("Release list is too large.");
-                var latest = SelectRelease(json, architecture) ?? throw new InvalidDataException("No Linux release available.");
+                var latest = SelectRelease(json, architecture, forgeOnly: !allowLegacyChannel) ?? throw new InvalidDataException("No matching Linux launcher release available.");
                 result = new Cache(now(), latest.Version, true);
             }
             catch (OperationCanceledException) when (ct.IsCancellationRequested) { throw; }
@@ -104,7 +106,7 @@ internal sealed class LauncherUpdates
             try
             {
                 Directory.CreateDirectory(directory);
-                LinuxSupport.WritePrivate(FileSafety.Child(directory, CacheName), JsonSerializer.Serialize(result));
+                LinuxSupport.WritePrivate(FileSafety.Child(directory, allowLegacyChannel ? CacheName : ForgeCacheName), JsonSerializer.Serialize(result));
             }
             catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or InvalidDataException) { /* A notice must not depend on writable settings. */ }
             return Status(result);

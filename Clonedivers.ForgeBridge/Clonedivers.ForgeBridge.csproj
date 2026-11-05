@@ -6,7 +6,7 @@
     <ImplicitUsings>enable</ImplicitUsings>
     <!-- The official hf-inner.sh lifetime pattern includes HellForge.Launcher. -->
     <AssemblyName>HellForge.Launcher.ClonediversBridge</AssemblyName>
-    <Version>0.3.7</Version>
+    <Version>0.3.8</Version>
   </PropertyGroup>
   <ItemGroup><InternalsVisibleTo Include="Clonedivers.ForgeBridge.Tests" /></ItemGroup>
   <ItemGroup>

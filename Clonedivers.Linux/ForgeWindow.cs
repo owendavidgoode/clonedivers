@@ -19,13 +19,15 @@ internal sealed class ForgeWindow : Window
     readonly string previewState = "ready";
     LinuxForgePlayer? player;
     bool busy, closing, closed, updating;
+    bool checkingLauncherUpdate;
+    LauncherUpdateStatus? launcherUpdate;
     string? lastError;
     readonly CancellationTokenSource lifetime = new();
     readonly DispatcherTimer timer = new() { Interval = TimeSpan.FromSeconds(5) };
     internal Task Operation { get; private set; } = Task.CompletedTask;
     internal readonly Dictionary<string, Button> Modes = new();
     internal readonly Button Launch = Action("LAUNCH CLONEDIVERS"), Prepare = Action("Prepare Star Wars pack"), Import = Action("Apply HD2 import");
-    readonly Button connect = Action("Connect"), browse = Action("Locate…"), refresh = Action("Refresh"), setup = Action("Setup & mods"), fallback = Action("Steam fallback");
+    readonly Button connect = Action("Connect"), browse = Action("Locate…"), refresh = Action("Refresh"), setup = Action("Setup & mods"), fallback = Action("Official HD2 in Steam"), updates = Action("Check updates");
     readonly TextBox folder = new() { Watermark = "Separate HellForge installation inside its dedicated prefix" };
     readonly CheckBox delta = new() { Content = "Delta Squad armor" }, droids = new() { Content = "CIS droids" }, covenant = new() { Content = "Covenant squids" };
     readonly ComboBox textures = new() { ItemsSource = new[] { "Full textures", "Lighter textures" }, Width = 170 };
@@ -78,9 +80,9 @@ internal sealed class ForgeWindow : Window
         folder.Text = preferences.InstallRoot ?? "";
         var path = new Grid { ColumnDefinitions = new ColumnDefinitions("*,Auto,Auto"), ColumnSpacing = 8 };
         path.Children.Add(folder); path.Children.Add(browse); path.Children.Add(connect); Grid.SetColumn(browse, 1); Grid.SetColumn(connect, 2); panel.Children.Add(path);
-        var tools = new WrapPanel { Orientation = Orientation.Horizontal, Children = { setup, refresh, fallback } };
+        var tools = new WrapPanel { Orientation = Orientation.Horizontal, Children = { setup, refresh, fallback, updates } };
         foreach (var control in tools.Children) control.Margin = new Thickness(0, 0, 8, 0); panel.Children.Add(tools);
-        panel.Children.Add(Text("Private Linux trial · Gameplay and Windows/Linux co-op still need testing.", 12, Dim));
+        panel.Children.Add(Text($"Forge launcher {AppInfo.Version} · Linux gameplay and Windows/Linux co-op still need testing.", 12, Dim));
         panel.Children.Add(Text("Regular HD2: open through Steam. End your Forge session before closing this launcher.", 11, Dim));
         Content = new ScrollViewer { Content = panel, HorizontalScrollBarVisibility = ScrollBarVisibility.Disabled };
         foreach (var box in new[] { delta, droids, covenant }) box.IsCheckedChanged += (_, _) => { if (!updating) Begin(async () => { preferences.DeltaSquad = delta.IsChecked == true; preferences.Droids = droids.IsChecked == true; preferences.Covenant = covenant.IsChecked == true; await ChangedAsync(); }); };
@@ -91,8 +93,9 @@ internal sealed class ForgeWindow : Window
         Import.Click += (_, _) => Begin(async () => { if (player != null && await ConfirmAsync("Apply the verified HD2 account capture?", "This imports your own sealed capture into Forge using its one-way merge policy. Forge rewards stay local; existing characters are preserved.")) await player.ImportAsync(lifetime.Token); });
         Prepare.Click += (_, _) => Begin(PrepareAsync);
         Launch.Click += (_, _) => Begin(async () => { if (player == null) return; if (player.OwnsSession) await player.EndSessionAsync(lifetime.Token); else await player.LaunchAsync(lifetime.Token); });
-        setup.Click += (_, _) => Begin(async () => { if (player != null) await player.OpenManagerAsync(lifetime.Token); else Process.Start(new ProcessStartInfo("xdg-open") { UseShellExecute = false, ArgumentList = { "https://github.com/SkyeShade/HellForge/releases" } }); });
-        fallback.Click += async (_, _) => { if (!preview && !busy && player?.SessionActive != true) await new LauncherWindow(["--gui"]).ShowDialog(this); };
+        setup.Click += (_, _) => Begin(async () => { if (player != null) await player.OpenManagerAsync(lifetime.Token); else Process.Start(new ProcessStartInfo("xdg-open") { UseShellExecute = false, ArgumentList = { "https://github.com/SkyeShade/HellForge/releases/tag/v0.3.0-beta" } }); });
+        fallback.Click += (_, _) => Begin(() => { Process.Start(new ProcessStartInfo("xdg-open") { UseShellExecute = false, ArgumentList = { "steam://nav/games/details/553850" } }); return Task.CompletedTask; });
+        updates.Click += async (_, _) => await CheckLauncherUpdateAsync(true);
         timer.Tick += (_, _) => { if (!busy && !closing && player != null) Begin(() => player.RefreshAsync(lifetime.Token)); };
         Closing += (_, e) =>
         {
@@ -104,11 +107,26 @@ internal sealed class ForgeWindow : Window
             closing = true; timer.Stop();
             Begin(async () => { if (player != null) await player.DisposeAsync(); closed = true; lifetime.Cancel(); lifetime.Dispose(); Close(); });
         };
-        Opened += (_, _) => { UpdateView(); if (!preview) timer.Start(); };
+        Opened += async (_, _) => { UpdateView(); if (!preview) { timer.Start(); await CheckLauncherUpdateAsync(false); } };
         UpdateView();
     }
 
     static string Value(string[] args, ref int i) => ++i < args.Length ? args[i] : throw new ArgumentException("Missing option value.");
+    async Task CheckLauncherUpdateAsync(bool open)
+    {
+        if (preview || checkingLauncherUpdate || busy || closed) return;
+        checkingLauncherUpdate = true; UpdateView();
+        try
+        {
+            launcherUpdate = await new LauncherUpdates().CheckAsync(lifetime.Token, force: open);
+            if (closed) return;
+            updates.Content = launcherUpdate.Available == null ? "Check updates" : "Update v" + launcherUpdate.Available.Version;
+            if (open) { message.Text = launcherUpdate.Message; if (launcherUpdate.Available != null) LauncherUpdates.OpenRelease(launcherUpdate); }
+        }
+        catch (OperationCanceledException) { }
+        catch (Exception error) { if (open && !closed) message.Text = "Launcher update check unavailable: " + error.Message; }
+        finally { checkingLauncherUpdate = false; if (!closed) UpdateView(); }
+    }
     static Button Action(string title) => new() { Content = title, Padding = new Thickness(14, 9), CornerRadius = new CornerRadius(6), HorizontalAlignment = HorizontalAlignment.Stretch, HorizontalContentAlignment = HorizontalAlignment.Center };
     static TextBlock Text(string value, double size, IBrush? color = null, FontWeight? weight = null, HorizontalAlignment alignment = HorizontalAlignment.Stretch) => new() { Text = value, FontSize = size, Foreground = color ?? Brushes.White, FontWeight = weight ?? FontWeight.Normal, TextWrapping = TextWrapping.Wrap, HorizontalAlignment = alignment };
     internal void Begin(Func<Task> action)
@@ -163,6 +181,7 @@ internal sealed class ForgeWindow : Window
         updating = true;
         delta.IsChecked = preferences.DeltaSquad; droids.IsChecked = preferences.Droids; covenant.IsChecked = preferences.Covenant; textures.SelectedIndex = preferences.Texture == "lighter" ? 1 : 0;
         var active = preview ? previewState == "running" : player?.SessionActive == true;
+        updates.IsEnabled = !preview && !busy && !active && !checkingLauncherUpdate;
         foreach (var (id, button) in Modes) { button.Background = Brush.Parse(id == preferences.Mode ? "#1D3457" : "#111A2D"); button.BorderBrush = id == preferences.Mode ? Blue : Brush.Parse("#263047"); button.IsEnabled = !busy && !active; }
         foreach (var control in new Control[] { delta, droids, covenant, textures }) { control.IsEnabled = !busy && !active; control.IsVisible = preferences.Mode != "regular"; }
         delta.IsVisible = preferences.Mode == "clonedivers";
