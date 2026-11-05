@@ -228,7 +228,9 @@ static class HellForgeTests
 
         var commands = new FakeCommands(install);
         commands.Mods.Add(new(HellForgePack.PackId("empire"), "Prior Empire", true, Path.Combine(install, "mods", "empire"), ["pack"]));
-        var client = new HellForgeClient(install, commands);
+        // This fake owns no operating-system CLI; real manager polling must not
+        // interfere with an isolated transaction fixture.
+        var client = new HellForgeClient(install, commands) { RequireCliQuiescent = () => { } };
         var diagnosticRun = Path.Combine(install, "logs", "sessions", Guid.NewGuid().ToString("N"));
         Directory.CreateDirectory(diagnosticRun);
         commands.LastRun = diagnosticRun;

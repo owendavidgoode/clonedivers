@@ -1,0 +1,101 @@
+name: Forge launcher packages
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths: ['Clonedivers/**', 'Clonedivers.Linux/**', 'Clonedivers.ForgeBridge/**', 'tools/**', 'docs/FORGE-MIGRATION.md', 'docs/forge-preset-build25480438.json', '.github/workflows/forge-packages.yml']
+  pull_request:
+    paths: ['Clonedivers/**', 'Clonedivers.Linux/**', 'Clonedivers.ForgeBridge/**', 'tools/**', 'docs/FORGE-MIGRATION.md', 'docs/forge-preset-build25480438.json', '.github/workflows/forge-packages.yml']
+permissions:
+  contents: read
+env:
+  DOTNET_CLI_TELEMETRY_OPTOUT: '1'
+  DOTNET_SKIP_FIRST_TIME_EXPERIENCE: '1'
+jobs:
+  windows-package:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-dotnet@v4
+        with: {dotnet-version: '8.0.x'}
+      - shell: pwsh
+        run: ./tools/fetch-presentmon.ps1
+      - name: Build the migration executable
+        shell: pwsh
+        run: |
+          dotnet publish Clonedivers -c Release -o artifacts/windows -p:DebugType=None -p:DebugSymbols=false
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          $exe = Get-Item artifacts/windows/Clonedivers.exe
+          if ($exe.VersionInfo.FileVersion -ne '1.10.0.0') { throw 'Unexpected Windows version.' }
+          Copy-Item LICENSE artifacts/windows/LICENSE-CLONEDIVERS.txt
+          Copy-Item docs/FORGE-MIGRATION.md artifacts/windows/README.md
+          Copy-Item Clonedivers/Licenses/PresentMon.txt artifacts/windows/LICENSE-PresentMon.txt
+          foreach ($package in @('microsoft.netcore.app.runtime.win-x64','microsoft.windowsdesktop.app.runtime.win-x64')) {
+            $runtime = Get-ChildItem (Join-Path $env:USERPROFILE ".nuget/packages/$package") -Directory | Sort-Object { [version]$_.Name } | Select-Object -Last 1
+            foreach ($name in @('LICENSE','LICENSE.TXT','THIRD-PARTY-NOTICES.TXT')) {
+              $source = Join-Path $runtime.FullName $name
+              if (Test-Path $source) { Copy-Item $source ("artifacts/windows/$package-$name") }
+            }
+          }
+          $files = @(Get-ChildItem artifacts/windows -File | Select-Object -ExpandProperty FullName)
+          Compress-Archive -LiteralPath $files -DestinationPath artifacts/windows/Clonedivers-windows-1.10.0.zip
+          (Get-FileHash $exe.FullName).Hash.ToLowerInvariant() + '  Clonedivers.exe' | Set-Content artifacts/windows/SHA256SUMS -Encoding utf8
+      - uses: actions/upload-artifact@v4
+        with:
+          name: Forge-Windows-migration
+          path: artifacts/windows/*
+          if-no-files-found: error
+  linux-package:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-dotnet@v4
+        with: {dotnet-version: '8.0.x'}
+      - name: Build the complete pinned Forge package
+        shell: bash
+        run: |
+          set -euo pipefail
+          dotnet publish Clonedivers.ForgeBridge -c Release -r win-x64 --self-contained true -p:PublishSingleFile=true -p:DebugType=None -p:DebugSymbols=false -p:IncludeSourceRevisionInInformationalVersion=false -o dist/forge-helper
+          pwsh -File tools/build-forge-companion.ps1 -BridgeBinary dist/forge-helper/HellForge.Launcher.ClonediversBridge.exe -OutputFolder dist/forge-companion
+          dotnet publish Clonedivers.Linux -c Release -p:ForgeEdition=true -r linux-x64 --self-contained true -p:DebugType=None -p:DebugSymbols=false -o dist/forge-native
+          mkdir -p dist/forge-stage/licenses artifacts/linux
+          cp dist/forge-native/clonedivers dist/forge-stage/clonedivers
+          chmod 755 dist/forge-stage/clonedivers
+          cp -a dist/forge-companion dist/forge-stage/forge
+          chmod 755 dist/forge-stage/forge/linux/*.sh
+          cp LICENSE dist/forge-stage/LICENSE-CLONEDIVERS.txt
+          cp docs/FORGE-MIGRATION.md dist/forge-stage/README.md
+          cp docs/FORGE-MOD-COVERAGE.md dist/forge-stage/FORGE-MOD-COVERAGE.md
+          cp docs/forge-author-receipts-20261104.json dist/forge-stage/author-receipts.json
+          cp docs/forge-preset-build25480438.json dist/forge-stage/preset.json
+          cp Clonedivers.Linux/THIRD-PARTY-NOTICES.txt dist/forge-stage/licenses/Avalonia-Skia-HarfBuzz.txt
+          for rid in linux-x64 win-x64; do
+            runtime=$(find "$HOME/.nuget/packages/microsoft.netcore.app.runtime.$rid" -mindepth 1 -maxdepth 1 -type d | sort -V | tail -n1)
+            cp "$runtime/LICENSE.TXT" "dist/forge-stage/licenses/dotnet-$rid-LICENSE.TXT"
+            cp "$runtime/THIRD-PARTY-NOTICES.TXT" "dist/forge-stage/licenses/dotnet-$rid-NOTICES.TXT"
+          done
+          jq -n '{format:1,channel:"forge",architecture:"x64",gameBuild:"25480438",engine:"0.1.41",hellforge:"0.3.0-beta",versions:{windows:"1.10.0",linux:"0.6.0",bridge:"0.3.8"},qualification:"Launcher/package migration; actual Linux gameplay and multiplayer unqualified",includesGameOrThirdPartyMods:false}' > artifacts/linux/clonedivers-forge-channel.json
+          cp artifacts/linux/clonedivers-forge-channel.json dist/forge-stage/clonedivers-forge-channel.json
+          bash tools/package-forge-portable.sh dist/forge-stage artifacts/linux/Clonedivers-linux-x64.tar.gz
+          bash tools/package-forge-deb.sh dist/forge-stage 0.6.0 artifacts/linux/Clonedivers-linux-x64.deb
+          cd artifacts/linux
+          sha256sum Clonedivers-linux-x64.tar.gz Clonedivers-linux-x64.deb clonedivers-forge-channel.json > SHA256SUMS
+      - uses: actions/upload-artifact@v4
+        with:
+          name: Forge-Linux-migration
+          path: artifacts/linux/*
+          if-no-files-found: error
+  linux-package-qa:
+    needs: linux-package
+    strategy:
+      matrix:
+        os: [ubuntu-22.04, ubuntu-24.04, ubuntu-26.04]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with:
+          name: Forge-Linux-migration
+          path: artifacts/linux
+      - name: Verify complete package, installed entry point and checksums
+        run: bash tools/qa-forge-package.sh artifacts/linux

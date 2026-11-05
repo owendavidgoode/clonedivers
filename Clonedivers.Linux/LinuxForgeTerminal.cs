@@ -6,16 +6,16 @@ internal static class LinuxForgeTerminal
 {
     internal static async Task<int> RunAsync(string[] args)
     {
-        if (args.Contains("--version")) { Console.WriteLine("Clonedivers Forge Linux " + AppInfo.Version + " (private preview)"); return 0; }
+        if (args.Contains("--version")) { Console.WriteLine("Clonedivers Forge Linux " + AppInfo.Version); return 0; }
         if (args.Contains("--help") || args.Contains("-h"))
         {
             Console.WriteLine("""
-                Clonedivers Forge for Linux — private integration trial
+                Clonedivers Forge for Linux
                 --forge --gui                     Open Regular / Clones / Empire desktop
                 --forge [--forge-root PATH] status Read readiness without starting a game
                 --forge [--forge-root PATH] mods   Read the official mod catalog
                 --forge [--forge-root PATH] account Read verified account import status
-                --forge-resources PATH selects the complete private companion package.
+                --forge-resources PATH selects the complete companion package.
                 Commands preserve the dedicated prefix and official namespace/sandbox.
                 Linux gameplay/account capture and Windows/Linux co-op are unqualified.
                 --steam opens the preserved Steam fallback; Forge packages default to Forge.

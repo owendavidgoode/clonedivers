@@ -24,7 +24,13 @@ internal sealed class LinuxForgePreferences
     internal static LinuxForgePreferences Load(string? file = null)
     {
         file ??= PathName; FileSafety.RejectLink(file);
-        if (!File.Exists(file)) return new();
+        if (!File.Exists(file))
+        {
+            var legacy = LegacyAppearance.ReadFor(file);
+            return new() { Mode = legacy.Options.GetValueOrDefault("empire") ? "empire" : "clonedivers",
+                DeltaSquad = legacy.Options.GetValueOrDefault("commandos", true), Droids = legacy.Options.GetValueOrDefault("droids", true),
+                Covenant = legacy.Options.GetValueOrDefault("covenant"), Texture = legacy.TextureProfile == "lighter" ? "lighter" : "full" };
+        }
         if (new FileInfo(file).Length > 65536) throw new InvalidDataException("Forge preferences are oversized.");
         var value = JsonSerializer.Deserialize<LinuxForgePreferences>(File.ReadAllText(file), HellForgePack.Json) ?? throw new InvalidDataException("Empty Forge preferences.");
         value.Validate(); return value;
@@ -62,11 +68,11 @@ internal sealed class LinuxForgePlayer(IForgeConnection connection, LinuxForgePr
         preferences.Validate();
         var root = preferences.InstallRoot ?? throw new InvalidOperationException("Choose the separate HellForge installation inside its dedicated prefix C: drive.");
         var metadata = Path.Combine(resourceDirectory, "companion.json"); FileSafety.RejectLink(resourceDirectory); FileSafety.RejectLink(metadata);
-        if (!File.Exists(metadata) || new FileInfo(metadata).Length > 65536) throw new FileNotFoundException("This private package is missing its Forge companion resources. Use the complete tester package.");
+        if (!File.Exists(metadata) || new FileInfo(metadata).Length > 65536) throw new FileNotFoundException("Forge companion resources are missing. Install the complete Clonedivers package, including its forge folder.");
         using var doc = JsonDocument.Parse(File.ReadAllText(metadata));
         if (doc.RootElement.GetProperty("format").GetInt32() != 1 || doc.RootElement.GetProperty("gameBuild").GetString() != LinuxForgePlan.GameBuild ||
-            doc.RootElement.GetProperty("bridgeVersion").GetString() != "0.3.7")
-            throw new InvalidDataException("Forge companion targets a different client or game build. Use the complete matching tester package.");
+            doc.RootElement.GetProperty("bridgeVersion").GetString() != LinuxForgePlan.BridgeVersion)
+            throw new InvalidDataException("Forge companion targets a different client or game build. Install the complete matching Clonedivers package.");
         var plan = LinuxForgePlan.Stage(root, Path.Combine(resourceDirectory, LinuxForgePlan.BridgeName), doc.RootElement.GetProperty("bridgeSha256").GetString()!, Path.Combine(resourceDirectory, "linux"));
         var transport = await LinuxForgeTransport.StartAsync(plan, ct);
         var player = new LinuxForgePlayer(transport, preferences);

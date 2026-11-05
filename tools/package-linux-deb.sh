@@ -11,7 +11,7 @@ mkdir -p "$package_root/DEBIAN" "$package_root/usr/bin" "$package_root/usr/share
 install -m 755 "$binary" "$package_root/usr/bin/clonedivers"
 install -m 644 "$repo/Clonedivers.Linux/clonedivers.svg" "$package_root/usr/share/icons/hicolor/scalable/apps/clonedivers.svg"
 install -m 644 "$repo/LICENSE" "$package_root/usr/share/doc/clonedivers/copyright"
-install -m 644 "$repo/docs/LINUX.md" "$package_root/usr/share/doc/clonedivers/README.md"
+install -m 644 "$repo/docs/LEGACY-LINUX.md" "$package_root/usr/share/doc/clonedivers/README.md"
 install -m 644 "$repo/Clonedivers.Linux/THIRD-PARTY-NOTICES.txt" "$package_root/usr/share/doc/clonedivers/THIRD-PARTY-NOTICES.txt"
 cat > "$package_root/DEBIAN/control" <<EOF
 Package: clonedivers

@@ -1609,7 +1609,19 @@ static class Program
 
         string? updatedTo = null;
         for (int i = 0; i + 1 < args.Length; i++) if (args[i] == "--updated") updatedTo = args[i + 1];
-        if (Environment.ProcessPath is { } exe) SelfUpdate.CleanupOld(exe);
+        string? migrationNotice = null;
+        if (Environment.ProcessPath is { } exe)
+        {
+            try
+            {
+                var backup = ForgeLauncherUpdate.PreservePrevious(exe);
+                SelfUpdate.CleanupOld(exe);
+                if (backup != null) migrationNotice = "Forge is now the default launcher. Your previous launcher is retained at " + backup +
+                    ". Steam files and saved settings were not changed. Set up the separate HellForge installation and matching gameplay mods before playing.";
+            }
+            catch (Exception error) when (error is IOException or UnauthorizedAccessException or InvalidDataException)
+            { migrationNotice = "The previous launcher remains beside this file because its backup could not be completed: " + error.Message; }
+        }
 
         if (args.Contains("--steam", StringComparer.OrdinalIgnoreCase))
         {
@@ -1619,7 +1631,7 @@ static class Program
         }
         else
         {
-            try { Application.Run(new HellForgeForm(HellForgePreferences.Load())); }
+            try { Application.Run(new HellForgeForm(HellForgePreferences.Load(), migrationNotice: migrationNotice)); }
             catch (Exception e) when (e is IOException or UnauthorizedAccessException or InvalidDataException or JsonException)
             {
                 MessageBox.Show("Couldn't open the HellForge launcher:\n" + e.Message + "\n\nYour Steam setup is preserved. Start this launcher with --steam to open it.",

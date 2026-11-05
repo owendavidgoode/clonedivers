@@ -25,25 +25,25 @@ try
     if (args.Contains("--forge-channel-only"))
     {
         using var channelServer = new FixtureServer();
-        var channelFeed = channelServer.Add("releases", Encoding.UTF8.GetBytes("[{\"tag_name\":\"linux-v999.0.0\",\"draft\":false,\"assets\":[{\"name\":\"Clonedivers-linux-x64.tar.gz\",\"state\":\"uploaded\"}]}]"));
+        const string releases = """[{"tag_name":"linux-v999.1.0","draft":false,"assets":[{"name":"Clonedivers-linux-x64.tar.gz","state":"uploaded"}]},{"tag_name":"linux-v999.0.0","draft":false,"assets":[{"name":"Clonedivers-linux-x64.tar.gz","state":"uploaded"},{"name":"clonedivers-forge-channel.json","state":"uploaded"}]}]""";
+        var channelFeed = channelServer.Add("releases", Encoding.UTF8.GetBytes(releases));
         using var channelClient = new HttpClient();
         var directory = Path.Combine(root, "channel-cache"); Directory.CreateDirectory(directory);
         var cacheFile = Path.Combine(directory, LauncherUpdates.CacheName);
-        const string oldCache = "{\"LatestVersion\":\"999.0.0\",\"Succeeded\":true}";
+        const string oldCache = "{\"LatestVersion\":\"999.9.0\",\"Succeeded\":true}";
         File.WriteAllText(cacheFile, oldCache);
         var forgeUpdates = new LauncherUpdates(channelClient, channelFeed, directory, "x64", allowLegacyChannel: false);
-        var blocked = await forgeUpdates.CheckAsync(force: true);
-        Check(blocked.SeparateChannel && blocked.Available is null && !blocked.CheckSucceeded && blocked.Message.Contains("Forge"), "Forge fallback reports its separate manual channel instead of a future Steam release");
-        Check(channelServer.Requests == 0 && File.ReadAllText(cacheFile) == oldCache, "Forge update checks never fetch or rewrite the legacy release cache, including forced checks");
-        Throws<InvalidOperationException>(() => LauncherUpdates.OpenRelease(blocked), "Forge fallback cannot open the legacy release page through its update action");
+        var offer = await forgeUpdates.CheckAsync(force: true);
+        Check(offer.Available?.Version == "999.0.0" && offer.CheckSucceeded, "Forge selects an explicitly marked complete Forge release over a newer legacy release");
+        Check(channelServer.Requests == 1 && File.ReadAllText(cacheFile) == oldCache && File.Exists(Path.Combine(directory, LauncherUpdates.ForgeCacheName)), "Forge uses its own update cache and preserves the old Steam cache");
+        Check(LauncherUpdates.SelectRelease(releases, "arm64", forgeOnly: true) == null, "an unsupported architecture receives no incompatible Forge package offer");
+        Check(LauncherUpdates.SelectRelease("""[{"tag_name":"linux-v999.0.0","draft":false,"assets":[{"name":"Clonedivers-linux-x64.tar.gz","state":"uploaded"}]}]""", "x64", forgeOnly: true) == null, "a legacy archive name alone is insufficient for a Forge release");
         var legacyUpdates = new LauncherUpdates(channelClient, channelFeed, Path.Combine(root, "ordinary-cache"), "x64", allowLegacyChannel: true);
-        Check((await legacyUpdates.CheckAsync(force: true)).Available?.Version == "999.0.0" && channelServer.Requests == 1,
-            "the ordinary Steam edition still recognizes its valid legacy release without downloading a package");
+        Check((await legacyUpdates.CheckAsync(force: true)).Available?.Version == "999.1.0", "the preserved Steam edition still detects versioned Linux releases for migration");
         Check(ForgeEntryPolicy.ForgeEdition == args.Contains("--expected-forge-edition"), "the tested native assembly has the requested edition compiled in");
         var editionDefault = new LauncherUpdates(channelClient, channelFeed, Path.Combine(root, "edition-default-cache"), "x64");
         var defaultResult = await editionDefault.CheckAsync(force: true);
-        Check(ForgeEntryPolicy.ForgeEdition ? defaultResult.SeparateChannel && channelServer.Requests == 1 : defaultResult.Available?.Version == "999.0.0" && channelServer.Requests == 2,
-            "the actual package edition chooses the correct update policy without an injected override");
+        Check(defaultResult.Available?.Version == (ForgeEntryPolicy.ForgeEdition ? "999.0.0" : "999.1.0"), "the package default selects its own update channel without a caller override");
         Console.WriteLine($"ALL {passed} FORGE CHANNEL FIXTURES PASSED (source fixtures only; no Proton/game qualification)");
         return 0;
     }

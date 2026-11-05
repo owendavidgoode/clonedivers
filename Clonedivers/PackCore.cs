@@ -465,6 +465,7 @@ public sealed class PackManifest
 /// <summary>The newest Clonedivers exe, so the app can update itself.</summary>
 public sealed class AppRelease
 {
+    public string? Channel { get; set; }
     public string Version { get; set; } = "";
     public string Url { get; set; } = "";
     public long Size { get; set; }

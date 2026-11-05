@@ -47,6 +47,9 @@ public sealed class HellForgeForm : Form
     readonly FlowLayoutPanel actions = new() { AutoSize = true, Dock = DockStyle.Fill, WrapContents = true };
     readonly TableLayoutPanel activity = new() { AutoSize = true, Dock = DockStyle.Fill, ColumnCount = 1, Margin = new Padding(0, 0, 0, 10) };
     readonly System.Windows.Forms.Timer timer = new() { Interval = 5000 };
+    readonly Button updates = new() { Text = "Check updates", AutoSize = true };
+    AppRelease? launcherRelease;
+    bool checkingUpdates;
     readonly CancellationTokenSource lifetime = new();
     CancellationTokenSource? operation;
     CancellationToken WorkToken => operation?.Token ?? lifetime.Token;
@@ -59,7 +62,7 @@ public sealed class HellForgeForm : Form
     string? lastError;
     string previewState = "setup";
 
-    public HellForgeForm(HellForgePreferences preferences, bool preview = false)
+    public HellForgeForm(HellForgePreferences preferences, bool preview = false, string? migrationNotice = null)
     {
         this.preferences = preferences;
         this.preview = preview;
@@ -133,6 +136,10 @@ public sealed class HellForgeForm : Form
             Style(button, Slate, SlateHot, TextMain); button.Font = new Font("Segoe UI", 9F); button.Click += handler; actions.Controls.Add(button);
         }
         root.Controls.Add(actions, 0, 10);
+        Style(updates, Slate, SlateHot, TextMain); updates.Font = new Font("Segoe UI", 9F);
+        updates.Padding = new Padding(8, 5, 8, 5); updates.Margin = new Padding(0, 0, 8, 8);
+        actions.Controls.Add(updates);
+        updates.Click += async (_, _) => { if (launcherRelease != null) await ApplyLauncherUpdateAsync(); else await CheckLauncherUpdateAsync(true); };
         // Keep the Steam fallback and version visible even when Windows clamps
         // the initial window to a short screen. Only the main content scrolls.
         var footer = new TableLayoutPanel { AutoSize = true, Dock = DockStyle.Bottom, ColumnCount = 1,
@@ -156,9 +163,10 @@ public sealed class HellForgeForm : Form
         prepare.Click += async (_, _) => await PrepareAsync();
         launch.Click += async (_, _) => { if (lastStatus?.Running == true) await EndSessionAsync(); else await LaunchAsync(); };
         timer.Tick += async (_, _) => await RefreshAsync();
-        Shown += async (_, _) => { if (!preview) { await RefreshAsync(); if (!IsDisposed && !Disposing) timer.Start(); } };
+        Shown += async (_, _) => { if (!preview) { await RefreshAsync(); if (!IsDisposed && !Disposing) { timer.Start(); await CheckLauncherUpdateAsync(false); } } };
         initializing = false;
         UpdateView();
+        if (!string.IsNullOrWhiteSpace(migrationNotice)) message.Text = migrationNotice;
     }
 
     protected override void OnHandleCreated(EventArgs e) { base.OnHandleCreated(e); Dwm.ApplyDark(Handle, Bg, TextMain, Border); }
@@ -215,6 +223,7 @@ public sealed class HellForgeForm : Form
     void UpdateView()
     {
         activity.Visible = working || !string.IsNullOrWhiteSpace(message.Text) || cancelPreparation.Visible;
+        updates.Enabled = !working && !checkingUpdates && lastStatus?.Running != true && !Game.IsRunning() && captureBlock == null;
         accountSync.Enabled = !working && (preview ? previewState != "running" : preferences.InstallRoot != null && lastStatus?.Running != true && !Game.IsRunning());
         accountSync.Text = lastAccount is { Captured: true, Imported: false } ? "APPLY HD2 IMPORT" : "SYNC HD2 ACCOUNT";
         accountHelp.Text = lastAccount?.Imported == true || preview && previewState == "ready" ? "HD2 account imported. Forge progress saves locally."
@@ -311,6 +320,53 @@ public sealed class HellForgeForm : Form
             if (!IsDisposed) { progress.Visible = false; UpdateView(); if (lastError == null) await RefreshAsync(); }
         }
     }
+    async Task CheckLauncherUpdateAsync(bool interactive)
+    {
+        if (preview || checkingUpdates || working) return;
+        checkingUpdates = true; UpdateView();
+        try
+        {
+            launcherRelease = await ForgeLauncherUpdate.CheckAsync(AppInfo.Version, lifetime.Token);
+            if (IsDisposed || Disposing) return;
+            updates.Text = launcherRelease == null ? "Check updates" : "Update v" + launcherRelease.Version;
+            if (interactive) message.Text = launcherRelease == null ? "No newer Forge launcher is available." :
+                "Forge launcher " + launcherRelease.Version + " is available. Click its update button to download and restart; game and account data are preserved.";
+        }
+        catch (OperationCanceledException) { }
+        catch (Exception error) when (error is IOException or HttpRequestException or JsonException or InvalidDataException or InvalidOperationException)
+        { if (interactive && !IsDisposed) message.Text = "Launcher update check unavailable: " + error.Message; }
+        finally { checkingUpdates = false; if (!IsDisposed && !Disposing) UpdateView(); }
+    }
+    async Task RequireUpdateIdleAsync()
+    {
+        if (Game.IsRunning() || HellForgeAccount.CaptureBlock() != null)
+            throw new InvalidOperationException("Finish the game or account sync before replacing the launcher.");
+        if (preferences.InstallRoot != null && (await Client().StatusAsync(WorkToken)).Running)
+            throw new InvalidOperationException("End the Forge session before replacing the launcher.");
+    }
+    async Task ApplyLauncherUpdateAsync() => await OperationAsync(async () => {
+        var app = launcherRelease;
+        if (!ForgeLauncherUpdate.IsOffer(app, AppInfo.Version)) throw new InvalidDataException("A verified Forge update is required.");
+        await RequireUpdateIdleAsync();
+        if (MessageBox.Show(this, $"Update the Forge launcher to {app!.Version}?\n\nDownloads {Pack.FormatBytes(app.Size)} and restarts. Game files, account data and mod settings are unchanged.",
+            "Update Clonedivers", MessageBoxButtons.YesNo, MessageBoxIcon.Question) != DialogResult.Yes) return;
+        var exe = Environment.ProcessPath ?? throw new IOException("The launcher executable could not be located.");
+        var paths = SelfUpdate.Paths(exe);
+        SelfUpdate.ProbeWritable(paths.update);
+        var report = new Progress<(long done, long total)>(p => { if (!IsDisposed) message.Text = $"Downloading Forge launcher {app.Version}: {Pack.FormatBytes(p.done)} / {Pack.FormatBytes(p.total)}"; });
+        await Pack.DownloadAsync(new PackFile { Url = app.Url, Size = app.Size, Sha256 = app.Sha256 }, paths.update, report, WorkToken);
+        if (new FileInfo(paths.update).Length != app.Size || !string.Equals(await Pack.Sha256Async(paths.update, WorkToken), app.Sha256, StringComparison.OrdinalIgnoreCase))
+            throw new InvalidDataException("The launcher update failed its size/SHA256 check; nothing was replaced.");
+        await RequireUpdateIdleAsync();
+        ForgeLauncherUpdate.PreservePrevious(exe);
+        WorkToken.ThrowIfCancellationRequested();
+        await Task.Run(() => SelfUpdate.Swap(paths.exe, paths.update, paths.old, TimeSpan.FromSeconds(30)));
+        Program.ReleaseSingleInstance();
+        Process.Start(new ProcessStartInfo(exe, "--updated " + app.Version) { UseShellExecute = true, WorkingDirectory = Path.GetDirectoryName(exe) });
+        // The committed swap is complete. Closing here must not be refused as an
+        // in-flight mod/account operation; those were never started by this path.
+        working = false; Close();
+    });
     async Task PrepareAsync() => await OperationAsync(async () => {
         var client = Client();
         if ((await client.StatusAsync(WorkToken)).RecoveryProblem != null)
@@ -438,7 +494,7 @@ public sealed class HellForgeForm : Form
         {
             if (preferences.InstallRoot == null)
             {
-                Process.Start(new ProcessStartInfo("https://github.com/SkyeShade/HellForge/releases") { UseShellExecute = true });
+                Process.Start(new ProcessStartInfo("https://github.com/SkyeShade/HellForge/releases/tag/v0.3.0-beta") { UseShellExecute = true });
                 return;
             }
             var client = Client();

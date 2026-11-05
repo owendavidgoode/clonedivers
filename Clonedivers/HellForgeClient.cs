@@ -26,7 +26,13 @@ public sealed class HellForgePreferences
     {
         path ??= FilePath;
         FileSafety.RejectLink(path);
-        if (!File.Exists(path)) return new();
+        if (!File.Exists(path))
+        {
+            var legacy = LegacyAppearance.ReadFor(path);
+            return new() { Mode = legacy.Options.GetValueOrDefault("empire") ? "empire" : "clonedivers",
+                DeltaSquad = legacy.Options.GetValueOrDefault("commandos", true), Droids = legacy.Options.GetValueOrDefault("droids", true),
+                Covenant = legacy.Options.GetValueOrDefault("covenant"), Texture = legacy.TextureProfile == "lighter" ? "lighter" : "full" };
+        }
         if (new FileInfo(path).Length > 64 * 1024) throw new InvalidDataException("HellForge preferences are oversized.");
         var preferences = JsonSerializer.Deserialize<HellForgePreferences>(File.ReadAllText(path), HellForgePack.Json)
             ?? throw new InvalidDataException("HellForge preferences are empty.");

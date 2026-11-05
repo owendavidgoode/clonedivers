@@ -1,94 +1,76 @@
 <p align="center"><img src="docs/banner.png" width="720" alt="Clonedivers"></p>
 
-## Forge test preview
+# Clonedivers — Forge
 
-[Download the Forge preview for Windows and Linux](https://github.com/owendavidgoode/clonedivers/releases/tag/forge-preview-2026-11-04).
-Windows 1.9.8 and Linux 0.6.0-preview.8 provide Regular, Clones and Empire appearance
-choices in a separate HellForge installation, with one-way HD2 account import and
-official session cleanup. The source is now integrated here; the attached source
-ZIP preserves the exact original review snapshot.
+Choose **Regular**, **Clones** or **Empire** in a separate HellForge installation.
+Play the official online Helldivers 2 game directly through Steam.
 
-**Start with [Forge setup and test status](docs/FORGE.md).** The download contains
-the launcher, not HellForge, the game or the private Heavy/Squad adaptations.
-Matching permitted gameplay-mod onboarding remains open. Linux gameplay and
-separate-PC multiplayer are not yet verified. Existing Steam launchers do not
-automatically migrate to Forge; the stable feed remains on 1.7.3.
+[Windows launcher](https://github.com/owendavidgoode/clonedivers/releases/latest/download/Clonedivers.exe) · [Ubuntu/Debian x86-64 package](https://github.com/owendavidgoode/clonedivers/releases/download/linux-v0.6.0/Clonedivers-linux-x64.deb) · [Linux portable](https://github.com/owendavidgoode/clonedivers/releases/download/linux-v0.6.0/Clonedivers-linux-x64.tar.gz)
 
-The downloads and instructions below describe the preserved Steam edition.
+## Update or install
 
-<p align="center"><b>Clones and commandos, together.</b><br>
-Choose Helldivers, Clonedivers, or EmpireDivers. Launch through Steam.</p>
+Existing Windows launchers receive **1.10.0** through their normal launcher-update
+button. Existing Linux launchers show the **0.6.0** release; install its complete
+.deb or extract the full portable archive. Linux updates require a package-manager
+or manual installation; a notice does not silently replace the old application.
 
-<p align="center">
-  <a href="https://github.com/owendavidgoode/clonedivers/releases/latest/download/Clonedivers.exe"><img alt="Download for Windows" src="https://img.shields.io/badge/Windows-Download_EXE-1f5fcc?style=for-the-badge"></a>
-  <a href="https://github.com/owendavidgoode/clonedivers/releases/download/linux-v0.5.0/Clonedivers-linux-x64.deb"><img alt="Download Linux GUI and terminal UI for Ubuntu or Debian" src="https://img.shields.io/badge/Linux-Ubuntu_%2F_Debian-e2761c?style=for-the-badge"></a>
-</p>
-<p align="center">Windows 10/11 64-bit · Linux desktop and terminal UIs · Steam copy of Helldivers 2 · no separate .NET install needed</p>
-<p align="center"><a href="https://github.com/owendavidgoode/clonedivers/releases/download/linux-v0.5.0/Clonedivers-linux-x64.tar.gz">Linux portable download</a> · <a href="docs/LINUX.md">Linux setup</a> · <a href="https://github.com/owendavidgoode/clonedivers/releases/tag/linux-v0.5.0">Linux release notes and ARM64 downloads</a></p>
-<p align="center"><img src="docs/screenshots/three-modes-1.7.png" width="560" alt="Helldivers, Clonedivers and EmpireDivers launcher"></p>
+Read [the migration and first-setup guide](docs/FORGE-MIGRATION.md). The launcher
+update preserves settings and account data and keeps a verified previous Windows
+executable for rollback. It does not edit live Steam game files, close a running
+game or install the gameplay dependencies automatically.
 
-## Get started
+Every player needs their own Steam-owned HD2, official separate **HellForge
+0.3.0-beta / engine 0.1.41 / SDK15 / game25480438**, and permitted matching mods.
+Keep supported isolation and sandbox enabled. Linux requires a dedicated Proton
+prefix and the official namespace setup. Complete Linux packages include the
+native UI, Windows bridge and pinned GPL source scripts; no separate .NET install
+is needed. ARM64, Deck and Flatpak/Snap Forge are not qualified.
 
-**Linux:** on Ubuntu/Debian, install the [Linux launcher package](https://github.com/owendavidgoode/clonedivers/releases/download/linux-v0.5.0/Clonedivers-linux-x64.deb)
-and open **Clonedivers** from Applications. Other distributions can use the portable
-tar download and open its executable. The desktop window has mode cards, pack options,
-download progress, a folder picker, repair, and a Steam Launch button. It also saves
-local support reports and offers optional MangoHud recording for desktop sessions.
-Prefer the terminal? Run `clonedivers --tui` for an arrow-key dashboard, checkbox
-options, live progress and resumable cancellation. Both interfaces are included.
-Steam Deck users should use Desktop Mode for this preview.
-Both interfaces notify you about newer Linux launcher releases. See [Linux setup and commands](docs/LINUX.md). Successful gameplay has been reported on Ubuntu 26.04.
+## Modes, account and gameplay
 
-**Windows:**
+Regular, Clones and Empire are Forge appearance choices. Delta armor, CIS droids,
+Covenant squids and texture options remain available. Every mode uses the player's
+own verified **one-way HD2 → Forge account import**. Forge progression saves
+locally and does not count back in official HD2. Never share captures, profiles,
+receipts or keys or replay stale captures to test persistence.
 
-1. Download [Clonedivers.exe](https://github.com/owendavidgoode/clonedivers/releases/latest/download/Clonedivers.exe). Close any older launcher before replacing it. The executable is unsigned; Windows may show a SmartScreen prompt.
-2. Keep the game closed. Choose **Clonedivers** or **EmpireDivers**, set **Droid skins**, optional **Covenant squids** and **JohnsonPotatoMode™**, then download the pack. The launcher shows the download size and resumes interrupted downloads.
-3. Click **Launch**. Steam starts Helldivers 2. Each player installs the pack locally to see and hear its replacements.
+The scale-up baseline combines D11, Heavy SEAF + Squad Stratagems, native Smarter
+SEAF, smarter dogs/sentries, reroller and supporting mods. [Coverage, dependencies
+and author sources](docs/FORGE-MOD-COVERAGE.md) distinguish installed, optional,
+conflicting and gated candidates. The download contains **no third-party mod
+archives or private Heavy/Squad repairs**. Reproducible permitted onboarding for
+new peers remains open. Missing dependencies block launch rather than silently
+changing the experience. Disable official host mod sharing when using private
+adaptations; each peer needs permitted matching artifacts.
 
-Current release: **launcher 1.7.3 / pack 2026.11.01-r25**, targeting **HD2 7.2.2 / Steam build 26251122**. With the game closed, choose **Update pack**. [The compatibility repair](docs/releases/pack-2026.11.01-r25.md) restores current weapon sound events while retaining replacement audio, refreshes game text and excludes unsupported Lua runtime features. Unchanged downloads are reused. Audible gameplay acceptance remains open.
+## Test status
 
-**Vanilla night?** Choose **Helldivers** while the game is closed. It parks the mods and hides mod options. Cached mode changes don't ask for confirmation. **Check and repair** verifies installed files while preserving the selected mode.
+The owner has played solo D11 with working SEAF drops. Windows source/session
+checks, native/bridge fixtures and Linux package installation/help checks are
+recorded in the [Forge setup/status](docs/FORGE.md) and CI. These do not certify
+Linux Proton gameplay, account capture, mission reward persistence or multiplayer.
+Use the [separate-PC squad checklist](docs/HELLFORGE-SQUAD-ACCEPTANCE.md) for joins,
+drops, extraction and reconnect tests. Native Quit hanging and ship distortion
+remain open; use **End session** for official cleanup.
 
-**JohnsonPotatoMode™** streams full-detail textures as needed. It replaces the old Lighter textures selector; it does not lower texture resolution or guarantee more FPS. Choose it before the first download to avoid downloading both profiles.
+## Steam cleanup and recovery
 
-## What's included
+Updating the launcher does not remove previously enabled Clonedivers mods from
+Steam. Follow the one-time cleanup section in the migration guide before treating
+Steam as vanilla. Retained old launchers and explicit `--steam` mode are recovery
+tools. The default application is Forge. [Legacy Linux notes](docs/LEGACY-LINUX.md)
+are retained for recovery, not the current installation path.
 
-**EmpireDivers** adds Stormtrooper armor (B-01 Tactical on Brawny, Bloodhound on Lean), detailed Star Destroyers, a gray LAAT and AT-ST Patriot/Emancipator exosuits, with the shared Clonedivers weapon, scope, backpack and vehicle setup and the Helldivers vs Star Wars battle intro. It includes no capes, Imperial map UI, Imperial command/pilot voices and curated stormtrooper combat callouts. Unmapped player calls, other armor and Lumberer remain vanilla; Bastion uses the shared Falchion. **Covenant squids** adds optional core Illuminate models and voices in either modded universe. These additions were released at the owner's request without gameplay testing; [scope and limitations](docs/EMPIREDIVERS-AND-COVENANT.md) include known shoulder deformation and hitbox mismatches.
+## Development and license
 
-Clone and Commando armor share one roster, with more clone colors and clearer English equipment names. Delta Squad voices and the opening are always included. **Commando bodies require Brawny**; choose your voice separately. See [team setup and equipment](docs/TEAM-SETUP.md).
+Build with .NET8. Fetch the pinned PresentMon input using tools/fetch-presentmon.ps1
+for Windows, then run Clonedivers.Tests. Forge is the Linux build default;
+`-p:ForgeEdition=false` is only for legacy recovery tests. The Forge package
+workflow builds complete assets and checks them on Ubuntu22.04/24.04/26.04. It
+never packages accounts, game files or restricted gameplay mods.
 
-The pack includes clone blasters with repaired ADS scopes, Republic weapon and ship audio, Venators, LAATs, a Y-Wing, AT-TE exosuits, TX-130 vehicles, the Falchion Bastion, and optional droid skins. MTT cannons and spider-droid weapons are restored when using the relevant droid replacements. Eye/vent markers remain unfinished.
-
-The **Supply FRV mesh port** and **Watcher probe-audio loop** are experimental and included at Owen's request. Guard Dog probe chatter is removed. Vehicle seating, supply access, deformation/destruction and Watcher loop behavior still need squad testing. The AT-TE camera is unchanged; the rejected cutaway and camera loader/probe are excluded.
-
-[Mod credits and source pages](docs/MODS.md), [armor follow-up](docs/PLAYER-QA-FOLLOWUP.md), [vehicle sources](docs/VEHICLES-AND-CLIENT-LOGGING.md), and the [7.2.2 compatibility repair](docs/releases/pack-2026.11.01-r25.md) document the underlying work. All 96 production selections pass offline routing, codec, stream and archive checks against build 26251122. This is not a claim that every asset has passed gameplay testing.
-
-## Reports and troubleshooting
-
-**Help & diagnostics → Save report** exports hardware, settings and recent launcher/session observations. Optional **Performance sharing** needs a squad invitation and one-time setup. Leave the launcher open while playing to record sessions. Sharing is off until enrolled; [collection details](docs/AUTOMATIC-PERFORMANCE-REPORTS.md) explain the data and retention.
-
-- Keep the game closed while switching or updating. The launcher refuses changes while the game is running.
-- After a game update, follow the compatibility warning until the pack has been checked. Steam's integrity check repairs original files but does not remove mods.
-- If an update is interrupted, use **Finish update** with the game closed. Use **Check and repair** for missing or damaged pack files.
-- Repeated GameGuard startup failures may require a Windows restart. Avoid repeated launches or changing protection settings. [Our investigation](docs/GAMEGUARD-INVESTIGATION.md) has not established the internal cause of error 114.
-- Steam sometimes retains **Running** after the game has exited. This has also happened with manually started Steam and remains unresolved.
-- Allow space for the shown download and replaced files. The launcher keeps replaced mods in `mods_old` for recovery.
-
-## How it works
-
-The launcher installs SHA-256-verified `*.patch_*` assets in the game's `data` folder. Helldivers mode parks them in `mods_off`; mode and profile changes reuse matching content. It reads the versioned update feed and opens `steam://rungameid/553850` to launch. It does not patch the original game executable or inject a camera hook. FOV remains a personal game setting.
-
-## Development
-
-Build with the [.NET 8 SDK](https://dotnet.microsoft.com/download/dotnet/8.0). Fetch the pinned PresentMon dependency with `tools/fetch-presentmon.ps1`, then:
-
-```powershell
-dotnet publish -c Release Clonedivers
-dotnet run --project Clonedivers.Tests
-```
-
-See [development notes](docs/DEVELOPING.md) and the [verified release workflow](docs/PUBLISHING.md).
-
-## Credits and license
-
-[MIT](LICENSE) for Clonedivers itself. Community mods belong to their credited authors. PresentMon's license is bundled in the launcher. Helldivers 2 is Arrowhead Game Studios / Sony Interactive Entertainment; Star Wars is Lucasfilm. Fan utility, not affiliated with them.
+[MIT](LICENSE) for the launcher and original mine-boundary source. Community mods
+belong to their credited authors. Pinned HellForge Linux scripts retain GPL-3.0
+source/COPYING and a documented lifetime-only adaptation. PresentMon and native
+runtime licenses accompany their distributions. Fan utility, not affiliated with
+Arrowhead/Sony or Lucasfilm.

@@ -1,5 +1,22 @@
 namespace Clonedivers;
 
+public static class LegacyAppearance
+{
+    public static Settings ReadFor(string forgePreferencePath)
+    {
+        var file = Path.Combine(Path.GetDirectoryName(Path.GetFullPath(forgePreferencePath))!, "config.json");
+        try
+        {
+            FileSafety.RejectLink(file);
+            if (!File.Exists(file) || new FileInfo(file).Length > 64 * 1024) return new();
+            var settings = System.Text.Json.JsonSerializer.Deserialize<Settings>(File.ReadAllText(file)) ?? new();
+            settings.Options = new(settings.Options ?? new(), StringComparer.OrdinalIgnoreCase);
+            return settings;
+        }
+        catch (Exception error) when (error is IOException or UnauthorizedAccessException or System.Text.Json.JsonException) { return new(); }
+    }
+}
+
 public enum LauncherMode { Helldivers, Clonedivers, CommandoDivers, EmpireDivers }
 
 public static class LauncherModes

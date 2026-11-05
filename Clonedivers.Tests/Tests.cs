@@ -107,6 +107,7 @@ static class TestProgram
             TelemetryTests.Run(root, Check);
             Task.Run(() => HellForgeTests.Run(root, Check)).GetAwaiter().GetResult();
             Task.Run(() => AccountLeaseTests.Run(Check)).GetAwaiter().GetResult();
+            Task.Run(() => ForgeMigrationTests.Run(root, Check)).GetAwaiter().GetResult();
             FpvDefaultsTests.Run(root, Check);
             SelfUpdateAndAcfTests(root);
         }

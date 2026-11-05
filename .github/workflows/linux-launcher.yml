@@ -1,9 +1,8 @@
-name: Linux launcher
+name: Legacy Steam launcher checks
 on:
   workflow_dispatch:
   push:
     branches: [main, codex/linux-launcher, codex/linux-diagnostics, codex/linux-gui, codex/linux-tui, codex/linux-steam-routing, codex/linux-updates]
-    tags: ['linux-v*']
     paths:
       - 'Clonedivers/**'
       - 'Clonedivers.Linux/**'
@@ -42,16 +41,16 @@ jobs:
           CLONEDIVERS_TUI_TRANSCRIPT: ${{ github.workspace }}/artifacts/Clonedivers-terminal.ansi
         run: |
           mkdir -p artifacts
-          dotnet run --project Clonedivers.Linux.Tests -c Release
+          dotnet run --project Clonedivers.Linux.Tests -c Release -p:ForgeEdition=false
       - name: Publish self-contained Linux packages
         shell: bash
         run: |
           set -euo pipefail
           mkdir -p artifacts
-          version=$(dotnet msbuild Clonedivers.Linux/Clonedivers.Linux.csproj -nologo -getProperty:Version)
+          version=$(dotnet msbuild Clonedivers.Linux/Clonedivers.Linux.csproj -nologo -p:ForgeEdition=false -getProperty:Version)
           for arch in x64 arm64; do
-            dotnet publish Clonedivers.Linux -c Release -r linux-$arch --self-contained true -o dist/linux-$arch -p:DebugType=None -p:DebugSymbols=false
-            cp docs/LINUX.md dist/linux-$arch/README.md
+            dotnet publish Clonedivers.Linux -c Release -p:ForgeEdition=false -r linux-$arch --self-contained true -o dist/linux-$arch -p:DebugType=None -p:DebugSymbols=false
+            cp docs/LEGACY-LINUX.md dist/linux-$arch/README.md
             cp LICENSE dist/linux-$arch/LICENSE
             cp Clonedivers.Linux/THIRD-PARTY-NOTICES.txt dist/linux-$arch/THIRD-PARTY-NOTICES.txt
             chmod +x dist/linux-$arch/clonedivers
@@ -88,39 +87,3 @@ jobs:
           path: artifacts
       - name: Verify extracted packages and run real executable integration tests
         run: bash tools/qa-linux-package.sh artifacts
-  release:
-    if: startsWith(github.ref, 'refs/tags/linux-v')
-    needs: [build, package-qa]
-    runs-on: ubuntu-24.04
-    permissions:
-      contents: write
-    steps:
-      - uses: actions/checkout@v4
-      - uses: actions/download-artifact@v4
-        with:
-          name: Clonedivers-linux
-          path: artifacts
-      - name: Publish Linux preview
-        env:
-          GH_TOKEN: ${{ github.token }}
-        run: gh release create "$GITHUB_REF_NAME" artifacts/* --prerelease --latest=false --title "Clonedivers Linux ${GITHUB_REF_NAME#linux-} (preview)" --notes-file "docs/releases/linux-${GITHUB_REF_NAME#linux-v}.md"
-  hosted-qa:
-    if: startsWith(github.ref, 'refs/tags/linux-v')
-    needs: release
-    strategy:
-      matrix:
-        os: [ubuntu-24.04, ubuntu-26.04]
-    runs-on: ${{ matrix.os }}
-    permissions:
-      contents: read
-    steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-dotnet@v4
-        with:
-          dotnet-version: '8.0.x'
-      - name: Download the published release
-        env:
-          GH_TOKEN: ${{ github.token }}
-        run: gh release download "$GITHUB_REF_NAME" --dir hosted-release
-      - name: Validate hosted checksums, archives, architecture and executable behavior
-        run: bash tools/qa-linux-package.sh hosted-release
