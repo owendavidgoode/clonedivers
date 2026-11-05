@@ -1,6 +1,6 @@
 # Clonedivers Forge for Linux
 
-The current Ubuntu/Debian x86-64 launcher is **0.6.0**, with Forge as its default.
+The current Ubuntu/Debian x86-64 launcher is **0.6.1**, with Forge as its default.
 Use the complete .deb or portable archive, including the adjacent forge/ companion.
 
 See [migration, package installation and first Forge setup](FORGE-MIGRATION.md).

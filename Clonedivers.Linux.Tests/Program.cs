@@ -22,6 +22,8 @@ void Throws<T>(Action action, string name) where T : Exception
 }
 try
 {
+    LinuxFeedbackTests.Run(root, Check);
+    if (args.Contains("--linux-feedback-only")) { Console.WriteLine($"ALL {passed} LINUX FEEDBACK FIXTURES PASSED (no game/Proton qualification)"); return 0; }
     if (args.Contains("--forge-channel-only"))
     {
         using var channelServer = new FixtureServer();
@@ -340,6 +342,8 @@ try
         Check((await Cli("launch", 1)).Contains("Cannot determine which Steam installation"), "CLI explains unknown ownership instead of bootstrapping another client");
         Libraries(nativeRoot, cliLibrary);
         await Cli("vanilla");
+        using (var recent = JsonDocument.Parse(File.ReadAllText(Path.Combine(root, "config", "clonedivers", "linux-history.json"))))
+            Check(recent.RootElement.EnumerateArray().Any(e => e.GetProperty("Event").GetString() == "vanilla") && recent.RootElement.EnumerateArray().Any(e => e.GetProperty("Event").GetString() == "installed"), "successful real CLI vanilla switches and installations both appear in support history");
         await Cli("repair");
         Check(ModFiles.GetState(cliGame) == ModState.Off, "actual CLI repair preserves a vanilla selection");
         await Cli("install empire");

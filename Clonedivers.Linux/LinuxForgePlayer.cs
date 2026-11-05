@@ -66,14 +66,19 @@ internal sealed class LinuxForgePlayer(IForgeConnection connection, LinuxForgePr
         if (!OperatingSystem.IsLinux()) throw new PlatformNotSupportedException("Forge sessions require Linux or the Windows launcher; previews never connect.");
         if (Game.IsRunning()) throw new InvalidOperationException("Close the running HD2 session before starting Forge's dedicated namespace.");
         preferences.Validate();
-        var root = preferences.InstallRoot ?? throw new InvalidOperationException("Choose the separate HellForge installation inside its dedicated prefix C: drive.");
+        var root = preferences.InstallRoot ?? throw new InvalidOperationException(
+            "No Forge installation selected. Read https://github.com/owendavidgoode/clonedivers/blob/main/docs/FORGE-MIGRATION.md#first-forge-setup\n" +
+            "Download official HellForge 0.3.0-beta: https://github.com/SkyeShade/HellForge/releases/tag/v0.3.0-beta\n" +
+            "Choose the folder containing HellForge.exe and hellforge-install.json under your separate prefix's pfx/drive_c, then pass --forge-root '/path/to/prefix/pfx/drive_c/HellForge'.\n" +
+            "Saved selection: " + LinuxForgePreferences.PathName);
         var metadata = Path.Combine(resourceDirectory, "companion.json"); FileSafety.RejectLink(resourceDirectory); FileSafety.RejectLink(metadata);
         if (!File.Exists(metadata) || new FileInfo(metadata).Length > 65536) throw new FileNotFoundException("Forge companion resources are missing. Install the complete Clonedivers package, including its forge folder.");
         using var doc = JsonDocument.Parse(File.ReadAllText(metadata));
         if (doc.RootElement.GetProperty("format").GetInt32() != 1 || doc.RootElement.GetProperty("gameBuild").GetString() != LinuxForgePlan.GameBuild ||
             doc.RootElement.GetProperty("bridgeVersion").GetString() != LinuxForgePlan.BridgeVersion)
             throw new InvalidDataException("Forge companion targets a different client or game build. Install the complete matching Clonedivers package.");
-        var plan = LinuxForgePlan.Stage(root, Path.Combine(resourceDirectory, LinuxForgePlan.BridgeName), doc.RootElement.GetProperty("bridgeSha256").GetString()!, Path.Combine(resourceDirectory, "linux"));
+        var steam = LinuxPlatform.ForgeSteamRoot(Settings.Load().GamePath, Environment.GetEnvironmentVariable("STEAM_COMPAT_CLIENT_INSTALL_PATH"));
+        var plan = LinuxForgePlan.Stage(root, Path.Combine(resourceDirectory, LinuxForgePlan.BridgeName), doc.RootElement.GetProperty("bridgeSha256").GetString()!, Path.Combine(resourceDirectory, "linux")) with { SteamClientRoot = steam };
         var transport = await LinuxForgeTransport.StartAsync(plan, ct);
         var player = new LinuxForgePlayer(transport, preferences);
         try { await player.ApplySelectionAsync(ct); return player; }

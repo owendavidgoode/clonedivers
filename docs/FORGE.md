@@ -1,6 +1,6 @@
 # Clonedivers Forge status
 
-The replacement launcher is Windows **1.10.0**, Linux x86-64 **0.6.0**, bridge
+The replacement launcher is Windows **1.10.0**, Linux x86-64 **0.6.1**, bridge
 **0.3.8**. Existing Windows update feeds point to the new default Forge executable;
 Linux0.5 notices the complete0.6 release and requires package/manual installation.
 See [the migration guide](FORGE-MIGRATION.md) for rollout and recovery.

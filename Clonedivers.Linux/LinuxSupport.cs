@@ -112,21 +112,6 @@ public static class LinuxSupport
         _ => node?.DeepClone()
     };
 
-    static object[] Gpus()
-    {
-        try
-        {
-            return Directory.EnumerateDirectories("/sys/class/drm", "card*").Where(d => Regex.IsMatch(Path.GetFileName(d), "^card[0-9]+$"))
-                .Take(8).Select(d => (object)new
-                {
-                    Device = Path.GetFileName(d), Vendor = Tail(Path.Combine(d, "device/vendor"), 128).Trim(),
-                    PciDevice = Tail(Path.Combine(d, "device/device"), 128).Trim(),
-                    Driver = new DirectoryInfo(Path.Combine(d, "device/driver")).ResolveLinkTarget(true)?.Name ?? "unknown"
-                }).ToArray();
-        }
-        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException) { return Array.Empty<object>(); }
-    }
-
     public static string SaveReport(string? gameDir, Settings settings, string? output = null, string? configDirectory = null, string? home = null)
     {
         var config = configDirectory ?? PlatformPaths.ConfigDirectory;
@@ -151,11 +136,12 @@ public static class LinuxSupport
             Add("report.json", JsonSerializer.Serialize(new
             {
                 CreatedUtc = DateTimeOffset.UtcNow,
-                Kernel = RuntimeInformation.OSDescription,
+                Kernel = LinuxSystemInfo.Head("/proc/sys/kernel/osrelease", 256),
+                OperatingSystem = RuntimeInformation.OSDescription,
                 Architecture = RuntimeInformation.OSArchitecture.ToString(),
-                Distribution = Tail("/etc/os-release", 8192),
-                Cpu = Tail("/proc/cpuinfo", 8192).Split('\n').FirstOrDefault(l => l.StartsWith("model name", StringComparison.Ordinal)) ?? "unknown",
-                Gpus = Gpus(), Selection = SafeSelection(gameDir, settings),
+                Distribution = LinuxSystemInfo.Head("/etc/os-release", 8192),
+                Cpu = LinuxSystemInfo.Cpu(),
+                Gpus = LinuxSystemInfo.Gpus(), Selection = SafeSelection(gameDir, settings),
                 SteamRoots = LinuxPlatform.SteamRoots(home).Where(Directory.Exists).Select(p => Redact(p, home)).ToArray(),
                 Privacy = "Local export only. No raw settings, environment dump, game memory or automatic upload. Credential-like lines are filtered; text redaction is best-effort. Inspect before sharing."
             }, Json));

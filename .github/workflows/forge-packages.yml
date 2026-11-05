@@ -51,6 +51,8 @@ jobs:
       - uses: actions/checkout@v4
       - uses: actions/setup-dotnet@v4
         with: {dotnet-version: '8.0.x'}
+      - name: Test Snap ownership and real Linux metadata
+        run: dotnet run --project Clonedivers.Linux.Tests -c Release -p:ForgeEdition=true -- --linux-feedback-only
       - name: Build the complete pinned Forge package
         shell: bash
         run: |
@@ -74,10 +76,10 @@ jobs:
             cp "$runtime/LICENSE.TXT" "dist/forge-stage/licenses/dotnet-$rid-LICENSE.TXT"
             cp "$runtime/THIRD-PARTY-NOTICES.TXT" "dist/forge-stage/licenses/dotnet-$rid-NOTICES.TXT"
           done
-          jq -n '{format:1,channel:"forge",architecture:"x64",gameBuild:"25480438",engine:"0.1.41",hellforge:"0.3.0-beta",versions:{windows:"1.10.0",linux:"0.6.0",bridge:"0.3.8"},qualification:"Launcher/package migration; actual Linux gameplay and multiplayer unqualified",includesGameOrThirdPartyMods:false}' > artifacts/linux/clonedivers-forge-channel.json
+          jq -n '{format:1,channel:"forge",architecture:"x64",gameBuild:"25480438",engine:"0.1.41",hellforge:"0.3.0-beta",versions:{windows:"1.10.0",linux:"0.6.1",bridge:"0.3.8"},qualification:"Launcher/package migration; actual Linux gameplay and multiplayer unqualified",includesGameOrThirdPartyMods:false}' > artifacts/linux/clonedivers-forge-channel.json
           cp artifacts/linux/clonedivers-forge-channel.json dist/forge-stage/clonedivers-forge-channel.json
           bash tools/package-forge-portable.sh dist/forge-stage artifacts/linux/Clonedivers-linux-x64.tar.gz
-          bash tools/package-forge-deb.sh dist/forge-stage 0.6.0 artifacts/linux/Clonedivers-linux-x64.deb
+          bash tools/package-forge-deb.sh dist/forge-stage 0.6.1 artifacts/linux/Clonedivers-linux-x64.deb
           cd artifacts/linux
           sha256sum Clonedivers-linux-x64.tar.gz Clonedivers-linux-x64.deb clonedivers-forge-channel.json > SHA256SUMS
       - uses: actions/upload-artifact@v4
