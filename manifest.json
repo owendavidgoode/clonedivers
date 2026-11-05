@@ -8116,10 +8116,10 @@
     "isPerFile": true
   },
   "app": {
-  "version": "1.10.0",
-  "url": "https://github.com/owendavidgoode/clonedivers/releases/download/v1.10.0/Clonedivers.exe",
-  "size": 66544415,
-  "sha256": "a7fe6596bc130b05aadfe027e265a893bcbc43546046fb691ba764159c3282e9",
+  "version": "1.11.0",
+  "url": "https://github.com/owendavidgoode/clonedivers/releases/download/v1.11.0/Clonedivers.exe",
+  "size": 66552722,
+  "sha256": "4e85b176c11b5c3115b055536fab9ce872471e2c25189a3bb78365b4b62f5f97",
   "channel": "forge"
 }
 }
