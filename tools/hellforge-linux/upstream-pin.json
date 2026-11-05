@@ -1,0 +1,28 @@
+{
+  "Format": 1,
+  "SourceCommit": "b1aef771474710eab5461d360444cd80a809c70c",
+  "Source": "https://github.com/SkyeShade/HellForge/tree/b1aef771474710eab5461d360444cd80a809c70c/linux",
+  "InstalledComparison": "All five original hashes match app/linux in installed 0.3.0-beta (4a5373b)",
+  "Scripts": [
+    {
+      "Name": "hellforge-linux.sh",
+      "UpstreamSha256": "58c8e5771689dfc4f995bb7bb52aa8cb44d164fe29b4f3a9a4fa848afcdad44d"
+    },
+    {
+      "Name": "hellforge-offline.sh",
+      "UpstreamSha256": "afb849cd44c63ce9c0e9d1de8db3a9fee50f26ed9962ad855d7fadee970b349d"
+    },
+    {
+      "Name": "hf-inner.sh",
+      "UpstreamSha256": "68426ce6735a126d13f34de90ccfb2cb6b37f9a7392270e05c7d8173b73a8bf3"
+    },
+    {
+      "Name": "hf-bridge-host.sh",
+      "UpstreamSha256": "7cce9e044dd6626d7992609f72865fe0c67dc700ae089eba1cc05d01c6bc9287"
+    },
+    {
+      "Name": "allow-namespace.sh",
+      "UpstreamSha256": "a210901f44dafa5ac084d7d4b600c48c49062c4343d79c5c9f81a42e41fa0917"
+    }
+  ]
+}

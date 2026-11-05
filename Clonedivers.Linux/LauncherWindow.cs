@@ -367,7 +367,7 @@ internal sealed class LauncherWindow : Window
         try { LinuxRecording.RefreshSelection(gameDir!, settings); }
         catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or InvalidDataException) { LinuxSupport.Record("error", "Recording metadata: " + ex.Message); }
     }
-    static Control Helmet(LauncherMode mode)
+    internal static Control Helmet(LauncherMode mode)
     {
         var canvas = new Canvas { Width = 100, Height = 100 };
         void Shape(string geometry, string color) => canvas.Children.Add(new ShapePath { Data = Geometry.Parse(geometry), Fill = Brush.Parse(color) });

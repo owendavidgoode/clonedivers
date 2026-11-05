@@ -1,5 +1,21 @@
 <p align="center"><img src="docs/banner.png" width="720" alt="Clonedivers"></p>
 
+## Forge test preview
+
+[Download the Forge preview for Windows and Linux](https://github.com/owendavidgoode/clonedivers/releases/tag/forge-preview-2026-11-04).
+Windows 1.9.8 and Linux 0.6.0-preview.8 provide Regular, Clones and Empire appearance
+choices in a separate HellForge installation, with one-way HD2 account import and
+official session cleanup. The source is now integrated here; the attached source
+ZIP preserves the exact original review snapshot.
+
+**Start with [Forge setup and test status](docs/FORGE.md).** The download contains
+the launcher, not HellForge, the game or the private Heavy/Squad adaptations.
+Matching permitted gameplay-mod onboarding remains open. Linux gameplay and
+separate-PC multiplayer are not yet verified. Existing Steam launchers do not
+automatically migrate to Forge; the stable feed remains on 1.7.3.
+
+The downloads and instructions below describe the preserved Steam edition.
+
 <p align="center"><b>Clones and commandos, together.</b><br>
 Choose Helldivers, Clonedivers, or EmpireDivers. Launch through Steam.</p>
 

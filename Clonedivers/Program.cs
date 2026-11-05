@@ -338,11 +338,15 @@ public sealed partial class MainForm : Form
     readonly ToolTip tips = new();
     readonly System.Windows.Forms.Timer refresh = new() { Interval = 1500 };
 
-    public MainForm(Settings settings, string? gameDir, string? updatedTo = null, bool preview = false, Manifest? previewManifest = null)
+    readonly bool allowAppUpdates;
+    internal bool CanUpdateApp(AppRelease? app) => allowAppUpdates && app?.CanSelfUpdate(settings.ManifestUrl, AppInfo.Version) == true;
+
+    public MainForm(Settings settings, string? gameDir, string? updatedTo = null, bool preview = false, Manifest? previewManifest = null, bool allowAppUpdates = true)
     {
         this.settings = settings;
         this.gameDir = gameDir;
         this.updatedTo = updatedTo;
+        this.allowAppUpdates = allowAppUpdates;
         this.preview = preview;
         if (preview) manifest = previewManifest;
 
@@ -940,7 +944,7 @@ public sealed partial class MainForm : Form
         // Self-update offer lives in the idle progress row.
         RefreshExtras(!Busy && !running && !staged);
         var app = manifest?.App;
-        var offer = !Busy && !staged && app is not null && app.CanSelfUpdate(settings.ManifestUrl, AppInfo.Version)
+        var offer = !Busy && !staged && app is not null && CanUpdateApp(app)
                     && DateTime.UtcNow - lastProgressMessage > TimeSpan.FromSeconds(5);
         if (offer)
         {
@@ -1251,7 +1255,7 @@ public sealed partial class MainForm : Form
     void OnAppUpdate()
     {
         var app = manifest?.App;
-        if (Busy || app is null || !app.CanSelfUpdate(settings.ManifestUrl, AppInfo.Version)) return;
+        if (Busy || app is null || !CanUpdateApp(app)) return;
         var exePath = Environment.ProcessPath;
         if (exePath is null) return;
         var (exe, update, old) = SelfUpdate.Paths(exePath);
@@ -1271,7 +1275,7 @@ public sealed partial class MainForm : Form
 
     async Task AppUpdateAsync(AppRelease app, string exe, string update, string old)
     {
-        if (!app.CanSelfUpdate(settings.ManifestUrl, AppInfo.Version)) return;
+        if (!CanUpdateApp(app)) return;
         SetBusy(BusyKind.AppUpdate);
         var cts = opCts = new CancellationTokenSource();
         try
@@ -1282,7 +1286,7 @@ public sealed partial class MainForm : Form
             // It sat on disk for a moment (OneDrive / Defender may have touched it): check again before trusting it.
             var sha = await Pack.Sha256Async(update, cts.Token);
             if (!sha.Equals(app.Sha256.Trim(), StringComparison.OrdinalIgnoreCase)) { File.Delete(update); throw new InvalidDataException("The downloaded Clonedivers failed its integrity check. Deleted it; try again."); }
-            if (!app.CanSelfUpdate(settings.ManifestUrl, AppInfo.Version)) throw new InvalidOperationException("Self-update is disabled for this manifest source.");
+            if (!CanUpdateApp(app)) throw new InvalidOperationException("Self-update is disabled for this manifest source.");
             ShowProgressDone("Restarting…");
             await Task.Run(() => SelfUpdate.Swap(exe, update, old, TimeSpan.FromSeconds(30)));
             Program.ReleaseSingleInstance();
@@ -1607,10 +1611,21 @@ static class Program
         for (int i = 0; i + 1 < args.Length; i++) if (args[i] == "--updated") updatedTo = args[i + 1];
         if (Environment.ProcessPath is { } exe) SelfUpdate.CleanupOld(exe);
 
-        var settings = Settings.Load();
-        // A remembered manual pick wins if it is still valid; otherwise ask Steam where the game is.
-        var gameDir = GameLocator.IsGameDir(settings.GamePath) ? settings.GamePath : GameLocator.AutoDetect();
-        Application.Run(new MainForm(settings, gameDir, updatedTo));
+        if (args.Contains("--steam", StringComparer.OrdinalIgnoreCase))
+        {
+            var settings = Settings.Load();
+            var gameDir = GameLocator.IsGameDir(settings.GamePath) ? settings.GamePath : GameLocator.AutoDetect();
+            Application.Run(new MainForm(settings, gameDir, updatedTo, allowAppUpdates: false));
+        }
+        else
+        {
+            try { Application.Run(new HellForgeForm(HellForgePreferences.Load())); }
+            catch (Exception e) when (e is IOException or UnauthorizedAccessException or InvalidDataException or JsonException)
+            {
+                MessageBox.Show("Couldn't open the HellForge launcher:\n" + e.Message + "\n\nYour Steam setup is preserved. Start this launcher with --steam to open it.",
+                    "Clonedivers", MessageBoxButtons.OK, MessageBoxIcon.Error);
+            }
+        }
         ReleaseSingleInstance();
     }
 }

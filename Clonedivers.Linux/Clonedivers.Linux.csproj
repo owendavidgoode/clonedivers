@@ -11,10 +11,15 @@
     <IncludeNativeLibrariesForSelfExtract>true</IncludeNativeLibrariesForSelfExtract>
     <EnableCompressionInSingleFile>true</EnableCompressionInSingleFile>
   </PropertyGroup>
+  <PropertyGroup Condition="'$(ForgeEdition)' == 'true'">
+    <Version>0.6.0-preview.8</Version>
+    <DefineConstants>$(DefineConstants);FORGE_DEFAULT</DefineConstants>
+  </PropertyGroup>
   <ItemGroup>
     <PackageReference Include="Avalonia.Desktop" Version="11.3.22" />
     <PackageReference Include="Avalonia.Themes.Fluent" Version="11.3.22" />
     <InternalsVisibleTo Include="Clonedivers.Linux.Tests" />
+    <InternalsVisibleTo Include="Clonedivers.ForgePreview" />
     <EmbeddedResource Include="clonedivers.svg" LogicalName="Clonedivers.desktop.svg" />
     <Compile Include="../Clonedivers/PackCore.cs" Link="Core/PackCore.cs" />
     <Compile Include="../Clonedivers/ModeSelection.cs" Link="Core/ModeSelection.cs" />
@@ -25,5 +30,9 @@
     <Compile Include="../Clonedivers/ManifestStore.cs" Link="Core/ManifestStore.cs" />
     <Compile Include="../Clonedivers/TelemetryStore.cs" Link="Core/TelemetryStore.cs" />
     <Compile Include="../Clonedivers/FpvDefaults.cs" Link="Core/FpvDefaults.cs" />
+    <Compile Include="../Clonedivers/HellForgeModels.cs" Link="Core/HellForgeModels.cs" />
+    <Compile Include="../Clonedivers/HellForgePreset.cs" Link="Core/HellForgePreset.cs" />
+    <Compile Include="../Clonedivers/HellForgePack.cs" Link="Core/HellForgePack.cs" />
+    <EmbeddedResource Include="../Clonedivers/Resources/hellforge-r19.json" LogicalName="Clonedivers.HellForge.Manifest.json" />
   </ItemGroup>
 </Project>

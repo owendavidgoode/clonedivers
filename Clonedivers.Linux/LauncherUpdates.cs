@@ -12,11 +12,12 @@ internal sealed record LauncherRelease(string Version)
     public string Url => "https://github.com/owendavidgoode/clonedivers/releases/tag/linux-v" + Version;
 }
 
-internal sealed record LauncherUpdateStatus(LauncherRelease? Available, bool CheckSucceeded)
+internal sealed record LauncherUpdateStatus(LauncherRelease? Available, bool CheckSucceeded, bool SeparateChannel = false)
 {
-    public string Message => Available is not null ? $"Launcher v{Available.Version} available (installed v{AppInfo.Version})."
+    public string Message => SeparateChannel ? "This Forge preview uses a separate release channel. Use the complete reviewed Forge package; no compatible public update feed is published yet."
+        : Available is not null ? $"Launcher v{Available.Version} available (installed v{AppInfo.Version})."
         : CheckSucceeded ? "Launcher is up to date." : "Launcher update check unavailable. Try again later.";
-    public string Url => Available?.Url ?? LauncherUpdates.ReleasesPage;
+    public string Url => SeparateChannel ? "" : Available?.Url ?? LauncherUpdates.ReleasesPage;
 }
 
 internal sealed class LauncherUpdates
@@ -29,14 +30,16 @@ internal sealed class LauncherUpdates
     readonly HttpClient client;
     readonly string endpoint, directory, architecture;
     readonly Func<DateTimeOffset> now;
+    readonly bool allowLegacyChannel;
     readonly SemaphoreSlim gate = new(1, 1);
     internal sealed record Cache(DateTimeOffset CheckedUtc, string? LatestVersion, bool Succeeded);
 
-    internal LauncherUpdates(HttpClient? client = null, string? endpoint = null, string? directory = null, string? architecture = null, Func<DateTimeOffset>? now = null)
+    internal LauncherUpdates(HttpClient? client = null, string? endpoint = null, string? directory = null, string? architecture = null, Func<DateTimeOffset>? now = null, bool? allowLegacyChannel = null)
     {
         this.client = client ?? Web; this.endpoint = endpoint ?? Api; this.directory = directory ?? PlatformPaths.ConfigDirectory;
         this.architecture = architecture ?? (RuntimeInformation.ProcessArchitecture == Architecture.Arm64 ? "arm64" : "x64");
         this.now = now ?? (() => DateTimeOffset.UtcNow);
+        this.allowLegacyChannel = allowLegacyChannel ?? !ForgeEntryPolicy.ForgeEdition;
     }
     static HttpClient CreateClient()
     {
@@ -80,6 +83,8 @@ internal sealed class LauncherUpdates
 
     internal async Task<LauncherUpdateStatus> CheckAsync(CancellationToken ct = default, bool force = false)
     {
+        ct.ThrowIfCancellationRequested();
+        if (!allowLegacyChannel) return new(null, false, SeparateChannel: true);
         await gate.WaitAsync(ct);
         try
         {
@@ -106,5 +111,9 @@ internal sealed class LauncherUpdates
         }
         finally { gate.Release(); }
     }
-    internal static void OpenRelease(LauncherUpdateStatus status) => Process.Start(new ProcessStartInfo(status.Url) { UseShellExecute = true });
+    internal static void OpenRelease(LauncherUpdateStatus status)
+    {
+        if (status.SeparateChannel) throw new InvalidOperationException("Use the matching reviewed Forge package; the legacy Steam release page is a different channel.");
+        Process.Start(new ProcessStartInfo(status.Url) { UseShellExecute = true });
+    }
 }
