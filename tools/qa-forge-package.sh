@@ -26,6 +26,6 @@ clonedivers --version | grep -F 'Clonedivers Forge Linux 0.7.0'
 clonedivers --help | grep -F 'Clonedivers Forge for Linux'
 test -f /usr/lib/clonedivers/forge/companion.json
 test -x /usr/lib/clonedivers/forge/HellForge.Launcher.ClonediversBridge
-if apt-cache show passt >/dev/null 2>&1; then command -v pasta; else echo 'This distribution lacks passt: real co-op stays blocked by the launcher preflight.'; fi
+if apt-cache show passt 2>/dev/null | grep -q '^Package: passt$'; then command -v pasta; else echo 'This distribution lacks passt: real co-op stays blocked by the launcher preflight.'; fi
 command -v python3
 echo 'Forge portable/deb install, default routing, companion hashes and recovery help passed; no game/account/Proton session launched.'

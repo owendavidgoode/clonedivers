@@ -9,6 +9,8 @@ Press **Set up / update Forge**. The launcher downloads the pinned official
 **HellForge 0.4.0-beta** native installer, verifies its SHA256, safely extracts it
 and opens it. On Ubuntu/Debian it offers installation of the required networking
 tools, including `pasta` from `passt`, through the normal system approval flow.
+Ubuntu 22.04 repositories may lack `passt`: the launcher package can install,
+but gameplay stays blocked until the official relay prerequisite is available.
 Choose the dedicated Proton prefix in the official installer. Existing selected
 roots take precedence; ambiguous installations require an explicit selection.
 
