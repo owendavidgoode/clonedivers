@@ -58,6 +58,9 @@ jobs:
           dotnet build Clonedivers.Linux -c Release -p:ForgeEdition=true
           dotnet Clonedivers.Linux/bin/Release/net8.0/clonedivers.dll --help
       - name: Cross-publish the Windows-side namespace bridge
+        # The Windows bridge remains source-tested; player packages use native control.
         run: dotnet publish Clonedivers.ForgeBridge -c Release -r win-x64 --self-contained true -p:PublishSingleFile=true -p:EnableCompressionInSingleFile=true -o artifacts/forge-bridge
+      - name: Test native Linux controller boundaries
+        run: dotnet run --project Clonedivers.ForgeBridge.Tests -c Release -- --native-control-only
       # No game, account capture, real ownership, multiplayer, public feed or release
       # is tested/published here. Those require distinct owner/PC acceptance evidence.

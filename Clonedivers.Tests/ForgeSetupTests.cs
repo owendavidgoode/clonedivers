@@ -18,8 +18,8 @@ internal static class ForgeSetupTests
         Refuses(() => HellForgeSetup.ValidateTarget(@"\\server\share\Forge"), "setup requires a local installation rather than a network share");
         var start = HellForgeSetup.UnpackStartInfo(Path.Combine(area, "installer with spaces.exe"), Path.Combine(area, "new Forge"));
         check(!start.UseShellExecute && start.ArgumentList.SequenceEqual(new[] { "--unpack", Path.Combine(area, "new Forge") }) && !start.ArgumentList.Contains("--silent"), "setup uses only the author's supported unpack command and structured path arguments");
-        check(HellForgeSetup.Installer.Url == HellForgeSetup.InstallerUrl && HellForgeSetup.Installer.Size == 315829864 && HellForgeSetup.Installer.Sha256 == "b815655998d6b4b31cd12e821460cd0bbde5e360c2886381ca59e051a106a7e4", "author installer identity is pinned independently of an update feed");
-        check(HellForgeSetup.SupportsVersion("0.3.0-beta (4a5373b)") && HellForgeSetup.SupportsVersion("0.3.0-beta") && !HellForgeSetup.SupportsVersion("0.3.0-beta2") && !HellForgeSetup.SupportsVersion("0.4.0"), "setup accepts the real commit-decorated pinned version without accepting another release");
+        check(HellForgeSetup.Installer.Url == HellForgeSetup.InstallerUrl && HellForgeSetup.Installer.Size == 526467508 && HellForgeSetup.Installer.Sha256 == "97dbdd07638e5198b98bf2ad74a1ba907c53f569fcdcdcff330e6c74359f04d7", "author installer identity is pinned independently of an update feed");
+        check(HellForgeSetup.SupportsVersion("0.4.0-beta (4a5373b)") && HellForgeSetup.SupportsVersion("0.4.0-beta") && !HellForgeSetup.SupportsVersion("0.4.0-beta2") && !HellForgeSetup.SupportsVersion("0.4.0"), "setup accepts the real commit-decorated pinned version without accepting another release");
 
         var bytes = Encoding.UTF8.GetBytes("author-installer-fixture");
         var hash = Convert.ToHexString(SHA256.HashData(bytes)).ToLowerInvariant();
@@ -73,6 +73,48 @@ internal static class ForgeSetupTests
             catch (InvalidOperationException) { check(called == 1, "active games block installation without repair or shutdown"); }
         }
         finally { Game.IsRunningCheck = oldCheck; }
+        await UpgradeFixtures(area, cache, artifact, check);
+    }
+
+    static async Task UpgradeFixtures(string area, string cache, PackFile artifact, Action<bool, string> check)
+    {
+        foreach (var scenario in new[] { "success", "failure", "unknown", "active" })
+        {
+            var root = Path.Combine(area, "upgrade-" + scenario); FakeInstall(root);
+            var character = Path.Combine(root, "profiles", "default", "profile.json"); Directory.CreateDirectory(Path.GetDirectoryName(character)!);
+            File.WriteAllText(character, "existing owner progress");
+            var version = "0.3.0-beta"; int calls = 0;
+            Task<HellForgeStatus> Status(CancellationToken _) => Task.FromResult(new HellForgeStatus(root, version, HellForgePack.SupportedBuild, true, true, scenario == "active", true, true, null, null,
+                Engine: version == "0.3.0-beta" ? "0.1.41" : "0.1.47", ModSdk: version == "0.3.0-beta" ? 15 : 16));
+            Task Unpack(string _, string target)
+            {
+                calls++; version = calls == 1 ? "0.4.0-beta" : "0.3.0-beta";
+                if (calls == 1 && scenario == "failure") throw new IOException("Installer failure fixture");
+                if (calls == 1 && scenario == "unknown") throw new HellForgeCommandOutcomeUnknownException("Installer exit unconfirmed");
+                return Task.CompletedTask;
+            }
+            try
+            {
+                await HellForgeSetup.UpdateAsync(root, null, CancellationToken.None, cache, artifact, artifact, Unpack, Status, _ => { });
+                check(scenario == "success" && calls == 1 && File.ReadAllText(character) == "existing owner progress", "official application update preserves an existing character and commits only the new application version");
+            }
+            catch (HellForgeCommandOutcomeUnknownException)
+            {
+                check(scenario == "unknown" && calls == 1, "unknown installer outcome keeps recovery pending without a blind rollback");
+                // Locate this installation's own durable record, not another trial's backup.
+                var intentPath = Directory.EnumerateFiles(Path.Combine(cache, "updates"), "*.json").Single(file => File.ReadAllText(file).Contains("upgrade-unknown"));
+                using var intent = System.Text.Json.JsonDocument.Parse(File.ReadAllText(intentPath));
+                var backup = Path.Combine(intent.RootElement.GetProperty("Backup").GetString()!, "protected.json");
+                var bytes = File.ReadAllBytes(backup); File.WriteAllText(backup, "damaged");
+                try { await HellForgeSetup.RecoverUpgradeAsync(root, CancellationToken.None, cache, artifact, Unpack, Status, _ => { }); check(false, "changed recovery metadata must fail"); }
+                catch (InvalidDataException) { check(calls == 1, "changed account backup metadata is rejected before recovery executes an installer"); }
+                File.WriteAllBytes(backup, bytes);
+                await HellForgeSetup.RecoverUpgradeAsync(root, CancellationToken.None, cache, artifact, Unpack, Status, _ => { });
+                check(calls == 2 && version == "0.3.0-beta" && File.ReadAllText(character) == "existing owner progress", "a fresh recovery call restores the verified previous application without replaying profile data");
+            }
+            catch (IOException) { check(scenario == "failure" && calls == 2 && version == "0.3.0-beta" && File.ReadAllText(character) == "existing owner progress", "a failed installer invokes the retained verified previous installer and preserves profile bytes"); }
+            catch (InvalidOperationException) { check(scenario == "active" && calls == 0, "an active runner blocks application updates before any installer executes"); }
+        }
     }
 
     static void FakeInstall(string root, string build = HellForgePack.SupportedBuild)

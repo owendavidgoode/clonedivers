@@ -23,6 +23,7 @@ void Throws<T>(Action action, string name) where T : Exception
 try
 {
     LinuxFeedbackTests.Run(root, Check);
+    await LinuxBootstrapTests.Run(root, Check);
     if (args.Contains("--linux-feedback-only")) { Console.WriteLine($"ALL {passed} LINUX FEEDBACK FIXTURES PASSED (no game/Proton qualification)"); return 0; }
     if (args.Contains("--forge-channel-only"))
     {

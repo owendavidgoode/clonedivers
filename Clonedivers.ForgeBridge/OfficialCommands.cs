@@ -21,8 +21,9 @@ internal sealed class OfficialCommands : Clonedivers.IHellForgeCommands
         using var document = JsonDocument.Parse(File.ReadAllText(marker));
         if (document.RootElement.GetProperty("schemaVersion").GetInt32() != 1 || document.RootElement.GetProperty("buildId").GetString() != BridgeSession.Build)
             throw new InvalidDataException("Unsupported Forge installation.");
-        foreach (var relative in new[] { "app", "app/cli", "app/cli/HellForge.Cli.exe" }) RejectLink(Path.Combine(root, relative));
-        cli = Path.Combine(root, "app", "cli", "HellForge.Cli.exe");
+        var native = OperatingSystem.IsLinux();
+        foreach (var relative in new[] { "app", native ? "app/cli-linux" : "app/cli", native ? "app/cli-linux/HellForge.Cli" : "app/cli/HellForge.Cli.exe" }) RejectLink(Path.Combine(root, relative));
+        cli = Path.Combine(root, "app", native ? "cli-linux" : "cli", native ? "HellForge.Cli" : "HellForge.Cli.exe");
         if (!File.Exists(cli)) throw new FileNotFoundException("Official Forge CLI is missing.");
     }
 

@@ -9,11 +9,40 @@ namespace Clonedivers;
 internal sealed record LinuxForgePlan(string Install, string Prefix, string WindowsInstall, string Bridge, string Script)
 {
     internal string? SteamClientRoot { get; init; }
+    internal bool NativeControl { get; init; }
+    internal const string NativeBridgeName = "HellForge.Launcher.ClonediversBridge";
     internal const string BridgeName = "HellForge.Launcher.ClonediversBridge.exe";
-    internal const string BridgeVersion = "0.3.9";
+    internal const string BridgeVersion = "0.4.0";
     internal const string GameBuild = "25480438";
     internal static bool SupportsArchitecture(Architecture architecture) => architecture == Architecture.X64;
     internal static readonly string[] Scripts = ["hellforge-linux.sh", "hellforge-offline.sh", "hf-inner.sh", "hf-bridge-host.sh", "allow-namespace.sh"];
+
+    internal static LinuxForgePlan StageNative(string install, string bridgeSource, string expectedBridgeHash)
+    {
+        if (!SupportsArchitecture(RuntimeInformation.ProcessArchitecture)) throw new PlatformNotSupportedException("Forge requires x86-64 Linux.");
+        var root = Path.TrimEndingDirectorySeparator(Path.GetFullPath(install)); RejectLinks(root);
+        DirectoryInfo? drive = null;
+        for (var parent = new DirectoryInfo(root); parent != null; parent = parent.Parent)
+        {
+            if (parent.Name.Equals("steamapps", StringComparison.OrdinalIgnoreCase)) throw new InvalidDataException("Use the separate Forge prefix, outside Steam's game folders.");
+            if (parent.Name == "drive_c" && parent.Parent?.Name == "pfx") drive = parent;
+        }
+        if (drive?.Parent?.Parent is not { } prefix) throw new InvalidDataException("Choose Forge inside its dedicated prefix's pfx/drive_c folder.");
+        foreach (var relative in new[] { "hellforge-install.json", "app/app-build.json", "app/cli-linux/HellForge.Cli", "app/backend-linux/HellForge.LocalBackend", "app/launcher-linux/HellForge.Launcher", "app/linux/hellforge-linux.sh", "app/linux/hf-sandbox" })
+        { var file = Path.Combine(root, relative); RejectLinks(file); if (!File.Exists(file)) throw new FileNotFoundException("Upgrade through Forge setup: native 0.4 component missing: " + relative); }
+        using var build = JsonDocument.Parse(File.ReadAllText(Path.Combine(root, "app", "app-build.json")));
+        if (build.RootElement.GetProperty("version").GetString() != "0.4.0-beta" || build.RootElement.GetProperty("engine").GetString() != "0.1.47")
+            throw new InvalidDataException("Use Setup to upgrade this installation to official Forge 0.4.0-beta/engine0.1.47.");
+        using var marker = JsonDocument.Parse(File.ReadAllText(Path.Combine(root, "hellforge-install.json")));
+        if (marker.RootElement.GetProperty("schemaVersion").GetInt32() != 1 || marker.RootElement.GetProperty("buildId").GetString() != GameBuild)
+            throw new InvalidDataException("Unsupported Forge installation/build.");
+        VerifyFile(bridgeSource, expectedBridgeHash);
+        var cache = Path.Combine(drive.FullName, "ClonediversLauncher", "native-" + expectedBridgeHash[..16]);
+        RejectLinks(cache); Directory.CreateDirectory(cache);
+        var bridge = Path.Combine(cache, NativeBridgeName); CopyVerified(bridgeSource, bridge, expectedBridgeHash);
+        if (OperatingSystem.IsLinux()) File.SetUnixFileMode(bridge, UnixFileMode.UserRead | UnixFileMode.UserWrite | UnixFileMode.UserExecute);
+        return new(root, prefix.FullName, root, bridge, "") { NativeControl = true };
+    }
 
     internal static LinuxForgePlan Stage(string install, string bridgeSource, string expectedBridgeHash, string scriptBundle)
     {
@@ -69,6 +98,15 @@ internal sealed record LinuxForgePlan(string Install, string Prefix, string Wind
 
     internal ProcessStartInfo StartInfo()
     {
+        if (NativeControl)
+        {
+            var native = new ProcessStartInfo(Bridge) { WorkingDirectory = Install, UseShellExecute = false, CreateNoWindow = true,
+                RedirectStandardInput = true, RedirectStandardOutput = true, RedirectStandardError = true };
+            native.ArgumentList.Add("--install"); native.ArgumentList.Add(Install);
+            native.Environment.Remove("HELLFORGE_LINUX_NETNS");
+            native.Environment.Remove("HELLFORGE_STEAM_ACCOUNT"); // native verifier runs its own official account probe
+            return native;
+        }
         var start = new ProcessStartInfo("bash") { WorkingDirectory = Install, UseShellExecute = false,
             RedirectStandardInput = true, RedirectStandardOutput = true, RedirectStandardError = true, CreateNoWindow = true };
         start.ArgumentList.Add(Script); start.ArgumentList.Add(Bridge); start.ArgumentList.Add("--install"); start.ArgumentList.Add(WindowsInstall);

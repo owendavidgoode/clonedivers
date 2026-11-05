@@ -4,6 +4,7 @@ namespace Clonedivers;
 
 internal interface IForgeConnection : IAsyncDisposable
 {
+    bool NativePaths => false;
     Task<JsonElement> RunAsync(IReadOnlyList<string> args, CancellationToken ct = default);
 }
 internal sealed class LinuxForgePreferences
@@ -65,11 +66,12 @@ internal sealed class LinuxForgePlayer(IForgeConnection connection, LinuxForgePr
     {
         if (!OperatingSystem.IsLinux()) throw new PlatformNotSupportedException("Forge sessions require Linux or the Windows launcher; previews never connect.");
         if (Game.IsRunning()) throw new InvalidOperationException("Close the running HD2 session before starting Forge's dedicated namespace.");
+        if (LinuxForgeBootstrap.MissingTools().Length != 0) throw new InvalidOperationException("Linux components needed: " + string.Join(", ", LinuxForgeBootstrap.MissingTools()) + ". Use Set up / update Forge to install them with desktop approval.");
         preferences.Validate();
         var root = preferences.InstallRoot ?? throw new InvalidOperationException(
             "No Forge installation selected. Read https://github.com/owendavidgoode/clonedivers/blob/main/docs/FORGE-MIGRATION.md#first-forge-setup\n" +
-            "Download official HellForge 0.3.0-beta: https://github.com/SkyeShade/HellForge/releases/tag/v0.3.0-beta\n" +
-            "Choose the folder containing HellForge.exe and hellforge-install.json under your separate prefix's pfx/drive_c, then pass --forge-root '/path/to/prefix/pfx/drive_c/HellForge'.\n" +
+            "Use Set up / update Forge to obtain the verified native Linux installer.\n" +
+            "For a custom existing prefix, use Locate to select the folder containing hellforge-install.json.\n" +
             "Saved selection: " + LinuxForgePreferences.PathName);
         var metadata = Path.Combine(resourceDirectory, "companion.json"); FileSafety.RejectLink(resourceDirectory); FileSafety.RejectLink(metadata);
         if (!File.Exists(metadata) || new FileInfo(metadata).Length > 65536) throw new FileNotFoundException("Forge companion resources are missing. Install the complete Clonedivers package, including its forge folder.");
@@ -77,8 +79,8 @@ internal sealed class LinuxForgePlayer(IForgeConnection connection, LinuxForgePr
         if (doc.RootElement.GetProperty("format").GetInt32() != 1 || doc.RootElement.GetProperty("gameBuild").GetString() != LinuxForgePlan.GameBuild ||
             doc.RootElement.GetProperty("bridgeVersion").GetString() != LinuxForgePlan.BridgeVersion)
             throw new InvalidDataException("Forge companion targets a different client or game build. Install the complete matching Clonedivers package.");
-        var steam = LinuxPlatform.ForgeSteamRoot(Settings.Load().GamePath, Environment.GetEnvironmentVariable("STEAM_COMPAT_CLIENT_INSTALL_PATH"));
-        var plan = LinuxForgePlan.Stage(root, Path.Combine(resourceDirectory, LinuxForgePlan.BridgeName), doc.RootElement.GetProperty("bridgeSha256").GetString()!, Path.Combine(resourceDirectory, "linux")) with { SteamClientRoot = steam };
+        if (doc.RootElement.GetProperty("control").GetString() != "native-linux") throw new InvalidDataException("Install the complete native Forge companion package.");
+        var plan = LinuxForgePlan.StageNative(root, Path.Combine(resourceDirectory, LinuxForgePlan.NativeBridgeName), doc.RootElement.GetProperty("bridgeSha256").GetString()!);
         var transport = await LinuxForgeTransport.StartAsync(plan, ct);
         var player = new LinuxForgePlayer(transport, preferences);
         try { await player.ApplySelectionAsync(ct); return player; }
@@ -153,7 +155,7 @@ internal sealed class LinuxForgePlayer(IForgeConnection connection, LinuxForgePr
             if (!pinned.Artifacts.Contains(requested)) throw new InvalidDataException("Bridge requested an artifact outside the pinned preset.");
         var root = Preferences.InstallRoot ?? throw new InvalidOperationException("Choose the Forge installation first.");
         var cache = Path.Combine(Path.GetDirectoryName(root)!, "Clonedivers-HellForge-cache", "gameplay", pinned.Id);
-        var windows = WindowsPath(root, cache);
+        var windows = connection.NativePaths ? cache : WindowsPath(root, cache);
         // HTTPS runs here in the native frontend, never in the isolated Wine bridge.
         await HellForgeGameplayCatalog.StageAsync(cache, missing, progress, ct);
         if (SessionActive || Game.IsRunning()) throw new InvalidOperationException("HD2 started while downloading; keep the verified files and retry after closing it.");
@@ -170,6 +172,12 @@ internal sealed class LinuxForgePlayer(IForgeConnection connection, LinuxForgePr
         if (SessionActive) throw new InvalidOperationException("End the current session before changing setup or mods.");
         await connection.RunAsync(["open-manager"], ct);
         await RefreshAsync(ct);
+    }
+    internal async Task BeginAccountSyncAsync(CancellationToken ct = default)
+    {
+        if (SessionActive) throw new InvalidOperationException("End the session before syncing your account.");
+        await connection.RunAsync(["select-account"], ct);
+        await connection.RunAsync(["open-manager"], ct);
     }
     internal async Task<HellForgePack.Plan> PlanAppearanceAsync(IProgress<string>? progress = null, CancellationToken ct = default)
     {
@@ -193,7 +201,7 @@ internal sealed class LinuxForgePlayer(IForgeConnection connection, LinuxForgePr
             if (plan.Selection.Mode != expected.Mode || plan.Selection.Texture != expected.Texture || plan.Selection.ManifestSha256 != expected.ManifestSha256 ||
                 plan.Selection.Options.Count != expected.Options.Count || expected.Options.Any(pair => !plan.Selection.Options.TryGetValue(pair.Key, out var on) || on != pair.Value))
                 throw new InvalidDataException("The selected mode/options changed after planning. Prepare the selection again.");
-            var path = WindowsPath(Preferences.InstallRoot!, plan.Output);
+            var path = connection.NativePaths ? plan.Output : WindowsPath(Preferences.InstallRoot!, plan.Output);
             // This code runs in the native frontend, outside the isolated Wine namespace.
             await HellForgePack.ExportAsync(plan, allowDownloads, progress, ct);
             await connection.RunAsync(["prepare-pack", "--file", path], ct);

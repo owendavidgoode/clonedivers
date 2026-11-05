@@ -16,6 +16,6 @@ Guard Dogs and Smarter SEAF are not rehosted. Automatic host mod sharing remains
 off because these author packages have their own redistribution restrictions.
 
 Pinned compatibility/gameplay downloads and content hashes are in
-`Clonedivers/Resources/forge-gameplay-build25480438-r1.json`. The loader, menu,
+`Clonedivers/Resources/forge-gameplay-build25480438-r2.json`. The loader, menu,
 Smarter SEAF, Guard Dogs and Reroller use immutable author file/release URLs.
 No silent upgrade to a newer Reroller or another engine is part of this preset.

@@ -18,7 +18,7 @@ internal sealed class ForgeWindow : Window
     readonly bool preview;
     readonly string previewState = "ready";
     LinuxForgePlayer? player;
-    bool busy, closing, closed, updating;
+    bool busy, closing, closed, updating, requestedAccountSync, requestedSetup;
     bool checkingLauncherUpdate;
     LauncherUpdateStatus? launcherUpdate;
     string? lastError, reportPath;
@@ -89,15 +89,21 @@ internal sealed class ForgeWindow : Window
         textures.SelectionChanged += (_, _) => { if (!updating) Begin(async () => { preferences.Texture = textures.SelectedIndex == 1 ? "lighter" : "full"; await ChangedAsync(); }); };
         connect.Click += (_, _) => Begin(ConnectAsync);
         browse.Click += (_, _) => Begin(BrowseAsync);
-        refresh.Click += (_, _) => Begin(async () => { if (player != null) await player.RefreshAsync(lifetime.Token); });
+        refresh.Click += (_, _) => Begin(RefreshPlayerAsync);
         report.Click += (_, _) => Begin(() => {
             var output = LinuxSupport.SaveReport(null, new Settings(), forge: new LinuxSupport.ForgeReport(preferences.InstallRoot, preferences.Mode, player?.State, lastError ?? player?.Error));
             reportPath = output; return Task.CompletedTask;
         });
-        Import.Click += (_, _) => Begin(async () => { if (player != null && await ConfirmAsync("Apply the verified HD2 account capture?", "This imports your own sealed capture into Forge using its one-way merge policy. Forge rewards stay local; existing characters are preserved.")) await player.ImportAsync(lifetime.Token); });
+        Import.Click += (_, _) => Begin(FinishAccountAsync);
         Prepare.Click += (_, _) => Begin(PrepareAsync);
-        Launch.Click += (_, _) => Begin(async () => { if (player == null) return; if (player.OwnsSession) await player.EndSessionAsync(lifetime.Token); else await player.LaunchAsync(lifetime.Token); });
-        setup.Click += (_, _) => Begin(async () => { if (player != null) await player.OpenManagerAsync(lifetime.Token); else Process.Start(new ProcessStartInfo("xdg-open") { UseShellExecute = false, ArgumentList = { "https://github.com/SkyeShade/HellForge/releases/tag/v0.3.0-beta" } }); });
+        Launch.Click += (_, _) => Begin(async () => {
+            if (player == null) await SetupAsync();
+            else if (player.OwnsSession) await player.EndSessionAsync(lifetime.Token);
+            else if (player.CanLaunch) await player.LaunchAsync(lifetime.Token);
+            else if (player.State?.Status is { } status && (!status.GameCopyReady || !status.RunnerReady || status.CompatibilityProblem != null)) await player.OpenManagerAsync(lifetime.Token);
+            else await PrepareAsync();
+        });
+        setup.Click += (_, _) => Begin(async () => { if (player != null) await player.OpenManagerAsync(lifetime.Token); else await SetupAsync(); });
         fallback.Click += (_, _) => Begin(() =>
         {
             var game = GameLocator.NormalizeGameDir(Settings.Load().GamePath) ?? GameLocator.AutoDetect()
@@ -106,7 +112,7 @@ internal sealed class ForgeWindow : Window
             return Task.CompletedTask;
         });
         updates.Click += async (_, _) => await CheckLauncherUpdateAsync(true);
-        timer.Tick += (_, _) => { if (!busy && !closing && player != null) Begin(() => player.RefreshAsync(lifetime.Token)); };
+        timer.Tick += (_, _) => { if (!busy && !closing && player != null) Begin(RefreshPlayerAsync); };
         Closing += (_, e) =>
         {
             if (preview) { closed = true; return; }
@@ -117,7 +123,14 @@ internal sealed class ForgeWindow : Window
             closing = true; timer.Stop();
             Begin(async () => { if (player != null) await player.DisposeAsync(); closed = true; lifetime.Cancel(); lifetime.Dispose(); Close(); });
         };
-        Opened += async (_, _) => { UpdateView(); if (!preview) { timer.Start(); await CheckLauncherUpdateAsync(false); } };
+        Opened += async (_, _) => {
+            UpdateView();
+            if (!preview) {
+                preferences.InstallRoot ??= LinuxForgeBootstrap.Detect(); folder.Text = preferences.InstallRoot ?? "";
+                if (preferences.InstallRoot != null) await RunAsync(ConnectAsync);
+                timer.Start(); await CheckLauncherUpdateAsync(false);
+            }
+        };
         UpdateView();
     }
 
@@ -147,7 +160,7 @@ internal sealed class ForgeWindow : Window
     async Task RunAsync(Func<Task> action)
     {
         busy = true; lastError = null; UpdateView();
-        try { await action(); message.Text = ""; }
+        try { await action(); }
         catch (Exception error) { lastError = error.Message; message.Text = error.Message; if (closing) { closing = false; timer.Start(); } }
         finally { busy = false; if (!closed) UpdateView(); }
     }
@@ -161,6 +174,35 @@ internal sealed class ForgeWindow : Window
         if (player != null) throw new InvalidOperationException("Close this launcher before switching its active Forge installation.");
         preferences.InstallRoot = folder.Text?.Trim(); preferences.Save(); message.Text = "Starting the official isolated Forge connection…";
         player = await LinuxForgePlayer.ConnectAsync(preferences, resources, lifetime.Token);
+    }
+    async Task SetupAsync()
+    {
+        if (player?.SessionActive == true) throw new InvalidOperationException("End the Forge session before setup.");
+        if (player != null) { await player.DisposeAsync(); player = null; }
+        var result = await LinuxForgeBootstrap.InstallAsync(preferences.InstallRoot, new Progress<string>(text => message.Text = text), lifetime.Token);
+        preferences.InstallRoot = result; preferences.Save(); folder.Text = result;
+        await ConnectAsync();
+        requestedSetup = true;
+        if (player?.State?.Status is { GameCopyReady: true, RunnerReady: true, CompatibilityProblem: null }) { requestedSetup = false; await PrepareAsync(); }
+    }
+    async Task RefreshPlayerAsync()
+    {
+        if (player == null) return;
+        await player.RefreshAsync(lifetime.Token);
+        if (requestedSetup && !player.SessionActive && player.State?.Status is { GameCopyReady: true, RunnerReady: true, CompatibilityProblem: null })
+        { requestedSetup = false; await PrepareAsync(); }
+        if (requestedAccountSync && !player.SessionActive && !Game.IsRunning() && player.State?.Account is { Captured: true, Imported: false })
+        { requestedAccountSync = false; await player.ImportAsync(lifetime.Token); }
+    }
+    async Task FinishAccountAsync()
+    {
+        if (player == null) return;
+        if (player.State?.Account is { Captured: true, Imported: false }) { requestedAccountSync = false; await player.ImportAsync(lifetime.Token); }
+        else if (player.State?.Account?.Imported != true)
+        {
+            await player.BeginAccountSyncAsync(lifetime.Token); requestedAccountSync = true;
+            message.Text = "In official Forge, open Profile > Account sync > Sync Inventory. Default is selected. Approve the Linux helper yourself and pass HD2’s title screen. Keep Clonedivers open; it finishes the verified import after cleanup.";
+        }
     }
     async Task BrowseAsync()
     {
@@ -178,10 +220,11 @@ internal sealed class ForgeWindow : Window
         }
         var progress = new Progress<string>(text => message.Text = text);
         await player.InstallGameplayAsync(progress, lifetime.Token);
-        if (preferences.Mode == "regular") { await player.PrepareAppearanceAsync(null, false, ct: lifetime.Token); return; }
+        if (preferences.Mode == "regular") { await player.PrepareAppearanceAsync(null, false, ct: lifetime.Token); await FinishAccountAsync(); return; }
         var plan = await Task.Run(() => player.PlanAppearanceAsync(progress, lifetime.Token));
         if (plan.Missing.Count > 0 && !await ConfirmAsync("Prepare Star Wars appearance?", $"Download {Pack.FormatBytes(plan.Missing.Sum(f => f.Size))} of verified appearance assets? Existing local files are reused. Required gameplay mods were handled by this setup flow.")) return;
         await Task.Run(() => player.PrepareAppearanceAsync(plan, true, progress, lifetime.Token));
+        await FinishAccountAsync();
     }
     async Task<bool> ConfirmAsync(string title, string text)
     {
@@ -206,9 +249,12 @@ internal sealed class ForgeWindow : Window
         Prepare.IsEnabled = !busy && !active && player != null && player.State?.Status.CompatibilityProblem == null && !preview;
         Prepare.Content = "Set up selected mode";
         if (player?.State?.Status.RecoveryProblem is { } recovery) Prepare.Content = recovery.StartsWith("Gameplay", StringComparison.Ordinal) ? "Recover gameplay preset" : "Recover previous appearance";
-        Import.IsEnabled = !busy && !active && player?.State?.Status.RecoveryProblem == null && player?.State?.Status.CompatibilityProblem == null && player?.State?.Account is { Captured: true, Imported: false } && !preview;
+        Import.IsEnabled = !busy && !active && player?.State?.Status is { GameCopyReady: true, RunnerReady: true, RecoveryProblem: null, CompatibilityProblem: null } && !preview;
+        Import.Content = player?.State?.Account is { Captured: true, Imported: false } ? "Finish account sync" : "Sync HD2 account";
         Launch.Content = (player?.OwnsSession == true || preview && active) ? "END SESSION" : preferences.Mode == "regular" ? "LAUNCH REGULAR HELLFORGE" : preferences.Mode == "empire" ? "LAUNCH EMPIREDIVERS" : "LAUNCH CLONEDIVERS";
-        Launch.IsEnabled = !busy && (preview ? previewState is "ready" or "running" : player?.OwnsSession == true || player?.CanLaunch == true && lastError == null);
+        Launch.IsEnabled = !busy && (preview ? previewState is "ready" or "running" : !active || player?.OwnsSession == true);
+        if (!preview && !active && player?.CanLaunch != true) Launch.Content = player == null ? "SET UP / UPDATE FORGE" :
+            player.State?.Status is { GameCopyReady: false } or { RunnerReady: false } or { CompatibilityProblem: not null } ? "CONTINUE FORGE SETUP" : "FINISH SELECTED MODE SETUP";
         setup.IsEnabled = fallback.IsEnabled = !busy && !active && !preview;
         report.IsEnabled = !busy && !preview;
         state.Text = busy ? "Working…" : active ? "Forge session running" : lastError != null || preview && previewState == "error" ? "Needs attention" : preview && previewState == "ready" || player?.CanLaunch == true ? "Ready for a private trial" : player == null ? "Connect your Forge installation" : "Finish Forge setup";

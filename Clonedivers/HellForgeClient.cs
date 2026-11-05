@@ -202,14 +202,15 @@ public sealed partial class HellForgeClient(string root, IHellForgeCommands comm
     {
         var json = await commands.RunAsync(["status"], ct);
         var returned = Path.TrimEndingDirectorySeparator(Path.GetFullPath(Text(json, "install")));
-        if (!returned.Equals(Root, StringComparison.OrdinalIgnoreCase)) throw new InvalidDataException("HellForge reported a different installation.");
+        if (!returned.Equals(Root, RecoveryPathComparison)) throw new InvalidDataException("HellForge reported a different installation.");
         var ready = json.GetProperty("ready"); var session = json.GetProperty("session"); var settings = json.GetProperty("settings");
         var running = Bool(session, "running");
         var failure = OptionalText(session, "lastFailure");
         string? notice = null;
         if (!running && failure == null) (failure, notice) = CompletedGameDiagnostic(OptionalText(session, "lastRun"), Text(json, "gameBuild"));
         return new(returned, Text(json, "hellforge"), Text(json, "gameBuild"), Bool(ready, "gameCopy"), Bool(ready, "sessionRunner"),
-            running, Bool(settings, "multiplayer"), Bool(settings, "localPlayFab"), OptionalText(session, "lastStatus"), failure, notice, InterruptedGameplayProblem() ?? InterruptedPackProblem(), PinnedProblem(json, LinuxNamespace));
+            running, Bool(settings, "multiplayer"), Bool(settings, "localPlayFab"), OptionalText(session, "lastStatus"), failure, notice, InterruptedGameplayProblem() ?? InterruptedPackProblem(), PinnedProblem(json, LinuxNamespace),
+            OptionalText(json, "engine"), json.TryGetProperty("modSdk", out var sdk) && sdk.ValueKind == JsonValueKind.Number && sdk.TryGetInt32(out var number) ? number : null);
     }
 
     (string? Failure, string? Notice) CompletedGameDiagnostic(string? run, string build)
@@ -295,13 +296,13 @@ public sealed partial class HellForgeClient(string root, IHellForgeCommands comm
     }
     internal static string? PinnedProblem(JsonElement json, bool linuxNamespace = false)
     {
-        if (OptionalText(json, "hellforge")?.StartsWith("0.3.0-beta", StringComparison.Ordinal) != true || OptionalText(json, "engine") != "0.1.41" ||
-            !json.TryGetProperty("modSdk", out var sdk) || sdk.ValueKind != JsonValueKind.Number || !sdk.TryGetInt32(out var sdkNumber) || sdkNumber != 15)
-            return "This preset requires HellForge0.3.0-beta, engine0.1.41 and SDK15. Review the installed version in official HellForge before preparing or launching; the launcher will not change engines.";
+        if (!HellForgeRelease.Supports(OptionalText(json, "hellforge")) || OptionalText(json, "engine") != HellForgeRelease.Engine ||
+            !json.TryGetProperty("modSdk", out var sdk) || sdk.ValueKind != JsonValueKind.Number || !sdk.TryGetInt32(out var sdkNumber) || sdkNumber != HellForgeRelease.Sdk)
+            return "This preset requires HellForge 0.4.0-beta, engine0.1.47 and SDK16. Review the installed version in official HellForge before preparing or launching; the launcher will not change engines.";
         static bool True(JsonElement parent, string key) => parent.ValueKind == JsonValueKind.Object && parent.TryGetProperty(key, out var value) && value.ValueKind == JsonValueKind.True;
         if (!json.TryGetProperty("settings", out var settings) || !True(settings, "sandbox") ||
             OptionalText(json, "networkBlock") != (linuxNamespace ? "linux-netns" : "wfp") ||
-            linuxNamespace && (!json.TryGetProperty("ready", out var ready) || !True(ready, "linuxNamespace")))
+            linuxNamespace && !OperatingSystem.IsLinux() && (!json.TryGetProperty("ready", out var ready) || !True(ready, "linuxNamespace")))
             return linuxNamespace ? "Official Linux namespace and sandbox checks must pass before preparing or launching. Review official HellForge setup; isolation settings will not be changed automatically."
                 : "Official WFP isolation and sandbox checks must pass before preparing or launching. Review official HellForge setup; isolation settings will not be changed automatically.";
         return null;
@@ -382,7 +383,7 @@ public sealed partial class HellForgeClient(string root, IHellForgeCommands comm
         return name;
     }
 
-    public async Task SelectAccountAsync(CancellationToken ct = default)
+    public async Task SelectAccountAsync(CancellationToken ct = default, bool reviewCapture = true)
     {
         await RequireIdleAsync(ct);
         RequireNoInterruptedPack();
@@ -391,7 +392,7 @@ public sealed partial class HellForgeClient(string root, IHellForgeCommands comm
         var account = profiles.GetProperty("profiles").EnumerateArray().FirstOrDefault(p => Text(p, "name") == HellForgeAccount.Profile);
         if (account.ValueKind == JsonValueKind.Undefined || Text(account, "template") != "starter")
             throw new InvalidDataException("The default account profile is missing or uses a test template. Restore it in HellForge before syncing; existing characters will not be reset.");
-        await new HellForgeAccount(Root).BindLegacyReceiptAsync(ct);
+        if (reviewCapture) await new HellForgeAccount(Root).BindLegacyReceiptAsync(ct);
         await RequireIdleAsync(ct);
         await commands.RunAsync(["settings", "--profile", HellForgeAccount.Profile], ct);
     }
@@ -648,7 +649,7 @@ public sealed partial class HellForgeClient(string root, IHellForgeCommands comm
             await commands.RunAsync(["mod-switch", "--id", DifficultyId, "--on", "yes"], ct);
         }
         await RequireIdleAsync(ct);
-        await commands.RunAsync(["settings", "--multiplayer", "yes", "--local-playfab", "yes"], ct);
+        await commands.RunAsync(["settings", "--multiplayer", "yes", "--local-playfab", "yes", "--steam-udp", "yes"], ct);
     }
 
     public async Task<JsonElement> PlayAsync(HellForgePack.Selection selection, CancellationToken ct = default, string? profile = null)
@@ -724,7 +725,7 @@ public sealed partial class HellForgeClient(string root, IHellForgeCommands comm
     void ValidateModFolder(string folder)
     {
         var mods = Path.Combine(Root, "mods") + Path.DirectorySeparatorChar;
-        if (!Path.GetFullPath(folder).StartsWith(mods, StringComparison.OrdinalIgnoreCase)) throw new InvalidDataException("HellForge pack folder is outside this installation.");
+        if (!Path.GetFullPath(folder).StartsWith(mods, RecoveryPathComparison)) throw new InvalidDataException("HellForge pack folder is outside this installation.");
         for (var path = new DirectoryInfo(folder); path != null && path.FullName.Length >= Root.Length; path = path.Parent) FileSafety.RejectLink(path.FullName);
     }
     public string CacheRoot

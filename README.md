@@ -5,41 +5,45 @@
 Choose **Regular**, **Clones** or **Empire** in a separate HellForge installation.
 Play the official online Helldivers 2 game directly through Steam.
 
-[Windows launcher](https://github.com/owendavidgoode/clonedivers/releases/latest/download/Clonedivers.exe) · [Ubuntu/Debian x86-64 package](https://github.com/owendavidgoode/clonedivers/releases/download/linux-v0.6.2/Clonedivers-linux-x64.deb) · [Linux portable](https://github.com/owendavidgoode/clonedivers/releases/download/linux-v0.6.2/Clonedivers-linux-x64.tar.gz)
+[Windows launcher](https://github.com/owendavidgoode/clonedivers/releases/latest/download/Clonedivers.exe) · [Ubuntu/Debian x86-64 package](https://github.com/owendavidgoode/clonedivers/releases/download/linux-v0.7.0/Clonedivers-linux-x64.deb) · [Linux portable](https://github.com/owendavidgoode/clonedivers/releases/download/linux-v0.7.0/Clonedivers-linux-x64.tar.gz)
 
 ## Update or install
 
-Existing Windows launchers receive **1.12.0** through their normal launcher-update
-button. Existing Linux launchers show the **0.6.2** release; install its complete
+Existing Windows launchers receive **1.13.0** through their normal launcher-update
+button. Existing Linux launchers show the **0.7.0** release; install its complete
 .deb or extract the full portable archive. Linux updates require a package-manager
 or manual installation; a notice does not silently replace the old application.
 
-New Windows players press **Set up Clonedivers**. The launcher downloads and
-installs the verified Forge application, opens its official game-copy setup,
-then installs the required gameplay preset and selected appearance. Steam sign-in
-and Windows approval remain player actions.
+New players press **Set up Clonedivers** on Windows or **Set up / update Forge**
+on Linux. Windows installs or upgrades the verified Forge application; Linux
+downloads and opens the official native installer and offers Ubuntu/Debian tool
+installation. After official game setup, the launcher installs the gameplay
+preset and selected appearance. Steam sign-in and system approval remain player
+actions. Existing Windows Forge 0.3 installations have an **Update HellForge**
+button with protected-state checks and verified application rollback.
 
 Read [the migration and first-setup guide](docs/FORGE-MIGRATION.md). The launcher
 update preserves settings and account data and keeps a verified previous Windows
 executable for rollback. It does not edit live Steam game files or close a running
-game. **Set up selected mode** obtains all eight additional required gameplay
+game. **Set up selected mode** obtains all seven additional required gameplay
 packages automatically, verifies their archives/content, imports them through
 Forge, applies preset order/options and then prepares the appearance.
 
-The three official bundled mods plus those eight downloads form the complete
+The three official bundled mods plus those seven downloads form the complete
 gameplay preset; Clones/Empire add their selected appearance. Downloads total
 about 7.4 MB before appearance assets. Five packages come directly from authors;
-the permission-cleared Heavy/Squad fixes and original mine fix use pinned project
-assets. See [sources and permission scope](docs/SEAF-COMPATIBILITY-PERMISSION.md).
-Confirm automatic host mod sharing is OFF in the official manager, and import
-your own HD2 account. A fresh import of every dependency is tested separately
+the permission-cleared Heavy/Squad fixes use pinned project assets. The old mine
+fix is disabled because the new engine includes its fix. See [sources and
+permission scope](docs/SEAF-COMPATIBILITY-PERMISSION.md). Setup turns automatic
+host mod sharing OFF and guides your own HD2 account import. A fresh import of
+every dependency is tested separately
 from real mission and multiplayer acceptance.
 
 Every player needs their own Steam-owned HD2, official separate **HellForge
-0.3.0-beta / engine 0.1.41 / SDK15 / game25480438**, and permitted matching mods.
+0.4.0-beta / engine 0.1.47 / SDK 16 / game 25480438**, and permitted matching mods.
 Keep supported isolation and sandbox enabled. Linux requires a dedicated Proton
 prefix and the official namespace setup. Complete Linux packages include the
-native UI, Windows bridge and pinned GPL source scripts; no separate .NET install
+native UI and controller; no separate .NET install
 is needed. ARM64, Deck and Flatpak/Snap Forge are not qualified.
 
 ## Modes, account and gameplay
@@ -54,10 +58,10 @@ The scale-up baseline combines D11, Heavy SEAF + Squad Stratagems, native Smarte
 SEAF, smarter dogs/sentries, reroller and supporting mods. [Coverage, dependencies
 and author sources](docs/FORGE-MOD-COVERAGE.md) distinguish installed, optional,
 conflicting and gated candidates. The download contains **no third-party mod
-archives or private Heavy/Squad repairs**. Reproducible permitted onboarding for
-new peers remains open. Missing dependencies block launch rather than silently
-changing the experience. Disable official host mod sharing when using private
-adaptations; each peer needs permitted matching artifacts.
+archives**; setup obtains the complete pinned preset automatically, including
+the permission-cleared Heavy/Squad repairs. Missing dependencies block launch
+rather than silently changing the experience. Each peer runs setup to obtain
+matching artifacts; automatic host sharing stays OFF.
 
 ## Test status
 
@@ -86,7 +90,7 @@ workflow builds complete assets and checks them on Ubuntu22.04/24.04/26.04. It
 never packages accounts, game files or restricted gameplay mods.
 
 [MIT](LICENSE) for the launcher and original mine-boundary source. Community mods
-belong to their credited authors. Pinned HellForge Linux scripts retain GPL-3.0
-source/COPYING and a documented lifetime-only adaptation. PresentMon and native
+belong to their credited authors. The official HellForge installer retains its
+own upstream licensing. PresentMon and native
 runtime licenses accompany their distributions. Fan utility, not affiliated with
 Arrowhead/Sony or Lucasfilm.

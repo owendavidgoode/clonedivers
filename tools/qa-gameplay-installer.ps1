@@ -5,12 +5,12 @@ $base = [IO.Path]::GetFullPath([IO.Path]::GetTempPath())
 $target = Join-Path $base ('forge-gameplay-install-test-' + [guid]::NewGuid().ToString('N'))
 if (-not $target.StartsWith($base, [StringComparison]::OrdinalIgnoreCase)) { throw 'Fixture root escaped temporary storage.' }
 $installer = Join-Path $base 'clonedivers-pinned-HellForge-Setup.exe'
-$expected = 'b815655998d6b4b31cd12e821460cd0bbde5e360c2886381ca59e051a106a7e4'
-if (-not (Test-Path -LiteralPath $installer) -or (Get-Item -LiteralPath $installer).Length -ne 315829864 -or
+$expected = '97dbdd07638e5198b98bf2ad74a1ba907c53f569fcdcdcff330e6c74359f04d7'
+if (-not (Test-Path -LiteralPath $installer) -or (Get-Item -LiteralPath $installer).Length -ne 526467508 -or
     (Get-FileHash -LiteralPath $installer).Hash.ToLowerInvariant() -ne $expected) {
-    Invoke-WebRequest 'https://github.com/SkyeShade/HellForge/releases/download/v0.3.0-beta/HellForge-Setup.exe' -OutFile $installer
+    Invoke-WebRequest 'https://github.com/SkyeShade/HellForge/releases/download/v0.4.0-beta/HellForge-Setup.exe' -OutFile $installer
 }
-if ((Get-Item -LiteralPath $installer).Length -ne 315829864 -or (Get-FileHash -LiteralPath $installer).Hash.ToLowerInvariant() -ne $expected) { throw 'Official test installer verification failed.' }
+if ((Get-Item -LiteralPath $installer).Length -ne 526467508 -or (Get-FileHash -LiteralPath $installer).Hash.ToLowerInvariant() -ne $expected) { throw 'Official test installer verification failed.' }
 $start = [Diagnostics.ProcessStartInfo]::new($installer)
 $start.UseShellExecute = $false; $start.CreateNoWindow = $true
 $start.ArgumentList.Add('--unpack'); $start.ArgumentList.Add($target)

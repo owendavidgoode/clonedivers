@@ -7,7 +7,7 @@ namespace Clonedivers.ForgeBridge.Tests;
 internal static class CompatibilityTests
 {
     static JsonObject Status(string root) => JsonSerializer.SerializeToNode(new {
-        install = root, hellforge = "0.3.0-beta (fixture)", engine = "0.1.41", modSdk = 15, gameBuild = HellForgePack.SupportedBuild,
+        install = root, hellforge = "0.4.0-beta (d8a8b46)", engine = "0.1.47", modSdk = 16, gameBuild = HellForgePack.SupportedBuild,
         networkBlock = "wfp", ready = new { gameCopy = true, sessionRunner = true, linuxNamespace = false },
         settings = new { sandbox = true, multiplayer = true, localPlayFab = true },
         session = new { running = false, lastStatus = (string?)null, lastFailure = (string?)null }
@@ -24,7 +24,7 @@ internal static class CompatibilityTests
             switch (name)
             {
                 case "engine": status["engine"] = "0.1.42"; break;
-                case "sdk": status["modSdk"] = 16; break;
+                case "sdk": status["modSdk"] = 17; break;
                 case "sdk-string": status["modSdk"] = "15"; break;
                 case "sdk-overflow": status["modSdk"] = long.MaxValue; break;
                 case "hf": status["hellforge"] = "0.4.0"; break;
@@ -40,8 +40,8 @@ internal static class CompatibilityTests
         var linux = Status(install); linux["networkBlock"] = "linux-netns"; linux["ready"]!["linuxNamespace"] = true;
         check(HellForgeClient.PinnedProblem(Element(linux), linuxNamespace: true) == null, "the namespace bridge requires the actual Linux isolation status fields");
         linux["ready"]!["linuxNamespace"] = false;
-        check(HellForgeClient.PinnedProblem(Element(linux), linuxNamespace: true) != null && HellForgeClient.PinnedProblem(Element(Status(install)), linuxNamespace: true) != null,
-            "the Linux route cannot accept an inactive namespace or a Windows WFP result");
+        check((HellForgeClient.PinnedProblem(Element(linux), linuxNamespace: true) == null) == OperatingSystem.IsLinux() && HellForgeClient.PinnedProblem(Element(Status(install)), linuxNamespace: true) != null,
+            "native control delegates namespace entry to the official runner; a Wine bridge still requires entry and neither accepts WFP as Linux isolation");
         Directory.CreateDirectory(root);
         try
         {

@@ -4,7 +4,7 @@ using Clonedivers;
 
 namespace Clonedivers.ForgeBridge;
 
-/// <summary>Reuse the verified Windows Forge account/preset backend inside the official Proton namespace.</summary>
+/// <summary>Reuse the verified Forge account/preset backend with the installed official native tools.</summary>
 internal sealed class PlayerCommands
 {
     readonly IHellForgeCommands official;
@@ -18,7 +18,8 @@ internal sealed class PlayerCommands
         client = new(root, official) { LinuxNamespace = true };
         account = new(root);
         this.openManager = openManager ?? (() => {
-            using var manager = Process.Start(new ProcessStartInfo(Path.Combine(root, "HellForge.exe")) { WorkingDirectory = root, UseShellExecute = false });
+            var program = OperatingSystem.IsLinux() ? Path.Combine(root, "app", "launcher-linux", "HellForge.Launcher") : Path.Combine(root, "HellForge.exe");
+            using var manager = Process.Start(new ProcessStartInfo(program) { WorkingDirectory = root, UseShellExecute = false });
             if (manager == null) throw new IOException("Official HellForge manager did not start.");
         });
     }
@@ -28,6 +29,8 @@ internal sealed class PlayerCommands
         {
             case "open-manager": openManager(); return JsonSerializer.SerializeToElement(new { opened = "official-manager" });
             case "account-status": return JsonSerializer.SerializeToElement(await account.ReadAsync(ct));
+            case "select-account":
+                await client.SelectAccountAsync(ct, reviewCapture: false); return JsonSerializer.SerializeToElement(new { selected = "default" });
             case "account-import":
                 await client.ImportAccountAsync(ct);
                 return JsonSerializer.SerializeToElement(await account.ReadAsync(ct));
@@ -70,7 +73,7 @@ internal sealed class PlayerCommands
         if (status.Running) return JsonSerializer.SerializeToElement(new { status, ready = false, detail = "Session running. End session waits for official cleanup.", account = (object?)null, mods = (object?)null });
         var catalog = await client.ModsAsync(ct);
         HellForgeAccountState imported;
-        try { imported = await account.ReadAsync(ct); }
+        try { imported = HellForgeAccount.CaptureBlock() is { } capturing ? new(false, false, capturing) : await account.ReadAsync(ct); }
         catch (Exception error) when (error is IOException or InvalidDataException or JsonException or UnauthorizedAccessException)
         { imported = new(false, false, error.Message); }
         string? problem = null;
@@ -79,12 +82,17 @@ internal sealed class PlayerCommands
             // Version/isolation are checked for diagnostics as well as mutations.
             BridgeSession.RequirePinnedIsolation(await official.RunAsync(["status"], ct));
             HellForgeClient.RequireReady(status);
-            if (selection.IsRegular) HellForgeClient.RequireRegular(catalog); else HellForgeClient.RequireSelected(catalog, selection.Selection());
+            if (selection.IsRegular) HellForgeClient.RequireRegular(catalog);
+            else
+            {
+                var chosen = HellForgeClient.RequireSelected(catalog, selection.Selection());
+                await HellForgePack.VerifyMetadataAsync(chosen.Folder, selection.Selection(), ct);
+            }
             if (HellForgePreset.Problem(catalog) is { } preset) throw new InvalidDataException(preset);
             if (!status.Multiplayer || !status.LocalBackend) throw new InvalidDataException("Enable the official local backend and Steam multiplayer in HellForge.");
             if (!imported.Imported) throw new InvalidDataException(imported.Message);
         }
-        catch (Exception error) when (error is IOException or InvalidDataException or InvalidOperationException) { problem = error.Message; }
+        catch (Exception error) when (error is IOException or InvalidDataException or InvalidOperationException or JsonException) { problem = error.Message; }
         return JsonSerializer.SerializeToElement(new { status, mods = catalog, account = imported, ready = problem == null,
             detail = problem ?? "Ready for a private Linux trial. Appearance hashes are checked before launch; Linux gameplay and squad compatibility remain unqualified." });
     }

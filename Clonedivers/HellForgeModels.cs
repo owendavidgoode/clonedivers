@@ -2,8 +2,17 @@ using System.Text.Json;
 
 namespace Clonedivers;
 
+public static class HellForgeRelease
+{
+    public const string Version = "0.4.0-beta";
+    public const string Engine = "0.1.47";
+    public const int Sdk = 16;
+    public static bool Supports(string? value) => value != null && System.Text.RegularExpressions.Regex.IsMatch(value, @"^0\.4\.0-beta(?: \([0-9a-f]{7,40}\))?$");
+}
+
 public sealed record HellForgeStatus(string Root, string Version, string Build, bool GameCopyReady, bool RunnerReady,
-    bool Running, bool Multiplayer, bool LocalBackend, string? LastStatus, string? LastFailure, string? LastNotice = null, string? RecoveryProblem = null, string? CompatibilityProblem = null);
+    bool Running, bool Multiplayer, bool LocalBackend, string? LastStatus, string? LastFailure, string? LastNotice = null, string? RecoveryProblem = null, string? CompatibilityProblem = null,
+    string? Engine = null, int? ModSdk = null);
 public sealed record HellForgeOption(string Name, bool On);
 public sealed record HellForgeMod(string Id, string Name, bool Enabled, string Folder, string[] Tags, string Version = "", HellForgeOption[]? Options = null, string? Archive = null);
 public sealed record HellForgeMods(List<HellForgeMod> Mods, string[] Problems, string? Code, string? HostingProblem = null);

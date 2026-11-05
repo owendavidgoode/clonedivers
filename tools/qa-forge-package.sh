@@ -10,23 +10,22 @@ if grep -Eq '(^/|(^|/)\.\.(/|$))' /tmp/clonedivers-forge-archive-paths-$$; then 
 extract=$(mktemp -d)
 tar -xzf "$archive" -C "$extract"
 if find "$extract" -type l -print -quit | grep -q .; then echo 'Unexpected archive link' >&2; exit 1; fi
-[[ -x "$extract/clonedivers" && -f "$extract/forge/linux/COPYING" && -f "$extract/preset.json" ]]
-[[ $(jq -r .bridgeVersion "$extract/forge/companion.json") == 0.3.9 ]]
+[[ -x "$extract/clonedivers" && -f "$extract/forge/LICENSE-CLONEDIVERS.txt" && -f "$extract/preset.json" ]]
+[[ $(jq -r .bridgeVersion "$extract/forge/companion.json") == 0.4.0 ]]
 [[ $(jq -r .gameBuild "$extract/forge/companion.json") == 25480438 ]]
-[[ $(sha256sum "$extract/forge/HellForge.Launcher.ClonediversBridge.exe" | cut -d' ' -f1) == $(jq -r .bridgeSha256 "$extract/forge/companion.json") ]]
-for name in hellforge-linux.sh hellforge-offline.sh hf-inner.sh hf-bridge-host.sh allow-namespace.sh; do
-  [[ -x "$extract/forge/linux/$name" ]]
-  expected=$(jq -r --arg name "$name" '.Scripts[] | select(.Name==$name) | .BundleSha256' "$extract/forge/linux/bundle.json")
-  [[ $(sha256sum "$extract/forge/linux/$name" | cut -d' ' -f1) == "$expected" ]]
-done
-"$extract/clonedivers" --version | grep -F 'Clonedivers Forge Linux 0.6.2'
+[[ $(jq -r .control "$extract/forge/companion.json") == native-linux ]]
+[[ $(sha256sum "$extract/forge/HellForge.Launcher.ClonediversBridge" | cut -d' ' -f1) == $(jq -r .bridgeSha256 "$extract/forge/companion.json") ]]
+"$extract/forge/HellForge.Launcher.ClonediversBridge" --help >/dev/null
+"$extract/clonedivers" --version | grep -F 'Clonedivers Forge Linux 0.7.0'
 "$extract/clonedivers" --help | grep -F 'Clonedivers Forge for Linux'
 "$extract/clonedivers" --steam --help > /dev/null
-[[ $(dpkg-deb -f "$deb" Package) == clonedivers && $(dpkg-deb -f "$deb" Version) == 0.6.2 ]]
+[[ $(dpkg-deb -f "$deb" Package) == clonedivers && $(dpkg-deb -f "$deb" Version) == 0.7.0 ]]
 sudo apt-get update -qq
 sudo apt-get install -y "$artifacts/$deb"
-clonedivers --version | grep -F 'Clonedivers Forge Linux 0.6.2'
+clonedivers --version | grep -F 'Clonedivers Forge Linux 0.7.0'
 clonedivers --help | grep -F 'Clonedivers Forge for Linux'
 test -f /usr/lib/clonedivers/forge/companion.json
-test -f /usr/lib/clonedivers/forge/linux/COPYING
+test -x /usr/lib/clonedivers/forge/HellForge.Launcher.ClonediversBridge
+if apt-cache show passt >/dev/null 2>&1; then command -v pasta; else echo 'This distribution lacks passt: real co-op stays blocked by the launcher preflight.'; fi
+command -v python3
 echo 'Forge portable/deb install, default routing, companion hashes and recovery help passed; no game/account/Proton session launched.'

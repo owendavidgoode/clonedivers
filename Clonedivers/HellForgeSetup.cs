@@ -7,15 +7,15 @@ namespace Clonedivers;
 internal sealed record ForgeSetupProgress(string Message, long Done = 0, long Total = 0, bool CanCancel = false);
 
 /// <summary>Bootstrap the pinned author installer. Game copying, ownership and isolation remain official Forge setup.</summary>
-internal static class HellForgeSetup
+internal static partial class HellForgeSetup
 {
-    internal const string InstallerUrl = "https://github.com/SkyeShade/HellForge/releases/download/v0.3.0-beta/HellForge-Setup.exe";
-    internal const string InstallerSha256 = "b815655998d6b4b31cd12e821460cd0bbde5e360c2886381ca59e051a106a7e4";
-    internal const long InstallerBytes = 315829864;
+    internal const string InstallerUrl = "https://github.com/SkyeShade/HellForge/releases/download/v0.4.0-beta/HellForge-Setup.exe";
+    internal const string InstallerSha256 = "97dbdd07638e5198b98bf2ad74a1ba907c53f569fcdcdcff330e6c74359f04d7";
+    internal const long InstallerBytes = 526467508;
     internal static string DefaultRoot => Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.UserProfile), "HellForge");
     internal static string CacheRoot => Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "Clonedivers", "installers");
     internal static PackFile Installer => new() { Name = "HellForge-Setup.exe", Url = InstallerUrl, Size = InstallerBytes, Sha256 = InstallerSha256 };
-    internal static bool SupportsVersion(string version) => version == "0.3.0-beta" || System.Text.RegularExpressions.Regex.IsMatch(version, @"^0\.3\.0-beta \([0-9a-f]{7,40}\)$");
+    internal static bool SupportsVersion(string version) => HellForgeRelease.Supports(version);
 
     internal static string ValidateTarget(string value, IEnumerable<string>? cloudRoots = null)
     {

@@ -71,7 +71,7 @@ static class HellForgeTests
                 CompatibilityProblem: "Fixture engine/SDK/isolation mismatch."));
             type.GetMethod("UpdateView", members)!.Invoke(form, null);
             check(end.Enabled && end.Text == "END SESSION", "compatibility mismatch never hides active-session cleanup");
-            Set("lastStatus", new HellForgeStatus(Path.GetTempPath(), "0.3.0-beta (4a5373b)", HellForgePack.SupportedBuild, false, true, false, true, true, null, null,
+            Set("lastStatus", new HellForgeStatus(Path.GetTempPath(), "0.4.0-beta (4a5373b)", HellForgePack.SupportedBuild, false, true, false, true, true, null, null,
                 CompatibilityProblem: "Official WFP isolation has not been set up yet."));
             type.GetMethod("UpdateView", members)!.Invoke(form, null);
             check(end.Enabled && end.Text == "FINISH SETUP" && !recover.Enabled && !sync.Enabled, "fresh pinned Forge offers guided setup while copy/isolation and account steps remain incomplete");
@@ -318,7 +318,7 @@ static class HellForgeTests
             !commands.Mods.Single(m => m.Id == HellForgePack.PackId("empire")).Enabled &&
             commands.Mods.Single(m => m.Id == HellForgeClient.DifficultyId).Enabled,
             "official CLI import selects exactly one Star Wars mode and enables difficulty 11");
-        check(commands.Calls.Any(c => c.SequenceEqual(new[] { "settings", "--multiplayer", "yes", "--local-playfab", "yes" })) &&
+        check(commands.Calls.Any(c => c.SequenceEqual(new[] { "settings", "--multiplayer", "yes", "--local-playfab", "yes", "--steam-udp", "yes" })) &&
             !commands.Calls.Any(c => c.Any(a => a.Contains("sandbox", StringComparison.OrdinalIgnoreCase))),
             "co-op is enabled without changing HellForge sandbox preferences");
         check(File.ReadAllText(sentinel) == "preserve this config", "HellForge operations leave unrelated fallback state untouched");
@@ -542,6 +542,7 @@ static class HellForgeTests
         check(await Reject(async () => { await client.EnsureAccountAsync(); }), "launch cannot proceed with an uncaptured account");
         await AccountImportTests(install, check, Reject);
         await AccountLifecycleTests(Path.Combine(area, "account-lifecycle"), check, Reject).ConfigureAwait(false);
+        await NativeAccountMigrationTests(Path.Combine(area, "native-account-migration"), check, Reject);
         await FormLifecycleTests(check).ConfigureAwait(false);
         FormLayoutTests(check);
     }
@@ -600,6 +601,37 @@ static class HellForgeTests
         var failing = new HellForgeAccount(install, (args, ct) => args[1] == "import" ? throw new IOException("Import failed") : Backend(args, ct));
         check(await reject(() => failing.ImportAsync()) && File.ReadAllText(Path.Combine(folder, "account-import.json")) == beforePolicy && !(await account.ReadAsync()).Imported,
             "failed official imports restore prior choices and never record a successful receipt");
+    }
+
+    static async Task NativeAccountMigrationTests(string root, Action<bool, string> check, Func<Func<Task>, Task<bool>> reject)
+    {
+        var profile = Path.Combine(root, "profiles", "default"); var snapshot = Path.Combine(root, "account-snapshot", "default");
+        Directory.CreateDirectory(Path.Combine(profile, "backups")); Directory.CreateDirectory(snapshot);
+        File.WriteAllText(Path.Combine(profile, "profile.json"), "{\"existingNativeProgress\":true}");
+        File.WriteAllText(Path.Combine(snapshot, "snapshot.json"), "{\"progression\":true}");
+        File.WriteAllText(Path.Combine(snapshot, "real-inventory.json"), "{\"items\":[]}");
+        File.WriteAllText(Path.Combine(snapshot, "progression.json"), "{\"experience\":1000}");
+        var imported = DateTimeOffset.UtcNow;
+        File.WriteAllText(Path.Combine(profile, "backups", imported.ToString("yyyyMMdd-HHmmss-fff") + "-import.json"), "{}");
+        void Capture(DateTimeOffset time) => File.WriteAllText(Path.Combine(snapshot, "seal.json"), JsonSerializer.Serialize(new { steamAccount = "1", capturedUtc = time }));
+        int calls = 0;
+        Task<string> Backend(IReadOnlyList<string> args, CancellationToken _)
+        {
+            if (args[1] == "import-preview") return Task.FromResult("{\"categories\":{\"level\":{\"vanilla\":\"1,000 XP\"}}}");
+            calls++;
+            using var settings = JsonDocument.Parse(File.ReadAllText(Path.Combine(profile, "account-import.json")));
+            var categories = settings.RootElement.GetProperty("categories");
+            check(categories.GetProperty("level").GetProperty("rule").GetString() == "Higher" && categories.GetProperty("armory").GetProperty("rule").GetString() == "Merge" &&
+                categories.GetProperty("currencies").GetProperty("rule").GetString() == "Higher" && !categories.GetProperty("ship").GetProperty("include").GetBoolean(),
+                "a native Forge character is linked with forward merge, retaining earned progress and ship settings");
+            return Task.FromResult("fixture committed");
+        }
+        var account = new HellForgeAccount(root, Backend); Capture(imported.AddMinutes(-1));
+        check(!(await account.ReadAsync()).Captured && await reject(() => account.ImportAsync()) && calls == 0,
+            "an existing native import cannot be replayed merely because the Clonedivers receipt is missing");
+        Capture(imported.AddMinutes(1)); await account.ImportAsync();
+        check(calls == 1 && (await account.ReadAsync()).Imported && File.ReadAllText(Path.Combine(profile, "profile.json")).Contains("existingNativeProgress"),
+            "a fresh verified capture links the native character without creating or resetting its profile");
     }
 
     static async Task AccountLifecycleTests(string install, Action<bool, string> check, Func<Func<Task>, Task<bool>> reject)
@@ -809,7 +841,7 @@ static class HellForgeTests
             object result;
             switch (args[0])
             {
-                case "status": result = new { install = root, hellforge = "0.3.0-beta (fixture)", engine = "0.1.41", modSdk = 15, networkBlock = "wfp", gameBuild = Build, ready = new { gameCopy = Ready, sessionRunner = true, linuxNamespace = false },
+                case "status": result = new { install = root, hellforge = "0.4.0-beta (d8a8b46)", engine = "0.1.47", modSdk = 16, networkBlock = "wfp", gameBuild = Build, ready = new { gameCopy = Ready, sessionRunner = true, linuxNamespace = false },
                     session = new { running = Running, lastStatus = LastStatus, lastFailure = (string?)null, lastRun = LastRun }, settings = new { multiplayer = Multiplayer, localPlayFab = true, sandbox = true } }; break;
                 case "mods": result = new { mods = Mods.Select(m => new { id = m.Id, name = m.Name, enabled = m.Enabled, folder = m.Folder, tags = m.Tags, version = m.Version,
                     options = m.Options?.Select(o => new { name = o.Name, on = o.On }) }), problems = Array.Empty<string>(), modlist = "fixture-code" }; break;

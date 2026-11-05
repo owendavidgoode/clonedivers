@@ -5,4 +5,5 @@
   <ItemGroup><Compile Include="../Clonedivers.Linux/LinuxForgeTransport.cs" Link="LinuxForgeTransport.cs" /></ItemGroup>
   <ItemGroup><Compile Include="../Clonedivers.Linux/LinuxForgePlayer.cs" Link="LinuxForgePlayer.cs" /></ItemGroup>
   <ItemGroup><Compile Include="../Clonedivers.Linux/ForgeEntryPolicy.cs" Link="ForgeEntryPolicy.cs" /></ItemGroup>
+  <ItemGroup><Compile Include="../Clonedivers.Linux/LinuxForgeBootstrap.cs" Link="LinuxForgeBootstrap.cs" /></ItemGroup>
 </Project>

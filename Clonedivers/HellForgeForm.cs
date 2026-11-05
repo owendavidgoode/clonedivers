@@ -164,6 +164,8 @@ public sealed class HellForgeForm : Form
         prepare.Click += async (_, _) => await PrepareAsync();
         launch.Click += async (_, _) => {
             if (lastStatus?.Running == true) await EndSessionAsync();
+            else if (preferences.InstallRoot is { } root && HellForgeSetup.UpgradeProblem(root) != null) await RecoverForgeAsync();
+            else if (lastStatus is { } old && HellForgeSetup.IsPrevious(old.Version)) await UpgradeForgeAsync();
             else if (preferences.InstallRoot == null || lastStatus is { GameCopyReady: false } or { RunnerReady: false }) await SetupAsync();
             else if (!SteamReadyCheck()) await LaunchAsync();
             else if (NeedsGameplaySetup()) await PrepareAsync();
@@ -277,6 +279,14 @@ public sealed class HellForgeForm : Form
             if (lastError != null) detail.Text += " Status check: " + lastError;
             if (lastStatus?.Running == true) { prepare.Enabled = false; launch.Text = "END SESSION"; launch.Enabled = true; }
             return;
+        }
+        if (preferences.InstallRoot is { } upgradeRoot && HellForgeSetup.UpgradeProblem(upgradeRoot) is { } upgradeProblem) {
+            state.Text = "Restore the previous Forge application"; detail.Text = upgradeProblem; launch.Text = "RECOVER FORGE UPGRADE"; launch.Enabled = true;
+            prepare.Enabled = accountSync.Enabled = false; return;
+        }
+        if (lastStatus is { } old && HellForgeSetup.IsPrevious(old.Version)) {
+            state.Text = "Upgrade HellForge for squad play"; detail.Text = "Install official Forge 0.4.0 with the Linux relay, squad and D11 fixes. Your game copy, mods and account are retained, with a previous-version recovery installer.";
+            launch.Text = "UPDATE HELLFORGE"; launch.Enabled = true; prepare.Enabled = accountSync.Enabled = false; return;
         }
         if (lastStatus != null && HellForgeSetup.SupportsVersion(lastStatus.Version) && lastStatus.Build == HellForgePack.SupportedBuild && (!lastStatus.GameCopyReady || !lastStatus.RunnerReady)) {
             state.Text = "Let’s finish your setup";
@@ -404,7 +414,25 @@ public sealed class HellForgeForm : Form
         // in-flight mod/account operation; those were never started by this path.
         working = false; Close();
     });
-    bool NeedsGameplaySetup() => lastMods != null && HellForgePreset.Problem(lastMods with { HostingProblem = null }) != null;
+    bool NeedsGameplaySetup() => lastMods != null && HellForgePreset.Problem(lastMods) != null;
+    async Task UpgradeForgeAsync() => await OperationAsync(async () => {
+        var report = new Progress<ForgeSetupProgress>(p => { if (!IsDisposed) message.Text = p.Message; });
+        await HellForgeSetup.UpdateAsync(preferences.InstallRoot!, report, WorkToken);
+        var client = Client(); await InstallGameplayCoreAsync(client);
+        // The supported game build and selected appearance have not changed. Keep
+        // a prepared appearance; launch still verifies all bytes before staging it.
+        var current = await client.ModsAsync(WorkToken);
+        bool selected = preferences.AppliedSelection == preferences.SelectionKey;
+        try { if (preferences.IsRegular) HellForgeClient.RequireRegular(current); else HellForgeClient.RequireSelected(current, preferences.Selection()); }
+        catch (InvalidDataException) { selected = false; }
+        var status = await client.StatusAsync(WorkToken);
+        if (!selected || !status.Multiplayer || !status.LocalBackend) await PrepareCoreAsync();
+        message.Text = "Forge 0.4.0 and the current preset are ready. Your character and appearance were retained; launch verifies the selected files.";
+    });
+    async Task RecoverForgeAsync() => await OperationAsync(async () => {
+        await HellForgeSetup.RecoverUpgradeAsync(preferences.InstallRoot!, WorkToken);
+        message.Text = "Previous Forge application restored. Your character was not reset or reimported.";
+    });
     void EnableModeSetup() { launch.Text = "SET UP SELECTED MODE"; launch.Enabled = true; }
     bool NeedsModeSetup()
     {
@@ -431,7 +459,7 @@ public sealed class HellForgeForm : Form
         message.Text = "Checking every required gameplay mod…";
         var missing = await client.MissingGameplayAsync(WorkToken);
         var catalog = await client.ModsAsync(WorkToken);
-        if (missing.Count == 0 && HellForgePreset.Problem(catalog with { HostingProblem = null }) == null) return;
+        if (missing.Count == 0 && HellForgePreset.Problem(catalog) == null) return;
         cancelPreparation.Visible = true;
         await HellForgeGameplayCatalog.StageAsync(client.GameplayCache, missing, report, WorkToken);
         cancelPreparation.Visible = false;

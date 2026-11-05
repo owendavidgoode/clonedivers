@@ -79,12 +79,12 @@ internal sealed class HellForgeSetupForm : Form
     {
         var steamReady = preview || HellForgeForm.SteamReadyCheck();
         steam.Text = "1. Steam — " + (steamReady ? "signed in" : "open Steam and sign in");
-        installed.Text = "2. Forge — " + (InstallationRoot != null ? "installed" : "ready to install");
+        installed.Text = "2. Forge — " + (status != null && HellForgeSetup.IsPrevious(status.Version) ? "update available" : InstallationRoot != null ? "installed" : "ready to install");
         game.Text = "3. Game copy — " + (ready ? "ready" : managerOpened ? "finish in the Forge window" : "set up after installation");
         change.Enabled = locate.Enabled = !busy && !polling && !managerOpened;
         next.Enabled = !preview && !busy && !polling && status?.Running != true && !Game.IsRunning();
         cancel.Enabled = !busy || canPause; cancel.Text = busy ? canPause ? "Pause download" : "Installing…" : "Close";
-        next.Text = ready ? "RETURN TO CLONEDIVERS" : !steamReady ? "OPEN STEAM" : InstallationRoot == null ? "INSTALL FORGE" : "CONTINUE GAME SETUP";
+        next.Text = ready ? "RETURN TO CLONEDIVERS" : !steamReady ? "OPEN STEAM" : InstallationRoot == null ? "INSTALL FORGE" : status != null && HellForgeSetup.IsPrevious(status.Version) ? "UPDATE HELLFORGE" : "CONTINUE GAME SETUP";
         if (status?.Running == true || !preview && Game.IsRunning()) detail.Text = "A game session is running. End it in its launcher before continuing setup.";
         else if (ready) detail.Text = "Forge game setup passed. Return to install the required gameplay preset and selected appearance automatically. You’ll then sync your own HD2 account.";
         else if (!busy && string.IsNullOrWhiteSpace(detail.Text)) detail.Text = "No downloads, folders or commands to find. We’ll guide you through each step.";
@@ -119,6 +119,8 @@ internal sealed class HellForgeSetupForm : Form
                 InstallationRoot = await HellForgeSetup.InstallAsync(folder.Text, updates, download.Token);
                 Connected?.Invoke(InstallationRoot);
             }
+            else if (status != null && HellForgeSetup.IsPrevious(status.Version))
+                await HellForgeSetup.UpdateAsync(InstallationRoot, new Progress<ForgeSetupProgress>(p => { if (!IsDisposed) detail.Text = p.Message; }), lifetime.Token);
             await OpenManagerAsync();
         }
         catch (OperationCanceledException) { detail.Text = "Download paused. Continue to resume it; existing installations are unchanged."; }
@@ -133,6 +135,7 @@ internal sealed class HellForgeSetupForm : Form
         if (current.Running || Game.IsRunning()) throw new InvalidOperationException("End the current game session before continuing setup.");
         if (!HellForgeSetup.SupportsVersion(current.Version) || current.Build != HellForgePack.SupportedBuild)
             throw new InvalidDataException("This installation is a different Forge version. Setup will not replace it. Choose a separate pinned installation.");
+        if (current.GameCopyReady && current.RunnerReady && current.CompatibilityProblem == null) { ready = true; DialogResult = DialogResult.OK; Close(); return; }
         if (ManagerRunning(root)) { managerOpened = true; detail.Text = "In the Forge window, click Start setup. Approve its Windows prompt when asked. We’ll detect completion here."; return; }
         manager?.Dispose(); manager = Process.Start(new ProcessStartInfo(Path.Combine(root, "HellForge.exe")) { UseShellExecute = true, WorkingDirectory = root });
         managerOpened = true;
@@ -147,7 +150,7 @@ internal sealed class HellForgeSetupForm : Form
         {
             status = await new HellForgeClient(InstallationRoot).StatusAsync(lifetime.Token);
             ready = status.GameCopyReady && status.RunnerReady && !status.Running && status.CompatibilityProblem == null;
-            if (ready && managerOpened && !ManagerRunning(InstallationRoot)) { polling = false; DialogResult = DialogResult.OK; Close(); }
+            if (ready && managerOpened) { polling = false; DialogResult = DialogResult.OK; Close(); }
         }
         catch (OperationCanceledException) { }
         catch (Exception e) { ready = false; detail.Text = "Setup is not ready yet. " + HellForgeForm.FailureSummary(e.Message); }
