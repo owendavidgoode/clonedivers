@@ -1,196 +1,84 @@
 # Updating Clonedivers to Forge
 
-Clonedivers is now the Forge launcher: Regular, Clones and Empire run in a
-separate HellForge installation. Launch the official online HD2 game from Steam.
-Windows version 1.12.0 replaces the old launcher through its existing update
-button. Linux x86-64 version 0.6.2 replaces the old package/portable launcher.
-
-Windows now includes guided installation of the pinned official Forge application;
-its official wizard still obtains the player's separate game copy. Setup then
-downloads and imports the complete pinned gameplay preset. Other authors' archives
-come directly from their releases; the permission-cleared SEAF fixes use project
-assets. No account or game copy is bundled. Linux gameplay and Windows–Linux
-multiplayer still require real-machine testing. A successful update is not a
-multiplayer certification.
+Windows 1.13.0 and Linux x86-64 0.7.0 target official HellForge 0.4.0-beta,
+engine 0.1.47, SDK 16, game 25480438. Use Regular, Clones or Empire here; start the
+official online game directly through Steam. Progress imports HD2 → Forge only.
 
 ## Windows
 
-For a new player, open Clonedivers and press **Set up Clonedivers**. No GitHub
-download, terminal command or manual Locate step is required for the normal path.
-The guided window checks Steam, downloads the pinned author's installer with
-size/SHA256 verification, installs Forge into a separate folder and remembers it.
-The default is `%USERPROFILE%\HellForge`, outside OneDrive; Change folder lets
-the player choose another drive. Allow at least 50 GB plus appearance-pack space.
-Interrupted downloads resume. Existing installations are reused, never silently
-updated or replaced. A new installation is staged and validated before promotion.
+Close HD2 and the official Forge manager, then update Clonedivers through its
+existing Check updates action. All three old update feeds preserve their Steam
+pack data and offer the same verified new executable.
 
-Clonedivers then opens the official Forge game-setup window. Click **Start setup**
-there and approve its Windows prompt yourself. Steam login, ownership verification
-and security approval remain player actions. If the current Steam build cannot
-be converted, follow the supported-build download instructions in that window.
-The pinned official CLI does not expose this first game-copy/isolation wizard as
-an unattended setup command; Clonedivers does not bypass it.
+An existing0.3 installation offers **Update HellForge**. Clonedivers verifies the
+new author installer and retains the verified previous installer, snapshots
+account/profile/settings files privately, and runs the official supported
+`--unpack` update. Failed known outcomes restore the previous official application;
+an unknown outcome stays pending for explicit recovery. A profile backup is never
+replayed automatically. The supported game copy, account and mods are retained.
 
-The guided window detects completion without a Locate or Refresh step. Return
-to Clonedivers (or close the official manager for automatic return); setup installs
-all eight additional gameplay packages and prepares the selected appearance.
-For an existing installation, **Install required mods** / **Set up selected mode**
-performs the same operation. Heavy/Squad use the newly permission-cleared exact
-compatibility builds; other packages are fetched from authors. Settings include
-the tested order, loader/menu activation, safe Guard Dogs options and marker OFF.
-Known conflicting alternatives are disabled; unrelated mods are preserved.
-Then **Sync HD2 account**. In the official manager, confirm **Share my gameplay
-mods with players who join** is OFF; the supported CLI does not expose that switch.
-Each player obtains author files through setup, rather than automatic re-sharing.
-Closing an unfinished setup remembers the connected installation; **Finish
-setup** resumes the guided flow. Active game sessions are left running and block
-installation. A failed new unpack is retained separately for diagnosis and never
-replaces an existing installation or account.
+For a new player, **Set up Clonedivers** downloads and verifies the author app,
+opens official game setup, detects completion and continues automatically into
+the gameplay preset and appearance. Steam sign-in/QR approval and Windows system
+approval remain player actions. No manual engine download, Locate or mod import
+is part of the standard path.
 
-Close HD2, open the old launcher and accept its launcher update. All three old
-manifest routes advertise the same SHA256-verified Forge executable; their game
-pack data is preserved. If the launcher cannot replace itself, download
-Clonedivers.exe from the latest GitHub release into a writable folder.
+## Linux
 
-The new launcher opens Forge by default. An adjacent .old.exe left by the updater
-is copied to `%LOCALAPPDATA%\Clonedivers\launcher-backups\<SHA256>.exe` before
-cleanup. If backup fails, the adjacent old file stays in place. Existing settings,
-Steam files, Forge account/profile and mod options are not reset. A manual
-download should go in a new folder; keep the prior executable yourself.
+Install the complete .deb, or extract the entire portable archive including its
+forge/ folder. The package replaces the same application/menu entry. Linux update
+notices still require package installation; close the old launcher first.
 
-Use Check updates inside the Forge launcher for later releases. It accepts only
-the explicitly marked Forge channel and the repository's pinned versioned EXE,
-with exact size/SHA256 and idle checks before replacement. Game/account-sync
-sessions must finish first. The original updater already asks before downloading
-and restarting; this rollout does not force-close anyone's game or launcher.
+Press **Set up / update Forge**. Clonedivers installs missing Ubuntu/Debian tools
+through desktop approval, downloads/verifies the author's native Linux installer,
+and opens it. Keep an existing player's prefix selected; the default prefix is
+found automatically. Pick Proton and continue the official game/ownership setup.
+Clonedivers reconnects and continues the selected preset when game setup is ready.
+A custom existing installation can be selected with Locate; it is never silently
+replaced with a new character in another prefix.
 
-## Ubuntu/Debian x86-64
-
-The old Linux launcher checks for versioned Linux releases and will show the new
-0.6.2 release. It does not replace installed software by itself. Download the
-complete `Clonedivers-linux-x64.deb` from `linux-v0.6.2`, close the launcher, then
-install it with your package manager or:
-
-```sh
-sudo apt install ./Clonedivers-linux-x64.deb
-```
-
-The existing Clonedivers application/menu entry now opens Forge. Its native
-binary and adjacent forge/ companion are installed together under
-`/usr/lib/clonedivers`; `/usr/bin/clonedivers` forwards arguments to that binary.
-User configuration and account files are outside the package and are preserved.
-
-Portable users should extract the **entire** new TAR.GZ into a fresh directory,
-keep `clonedivers` beside `forge/`, and run `./clonedivers --gui`. Replacing only
-the executable is insufficient. Keep the old directory for rollback. Later
-Forge update notices use a separate cache and require a Forge channel marker,
-so they cannot accidentally offer a legacy Steam-only package.
-
-Only x86-64 Forge packages are supported. Snap/Flatpak **Steam** roots are
-discovered; Clonedivers and Forge still run outside those application sandboxes,
-with Forge in its own Proton prefix. This is not a Snap/Flatpak package of Forge.
-The pinned upstream scripts describe Snap/Flatpak Steam as untested. Discovery
-fixtures do not qualify their Steam bridge, Proton gameplay or multiplayer.
-ARM64/Deck and actual Linux account capture are also unqualified.
+The0.7 controller uses the installed native CLI, native account verifier and
+native manager. The official SessionRunner starts Proton, the network namespace,
+Valve relay whitelist and sandbox supervisor. No 0.3 scripts are copied over the
+new runtime, and neither a signed-in account nor namespace entry is invented with
+environment values. `pasta` (package passt) and Python3 are required for this squad
+build; missing relay tools block readiness. The .deb recommends passt and the
+setup action requests it explicitly. On distributions without it, co-op remains
+unqualified and blocked rather than silently falling back to solo operation.
 
 ## First Forge setup
 
-1. Windows: open Clonedivers and use its enabled **Set up Clonedivers** action;
-   it downloads/verifies the author installer and leads into the full preset.
-   Linux: obtain `HellForge-Setup.exe` from the author's
-   [official 0.3.0-beta release](https://github.com/SkyeShade/HellForge/releases/tag/v0.3.0-beta), engine **0.1.41**, SDK **15**, game
-   **25480438**. Keep supported isolation and sandbox enabled. Use a separate
-   installation outside Steam. Linux needs the official namespace setup in a
-   dedicated Proton prefix with Forge under its `pfx/drive_c`.
-2. In Clonedivers, use Setup & mods and Locate/Connect. The pinned official CLI
-   performs setup/session/mod operations. Updating the launcher never repairs
-   an active game reporting staged gameCopy=false.
-3. Import only your own verified HD2 account through the official backend.
-   On Windows, request **Sync HD2 account**, then use the official manager's
-   Profile > Account sync > Sync Inventory. Default is selected automatically.
-   Approve Windows yourself, pass the HD2 title screen, and close HD2. Keep
-   Clonedivers open so it can finish the verified import after cleanup; if you
-   closed it, use **Finish account sync** after reopening.
-   Progress imports HD2 → Forge; Forge progress does not count back in official
-   HD2. Do not share captures, profiles, receipts or keys or reimport stale data.
-4. Obtain permitted matching gameplay mods and prepare the chosen appearance.
-   **Set up selected mode** now obtains the complete pinned gameplay preset.
-   Heavy/Squad compatibility distribution is covered by the project owner's
-   confirmation of written author permission; see SEAF-COMPATIBILITY-PERMISSION.md.
-   Other authors' files are downloaded directly and never mirrored here. A fresh
-   installation stays blocked until all required mods, settings and account are ready.
-5. Manually turn OFF official host gameplay-mod sharing. Each peer obtains the
-   matching preset through setup; separate authors' re-sharing terms still apply. Check account, options,
-   startup and mission behavior before a controlled two-PC test.
+**Set up selected mode** obtains seven additional pinned gameplay archives:
+Heavy SEAF, Squad Stratagems, native Smarter SEAF, Operation Reroller, Bingus Shared
+Loader, Mod Options Menu and Smarter Guard Dogs. Three baseline mods come from
+Forge. Appearance assets are verified and reused/downloaded separately with the
+large-download prompt. Credits and permission scope are retained.
 
-### Linux setup before Connect
+Setup applies load order, loader/menu options, Guard Dogs AI/safety ON and target
+markers OFF. It disables known conflicting alternatives and the retired private
+mine-boundary fix: engine 0.1.47 now supplies that fix. The old fix is kept disabled
+for recovery rather than deleted. Automatic host gameplay-mod sharing is set OFF
+through the author's documented atomic preferences-file contract, preserving
+other fields. Each player acquires their own matching preset through setup.
 
-Follow the [pinned author's Linux setup guide](https://github.com/SkyeShade/HellForge/blob/b1aef771474710eab5461d360444cd80a809c70c/docs/linux.md).
-The Clonedivers package does not contain the Windows Forge installer or game.
-Keep your usual owning Steam client running and signed in. Do not install a
-second Steam client or change your desktop URI handler to set up Forge.
+For account sync, the default profile is selected automatically. Use official
+Forge's Profile > Account sync > Sync Inventory, approve the system helper and
+pass the HD2 title screen. Forge 0.4 closes the normal game after capture. Keep
+Clonedivers open: it finishes a requested, verified one-way import after cleanup.
+An old snapshot is never replayed at startup. A character previously imported in
+native Forge needs a fresh verified capture when first linked; its earned Forge
+progress is merged forward rather than reset or refunded from an old snapshot.
+Never share account snapshots, seal keys, profiles or import receipts.
 
-1. Install the guide's dependencies (`socat`, `iproute2`, `util-linux`, `procps`
-   on Ubuntu/Debian) and install Proton in your existing Steam client.
-2. Choose the **Steam client root**, not `/mnt/extrassd/SteamLibrary`. For Snap,
-   this is normally `$HOME/snap/steam/common/.local/share/Steam`. For native Steam,
-   normally `$HOME/.local/share/Steam` or `$HOME/.steam/debian-installation`.
-   Find your installed Proton's `proton` script in that client's libraries.
-   Adjust these example paths before running:
+## Recovery and testing
 
-   ```sh
-   steam_root="$HOME/snap/steam/common/.local/share/Steam"
-   proton="$steam_root/steamapps/common/Proton 11.0/proton"
-   prefix="$HOME/.local/share/hellforge-prefix"
-   mkdir -p "$prefix"
-   STEAM_COMPAT_CLIENT_INSTALL_PATH="$steam_root" \
-   STEAM_COMPAT_DATA_PATH="$prefix" \
-   "$proton" run "$HOME/Downloads/HellForge-Setup.exe"
-   ```
+A pending application update offers **Recover Forge upgrade**. Gameplay and
+appearance transactions have their own recovery actions. End sessions through the
+launcher that started them; an active staged gameCopy=false is never a repair
+request. Ordinary HD2 and its Steam fallback files remain separate.
 
-3. Keep the suggested install inside the prefix's C: drive, usually
-   `pfx/drive_c/users/steamuser/Documents/HellForge`. Close the manager that setup
-   opens outside the namespace. Continue with the author's namespace/depot steps;
-   review any requested administrator action yourself. Do not disable AppArmor
-   or bypass a failed isolation check. The official setup must obtain the pinned
-   game build; your current Steam game is not that copy.
-4. Start the installed official wrapper with the same Steam root:
-
-   ```sh
-   STEAM_COMPAT_CLIENT_INSTALL_PATH="$steam_root" \
-   bash "$prefix/pfx/drive_c/users/steamuser/Documents/HellForge/app/linux/hellforge-linux.sh"
-   ```
-
-   Complete official setup, close its manager/session, then use Clonedivers
-   Locate to select that `HellForge` folder. Terminal diagnostics accept:
-
-   ```sh
-   STEAM_COMPAT_CLIENT_INSTALL_PATH="$steam_root" clonedivers --forge \
-     --forge-root "$prefix/pfx/drive_c/users/steamuser/Documents/HellForge" status
-   ```
-
-Clonedivers reads its saved selection from
-`${XDG_CONFIG_HOME:-$HOME/.config}/clonedivers/forge.json`; it does not scan Steam
-for a Forge installation or create one automatically. Steam ownership discovery
-does scan native, Flatpak and Snap client roots and their `libraryfolders.vdf`.
-Snap `/var/lib/snapd/hostfs/mnt/...` library entries map to host `/mnt/...` paths.
-With multiple clients and no reliable HD2 owner, set the supported
-`STEAM_COMPAT_CLIENT_INSTALL_PATH` explicitly rather than letting another client
-be selected. This variable selects Steam; `STEAM_COMPAT_DATA_PATH` is Forge's
-separate prefix and is not a Steam client root.
-
-## One-time Steam cleanup and recovery
-
-The update does **not** remove old Clonedivers files from Steam's live game.
-If that game still has the old pack enabled, close the game and use the retained
-legacy launcher (or the new launcher's explicit `--steam` recovery mode) to select
-Helldivers and park those old mods yourself before treating Steam as vanilla.
-Review any other installed mods before changing them. No automatic live Steam
-file edit or forced game shutdown is part of this migration.
-
-The main launcher stays Forge. Hidden `--steam` is a recovery tool, not the
-normal player workflow. For regular official HD2, use Steam directly. Roll back
-launcher software with the retained executable/package, never by restoring an
-old account profile. Native in-game Quit hanging remains open; use End session
-for official Forge cleanup. See docs/FORGE.md and the squad acceptance checklist
-in the repository for qualification details.
+Windows update/profile-preservation tests, real official-CLI preset imports and
+initialization, and Linux source/package checks are distinct qualifications.
+Extraction/rewards and real two/three/four-PC Windows/Linux squads still need
+acceptance tests. See [the 0.4 integration record](FORGE-0.4-TURNKEY-2026-11-05.md)
+and [squad acceptance](HELLFORGE-SQUAD-ACCEPTANCE.md).

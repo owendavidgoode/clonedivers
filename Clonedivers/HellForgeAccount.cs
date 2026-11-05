@@ -27,10 +27,16 @@ public sealed class HellForgeAccount
 
     public static string? CaptureBlock()
     {
-        var captures = Process.GetProcessesByName("HellForge.CaptureProxy");
-        try { if (captures.Length > 0) return "Account sync is still running. Finish the normal HD2 login, close the game, and let HellForge finish cleanup before launching."; }
+        var captures = OperatingSystem.IsLinux() ? Process.GetProcesses() : Process.GetProcessesByName("HellForge.CaptureProxy");
+        try
+        {
+            foreach (var process in captures)
+                try { if (!process.HasExited && (!OperatingSystem.IsLinux() || process.ProcessName.StartsWith("HellForge.Capt", StringComparison.Ordinal)))
+                    return "Account sync is still running. Finish the normal HD2 login and let HellForge finish capture cleanup before launching."; }
+                catch (InvalidOperationException) { }
+        }
         finally { foreach (var process in captures) process.Dispose(); }
-        var hosts = Path.Combine(Environment.SystemDirectory, "drivers", "etc", "hosts");
+        var hosts = OperatingSystem.IsLinux() ? "/etc/hosts" : Path.Combine(Environment.SystemDirectory, "drivers", "etc", "hosts");
         if (File.Exists(hosts) && File.ReadLines(hosts).Any(line => line.Contains("# HellForge-CaptureProxy", StringComparison.OrdinalIgnoreCase)))
             return "Account sync cleanup is pending. Open HellForge > Profile > Account sync > Clean up before launching.";
         return null;
@@ -151,6 +157,19 @@ public sealed class HellForgeAccount
         }
         return latest;
     }
+    DateTimeOffset? LatestNativeImport()
+    {
+        var folder = FileSafety.Child(profile, "backups"); if (!Directory.Exists(folder)) return null;
+        DateTimeOffset? latest = null; int count = 0;
+        foreach (var file in Directory.EnumerateFiles(folder, "*-import.json"))
+        {
+            if (++count > 1024) throw new InvalidDataException("Too many native import records to review safely.");
+            FileSafety.RejectLink(file); var name = Path.GetFileNameWithoutExtension(file);
+            if (name.Length == 26 && DateTimeOffset.TryParseExact(name[..19], "yyyyMMdd-HHmmss-fff", CultureInfo.InvariantCulture,
+                DateTimeStyles.AssumeUniversal | DateTimeStyles.AdjustToUniversal, out var utc) && (latest == null || utc > latest)) latest = utc;
+        }
+        return latest;
+    }
 
     void RequireOwner(Receipt receipt, VerifiedCapture capture)
     {
@@ -169,6 +188,8 @@ public sealed class HellForgeAccount
 
     HellForgeAccountState State(VerifiedCapture capture, Receipt? receipt, Pending? pending)
     {
+        if (receipt == null && pending == null && LatestNativeImport() is { } native && capture.CapturedUtc <= native)
+            return new(false, false, "This character already has an official Forge import. Sync a fresh HD2 capture before linking it to Clonedivers; its earned Forge progress will be kept and an old capture will not be replayed.");
         if (receipt != null) RequireOwner(receipt, capture);
         if (pending != null)
         {
@@ -243,6 +264,7 @@ public sealed class HellForgeAccount
         var receiptBefore = ReadReceipt();
         var pendingBefore = ReadPending();
         var state = State(capture, receiptBefore, pendingBefore);
+        if (!state.Captured) throw new InvalidOperationException(state.Message);
         if (state.Imported)
         {
             if (receiptBefore?.Account == null && receiptBefore != null) BindLegacy(receiptBefore, capture);
@@ -257,13 +279,14 @@ public sealed class HellForgeAccount
         var key = capture.Key;
         var settings = Checked(profile, "account-import.json", 64 * 1024);
         var first = receiptBefore == null;
+        var adoptingNative = first && LatestNativeImport() != null;
         // Initial import takes account values; later captures preserve earned Forge progress. No unlock-all choice.
         var categories = new Dictionary<string, object>();
         foreach (var (id, rule) in new[] {
-            ("level", first ? "Vanilla" : "Higher"), ("warbondItems", "Merge"),
-            ("armory", first ? "Vanilla" : "Merge"), ("packages", first ? "Vanilla" : "Higher"),
-            ("currencies", first ? "Vanilla" : "Higher"), ("ship", "Vanilla"), ("onboarding", "Vanilla") })
-            categories[id] = new { include = first || id is not ("ship" or "onboarding"), rule };
+            ("level", first && !adoptingNative ? "Vanilla" : "Higher"), ("warbondItems", "Merge"),
+            ("armory", first && !adoptingNative ? "Vanilla" : "Merge"), ("packages", first && !adoptingNative ? "Vanilla" : "Higher"),
+            ("currencies", first && !adoptingNative ? "Vanilla" : "Higher"), ("ship", "Vanilla"), ("onboarding", "Vanilla") })
+            categories[id] = new { include = first && !adoptingNative || id is not ("ship" or "onboarding"), rule };
         var temporary = Checked(profile, "account-import.json.tmp", 64 * 1024);
         var backups = FileSafety.Child(profile, "backups");
         if (Directory.Exists(backups)) foreach (var file in Directory.EnumerateFileSystemEntries(backups)) FileSafety.RejectLink(file);
@@ -303,8 +326,8 @@ public sealed class HellForgeAccount
     async Task<string> RunBackendAsync(IReadOnlyList<string> args, CancellationToken ct)
     {
         var app = FileSafety.Child(root, "app");
-        var folder = FileSafety.Child(app, "backend");
-        var exe = FileSafety.Child(folder, "HellForge.LocalBackend.exe");
+        var folder = FileSafety.Child(app, OperatingSystem.IsLinux() ? "backend-linux" : "backend");
+        var exe = FileSafety.Child(folder, OperatingSystem.IsLinux() ? "HellForge.LocalBackend" : "HellForge.LocalBackend.exe");
         var start = new ProcessStartInfo(exe) { UseShellExecute = false, CreateNoWindow = true, RedirectStandardOutput = true, RedirectStandardError = true };
         foreach (var arg in args) start.ArgumentList.Add(arg);
         return await RunBackendProcessAsync(start, args.Count > 1 && args[1] == "import", ct);

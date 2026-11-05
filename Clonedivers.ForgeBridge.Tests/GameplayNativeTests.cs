@@ -14,7 +14,7 @@ internal static class GameplayNativeTests
             var connection = new Connection(root);
             var player = new LinuxForgePlayer(connection, new() { InstallRoot = root });
             await player.InstallGameplayAsync();
-            check(connection.Imported == "C:\\Clonedivers-HellForge-cache\\gameplay\\build25480438-r1", "native gameplay stages outside the namespace and sends only the bounded prefix C: cache path to the bridge");
+            check(connection.Imported == "C:\\Clonedivers-HellForge-cache\\gameplay\\build25480438-r2", "native gameplay stages outside the namespace and sends only the bounded prefix C: cache path to the bridge");
             var badRoot = Path.Combine(fixture, "gameplay-rejected", "pfx", "drive_c", "Forge");
             connection = new Connection(badRoot) { Missing = [HellForgeGameplayCatalog.Pinned.Artifacts[0] with { Url = "https://untrusted.invalid/fixture.zip" }] };
             player = new(connection, new() { InstallRoot = badRoot });
@@ -24,7 +24,8 @@ internal static class GameplayNativeTests
             try { await player.InstallGameplayAsync(); throw new Exception("Active session accepted gameplay changes."); }
             catch (InvalidOperationException) { check(connection.Imported == null, "native gameplay setup refuses an active session before staging or importing"); }
             BridgeSession.Validate(["gameplay-status"]); BridgeSession.Validate(["recover-gameplay"]);
-            BridgeSession.Validate(["install-gameplay", "--file", "C:\\Clonedivers-HellForge-cache\\gameplay\\build25480438-r1"]);
+            var staged = OperatingSystem.IsLinux() ? Path.Combine(fixture, "native-stage", "build25480438-r2") : "C:\\Clonedivers-HellForge-cache\\gameplay\\build25480438-r2";
+            BridgeSession.Validate(["install-gameplay", "--file", staged]);
             check(true, "bridge accepts the complete-preset protocol without exposing executable or account controls");
             foreach (var path in new[] { "Z:\\tmp\\mods", "C:\\cache\\..\\profiles" })
             {
@@ -46,7 +47,7 @@ internal static class GameplayNativeTests
             {
                 "gameplay-status" => Missing,
                 "install-gameplay" => Install(args[2]),
-                "player-status" => new ForgePlayerState(new(root, "0.3.0-beta", HellForgePack.SupportedBuild, true, true, Running, true, true, null, null), false, "Fixture requires own account", null, null),
+                "player-status" => new ForgePlayerState(new(root, "0.4.0-beta", HellForgePack.SupportedBuild, true, true, Running, true, true, null, null), false, "Fixture requires own account", null, null),
                 _ => throw new InvalidOperationException("Unexpected fixture command: " + args[0])
             };
             return Task.FromResult(JsonSerializer.SerializeToElement(reply, HellForgePack.Json));

@@ -195,14 +195,24 @@ public static class HellForgePack
 
     public static async Task VerifyAsync(string folder, Selection expected, CancellationToken ct = default)
     {
+        await VerifyMetadataAsync(folder, expected, ct);
+        await VerifyContentAsync(folder, expected, ct);
+    }
+    // Fast readiness only. Every launch still runs full content verification.
+    public static async Task VerifyMetadataAsync(string folder, Selection expected, CancellationToken ct = default)
+    {
         FileSafety.RejectLink(folder);
         var receiptPath = FileSafety.Child(folder, ReceiptName);
         if (!File.Exists(receiptPath) || new FileInfo(receiptPath).Length > 4 * 1024 * 1024) throw new InvalidDataException("Pack receipt missing or oversized; prepare the pack again.");
         var receipt = JsonSerializer.Deserialize<Receipt>(await File.ReadAllTextAsync(receiptPath, ct), Json);
         if (receipt?.Format != 1 || receipt.Selection is not { } actual || actual.GameBuild != expected.GameBuild ||
             actual.ManifestSha256 != expected.ManifestSha256 || actual.Mode != expected.Mode || actual.Texture != expected.Texture ||
-            actual.Version != expected.Version || actual.Files == null || !SameFiles(actual.Files, expected.Files))
+            actual.Version != expected.Version || actual.Files == null || !SameFiles(actual.Files, expected.Files) || actual.Options == null ||
+            actual.Options.Count != expected.Options.Count || expected.Options.Any(pair => !actual.Options.TryGetValue(pair.Key, out var value) || value != pair.Value))
             throw new InvalidDataException("This pack does not match the selected mode/options; prepare it again.");
+    }
+    static async Task VerifyContentAsync(string folder, Selection expected, CancellationToken ct)
+    {
         // Compare to the trusted catalog, not only the mutable receipt.
         foreach (var file in expected.Files)
         {

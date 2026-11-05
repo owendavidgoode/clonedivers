@@ -7,6 +7,12 @@ using System.Runtime.InteropServices;
 var passed = 0;
 void Check(bool ok, string name) { if (!ok) throw new Exception("FAIL: " + name); Console.WriteLine("PASS: " + name); passed++; }
 void Reject(Action action, string name) { try { action(); } catch (ArgumentException) { Check(true, name); return; } throw new Exception("FAIL: " + name); }
+if (args.Contains("--native-control-only"))
+{
+    var area = Path.Combine(Path.GetTempPath(), "clonedivers-native-control-" + Guid.NewGuid().ToString("N")); Directory.CreateDirectory(area);
+    await Clonedivers.ForgeBridge.Tests.NativeControlTests.Run(area, Check);
+    Console.WriteLine($"{passed} native-control boundary fixtures passed; no game/account/namespace was started."); return;
+}
 if (args is ["--hard-exit-import-fixture", var root]) { await Clonedivers.ForgeBridge.Tests.ImportTests.CrashChildAsync(root); return; }
 if (args.Contains("--compatibility-only"))
 {
@@ -244,7 +250,7 @@ try
     BridgeSession.Validate(selectionArgs);
     await player.RunAsync(selectionArgs, CancellationToken.None);
     var state = await player.RunAsync(["player-status"], CancellationToken.None);
-    Check(!state.GetProperty("ready").GetBoolean() && state.GetProperty("detail").GetString()!.Contains("Share my gameplay mods"),
+    Check(!state.GetProperty("ready").GetBoolean() && state.GetProperty("detail").GetString()!.Contains("turn OFF automatic gameplay-mod sharing"),
         "the native player dispatcher blocks the official default sharing-ON state before offering the private preset");
     Directory.CreateDirectory(Path.Combine(install, "mods"));
     File.WriteAllText(Path.Combine(install, "mods", "hellforge-mods.json"), "{\"share\":false}"); // isolated fixture, never the owner's settings
@@ -345,7 +351,7 @@ sealed class Fake : IHellForgeCommands
     {
         ct.ThrowIfCancellationRequested(); Calls.Add(args.ToArray());
         object result;
-        if (args[0] == "status") result = new { install = Root, gameBuild = BridgeSession.Build, hellforge = "0.3.0-beta (fixture)", engine = Isolation == "other-engine" ? "0.2.0" : "0.1.41", modSdk = 15,
+        if (args[0] == "status") result = new { install = Root, gameBuild = BridgeSession.Build, hellforge = "0.4.0-beta (d8a8b46)", engine = Isolation == "other-engine" ? "0.2.0" : "0.1.47", modSdk = 16,
             networkBlock = Isolation == "none" ? "none" : "linux-netns", ready = new { linuxNamespace = Isolation != "none", gameCopy = !Running, sessionRunner = true }, settings = new { sandbox = Isolation != "sandbox-off", multiplayer = true, localPlayFab = true }, session = new { running = Running, lastRun = Run, lastStatus = "observed", lastFailure = (string?)null } };
         else if (args[0] == "play") { Running = true; if (IsolationAfterPlay != null) Isolation = IsolationAfterPlay; result = new { @event = "started", run = Run }; }
         else if (args[0] == "stop") { Running = false; result = new { @event = "stopping" }; }

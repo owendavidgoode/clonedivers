@@ -1,9 +1,9 @@
 {
   "Format": 1,
   "GameBuild": "25480438",
-  "HellForge": "0.3.0-beta",
-  "Engine": "0.1.41",
-  "Sdk": 15,
+  "HellForge": "0.4.0-beta",
+  "Engine": "0.1.47",
+  "Sdk": 16,
   "ContainsAccountData": false,
   "Qualification": "Exact owner configuration metadata, not multiplayer or content-attestation certification",
   "Appearance": {
@@ -16,7 +16,6 @@
     "CatalogSha256": "da6e2c7ce0a21de4b39f1bd237c18f52c1cbd596349a2000c1aa8f93a109e2c2"
   },
   "Order": [
-    "local.clonedivers-mine-boundary",
     "local.operation-reroller",
     "chef.smarter-seaf",
     "local.heavy-seaf-presence",
@@ -57,16 +56,6 @@
     }
   ],
   "Mods": [
-    {
-      "Id": "local.clonedivers-mine-boundary",
-      "Name": "D11 Mine Marker Bounds Fix (private)",
-      "Version": "0.1.1",
-      "ArchiveSha256": "caa3dd85e1b7e255c852fc0e741d3699ad6909aa94001aaaeda2953a86657c9e",
-      "Source": "Clonedivers project-owned source, version 0.1.1",
-      "License": "MIT",
-      "NativeContentHash": "7edd52a1faacd8908636325b45328ada0c137b4bb96dd0c87cad51d22471e690",
-      "Options": []
-    },
     {
       "Id": "local.operation-reroller",
       "Name": "Operation Reroller",
@@ -262,5 +251,8 @@
     }
   ],
   "RequiredHostingShare": false,
-  "InstallerQualification": "Metadata only; acquire author originals and resolve permitted private Heavy/Squad repair before clean-machine rollout"
+  "InstallerQualification": "Seven-archive r2 preset imported/verified and recovered with real0.4 CLI; actual Windows sandbox initialization passed; Linux/squad gameplay still requires real PCs",
+  "RetiredMods": [
+    "local.clonedivers-mine-boundary: disabled; engine0.1.47 supplies the bounds fix"
+  ]
 }

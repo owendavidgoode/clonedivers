@@ -6,7 +6,7 @@
     <ImplicitUsings>enable</ImplicitUsings>
     <!-- The official hf-inner.sh lifetime pattern includes HellForge.Launcher. -->
     <AssemblyName>HellForge.Launcher.ClonediversBridge</AssemblyName>
-    <Version>0.3.9</Version>
+    <Version>0.4.0</Version>
   </PropertyGroup>
   <ItemGroup><InternalsVisibleTo Include="Clonedivers.ForgeBridge.Tests" /></ItemGroup>
   <ItemGroup>
@@ -26,7 +26,7 @@
     <Compile Include="../Clonedivers/HellForgeModels.cs" Link="Core/HellForgeModels.cs" />
     <Compile Include="../Clonedivers/HellForgePreset.cs" Link="Core/HellForgePreset.cs" />
     <EmbeddedResource Include="../Clonedivers/Resources/hellforge-r19.json" LogicalName="Clonedivers.HellForge.Manifest.json" />
-    <EmbeddedResource Include="../Clonedivers/Resources/forge-gameplay-build25480438-r1.json" LogicalName="Clonedivers.Forge.Gameplay.json" />
+    <EmbeddedResource Include="../Clonedivers/Resources/forge-gameplay-build25480438-r2.json" LogicalName="Clonedivers.Forge.Gameplay.json" />
     <Compile Include="../Clonedivers/HellForgeGameplayCatalog.cs" Link="Core/HellForgeGameplayCatalog.cs" />
     <Compile Include="../Clonedivers/HellForgeGameplayInstall.cs" Link="Core/HellForgeGameplayInstall.cs" />
   </ItemGroup>

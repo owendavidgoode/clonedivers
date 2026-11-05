@@ -11,7 +11,7 @@ mkdir -p "$package_root/DEBIAN" "$package_root/usr/bin" "$package_root/usr/lib/c
 cp -a "$stage/." "$package_root/usr/lib/clonedivers/"
 find "$package_root/usr/lib/clonedivers" -type d -exec chmod 755 {} +
 find "$package_root/usr/lib/clonedivers" -type f -exec chmod 644 {} +
-chmod 755 "$package_root/usr/lib/clonedivers/clonedivers" "$package_root"/usr/lib/clonedivers/forge/linux/*.sh
+chmod 755 "$package_root/usr/lib/clonedivers/clonedivers" "$package_root/usr/lib/clonedivers/forge/HellForge.Launcher.ClonediversBridge"
 cat > "$package_root/usr/bin/clonedivers" <<'EOF'
 #!/bin/sh
 exec /usr/lib/clonedivers/clonedivers "$@"
@@ -25,11 +25,12 @@ Architecture: amd64
 Maintainer: Clonedivers project
 Section: games
 Priority: optional
-Depends: libc6 (>= 2.35), libgcc-s1, libstdc++6, zlib1g, libx11-6, libice6, libsm6, libfontconfig1, xdg-utils, libicu70 | libicu72 | libicu74 | libicu76 | libicu78 | libicu80
+Depends: libc6 (>= 2.35), libgcc-s1, libstdc++6, zlib1g, libx11-6, libice6, libsm6, libfontconfig1, xdg-utils, iproute2, util-linux, procps, python3, libicu70 | libicu72 | libicu74 | libicu76 | libicu78 | libicu80
+Recommends: passt
 Homepage: https://github.com/owendavidgoode/clonedivers
 Description: Clonedivers Forge launcher
  Regular, Clones and Empire appearances in a separate HellForge installation.
- Includes the native launcher and isolated Windows bridge, not game or mod files.
+ Includes native control and verified official setup, not game or mod files.
 EOF
 cat > "$package_root/usr/share/applications/clonedivers.desktop" <<'EOF'
 [Desktop Entry]

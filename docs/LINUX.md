@@ -1,24 +1,36 @@
 # Clonedivers Forge for Linux
 
-The current Ubuntu/Debian x86-64 launcher is **0.6.2**, with Forge as its default.
-Use the complete .deb or portable archive, including the adjacent forge/ companion.
+The Ubuntu/Debian x86-64 launcher is **0.7.0**, with Forge as its default.
+Install the complete .deb or portable archive, including the adjacent `forge/`
+native controller. Existing launchers show an update notice; install the package
+or replace the complete portable folder. User configuration and accounts remain.
 
-See [migration, package installation and first Forge setup](FORGE-MIGRATION.md).
-The existing Linux launcher shows a release notice; installation is a manual or
-package-manager step. The new .deb replaces the existing application/menu entry
-without changing user configuration or accounts.
+Press **Set up / update Forge**. The launcher downloads the pinned official
+**HellForge 0.4.0-beta** native installer, verifies its SHA256, safely extracts it
+and opens it. On Ubuntu/Debian it offers installation of the required networking
+tools, including `pasta` from `passt`, through the normal system approval flow.
+Ubuntu 22.04 repositories may lack `passt`: the launcher package can install,
+but gameplay stays blocked until the official relay prerequisite is available.
+Choose the dedicated Proton prefix in the official installer. Existing selected
+roots take precedence; ambiguous installations require an explicit selection.
 
-A separate owned HellForge0.3.0-beta/engine0.1.41/game25480438 installation in its
-own Proton prefix and official namespace is required. No game/third-party mods
-are bundled. Actual Linux account capture, Proton gameplay and Windows–Linux
-multiplayer remain unqualified. **Set up selected mode** downloads required
-gameplay files in the native frontend, then imports/configures them through the
-bounded bridge in the official namespace. It also prepares the selected appearance.
-Missing or incompatible dependencies block play; imports do not bypass official
-game-copy, isolation or own-account readiness. Confirm host mod sharing OFF in
-the official manager so author archives are obtained per player through setup.
+Finish the official game-copy/Steam ownership setup. The launcher reconnects and
+continues the seven required gameplay downloads, preset options/order, automatic
+host sharing OFF and selected appearance. It guides the official account-capture
+UI and applies a verified fresh capture on request. Account import is one-way.
+Old captures cannot replace progression earned in a native Forge profile.
 
-Run `clonedivers --gui` for Regular/Clones/Empire. `clonedivers --help` describes
-read-only terminal diagnostics. Use Steam for the official online game. Explicit
-`--steam` opens legacy recovery mode; [the archived instructions](LEGACY-LINUX.md)
-apply only to that mode. ARM64, Deck and Flatpak/Snap Forge are not qualified.
+The native controller calls the installed native CLI/backend directly. It does
+not overlay old Wine bridge scripts or fabricate namespace/account state. The
+official session runner performs isolation, relay, sandbox and ownership checks
+before running the game. No game, account or third-party mod archives are bundled.
+
+See [migration and recovery](FORGE-MIGRATION.md) and the
+[0.4 integration evidence](FORGE-0.4-TURNKEY-2026-11-05.md). Native account capture,
+Proton gameplay and Windows–Linux squad play require real-PC acceptance; source
+and package checks do not qualify those paths.
+
+Run `clonedivers --gui` for Regular/Clones/Empire and `clonedivers --help` for
+read-only terminal diagnostics. Use Steam for official online HD2. Explicit
+`--steam` opens [legacy recovery mode](LEGACY-LINUX.md). ARM64, Deck and
+Flatpak/Snap Forge are not qualified.

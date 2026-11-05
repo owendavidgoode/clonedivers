@@ -256,7 +256,7 @@ internal static class ImportTests
             ct.ThrowIfCancellationRequested(); Calls.Add(args.ToArray()); object result;
             switch (args[0])
             {
-                case "status": result = new { install = Install, hellforge = "0.3.0-beta (fixture)", engine = "0.1.41", modSdk = 15, networkBlock = "wfp", gameBuild = HellForgePack.SupportedBuild,
+                case "status": result = new { install = Install, hellforge = "0.4.0-beta (d8a8b46)", engine = "0.1.47", modSdk = 16, networkBlock = "wfp", gameBuild = HellForgePack.SupportedBuild,
                     ready = new { gameCopy = !Running, sessionRunner = true, linuxNamespace = false }, session = new { running = Running, lastStatus = (string?)null, lastFailure = (string?)null }, settings = new { multiplayer = Multiplayer, localPlayFab = Backend, sandbox = true } }; break;
                 case "mods": result = new { mods = Mods.Select(m => new { id = m.Id, name = m.Name, enabled = m.Enabled, folder = m.Folder, version = "", tags = new[] { "fixture" } }), problems = Array.Empty<string>(), modlist = "fixture" }; break;
                 case "mod-add":

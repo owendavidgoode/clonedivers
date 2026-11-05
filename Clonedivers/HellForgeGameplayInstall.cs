@@ -1,13 +1,14 @@
 using System.IO.Compression;
 using System.Security.Cryptography;
 using System.Text.Json;
+using System.Text.Json.Nodes;
 
 namespace Clonedivers;
 
 public sealed partial class HellForgeClient
 {
     sealed record GameplayBackup(string Id, string Archive, long Bytes, string Sha256, string ContentHash);
-    sealed record GameplaySnapshot(string Root, HellForgeMods Mods, List<GameplayBackup> Backups);
+    sealed record GameplaySnapshot(string Root, HellForgeMods Mods, List<GameplayBackup> Backups, bool HadShare = false, bool Share = true);
     sealed record GameplayIntent(string Root, string Catalog, string Backup, string SnapshotSha256, string State);
     public string GameplayCache => Path.Combine(CacheRoot, "gameplay", HellForgeGameplayCatalog.Pinned.Id);
     string GameplayIntentPath => PackIntentPath + ".gameplay.json";
@@ -17,8 +18,8 @@ public sealed partial class HellForgeClient
         if (Game.IsRunning()) throw new InvalidOperationException("Close HD2 before installing or recovering its gameplay preset.");
         var json = await commands.RunAsync(["status"], ct);
         if (json.GetProperty("session").GetProperty("running").GetBoolean()) throw new InvalidOperationException("End the active Forge session before changing gameplay mods.");
-        if (Text(json, "gameBuild") != HellForgePack.SupportedBuild || Text(json, "engine") != "0.1.41" ||
-            json.GetProperty("modSdk").GetInt32() != 15 || !Text(json, "hellforge").StartsWith("0.3.0-beta", StringComparison.Ordinal))
+        if (Text(json, "gameBuild") != HellForgePack.SupportedBuild || Text(json, "engine") != HellForgeRelease.Engine ||
+            json.GetProperty("modSdk").GetInt32() != HellForgeRelease.Sdk || !HellForgeRelease.Supports(Text(json, "hellforge")))
             throw new InvalidDataException("The gameplay installer requires the pinned Forge, engine, SDK and game build.");
         // Importing archives is supported before a game copy exists. Launch still
         // requires the full official game/ownership/isolation/sandbox readiness.
@@ -106,7 +107,7 @@ public sealed partial class HellForgeClient
         await RequireGameplayIdleAsync(ct);
         var before = await ModsAsync(ct);
         var missing = await MissingGameplayAsync(ct);
-        if (missing.Count == 0 && HellForgePreset.Problem(before with { HostingProblem = null }) == null) { progress?.Report("Required gameplay preset already verified."); return; }
+        if (missing.Count == 0 && HellForgePreset.Problem(before) == null) { progress?.Report("Required gameplay preset already verified."); return; }
         foreach (var artifact in missing)
         {
             var path = FileSafety.Child(staged, artifact.FileName);
@@ -137,7 +138,8 @@ public sealed partial class HellForgeClient
             if (await GameplayHashAsync(path, ct) != content) throw new InvalidDataException("Could not produce a restorable backup of " + old.Name);
             copies.Add(new(old.Id, name, new FileInfo(path).Length, await HellForgePack.HashAsync(path, ct), content));
         }
-        var snapshot = new GameplaySnapshot(Root, before, copies);
+        var share = ReadSharing();
+        var snapshot = new GameplaySnapshot(Root, before, copies, share.HadShare, share.Share);
         var snapshotPath = FileSafety.Child(backup, "before.json");
         using (var file = new FileStream(snapshotPath, FileMode.CreateNew, FileAccess.Write, FileShare.None))
         { await JsonSerializer.SerializeAsync(file, snapshot, HellForgePack.Json, ct); file.Flush(flushToDisk: true); }
@@ -196,6 +198,37 @@ public sealed partial class HellForgeClient
         }
         var ordered = HellForgeGameplayCatalog.Pinned.Order.Concat(catalog.Mods.Select(m => m.Id).Where(id => !wanted.Contains(id))).ToArray();
         await RequireGameplayIdleAsync(ct); await commands.RunAsync(["mod-order", "--ids", string.Join(",", ordered)], ct);
+        await WriteSharingAsync(true, false, ct);
+    }
+
+    // Official 0.4 external-launcher file contract. Change only the sharing
+    // preference; preserve every other field and use atomic replacement.
+    (bool HadShare, bool Share) ReadSharing()
+    {
+        var path = FileSafety.Child(Path.Combine(Root, "mods"), "hellforge-mods.json"); RejectAncestors(path);
+        if (!File.Exists(path)) return (false, true);
+        if (new FileInfo(path).Length > 4 * 1024 * 1024) throw new InvalidDataException("Mod preferences are oversized.");
+        var json = JsonNode.Parse(File.ReadAllText(path)) as JsonObject ?? throw new InvalidDataException("Invalid mod preferences.");
+        return json.TryGetPropertyValue("share", out var value) ? (true, value?.GetValue<bool>() ?? throw new InvalidDataException("Invalid sharing preference.")) : (false, true);
+    }
+    async Task WriteSharingAsync(bool present, bool value, CancellationToken ct)
+    {
+        await RequireGameplayIdleAsync(ct);
+        var path = FileSafety.Child(Path.Combine(Root, "mods"), "hellforge-mods.json"); RejectAncestors(path);
+        if (File.Exists(path) && new FileInfo(path).Length > 4 * 1024 * 1024) throw new InvalidDataException("Mod preferences are oversized.");
+        var before = File.Exists(path) ? File.ReadAllText(path) : null;
+        var json = before == null ? new JsonObject { ["format"] = 1 } : JsonNode.Parse(before) as JsonObject ?? throw new InvalidDataException("Invalid mod preferences.");
+        if (present) json["share"] = value; else json.Remove("share");
+        var temp = path + ".clonedivers-" + Guid.NewGuid().ToString("N") + ".tmp";
+        try
+        {
+            using (var file = new FileStream(temp, FileMode.CreateNew, FileAccess.Write, FileShare.None))
+            { JsonSerializer.Serialize(file, json, HellForgePack.Json); file.Flush(flushToDisk: true); }
+            if ((File.Exists(path) ? File.ReadAllText(path) : null) != before) throw new IOException("Forge mod preferences changed during setup; retry after closing its Mods page.");
+            ct.ThrowIfCancellationRequested(); File.Move(temp, path, true);
+        }
+        finally { if (File.Exists(temp)) File.Delete(temp); }
+        if (ReadSharing() != (present, present ? value : true)) throw new IOException("Forge mod sharing could not be confirmed.");
     }
 
     async Task ImportGameplayArchiveAsync(string source, CancellationToken ct)
@@ -270,6 +303,7 @@ public sealed partial class HellForgeClient
                 { await RequireGameplayIdleAsync(ct); await commands.RunAsync(["mod-pack", "--id", old.Id, "--option", option.Name, "--on", option.On ? "yes" : "no"], ct); }
         }
         await RequireGameplayIdleAsync(ct); await commands.RunAsync(["mod-order", "--ids", string.Join(",", snapshot.Mods.Mods.Select(m => m.Id))], ct);
+        await WriteSharingAsync(snapshot.HadShare, snapshot.Share, ct);
         var verified = await ModsAsync(ct);
         if (!verified.Mods.Select(m => m.Id).SequenceEqual(snapshot.Mods.Mods.Select(m => m.Id)) || verified.Problems.Length != 0)
             throw new InvalidDataException("The previous gameplay mod order could not be confirmed restored.");

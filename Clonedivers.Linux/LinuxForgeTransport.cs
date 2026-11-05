@@ -106,8 +106,10 @@ internal sealed class LinuxForgeTransport : IForgeConnection
     readonly Queue<string> diagnostics = new();
     readonly Task errorReader;
     bool disposed;
-    LinuxForgeTransport(Process process)
+    public bool NativePaths { get; }
+    LinuxForgeTransport(Process process, bool nativePaths = false)
     {
+        NativePaths = nativePaths;
         this.process = process;
         protocol = new(process.StandardOutput, process.StandardInput, Record);
         errorReader = DrainErrorsAsync(process.StandardError);
@@ -127,7 +129,7 @@ internal sealed class LinuxForgeTransport : IForgeConnection
     {
         if (!OperatingSystem.IsLinux()) throw new PlatformNotSupportedException("The official Forge namespace wrapper runs on Linux.");
         var process = Process.Start(plan.StartInfo()) ?? throw new IOException("Official Forge Linux script did not start.");
-        var transport = new LinuxForgeTransport(process);
+        var transport = new LinuxForgeTransport(process, plan.NativeControl);
         using var startup = CancellationTokenSource.CreateLinkedTokenSource(ct);
         startup.CancelAfter(TimeSpan.FromMinutes(20)); // official script may obtain pinned mod tools on first start
         try { await transport.protocol.ConnectAsync(startup.Token); return transport; }
