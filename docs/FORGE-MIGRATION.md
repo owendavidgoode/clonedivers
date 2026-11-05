@@ -5,8 +5,9 @@ separate HellForge installation. Launch the official online HD2 game from Steam.
 Windows version 1.11.0 replaces the old launcher through its existing update
 button. Linux x86-64 version 0.6.1 replaces the old package/portable launcher.
 
-This changes the launcher. It does not install HellForge, game files, restricted
-gameplay mods or another player's account. Linux gameplay and Windows–Linux
+Windows now includes guided installation of the pinned official Forge application;
+its official wizard still obtains the player's separate game copy. Restricted
+gameplay mods and another player's account are not included. Linux gameplay and Windows–Linux
 multiplayer still require real-machine testing. A successful update is not a
 multiplayer certification.
 
