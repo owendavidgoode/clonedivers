@@ -48,7 +48,7 @@ jobs:
         run: |
           set -euo pipefail
           mkdir -p artifacts
-          version=$(sed -n 's/.*<Version>\([^<]*\)<\/Version>.*/\1/p' Clonedivers.Linux/Clonedivers.Linux.csproj)
+          version=$(dotnet msbuild Clonedivers.Linux/Clonedivers.Linux.csproj -nologo -getProperty:Version)
           for arch in x64 arm64; do
             dotnet publish Clonedivers.Linux -c Release -r linux-$arch --self-contained true -o dist/linux-$arch -p:DebugType=None -p:DebugSymbols=false
             cp docs/LINUX.md dist/linux-$arch/README.md

@@ -4,7 +4,9 @@ The [published test preview](https://github.com/owendavidgoode/clonedivers/relea
 contains Windows 1.9.8, Linux x86-64 0.6.0-preview.8, bridge 0.3.7, the original
 source snapshot and SHA256SUMS.txt. Its launcher and platform source are integrated
 in this repository. The release tag identifies the snapshot's base commit; the
-source ZIP contains the changes. Building current main includes the integration.
+source ZIP contains the changes. Building current main includes the integration
+plus Windows 1.9.9's footer fix for short displays. The published 1.9.8 archive is
+unchanged; a source merge does not replace its reviewed bytes.
 
 This is a controlled test preview. The owner has used Heavy SEAF and Squad
 Stratagems in a solo D11 mission, ending in death. Separate-PC multiplayer,
@@ -84,6 +86,9 @@ binary is not the complete package.
 The source readiness workflow runs Windows and Linux fixtures with read-only
 repository permissions. Local evidence before integration was 602 Windows
 assertions, 196 bridge assertions and three separate native deadline checks.
+The integration's short-screen footer regression check brings the local Windows
+suite to 603 assertions. Ubuntu source fixtures also run real symlink cases;
+those checks still do not exercise Proton or gameplay.
 Two symlink cases were skipped on Windows and require Linux. Actual CI results
 are visible on the pull request/Actions; neither fixtures nor compilation certify
 gameplay, account capture or multiplayer. Review [tester instructions](FORGE-TESTER-ROLLOUT.md)

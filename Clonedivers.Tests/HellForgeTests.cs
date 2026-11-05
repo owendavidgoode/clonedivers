@@ -99,6 +99,13 @@ static class HellForgeTests
                 check(form.PointToClient(footer.PointToScreen(new Point(0, footer.Height))).Y <= form.ClientSize.Height,
                     "the real private-preset sharing instruction keeps the footer visible at the default window size");
                 policyDetail.Text = previousDetail; Application.DoEvents();
+                form.MinimumSize = Size.Empty;
+                form.ClientSize = new Size(760, 600); Application.DoEvents();
+                var shortBottom = form.PointToClient(footer.PointToScreen(new Point(0, footer.Height)));
+                if (shortBottom.Y > form.ClientSize.Height || shortBottom.Y <= 0)
+                    Console.WriteLine($"LAYOUT: client={form.ClientSize}, footerBottom={shortBottom.Y}, footerParent={footer.Parent!.Bounds}, dock={footer.Parent.Dock}, dpi={form.DeviceDpi}");
+                check(shortBottom.Y <= form.ClientSize.Height && shortBottom.Y > 0,
+                    "a short screen keeps the Steam fallback and version outside the scrolling content");
                 var message = (Label)typeof(HellForgeForm).GetField("message", fields)!.GetValue(form)!;
                 var activity = (Control)typeof(HellForgeForm).GetField("activity", fields)!.GetValue(form)!;
                 message.Text = "Could not open HellForge. Check the selected folder."; Application.DoEvents();

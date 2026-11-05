@@ -73,7 +73,7 @@ public sealed class HellForgeForm : Form
         var scroll = new Panel { Dock = DockStyle.Fill, AutoScroll = true };
         Controls.Add(scroll);
         var root = new TableLayoutPanel { Dock = DockStyle.Top, AutoSize = true, AutoSizeMode = AutoSizeMode.GrowAndShrink,
-            Padding = new Padding(32, 24, 32, 18), ColumnCount = 1, RowCount = 12 };
+            Padding = new Padding(32, 24, 32, 8), ColumnCount = 1, RowCount = 11 };
         root.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100));
         root.SizeChanged += (_, _) => {
             var wrap = new Size(Math.Max(160, root.ClientSize.Width - root.Padding.Horizontal), 0);
@@ -133,12 +133,15 @@ public sealed class HellForgeForm : Form
             Style(button, Slate, SlateHot, TextMain); button.Font = new Font("Segoe UI", 9F); button.Click += handler; actions.Controls.Add(button);
         }
         root.Controls.Add(actions, 0, 10);
-        var footer = new TableLayoutPanel { AutoSize = true, Dock = DockStyle.Fill, ColumnCount = 1, Margin = Padding.Empty };
+        // Keep the Steam fallback and version visible even when Windows clamps
+        // the initial window to a short screen. Only the main content scrolls.
+        var footer = new TableLayoutPanel { AutoSize = true, Dock = DockStyle.Bottom, ColumnCount = 1,
+            Padding = new Padding(32, 4, 32, 18), Margin = Padding.Empty };
         footer.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100));
         var steam = new LinkLabel { Text = "Official online game: open Helldivers 2 in Steam", AutoSize = true, LinkColor = TextDim, ActiveLinkColor = TextMain, VisitedLinkColor = TextDim, Margin = new Padding(0, 3, 0, 8) };
         steam.Anchor = AnchorStyles.None; steam.LinkClicked += (_, _) => OpenSteamLibrary(); footer.Controls.Add(steam);
         footer.Controls.Add(new Label { Text = $"v{AppInfo.Version}  ·  Difficulties 1–11  ·  Multiplayer validation pending", Anchor = AnchorStyles.None, AutoSize = true, ForeColor = TextMute, Font = new Font("Segoe UI", 9F), Margin = Padding.Empty });
-        root.Controls.Add(footer, 0, 11);
+        Controls.Add(footer);
         regular.Click += (_, _) => ChangeMode("regular"); clone.Click += (_, _) => ChangeMode("clonedivers"); empire.Click += (_, _) => ChangeMode("empire");
         accountSync.Click += async (_, _) => await SyncAccountAsync();
         delta.Checked = preferences.DeltaSquad; droids.Checked = preferences.Droids; covenant.Checked = preferences.Covenant;

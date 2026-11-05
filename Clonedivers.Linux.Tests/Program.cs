@@ -33,7 +33,7 @@ try
         File.WriteAllText(cacheFile, oldCache);
         var forgeUpdates = new LauncherUpdates(channelClient, channelFeed, directory, "x64", allowLegacyChannel: false);
         var blocked = await forgeUpdates.CheckAsync(force: true);
-        Check(blocked.SeparateChannel && blocked.Available is null && !blocked.CheckSucceeded && blocked.Message.Contains("Forge"), "Forge fallback reports its separate unpublished channel instead of a future Steam release");
+        Check(blocked.SeparateChannel && blocked.Available is null && !blocked.CheckSucceeded && blocked.Message.Contains("Forge"), "Forge fallback reports its separate manual channel instead of a future Steam release");
         Check(channelServer.Requests == 0 && File.ReadAllText(cacheFile) == oldCache, "Forge update checks never fetch or rewrite the legacy release cache, including forced checks");
         Throws<InvalidOperationException>(() => LauncherUpdates.OpenRelease(blocked), "Forge fallback cannot open the legacy release page through its update action");
         var legacyUpdates = new LauncherUpdates(channelClient, channelFeed, Path.Combine(root, "ordinary-cache"), "x64", allowLegacyChannel: true);
@@ -44,7 +44,7 @@ try
         var defaultResult = await editionDefault.CheckAsync(force: true);
         Check(ForgeEntryPolicy.ForgeEdition ? defaultResult.SeparateChannel && channelServer.Requests == 1 : defaultResult.Available?.Version == "999.0.0" && channelServer.Requests == 2,
             "the actual package edition chooses the correct update policy without an injected override");
-        Console.WriteLine($"ALL {passed} FORGE CHANNEL FIXTURES PASSED (Windows host; no Linux runtime qualification)");
+        Console.WriteLine($"ALL {passed} FORGE CHANNEL FIXTURES PASSED (source fixtures only; no Proton/game qualification)");
         return 0;
     }
     Game.IsRunningCheck = () => false;
