@@ -1,14 +1,18 @@
 # Clonedivers Forge status
 
-The replacement launcher is Windows **1.11.0**, Linux x86-64 **0.6.1**, bridge
-**0.3.8**. Existing Windows update feeds point to the new default Forge executable;
+The replacement launcher is Windows **1.12.0**, Linux x86-64 **0.6.2**, bridge
+**0.3.9**. Existing Windows update feeds point to the new default Forge executable;
 Linux0.5 notices the complete0.6 release and requires package/manual installation.
 See [the migration guide](FORGE-MIGRATION.md) for rollout and recovery.
 
-This ships a launcher, not a reproducible gameplay-mod installer. Every player
-needs official HellForge0.3.0-beta/engine0.1.41/SDK15/game25480438 and permitted
-matching dependencies. Private Heavy/Squad adaptations are excluded. Third-party
-mod acquisition, build compatibility and permissions remain onboarding gates.
+The launcher now installs the complete pinned gameplay preset through the
+official CLI. Eight required archives have immutable URLs, size/SHA256 and
+official content hashes; three baseline mods come from official Forge setup.
+The Heavy/Squad compatibility files are distributed under the owner's confirmed
+written author permission, with credits retained. Five other dependencies are
+obtained directly from authors. See [permission scope](SEAF-COMPATIBILITY-PERMISSION.md)
+and the embedded gameplay catalog. Files are staged and verified before imports,
+with backups and durable recovery. Accounts and game files are not bundled.
 
 The owner's Windows account level/Warbonds and solo D11 SEAF call-ins were
 verified. Windows launch/End-session, isolated software fixtures and Linux package

@@ -1,0 +1,100 @@
+{
+  "Format": 1,
+  "Id": "build25480438-r1",
+  "GameBuild": "25480438",
+  "Artifacts": [
+    {
+      "Id": "local.clonedivers-mine-boundary",
+      "Name": "D11 Mine Marker Bounds Fix",
+      "Version": "0.1.1",
+      "Url": "https://github.com/owendavidgoode/clonedivers/releases/download/forge-gameplay-build25480438-r1/Clonedivers-mine-boundary-0.1.1.zip",
+      "Bytes": 3651,
+      "Sha256": "caa3dd85e1b7e255c852fc0e741d3699ad6909aa94001aaaeda2953a86657c9e",
+      "ContentHash": "7edd52a1faacd8908636325b45328ada0c137b4bb96dd0c87cad51d22471e690",
+      "Source": "Clonedivers original MIT source"
+    },
+    {
+      "Id": "local.operation-reroller",
+      "Name": "Operation Reroller",
+      "Version": "0.1.2",
+      "Url": "https://hf-mod.com/Mods/File/138",
+      "Bytes": 1738674,
+      "Sha256": "a3a26e27d4342fd6fc4e94c50d6a492d380883b32170b1ad3bd729b88ff5458d",
+      "ContentHash": "284177056c3a04a7f391069fbe681308eb3726fcdabaa220f804c675fabc8b16",
+      "Source": "Author original, MIT"
+    },
+    {
+      "Id": "chef.smarter-seaf",
+      "Name": "Smarter SEAF",
+      "Version": "1.1.0",
+      "Url": "https://hf-mod.com/Mods/File/144",
+      "Bytes": 562261,
+      "Sha256": "6e768323e8534c0233ff410400fad2e67bf58f863b7c8fcf7aa161815554cc48",
+      "ContentHash": "e026707a9ebacc419d2d4cd58eb4b44c2b7607eda770ee381eb3c8bb5e6acde0",
+      "Source": "Direct author original; do not mirror"
+    },
+    {
+      "Id": "local.heavy-seaf-presence",
+      "Name": "Heavy SEAF Presence Everywhere",
+      "Version": "1.2.0-clonedivers.3",
+      "Url": "https://github.com/owendavidgoode/clonedivers/releases/download/forge-gameplay-build25480438-r1/Clonedivers-Heavy-SEAF-1.2.0-clonedivers.3.zip",
+      "Bytes": 95619,
+      "Sha256": "a25573dfb15b2f5c2e5df73fa49c193413b9cfe03347f831045ed0da34c38734",
+      "ContentHash": "5b82a83a7766da3a782e8aa37e2de7c273a9c097ab936a1bf5ac5018a09a6893",
+      "Source": "NontoxicKappa; compatibility package distribution permitted per owner written-permission confirmation"
+    },
+    {
+      "Id": "local.mod-9fd7880666f6",
+      "Name": "SEAF Squad Stratagems",
+      "Version": "0.1.4-clonedivers.2",
+      "Url": "https://github.com/owendavidgoode/clonedivers/releases/download/forge-gameplay-build25480438-r1/Clonedivers-SEAF-Squad-0.1.4-clonedivers.2.zip",
+      "Bytes": 333320,
+      "Sha256": "d8eb2eae1b7c97bb3b6d4fb926cbe711ac294a0e74838ca21bf44f955a5fadfb",
+      "ContentHash": "cffe8818bc272437b70f9d8e389375facfaeee065a55d2cadbed679d4ffac973",
+      "Source": "JohnnyGrease; compatibility package distribution permitted per owner written-permission confirmation"
+    },
+    {
+      "Id": "pack.612eaf70-d682-43c7-9efd-16dcc695f977",
+      "Name": "Bingus Shared Loader - v20",
+      "Version": "",
+      "Url": "https://github.com/CowboyBingus/BingusSharedLoader/releases/download/v20/Bingus-Shared-Loader-v20.zip",
+      "Bytes": 2604118,
+      "Sha256": "a42e43e7afe520d0ccd23fe25f9ac5d818c00419d9401de51e59553c87866742",
+      "ContentHash": "666a6247b6c9cd47c14fa2a13f9a80e021058fc085a1704049a5853f3c5c6954",
+      "Source": "Direct author original; 0BSD plus separate resource notices"
+    },
+    {
+      "Id": "pack.95ef276a-6287-465f-ac5b-8512d2227b74",
+      "Name": "Mod Options Menu v1.2.1",
+      "Version": "",
+      "Url": "https://github.com/CowboyBingus/ModOptionsMenu/releases/download/v1.2.1/Mod-Options-Menu-v1.2.1.zip",
+      "Bytes": 1179368,
+      "Sha256": "99894d4d38ea79ad78ec9e43e68fd08c54027699dfb4318b768e0247ebe57259",
+      "ContentHash": "f2635c306cc958a9aab6780ffbaa51982366ad66de288f0b5f9a059add5186d1",
+      "Source": "Direct author original; 0BSD"
+    },
+    {
+      "Id": "pack.6f1d2c8e-5a47-4b93-9e0a-3c7b1f4d8a21",
+      "Name": "Smarter Guard Dogs & Sentries 5.2.0",
+      "Version": "",
+      "Url": "https://github.com/Th3chef/Smarter-Guard-Dogs-and-Sentries/releases/download/v5.2.0/Smarter-Guard-Dogs-and-Sentries-5.2.0.zip",
+      "Bytes": 1267063,
+      "Sha256": "2ca28c425cffdef1d3e2bc6e7db44ab693ed3670d07e23fe6f332d6274d82cb3",
+      "ContentHash": "a79918ad021806ce2653984002e5f163911a224c3b23225b623c0d338f4bf018",
+      "Source": "Direct author original; do not mirror"
+    }
+  ],
+  "Order": [
+    "local.clonedivers-mine-boundary",
+    "local.operation-reroller",
+    "chef.smarter-seaf",
+    "local.heavy-seaf-presence",
+    "local.mod-9fd7880666f6",
+    "hellforge.editor",
+    "skyeshade.hell-forge",
+    "skyeshade.vanilla-plus",
+    "pack.612eaf70-d682-43c7-9efd-16dcc695f977",
+    "pack.6f1d2c8e-5a47-4b93-9e0a-3c7b1f4d8a21",
+    "pack.95ef276a-6287-465f-ac5b-8512d2227b74"
+  ]
+}

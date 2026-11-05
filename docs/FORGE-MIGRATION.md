@@ -2,12 +2,14 @@
 
 Clonedivers is now the Forge launcher: Regular, Clones and Empire run in a
 separate HellForge installation. Launch the official online HD2 game from Steam.
-Windows version 1.11.0 replaces the old launcher through its existing update
-button. Linux x86-64 version 0.6.1 replaces the old package/portable launcher.
+Windows version 1.12.0 replaces the old launcher through its existing update
+button. Linux x86-64 version 0.6.2 replaces the old package/portable launcher.
 
 Windows now includes guided installation of the pinned official Forge application;
-its official wizard still obtains the player's separate game copy. Restricted
-gameplay mods and another player's account are not included. Linux gameplay and Windows–Linux
+its official wizard still obtains the player's separate game copy. Setup then
+downloads and imports the complete pinned gameplay preset. Other authors' archives
+come directly from their releases; the permission-cleared SEAF fixes use project
+assets. No account or game copy is bundled. Linux gameplay and Windows–Linux
 multiplayer still require real-machine testing. A successful update is not a
 multiplayer certification.
 
@@ -30,9 +32,16 @@ The pinned official CLI does not expose this first game-copy/isolation wizard as
 an unattended setup command; Clonedivers does not bypass it.
 
 The guided window detects completion without a Locate or Refresh step. Return
-to Clonedivers (or close the official manager for automatic return), **Sync HD2
-account**, then **Prepare Star Wars pack**. Matching permitted gameplay mods are
-still required; this installer does not redistribute private Heavy/Squad repairs.
+to Clonedivers (or close the official manager for automatic return); setup installs
+all eight additional gameplay packages and prepares the selected appearance.
+For an existing installation, **Install required mods** / **Set up selected mode**
+performs the same operation. Heavy/Squad use the newly permission-cleared exact
+compatibility builds; other packages are fetched from authors. Settings include
+the tested order, loader/menu activation, safe Guard Dogs options and marker OFF.
+Known conflicting alternatives are disabled; unrelated mods are preserved.
+Then **Sync HD2 account**. In the official manager, confirm **Share my gameplay
+mods with players who join** is OFF; the supported CLI does not expose that switch.
+Each player obtains author files through setup, rather than automatic re-sharing.
 Closing an unfinished setup remembers the connected installation; **Finish
 setup** resumes the guided flow. Active game sessions are left running and block
 installation. A failed new unpack is retained separately for diagnosis and never
@@ -58,8 +67,8 @@ and restarting; this rollout does not force-close anyone's game or launcher.
 ## Ubuntu/Debian x86-64
 
 The old Linux launcher checks for versioned Linux releases and will show the new
-0.6.1 release. It does not replace installed software by itself. Download the
-complete `Clonedivers-linux-x64.deb` from `linux-v0.6.1`, close the launcher, then
+0.6.2 release. It does not replace installed software by itself. Download the
+complete `Clonedivers-linux-x64.deb` from `linux-v0.6.2`, close the launcher, then
 install it with your package manager or:
 
 ```sh
@@ -86,7 +95,9 @@ ARM64/Deck and actual Linux account capture are also unqualified.
 
 ## First Forge setup
 
-1. Download `HellForge-Setup.exe` from the author's
+1. Windows: open Clonedivers and use its enabled **Set up Clonedivers** action;
+   it downloads/verifies the author installer and leads into the full preset.
+   Linux: obtain `HellForge-Setup.exe` from the author's
    [official 0.3.0-beta release](https://github.com/SkyeShade/HellForge/releases/tag/v0.3.0-beta), engine **0.1.41**, SDK **15**, game
    **25480438**. Keep supported isolation and sandbox enabled. Use a separate
    installation outside Steam. Linux needs the official namespace setup in a
@@ -95,14 +106,21 @@ ARM64/Deck and actual Linux account capture are also unqualified.
    performs setup/session/mod operations. Updating the launcher never repairs
    an active game reporting staged gameCopy=false.
 3. Import only your own verified HD2 account through the official backend.
+   On Windows, request **Sync HD2 account**, then use the official manager's
+   Profile > Account sync > Sync Inventory. Default is selected automatically.
+   Approve Windows yourself, pass the HD2 title screen, and close HD2. Keep
+   Clonedivers open so it can finish the verified import after cleanup; if you
+   closed it, use **Finish account sync** after reopening.
    Progress imports HD2 → Forge; Forge progress does not count back in official
    HD2. Do not share captures, profiles, receipts or keys or reimport stale data.
 4. Obtain permitted matching gameplay mods and prepare the chosen appearance.
-   The full Heavy/Squad baseline needs author-compatible artifacts/permissions;
-   private repairs are not redistributed. See FORGE-MOD-COVERAGE.md and
-   preset.json. A fresh installation remains blocked until its preset is complete.
-5. Manually turn OFF official host gameplay-mod sharing before using private
-   adaptations. Each peer needs permitted matching mods. Check account, options,
+   **Set up selected mode** now obtains the complete pinned gameplay preset.
+   Heavy/Squad compatibility distribution is covered by the project owner's
+   confirmation of written author permission; see SEAF-COMPATIBILITY-PERMISSION.md.
+   Other authors' files are downloaded directly and never mirrored here. A fresh
+   installation stays blocked until all required mods, settings and account are ready.
+5. Manually turn OFF official host gameplay-mod sharing. Each peer obtains the
+   matching preset through setup; separate authors' re-sharing terms still apply. Check account, options,
    startup and mission behavior before a controlled two-PC test.
 
 ### Linux setup before Connect

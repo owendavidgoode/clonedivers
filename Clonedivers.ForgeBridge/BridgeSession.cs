@@ -26,7 +26,7 @@ internal sealed class BridgeSession(Func<IReadOnlyList<string>, CancellationToke
                     var args = request.RootElement.GetProperty("args").EnumerateArray().Select(a => a.GetString()
                         ?? throw new InvalidDataException("Command arguments must be strings.")).ToArray();
                     Validate(args);
-                    if (args[0] is not ("status" or "mods" or "profiles" or "settings" or "logs" or "account-status" or "player-status") || args.Length > 1)
+                    if (args[0] is not ("status" or "mods" or "profiles" or "settings" or "logs" or "account-status" or "player-status" or "gameplay-status") || args.Length > 1)
                     {
                         var status = await execute(["status"], ct);
                         // Cleanup must remain available when readiness/version checks have changed.
@@ -109,7 +109,7 @@ internal sealed class BridgeSession(Func<IReadOnlyList<string>, CancellationToke
     {
         if (args.Length == 0 || args.Length > 17 || args.Any(a => string.IsNullOrWhiteSpace(a) || a.Length > 4096 || a.Contains('\0') || a.Contains('\n') || a.Contains('\r')))
             throw new ArgumentException("Invalid bridge command.");
-        if (args.Length == 1 && args[0] is "status" or "mods" or "profiles" or "settings" or "logs" or "stop" or "account-status" or "account-import" or "player-status" or "prepare-regular" or "recover-pack" or "open-manager") return;
+        if (args.Length == 1 && args[0] is "status" or "mods" or "profiles" or "settings" or "logs" or "stop" or "account-status" or "account-import" or "player-status" or "prepare-regular" or "recover-pack" or "open-manager" or "gameplay-status" or "recover-gameplay") return;
         if (args.SequenceEqual(new[] { "play", "--profile", "default" })) return;
         var allowed = args[0] switch {
             "mod-switch" => new[] { "--id", "--on" },
@@ -117,6 +117,7 @@ internal sealed class BridgeSession(Func<IReadOnlyList<string>, CancellationToke
             "mod-pack" => ["--id", "--option", "--on", "--variant", "--all"],
             "mod-add" => ["--file"],
             "prepare-pack" => ["--file"],
+            "install-gameplay" => ["--file"],
             "select-mode" => ["--mode", "--delta", "--texture", "--droids", "--covenant"],
             "settings" => ["--profile", "--local-playfab", "--multiplayer", "--war"],
             _ => throw new ArgumentException("Unsupported bridge command.")
@@ -130,7 +131,7 @@ internal sealed class BridgeSession(Func<IReadOnlyList<string>, CancellationToke
             if (values.TryGetValue(key, out var on) && on is not ("yes" or "no")) throw new ArgumentException("Expected yes or no.");
         if (args[0] == "mod-switch" && (!values.ContainsKey("--id") || !values.ContainsKey("--on"))) throw new ArgumentException("Missing mod switch options.");
         if (args[0] == "mod-pack" && (!values.ContainsKey("--id") || (!values.ContainsKey("--all") && !values.ContainsKey("--option")))) throw new ArgumentException("Missing pack options.");
-        if (args[0] is "mod-add" or "prepare-pack" && (!values.TryGetValue("--file", out var file) || !file.StartsWith("C:\\", StringComparison.OrdinalIgnoreCase) || file.Split('\\').Contains("..")))
+        if (args[0] is "mod-add" or "prepare-pack" or "install-gameplay" && (!values.TryGetValue("--file", out var file) || !file.StartsWith("C:\\", StringComparison.OrdinalIgnoreCase) || file.Split('\\').Contains("..")))
             throw new ArgumentException("Import the author artifact from the prefix C: drive.");
         if (args[0] == "select-mode" && (values.Count != 5 || values.GetValueOrDefault("--mode") is not ("regular" or "clonedivers" or "empire") ||
             values.GetValueOrDefault("--texture") is not ("full" or "lighter") || new[] { "--delta", "--droids", "--covenant" }.Any(k => values.GetValueOrDefault(k) is not ("yes" or "no"))))

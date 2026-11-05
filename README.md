@@ -5,23 +5,35 @@
 Choose **Regular**, **Clones** or **Empire** in a separate HellForge installation.
 Play the official online Helldivers 2 game directly through Steam.
 
-[Windows launcher](https://github.com/owendavidgoode/clonedivers/releases/latest/download/Clonedivers.exe) · [Ubuntu/Debian x86-64 package](https://github.com/owendavidgoode/clonedivers/releases/download/linux-v0.6.1/Clonedivers-linux-x64.deb) · [Linux portable](https://github.com/owendavidgoode/clonedivers/releases/download/linux-v0.6.1/Clonedivers-linux-x64.tar.gz)
+[Windows launcher](https://github.com/owendavidgoode/clonedivers/releases/latest/download/Clonedivers.exe) · [Ubuntu/Debian x86-64 package](https://github.com/owendavidgoode/clonedivers/releases/download/linux-v0.6.2/Clonedivers-linux-x64.deb) · [Linux portable](https://github.com/owendavidgoode/clonedivers/releases/download/linux-v0.6.2/Clonedivers-linux-x64.tar.gz)
 
 ## Update or install
 
-Existing Windows launchers receive **1.11.0** through their normal launcher-update
-button. Existing Linux launchers show the **0.6.1** release; install its complete
+Existing Windows launchers receive **1.12.0** through their normal launcher-update
+button. Existing Linux launchers show the **0.6.2** release; install its complete
 .deb or extract the full portable archive. Linux updates require a package-manager
 or manual installation; a notice does not silently replace the old application.
 
 New Windows players press **Set up Clonedivers**. The launcher downloads and
-installs the verified Forge application, opens its official game-copy setup and
-connects it here. Steam sign-in and Windows approval remain player actions.
+installs the verified Forge application, opens its official game-copy setup,
+then installs the required gameplay preset and selected appearance. Steam sign-in
+and Windows approval remain player actions.
 
 Read [the migration and first-setup guide](docs/FORGE-MIGRATION.md). The launcher
 update preserves settings and account data and keeps a verified previous Windows
 executable for rollback. It does not edit live Steam game files, close a running
-game or install the gameplay dependencies automatically.
+game. **Set up selected mode** obtains all eight additional required gameplay
+packages automatically, verifies their archives/content, imports them through
+Forge, applies preset order/options and then prepares the appearance.
+
+The three official bundled mods plus those eight downloads form the complete
+gameplay preset; Clones/Empire add their selected appearance. Downloads total
+about 7.4 MB before appearance assets. Five packages come directly from authors;
+the permission-cleared Heavy/Squad fixes and original mine fix use pinned project
+assets. See [sources and permission scope](docs/SEAF-COMPATIBILITY-PERMISSION.md).
+Confirm automatic host mod sharing is OFF in the official manager, and import
+your own HD2 account. A fresh import of every dependency is tested separately
+from real mission and multiplayer acceptance.
 
 Every player needs their own Steam-owned HD2, official separate **HellForge
 0.3.0-beta / engine 0.1.41 / SDK15 / game25480438**, and permitted matching mods.

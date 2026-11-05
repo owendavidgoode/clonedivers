@@ -13,6 +13,8 @@ internal sealed class ForgeProtocol(TextReader input, TextWriter output, Action<
     // Do not abandon its authoritative reply at the direct mod-add deadline.
     internal static TimeSpan ResultBudget(string? command) => TimeSpan.FromMinutes(command switch {
         "prepare-pack" or "prepare-regular" => 45,
+        "install-gameplay" => 35,
+        "recover-gameplay" => 15,
         "mod-add" or "account-import" or "recover-pack" => 20,
         _ => 3
     });

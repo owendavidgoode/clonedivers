@@ -1,8 +1,11 @@
-# Guided Windows setup — Clonedivers 1.11.0
+# Guided Windows setup — Clonedivers 1.12.0
 
 The normal first-run action is **Set up Clonedivers**, not a release-page link or
 manual directory selection. The wizard presents Steam, Forge and game-copy
-readiness with one primary action. Controls stay visible outside scrolling text.
+readiness with one primary action. Once official game setup passes, the same
+flow obtains and installs all required gameplay mods and the selected appearance.
+Existing players use **Install required mods** / **Set up selected mode**. Controls
+stay visible outside scrolling text.
 
 ## Supported boundary
 
@@ -45,4 +48,9 @@ and the first-run/active-session UI states. A real pinned installer unpack and C
 status query passed in an isolated Windows folder without running game setup,
 ownership, network changes or account import. Real new-player game-copy/UAC,
 account onboarding and separate-PC multiplayer acceptance are distinct remaining
-tests. Linux setup and its 0.6.1 package are unchanged by this Windows flow.
+tests. Windows 1.12.0 and Linux 0.6.2 share the complete pinned gameplay catalog;
+Linux downloads outside the namespace and imports through bridge 0.3.9. Clean
+real-CLI mod installation, failed imports, lost acknowledgements, restart recovery,
+no-op setup, corrupt-cache repair and profile-file preservation have passed in
+an isolated installation. These tests do not authenticate an account, prepare a
+game copy or run a mission. See COMPLETE-PRESET-INSTALLER-2026-11-05.md.

@@ -21,13 +21,13 @@ internal sealed class ForgeWindow : Window
     bool busy, closing, closed, updating;
     bool checkingLauncherUpdate;
     LauncherUpdateStatus? launcherUpdate;
-    string? lastError;
+    string? lastError, reportPath;
     readonly CancellationTokenSource lifetime = new();
     readonly DispatcherTimer timer = new() { Interval = TimeSpan.FromSeconds(5) };
     internal Task Operation { get; private set; } = Task.CompletedTask;
     internal readonly Dictionary<string, Button> Modes = new();
     internal readonly Button Launch = Action("LAUNCH CLONEDIVERS"), Prepare = Action("Prepare Star Wars pack"), Import = Action("Apply HD2 import");
-    readonly Button connect = Action("Connect"), browse = Action("Locate…"), refresh = Action("Refresh"), setup = Action("Setup & mods"), fallback = Action("Official HD2 in Steam"), updates = Action("Check updates");
+    readonly Button connect = Action("Connect"), browse = Action("Locate…"), refresh = Action("Refresh"), setup = Action("Setup & mods"), fallback = Action("Official HD2 in Steam"), updates = Action("Check updates"), report = Action("Save support report");
     readonly TextBox folder = new() { Watermark = "Separate HellForge installation inside its dedicated prefix" };
     readonly CheckBox delta = new() { Content = "Delta Squad armor" }, droids = new() { Content = "CIS droids" }, covenant = new() { Content = "Covenant squids" };
     readonly ComboBox textures = new() { ItemsSource = new[] { "Full textures", "Lighter textures" }, Width = 170 };
@@ -80,7 +80,7 @@ internal sealed class ForgeWindow : Window
         folder.Text = preferences.InstallRoot ?? "";
         var path = new Grid { ColumnDefinitions = new ColumnDefinitions("*,Auto,Auto"), ColumnSpacing = 8 };
         path.Children.Add(folder); path.Children.Add(browse); path.Children.Add(connect); Grid.SetColumn(browse, 1); Grid.SetColumn(connect, 2); panel.Children.Add(path);
-        var tools = new WrapPanel { Orientation = Orientation.Horizontal, Children = { setup, refresh, fallback, updates } };
+        var tools = new WrapPanel { Orientation = Orientation.Horizontal, Children = { setup, refresh, fallback, updates, report } };
         foreach (var control in tools.Children) control.Margin = new Thickness(0, 0, 8, 0); panel.Children.Add(tools);
         panel.Children.Add(Text($"Forge launcher {AppInfo.Version} · Linux gameplay and Windows/Linux co-op still need testing.", 12, Dim));
         panel.Children.Add(Text("Regular HD2: open through Steam. End your Forge session before closing this launcher.", 11, Dim));
@@ -90,6 +90,10 @@ internal sealed class ForgeWindow : Window
         connect.Click += (_, _) => Begin(ConnectAsync);
         browse.Click += (_, _) => Begin(BrowseAsync);
         refresh.Click += (_, _) => Begin(async () => { if (player != null) await player.RefreshAsync(lifetime.Token); });
+        report.Click += (_, _) => Begin(() => {
+            var output = LinuxSupport.SaveReport(null, new Settings(), forge: new LinuxSupport.ForgeReport(preferences.InstallRoot, preferences.Mode, player?.State, lastError ?? player?.Error));
+            reportPath = output; return Task.CompletedTask;
+        });
         Import.Click += (_, _) => Begin(async () => { if (player != null && await ConfirmAsync("Apply the verified HD2 account capture?", "This imports your own sealed capture into Forge using its one-way merge policy. Forge rewards stay local; existing characters are preserved.")) await player.ImportAsync(lifetime.Token); });
         Prepare.Click += (_, _) => Begin(PrepareAsync);
         Launch.Click += (_, _) => Begin(async () => { if (player == null) return; if (player.OwnsSession) await player.EndSessionAsync(lifetime.Token); else await player.LaunchAsync(lifetime.Token); });
@@ -166,11 +170,17 @@ internal sealed class ForgeWindow : Window
     async Task PrepareAsync()
     {
         if (player == null) return;
-        if (player.State?.Status.RecoveryProblem != null) { await player.RecoverAppearanceAsync(lifetime.Token); return; }
-        if (preferences.Mode == "regular") { await player.PrepareAppearanceAsync(null, false, ct: lifetime.Token); return; }
+        if (player.State?.Status.RecoveryProblem != null)
+        {
+            if (player.State.Status.RecoveryProblem.StartsWith("Gameplay", StringComparison.Ordinal)) await player.RecoverGameplayAsync(lifetime.Token);
+            else await player.RecoverAppearanceAsync(lifetime.Token);
+            return;
+        }
         var progress = new Progress<string>(text => message.Text = text);
+        await player.InstallGameplayAsync(progress, lifetime.Token);
+        if (preferences.Mode == "regular") { await player.PrepareAppearanceAsync(null, false, ct: lifetime.Token); return; }
         var plan = await Task.Run(() => player.PlanAppearanceAsync(progress, lifetime.Token));
-        if (plan.Missing.Count > 0 && !await ConfirmAsync("Prepare Star Wars appearance?", $"Download {Pack.FormatBytes(plan.Missing.Sum(f => f.Size))} of verified assets? Existing local files are reused. Gameplay dependencies are installed separately from their authors.")) return;
+        if (plan.Missing.Count > 0 && !await ConfirmAsync("Prepare Star Wars appearance?", $"Download {Pack.FormatBytes(plan.Missing.Sum(f => f.Size))} of verified appearance assets? Existing local files are reused. Required gameplay mods were handled by this setup flow.")) return;
         await Task.Run(() => player.PrepareAppearanceAsync(plan, true, progress, lifetime.Token));
     }
     async Task<bool> ConfirmAsync(string title, string text)
@@ -194,16 +204,18 @@ internal sealed class ForgeWindow : Window
         folder.IsEnabled = browse.IsEnabled = !busy && player == null && !preview;
         connect.IsEnabled = !busy && player == null && !preview; refresh.IsEnabled = !busy && player != null && !preview;
         Prepare.IsEnabled = !busy && !active && player != null && player.State?.Status.CompatibilityProblem == null && !preview;
-        Prepare.Content = preferences.Mode == "regular" ? "Apply Regular mode" : "Prepare Star Wars pack";
-        if (player?.State?.Status.RecoveryProblem != null) Prepare.Content = "Recover previous appearance";
+        Prepare.Content = "Set up selected mode";
+        if (player?.State?.Status.RecoveryProblem is { } recovery) Prepare.Content = recovery.StartsWith("Gameplay", StringComparison.Ordinal) ? "Recover gameplay preset" : "Recover previous appearance";
         Import.IsEnabled = !busy && !active && player?.State?.Status.RecoveryProblem == null && player?.State?.Status.CompatibilityProblem == null && player?.State?.Account is { Captured: true, Imported: false } && !preview;
         Launch.Content = (player?.OwnsSession == true || preview && active) ? "END SESSION" : preferences.Mode == "regular" ? "LAUNCH REGULAR HELLFORGE" : preferences.Mode == "empire" ? "LAUNCH EMPIREDIVERS" : "LAUNCH CLONEDIVERS";
         Launch.IsEnabled = !busy && (preview ? previewState is "ready" or "running" : player?.OwnsSession == true || player?.CanLaunch == true && lastError == null);
         setup.IsEnabled = fallback.IsEnabled = !busy && !active && !preview;
+        report.IsEnabled = !busy && !preview;
         state.Text = busy ? "Working…" : active ? "Forge session running" : lastError != null || preview && previewState == "error" ? "Needs attention" : preview && previewState == "ready" || player?.CanLaunch == true ? "Ready for a private trial" : player == null ? "Connect your Forge installation" : "Finish Forge setup";
         detail.Text = preview ? active ? "Use End session to close the game and wait for cleanup." : previewState == "error" ? "The gameplay preset is incomplete. Open Setup & mods before launching." : "Selected appearance is checked before launch. Choose difficulty 1–11 at the war table." :
             lastError ?? player?.Error ?? player?.State?.Detail ?? "Choose your separate HellForge installation. Steam ownership and official network isolation remain required.";
         account.Text = player?.State?.Account?.Message ?? "One-way account import: HD2 → Forge. Linux capture still needs qualification; use only a capture the official backend verifies for this PC/account.";
+        if (reportPath != null) detail.Text += "\nSupport report saved: " + reportPath;
         updating = false;
     }
 }

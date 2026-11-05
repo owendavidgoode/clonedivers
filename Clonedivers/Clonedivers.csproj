@@ -11,7 +11,7 @@
     <ApplicationIcon>clonedivers.ico</ApplicationIcon>
 
     <!-- Metadata shown in the exe's Properties > Details -->
-    <Version>1.11.0</Version>
+    <Version>1.12.0</Version>
     <IncludeSourceRevisionInInformationalVersion>false</IncludeSourceRevisionInInformationalVersion>
     <Product>Clonedivers</Product>
     <Company>Clonedivers</Company>
@@ -31,6 +31,7 @@
 
   <ItemGroup>
     <EmbeddedResource Include="Resources/hellforge-r19.json" LogicalName="Clonedivers.HellForge.Manifest.json" />
+    <EmbeddedResource Include="Resources/forge-gameplay-build25480438-r1.json" LogicalName="Clonedivers.Forge.Gameplay.json" />
     <EmbeddedResource Include="..\dist\PresentMon.exe" LogicalName="Clonedivers.PresentMon.exe" />
     <EmbeddedResource Include="Licenses\PresentMon.txt" LogicalName="Clonedivers.PresentMon.LICENSE.txt" />
   </ItemGroup>

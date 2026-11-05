@@ -75,6 +75,26 @@ static class HellForgeTests
                 CompatibilityProblem: "Official WFP isolation has not been set up yet."));
             type.GetMethod("UpdateView", members)!.Invoke(form, null);
             check(end.Enabled && end.Text == "FINISH SETUP" && !recover.Enabled && !sync.Enabled, "fresh pinned Forge offers guided setup while copy/isolation and account steps remain incomplete");
+            HellForgeForm.SteamReadyCheck = () => true;
+            var selection = (HellForgePreferences)type.GetField("preferences", members)!.GetValue(form)!;
+            selection.Mode = "regular";
+            var readyMods = HellForgePreset.Required.Select(item => new HellForgeMod(item.Id, item.Name, true, "fixture", [], item.Version,
+                item.Id == HellForgePreset.GuardDogs ? [new("Smarter Guard Dogs and Sentries", true), new("Guard Dogs", true), new("Sentries", true), new("Intelligence", true), new("Safety", true), new("Sentry Safety", true), new("SEAF Safety", true), new("Targeting Marker", false)] : null)).ToList();
+            readyMods.Add(new("skyeshade.vanilla-plus", "Vanilla Plus", true, "fixture", []));
+            Set("lastStatus", new HellForgeStatus(Path.GetTempPath(), "fixture", HellForgePack.SupportedBuild, true, true, false, true, true, null, null));
+            Set("lastMods", new HellForgeMods(readyMods, [], null));
+            Set("lastAccount", new HellForgeAccountState(false, false, "No verified capture in default."));
+            type.GetMethod("UpdateView", members)!.Invoke(form, null);
+            check(end.Enabled && end.Text == "SYNC HD2 ACCOUNT", "missing account capture offers an enabled next action instead of a grey launch button");
+            Set("lastAccount", new HellForgeAccountState(true, false, "Verified capture ready."));
+            type.GetMethod("UpdateView", members)!.Invoke(form, null);
+            check(end.Enabled && end.Text == "FINISH ACCOUNT SYNC", "verified capture offers direct completion from the primary button");
+            readyMods.Add(new(HellForgePack.PackId("commandos"), "Republic", true, "fixture", []));
+            type.GetMethod("UpdateView", members)!.Invoke(form, null);
+            check(end.Enabled && end.Text == "SET UP SELECTED MODE", "Regular mode needing appearance removal offers setup from its primary button");
+            Set("captureBlock", "Sync is still forwarding the normal game.");
+            type.GetMethod("UpdateView", members)!.Invoke(form, null);
+            check(!end.Enabled && !recover.Enabled && !sync.Enabled, "automatic import and setup stay blocked until account capture cleanup finishes");
         }
         finally { HellForgeForm.SteamReadyCheck = steamReady; SynchronizationContext.SetSynchronizationContext(previousContext); }
     }
@@ -506,7 +526,7 @@ static class HellForgeTests
             "players see only account sync, with no armory or progression selector");
         regularForm.SetPreviewState("running");
         check(Descendants(regularForm).OfType<Button>().Any(c => c.Text == "END SESSION" && c.Enabled) &&
-            !Descendants(regularForm).OfType<Button>().Single(c => c.Text == "APPLY REGULAR MODE").Enabled,
+            !Descendants(regularForm).OfType<Button>().Single(c => c.Text == "SET UP SELECTED MODE").Enabled,
             "an active-session preview exposes End session while blocking pack changes");
 
         var selectedBefore = commands.Calls.Count(c => c[0] == "settings");
@@ -683,9 +703,13 @@ static class HellForgeTests
     {
         async Task<int> WaitForPid(string path)
         {
-            for (var i = 0; i < 300 && !File.Exists(path); i++) await Task.Delay(10);
-            if (!File.Exists(path)) throw new IOException("Backend fixture did not start.");
-            return int.Parse(await File.ReadAllTextAsync(path));
+            for (var i = 0; i < 300; i++)
+            {
+                try { if (File.Exists(path) && int.TryParse(await File.ReadAllTextAsync(path), out var pid)) return pid; }
+                catch (IOException) { /* The fixture is still publishing its PID. */ }
+                await Task.Delay(10);
+            }
+            throw new IOException("Backend fixture did not start.");
         }
         bool Exited(int pid)
         {
@@ -789,6 +813,8 @@ static class HellForgeTests
                     session = new { running = Running, lastStatus = LastStatus, lastFailure = (string?)null, lastRun = LastRun }, settings = new { multiplayer = Multiplayer, localPlayFab = true, sandbox = true } }; break;
                 case "mods": result = new { mods = Mods.Select(m => new { id = m.Id, name = m.Name, enabled = m.Enabled, folder = m.Folder, tags = m.Tags, version = m.Version,
                     options = m.Options?.Select(o => new { name = o.Name, on = o.On }) }), problems = Array.Empty<string>(), modlist = "fixture-code" }; break;
+                case "mod-hash":
+                    result = new { hash = HellForgeGameplayCatalog.Pinned.Artifacts.Single(a => Mods.Any(m => m.Id == a.Id && m.Folder == args[2])).ContentHash }; break;
                 case "profiles":
                     if (args.Count > 1) Profiles.Add(args[2], args[4]);
                     result = new { profiles = Profiles.Select(p => new { name = p.Key, template = p.Value }) };

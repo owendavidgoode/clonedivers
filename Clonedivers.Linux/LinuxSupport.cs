@@ -112,7 +112,8 @@ public static class LinuxSupport
         _ => node?.DeepClone()
     };
 
-    public static string SaveReport(string? gameDir, Settings settings, string? output = null, string? configDirectory = null, string? home = null)
+    public sealed record ForgeReport(string? InstallRoot, string Mode, object? ObservedState, string? Error);
+    public static string SaveReport(string? gameDir, Settings settings, string? output = null, string? configDirectory = null, string? home = null, ForgeReport? forge = null)
     {
         var config = configDirectory ?? PlatformPaths.ConfigDirectory;
         output ??= Path.Combine(config, "reports", $"clonedivers-linux-{DateTime.UtcNow:yyyyMMdd-HHmmss}-{Guid.NewGuid():N}.zip");
@@ -141,14 +142,16 @@ public static class LinuxSupport
                 Architecture = RuntimeInformation.OSArchitecture.ToString(),
                 Distribution = LinuxSystemInfo.Head("/etc/os-release", 8192),
                 Cpu = LinuxSystemInfo.Cpu(),
-                Gpus = LinuxSystemInfo.Gpus(), Selection = SafeSelection(gameDir, settings),
+                Gpus = LinuxSystemInfo.Gpus(), Workflow = forge == null ? "Steam" : "Forge",
+                Selection = forge == null ? SafeSelection(gameDir, settings) : null,
+                Forge = forge,
                 SteamRoots = LinuxPlatform.SteamRoots(home).Where(Directory.Exists).Select(p => Redact(p, home)).ToArray(),
                 Privacy = "Local export only. No raw settings, environment dump, game memory or automatic upload. Credential-like lines are filtered; text redaction is best-effort. Inspect before sharing."
             }, Json));
             Add("launcher-history.json", JsonSerializer.Serialize(ReadHistory(config), Json));
             try
             {
-            var session = gameDir is null ? null : LinuxRecording.LatestSession(gameDir);
+            var session = forge != null || gameDir is null ? null : LinuxRecording.LatestSession(gameDir);
             if (session is not null)
             {
                 foreach (var name in new[] { "selection-at-launch.json", "selection.json", "status.txt", "proton-version.txt" })
@@ -160,6 +163,10 @@ public static class LinuxSupport
                 if (Directory.Exists(mango))
                     foreach (var csv in Directory.EnumerateFiles(mango, "*.csv").OrderByDescending(File.GetLastWriteTimeUtc).Take(2).Select((path, i) => (path, i)))
                         Add($"session/mangohud-{csv.i + 1}.csv", Tail(csv.path, 1024 * 1024));
+            }
+            else if (forge != null)
+            {
+                Add("session.txt", "Forge status is the launcher's last observed state, not proof of mission completion or multiplayer. Steam fallback recordings are excluded. For a game crash also export the session report from HellForge; this ZIP does not collect raw account captures, profile data or crash memory.");
             }
             else
             {
