@@ -21,7 +21,7 @@ and Windows approval remain player actions.
 
 Read [the migration and first-setup guide](docs/FORGE-MIGRATION.md). The launcher
 update preserves settings and account data and keeps a verified previous Windows
-executable for rollback. It does not edit live Steam game files, close a running
+executable for rollback. It does not edit live Steam game files or close a running
 game. **Set up selected mode** obtains all eight additional required gameplay
 packages automatically, verifies their archives/content, imports them through
 Forge, applies preset order/options and then prepares the appearance.

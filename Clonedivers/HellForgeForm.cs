@@ -165,6 +165,7 @@ public sealed class HellForgeForm : Form
         launch.Click += async (_, _) => {
             if (lastStatus?.Running == true) await EndSessionAsync();
             else if (preferences.InstallRoot == null || lastStatus is { GameCopyReady: false } or { RunnerReady: false }) await SetupAsync();
+            else if (!SteamReadyCheck()) await LaunchAsync();
             else if (NeedsGameplaySetup()) await PrepareAsync();
             else if (lastMods?.HostingProblem != null) OpenHellForge();
             else if (NeedsModeSetup()) await PrepareAsync();
@@ -412,7 +413,9 @@ public sealed class HellForgeForm : Form
             : preferences.AppliedSelection != preferences.SelectionKey || ours.Length != 1 || ours[0].Id != HellForgePack.PackId(preferences.PackMode) ||
               lastStatus is { Multiplayer: false } or { LocalBackend: false };
     }
-    async Task PrepareAsync() => await OperationAsync(async () => {
+    async Task PrepareAsync() => await OperationAsync(PrepareSelectedCoreAsync);
+    async Task PrepareSelectedCoreAsync()
+    {
         var client = Client();
         if (client.InterruptedGameplayProblem() != null) { await client.RecoverGameplayAsync(WorkToken); message.Text = "Previous gameplay preset restored."; return; }
         if ((await client.StatusAsync(WorkToken)).RecoveryProblem == null) await InstallGameplayCoreAsync(client);
@@ -421,7 +424,7 @@ public sealed class HellForgeForm : Form
             preferences.AppliedSelection == preferences.SelectionKey &&
             (await new HellForgeAccount(client.Root).ReadAsync(WorkToken)).Imported != true)
             await SyncAccountCoreAsync(client);
-    });
+    }
     async Task InstallGameplayCoreAsync(HellForgeClient client)
     {
         var report = new Progress<string>(text => { if (!IsDisposed) message.Text = text; });
@@ -564,14 +567,14 @@ public sealed class HellForgeForm : Form
     }
     async Task SetupAsync() => await OperationAsync(async () => {
         using var setup = new HellForgeSetupForm(preferences.InstallRoot);
-        setup.Connected += root => { preferences.InstallRoot = HellForgeCommands.ValidateRoot(root); Save(); };
+        setup.Connected += root => { preferences.InstallRoot = HellForgeCommands.ValidateRoot(root); syncRequested = false; Save(); };
         var completed = setup.ShowDialog(this) == DialogResult.OK;
         if (setup.InstallationRoot is { } root)
         {
-            preferences.InstallRoot = HellForgeCommands.ValidateRoot(root); Save();
+            preferences.InstallRoot = HellForgeCommands.ValidateRoot(root); syncRequested = false; Save();
             lastStatus = null; lastMods = null; lastAccount = null; captureBlock = null;
             message.Text = "Forge connected. Required gameplay mods are the next setup step.";
-            if (completed) { await InstallGameplayCoreAsync(Client()); await PrepareCoreAsync(); }
+            if (completed) await PrepareSelectedCoreAsync();
         }
     });
     async void OpenHellForge()
