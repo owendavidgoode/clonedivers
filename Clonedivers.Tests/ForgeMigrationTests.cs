@@ -28,6 +28,9 @@ internal static class ForgeMigrationTests
         File.WriteAllText(backup, "changed"); bool refused = false;
         try { ForgeLauncherUpdate.PreservePrevious(exe, backupDirectory); } catch (IOException) { refused = true; }
         check(refused && File.ReadAllText(old) == "previous launcher", "a damaged retained backup cannot cause deletion of the adjacent recovery executable");
+        check(ForgeLauncherUpdate.IsForgeBuild("1.13.0.0") && !ForgeLauncherUpdate.IsForgeBuild("1.7.3.0") && !ForgeLauncherUpdate.IsForgeBuild(null), "only 1.10+ executables count as Forge builds; unversioned ones keep the migration backup");
+        var forgeBackups = Path.Combine(folder, "forge-backups"); File.Copy(typeof(object).Assembly.Location, old, true);
+        check(ForgeLauncherUpdate.PreservePrevious(exe, forgeBackups) == null && !Directory.Exists(forgeBackups) && File.Exists(old), "a Forge-to-Forge self-update adds no backup and no migration notice");
         var legacyFile = Path.Combine(folder, "config.json");
         const string legacyText = """{"Options":{"empire":true,"droids":false,"covenant":true},"TextureProfile":"lighter"}""";
         File.WriteAllText(legacyFile, legacyText);

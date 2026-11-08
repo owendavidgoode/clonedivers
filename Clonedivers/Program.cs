@@ -1618,6 +1618,7 @@ static class Program
                 SelfUpdate.CleanupOld(exe);
                 if (backup != null) migrationNotice = "Forge is now the default launcher. Your previous launcher is retained at " + backup +
                     ". Steam files and saved settings were not changed. Set up the separate HellForge installation and matching gameplay mods before playing.";
+                else if (updatedTo != null) migrationNotice = $"Updated to {updatedTo}.";
             }
             catch (Exception error) when (error is IOException or UnauthorizedAccessException or InvalidDataException)
             { migrationNotice = "The previous launcher remains beside this file because its backup could not be completed: " + error.Message; }

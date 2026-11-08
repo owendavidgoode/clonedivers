@@ -17,13 +17,16 @@ internal static class ForgeLauncherUpdate
         return IsOffer(manifest.App, current) ? manifest.App : null;
     }
 
+    internal static bool IsForgeBuild(string? fileVersion) => System.Version.TryParse(fileVersion, out var version) && version >= new System.Version(1, 10, 0);
+
     // The old updater leaves .old.exe beside the new executable. Preserve its
     // exact bytes before the usual cleanup runs. Failure leaves .old.exe intact.
+    // A Forge build replacing itself is not a migration: ordinary cleanup, no backup.
     internal static string? PreservePrevious(string executable, string? directory = null)
     {
         var previous = SelfUpdate.Paths(Path.GetFullPath(executable)).old;
         FileSafety.RejectLink(previous);
-        if (!File.Exists(previous)) return null;
+        if (!File.Exists(previous) || IsForgeBuild(System.Diagnostics.FileVersionInfo.GetVersionInfo(previous).FileVersion)) return null;
         if (new FileInfo(previous).Length > 512L * 1024 * 1024) throw new IOException("Previous launcher is unexpectedly large; its backup was left in place.");
         directory ??= Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "Clonedivers", "launcher-backups");
         directory = Path.GetFullPath(directory);
