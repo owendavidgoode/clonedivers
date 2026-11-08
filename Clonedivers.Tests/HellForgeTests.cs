@@ -38,6 +38,9 @@ static class HellForgeTests
             Set("refreshing", false); poll.SetResult();
             await request.ConfigureAwait(false);
             check(actions == 1, "a queued operation executes once and ignores a duplicate click");
+            string? Diagnostic() => (string?)type.GetProperty("LauncherDiagnostic", members)!.GetValue(form);
+            Set("lastError", null); // what the next successful status refresh does
+            check(Diagnostic() == "isolated action finished", "the failed operation's full diagnostic survives the next refresh for Session details");
 
             Set("lastStatus", new HellForgeStatus(Path.GetTempPath(), "fixture", HellForgePack.SupportedBuild,
                 false, true, true, true, true, "observing", null));
@@ -95,6 +98,17 @@ static class HellForgeTests
             Set("captureBlock", "Sync is still forwarding the normal game.");
             type.GetMethod("UpdateView", members)!.Invoke(form, null);
             check(!end.Enabled && !recover.Enabled && !sync.Enabled, "automatic import and setup stay blocked until account capture cleanup finishes");
+            Set("captureBlock", null);
+            type.GetMethod("UpdateView", members)!.Invoke(form, null);
+            bool offered = end.Enabled, reenabled = false;
+            EventHandler watch = (_, _) => reenabled |= end.Enabled;
+            end.EnabledChanged += watch;
+            await ((Task)type.GetMethod("OperationAsync", members)!.Invoke(form, [(Func<Task>)(() => Task.CompletedTask)])!).ConfigureAwait(false);
+            end.EnabledChanged -= watch;
+            check(offered && !reenabled, "a finished launch keeps the primary button locked until the follow-up status read replaces the pre-launch status");
+            check(type.GetField("failureDetail", members)!.GetValue(form) == null, "a new operation retires the previous failure's diagnostic");
+            check(HellForgeForm.SyncInstructions.Contains("Apply import") && HellForgeForm.SyncInstructions.Contains("auto-apply"),
+                "sync instructions keep players from applying HellForge's own import, which would refuse the Clonedivers link");
         }
         finally { HellForgeForm.SteamReadyCheck = steamReady; SynchronizationContext.SetSynchronizationContext(previousContext); }
     }
@@ -194,6 +208,13 @@ static class HellForgeTests
             check(false, "failed CLI launch preserves stderr diagnostics");
         }
         catch (IOException error) { check(error.Message.Contains("fixture failure"), "failed CLI launch preserves stderr diagnostics"); }
+        static async Task<JsonElement> Hang(CancellationToken ct) { await Task.Delay(Timeout.Infinite, ct); return default; }
+        Exception? deadline = null, cancel = null;
+        try { await HellForgeCommands.TimedAsync("mods", TimeSpan.FromMilliseconds(50), Hang, CancellationToken.None); } catch (Exception e) { deadline = e; }
+        check(deadline is TimeoutException && deadline.Message.Contains("'mods'"), "a CLI deadline is a named timeout, never swallowed or shown as a player cancel");
+        using (var player = new CancellationTokenSource(50))
+            try { await HellForgeCommands.TimedAsync("mods", TimeSpan.FromMinutes(2), Hang, player.Token); } catch (Exception e) { cancel = e; }
+        check(cancel is OperationCanceledException, "a real cancellation still arrives as a cancellation");
     }
     public static async Task Run(string root, Action<bool, string> check)
     {
@@ -321,6 +342,13 @@ static class HellForgeTests
         check((await client.StatusAsync()).LastFailure == null, "unfinished result does not imply a game crash");
         File.WriteAllText(resultPath, "{partial");
         check((await client.StatusAsync()).LastFailure == null, "partially written diagnostic does not break readiness checks");
+        File.WriteAllText(resultPath, """{"status":"observed","completedUtc":"2026-11-03T17:58:43Z","exitCode":0,"sandboxCopyBackError":"fixture userdata locked"}""");
+        check((await client.StatusAsync()).LastFailure?.Contains("sandboxCopyBackError: fixture userdata locked") == true,
+            "a 0.4 cleanup step failure is reported although HellForge keeps the status observed");
+        File.WriteAllText(resultPath, """{"status":"observed","completedUtc":"2026-11-03T17:58:43Z","exitCode":0,"jobEmpty":false}""");
+        check((await client.StatusAsync()).LastFailure?.Contains("jobEmpty") == true, "a game job left running at cleanup is unclean, as HellForge itself judges it");
+        File.WriteAllText(resultPath, """{"status":"observed","completedUtc":"2026-11-03T17:58:43Z","exitCode":0,"jobEmpty":true,"sdkShimOriginalsRestored":true,"networkCensusError":"fixture"}""");
+        check((await client.StatusAsync()).LastFailure == null, "a clean job and diagnostic-only step errors do not block the next launch");
         File.WriteAllText(resultPath, """{"completedUtc":"2026-11-03T17:58:43Z","exitCode":1}""");
         commands.LastRun = Path.Combine(area, "outside-sessions");
         Directory.CreateDirectory(commands.LastRun);
@@ -483,6 +511,11 @@ static class HellForgeTests
             "an unexpected stop response is not mistaken for completed cleanup");
         commands.StopAcknowledgement = "stopping"; commands.StopCompletes = true; commands.LastStatus = "cleanup_failed";
         check(await Reject(() => client.EndSessionAsync()), "an explicit cleanup failure is reported even when copy readiness is true");
+        commands.LastStatus = "observed"; commands.LastRun = diagnosticRun; commands.Running = true;
+        File.WriteAllText(resultPath, """{"status":"observed","completedUtc":"2026-11-03T17:58:43Z","exitCode":0,"jobStopTimeout":true}""");
+        check(await Reject(() => client.EndSessionAsync()), "End session is not reported complete when HellForge 0.4 recorded a failed cleanup step");
+        check(await Reject(() => client.EndSessionAsync()) && !commands.Running, "a session that ended before End session still has its cleanup checked");
+        commands.LastRun = null;
         commands.LastStatus = null; commands.Running = true;
         stops = commands.Calls.Count(c => c[0] == "stop");
         using (var cancelled = new CancellationTokenSource())
@@ -616,6 +649,28 @@ static class HellForgeTests
         var failing = new HellForgeAccount(install, (args, ct) => args[1] == "import" ? throw new IOException("Import failed") : Backend(args, ct));
         check(await reject(() => failing.ImportAsync()) && File.ReadAllText(Path.Combine(folder, "account-import.json")) == beforePolicy && !(await account.ReadAsync()).Imported,
             "failed official imports restore prior choices and never record a successful receipt");
+        foreach (var failure in new Exception[] { new TimeoutException("fixture review timed out"), new System.ComponentModel.Win32Exception(2, "fixture backend missing") })
+        {
+            var (state, reviewed) = await HellForgeForm.ReviewAccountAsync(new HellForgeAccount(install, (_, _) => throw failure), CancellationToken.None);
+            check(!reviewed && !state.Captured && !state.Imported && state.Message == failure.Message,
+                failure.GetType().Name + " from the account review becomes an account state instead of failing the refresh and its mods read");
+        }
+        using (var closing = new CancellationTokenSource())
+        {
+            closing.Cancel(); bool cancelled = false;
+            try { await HellForgeForm.ReviewAccountAsync(account, closing.Token); } catch (OperationCanceledException) { cancelled = true; }
+            check(cancelled, "closing the launcher still cancels an account review");
+        }
+        var probe = new HellForgeClient(install, new FakeCommands(install));
+        var accountKey = probe.AccountFingerprint();
+        check(probe.AccountFingerprint() == accountKey, "an unchanged capture and profile reuse the last account review");
+        File.WriteAllText(Path.Combine(snapshot, "progression.json"), "{\"experience\":4000}");
+        var recaptured = probe.AccountFingerprint();
+        check(recaptured != accountKey, "a new HD2 capture triggers a fresh account review");
+        Directory.CreateDirectory(Path.Combine(folder, "backups"));
+        File.WriteAllText(Path.Combine(folder, "backups", "20261101-000000-000-import.json"), "{}");
+        check(probe.AccountFingerprint() != recaptured, "a native HellForge import backup triggers a fresh account review");
+        File.Delete(Path.Combine(folder, "backups", "20261101-000000-000-import.json"));
     }
 
     static async Task NativeAccountMigrationTests(string root, Action<bool, string> check, Func<Func<Task>, Task<bool>> reject)

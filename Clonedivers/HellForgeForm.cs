@@ -15,6 +15,13 @@ public sealed class HellForgeForm : Form
         catch (Exception error) when (error is IOException or UnauthorizedAccessException or System.ComponentModel.Win32Exception or System.Security.SecurityException) { return false; }
         finally { foreach (var client in clients) client.Dispose(); }
     }
+    static string SteamUser()
+    {
+        try { return Microsoft.Win32.Registry.GetValue(@"HKEY_CURRENT_USER\Software\Valve\Steam\ActiveProcess", "ActiveUser", null)?.ToString() ?? ""; }
+        catch (Exception error) when (error is IOException or UnauthorizedAccessException or System.Security.SecurityException) { return ""; }
+    }
+    internal const string SyncInstructions = "In HellForge open Profile > Account sync > Sync Inventory. Default profile is already selected. Approve Windows, pass the HD2 title screen, then close HD2. " +
+        "Leave HellForge's own import review unapplied (no Apply import, no auto-apply): Clonedivers verifies and applies the completed import automatically while it stays open. Later syncs merge forward.";
     internal static string FailureSummary(string diagnostic)
     {
         var first = diagnostic.Split(['\r', '\n'], StringSplitOptions.RemoveEmptyEntries).FirstOrDefault()?.Trim() ?? "Session needs attention.";
@@ -58,11 +65,14 @@ public sealed class HellForgeForm : Form
     string? lastModsFingerprint;
     DateTime lastModsReadUtc, lastPartialSweepUtc;
     HellForgeAccountState? lastAccount;
+    string? lastAccountFingerprint;
+    DateTime lastAccountReadUtc;
     string? captureBlock;
     bool syncRequested;
     bool working, refreshing, initializing = true, resourcesDisposed;
     TaskCompletionSource? refreshCompletion;
-    string? lastError;
+    string? lastError, failureDetail; // a refresh clears lastError; the failed operation's full text stays for Session details
+    string? LauncherDiagnostic => lastError ?? failureDetail;
     string previewState = "setup";
 
     public HellForgeForm(HellForgePreferences preferences, bool preview = false, string? migrationNotice = null)
@@ -232,18 +242,26 @@ public sealed class HellForgeForm : Form
                 try { client.SweepHashPartials(DateTime.UtcNow.AddMinutes(-10)); }
                 catch (Exception e) when (e is IOException or UnauthorizedAccessException or InvalidDataException) { }
             }
-            var block = HellForgeAccount.CaptureBlock();
+            string? block;
+            try { block = HellForgeAccount.CaptureBlock(); }
+            catch (Exception e) when (e is IOException or UnauthorizedAccessException) { block = "Could not confirm that account sync cleanup finished: " + e.Message; }
             HellForgeAccountState? account = lastAccount;
             if (!status.Running && !Game.IsRunning())
             {
-                try { account = await new HellForgeAccount(root).ReadAsync(lifetime.Token); }
-                catch (Exception error) when (error is IOException or InvalidDataException or JsonException or UnauthorizedAccessException)
-                { account = new(false, false, error.Message); }
+                string? accountKey;
+                try { accountKey = root + "\n" + client.AccountFingerprint() + "\n" + SteamUser(); }
+                catch (Exception e) when (e is IOException or UnauthorizedAccessException) { accountKey = null; }
+                // The review starts HellForge's backend; idle, rerun it when the capture/profile/Steam user change or every 5 minutes.
+                if (lastAccount == null || accountKey == null || accountKey != lastAccountFingerprint || DateTime.UtcNow - lastAccountReadUtc >= TimeSpan.FromMinutes(5))
+                {
+                    (account, var reviewed) = await ReviewAccountAsync(new HellForgeAccount(root), lifetime.Token);
+                    lastAccountFingerprint = reviewed ? accountKey : null; lastAccountReadUtc = DateTime.UtcNow;
+                }
             }
             if (root != preferences.InstallRoot) return;
             lastStatus = status; lastMods = mods; lastAccount = account; captureBlock = block; lastError = null;
         }
-        catch (OperationCanceledException) { }
+        catch (OperationCanceledException) when (lifetime.IsCancellationRequested) { }
         catch (Exception e) { if (!IsDisposed && root == preferences.InstallRoot) { lastMods = null; lastError = e.Message; } }
         finally { refreshing = false; completed.TrySetResult(); if (!IsDisposed) UpdateView(); }
         // Only finish an import the player requested in this launcher. Startup never
@@ -251,6 +269,12 @@ public sealed class HellForgeForm : Form
         if (!IsDisposed && syncRequested && captureBlock == null && lastStatus?.Running == false &&
             !Game.IsRunning() && lastAccount is { Captured: true, Imported: false })
             await SyncAccountAsync();
+    }
+    // A read-only review failure (timeout, missing backend) is an account state, never a refresh failure that drops the mods read.
+    internal static async Task<(HellForgeAccountState State, bool Reviewed)> ReviewAccountAsync(HellForgeAccount account, CancellationToken ct)
+    {
+        try { return (await account.ReadAsync(ct), true); }
+        catch (Exception error) when (error is not OperationCanceledException) { return (new(false, false, error.Message), false); }
     }
     void UpdateView()
     {
@@ -370,16 +394,19 @@ public sealed class HellForgeForm : Form
         if (preview || working) return;
         var pendingRefresh = refreshCompletion?.Task ?? Task.CompletedTask;
         operation = CancellationTokenSource.CreateLinkedTokenSource(lifetime.Token);
-        working = true; progress.Visible = true; UpdateView(); state.Text = "Preparing…"; lastError = null;
+        working = true; progress.Visible = true; UpdateView(); state.Text = "Preparing…"; lastError = failureDetail = null;
+        lastAccountFingerprint = null; // any operation can change the account; review it again afterwards
         try { await pendingRefresh; lastError = null; await action(); }
         catch (OperationCanceledException) { if (!IsDisposed) message.Text = "Operation cancelled. Your existing game session stays open."; }
-        catch (Exception e) { if (!IsDisposed) { lastError = e.Message; message.Text = FailureSummary(e.Message); } }
+        catch (Exception e) { if (!IsDisposed) { lastError = failureDetail = e.Message; message.Text = FailureSummary(e.Message); } }
         finally
         {
             working = false;
             operation.Dispose(); operation = null;
             cancelPreparation.Visible = false;
-            if (!IsDisposed) { progress.Visible = false; UpdateView(); if (lastError == null) await RefreshAsync(); }
+            // Keep the controls locked until the follow-up status read: the pre-operation status would
+            // re-enable LAUNCH for a session HellForge has just started.
+            if (!IsDisposed) { progress.Visible = false; if (lastError == null) await RefreshAsync(); if (!IsDisposed) UpdateView(); }
         }
     }
     async Task CheckLauncherUpdateAsync(bool interactive)
@@ -592,7 +619,7 @@ public sealed class HellForgeForm : Form
         {
             Process.Start(new ProcessStartInfo(Path.Combine(client.Root, "HellForge.exe")) { UseShellExecute = true, WorkingDirectory = client.Root });
             syncRequested = true;
-            message.Text = "In HellForge open Profile > Account sync > Sync Inventory. Default profile is already selected. Approve Windows, pass the HD2 title screen, then close HD2. Keep Clonedivers open: it will verify and apply the completed import automatically. Later syncs merge forward.";
+            message.Text = SyncInstructions;
         }
     }
     async void Locate()
@@ -644,8 +671,9 @@ public sealed class HellForgeForm : Form
     async Task ShowDetailsAsync()
     {
         if (preview || working) return;
-        var launcherDiagnostic = lastError; // OperationAsync clears transient errors before invoking its action.
+        var launcherDiagnostic = LauncherDiagnostic; var kept = failureDetail; // OperationAsync clears both before its action.
         await OperationAsync(async () => {
+            failureDetail = kept; // viewing details is not a new attempt; keep the failed operation's text for the next view
             var client = Client(); var status = await client.StatusAsync(WorkToken); var mods = await client.ModsAsync(WorkToken);
             var text = $"HellForge: {status.Version}\r\nGame build: {status.Build}\r\nGame copy ready: {status.GameCopyReady}\r\nSession running: {status.Running}\r\nLast session: {status.LastStatus ?? "none"}\r\nLast failure: {status.LastFailure ?? "none"}\r\nLauncher diagnostic: {launcherDiagnostic ?? "none"}\r\nLast notice: {status.LastNotice ?? "none"}\r\nSquad modlist: {mods.Code ?? "no gameplay mods enabled"}\r\n\r\nMultiplayer validation: pending actual squad playtest\r\n\r\n" +
                 string.Join("\r\n", mods.Mods.Select(m => $"{(m.Enabled ? "ON" : "OFF")}  {m.Name}  ({m.Id})"));

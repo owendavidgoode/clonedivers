@@ -101,10 +101,18 @@ public sealed class HellForgeCommands : IHellForgeCommands
             WorkingDirectory = Root
         };
         foreach (var arg in args) start.ArgumentList.Add(arg);
-        using var timeout = CancellationTokenSource.CreateLinkedTokenSource(ct);
-        timeout.CancelAfter(TimeSpan.FromMinutes(args.FirstOrDefault() == "mod-add" ? 10 : 2));
-        try { return await ReadJsonProcessAsync(start, args.FirstOrDefault() == "play", timeout.Token); }
+        var command = args.FirstOrDefault() ?? "";
+        try { return await TimedAsync(command, TimeSpan.FromMinutes(command == "mod-add" ? 10 : 2), t => ReadJsonProcessAsync(start, command == "play", t), ct); }
         catch (HellForgeCommandOutcomeUnknownException) { UncertainRoots[Root] = true; throw; }
+    }
+    // A deadline is not a player cancel: callers show cancellations as "Operation cancelled" or drop them silently.
+    internal static async Task<JsonElement> TimedAsync(string command, TimeSpan limit, Func<CancellationToken, Task<JsonElement>> run, CancellationToken ct)
+    {
+        using var timeout = CancellationTokenSource.CreateLinkedTokenSource(ct);
+        timeout.CancelAfter(limit);
+        try { return await run(timeout.Token); }
+        catch (OperationCanceledException error) when (timeout.IsCancellationRequested && !ct.IsCancellationRequested)
+        { throw new TimeoutException($"HellForge CLI '{command}' did not finish within {limit.TotalMinutes:0} minutes and was stopped. Retry, or open Setup & mods to inspect HellForge.", error); }
     }
 
     internal static bool ReadAfterUncertain(IReadOnlyList<string> args) => args.FirstOrDefault() is "status" or "mods" or "logs" or "stop" || args.Count == 1 && args[0] == "profiles";
@@ -227,6 +235,8 @@ public sealed partial class HellForgeClient(string root, IHellForgeCommands comm
             if (!File.Exists(path) || new FileInfo(path).Length > 1024 * 1024) return (null, null);
             using var result = JsonDocument.Parse(File.ReadAllText(path));
             var json = result.RootElement;
+            if (json.ValueKind == JsonValueKind.Object && CleanupProblem(json) is { } cleanup)
+                return ($"HellForge did not finish cleaning up the last session ({cleanup}). Check HellForge's session logs before launching again.", null);
             // "observed" describes runner completion, even when the game crashed with exit1.
             if (json.ValueKind == JsonValueKind.Object && json.TryGetProperty("completedUtc", out var completed) &&
                 completed.ValueKind == JsonValueKind.String && json.TryGetProperty("exitCode", out var code) &&
@@ -243,6 +253,17 @@ public sealed partial class HellForgeClient(string root, IHellForgeCommands comm
             // Missing, pruned or partially written diagnostics must not prevent status checks.
         }
         return (null, null);
+    }
+
+    // HellForge 0.4 never writes "cleanup_failed": PlaySession.CleanUp records each failed step under its own key while
+    // status stays "observed". Mirror its SessionIntegrity.LastEndedUnclean, plus the steps that put files back.
+    internal static string? CleanupProblem(JsonElement result)
+    {
+        foreach (var key in new[] { "cleanupError", "jobStopTimeout", "jobStopError", "releaseHoldsError", "sdkShimRestoreFailure", "sandboxCopyBackError" })
+            if (result.TryGetProperty(key, out var value)) return value.ValueKind == JsonValueKind.String ? key + ": " + value.GetString() : key;
+        foreach (var key in new[] { "jobEmpty", "sdkShimOriginalsRestored" })
+            if (result.TryGetProperty(key, out var value) && value.ValueKind == JsonValueKind.False) return key + " = false";
+        return null;
     }
 
     static bool HasDocumentedQuitCrash(string folder)
@@ -283,6 +304,15 @@ public sealed partial class HellForgeClient(string root, IHellForgeCommands comm
             .Where(i => !i.Name.StartsWith('.'))
             .Select(i => $"{i.Name}|{(i as FileInfo)?.Length}|{i.LastWriteTimeUtc.Ticks}")
             .OrderBy(p => p, StringComparer.Ordinal));
+    }
+    // Each account review starts HellForge.LocalBackend and re-hashes the capture. Its outcome depends only on the capture,
+    // the profile's receipt/journal/profile.json and its restore/import backups (plus the Steam user, added by the caller).
+    internal string AccountFingerprint()
+    {
+        var profile = Path.Combine(Root, "profiles", HellForgeAccount.Profile);
+        return string.Join("\n", new[] { Path.Combine(Root, "account-snapshot", HellForgeAccount.Profile), profile, Path.Combine(profile, "backups") }
+            .Where(Directory.Exists).SelectMany(folder => new DirectoryInfo(folder).EnumerateFiles("*", new EnumerationOptions { AttributesToSkip = 0 }))
+            .Select(f => $"{f.FullName}|{f.Length}|{f.LastWriteTimeUtc.Ticks}").OrderBy(p => p, StringComparer.Ordinal));
     }
     static readonly System.Text.RegularExpressions.Regex HashPartial = new(@"^\.zip-hashes\.json\.[0-9a-f]{8}\.partial$");
     internal int SweepHashPartials(DateTime olderThanUtc)
@@ -359,7 +389,8 @@ public sealed partial class HellForgeClient(string root, IHellForgeCommands comm
         if (limit < TimeSpan.Zero || limit > TimeSpan.FromMinutes(2)) throw new ArgumentOutOfRangeException(nameof(wait));
         var status = await StatusAsync(ct);
         // Never stop an unrelated Steam game, and allow recovery while the copy is staged or the build has changed.
-        if (!status.Running) return;
+        // A session that ended before this request still has its cleanup checked before it is reported complete.
+        if (!status.Running) { RequireCompletedCleanup(status); return; }
         JsonElement response;
         try { response = await commands.RunAsync(["stop"], ct); }
         catch (IOException)
