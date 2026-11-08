@@ -822,6 +822,7 @@ public static class Pack
         Directory.CreateDirectory(Path.GetDirectoryName(destPath)!);
         long existing = File.Exists(destPath) ? new FileInfo(destPath).Length : 0;
         if (file.Size > 0 && existing > file.Size) { File.Delete(destPath); existing = 0; }
+        var reused = existing > 0;   // kept bytes may belong to another release saved under the same name (a stale .update.exe)
 
         if (!(file.Size > 0 && existing == file.Size))   // already complete? then just verify below
         {
@@ -848,6 +849,7 @@ public static class Pack
 
             var resumed = resp.StatusCode == HttpStatusCode.PartialContent && existing > 0;
             if (!resumed) existing = 0;
+            reused = resumed;
             long total = file.Size > 0 ? file.Size : existing + (resp.Content.Headers.ContentLength ?? 0);
 
             using var net = await resp.Content.ReadAsStreamAsync(inactivity.Token);
@@ -882,6 +884,7 @@ public static class Pack
             if (!hash.Equals(file.Sha256.Trim(), StringComparison.OrdinalIgnoreCase))
             {
                 File.Delete(destPath);
+                if (reused) { await DownloadAttemptAsync(file, destPath, progress, ct); return; }   // one retry from scratch
                 throw new InvalidDataException("The download failed its integrity check (SHA-256 mismatch). Deleted it; try again.");
             }
         }

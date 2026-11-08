@@ -614,6 +614,14 @@ static class TestProgram
             await Pack.DownloadAsync(file, already, null, CancellationToken.None);
             Check(srv.RangeRequests, 1, "a complete file is only verified, not re-downloaded");
 
+            var stale = Path.Combine(dlDir, "stale.update.exe");
+            File.WriteAllBytes(stale, new byte[1024 * 1024]);   // an earlier release's partial under the same fixed name
+            await Pack.DownloadAsync(file, stale, null, CancellationToken.None);
+            Check(srv.RangeRequests == 2 && File.ReadAllBytes(stale).AsSpan().SequenceEqual(body), "a stale partial from another release is refetched from scratch, not failed");
+            File.WriteAllBytes(stale, new byte[body.Length]);
+            await Pack.DownloadAsync(file, stale, null, CancellationToken.None);
+            Check(srv.RangeRequests == 2 && File.ReadAllBytes(stale).AsSpan().SequenceEqual(body), "a stale full-size file is refetched once instead of failing the update");
+
             var bad = new PackFile { Url = srv.Url, Size = body.Length, Sha256 = new string('0', 64) };
             var badDest = Path.Combine(dlDir, "bad.zip");
             InvalidDataException? ex = null;
