@@ -196,8 +196,10 @@ public sealed class HellForgeAccount
             RequireOwner(pending.Receipt, capture);
             if (!RecoveredAfterRestore(pending, capture))
             {
-                if (pending.Receipt.Capture != capture.Key) throw new InvalidDataException("An unfinished account import refers to another capture. Restore a reviewed profile backup in HellForge, then capture your account again before importing.");
-                if (pending.Phase == "started") throw new InvalidDataException("An earlier account import was interrupted. Restore a reviewed profile backup in HellForge, then sync your account again; the unfinished import will not be replayed automatically.");
+                // A committed journal only lacks bookkeeping, even after a newer sync; an unknown outcome is never guessed.
+                if (pending.Phase == "started") throw new InvalidDataException(pending.Receipt.Capture != capture.Key
+                    ? "An unfinished account import refers to another capture. Restore a reviewed profile backup in HellForge, then capture your account again before importing."
+                    : "An earlier account import was interrupted. Restore a reviewed profile backup in HellForge, then sync your account again; the unfinished import will not be replayed automatically.");
                 if (receipt != pending.Receipt)
                     return new(true, false, "Your account import committed, but its receipt was not saved. Apply HD2 import to finish bookkeeping without importing the account again.");
             }
@@ -265,6 +267,8 @@ public sealed class HellForgeAccount
         var pendingBefore = ReadPending();
         var state = State(capture, receiptBefore, pendingBefore);
         if (!state.Captured) throw new InvalidOperationException(state.Message);
+        if (pendingBefore?.Phase == "committed" && pendingBefore.Receipt == receiptBefore)
+        { File.Delete(Checked(profile, PendingName, 64 * 1024)); pendingBefore = null; } // receipt saved; only the journal delete was lost
         if (state.Imported)
         {
             if (receiptBefore?.Account == null && receiptBefore != null) BindLegacy(receiptBefore, capture);

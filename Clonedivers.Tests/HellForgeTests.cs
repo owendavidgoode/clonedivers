@@ -799,6 +799,22 @@ static class HellForgeTests
         await account.ImportAsync();
         check(imports == before + 1 && (await account.ReadAsync()).Imported && !File.Exists(pendingPath),
             "a reviewed official restore followed by a fresh same-account capture recovers an interrupted import without deleting bookkeeping by hand");
+        var settled = File.ReadAllText(receiptPath); // a lost journal delete leaves a committed journal beside its saved receipt
+        File.WriteAllText(pendingPath, JsonSerializer.Serialize(new { Phase = "committed", Receipt = JsonSerializer.Deserialize<JsonElement>(settled), BeforeProfileHash = "fixture" }));
+        Capture(1, recoveryTime.AddSeconds(2)); before = imports;
+        var forward = await account.ReadAsync(); await account.ImportAsync();
+        check(forward.Captured && !forward.Imported && imports == before + 1 && (await account.ReadAsync()).Imported && !File.Exists(pendingPath),
+            "a committed journal left beside its saved receipt does not block a later sync, which merges forward once");
+        var unsaved = System.Text.Json.Nodes.JsonNode.Parse(File.ReadAllText(receiptPath))!.AsObject();
+        unsaved["capture"] = new string('a', 64); unsaved["importedUtc"] = DateTimeOffset.UtcNow; var unsavedText = unsaved.ToJsonString();
+        File.WriteAllText(pendingPath, JsonSerializer.Serialize(new { Phase = "committed", Receipt = JsonSerializer.Deserialize<JsonElement>(unsavedText), BeforeProfileHash = "fixture" }));
+        Capture(1, recoveryTime.AddSeconds(3)); before = imports;
+        var unfinished = await account.ReadAsync(); await account.ImportAsync();
+        using (var finished = JsonDocument.Parse(File.ReadAllText(receiptPath)))
+            check(unfinished.Captured && !unfinished.Imported && imports == before && !File.Exists(pendingPath) && finished.RootElement.GetProperty("capture").GetString() == new string('a', 64),
+                "a committed import whose capture changed before its receipt was saved finishes bookkeeping without replaying the import");
+        await account.ImportAsync();
+        check(imports == before + 1 && (await account.ReadAsync()).Imported, "the newer capture then merges forward over the finished import");
     }
 
     static async Task AccountProcessLifetimeTests(string root, Action<bool, string> check)
