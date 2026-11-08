@@ -266,7 +266,22 @@ static class HellForgeTests
         // This fake owns no operating-system CLI; real manager polling must not
         // interfere with an isolated transaction fixture.
         var client = new HellForgeClient(install, commands) { RequireCliQuiescent = () => { } };
-        var diagnosticRun = Path.Combine(install, "logs", "sessions", Guid.NewGuid().ToString("N"));
+        var unpacked = Path.Combine(install, "mods", ".unpacked"); Directory.CreateDirectory(unpacked);
+        var fingerprint = client.ModsFingerprint();
+        var oldPartial = Path.Combine(unpacked, ".zip-hashes.json.0a1b2c3d.partial"); File.WriteAllText(oldPartial, "{}");
+        File.SetLastWriteTimeUtc(oldPartial, DateTime.UtcNow.AddHours(-2));
+        var freshPartial = Path.Combine(unpacked, ".zip-hashes.json.4e5f6a7b.partial"); File.WriteAllText(freshPartial, "{}");
+        var decoy = Path.Combine(unpacked, ".zip-hashes.json.notours.partial"); File.WriteAllText(decoy, "{}");
+        File.SetLastWriteTimeUtc(decoy, DateTime.UtcNow.AddHours(-2));
+        var hashes = Path.Combine(unpacked, ".zip-hashes.json"); File.WriteAllText(hashes, "{}");
+        File.SetLastWriteTimeUtc(hashes, DateTime.UtcNow.AddHours(-2));
+        check(client.ModsFingerprint() == fingerprint, "HellForge's own .unpacked cache writes do not trigger another mod scan");
+        check(client.SweepHashPartials(DateTime.UtcNow.AddMinutes(-10)) == 1 && !File.Exists(oldPartial) && File.Exists(freshPartial) && File.Exists(decoy) && File.Exists(hashes),
+            "idle cleanup removes only old leaked .zip-hashes.json partials, never the live cache or other names");
+        File.WriteAllText(Path.Combine(install, "mods", "hellforge-mods.json"), "{}");
+        check(client.ModsFingerprint() != fingerprint, "a mod settings change triggers a fresh mod scan");
+        File.Delete(Path.Combine(install, "mods", "hellforge-mods.json")); Directory.Delete(unpacked, true);
+        var diagnosticRun =Path.Combine(install, "logs", "sessions", Guid.NewGuid().ToString("N"));
         Directory.CreateDirectory(diagnosticRun);
         commands.LastRun = diagnosticRun;
         var resultPath = Path.Combine(diagnosticRun, "result.json");

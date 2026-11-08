@@ -13,7 +13,8 @@ if (-not (Test-Path -LiteralPath $installer) -or (Get-Item -LiteralPath $install
 if ((Get-Item -LiteralPath $installer).Length -ne 526467508 -or (Get-FileHash -LiteralPath $installer).Hash.ToLowerInvariant() -ne $expected) { throw 'Official test installer verification failed.' }
 $start = [Diagnostics.ProcessStartInfo]::new($installer)
 $start.UseShellExecute = $false; $start.CreateNoWindow = $true
-$start.ArgumentList.Add('--unpack'); $start.ArgumentList.Add($target)
+# Arguments (not ArgumentList) keeps this runnable from Windows PowerShell 5.1 as well as pwsh.
+$start.Arguments = '--unpack "' + $target + '"'
 $process = [Diagnostics.Process]::Start($start)
 try { $process.WaitForExit(); if ($process.ExitCode -ne 0) { throw 'Official test installation failed.' } }
 finally { $process.Dispose() }

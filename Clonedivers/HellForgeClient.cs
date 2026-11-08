@@ -271,6 +271,34 @@ public sealed partial class HellForgeClient(string root, IHellForgeCommands comm
         }
         catch (Exception e) when (e is IOException or UnauthorizedAccessException) { return false; }
     }
+    // `HellForge.Cli mods` rewrites mods/.unpacked/.zip-hashes.json through a random .partial file and
+    // leaves that file behind when another process holds the target (HellForge 0.4 Mods.SaveHashes).
+    // A 5-second poll left one per poll (11,405 on the owner's PC), so the launcher rescans only when the
+    // mods folder changed and sweeps old leftovers while idle.
+    internal string ModsFingerprint()
+    {
+        var folder = Path.Combine(Root, "mods");
+        if (!Directory.Exists(folder)) return "";
+        return string.Join("\n", new DirectoryInfo(folder).EnumerateFileSystemInfos("*", new EnumerationOptions { AttributesToSkip = 0 })
+            .Where(i => !i.Name.StartsWith('.'))
+            .Select(i => $"{i.Name}|{(i as FileInfo)?.Length}|{i.LastWriteTimeUtc.Ticks}")
+            .OrderBy(p => p, StringComparer.Ordinal));
+    }
+    static readonly System.Text.RegularExpressions.Regex HashPartial = new(@"^\.zip-hashes\.json\.[0-9a-f]{8}\.partial$");
+    internal int SweepHashPartials(DateTime olderThanUtc)
+    {
+        var cache = Path.Combine(Root, "mods", ".unpacked");
+        if (!Directory.Exists(cache)) return 0;
+        FileSafety.RejectLink(cache);
+        var removed = 0;
+        foreach (var file in new DirectoryInfo(cache).EnumerateFiles(".zip-hashes.json.*.partial", new EnumerationOptions { AttributesToSkip = 0 }))
+        {
+            if (!HashPartial.IsMatch(file.Name) || file.LastWriteTimeUtc >= olderThanUtc || file.Attributes.HasFlag(FileAttributes.ReparsePoint)) continue;
+            try { file.Delete(); removed++; }
+            catch (Exception e) when (e is IOException or UnauthorizedAccessException) { }
+        }
+        return removed;
+    }
     public async Task<HellForgeMods> ModsAsync(CancellationToken ct = default)
     {
         var json = await commands.RunAsync(["mods"], ct);

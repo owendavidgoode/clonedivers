@@ -55,6 +55,8 @@ public sealed class HellForgeForm : Form
     CancellationToken WorkToken => operation?.Token ?? lifetime.Token;
     HellForgeStatus? lastStatus;
     HellForgeMods? lastMods;
+    string? lastModsFingerprint;
+    DateTime lastModsReadUtc, lastPartialSweepUtc;
     HellForgeAccountState? lastAccount;
     string? captureBlock;
     bool syncRequested;
@@ -216,7 +218,20 @@ public sealed class HellForgeForm : Form
             // End session must remain available during an unrelated catalog error.
             if (root != preferences.InstallRoot) return;
             lastStatus = status;
-            var mods = await client.ModsAsync(lifetime.Token);
+            string? fingerprint;
+            try { fingerprint = root + "\n" + client.ModsFingerprint(); }
+            catch (Exception e) when (e is IOException or UnauthorizedAccessException) { fingerprint = null; }
+            // A running session cannot change what is staged; idle, rescan when the folder changes or each minute.
+            var reuse = lastMods != null && (status.Running ||
+                fingerprint != null && fingerprint == lastModsFingerprint && DateTime.UtcNow - lastModsReadUtc < TimeSpan.FromMinutes(1));
+            var mods = reuse ? lastMods! : await client.ModsAsync(lifetime.Token);
+            if (!reuse) { lastModsFingerprint = fingerprint; lastModsReadUtc = DateTime.UtcNow; }
+            if (!status.Running && !Game.IsRunning() && DateTime.UtcNow - lastPartialSweepUtc > TimeSpan.FromMinutes(10))
+            {
+                lastPartialSweepUtc = DateTime.UtcNow;
+                try { client.SweepHashPartials(DateTime.UtcNow.AddMinutes(-10)); }
+                catch (Exception e) when (e is IOException or UnauthorizedAccessException or InvalidDataException) { }
+            }
             var block = HellForgeAccount.CaptureBlock();
             HellForgeAccountState? account = lastAccount;
             if (!status.Running && !Game.IsRunning())

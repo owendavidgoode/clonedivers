@@ -173,7 +173,7 @@ try
     var updateDirectory = Path.Combine(root, "update-config");
     var updateTime = DateTimeOffset.UtcNow;
     using var updateClient = new HttpClient { Timeout = TimeSpan.FromSeconds(2) };
-    var updateService = new LauncherUpdates(updateClient, releaseFeed, updateDirectory, "x64", () => updateTime);
+    var updateService = new LauncherUpdates(updateClient, releaseFeed, updateDirectory, "x64", () => updateTime, allowLegacyChannel: true);
     var update = await updateService.CheckAsync();
     Check(update.CheckSucceeded && update.Available?.Version == "1.10.0", "a release check reports a newer Linux launcher without downloading a package");
     var releaseRequests = server.Requests; server.Remove("launcher-releases");
@@ -189,8 +189,10 @@ try
     server.Add("launcher-releases", Encoding.UTF8.GetBytes(JsonSerializer.Serialize(new[] { Release("linux-v1.12.0", body: new string('x', 1_200_000)) })));
     Check((await updateService.CheckAsync(force: true)).Available?.Version == "1.12.0", "release checks handle large metadata alongside pack release notes");
     server.Add("invalid-releases", Encoding.UTF8.GetBytes("not JSON"));
-    var unavailableUpdate = await new LauncherUpdates(updateClient, releaseFeed.Replace("launcher-releases", "invalid-releases"), Path.Combine(root, "invalid-update-config")).CheckAsync();
+    var unavailableUpdate = await new LauncherUpdates(updateClient, releaseFeed.Replace("launcher-releases", "invalid-releases"), Path.Combine(root, "invalid-update-config"), allowLegacyChannel: true).CheckAsync();
     Check(!unavailableUpdate.CheckSucceeded && unavailableUpdate.Available is null, "invalid release responses remain an optional unavailable notice");
+    var unmarkedForge = await new LauncherUpdates(updateClient, releaseFeed, Path.Combine(root, "unmarked-forge-config"), "x64", allowLegacyChannel: false).CheckAsync(force: true);
+    Check(!unmarkedForge.CheckSucceeded && unmarkedForge.Available is null, "a Forge channel with no matching marked release is an unavailable notice, not a crash");
     File.WriteAllText(Path.Combine(updateDirectory, LauncherUpdates.CacheName), JsonSerializer.Serialize(new LauncherUpdates.Cache(updateTime, "https://untrusted.invalid", true)));
     Check((await updateService.CheckAsync()).Available?.Version == "1.12.0", "an invalid cached version cannot inject an external download link");
     PackFile Entry(string name, byte[] bytes, string route) => new() { Name = name, Size = bytes.Length,
