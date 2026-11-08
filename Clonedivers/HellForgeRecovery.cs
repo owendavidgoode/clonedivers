@@ -85,13 +85,21 @@ public sealed partial class HellForgeClient
         {
             using (process)
             {
-                if (process.HasExited) continue;
+                if (process.HasExited || OperatingSystem.IsLinux() && SteamRelay(LinuxArguments(process.Id))) continue;
                 // Wine drive aliases and Windows short paths are not reliable installation
                 // identities. Conservatively wait for every CLI rather than missing an orphan.
                 throw new InvalidOperationException("A Forge CLI is still running. Wait for it to finish before changing or recovering mods.");
             }
         }
     };
+    // Official linux.md has users leave `HellForge.Cli steam-bridge host` (hf-bridge-host.sh) running; the relay
+    // never touches mods, and the official pre-PLAY check exempts it too. An unreadable command line stays busy.
+    internal static bool SteamRelay(IReadOnlyList<string>? argv) => argv is [_, "steam-bridge", "host" or "inner" or "check", ..];
+    static string[]? LinuxArguments(int pid)
+    {
+        try { return File.ReadAllText($"/proc/{pid}/cmdline").TrimEnd('\0').Split('\0'); }
+        catch (Exception error) when (error is IOException or UnauthorizedAccessException) { return null; }
+    }
     public async Task RecoverInterruptedPackAsync(CancellationToken ct = default)
     {
         using var limit = CancellationTokenSource.CreateLinkedTokenSource(ct);

@@ -18,11 +18,14 @@ internal sealed class PlayerCommands
         client = new(root, official) { LinuxNamespace = true };
         account = new(root);
         this.openManager = openManager ?? (() => {
-            var program = OperatingSystem.IsLinux() ? Path.Combine(root, "app", "launcher-linux", "HellForge.Launcher") : Path.Combine(root, "HellForge.exe");
-            using var manager = Process.Start(new ProcessStartInfo(program) { WorkingDirectory = root, UseShellExecute = false });
-            if (manager == null) throw new IOException("Official HellForge manager did not start.");
+            using var manager = Process.Start(ManagerStart(root)) ?? throw new IOException("Official HellForge manager did not start.");
+            // The long-lived manager must not hold the frontend's protocol pipes (our stdio), or their EOF never arrives on close.
+            manager.StandardInput.Close(); manager.StandardOutput.Close(); manager.StandardError.Close();
         });
     }
+    internal static ProcessStartInfo ManagerStart(string root) =>
+        new(OperatingSystem.IsLinux() ? Path.Combine(root, "app", "launcher-linux", "HellForge.Launcher") : Path.Combine(root, "HellForge.exe")) {
+            WorkingDirectory = root, UseShellExecute = false, RedirectStandardInput = true, RedirectStandardOutput = true, RedirectStandardError = true };
     internal async Task<JsonElement> RunAsync(IReadOnlyList<string> args, CancellationToken ct)
     {
         switch (args[0])

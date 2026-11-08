@@ -58,6 +58,9 @@ internal static class CliTests
         check(HellForgeCommands.ReadAfterUncertain(["status"]) && HellForgeCommands.ReadAfterUncertain(["stop", "--wait", "yes"]) &&
             !new[] { new[] { "play" }, new[] { "mod-add", "--file", "fixture" }, new[] { "settings" }, new[] { "profiles", "--create", "fixture" } }.Any(HellForgeCommands.ReadAfterUncertain),
             "uncertain CLI outcomes retain Stop/diagnostics while excluding launch, import, settings and profile mutations");
+        check(HellForgeClient.SteamRelay(["/opt/HellForge/app/cli-linux/HellForge.Cli", "steam-bridge", "host"]) && HellForgeClient.SteamRelay(["HellForge.Cli", "steam-bridge", "check", "/run/user/1000/hf-steam-27036.sock"]) &&
+            !new[] { null, new[] { "HellForge.Cli" }, ["HellForge.Cli", "steam-bridge"], ["HellForge.Cli", "mod-add", "--file", "steam-bridge"], ["HellForge.Cli", "play", "steam-bridge", "host"] }.Any(HellForgeClient.SteamRelay),
+            "the official persistent Steam relay does not block launch/recovery, while every mutating or unreadable CLI still does");
         var root = Path.Combine(Path.GetTempPath(), "clonedivers-cli-exit-" + Guid.NewGuid().ToString("N")); Directory.CreateDirectory(root);
         var probe = Path.Combine(root, "pid.txt");
         using var cancel = new CancellationTokenSource(TimeSpan.FromSeconds(10));
