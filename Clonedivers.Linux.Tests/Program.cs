@@ -51,6 +51,7 @@ try
         return 0;
     }
     Game.IsRunningCheck = () => false;
+    await LinuxForgePlayerTests.Run(root, Check);
     Check(!DesktopProgram.UseTerminal(Array.Empty<string>(), true) && DesktopProgram.UseTerminal(Array.Empty<string>(), false), "desktop stays default with a display; headless sessions route to the TUI");
     Check(DesktopProgram.UseTerminal(new[] { "--tui" }, true) && !DesktopProgram.UseTerminal(new[] { "--gui" }, false), "explicit GUI and TUI choices override environment detection");
     Check(!DesktopProgram.UseTerminal(new[] { "--game", "status", "--manifest", "report" }, true), "option values are never mistaken for command names during interface routing");
