@@ -14,6 +14,19 @@ internal static class LinuxBootstrapTests
         check(LinuxForgeBootstrap.Detect(home: home) == install && LinuxForgeBootstrap.Detect(install, home) == install,
             "default-prefix setup reconnects without Locate and an existing selected root wins over discovery");
         check(LinuxForgeBootstrap.PrefixFor(install).EndsWith("hellforge-prefix"), "an existing player's prefix is identified before offering an application update");
+        var loose = Path.Combine(root, "loose-forge"); Directory.CreateDirectory(loose); File.WriteAllText(Path.Combine(loose, "hellforge-install.json"), "{}");
+        check(LinuxForgeBootstrap.ExistingRoot("") == null && LinuxForgeBootstrap.ExistingRoot("  ") == null && LinuxForgeBootstrap.ExistingRoot(home) == null &&
+            LinuxForgeBootstrap.ExistingRoot(loose) == null && LinuxForgeBootstrap.ExistingRoot(" " + install + " ") == install,
+            "setup treats a blank, unmarked or prefix-less saved folder as a fresh install instead of failing after the download");
+        var emptyHome = Path.Combine(root, "bootstrap-empty-home"); Directory.CreateDirectory(emptyHome);
+        check(LinuxForgeBootstrap.StartupRoot("", home) == install && LinuxForgeBootstrap.StartupRoot(Path.Combine(root, "moved"), home) == install &&
+            LinuxForgeBootstrap.StartupRoot(install, emptyHome) == install && LinuxForgeBootstrap.StartupRoot(" ", emptyHome) == null,
+            "a blank or stale saved Forge folder never disables startup discovery");
+        var staging = Path.Combine(root, "bootstrap-staging"); Directory.CreateDirectory(Path.Combine(staging, "unpacked-a", "nested")); Directory.CreateDirectory(Path.Combine(staging, "unpacked-b"));
+        File.WriteAllText(Path.Combine(staging, "unpacked-a", "nested", "HellForge-Linux.zip"), "fixture"); File.WriteAllText(Path.Combine(staging, LinuxForgeBootstrap.Installer.Name), "archive");
+        LinuxForgeBootstrap.SweepStaging(staging);
+        check(!Directory.EnumerateDirectories(staging, "unpacked-*").Any() && File.Exists(Path.Combine(staging, LinuxForgeBootstrap.Installer.Name)),
+            "repeated setup runs remove earlier extracted installers and keep the verified archive");
         var tools = Path.Combine(root, "bootstrap-tools"); Directory.CreateDirectory(tools);
         foreach (var name in new[] { "ip", "unshare", "flock", "pgrep", "python3" }) File.WriteAllText(Path.Combine(tools, name), "fixture");
         check(LinuxForgeBootstrap.MissingTools(tools).SequenceEqual(new[] { "pasta" }), "co-op preflight identifies the missing relay program instead of accepting a solo-only setup");

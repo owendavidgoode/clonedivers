@@ -5,6 +5,7 @@ namespace Clonedivers;
 internal interface IForgeConnection : IAsyncDisposable
 {
     bool NativePaths => false;
+    bool Faulted => false; // an unknown outcome closed the stream for good; only a fresh connection can continue
     Task<JsonElement> RunAsync(IReadOnlyList<string> args, CancellationToken ct = default);
 }
 internal sealed class LinuxForgePreferences
@@ -58,9 +59,11 @@ internal sealed class LinuxForgePlayer(IForgeConnection connection, LinuxForgePr
     internal LinuxForgePreferences Preferences { get; } = preferences;
     internal ForgePlayerState? State { get; private set; }
     internal bool OwnsSession { get; private set; }
-    internal bool SessionActive => OwnsSession || State?.Status.Running == true;
+    // A faulted bridge can neither confirm nor end a session; closing stdin hands cleanup to the bridge's EOF path, so it must not pin the window.
+    internal bool Disconnected => connection.Faulted;
+    internal bool SessionActive => !Disconnected && (OwnsSession || State?.Status.Running == true);
     internal string? Error { get; private set; }
-    internal bool CanLaunch => !SessionActive && Error == null && State?.Ready == true;
+    internal bool CanLaunch => !SessionActive && !Disconnected && Error == null && State?.Ready == true;
 
     internal static async Task<LinuxForgePlayer> ConnectAsync(LinuxForgePreferences preferences, string resourceDirectory, CancellationToken ct = default)
     {
@@ -102,13 +105,16 @@ internal sealed class LinuxForgePlayer(IForgeConnection connection, LinuxForgePr
         Preferences.Validate();
         if (SessionActive) throw new InvalidOperationException("End the current Forge session before changing its selection.");
         State = null;
-        try { await connection.RunAsync(Preferences.SelectionCommand(), ct); await RefreshAsync(ct); }
+        try { await SelectAsync(ct); await RefreshAsync(ct); }
         catch (Exception error) { Error = error.Message; throw; }
     }
+    // The bridge keeps its own selection; re-send ours so an earlier refused select-mode can never play or apply a stale mode.
+    Task SelectAsync(CancellationToken ct) { Preferences.Validate(); return connection.RunAsync(Preferences.SelectionCommand(), ct); }
     internal async Task LaunchAsync(CancellationToken ct = default)
     {
         try
         {
+        await SelectAsync(ct);
         await RefreshAsync(ct);
         if (!CanLaunch) throw new InvalidOperationException(State?.Detail ?? Error ?? "Finish Forge setup before launching.");
         var result = await connection.RunAsync(["play", "--profile", "default"], ct);
@@ -186,14 +192,38 @@ internal sealed class LinuxForgePlayer(IForgeConnection connection, LinuxForgePr
         var root = Preferences.InstallRoot ?? throw new InvalidOperationException("Choose a Forge installation.");
         var cache = Path.Combine(Path.GetDirectoryName(root)!, "Clonedivers-HellForge-cache", "exports");
         FileSafety.RejectLink(cache);
-        var sources = new List<string> { Path.Combine(root, "mods") };
-        if (Directory.Exists(cache)) sources.AddRange(new DirectoryInfo(cache).EnumerateDirectories().OrderByDescending(d => d.LastWriteTimeUtc).Take(32).Select(d => d.FullName));
-        return await HellForgePack.PlanAsync(Preferences.PackSelection(), Path.Combine(cache, "linux-" + Guid.NewGuid().ToString("N")), sources, progress, ct);
+        var selection = Preferences.PackSelection();
+        var exports = Directory.Exists(cache) ? new DirectoryInfo(cache).EnumerateDirectories().OrderByDescending(d => d.LastWriteTimeUtc).Take(32).Select(d => d.FullName).ToList() : [];
+        if (await FindExportAsync(exports, selection, progress, ct) is { } prepared) return prepared;
+        return await HellForgePack.PlanAsync(selection, Path.Combine(cache, "linux-" + Guid.NewGuid().ToString("N")), exports.Prepend(Path.Combine(root, "mods")), progress, ct);
+    }
+    /// <summary>Like Windows, reuse a verified earlier export instead of writing another full copy; its plan needs no download or export.</summary>
+    internal static async Task<HellForgePack.Plan?> FindExportAsync(IEnumerable<string> exports, HellForgePack.Selection selection, IProgress<string>? progress = null, CancellationToken ct = default)
+    {
+        foreach (var export in exports)
+            try
+            {
+                progress?.Report("Checking previously prepared pack files…");
+                await HellForgePack.VerifyAsync(export, selection, ct);
+                Directory.SetLastWriteTimeUtc(export, DateTime.UtcNow); // most recent, so pruning keeps it
+                return new(selection, export, selection.Files.Where(f => f.Size > 0).DistinctBy(f => f.Sha256)
+                    .ToDictionary(f => f.Sha256, f => FileSafety.Child(export, f.Name), StringComparer.OrdinalIgnoreCase));
+            }
+            catch (Exception e) when (e is IOException or InvalidDataException or JsonException or KeyNotFoundException or UnauthorizedAccessException) { }
+        return null;
+    }
+    /// <summary>After an applied import, keep that export and the two newest others as copy sources; older Linux copies are only disk weight.</summary>
+    internal static void PruneExports(string cache, string keep, int others = 2)
+    {
+        keep = Path.TrimEndingDirectorySeparator(Path.GetFullPath(keep));
+        foreach (var stale in new DirectoryInfo(cache).EnumerateDirectories("linux-*").Where(d => d.FullName != keep).OrderByDescending(d => d.LastWriteTimeUtc).Skip(others))
+            try { FileSafety.RejectLink(stale.FullName); Directory.Delete(stale.FullName, true); }
+            catch (Exception error) when (error is IOException or UnauthorizedAccessException or InvalidDataException) { } // pruning never fails an applied pack
     }
     internal async Task PrepareAppearanceAsync(HellForgePack.Plan? plan, bool allowDownloads, IProgress<string>? progress = null, CancellationToken ct = default)
     {
         if (SessionActive) throw new InvalidOperationException("End the current session before applying this mode.");
-        if (Preferences.Mode == "regular") await connection.RunAsync(["prepare-regular"], ct);
+        if (Preferences.Mode == "regular") { await SelectAsync(ct); await connection.RunAsync(["prepare-regular"], ct); }
         else
         {
             ArgumentNullException.ThrowIfNull(plan);
@@ -203,8 +233,11 @@ internal sealed class LinuxForgePlayer(IForgeConnection connection, LinuxForgePr
                 throw new InvalidDataException("The selected mode/options changed after planning. Prepare the selection again.");
             var path = connection.NativePaths ? plan.Output : WindowsPath(Preferences.InstallRoot!, plan.Output);
             // This code runs in the native frontend, outside the isolated Wine namespace.
-            await HellForgePack.ExportAsync(plan, allowDownloads, progress, ct);
+            if (Directory.Exists(plan.Output)) await HellForgePack.VerifyMetadataAsync(plan.Output, expected, ct); // reused export; the bridge re-hashes before import
+            else await HellForgePack.ExportAsync(plan, allowDownloads, progress, ct);
+            await SelectAsync(ct);
             await connection.RunAsync(["prepare-pack", "--file", path], ct);
+            PruneExports(Path.GetDirectoryName(Path.GetFullPath(plan.Output))!, plan.Output);
         }
         await RefreshAsync(ct);
     }
@@ -222,6 +255,7 @@ internal sealed class LinuxForgePlayer(IForgeConnection connection, LinuxForgePr
     }
     public async ValueTask DisposeAsync()
     {
+        if (Disconnected) { try { await connection.DisposeAsync(); } catch (IOException) { } return; } // fault already reported; an abnormal wrapper exit is expected
         if (OwnsSession) await EndSessionAsync();
         await connection.DisposeAsync();
     }

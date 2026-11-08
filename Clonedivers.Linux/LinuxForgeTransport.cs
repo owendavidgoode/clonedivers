@@ -20,6 +20,7 @@ internal sealed class ForgeProtocol(TextReader input, TextWriter output, Action<
     });
     readonly SemaphoreSlim requests = new(1, 1);
     bool connected, faulted;
+    internal bool Faulted => faulted;
     long nextId;
     internal async Task ConnectAsync(CancellationToken ct)
     {
@@ -107,6 +108,7 @@ internal sealed class LinuxForgeTransport : IForgeConnection
     readonly Task errorReader;
     bool disposed;
     public bool NativePaths { get; }
+    public bool Faulted => disposed || protocol.Faulted;
     LinuxForgeTransport(Process process, bool nativePaths = false)
     {
         NativePaths = nativePaths;

@@ -98,6 +98,7 @@ internal sealed class ForgeWindow : Window
         Prepare.Click += (_, _) => Begin(PrepareAsync);
         Launch.Click += (_, _) => Begin(async () => {
             if (player == null) await SetupAsync();
+            else if (player.Disconnected) await ConnectAsync();
             else if (player.OwnsSession) await player.EndSessionAsync(lifetime.Token);
             else if (player.CanLaunch) await player.LaunchAsync(lifetime.Token);
             else if (player.State?.Status is { } status && (!status.GameCopyReady || !status.RunnerReady || status.CompatibilityProblem != null)) await player.OpenManagerAsync(lifetime.Token);
@@ -112,7 +113,7 @@ internal sealed class ForgeWindow : Window
             return Task.CompletedTask;
         });
         updates.Click += async (_, _) => await CheckLauncherUpdateAsync(true);
-        timer.Tick += (_, _) => { if (!busy && !closing && player != null) Begin(RefreshPlayerAsync); };
+        timer.Tick += (_, _) => { if (!busy && !closing && player is { Disconnected: false }) Begin(RefreshPlayerAsync); };
         Closing += (_, e) =>
         {
             if (preview) { closed = true; return; }
@@ -126,7 +127,7 @@ internal sealed class ForgeWindow : Window
         Opened += async (_, _) => {
             UpdateView();
             if (!preview) {
-                preferences.InstallRoot ??= LinuxForgeBootstrap.Detect(); folder.Text = preferences.InstallRoot ?? "";
+                preferences.InstallRoot = LinuxForgeBootstrap.StartupRoot(preferences.InstallRoot); folder.Text = preferences.InstallRoot ?? "";
                 if (preferences.InstallRoot != null) await RunAsync(ConnectAsync);
                 timer.Start(); await CheckLauncherUpdateAsync(false);
             }
@@ -171,8 +172,11 @@ internal sealed class ForgeWindow : Window
     }
     async Task ConnectAsync()
     {
+        if (player is { Disconnected: true }) { var lost = player; player = null; await lost.DisposeAsync(); } // closing stdin lets the bridge finish its own cleanup
         if (player != null) throw new InvalidOperationException("Close this launcher before switching its active Forge installation.");
-        preferences.InstallRoot = folder.Text?.Trim(); preferences.Save(); message.Text = "Starting the official isolated Forge connection…";
+        var root = folder.Text?.Trim(); preferences.InstallRoot = string.IsNullOrEmpty(root) ? null : root;
+        if (LinuxForgeBootstrap.ExistingRoot(root) != null) preferences.Save(); // a blank or wrong folder is never persisted over discovery
+        message.Text = "Starting the official isolated Forge connection…";
         player = await LinuxForgePlayer.ConnectAsync(preferences, resources, lifetime.Token);
     }
     async Task SetupAsync()
@@ -240,12 +244,13 @@ internal sealed class ForgeWindow : Window
         updating = true;
         delta.IsChecked = preferences.DeltaSquad; droids.IsChecked = preferences.Droids; covenant.IsChecked = preferences.Covenant; textures.SelectedIndex = preferences.Texture == "lighter" ? 1 : 0;
         var active = preview ? previewState == "running" : player?.SessionActive == true;
+        var lost = !preview && player?.Disconnected == true;
         updates.IsEnabled = !preview && !busy && !active && !checkingLauncherUpdate;
         foreach (var (id, button) in Modes) { button.Background = Brush.Parse(id == preferences.Mode ? "#1D3457" : "#111A2D"); button.BorderBrush = id == preferences.Mode ? Blue : Brush.Parse("#263047"); button.IsEnabled = !busy && !active; }
         foreach (var control in new Control[] { delta, droids, covenant, textures }) { control.IsEnabled = !busy && !active; control.IsVisible = preferences.Mode != "regular"; }
         delta.IsVisible = preferences.Mode == "clonedivers";
         folder.IsEnabled = browse.IsEnabled = !busy && player == null && !preview;
-        connect.IsEnabled = !busy && player == null && !preview; refresh.IsEnabled = !busy && player != null && !preview;
+        connect.IsEnabled = !busy && (player == null || lost) && !preview; refresh.IsEnabled = !busy && player != null && !lost && !preview;
         Prepare.IsEnabled = !busy && !active && player != null && player.State?.Status.CompatibilityProblem == null && !preview;
         Prepare.Content = "Set up selected mode";
         if (player?.State?.Status.RecoveryProblem is { } recovery) Prepare.Content = recovery.StartsWith("Gameplay", StringComparison.Ordinal) ? "Recover gameplay preset" : "Recover previous appearance";
@@ -255,9 +260,10 @@ internal sealed class ForgeWindow : Window
         Launch.IsEnabled = !busy && (preview ? previewState is "ready" or "running" : !active || player?.OwnsSession == true);
         if (!preview && !active && player?.CanLaunch != true) Launch.Content = player == null ? "SET UP / UPDATE FORGE" :
             player.State?.Status is { GameCopyReady: false } or { RunnerReady: false } or { CompatibilityProblem: not null } ? "CONTINUE FORGE SETUP" : "FINISH SELECTED MODE SETUP";
+        if (lost) Launch.Content = "RECONNECT FORGE";
         setup.IsEnabled = fallback.IsEnabled = !busy && !active && !preview;
         report.IsEnabled = !busy && !preview;
-        state.Text = busy ? "Working…" : active ? "Forge session running" : lastError != null || preview && previewState == "error" ? "Needs attention" : preview && previewState == "ready" || player?.CanLaunch == true ? "Ready for a private trial" : player == null ? "Connect your Forge installation" : "Finish Forge setup";
+        state.Text = busy ? "Working…" : lost ? "Forge connection lost" : active ? "Forge session running" : lastError != null || preview && previewState == "error" ? "Needs attention" : preview && previewState == "ready" || player?.CanLaunch == true ? "Ready for a private trial" : player == null ? "Connect your Forge installation" : "Finish Forge setup";
         detail.Text = preview ? active ? "Use End session to close the game and wait for cleanup." : previewState == "error" ? "The gameplay preset is incomplete. Open Setup & mods before launching." : "Selected appearance is checked before launch. Choose difficulty 1–11 at the war table." :
             lastError ?? player?.Error ?? player?.State?.Detail ?? "Choose your separate HellForge installation. Steam ownership and official network isolation remain required.";
         account.Text = player?.State?.Account?.Message ?? "One-way account import: HD2 → Forge. Linux capture still needs qualification; use only a capture the official backend verifies for this PC/account.";
