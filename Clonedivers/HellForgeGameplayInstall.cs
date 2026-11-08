@@ -79,7 +79,9 @@ public sealed partial class HellForgeClient
         if (!File.Exists(GameplayIntentPath)) return null;
         if (new FileInfo(GameplayIntentPath).Length > 16384) throw new InvalidDataException("Gameplay recovery record is oversized.");
         var value = JsonSerializer.Deserialize<GameplayIntent>(File.ReadAllText(GameplayIntentPath), HellForgePack.Json) ?? throw new InvalidDataException("Empty gameplay recovery record.");
-        if (!Root.Equals(value.Root, RecoveryPathComparison) || value.Catalog != HellForgeGameplayCatalog.Pinned.Id || !FileSafety.IsSha256(value.SnapshotSha256) ||
+        // Completed records from an earlier launcher's catalog stay inert; only
+        // pending ones matter, and RecoverGameplayAsync handles their catalog.
+        if (!Root.Equals(value.Root, RecoveryPathComparison) || value.Catalog is not { Length: > 0 and <= 64 } || !FileSafety.IsSha256(value.SnapshotSha256) ||
             value.State is not ("pending" or "applied" or "restored") || !string.Equals(Path.GetDirectoryName(Path.GetFullPath(value.Backup)), Path.Combine(CacheRoot, "backups"), RecoveryPathComparison) || !Path.GetFileName(value.Backup).StartsWith("gameplay-", StringComparison.Ordinal))
             throw new InvalidDataException("Gameplay recovery record does not match this installation.");
         RejectAncestors(value.Backup); return value;
@@ -94,7 +96,15 @@ public sealed partial class HellForgeClient
     }
     public string? InterruptedGameplayProblem()
     {
-        try { return ReadGameplayIntent() is { State: "pending" } ? "Gameplay setup was interrupted. Recover the previous gameplay preset before continuing." : null; }
+        try
+        {
+            return ReadGameplayIntent() switch
+            {
+                not { State: "pending" } => null,
+                { Catalog: var catalog } when catalog != HellForgeGameplayCatalog.Pinned.Id => "Gameplay setup from an earlier launcher was interrupted. Recover to keep its backup for review and continue with the current preset.",
+                _ => "Gameplay setup was interrupted. Recover the previous gameplay preset before continuing."
+            };
+        }
         catch (Exception error) when (error is IOException or InvalidDataException or UnauthorizedAccessException or JsonException or ArgumentException or NullReferenceException)
         { return "Gameplay recovery needs review: " + error.Message; }
     }
@@ -134,7 +144,7 @@ public sealed partial class HellForgeClient
                 await HellForgePack.CopyLocalAsync(old.Archive, path, size, ct);
                 content = await GameplayHashAsync(old.Archive, ct);
             }
-            else { await SnapshotGameplayAsync(old.Folder, path, ct); content = await GameplayHashAsync(old.Folder, ct); }
+            else { await SnapshotGameplayAsync(old.Folder, path, ct); content = await GameplayHashAsync(BackupHashSource(old, path), ct); }
             if (await GameplayHashAsync(path, ct) != content) throw new InvalidDataException("Could not produce a restorable backup of " + old.Name);
             copies.Add(new(old.Id, name, new FileInfo(path).Length, await HellForgePack.HashAsync(path, ct), content));
         }
@@ -244,6 +254,9 @@ public sealed partial class HellForgeClient
         await RequireGameplayIdleAsync(ct); await commands.RunAsync(["mod-add", "--file", copy], ct);
     }
 
+    // The official hash command cannot read a cosmetic pack folder (it wants
+    // hellforge-mod.json); its backup ZIP is what recovery imports, so attest that.
+    internal static string BackupHashSource(HellForgeMod old, string backupZip) => old.Id.StartsWith("pack.", StringComparison.Ordinal) ? backupZip : old.Folder;
     static async Task SnapshotGameplayAsync(string folder, string archive, CancellationToken ct)
     {
         using var output = new FileStream(archive, FileMode.CreateNew, FileAccess.Write, FileShare.None);
@@ -267,6 +280,14 @@ public sealed partial class HellForgeClient
         using var operation = LockPackChange(); RequireCliQuiescent();
         var intent = ReadGameplayIntent() ?? throw new InvalidOperationException("No interrupted gameplay setup was found.");
         if (intent.State != "pending") return;
+        if (intent.Catalog != HellForgeGameplayCatalog.Pinned.Id)
+        {
+            // This launcher cannot restore another catalog's preset. Keep the
+            // record and backup for review rather than blocking setup forever.
+            var retired = GameplayIntentPath + ".retired-" + Guid.NewGuid().ToString("N"); RejectAncestors(retired);
+            File.Move(GameplayIntentPath, retired);
+            throw new InvalidOperationException("Gameplay setup from an earlier launcher cannot be restored automatically. Its backup was kept at " + intent.Backup + ". Prepare again to install the current preset.");
+        }
         await RestoreGameplayAsync(intent, ct);
     }
     async Task RestoreGameplayAsync(GameplayIntent intent, CancellationToken ct)
@@ -316,7 +337,8 @@ public sealed partial class HellForgeClient
         foreach (var copy in snapshot.Backups)
         {
             var actual = verified.Mods.Single(m => m.Id == copy.Id);
-            var restoredPath = actual.Id.StartsWith("pack.", StringComparison.Ordinal) && actual.Archive != null ? actual.Archive : actual.Folder;
+            var restoredPath = !actual.Id.StartsWith("pack.", StringComparison.Ordinal) ? actual.Folder
+                : actual.Archive ?? throw new InvalidDataException("Previous gameplay content could not be confirmed restored: " + actual.Name);
             ValidateModFolder(restoredPath);
             if (await GameplayHashAsync(restoredPath, ct) != copy.ContentHash)
                 throw new InvalidDataException("Previous gameplay content could not be confirmed restored: " + actual.Name);

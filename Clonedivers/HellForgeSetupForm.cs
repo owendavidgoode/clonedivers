@@ -104,23 +104,25 @@ internal sealed class HellForgeSetupForm : Form
         busy = true; UpdateView();
         try
         {
+            // Both installs and upgrades only download while CanCancel; upgrades
+            // stop observing the token once their recovery record is saved.
+            download = CancellationTokenSource.CreateLinkedTokenSource(lifetime.Token);
+            var updates = new Progress<ForgeSetupProgress>(p => {
+                if (IsDisposed) return;
+                canPause = p.CanCancel;
+                progress.Visible = true; progress.Style = p.Total > 0 ? ProgressBarStyle.Continuous : ProgressBarStyle.Marquee;
+                if (p.Total > 0) progress.Value = (int)Math.Clamp(p.Done * 100 / p.Total, 0, 100);
+                detail.Text = p.Message + (p.Total > 0 ? $" {Pack.FormatBytes(p.Done)} / {Pack.FormatBytes(p.Total)}" : "");
+                UpdateView();
+            });
             if (InstallationRoot == null)
             {
-                download = CancellationTokenSource.CreateLinkedTokenSource(lifetime.Token);
                 canPause = true;
-                var updates = new Progress<ForgeSetupProgress>(p => {
-                    if (IsDisposed) return;
-                    canPause = p.CanCancel;
-                    progress.Visible = true; progress.Style = p.Total > 0 ? ProgressBarStyle.Continuous : ProgressBarStyle.Marquee;
-                    if (p.Total > 0) progress.Value = (int)Math.Clamp(p.Done * 100 / p.Total, 0, 100);
-                    detail.Text = p.Message + (p.Total > 0 ? $" {Pack.FormatBytes(p.Done)} / {Pack.FormatBytes(p.Total)}" : "");
-                    UpdateView();
-                });
                 InstallationRoot = await HellForgeSetup.InstallAsync(folder.Text, updates, download.Token);
                 Connected?.Invoke(InstallationRoot);
             }
             else if (status != null && HellForgeSetup.IsPrevious(status.Version))
-                await HellForgeSetup.UpdateAsync(InstallationRoot, new Progress<ForgeSetupProgress>(p => { if (!IsDisposed) detail.Text = p.Message; }), lifetime.Token);
+            { canPause = true; await HellForgeSetup.UpdateAsync(InstallationRoot, updates, download.Token); }
             await OpenManagerAsync();
         }
         catch (OperationCanceledException) { detail.Text = "Download paused. Continue to resume it; existing installations are unchanged."; }

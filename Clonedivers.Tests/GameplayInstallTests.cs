@@ -29,6 +29,50 @@ internal static class GameplayInstallTests
                 catch (InvalidDataException) { check(true, "size-correct wrong-hash gameplay artifacts fail before import"); }
             }
         }
+        await RecordTests(root, check);
+    }
+
+    static async Task RecordTests(string root, Action<bool, string> check)
+    {
+        var install = Path.Combine(root, "gameplay-records", "HellForge"); Directory.CreateDirectory(Path.Combine(install, "mods"));
+        var commands = new RecordingCommands(install);
+        var client = new HellForgeClient(install, commands) { RequireCliQuiescent = () => { } };
+        var record = client.PackIntentPath + ".gameplay.json"; Directory.CreateDirectory(Path.GetDirectoryName(record)!);
+        var backup = Path.Combine(client.CacheRoot, "backups", "gameplay-" + Guid.NewGuid().ToString("N")); Directory.CreateDirectory(backup);
+        void Write(string catalog, string state, string? owner = null) => File.WriteAllText(record, JsonSerializer.Serialize(new {
+            Root = owner ?? client.Root, Catalog = catalog, Backup = backup, SnapshotSha256 = new string('a', 64), State = state }));
+        foreach (var state in new[] { "applied", "restored" })
+        {
+            Write("build25480438-r1", state);
+            var problem = client.InterruptedGameplayProblem(); await client.RecoverGameplayAsync();
+            check(problem == null && File.Exists(record), "a completed " + state + " record from the 1.12 catalog no longer blocks setup or recovery");
+        }
+        Write(HellForgeGameplayCatalog.Pinned.Id, "pending");
+        check(client.InterruptedGameplayProblem()?.StartsWith("Gameplay setup was interrupted", StringComparison.Ordinal) == true, "a pending record from the pinned catalog still requires recovery");
+        Write(HellForgeGameplayCatalog.Pinned.Id, "applied", Path.Combine(root, "other"));
+        check(client.InterruptedGameplayProblem()?.Contains("needs review") == true, "a record for another installation still needs review");
+        Write("build25480438-r1", "pending");
+        check(client.InterruptedGameplayProblem()?.StartsWith("Gameplay setup from an earlier launcher", StringComparison.Ordinal) == true, "a pending 1.12 record names its own recovery path");
+        try { await client.RecoverGameplayAsync(); check(false, "an earlier catalog's pending record must not report a restore"); }
+        catch (InvalidOperationException error)
+        {
+            check(error.Message.Contains(backup) && !File.Exists(record) && Directory.Exists(backup) && Directory.EnumerateFiles(Path.GetDirectoryName(record)!, "*.gameplay.json.retired-*").Any() &&
+                client.InterruptedGameplayProblem() == null && commands.Calls.Count == 0, "recovering an earlier catalog's pending record retires it, keeps its backup and unblocks setup");
+        }
+        var zip = Path.Combine(backup, new string('b', 64) + ".zip");
+        check(HellForgeClient.BackupHashSource(new(HellForgePreset.GuardDogs, "Smarter Guard Dogs", true, Path.Combine(install, "mods", "guard-dogs"), ["pack"]), zip) == zip &&
+            HellForgeClient.BackupHashSource(new("local.operation-reroller", "Operation Reroller", true, Path.Combine(install, "mods", "reroller"), ["code"]), zip) == Path.Combine(install, "mods", "reroller"),
+            "a folder-installed cosmetic pack's backup is attested by its ZIP, not by the CLI's unhashable pack folder");
+    }
+
+    sealed class RecordingCommands(string root) : IHellForgeCommands
+    {
+        public List<string[]> Calls { get; } = [];
+        public Task<JsonElement> RunAsync(IReadOnlyList<string> args, CancellationToken ct = default)
+        {
+            Calls.Add(args.ToArray());
+            throw new IOException("Fixture CLI cannot run " + args[0] + " for " + root);
+        }
     }
 
     internal static void RequireIsolated(string root)
