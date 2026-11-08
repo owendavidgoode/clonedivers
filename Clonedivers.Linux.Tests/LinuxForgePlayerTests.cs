@@ -28,7 +28,7 @@ internal static class LinuxForgePlayerTests
         try { await player.ApplySelectionAsync(); throw new Exception("FAIL: refused selection was accepted"); } catch (ForgeCommandException) { }
         await player.LaunchAsync();
         var play = connection.Calls.FindLastIndex(c => c[0] == "play"); var select = connection.Calls.FindLastIndex(c => c[0] == "select-mode");
-        check(play > select && select >= 0 && connection.Calls[select][2] == "regular", "launch re-sends the shown selection so a refused select-mode never plays the stale mode");
+        check(connection.Refused.Count == 1 && connection.Refused[0][2] == "regular" && play > select && select >= 0 && connection.Calls[select][2] == "regular","launch re-sends the shown selection so a refused select-mode never plays the stale mode");
         preferences.Mode = "clonedivers";
 
         var bytes = "fixture pack bytes"u8.ToArray(); var sha = Convert.ToHexString(SHA256.HashData(bytes)).ToLowerInvariant();
@@ -54,12 +54,13 @@ internal static class LinuxForgePlayerTests
     {
         internal bool RefuseSelect, FailDispose, Running, Disposed;
         public bool Faulted { get; set; }
-        internal readonly List<string[]> Calls = [];
+        internal readonly List<string[]> Calls = [], Refused = [];
         public Task<JsonElement> RunAsync(IReadOnlyList<string> args, CancellationToken ct = default)
         {
             if (Faulted) throw new InvalidOperationException("Forge bridge is not connected; review cleanup before reconnecting.");
+            // Refused calls never reach Calls, so Calls holds only what the bridge accepted.
+            if (args[0] == "select-mode" && RefuseSelect) { RefuseSelect = false; Refused.Add(args.ToArray()); throw new ForgeCommandException("Finish the running session before changing or launching Forge."); }
             Calls.Add(args.ToArray());
-            if (args[0] == "select-mode" && RefuseSelect) { RefuseSelect = false; throw new ForgeCommandException("Finish the running session before changing or launching Forge."); }
             object result = args[0] switch {
                 "player-status" => new ForgePlayerState(new(Path.GetTempPath(), "fixture", "25480438", !Running, true, Running, true, true, "observed", null), !Running, "Fixture ready", null, null),
                 "play" => new { @event = "started" },
