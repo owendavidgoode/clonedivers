@@ -68,6 +68,12 @@ public static class HellForgePack
         output = Path.GetFullPath(output);
         if (Directory.Exists(output) || File.Exists(output)) throw new IOException("Output already exists; choose a new folder.");
         RejectInstallationOutput(output);
+        // An interrupted export keeps its hash-verified files; reuse them rather
+        // than downloading the whole pack again.
+        var exports = new DirectoryInfo(Path.GetDirectoryName(output)!);
+        if (exports.Name == "exports" && exports.Exists && !exports.Attributes.HasFlag(FileAttributes.ReparsePoint))
+            sources = sources.Concat(exports.EnumerateDirectories().Where(d => !d.Attributes.HasFlag(FileAttributes.ReparsePoint))
+                .OrderByDescending(d => d.LastWriteTimeUtc).Take(32).Select(d => d.FullName)).ToList();
         var sizes = selection.Files.Where(f => f.Size > 0).Select(f => f.Size).ToHashSet();
         var bySize = new Dictionary<long, List<string>>();
         progress?.Report("Finding reusable pack files…");
@@ -135,13 +141,32 @@ public static class HellForgePack
             throw new IOException($"Not enough space to prepare the pack files: {Pack.FormatBytes(needed)} needed for this copy including working space, {Pack.FormatBytes(Math.Max(0, free))} available. Free space on this drive, then try again.");
         ct.ThrowIfCancellationRequested();
         Directory.CreateDirectory(plan.Output);
+        var started = DateTime.UtcNow; string? unverified = null;
+        try { await ExportFilesAsync(plan, progress, ct, target => unverified = target); }
+        catch
+        {
+            // Keep verified files for the next plan to reuse; drop anything
+            // unverified, and the folder itself when nothing was verified.
+            try
+            {
+                foreach (var path in new[] { unverified, Path.Combine(plan.Output, ReceiptName), Path.Combine(plan.Output, "manifest.json") })
+                    if (path != null) File.Delete(path);
+                if (!Directory.EnumerateFileSystemEntries(plan.Output).Any()) Directory.Delete(plan.Output);
+            }
+            catch (Exception error) when (error is IOException or UnauthorizedAccessException) { }
+            throw;
+        }
+        PruneAbandonedExports(plan.Output, started);
+    }
+    static async Task ExportFilesAsync(Plan plan, IProgress<string>? progress, CancellationToken ct, Action<string?> writing)
+    {
         using var http = new HttpClient { Timeout = TimeSpan.FromMinutes(30) };
         var exported = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
         int done = 0;
         foreach (var file in plan.Selection.Files)
         {
             ct.ThrowIfCancellationRequested();
-            var target = FileSafety.Child(plan.Output, file.Name);
+            var target = FileSafety.Child(plan.Output, file.Name); writing(target);
             if (file.Size == 0) await File.WriteAllBytesAsync(target, [], ct);
             else if (exported.TryGetValue(file.Sha256, out var prior)) await CopyLocalAsync(prior, target, file.Size, ct);
             else if (plan.Local.TryGetValue(file.Sha256, out var source)) await CopyLocalAsync(source, target, file.Size, ct);
@@ -160,7 +185,7 @@ public static class HellForgePack
             }
             if (new FileInfo(target).Length != file.Size || !string.Equals(await HashAsync(target, ct), file.Sha256, StringComparison.OrdinalIgnoreCase))
                 throw new InvalidDataException($"Export hash mismatch: {file.Name}");
-            exported.TryAdd(file.Sha256, target);
+            writing(null); exported.TryAdd(file.Sha256, target);
             if (++done % 100 == 0) progress?.Report($"Verified {Math.Min(done, plan.Selection.Files.Count)}/{plan.Selection.Files.Count} files…");
         }
         await File.WriteAllTextAsync(Path.Combine(plan.Output, ReceiptName), JsonSerializer.Serialize(new Receipt { Selection = plan.Selection }, Json), ct);
@@ -169,6 +194,21 @@ public static class HellForgePack
             Version = 1, Guid = GuidFor(plan.Selection.Mode), Name = $"{name} {plan.Selection.Version} ({plan.Selection.Texture})",
             Description = "Star Wars pack for HellForge. Choose difficulties 1–11 in game. Gameplay and multiplayer validation pending.", Options = Array.Empty<object>()
         }, Json), ct);
+    }
+    // After a complete export, earlier interrupted ones (launcher-named, no
+    // receipt, untouched since this one began) were reuse sources; drop them.
+    internal static void PruneAbandonedExports(string output, DateTime before)
+    {
+        var exports = new DirectoryInfo(Path.GetDirectoryName(Path.GetFullPath(output))!);
+        if (exports.Name != "exports" || !exports.Exists || exports.Attributes.HasFlag(FileAttributes.ReparsePoint)) return;
+        foreach (var folder in exports.EnumerateDirectories())
+            try
+            {
+                if (folder.Attributes.HasFlag(FileAttributes.ReparsePoint) || folder.LastWriteTimeUtc >= before || File.Exists(Path.Combine(folder.FullName, ReceiptName)) ||
+                    !System.Text.RegularExpressions.Regex.IsMatch(folder.Name, "^[a-z]{1,16}-[0-9a-f]{32}$")) continue;
+                folder.Delete(true);
+            }
+            catch (Exception error) when (error is IOException or UnauthorizedAccessException) { }
     }
 
     internal static async Task CopyLocalAsync(string source, string target, long expected, CancellationToken ct)
