@@ -82,9 +82,21 @@ def scan_run(run):
     return facts
 
 
+def wait_for_backend_port(port=40558, limit=300):
+    """Waits until the previous session's backend has released HellForge's port (a quick restart was refused)."""
+    deadline = time.time() + limit
+    while time.time() < deadline:
+        out = subprocess.run(['netstat', '-ano', '-p', 'TCP'], capture_output=True, text=True).stdout
+        if not re.search(r':%d\s+\S+\s+(LISTENING|ESTABLISHED)' % port, out):
+            return True
+        time.sleep(5)
+    return False
+
+
 def cycle(args, number):
     row = {'label': args.label, 'cycle': number, 'difficulty': args.difficulty, 'faction': args.faction,
            'started': time.strftime('%Y-%m-%dT%H:%M:%S'), 'steps': {}}
+    wait_for_backend_port()
     code, data, text = harness('start', '--preset', args.preset, timeout=300)
     row['steps']['start'] = code
     if code != 0:
