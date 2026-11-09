@@ -30,7 +30,7 @@ static class WarbondTests
         public string Snapshot => Path.Combine(Root, "account-snapshot", "default");
         public string Backups => Path.Combine(Root, "profiles", "default", "backups");
         public Commands Cli { get; }
-        public bool ProcessesRunning, RefuseSeal, ChangeSnapshot, ChangeProfile, Cancel;
+        public bool ProcessesRunning, RefuseSeal, ChangeSnapshot, ChangeProfile, Cancel, StartSession;
         public int Verifications;
         public CancellationTokenSource Cancellation { get; } = new();
         public Fixture(string root)
@@ -55,6 +55,7 @@ static class WarbondTests
             if (ChangeSnapshot) File.AppendAllText(Path.Combine(Snapshot, "real-inventory.json"), " ");
             if (ChangeProfile) File.AppendAllText(ProfilePath, " ");
             if (Cancel) Cancellation.Cancel();
+            if (StartSession) Cli.Running = true;
             return Task.FromResult("{\"categories\":{\"level\":{\"vanilla\":\"12,345 XP\"}}}");
         }
         public Task<int> Open() => new HellForgeWarbonds(Root, Cli, Backend, () => ProcessesRunning).OpenAsync(Cancellation.Token);
@@ -62,11 +63,12 @@ static class WarbondTests
     sealed class Commands(string root) : IHellForgeCommands
     {
         public bool Running;
+        public string Install = root;
         public Task<JsonElement> RunAsync(IReadOnlyList<string> args, CancellationToken ct = default)
         {
             ct.ThrowIfCancellationRequested();
             if (!args.SequenceEqual(new[] { "status" })) throw new InvalidOperationException("Unexpected Warbond command.");
-            return Task.FromResult(JsonSerializer.SerializeToElement(new { install = root, session = new { running = Running } }));
+            return Task.FromResult(JsonSerializer.SerializeToElement(new { install = Install, session = new { running = Running } }));
         }
     }
     internal static async Task Run(string root, Action<bool, string> check)
@@ -101,6 +103,10 @@ static class WarbondTests
         }
         await Refuses("running-session", f => f.Cli.Running = true);
         await Refuses("running-game-or-manager", f => f.ProcessesRunning = true);
+        await Refuses("session-started-during-verification", f => f.StartSession = true, true);
+        await Refuses("different-installation", f => f.Cli.Install = f.Root + "-other");
+        if (!OperatingSystem.IsWindows())
+            await Refuses("different-case-installation", f => f.Cli.Install = f.Root.ToUpperInvariant());
         await Refuses("corrupt-snapshot", f => File.AppendAllText(Path.Combine(f.Snapshot, "real-inventory.json"), " "));
         await Refuses("missing-snapshot", f => File.Delete(Path.Combine(f.Snapshot, "seal.json")));
         await Refuses("untrusted-seal-or-account", f => f.RefuseSeal = true, true);
@@ -126,5 +132,33 @@ static class WarbondTests
         bool changedRefused = false;
         try { await changed.Open(); } catch (InvalidDataException) { changedRefused = true; }
         check(changedRefused && File.ReadAllText(changed.ProfilePath) == Profile + " " && !Directory.Exists(changed.Backups), "a concurrent profile edit is preserved and refuses the stale write");
+        try
+        {
+            foreach (var name in new[] { "profile", "snapshot", "lock", "backup", "fallback", "ancestor" })
+            {
+                var linked = new Fixture(Path.Combine(area, "linked-" + name, "HellForge"));
+                var original = File.ReadAllBytes(linked.ProfilePath);
+                var target = Path.Combine(area, "target-" + name);
+                string link;
+                if (name is "profile" or "fallback" or "lock")
+                {
+                    link = name == "profile" ? linked.ProfilePath : Path.Combine(Path.GetDirectoryName(linked.ProfilePath)!, name == "lock" ? "profile.lock" : "profile.json.bak");
+                    File.WriteAllText(target, "untouched target");
+                    File.Delete(link); File.CreateSymbolicLink(link, target);
+                }
+                else
+                {
+                    link = name switch { "snapshot" => linked.Snapshot, "backup" => linked.Backups, _ => Path.GetDirectoryName(linked.Root)! };
+                    if (Directory.Exists(link)) Directory.Move(link, target); else Directory.CreateDirectory(target);
+                    Directory.CreateSymbolicLink(link, target);
+                }
+                bool refused = false;
+                try { await linked.Open(); } catch (InvalidDataException) { refused = true; }
+                check(refused && (name == "profile" ? File.ReadAllText(target) == "untouched target" : File.ReadAllBytes(linked.ProfilePath).SequenceEqual(original)),
+                    "linked " + name + " is refused without following it for a Warbond write");
+            }
+        }
+        catch (UnauthorizedAccessException) when (OperatingSystem.IsWindows()) { Console.WriteLine("SKIP: Warbond symlink fixtures require Windows privileges; run on Linux."); }
+        catch (IOException error) when (OperatingSystem.IsWindows() && (error.HResult & 0xffff) == 1314) { Console.WriteLine("SKIP: Warbond symlink fixtures require Windows privileges; run on Linux."); }
     }
 }

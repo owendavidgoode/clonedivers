@@ -31,6 +31,18 @@ internal static class LinuxForgePlayerTests
         check(connection.Refused.Count == 1 && connection.Refused[0][2] == "regular" && play > select && select >= 0 && connection.Calls[select][2] == "regular","launch re-sends the shown selection so a refused select-mode never plays the stale mode");
         preferences.Mode = "clonedivers";
 
+        connection = new Connection(); player = new LinuxForgePlayer(connection, preferences);
+        await player.ImportAsync();
+        check(player.State?.Account is { Imported: true, Message: "Opened 3 owned Warbonds." } && player.Error == null,
+            "Linux import refresh displays the bridge's owned-Warbond status without losing imported-account readiness");
+        connection.Account = new(true, true, "Opened 1 owned Warbonds.");
+        await player.RefreshAsync();
+        check(player.State?.Account.Message == "Opened 1 owned Warbonds.", "Linux idle refresh carries the owned-Warbond status into the displayed account message");
+        await player.LaunchAsync();
+        var imports = connection.Calls.Count(c => c[0] == "account-import");
+        try { await player.ImportAsync(); throw new Exception("FAIL: active session accepted account import"); } catch (InvalidOperationException) { }
+        check(connection.Calls.Count(c => c[0] == "account-import") == imports, "Linux active sessions defer imports and their owned-Warbond opening before reaching the bridge");
+
         var bytes = "fixture pack bytes"u8.ToArray(); var sha = Convert.ToHexString(SHA256.HashData(bytes)).ToLowerInvariant();
         var source = Path.Combine(root, "player-source.bin"); File.WriteAllBytes(source, bytes);
         HellForgePack.Selection Selection(string texture) => new("clonedivers", texture, "1.0", HellForgePack.SupportedBuild, new string('a', 64),
@@ -53,6 +65,7 @@ internal static class LinuxForgePlayerTests
     sealed class Connection : IForgeConnection
     {
         internal bool RefuseSelect, FailDispose, Running, Disposed;
+        internal ForgeAccountView? Account;
         public bool Faulted { get; set; }
         internal readonly List<string[]> Calls = [], Refused = [];
         public Task<JsonElement> RunAsync(IReadOnlyList<string> args, CancellationToken ct = default)
@@ -62,11 +75,12 @@ internal static class LinuxForgePlayerTests
             if (args[0] == "select-mode" && RefuseSelect) { RefuseSelect = false; Refused.Add(args.ToArray()); throw new ForgeCommandException("Finish the running session before changing or launching Forge."); }
             Calls.Add(args.ToArray());
             object result = args[0] switch {
-                "player-status" => new ForgePlayerState(new(Path.GetTempPath(), "fixture", "25480438", !Running, true, Running, true, true, "observed", null), !Running, "Fixture ready", null, null),
+                "player-status" => new ForgePlayerState(new(Path.GetTempPath(), "fixture", "25480438", !Running, true, Running, true, true, "observed", null), !Running, "Fixture ready", Account, null),
                 "play" => new { @event = "started" },
                 _ => new { fixture = true }
             };
             if (args[0] == "play") Running = true;
+            if (args[0] == "account-import") Account = new(true, true, "Opened 3 owned Warbonds.");
             return Task.FromResult(JsonSerializer.SerializeToElement(result));
         }
         public ValueTask DisposeAsync() { Disposed = true; return FailDispose ? ValueTask.FromException(new IOException("Official Linux wrapper ended abnormally")) : ValueTask.CompletedTask; }

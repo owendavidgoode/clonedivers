@@ -201,6 +201,11 @@ catch (InvalidDataException) { Check(true, "native protocol rejects an oversized
 
 var fixture = Path.Combine(Path.GetTempPath(), "clonedivers-forge-plan-" + Guid.NewGuid().ToString("N"));
 await Clonedivers.ForgeBridge.Tests.GameplayNativeTests.Run(fixture, Check);
+await Clonedivers.Tests.WarbondTests.Run(fixture, Check);
+Check(new[] { "helldivers2", "helldivers2.exe", "HellForge", "HellForge.exe", "HellForge.Launcher", "HellForge.Launc" }.All(HellForgeWarbonds.BlocksLinuxProcess),
+    "native and Proton game/manager process names, including Linux's truncated comm, defer Warbond opening");
+Check(new[] { "HellForge.Cli", "HellForge.Local", "steam-bridge", "clonedivers" }.All(name => !HellForgeWarbonds.BlocksLinuxProcess(name)),
+    "idle Linux CLI/Steam bridge infrastructure does not prevent opening owned Warbonds");
 Check(LinuxForgePlan.SupportsArchitecture(Architecture.X64) && !LinuxForgePlan.SupportsArchitecture(Architecture.Arm64) && !LinuxForgePlan.SupportsArchitecture(Architecture.X86),
     "Forge refuses unsupported architectures without confusing the separate ARM64 Steam package with Proton qualification");
 try
