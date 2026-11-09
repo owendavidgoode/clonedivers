@@ -18,7 +18,7 @@ public sealed partial class HellForgeClient
         FileSafety.RejectLink(path);
         for (var parent = new DirectoryInfo(Path.GetDirectoryName(path)!); parent != null; parent = parent.Parent) FileSafety.RejectLink(parent.FullName);
     }
-    FileStream LockPackChange()
+    internal FileStream LockPackChange()
     {
         var path = PackIntentPath + ".lock";
         RejectAncestors(path);

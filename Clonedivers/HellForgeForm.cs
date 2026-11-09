@@ -20,8 +20,8 @@ public sealed class HellForgeForm : Form
         try { return Microsoft.Win32.Registry.GetValue(@"HKEY_CURRENT_USER\Software\Valve\Steam\ActiveProcess", "ActiveUser", null)?.ToString() ?? ""; }
         catch (Exception error) when (error is IOException or UnauthorizedAccessException or System.Security.SecurityException) { return ""; }
     }
-    internal const string SyncInstructions = "In HellForge open Profile > Account sync > Sync Inventory. Default profile is already selected. Approve Windows, pass the HD2 title screen, then close HD2. " +
-        "Leave HellForge's own import review unapplied (no Apply import, no auto-apply): Clonedivers verifies and applies the completed import automatically while it stays open. Later syncs merge forward.";
+    internal const string SyncInstructions = "In HellForge choose Profile > Account sync > Sync Inventory (default is selected). Approve Windows and pass HD2's title screen. " +
+        "When HD2 closes, return here. Leave Apply import and auto-apply off. Clonedivers verifies and merges your sealed capture automatically.";
     internal static string FailureSummary(string diagnostic)
     {
         var first = diagnostic.Split(['\r', '\n'], StringSplitOptions.RemoveEmptyEntries).FirstOrDefault()?.Trim() ?? "Session needs attention.";
@@ -179,9 +179,10 @@ public sealed class HellForgeForm : Form
             else if (preferences.InstallRoot is { } root && HellForgeSetup.UpgradeProblem(root) != null) await RecoverForgeAsync();
             else if (lastStatus is { } old && HellForgeSetup.IsPrevious(old.Version)) await UpgradeForgeAsync();
             else if (preferences.InstallRoot == null || lastStatus is { GameCopyReady: false } or { RunnerReady: false }) await SetupAsync();
+            else if (lastStatus?.CompatibilityProblem != null) await SetupAsync();
             else if (!SteamReadyCheck()) await LaunchAsync();
+            else if (lastMods?.Problems.Length > 0) ReviewModNotices();
             else if (NeedsGameplaySetup()) await PrepareAsync();
-            else if (lastMods?.HostingProblem != null) OpenHellForge();
             else if (NeedsModeSetup()) await PrepareAsync();
             else if (lastAccount?.Imported != true) await SyncAccountAsync();
             else await LaunchAsync();
@@ -334,6 +335,7 @@ public sealed class HellForgeForm : Form
         }
         if (lastStatus?.CompatibilityProblem is { } compatibility) {
             state.Text = "Check HellForge compatibility"; detail.Text = compatibility;
+            if (HellForgeSetup.SupportsVersion(lastStatus.Version) && lastStatus.Engine == HellForgeRelease.Engine && lastStatus.ModSdk == HellForgeRelease.Sdk) { launch.Text = "CONTINUE GUIDED SETUP"; launch.Enabled = true; }
             prepare.Enabled = accountSync.Enabled = false; return;
         }
         if (lastStatus?.RecoveryProblem is { } recovery) {
@@ -353,25 +355,25 @@ public sealed class HellForgeForm : Form
         }
         if (lastStatus == null) { state.Text = "Checking HellForge…"; detail.Text = "Reading installation and pack information."; return; }
         if (captureBlock != null) { state.Text = "Finish account sync"; detail.Text = captureBlock; accountSync.Enabled = false; prepare.Enabled = false; return; }
-        if (!lastStatus.GameCopyReady || !lastStatus.RunnerReady) { state.Text = "Finish HellForge setup"; detail.Text = "Open HellForge to prepare its separate game copy. Your Star Wars pack can be prepared now."; return; }
+        if (!lastStatus.GameCopyReady || !lastStatus.RunnerReady) { state.Text = "Finish HellForge setup"; detail.Text = "Continue guided setup to download or resume the supported game copy."; launch.Text = "FINISH SETUP"; launch.Enabled = true; return; }
         if (lastStatus.Build != HellForgePack.SupportedBuild) { state.Text = "Pack update needed"; detail.Text = "This HellForge version uses a different game build. Keep the Steam fallback available."; return; }
-        if (lastMods?.Problems.Length > 0) { state.Text = "Check HellForge’s Mods page"; detail.Text = string.Join("; ", lastMods.Problems); return; }
+        if (lastMods?.Problems.Length > 0) { state.Text = "Review conflicting mod files"; detail.Text = string.Join("; ", lastMods.Problems); launch.Text = "REVIEW MOD CHOICES"; launch.Enabled = true; return; }
         if (NeedsGameplaySetup()) {
-            state.Text = "Install your required gameplay mods";
-            detail.Text = "Install the complete pinned SEAF, squad, loader and quality-of-life preset. Files are verified before Forge imports them.";
+            state.Text = "Set up your required gameplay mods";
+            detail.Text = "Install or restore the pinned preset, difficulty, order and options, with automatic gameplay-mod sharing off. Overlapping alternatives will be disabled.";
             launch.Text = "INSTALL REQUIRED MODS"; launch.Enabled = true; return;
         }
         if (lastMods != null && HellForgeClient.ModConflict(lastMods) is { } conflict) { state.Text = "Resolve the mod overlap"; detail.Text = conflict; return; }
         if (lastMods?.HostingProblem is { } sharing) {
             state.Text = "Confirm your mod-sharing setting"; detail.Text = sharing;
-            launch.Text = "REVIEW MOD SHARING"; launch.Enabled = true; return;
+            launch.Text = "INSTALL REQUIRED MODS"; launch.Enabled = true; return;
         }
         if (!preferences.IsRegular && preferences.AppliedSelection != preferences.SelectionKey) { state.Text = "Prepare your Star Wars pack"; detail.Text = "Apply your selected universe and texture options to HellForge."; EnableModeSetup(); return; }
         var our = lastMods?.Mods.Where(m => m.Enabled && HellForgePack.IsOurPack(m.Id)).ToList() ?? [];
         if (preferences.IsRegular && our.Count != 0) { state.Text = "Apply Regular mode"; detail.Text = "Disable the Star Wars appearance packs. Your selected HellForge gameplay mods remain active."; EnableModeSetup(); return; }
         if (!preferences.IsRegular && (our.Count != 1 || our[0].Id != HellForgePack.PackId(preferences.PackMode))) { state.Text = "Prepare your Star Wars pack"; detail.Text = "Apply your selected universe and texture options to HellForge."; EnableModeSetup(); return; }
-        if (lastMods?.Mods.Any(m => m.Id == HellForgeClient.DifficultyId && m.Enabled) != true) { state.Text = "Enable Hell Forge Difficulty"; detail.Text = "Open HellForge’s Mods page and enable its bundled difficulty mod. Levels 1–10 remain available."; return; }
-        if (lastMods != null && HellForgePreset.Problem(lastMods) is { } preset) { state.Text = "Finish the gameplay preset"; detail.Text = preset; return; }
+        if (lastMods?.Mods.Any(m => m.Id == HellForgeClient.DifficultyId && m.Enabled) != true) { state.Text = "Enable Hell Forge Difficulty"; detail.Text = "Restore the bundled difficulty through guided setup."; launch.Text = "INSTALL REQUIRED MODS"; launch.Enabled = true; return; }
+        if (lastMods != null && HellForgePreset.Problem(lastMods, checkOrder: true) is { } preset) { state.Text = "Finish the gameplay preset"; detail.Text = preset; launch.Text = "INSTALL REQUIRED MODS"; launch.Enabled = true; return; }
         if (!lastStatus.Multiplayer || !lastStatus.LocalBackend) { state.Text = "Enable Steam co-op"; detail.Text = "Set up your selected mode to apply the local backend and Steam multiplayer automatically."; EnableModeSetup(); return; }
         if (lastAccount?.Imported != true) {
             state.Text = lastAccount?.Captured == true ? "Apply your account import" : "Import your HD2 account";
@@ -456,7 +458,7 @@ public sealed class HellForgeForm : Form
         // in-flight mod/account operation; those were never started by this path.
         working = false; Close();
     });
-    bool NeedsGameplaySetup() => lastMods != null && HellForgePreset.Problem(lastMods) != null;
+    bool NeedsGameplaySetup() => lastMods != null && HellForgePreset.Problem(lastMods, checkOrder: true) != null;
     async Task UpgradeForgeAsync() => await OperationAsync(async () => {
         var report = new Progress<ForgeSetupProgress>(p => { if (!IsDisposed) message.Text = p.Message; });
         await HellForgeSetup.UpdateAsync(preferences.InstallRoot!, report, WorkToken);
@@ -501,7 +503,7 @@ public sealed class HellForgeForm : Form
         message.Text = "Checking every required gameplay mod…";
         var missing = await client.MissingGameplayAsync(WorkToken);
         var catalog = await client.ModsAsync(WorkToken);
-        if (missing.Count == 0 && HellForgePreset.Problem(catalog) == null) return;
+        if (missing.Count == 0 && HellForgePreset.Problem(catalog, checkOrder: true) == null) return;
         cancelPreparation.Visible = true;
         await HellForgeGameplayCatalog.StageAsync(client.GameplayCache, missing, report, WorkToken);
         cancelPreparation.Visible = false;
@@ -661,6 +663,12 @@ public sealed class HellForgeForm : Form
             Process.Start(new ProcessStartInfo(Path.Combine(client.Root, "HellForge.exe")) { UseShellExecute = true, WorkingDirectory = client.Root });
         }
         catch (Exception e) { message.Text = e.Message; }
+    }
+    void ReviewModNotices()
+    {
+        var notices = string.Join("\n", lastMods?.Problems ?? []);
+        if (MessageBox.Show(this, notices + "\n\nThese files need your choice before setup can continue. In HellForge's Mods page, choose which duplicate or custom mod to keep, then return and Refresh.\n\nOpen HellForge to review them?",
+            "Review mod choices", MessageBoxButtons.YesNo, MessageBoxIcon.Information) == DialogResult.Yes) OpenHellForge();
     }
     void OpenSteamLibrary()
     {

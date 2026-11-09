@@ -4,9 +4,9 @@ using System.Text.Json;
 
 namespace Clonedivers;
 
-internal sealed record ForgeSetupProgress(string Message, long Done = 0, long Total = 0, bool CanCancel = false);
+internal sealed record ForgeSetupProgress(string Message, long Done = 0, long Total = 0, bool CanCancel = false, string[]? QrRows = null);
 
-/// <summary>Bootstrap the pinned author installer. Game copying, ownership and isolation remain official Forge setup.</summary>
+/// <summary>Bootstrap the pinned author installer and drive the official game downloader.</summary>
 internal static partial class HellForgeSetup
 {
     internal const string InstallerUrl = "https://github.com/SkyeShade/HellForge/releases/download/v0.4.0-beta/HellForge-Setup.exe";
@@ -95,6 +95,7 @@ internal static partial class HellForgeSetup
         {
             // Official --unpack does not open a window, copy a game, change networking or authenticate.
             await (unpack ?? UnpackAsync)(installer, staging);
+            await CreateLayoutAsync(staging, ct);
             HellForgeCommands.ValidateRoot(staging);
             using (var marker = JsonDocument.Parse(File.ReadAllText(Path.Combine(staging, "hellforge-install.json"))))
                 if (marker.RootElement.GetProperty("buildId").GetString() != HellForgePack.SupportedBuild)
@@ -107,7 +108,7 @@ internal static partial class HellForgeSetup
         {
             throw new IOException("Forge installation did not finish. Your existing installations were not replaced. Retry setup; any unfinished files are retained at " + staging + ". " + error.Message, error);
         }
-        progress?.Report(new("Forge installed. Continue with its game setup."));
+        progress?.Report(new("Forge installed. Getting its supported game copy next."));
         return HellForgeCommands.ValidateRoot(target);
     }
 

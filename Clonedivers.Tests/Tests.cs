@@ -31,6 +31,21 @@ static class TestProgram
 
     static int Main(string[] args)
     {
+        if (args is ["--turnkey-stream"])
+        {
+            for (int row = 0; row < 15; row++) Console.Error.WriteLine("\u001b[97;40m" + new string('\u2588', 29) + "\u001b[0m");
+            Console.Error.WriteLine("Open the Steam app on your phone");
+            Console.Error.WriteLine("50%: 12 of 24 MB"); Console.WriteLine("{\"ok\":true}"); return 0;
+        }
+        if (args is ["--turnkey-wait"]) { Console.Error.WriteLine(Environment.ProcessId); Console.Error.Flush(); Thread.Sleep(30000); return 0; }
+        if (args is ["--turnkey-setup-only"])
+        {
+            Game.IsRunningCheck = () => false;
+            var turnkey = Path.Combine(Path.GetTempPath(), "turnkey-test-" + Guid.NewGuid().ToString("N")); Directory.CreateDirectory(turnkey);
+            try { Task.Run(() => TurnkeySetupTests.Run(turnkey, Check)).GetAwaiter().GetResult(); Task.Run(() => HellForgeTests.FormLifecycleTests(Check)).GetAwaiter().GetResult(); }
+            finally { Directory.Delete(turnkey, true); }
+            Console.WriteLine(failures == 0 ? "ALL TURNKEY TESTS PASSED" : $"{failures} TURNKEY TEST(S) FAILED"); return failures == 0 ? 0 : 1;
+        }
         if (args is ["--gameplay-install-real", var freshRoot])
         {
             GameplayInstallTests.RequireIsolated(freshRoot);
@@ -153,6 +168,7 @@ static class TestProgram
             Task.Run(() => ForgeMigrationTests.Run(root, Check)).GetAwaiter().GetResult();
             Task.Run(() => ForgeSetupTests.Run(root, Check)).GetAwaiter().GetResult();
             Task.Run(() => GameplayInstallTests.Run(root, Check)).GetAwaiter().GetResult();
+            Task.Run(() => TurnkeySetupTests.Run(root, Check)).GetAwaiter().GetResult();
             FpvDefaultsTests.Run(root, Check);
             SelfUpdateAndAcfTests(root);
         }

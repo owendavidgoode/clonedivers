@@ -359,10 +359,10 @@ public sealed partial class HellForgeClient(string root, IHellForgeCommands comm
             return "This preset requires HellForge 0.4.0-beta, engine0.1.47 and SDK16. Review the installed version in official HellForge before preparing or launching; the launcher will not change engines.";
         static bool True(JsonElement parent, string key) => parent.ValueKind == JsonValueKind.Object && parent.TryGetProperty(key, out var value) && value.ValueKind == JsonValueKind.True;
         if (!json.TryGetProperty("settings", out var settings) || !True(settings, "sandbox") ||
-            OptionalText(json, "networkBlock") != (linuxNamespace ? "linux-netns" : "wfp") ||
+            (linuxNamespace ? OptionalText(json, "networkBlock") != "linux-netns" : OptionalText(json, "networkBlock") is not ("wfp" or "firewall")) ||
             linuxNamespace && !OperatingSystem.IsLinux() && (!json.TryGetProperty("ready", out var ready) || !True(ready, "linuxNamespace")))
             return linuxNamespace ? "Official Linux namespace and sandbox checks must pass before preparing or launching. Review official HellForge setup; isolation settings will not be changed automatically."
-                : "Official WFP isolation and sandbox checks must pass before preparing or launching. Review official HellForge setup; isolation settings will not be changed automatically.";
+                : "Continue guided setup to enable the official sandbox. HellForge verifies and installs its network block at launch, with Windows approval when needed.";
         return null;
     }
     public static void RequireReady(HellForgeStatus status)
@@ -720,7 +720,7 @@ public sealed partial class HellForgeClient(string root, IHellForgeCommands comm
         if (!status.Multiplayer || !status.LocalBackend) throw new InvalidDataException("Enable Steam co-op and the local backend in HellForge settings.");
         var catalog = await ModsAsync(ct);
         var selected = RequireSelected(catalog, selection);
-        if (HellForgePreset.Problem(catalog) is { } preset) throw new InvalidDataException(preset);
+        if (HellForgePreset.Problem(catalog, checkOrder: true) is { } preset) throw new InvalidDataException(preset);
         if ((await MissingGameplayAsync(ct)).Count != 0) throw new InvalidDataException("Required gameplay content changed. Use Prepare Star Wars pack to verify and repair the preset before launching.");
         if (!catalog.Mods.Any(m => m.Id == DifficultyId && m.Enabled)) throw new InvalidDataException("Open HellForge setup to install its built-in difficulty 11, then enable it on the Mods page.");
         ValidateModFolder(selected.Folder);
@@ -737,7 +737,7 @@ public sealed partial class HellForgeClient(string root, IHellForgeCommands comm
         if (!status.Multiplayer || !status.LocalBackend) throw new InvalidDataException("Enable Steam co-op and the local backend in HellForge settings.");
         var catalog = await ModsAsync(ct);
         RequireRegular(catalog);
-        if (HellForgePreset.Problem(catalog) is { } preset) throw new InvalidDataException(preset);
+        if (HellForgePreset.Problem(catalog, checkOrder: true) is { } preset) throw new InvalidDataException(preset);
         if ((await MissingGameplayAsync(ct)).Count != 0) throw new InvalidDataException("Required gameplay content changed. Use Prepare to verify and repair the preset before launching.");
         if (!catalog.Mods.Any(m => m.Id == DifficultyId && m.Enabled)) throw new InvalidDataException("Enable HellForge's bundled difficulty mod on its Mods page.");
         return await StartAsync(ct, profile);

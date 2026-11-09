@@ -117,7 +117,7 @@ public sealed partial class HellForgeClient
         await RequireGameplayIdleAsync(ct);
         var before = await ModsAsync(ct);
         var missing = await MissingGameplayAsync(ct);
-        if (missing.Count == 0 && HellForgePreset.Problem(before) == null) { progress?.Report("Required gameplay preset already verified."); return; }
+        if (missing.Count == 0 && HellForgePreset.Problem(before, checkOrder: true) == null) { progress?.Report("Required gameplay preset already verified."); return; }
         foreach (var artifact in missing)
         {
             var path = FileSafety.Child(staged, artifact.FileName);
@@ -171,7 +171,7 @@ public sealed partial class HellForgeClient
             }
             await ConfigureGameplayAsync(ct);
             var after = await ModsAsync(ct);
-            if (HellForgePreset.Problem(after with { HostingProblem = null }) is { } issue) throw new InvalidDataException(issue);
+            if (HellForgePreset.Problem(after with { HostingProblem = null }, checkOrder: true) is { } issue) throw new InvalidDataException(issue);
             WriteGameplayIntent(intent with { State = "applied" });
             progress?.Report(after.HostingProblem ?? "Required gameplay mods installed and configured.");
         }

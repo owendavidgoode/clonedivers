@@ -19,7 +19,7 @@ public static class HellForgePreset
         (GuardDogs, "Smarter Guard Dogs & Sentries 5.2.0", "")
     ];
 
-    public static string? Problem(HellForgeMods catalog)
+    public static string? Problem(HellForgeMods catalog, bool checkOrder = false)
     {
         if (catalog.HostingProblem != null) return catalog.HostingProblem;
         var issues = new List<string>();
@@ -37,6 +37,9 @@ public static class HellForgePreset
         bool Enabled(string id) => catalog.Mods.Any(m => m.Enabled && m.Id == id);
         if (!Enabled("skyeshade.vanilla-plus") && !Enabled("pack.80a03e3b-a671-4e54-a2ce-52c35bb64c91"))
             issues.Add("Enable Vanilla Plus or Reinforcement Beacons Fixed");
+        var order = HellForgeGameplayCatalog.Pinned.Order;
+        if (checkOrder && order.All(id => catalog.Mods.Any(m => m.Id == id)) && !catalog.Mods.Where(m => order.Contains(m.Id)).Select(m => m.Id).SequenceEqual(order))
+            issues.Add("Restore the pinned mod order");
         var dogs = catalog.Mods.SingleOrDefault(m => m.Id == GuardDogs && m.Enabled);
         if (dogs != null)
         {
