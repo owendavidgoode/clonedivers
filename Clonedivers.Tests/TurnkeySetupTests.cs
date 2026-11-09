@@ -1,4 +1,6 @@
 using System.Diagnostics;
+using System.IO.Compression;
+using System.Security.Cryptography;
 using System.Text;
 using System.Text.Json;
 using Clonedivers;
@@ -246,7 +248,8 @@ internal static class TurnkeySetupTests
             foreach (var id in HellForgeGameplayCatalog.Pinned.Order)
             {
                 var required = HellForgePreset.Required.FirstOrDefault(r => r.Id == id);
-                fake.Mods.Add(new(id, required.Name ?? "Vanilla Plus", true, Path.Combine(root, "mods", id), [], required.Version ?? ""));
+                var artifact = HellForgeGameplayCatalog.Pinned.Artifacts.FirstOrDefault(a => a.Id == id);
+                fake.Mods.Add(new(id, required.Name ?? artifact?.Name ?? "Vanilla Plus", true, Path.Combine(root, "mods", id), [], required.Version ?? artifact?.Version ?? ""));
             }
             var dogs = fake.Mods.FindIndex(m => m.Id == HellForgePreset.GuardDogs);
             fake.Mods[dogs] = fake.Mods[dogs] with { Options = [new("Smarter Guard Dogs and Sentries", true), new("Guard Dogs", true), new("Sentries", true), new("Intelligence", true), new("Safety", true), new("Sentry Safety", true), new("SEAF Safety", true), new("Targeting Marker", issue == "options")] };
@@ -261,6 +264,71 @@ internal static class TurnkeySetupTests
             fake.Calls.Clear(); await client.InstallGameplayAsync(client.GameplayCache);
             check(fake.Calls.All(c => c[0] is "status" or "mods" or "mod-hash"), issue + " repair is idempotent on retry");
         }
+        await OptionalTests(root, fake, client, check);
+    }
+
+    static async Task OptionalTests(string root, Commands fake, HellForgeClient client, Action<bool, string> check)
+    {
+        var catalog = HellForgeGameplayCatalog.Pinned;
+        var index = catalog.Artifacts.FindIndex(a => a.Id == HellForgePreset.CleanExit);
+        var pinned = catalog.Artifacts[index];
+        Directory.CreateDirectory(client.GameplayCache);
+        var fixture = Path.Combine(client.GameplayCache, "optional-fixture.zip");
+        using (var zip = ZipFile.Open(fixture, ZipArchiveMode.Create))
+        using (var writer = new StreamWriter(zip.CreateEntry("hellforge-mod.json").Open()))
+            writer.Write(JsonSerializer.Serialize(new { id = pinned.Id, name = pinned.Name, version = pinned.Version, gameplay = false }));
+        var artifact = pinned with { Bytes = new FileInfo(fixture).Length, Sha256 = Convert.ToHexString(SHA256.HashData(File.ReadAllBytes(fixture))).ToLowerInvariant() };
+        File.Move(fixture, Path.Combine(client.GameplayCache, artifact.FileName));
+        catalog.Artifacts[index] = artifact; // isolated import fixture; production pins are restored below
+        var record = client.PackIntentPath + ".gameplay.json";
+        try
+        {
+            fake.Mods.RemoveAll(m => m.Id == pinned.Id || HellForgePreset.IsConflictingAlternative(m));
+            var previous = JsonSerializer.Deserialize<Dictionary<string, JsonElement>>(File.ReadAllText(record))!;
+            previous["Catalog"] = JsonSerializer.SerializeToElement("build25480438-r2");
+            previous.Remove("OptionalDefaultsApplied"); File.WriteAllText(record, JsonSerializer.Serialize(previous));
+            check((await client.MissingGameplayAsync()).Select(a => a.Id).SequenceEqual([pinned.Id]), "an r2 installation offers the new optional default once");
+            fake.Ready = true;
+            check((await client.PlayRegularAsync()).GetProperty("event").GetString() == "started", "optional Clean Exit is also absent from launch requirements before first r3 setup");
+            fake.Calls.Clear(); await client.InstallGameplayAsync(client.GameplayCache);
+            check(fake.Mods.Single(m => m.Id == pinned.Id).Enabled && fake.Calls.Count(c => c[0] == "mod-add") == 1 &&
+                HellForgePreset.Problem(await client.ModsAsync(), checkOrder: true) == null, "r3 setup imports, verifies, enables and orders Clean Exit by default");
+            var optional = fake.Mods.FindIndex(m => m.Id == pinned.Id);
+            fake.Mods[optional] = fake.Mods[optional] with { Enabled = false, Version = "player-version" };
+            var difficulty = fake.Mods.FindIndex(m => m.Id == HellForgeClient.DifficultyId);
+            fake.Mods[difficulty] = fake.Mods[difficulty] with { Enabled = false };
+            fake.Calls.Clear(); await client.InstallGameplayAsync(client.GameplayCache);
+            check(!fake.Mods.Single(m => m.Id == pinned.Id).Enabled && fake.Calls.All(c => c[0] != "mod-add" && !(c[0] == "mod-switch" && c[2] == pinned.Id)),
+                "required-mod repair preserves a disabled or player-replaced optional mod");
+            fake.Mods.RemoveAll(m => m.Id == pinned.Id);
+            var restarted = new HellForgeClient(root, fake) { RequireCliQuiescent = () => { } };
+            check((await restarted.MissingGameplayAsync()).Count == 0 && HellForgePreset.Problem(await restarted.ModsAsync(), checkOrder: true) == null,
+                "removing Clean Exit survives a fresh client and leaves the required preset ready");
+            fake.Ready = true;
+            check((await restarted.PlayRegularAsync()).GetProperty("event").GetString() == "started", "optional removal still reaches the normal verified launch entry point");
+            fake.Calls.Clear(); await restarted.InstallGameplayAsync(restarted.GameplayCache);
+            check(fake.Calls.All(c => c[0] is "status" or "mods" or "mod-hash"), "repeated setup after optional removal is a no-op");
+            fake.Mods.Reverse();
+            check(HellForgePreset.Problem(await restarted.ModsAsync(), checkOrder: true)?.Contains("order") == true,
+                "missing optional Clean Exit does not hide required mod-order drift");
+            fake.Calls.Clear(); await restarted.InstallGameplayAsync(restarted.GameplayCache);
+            check(fake.Mods.All(m => m.Id != pinned.Id) && fake.Calls.All(c => c[0] != "mod-add" && !(c[0] == "mod-order" && c[2].Split(',').Contains(pinned.Id))) &&
+                HellForgePreset.Problem(await restarted.ModsAsync(), checkOrder: true) == null, "order repair excludes the removed optional ID and keeps it removed");
+            difficulty = fake.Mods.FindIndex(m => m.Id == HellForgeClient.DifficultyId);
+            fake.Mods[difficulty] = fake.Mods[difficulty] with { Enabled = false };
+            fake.FailPackOnce = true;
+            try { await restarted.InstallGameplayAsync(restarted.GameplayCache); check(false, "repair failure must restore the previous selection"); }
+            catch (IOException error) { check(error.Message.Contains("previous mod selection was restored"), "required-mod repair failure rolls back through the normal transaction"); }
+            check(restarted.InterruptedGameplayProblem() == null && (await restarted.MissingGameplayAsync()).Count == 0 && fake.Mods.All(m => m.Id != pinned.Id),
+                "repair rollback retains the completed optional-default choice");
+            fake.Calls.Clear(); await restarted.InstallGameplayAsync(restarted.GameplayCache);
+            check(fake.Calls.All(c => c[0] != "mod-add") && fake.Mods.All(m => m.Id != pinned.Id), "retry after rollback keeps removed Clean Exit removed");
+            fake.Mods.Add(new(pinned.Id, pinned.Name, false, Path.Combine(root, "mods", pinned.Id), ["code"], "player-version"));
+            File.Delete(record); fake.Calls.Clear();
+            await restarted.InstallGameplayAsync(restarted.GameplayCache);
+            check(!fake.Mods.Single(m => m.Id == pinned.Id).Enabled && fake.Calls.All(c => c[0] != "mod-add"), "first r3 setup also respects an already disabled optional mod");
+        }
+        finally { catalog.Artifacts[index] = pinned; }
     }
 
     sealed class Reports(Action<ForgeSetupProgress> report) : IProgress<ForgeSetupProgress> { public void Report(ForgeSetupProgress value) => report(value); }
@@ -268,6 +336,7 @@ internal static class TurnkeySetupTests
     {
         public bool Ready, Running, Sandbox = true, Runner = true;
         public string Engine = HellForgeRelease.Engine;
+        public bool FailPackOnce;
         public List<HellForgeMod> Mods = [];
         public List<string[]> Calls = [];
         public Task<JsonElement> RunAsync(IReadOnlyList<string> args, CancellationToken ct = default)
@@ -278,10 +347,15 @@ internal static class TurnkeySetupTests
                 case "status": result = new { install = root, hellforge = HellForgeRelease.Version, engine = Engine, modSdk = 16, gameBuild = HellForgePack.SupportedBuild, networkBlock = "firewall",
                     ready = new { gameCopy = Ready, sessionRunner = Runner }, session = new { running = Running }, settings = new { multiplayer = true, localPlayFab = true, sandbox = Sandbox } }; break;
                 case "mods": result = new { mods = Mods.Select(m => new { id = m.Id, name = m.Name, enabled = m.Enabled, folder = m.Folder, tags = m.Tags, version = m.Version, options = m.Options?.Select(o => new { name = o.Name, on = o.On }) }), problems = Array.Empty<string>() }; break;
-                case "mod-hash": result = new { hash = HellForgeGameplayCatalog.Pinned.Artifacts.Single(a => Mods.Any(m => m.Id == a.Id && m.Folder == args[2])).ContentHash }; break;
+                case "mod-hash": result = new { hash = HellForgeGameplayCatalog.Pinned.Artifacts.Single(a => File.Exists(args[2]) ? a.Id == HellForgePreset.CleanExit : Mods.Any(m => m.Id == a.Id && m.Folder == args[2])).ContentHash }; break;
+                case "mod-add":
+                    var optional = HellForgeGameplayCatalog.Pinned.Artifacts.Single(a => a.Id == HellForgePreset.CleanExit);
+                    Mods.Add(new(optional.Id, optional.Name, false, Path.Combine(root, "mods", optional.Id), ["code"], optional.Version)); break;
+                case "play": result = new { @event = "started" }; break;
                 case "mod-switch": { var index = Mods.FindIndex(m => m.Id == args[2]); Mods[index] = Mods[index] with { Enabled = args[4] == "yes" }; break; }
                 case "mod-order": { var order = args[2].Split(','); Mods = order.Select(id => Mods.Single(m => m.Id == id)).ToList(); break; }
                 case "mod-pack":
+                    if (FailPackOnce) { FailPackOnce = false; throw new IOException("fixture configuration failure"); }
                     if (args[3] == "--all") break;
                     var dog = Mods.FindIndex(m => m.Id == args[2]);
                     Mods[dog] = Mods[dog] with { Options = Mods[dog].Options!.Select(o => o.Name == args[4] ? o with { On = args[6] == "yes" } : o).ToArray() }; break;

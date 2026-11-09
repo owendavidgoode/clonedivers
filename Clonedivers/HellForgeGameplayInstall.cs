@@ -9,9 +9,11 @@ public sealed partial class HellForgeClient
 {
     sealed record GameplayBackup(string Id, string Archive, long Bytes, string Sha256, string ContentHash);
     sealed record GameplaySnapshot(string Root, HellForgeMods Mods, List<GameplayBackup> Backups, bool HadShare = false, bool Share = true);
-    sealed record GameplayIntent(string Root, string Catalog, string Backup, string SnapshotSha256, string State);
+    sealed record GameplayIntent(string Root, string Catalog, string Backup, string SnapshotSha256, string State, bool OptionalDefaultsApplied = false);
     public string GameplayCache => Path.Combine(CacheRoot, "gameplay", HellForgeGameplayCatalog.Pinned.Id);
     string GameplayIntentPath => PackIntentPath + ".gameplay.json";
+    bool GameplayDefaultsApplied => ReadGameplayIntent() is { Catalog: var catalog } intent && catalog == HellForgeGameplayCatalog.Pinned.Id &&
+        (intent.State == "applied" || intent.OptionalDefaultsApplied);
 
     async Task RequireGameplayIdleAsync(CancellationToken ct)
     {
@@ -61,9 +63,13 @@ public sealed partial class HellForgeClient
         var catalog = await ModsAsync(ct);
         if (catalog.Problems.Length != 0) throw new InvalidDataException("Resolve the mod catalog errors first: " + string.Join("; ", catalog.Problems));
         var missing = new List<GameplayArtifact>();
+        var defaultsApplied = GameplayDefaultsApplied;
         foreach (var artifact in HellForgeGameplayCatalog.Pinned.Artifacts)
         {
             var found = catalog.Mods.SingleOrDefault(m => m.Id == artifact.Id);
+            // Offer optional defaults once. Later removal, disabling or replacement
+            // belongs to the player, including while required mods are repaired.
+            if (artifact.Optional && (defaultsApplied || found is { Enabled: false })) continue;
             if (found == null || artifact.Version.Length > 0 && found.Version != artifact.Version || artifact.Version.Length == 0 && found.Name != artifact.Name)
             { missing.Add(artifact); continue; }
             ValidateModFolder(found.Folder);
@@ -117,7 +123,7 @@ public sealed partial class HellForgeClient
         await RequireGameplayIdleAsync(ct);
         var before = await ModsAsync(ct);
         var missing = await MissingGameplayAsync(ct);
-        if (missing.Count == 0 && HellForgePreset.Problem(before, checkOrder: true) == null) { progress?.Report("Required gameplay preset already verified."); return; }
+        if (missing.Count == 0 && GameplayDefaultsApplied && HellForgePreset.Problem(before, checkOrder: true) == null) { progress?.Report("Required gameplay preset already verified."); return; }
         foreach (var artifact in missing)
         {
             var path = FileSafety.Child(staged, artifact.FileName);
@@ -153,7 +159,7 @@ public sealed partial class HellForgeClient
         var snapshotPath = FileSafety.Child(backup, "before.json");
         using (var file = new FileStream(snapshotPath, FileMode.CreateNew, FileAccess.Write, FileShare.None))
         { await JsonSerializer.SerializeAsync(file, snapshot, HellForgePack.Json, ct); file.Flush(flushToDisk: true); }
-        var intent = new GameplayIntent(Root, HellForgeGameplayCatalog.Pinned.Id, backup, await HellForgePack.HashAsync(snapshotPath, ct), "pending");
+        var intent = new GameplayIntent(Root, HellForgeGameplayCatalog.Pinned.Id, backup, await HellForgePack.HashAsync(snapshotPath, ct), "pending", GameplayDefaultsApplied);
         await RequireGameplayIdleAsync(ct); ct.ThrowIfCancellationRequested(); WriteGameplayIntent(intent);
         try
         {
@@ -164,12 +170,12 @@ public sealed partial class HellForgeClient
                 await ImportGameplayArchiveAsync(FileSafety.Child(staged, artifact.FileName), ct);
             }
             var imported = await ModsAsync(ct);
-            foreach (var artifact in HellForgeGameplayCatalog.Pinned.Artifacts)
+            foreach (var artifact in HellForgeGameplayCatalog.Pinned.Artifacts.Where(a => !a.Optional || missing.Contains(a)))
             {
                 var mod = imported.Mods.SingleOrDefault(m => m.Id == artifact.Id) ?? throw new InvalidDataException("Forge did not import " + artifact.Name);
                 if (await InstalledGameplayHashAsync(mod, artifact, ct) != artifact.ContentHash) throw new InvalidDataException("Installed content differs for " + artifact.Name);
             }
-            await ConfigureGameplayAsync(ct);
+            await ConfigureGameplayAsync(missing, ct);
             var after = await ModsAsync(ct);
             if (HellForgePreset.Problem(after with { HostingProblem = null }, checkOrder: true) is { } issue) throw new InvalidDataException(issue);
             WriteGameplayIntent(intent with { State = "applied" });
@@ -184,12 +190,13 @@ public sealed partial class HellForgeClient
         }
     }
 
-    async Task ConfigureGameplayAsync(CancellationToken ct)
+    async Task ConfigureGameplayAsync(List<GameplayArtifact> installed, CancellationToken ct)
     {
         var catalog = await ModsAsync(ct);
         var wanted = HellForgeGameplayCatalog.Pinned.Order.ToHashSet(StringComparer.Ordinal);
         foreach (var mod in catalog.Mods)
         {
+            if (HellForgeGameplayCatalog.Pinned.Artifacts.Any(a => a.Id == mod.Id && a.Optional) && installed.All(a => a.Id != mod.Id)) continue;
             var conflict = HellForgePreset.IsConflictingAlternative(mod);
             if (!wanted.Contains(mod.Id) && !conflict) continue;
             var on = wanted.Contains(mod.Id);
@@ -206,7 +213,7 @@ public sealed partial class HellForgeClient
             await RequireGameplayIdleAsync(ct);
             await commands.RunAsync(["mod-pack", "--id", HellForgePreset.GuardDogs, "--option", option, "--on", option == "Targeting Marker" ? "no" : "yes"], ct);
         }
-        var ordered = HellForgeGameplayCatalog.Pinned.Order.Concat(catalog.Mods.Select(m => m.Id).Where(id => !wanted.Contains(id))).ToArray();
+        var ordered = HellForgeGameplayCatalog.Pinned.Order.Where(id => catalog.Mods.Any(m => m.Id == id)).Concat(catalog.Mods.Select(m => m.Id).Where(id => !wanted.Contains(id))).ToArray();
         await RequireGameplayIdleAsync(ct); await commands.RunAsync(["mod-order", "--ids", string.Join(",", ordered)], ct);
         await WriteSharingAsync(true, false, ct);
     }
