@@ -20,6 +20,7 @@
     <Compile Include="../Clonedivers/TelemetryStore.cs" Link="Core/TelemetryStore.cs" />
     <Compile Include="../Clonedivers/FpvDefaults.cs" Link="Core/FpvDefaults.cs" />
     <Compile Include="../Clonedivers/HellForgeAccount.cs" Link="Core/HellForgeAccount.cs" />
+    <Compile Include="../Clonedivers/HellForgeWarbonds.cs" Link="Core/HellForgeWarbonds.cs" />
     <Compile Include="../Clonedivers/HellForgePack.cs" Link="Core/HellForgePack.cs" />
     <Compile Include="../Clonedivers/HellForgeClient.cs" Link="Core/HellForgeClient.cs" />
     <Compile Include="../Clonedivers/HellForgeRecovery.cs" Link="Core/HellForgeRecovery.cs" />

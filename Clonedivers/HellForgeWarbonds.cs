@@ -20,6 +20,7 @@ public sealed class HellForgeWarbonds
         Func<IReadOnlyList<string>, CancellationToken, Task<string>>? backend = null, Func<bool>? processesRunning = null)
     {
         this.root = Path.TrimEndingDirectorySeparator(Path.GetFullPath(root)); this.commands = commands;
+        for (var directory = new DirectoryInfo(this.root); directory != null; directory = directory.Parent) FileSafety.RejectLink(directory.FullName);
         profile = FileSafety.Child(FileSafety.Child(this.root, "profiles"), HellForgeAccount.Profile);
         snapshot = FileSafety.Child(FileSafety.Child(this.root, "account-snapshot"), HellForgeAccount.Profile);
         account = new HellForgeAccount(this.root, backend);
@@ -27,6 +28,19 @@ public sealed class HellForgeWarbonds
     }
     static bool ProcessesRunning()
     {
+        if (OperatingSystem.IsLinux())
+        {
+            var processes = Process.GetProcesses();
+            try
+            {
+                foreach (var process in processes)
+                    try { if (process.Id != Environment.ProcessId && BlocksLinuxProcess(process.ProcessName)) return true; }
+                    catch (InvalidOperationException) { } // exited during enumeration
+                    catch (System.ComponentModel.Win32Exception) { return true; } // an unreadable process cannot establish idle
+                return false;
+            }
+            finally { foreach (var process in processes) process.Dispose(); }
+        }
         foreach (var name in new[] { "helldivers2", "HellForge" })
         {
             var processes = Process.GetProcessesByName(name);
@@ -35,11 +49,14 @@ public sealed class HellForgeWarbonds
         }
         return false;
     }
+    // Linux comm may truncate the native launcher's name to 15 characters; Proton keeps the game's .exe suffix.
+    internal static bool BlocksLinuxProcess(string name) => name is "helldivers2" or "helldivers2.exe" or "HellForge" or "HellForge.exe" ||
+        name.StartsWith("HellForge.Launc", StringComparison.Ordinal);
     async Task RequireIdleAsync(CancellationToken ct)
     {
         if (processesRunning()) throw new InvalidOperationException("Close the game and HellForge window before opening owned Warbonds.");
         var status = await commands.RunAsync(["status"], ct);
-        if (!Path.TrimEndingDirectorySeparator(Path.GetFullPath(status.GetProperty("install").GetString()!)).Equals(root, StringComparison.OrdinalIgnoreCase) ||
+        if (!Path.TrimEndingDirectorySeparator(Path.GetFullPath(status.GetProperty("install").GetString()!)).Equals(root, PlatformPaths.Comparison) ||
             status.GetProperty("session").GetProperty("running").ValueKind != JsonValueKind.False)
             throw new InvalidOperationException("HellForge must report an idle session before opening owned Warbonds.");
     }
