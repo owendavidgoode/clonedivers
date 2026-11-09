@@ -16,13 +16,13 @@ if find "$extract" -type l -print -quit | grep -q .; then echo 'Unexpected archi
 [[ $(jq -r .control "$extract/forge/companion.json") == native-linux ]]
 [[ $(sha256sum "$extract/forge/HellForge.Launcher.ClonediversBridge" | cut -d' ' -f1) == $(jq -r .bridgeSha256 "$extract/forge/companion.json") ]]
 "$extract/forge/HellForge.Launcher.ClonediversBridge" --help >/dev/null
-"$extract/clonedivers" --version | grep -F 'Clonedivers Forge Linux 0.7.0'
+"$extract/clonedivers" --version | grep -F 'Clonedivers Forge Linux 0.8.0'
 "$extract/clonedivers" --help | grep -F 'Clonedivers Forge for Linux'
 "$extract/clonedivers" --steam --help > /dev/null
-[[ $(dpkg-deb -f "$deb" Package) == clonedivers && $(dpkg-deb -f "$deb" Version) == 0.7.0 ]]
+[[ $(dpkg-deb -f "$deb" Package) == clonedivers && $(dpkg-deb -f "$deb" Version) == 0.8.0 ]]
 sudo apt-get update -qq
 sudo apt-get install -y "$artifacts/$deb"
-clonedivers --version | grep -F 'Clonedivers Forge Linux 0.7.0'
+clonedivers --version | grep -F 'Clonedivers Forge Linux 0.8.0'
 clonedivers --help | grep -F 'Clonedivers Forge for Linux'
 test -f /usr/lib/clonedivers/forge/companion.json
 test -x /usr/lib/clonedivers/forge/HellForge.Launcher.ClonediversBridge
