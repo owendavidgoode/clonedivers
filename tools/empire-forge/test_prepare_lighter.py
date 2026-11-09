@@ -1,14 +1,81 @@
 """Regressions for the independent lossless texture streaming proof."""
 import struct
+import json
+import shutil
+from contextlib import contextmanager
+from collections.abc import Iterator
 import unittest
 from pathlib import Path
 from uuid import uuid4
 
 import empire_port as P
-from prepare_lighter import texture_streamed
+from prepare_lighter import catalog, install_metadata, texture_streamed
+
+
+@contextmanager
+def temporary_folder() -> Iterator[Path]:
+    parent = Path(__file__).resolve().parent
+    folder = parent / f'lighter-fixture-{uuid4().hex}'
+    folder.mkdir()
+    try:
+        yield folder
+    finally:
+        assert folder.resolve().parent == parent
+        shutil.rmtree(folder)
 
 
 class StreamingTests(unittest.TestCase):
+    def test_install_metadata_is_distinct_and_repeatable(self) -> None:
+        with temporary_folder() as temporary:
+            root = Path(temporary)
+            source, candidate = root / 'full', root / 'empire-forge-r46-lighter'
+            source.mkdir()
+            candidate.mkdir()
+            original = {'Version': 1, 'Guid': str(uuid4()), 'Name': 'Full', 'Options': []}
+            (source / 'manifest.json').write_text(json.dumps(original), encoding='utf-8')
+            (source / 'ATTRIBUTION.txt').write_bytes(b'Credits\r\n')
+            install_metadata(source, candidate)
+            first = (candidate / 'manifest.json').read_bytes()
+            manifest = json.loads(first)
+            self.assertNotEqual(manifest['Guid'], original['Guid'])
+            self.assertIn('r46-lighter', manifest['Name'])
+            self.assertEqual(manifest['Version'], 1)
+            self.assertEqual(manifest['Options'], [])
+            self.assertEqual((candidate / 'ATTRIBUTION.txt').read_bytes(), b'Credits\r\n')
+            install_metadata(source, candidate)
+            self.assertEqual((candidate / 'manifest.json').read_bytes(), first)
+            self.assertEqual(json.loads((source / 'manifest.json').read_text()), original)
+
+    def test_catalog_stages_revision_tag_and_excludes_install_metadata(self) -> None:
+        with temporary_folder() as temporary:
+            root = Path(temporary)
+            candidate, evidence = root / 'candidate', root / 'evidence'
+            candidate.mkdir()
+            evidence.mkdir()
+            name = '9ba626afa44a3aa3.patch_1000'
+            (candidate / name).write_bytes(b'streamed')
+            (candidate / 'manifest.json').write_text('{}', encoding='utf-8')
+            (candidate / 'ATTRIBUTION.txt').write_text('Credits', encoding='utf-8')
+            template = {'pack': {'version': '2026.11.09-r46', 'notes': 'Empire r46.', 'statusNotes': 'Full passed.',
+                                'textureProfiles': [{'id': 'full'}], 'files': [
+                                    {'name': name, 'sha256': P.sha(b'full'), 'size': 4, 'url': 'https://example.org/full',
+                                     'modes': ['empire'], 'textureProfiles': ['full']}]}}
+            source = root / 'full.json'
+            source.write_text(json.dumps(template), encoding='utf-8')
+            previous = P.ROOT
+            P.ROOT = evidence
+            try:
+                summary = catalog(source, root / 'lighter.json', candidate, evidence, 'r46-lighter-files')
+            finally:
+                P.ROOT = previous
+            result = P.read(root / 'lighter.json')['pack']
+            self.assertEqual(result['version'], '2026.11.09-r46')
+            self.assertEqual(result['files'][0], template['pack']['files'][0])
+            self.assertEqual(summary['lighterRows'], 1)
+            self.assertEqual(summary['newAssets'], 1)
+            self.assertIn('/r46-lighter-files/', result['files'][1]['url'])
+            self.assertEqual(P.read(evidence / 'upload-plan.json')[0]['sha256'], P.sha(b'streamed'))
+
     def fixture(self, rgba: bool = False) -> tuple[tuple[bytes, ...], tuple[bytes, ...]]:
         cpu = bytearray(340)
         cpu[192:196] = b'DDS '

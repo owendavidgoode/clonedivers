@@ -252,7 +252,7 @@ internal sealed class ForgeWindow : Window
         folder.IsEnabled = browse.IsEnabled = !busy && player == null && !preview;
         connect.IsEnabled = !busy && (player == null || lost) && !preview; refresh.IsEnabled = !busy && player != null && !lost && !preview;
         Prepare.IsEnabled = !busy && !active && player != null && player.State?.Status.CompatibilityProblem == null && !preview;
-        Prepare.Content = preferences.Mode == "empire" ? "Set up Empire r45-v4 (Full / CIS droids)" : "Set up selected mode";
+        Prepare.Content = preferences.Mode == "empire" ? "Set up Empire r46 (Full / Lighter / CIS droids)" : "Set up selected mode";
         if (player?.State?.Status.RecoveryProblem is { } recovery) Prepare.Content = recovery.StartsWith("Gameplay", StringComparison.Ordinal) ? "Recover gameplay preset" : "Recover previous appearance";
         Import.IsEnabled = !busy && !active && player?.State?.Status is { GameCopyReady: true, RunnerReady: true, RecoveryProblem: null, CompatibilityProblem: null } && !preview;
         Import.Content = player?.State?.Account is { Captured: true, Imported: false } ? "Finish account sync" : "Sync HD2 account";

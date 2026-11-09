@@ -15,8 +15,10 @@
 
   <ItemGroup>
     <EmbeddedResource Include="../Clonedivers/Resources/hellforge-r19.json" LogicalName="Clonedivers.HellForge.Manifest.json" />
-    <EmbeddedResource Include="../Clonedivers/Resources/hellforge-empire-r45-v4.json" LogicalName="Clonedivers.HellForge.Empire.Manifest.json" />
-    <EmbeddedResource Include="../Clonedivers/Resources/hellforge-empire-r45-v4-lighter.json" LogicalName="Clonedivers.HellForge.Empire.Lighter.Manifest.json" />
+    <EmbeddedResource Include="../Clonedivers/Resources/hellforge-empire-r46.json" LogicalName="Clonedivers.HellForge.Empire.Manifest.json" />
+    <EmbeddedResource Include="../Clonedivers/Resources/hellforge-empire-r46-lighter.json" LogicalName="Clonedivers.HellForge.Empire.Lighter.Manifest.json" />
+    <EmbeddedResource Include="../Clonedivers/Resources/hellforge-empire-r45-v4.json" LogicalName="Clonedivers.Tests.Empire.R45.Manifest.json" />
+    <EmbeddedResource Include="../Clonedivers/Resources/hellforge-empire-r45-v4-lighter.json" LogicalName="Clonedivers.Tests.Empire.R45.Lighter.Manifest.json" />
     <EmbeddedResource Include="../Clonedivers/Resources/forge-gameplay-build25480438-r3.json" LogicalName="Clonedivers.Forge.Gameplay.json" />
     <EmbeddedResource Include="../forge-mods/clean-exit/hellforge-mod.json" LogicalName="Clonedivers.Tests.CleanExit.json" />
     <Compile Include="..\Clonedivers\*.cs" Link="%(Filename)%(Extension)" />

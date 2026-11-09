@@ -370,7 +370,7 @@ public sealed class HellForgeForm : Form
         choices.Visible = textureRow.Visible = !working && preferences.Mode == "clonedivers";
         optionsLabel.Text = preferences.Mode switch { "empire" => "Empire appearance", "regular" => "Regular appearance", _ => "Clones appearance" };
         appearanceInfo.Visible = preferences.Mode != "clonedivers";
-        appearanceInfo.Text = preferences.IsRegular ? "Standard Helldivers appearance with your selected gameplay mods." : "r45 · Full textures and CIS droids included.";
+        appearanceInfo.Text = preferences.IsRegular ? "Standard Helldivers appearance with your selected gameplay mods." : "r46 · Full or Lighter textures with CIS droids.";
         delta.Visible = preferences.Mode == "clonedivers";
         delta.Enabled = !working && preferences.Mode == "clonedivers";
         foreach (var control in new Control[] { regular, clone, empire, droids, covenant, textures, actions }) control.Enabled = !working;

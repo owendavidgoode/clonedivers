@@ -16,6 +16,7 @@ from pathlib import Path
 import shutil
 import struct
 import sys
+from uuid import NAMESPACE_URL, uuid5
 
 import empire_port as P
 import verify_candidate as V
@@ -27,6 +28,16 @@ TAG = 'pack-2026.11.09-r45-v4-lighter-files'
 def resources_at(path: Path) -> dict:
     companions = tuple(path.with_name(path.name + s) for s in P.SUFFIXES)
     return {row[:2]: P.Resource(path, row, companions) for row in P.directory(path)}
+
+
+def install_metadata(source: Path, candidate: Path) -> None:
+    for path in source.glob('*.txt'):
+        shutil.copyfile(path, candidate / path.name)
+    manifest = P.read(source / 'manifest.json')
+    manifest.update(Guid=str(uuid5(NAMESPACE_URL, f'clonedivers/{candidate.name}')),
+                    Name=f'EmpireDivers Forge {candidate.name.removeprefix("empire-forge-")} (25480438)',
+                    Description='Lossless streamed textures. Private lab candidate. Gameplay acceptance pending.')
+    (candidate / 'manifest.json').write_text(json.dumps(manifest, indent=2) + '\n', encoding='utf-8')
 
 
 def texture_streamed(before: tuple[bytes, ...], after: tuple[bytes, ...]) -> None:
@@ -93,7 +104,9 @@ def audit(source: Path, candidate: Path, evidence: Path, source_evidence: Path) 
     expected, records = {}, []
     bundles = sorted(p for p in source.iterdir() if P.MAIN.fullmatch(p.name))
     names = {p.name + suffix for p in bundles for suffix in P.SUFFIXES}
-    if {p.name for p in candidate.iterdir()} != names:
+    present = {p.name for p in candidate.iterdir()}
+    metadata = {'manifest.json'} | {p.name for p in source.glob('*.txt')}
+    if not names <= present or present - names - metadata:
         raise ValueError('Candidate must contain exactly the source archive triplets')
     for path in bundles:
         target = candidate / path.name
@@ -152,7 +165,7 @@ def audit(source: Path, candidate: Path, evidence: Path, source_evidence: Path) 
             'sourceVerification': P.pin(source_evidence / 'verification-summary.json')}
 
 
-def catalog(source_catalog: Path, output_catalog: Path, candidate: Path, evidence: Path) -> dict:
+def catalog(source_catalog: Path, output_catalog: Path, candidate: Path, evidence: Path, tag: str = TAG) -> dict:
     feed = P.read(source_catalog)
     full_rows = feed['pack']['files']
     old_by_hash = {r['sha256']: r for r in full_rows}
@@ -161,12 +174,12 @@ def catalog(source_catalog: Path, output_catalog: Path, candidate: Path, evidenc
     assets = evidence / 'assets'
     assets.mkdir(exist_ok=True)
     reused = 0
-    for path in sorted(candidate.iterdir()):
+    for path in sorted(p for p in candidate.iterdir() if p.name in old_by_name):
         pin = P.pin(path)
         sha = pin['sha256']
         old = old_by_hash.get(sha)
         row = dict(old_by_name[path.name])
-        url = old['url'] if old else f'https://github.com/owendavidgoode/clonedivers/releases/download/{TAG}/{sha}'
+        url = old['url'] if old else f'https://github.com/owendavidgoode/clonedivers/releases/download/{tag}/{sha}'
         row.update(size=pin['size'], sha256=sha, url=url, textureProfiles=['lighter'])
         lighter.append(row)
         if old:
@@ -177,12 +190,12 @@ def catalog(source_catalog: Path, output_catalog: Path, candidate: Path, evidenc
                 os.link(path, asset)
             if P.pin(asset)['sha256'] != sha:
                 raise ValueError(f'Staged asset changed {asset}')
-            uploads[sha] = {'path': str(asset), 'size': pin['size'], 'sha256': sha, 'tag': TAG,
+            uploads[sha] = {'path': str(asset), 'size': pin['size'], 'sha256': sha, 'tag': tag,
                             'name': sha, 'url': url, 'source': str(path)}
     feed['pack']['files'] = full_rows + lighter
     feed['pack']['textureProfiles'].append({'id': 'lighter', 'name': 'Lighter textures',
                                            'description': 'Full texture detail, streamed as needed.'})
-    feed['pack']['notes'] = 'Empire r45-v4. Full or lossless streamed textures. CIS droids and walker weapons enabled. Covenant disabled.'
+    feed['pack']['notes'] += ' Full or lossless streamed textures.'
     feed['pack']['statusNotes'] += ' Lighter textures are statically verified. Lighter gameplay awaits acceptance.'
     output_catalog.write_text(json.dumps(feed, indent=4) + '\n', encoding='utf-8', newline='\r\n')
     P.save('lighter-catalog-rows.json', lighter)
@@ -193,7 +206,7 @@ def catalog(source_catalog: Path, output_catalog: Path, candidate: Path, evidenc
         writer.writeheader()
         writer.writerows(rows)
     return {'catalog': P.pin(output_catalog), 'lighterRows': len(lighter), 'reusedRows': reused,
-            'newAssets': len(rows), 'uploadBytes': sum(r['size'] for r in rows), 'tag': TAG}
+            'newAssets': len(rows), 'uploadBytes': sum(r['size'] for r in rows), 'tag': tag}
 
 
 def sizes(folder: Path) -> dict[str, int]:
@@ -208,19 +221,23 @@ def main() -> int:
     parser.add_argument('--workspace', type=Path, required=True)
     parser.add_argument('--source-catalog', type=Path, required=True)
     parser.add_argument('--output-catalog', type=Path, required=True)
+    parser.add_argument('--revision', choices=('r45-v4', 'r46'), default='r45-v4')
     args = parser.parse_args()
     workspace = args.workspace.resolve()
-    source = workspace / 'empire-forge-r45-v4'
-    candidate = workspace / 'empire-forge-r45-v4-lighter'
-    evidence = workspace / 'lighter-r45-v4'
+    source = workspace / f'empire-forge-{args.revision}'
+    candidate = workspace / f'empire-forge-{args.revision}-lighter'
+    evidence = workspace / f'lighter-{args.revision}'
+    source_evidence = workspace / ('triage-r45/v4' if args.revision == 'r45-v4' else 'r46/verification')
     try:
         evidence.mkdir(exist_ok=True)
         P.ROOT = evidence
-        proof = audit(source, candidate, evidence, workspace / 'triage-r45/v4')
+        proof = audit(source, candidate, evidence, source_evidence)
         P.save('lossless-summary.json', proof)
+        install_metadata(source, candidate)
         if V.verify(candidate):
             raise ValueError('Full candidate verifier rejected Lighter')
-        proof.update(catalog(args.source_catalog, args.output_catalog, candidate, evidence))
+        tag = f'pack-2026.11.09-{args.revision}-lighter-files'
+        proof.update(catalog(args.source_catalog, args.output_catalog, candidate, evidence, tag))
         proof.update(before=sizes(source), after=sizes(candidate), runtimeTested=False)
         P.save('build-summary.json', proof)
         print(json.dumps(proof, indent=2))

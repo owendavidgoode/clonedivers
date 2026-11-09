@@ -715,14 +715,38 @@ static class HellForgeTests
         var oldEmpire = new HellForgePreferences { Mode = "empire", Texture = "lighter", Droids = false, Covenant = true,
             AppliedSelection = $"r19/{HellForgePack.SupportedBuild}/empire/lighter/False/True" };
         var newEmpire = oldEmpire.Selection();
-        check(oldEmpire.SelectionKey == $"r45-v4/{HellForgePack.SupportedBuild}/empire/lighter/True/False" &&
-            oldEmpire.AppliedSelection != oldEmpire.SelectionKey && newEmpire.Version == "2026.11.08-r45-v4" &&
+        check(oldEmpire.SelectionKey == $"r46/{HellForgePack.SupportedBuild}/empire/lighter/True/False" &&
+            oldEmpire.AppliedSelection != oldEmpire.SelectionKey && newEmpire.Version == "2026.11.09-r46" &&
             newEmpire.Texture == "lighter" && newEmpire.Options["droids"] && !newEmpire.Options["covenant"] && newEmpire.Files.Count == 96,
-            "Empire r19 preferences require preparing the fixed r45-v4 selection before play");
+            "Empire r19 preferences require preparing the fixed r46 selection before play");
         var empireFull = HellForgePack.PinnedSelection("empire", "full");
-        check(empireFull.ManifestSha256 == "4a35045a9b628e0f2b476815e7a77f00ab31a6cde957abd574e8597513c7ad36" &&
+        check(empireFull.Version == "2026.11.09-r46" &&
             empireFull.Files[0].Name == "9ba626afa44a3aa3.patch_1000" && newEmpire.Files[0].Name == empireFull.Files[0].Name,
-            "Empire Full keeps its shipped receipt identity and both profiles preserve the fixed layer numbers");
+            "Empire Full selects r46 and both profiles preserve the fixed layer numbers");
+        foreach (var texture in new[] { "full", "lighter" })
+        {
+            var resource = texture == "full" ? "Clonedivers.Tests.Empire.R45.Manifest.json" : "Clonedivers.Tests.Empire.R45.Lighter.Manifest.json";
+            using var catalog = typeof(HellForgePack).Assembly.GetManifestResourceStream(resource)!;
+            using var memory = new MemoryStream(); catalog.CopyTo(memory);
+            var bytes = memory.ToArray();
+            var legacy = Manifest.Parse(System.Text.Encoding.UTF8.GetString(bytes));
+            legacy.Pack!.Files = legacy.Pack.Files.Where(f => PackProfiles.Includes(f, "empire", texture)).ToList();
+            var previous = HellForgePack.Select(legacy, Convert.ToHexString(SHA256.HashData(bytes)).ToLowerInvariant(), "empire", texture);
+            var receiptFolder = Path.Combine(area, "r45-receipt-" + texture); Directory.CreateDirectory(receiptFolder);
+            var receiptPath = Path.Combine(receiptFolder, HellForgePack.ReceiptName);
+            var receipt = JsonSerializer.Serialize(new HellForgePack.Receipt { Selection = previous }, HellForgePack.Json);
+            File.WriteAllText(receiptPath, receipt);
+            await HellForgePack.VerifyMetadataAsync(receiptFolder, previous);
+            var migrated = new HellForgePreferences { Mode = "empire", Texture = texture,
+                AppliedSelection = $"r45-v4/{HellForgePack.SupportedBuild}/empire/{texture}/True/False" };
+            check(previous.Version == "2026.11.08-r45-v4" && previous.Files.Count == 96 &&
+                HellForgePack.IsOurPack(HellForgePack.PackId(previous.Mode)) && migrated.AppliedSelection != migrated.SelectionKey &&
+                await Reject(() => HellForgePack.VerifyMetadataAsync(receiptFolder, migrated.Selection())) && File.ReadAllText(receiptPath) == receipt,
+                $"r45-v4 {texture} receipts stay recognised and require r46 preparation without rewriting the old receipt");
+            if (texture == "full") check(previous.ManifestSha256 == "4a35045a9b628e0f2b476815e7a77f00ab31a6cde957abd574e8597513c7ad36" &&
+                empireFull.Files.Count(f => f.Sha256 != previous.Files.Single(g => g.Name == f.Name).Sha256) == 6,
+                "the shipped r45-v4 Full catalog is preserved and r46 replaces exactly six archive files");
+        }
         check(empireFull.Files.Select(f => f.Name).SequenceEqual(newEmpire.Files.Select(f => f.Name)) &&
             empireFull.Files.Sum(f => f.Size) > 0 && newEmpire.Files.Any(f => f.Sha256 != empireFull.Files.Single(g => g.Name == f.Name).Sha256),
             "Empire Lighter contains every Full archive and companion with distinct streamed content");
