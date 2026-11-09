@@ -507,8 +507,6 @@ public sealed class HellForgeForm : Form
         var report = new Progress<string>(text => { if (!IsDisposed) message.Text = text; });
         message.Text = "Checking every required gameplay mod…";
         var missing = await client.MissingGameplayAsync(WorkToken);
-        var catalog = await client.ModsAsync(WorkToken);
-        if (missing.Count == 0 && HellForgePreset.Problem(catalog, checkOrder: true) == null) return;
         cancelPreparation.Visible = true;
         await HellForgeGameplayCatalog.StageAsync(client.GameplayCache, missing, report, WorkToken);
         cancelPreparation.Visible = false;

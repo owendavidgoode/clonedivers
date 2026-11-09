@@ -5,7 +5,7 @@ using System.Text.Json;
 
 namespace Clonedivers;
 
-public sealed record GameplayArtifact(string Id, string Name, string Version, string Url, long Bytes, string Sha256, string ContentHash, string Source)
+public sealed record GameplayArtifact(string Id, string Name, string Version, string Url, long Bytes, string Sha256, string ContentHash, string Source, bool Optional = false)
 {
     public string FileName => Sha256 + ".zip";
 }
@@ -27,11 +27,12 @@ public sealed class HellForgeGameplayCatalog
     }
     public void Validate()
     {
-        if (Format != 1 || Id != "build25480438-r2" || GameBuild != HellForgePack.SupportedBuild || Artifacts.Count != 7 || Artifacts.Select(a => a.Id).Distinct().Count() != 7 || Order.Distinct().Count() != Order.Count)
+        if (Format != 1 || Id != "build25480438-r3" || GameBuild != HellForgePack.SupportedBuild || Artifacts.Count != 8 || Artifacts.Select(a => a.Id).Distinct().Count() != 8 || Order.Distinct().Count() != Order.Count)
             throw new InvalidDataException("Unsupported gameplay catalog.");
         var supplied = Artifacts.Select(a => a.Id).ToHashSet(StringComparer.Ordinal);
         var bundled = new[] { "hellforge.editor", "skyeshade.hell-forge", "skyeshade.vanilla-plus" };
-        if (!supplied.SetEquals(HellForgePreset.Required.Select(r => r.Id).Where(id => !bundled.Contains(id))) || supplied.Concat(bundled).Any(id => !Order.Contains(id)))
+        if (!supplied.SetEquals(HellForgePreset.Required.Select(r => r.Id).Where(id => !bundled.Contains(id)).Append(HellForgePreset.CleanExit)) ||
+            !Artifacts.Where(a => a.Optional).Select(a => a.Id).SequenceEqual([HellForgePreset.CleanExit]) || !supplied.Concat(bundled).ToHashSet(StringComparer.Ordinal).SetEquals(Order))
             throw new InvalidDataException("Gameplay catalog does not cover the required preset.");
         foreach (var a in Artifacts)
         {

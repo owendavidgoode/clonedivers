@@ -35,7 +35,7 @@
     <Compile Include="../Clonedivers/HellForgePreset.cs" Link="Core/HellForgePreset.cs" />
     <Compile Include="../Clonedivers/HellForgePack.cs" Link="Core/HellForgePack.cs" />
     <EmbeddedResource Include="../Clonedivers/Resources/hellforge-r19.json" LogicalName="Clonedivers.HellForge.Manifest.json" />
-    <EmbeddedResource Include="../Clonedivers/Resources/forge-gameplay-build25480438-r2.json" LogicalName="Clonedivers.Forge.Gameplay.json" />
+    <EmbeddedResource Include="../Clonedivers/Resources/forge-gameplay-build25480438-r3.json" LogicalName="Clonedivers.Forge.Gameplay.json" />
     <Compile Include="../Clonedivers/HellForgeGameplayCatalog.cs" Link="Core/HellForgeGameplayCatalog.cs" />
   </ItemGroup>
 </Project>

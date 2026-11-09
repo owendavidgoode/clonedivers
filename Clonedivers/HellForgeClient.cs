@@ -730,7 +730,7 @@ public sealed partial class HellForgeClient(string root, IHellForgeCommands comm
         var catalog = await ModsAsync(ct);
         var selected = RequireSelected(catalog, selection);
         if (HellForgePreset.Problem(catalog, checkOrder: true) is { } preset) throw new InvalidDataException(preset);
-        if ((await MissingGameplayAsync(ct)).Count != 0) throw new InvalidDataException("Required gameplay content changed. Use Prepare Star Wars pack to verify and repair the preset before launching.");
+        if ((await MissingGameplayAsync(ct)).Any(a => !a.Optional)) throw new InvalidDataException("Required gameplay content changed. Use Prepare Star Wars pack to verify and repair the preset before launching.");
         if (!catalog.Mods.Any(m => m.Id == DifficultyId && m.Enabled)) throw new InvalidDataException("Open HellForge setup to install its built-in difficulty 11, then enable it on the Mods page.");
         ValidateModFolder(selected.Folder);
         await HellForgePack.VerifyAsync(selected.Folder, selection, ct);
@@ -747,7 +747,7 @@ public sealed partial class HellForgeClient(string root, IHellForgeCommands comm
         var catalog = await ModsAsync(ct);
         RequireRegular(catalog);
         if (HellForgePreset.Problem(catalog, checkOrder: true) is { } preset) throw new InvalidDataException(preset);
-        if ((await MissingGameplayAsync(ct)).Count != 0) throw new InvalidDataException("Required gameplay content changed. Use Prepare to verify and repair the preset before launching.");
+        if ((await MissingGameplayAsync(ct)).Any(a => !a.Optional)) throw new InvalidDataException("Required gameplay content changed. Use Prepare to verify and repair the preset before launching.");
         if (!catalog.Mods.Any(m => m.Id == DifficultyId && m.Enabled)) throw new InvalidDataException("Enable HellForge's bundled difficulty mod on its Mods page.");
         return await StartAsync(ct, profile);
     }

@@ -1,12 +1,21 @@
 # Discussed mod coverage — complete pinned preset
 
-The 11-mod Clones preset consists of three official bundled mods, seven required
-gameplay downloads and one selected appearance. The launcher now obtains all
-seven automatically with archive/content verification and official imports.
+The staged r3 Clones preset consists of three official bundled mods, seven required
+gameplay downloads, optional Clean Exit and one selected appearance, for 12 mods
+with all defaults enabled. The launcher obtains all eight downloads automatically
+on first setup with archive/content verification and official imports.
 Five original packages come directly from authors. The Heavy/Squad compatibility
 archives use the owner's confirmed written author permission; the mine fix is
 project-owned MIT source. See SEAF-COMPATIBILITY-PERMISSION.md and the embedded
 gameplay catalog for exact sources, hashes, versions, order and options.
+
+Clean Exit 0.2.0 is client-only (`gameplay: false`) and excluded from HellForge's
+co-op matching. It is enabled on first r3 setup. Disabling, replacing or removing
+it afterwards is respected across restarts, required-mod repair and rollback.
+An already disabled copy is respected on first setup too. Publish the exact
+`clean-exit-0.2.0.zip` asset on `forge-mods-2026-11-08` before releasing this
+catalog. The archive size, SHA-256, official content hash and planned URL are in
+[Forge status](FORGE.md).
 
 | Candidate | Owner state and decision | Dependencies / acquisition / redistribution |
 | --- | --- | --- |
@@ -18,6 +27,7 @@ gameplay catalog for exact sources, hashes, versions, order and options.
 | Mod Options Menu 1.2.1 | Enabled, initialized | https://github.com/CowboyBingus/ModOptionsMenu/releases/tag/v1.2.1. Original asset digest matches preset; exact-tag LICENSE is 0BSD. Requires Bingus18+. Author-only acquisition remains the rollout policy. |
 | Smarter Guard Dogs and Sentries 5.2.0 | Enabled; initialization passed; owner observed yellow markers before OFF fix | https://github.com/Th3chef/Smarter-Guard-Dogs-and-Sentries/releases/tag/v5.2.0; loader 19+, installed 20; options menu optional. All rights reserved/private use, no redistribution. Marker-OFF combat is unqualified. |
 | Operation Reroller 0.1.2 | Enabled, initialized; actual reroll behavior unqualified | https://hf-mod.com/Mods/Details/12, file 138. SDK 6+. MIT plus SDK notices; retain attribution. No author digest available; local receipt hash recorded. |
+| Clonedivers Clean Exit 0.2.0 | Optional, enabled by default; every quit in the reported 20-cycle D11 soak exited cleanly | Project-owned client-only code mod, source in `forge-mods/clean-exit`. SDK 16, build 25480438. `gameplay: false` excludes it from peer matching. Exact pinned release asset is staged for publication. |
 | D11 mine boundary fix0.1.1 | Retired/disabled on engine 0.1.47 | The author integrated the bounds/loading fix. Keep the old file for recovery; do not layer its hooks onto the new engine. |
 | Armored Overhaul 3.7.12 | Original rejected with Clones Bastion model conflict; handling-only private trial initialized, OFF | https://hf-mod.com/Mods/Details/15, file 299. SDK 7+; all rights reserved, private adaptation not redistributable. Actual driving/handling not tested; optional isolated trial only. |
 | Reinforcement Beacons Fixed 4.6.1 | Imported, initialized, OFF because VP supplies overlapping behavior | https://github.com/CowboyBingus/ReinforcementBeaconsFixed/releases/tag/v4.6.1; loader 18+. Zero-Clause BSD. Each peer must install. Never enable beside VP. |

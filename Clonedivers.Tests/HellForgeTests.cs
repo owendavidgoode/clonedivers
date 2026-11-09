@@ -410,6 +410,7 @@ static class HellForgeTests
             if (index < 0) commands.Mods.Add(mod); else commands.Mods[index] = mod;
         }
         commands.Mods.Add(new("skyeshade.vanilla-plus", "Vanilla Plus", true, Path.Combine(install, "mods", "vanilla-plus"), ["code"]));
+        commands.Mods.Add(new(HellForgePreset.CleanExit, "Clonedivers Clean Exit", true, Path.Combine(install, "mods", "clean-exit"), ["code"], "0.2.0"));
         commands.Mods.Add(new("pack.80a03e3b-a671-4e54-a2ce-52c35bb64c91", "Reinforcement Beacons Fixed", true, Path.Combine(install, "mods", "beacons"), ["data"]));
         var conflictPlays = commands.Calls.Count(c => c[0] == "play");
         check(await Reject(() => client.PlayAsync(selection)) && conflictPlays == commands.Calls.Count(c => c[0] == "play"),
