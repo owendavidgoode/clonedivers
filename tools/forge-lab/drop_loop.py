@@ -87,7 +87,8 @@ def wait_for_backend_port(port=40558, limit=300):
     deadline = time.time() + limit
     while time.time() < deadline:
         out = subprocess.run(['netstat', '-ano', '-p', 'TCP'], capture_output=True, text=True).stdout
-        if not re.search(r':%d\s+\S+\s+(LISTENING|ESTABLISHED)' % port, out):
+        # Any state counts: HellForge refuses the port while the old backend's sockets are still closing.
+        if not re.search(r':%d\s' % port, out):
             return True
         time.sleep(5)
     return False
@@ -98,6 +99,10 @@ def cycle(args, number):
            'started': time.strftime('%Y-%m-%dT%H:%M:%S'), 'steps': {}}
     wait_for_backend_port()
     code, data, text = harness('start', '--preset', args.preset, timeout=300)
+    if code != 0 and 'Port 40558' in text:
+        harness('recover'); time.sleep(30); wait_for_backend_port()
+        code, data, text = harness('start', '--preset', args.preset, timeout=300)
+        row['start_retried'] = True
     row['steps']['start'] = code
     if code != 0:
         row['error'] = text[-1500:]
