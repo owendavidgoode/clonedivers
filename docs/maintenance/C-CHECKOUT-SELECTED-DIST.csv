@@ -1,0 +1,13 @@
+path,size,sha256,local_copy
+dist/hd2-update-2026-10-25/candidate-v66/manifest.json,716141,581e7cc8fa54f21ab78f82b0178e2ec848c7ab66bce4e726ddfd3275ee017f35,
+dist/hd2-update-2026-10-25/candidate-v69/manifest.json,717405,770281f235fac0a7818da0b3890c53a7110abcbcb95c3ae2f624272ffe1619c7,
+dist/hd2-update-2026-10-25/candidate-v72/manifest.json,717294,4d95b9d17852971000c113f5758a8c4961a87827411319052bdfa25a71ebe3fe,
+dist/hd2-update-2026-10-25/candidate-v75/manifest.json,718620,894680b061b0f46739948b4b926cc43d1728c5963d47369f26d23228c4a84f8f,
+dist/hd2-update-2026-10-25/candidate-v76/manifest.json,718592,fe047e91e682329eda60bce34bb6cf2451cd50a6ce3bd79e1f0b81c122f5483b,
+dist/empire-content-2026-11-01/voice76-expansion-v2/component/report.json,42568,9036900d2390d2656435c0fca8fcf551d7a497cc2a4d05e09f6834ec3e6773cd,
+dist/empire-content-2026-11-01/union76-v1/report.json,10507,7b1f203197e47a8db7a5972afdad201c50e785a3edca42ffdc4b8a5a12796d4d,
+dist/empire-content-2026-11-01/voice76-readback-v1/report.json,5967,3c4752b7def7d69076cc3ee837b30ad18ed10eaac27651d5b0461279e654a9ff,
+dist/hd2-update-2026-10-29/next76-tooling-v1/tooling-seal.json,3148,7967b1dc40d87307deffd4b283de0f6068399d1cf868679e3bba60f58a4b67ba,
+dist/empire-voices-2026-11-01/library/catalog.json,36231527,01721f3a672a543d9709494730c62eae72e0039ab0ea42a6e6ef2784a5a8dbbe,
+dist/empire-voices-2026-11-01/library/catalog.csv,2933179,046e7f1b06ed2f345cb4d586b62dd6e3c90ce2bb02d550f4dc02606663ab717a,
+dist/empire-voices-2026-11-01/library/index.html,2523267,5001a13eeeb6ca862a7660a9b82cc81d3128680d5172c3f404feb2d038e8a1ce,

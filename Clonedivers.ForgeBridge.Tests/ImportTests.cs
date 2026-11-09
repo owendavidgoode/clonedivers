@@ -29,6 +29,12 @@ internal static class ImportTests
     internal static async Task RecoveryAsync(Action<bool, string> check)
     {
         await using var fixture = await Fixture.CreateAsync("hard-exit");
+        var processView = Game.IsRunningCheck; fixture.ProcessRunning = true;
+        await using (var childFixture = new Fixture("child-error", fixture.Root))
+            check(!Game.IsRunning(), "a borrowed-root fixture installs its own idle process view");
+        check(ReferenceEquals(Game.IsRunningCheck, processView) && Game.IsRunning() && Directory.Exists(fixture.Root),
+            "disposing a borrowed-root fixture restores the previous process view and preserves the parent's files");
+        fixture.ProcessRunning = false;
         var original = fixture.State(); var profile = File.ReadAllBytes(fixture.Profile); var privacy = File.ReadAllBytes(fixture.Privacy);
         File.WriteAllText(Path.Combine(fixture.Root, "child.json"), JsonSerializer.Serialize(new { selection = fixture.Selection,
             mods = fixture.Mods.Select(m => new { id = m.Id, name = m.Name, enabled = m.Enabled, folder = m.Folder }) }, HellForgePack.Json));
@@ -61,6 +67,11 @@ internal static class ImportTests
         check(new HellForgeClient(Path.Combine(fixture.Root, "sibling"), fixture).InterruptedPackProblem() == null, "sibling installations have distinct durable operation records");
         if (OperatingSystem.IsWindows()) check(new HellForgeClient(fixture.Install.ToUpperInvariant(), fixture).InterruptedPackProblem()?.Contains("interrupted") == true,
             "Windows path-case variants identify the same interrupted installation");
+        fixture.ProcessRunning = true;
+        int calls = fixture.Calls.Count;
+        await Refuses(() => client.RecoverInterruptedPackAsync(), "recovery defers for a game process even when the fixture CLI reports idle");
+        check(fixture.Calls.Count == calls, "the process guard refuses recovery before consulting the fixture CLI");
+        fixture.ProcessRunning = false;
         fixture.Running = true;
         await Refuses(() => client.RecoverInterruptedPackAsync(), "recovery defers for an active session without issuing stop or repair");
         fixture.Running = false;
@@ -199,11 +210,16 @@ internal static class ImportTests
         internal readonly List<string[]> Calls = [];
         internal readonly CancellationTokenSource Cancel = new();
         internal int AddCalls;
-        internal bool Running, Multiplayer, Backend;
+        internal bool Running, ProcessRunning, Multiplayer, Backend;
+        readonly Func<bool> previousProcessView;
+        readonly bool ownsRoot;
         bool settingsFailed;
         internal Fixture(string mode, string? root = null)
         {
             this.mode = mode;
+            // The crash child is a fresh process; it cannot inherit the parent's test hook.
+            previousProcessView = Game.IsRunningCheck; Game.IsRunningCheck = () => ProcessRunning;
+            ownsRoot = root == null;
             Root = root ?? Path.Combine(Path.GetTempPath(), "clonedivers-import-tx-" + Guid.NewGuid().ToString("N"));
             Install = Path.Combine(Root, "installation"); NewFolder = Path.Combine(Root, "new-pack");
             Cache = Path.Combine(Root, "Clonedivers-HellForge-cache");
@@ -301,6 +317,9 @@ internal static class ImportTests
         }
         public ValueTask DisposeAsync()
         {
+            Game.IsRunningCheck = previousProcessView;
+            // Only the parent owns the shared root, including when the child throws before Exit(73).
+            if (!ownsRoot) { Cancel.Dispose(); return ValueTask.CompletedTask; }
             Cancel.Dispose(); var full = Path.GetFullPath(Root);
             if (!full.StartsWith(Path.TrimEndingDirectorySeparator(Path.GetFullPath(Path.GetTempPath())) + Path.DirectorySeparatorChar, StringComparison.OrdinalIgnoreCase) ||
                 !Path.GetFileName(full).StartsWith("clonedivers-import-tx-", StringComparison.Ordinal)) throw new IOException("Fixture cleanup escaped its temporary root.");
