@@ -4,11 +4,33 @@ using Avalonia.Controls;
 using Avalonia.Controls.ApplicationLifetimes;
 using Avalonia.Interactivity;
 using Avalonia.Media.Imaging;
+using Avalonia.Threading;
 
 namespace Clonedivers;
 
 internal static class GuiSmoke
 {
+    internal static async Task RenderForgeAsync(ForgeWindow window, string output)
+    {
+        var code = 0;
+        try
+        {
+            await Dispatcher.UIThread.InvokeAsync(() => { }, DispatcherPriority.Loaded);
+            await Task.Delay(200);
+            window.UpdateLayout();
+            Directory.CreateDirectory(output);
+            foreach (var scale in new[] { 1d, 1.5d })
+            {
+                using var bitmap = new RenderTargetBitmap(new PixelSize((int)Math.Ceiling(window.Bounds.Width * scale), (int)Math.Ceiling(window.Bounds.Height * scale)), new Vector(96 * scale, 96 * scale));
+                bitmap.Render(window);
+                var path = Path.Combine(output, $"forge-{window.PreviewName}-{scale.ToString(System.Globalization.CultureInfo.InvariantCulture)}.png");
+                bitmap.Save(path); Console.WriteLine(path);
+            }
+        }
+        catch (Exception error) { code = 1; Console.Error.WriteLine(error); }
+        ((IClassicDesktopStyleApplicationLifetime)Application.Current!.ApplicationLifetime!).Shutdown(code);
+    }
+
     internal static async Task RunAsync(LauncherWindow window)
     {
         var checks = new List<string>(); var code = 0;

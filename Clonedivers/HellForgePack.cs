@@ -166,7 +166,6 @@ public static class HellForgePack
     }
     static async Task ExportFilesAsync(Plan plan, IProgress<string>? progress, CancellationToken ct, Action<string?> writing)
     {
-        using var http = new HttpClient { Timeout = TimeSpan.FromMinutes(30) };
         var exported = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
         int done = 0;
         foreach (var file in plan.Selection.Files)
@@ -182,12 +181,7 @@ public static class HellForgePack
                 if (!Uri.TryCreate(file.Url, UriKind.Absolute, out var uri) || uri.Scheme != "https" || uri.Host != "github.com" ||
                     !uri.AbsolutePath.StartsWith("/owendavidgoode/clonedivers/releases/download/", StringComparison.Ordinal))
                     throw new InvalidDataException("Only Clonedivers GitHub release assets may be downloaded.");
-                using var response = await http.GetAsync(uri, HttpCompletionOption.ResponseHeadersRead, ct);
-                response.EnsureSuccessStatusCode();
-                if (response.Content.Headers.ContentLength is long length && length != file.Size) throw new InvalidDataException("Download size differs from catalog.");
-                await using var content = await response.Content.ReadAsStreamAsync(ct);
-                await using var disk = new FileStream(target, FileMode.CreateNew, FileAccess.Write, FileShare.None, 128 * 1024, FileOptions.Asynchronous | FileOptions.SequentialScan);
-                await CopyExactAsync(content, disk, file.Size, ct);
+                await Pack.DownloadAsync(file, target, null, ct);
             }
             if (new FileInfo(target).Length != file.Size || !string.Equals(await HashAsync(target, ct), file.Sha256, StringComparison.OrdinalIgnoreCase))
                 throw new InvalidDataException($"Export hash mismatch: {file.Name}");

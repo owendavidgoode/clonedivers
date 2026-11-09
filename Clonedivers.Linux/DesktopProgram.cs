@@ -32,7 +32,7 @@ internal static class DesktopProgram
         var gui = false;
         for (var i = 0; i < args.Length; i++)
         {
-            if (args[i] is "--game" or "--manifest" or "--ui-smoke" or "--forge-root" or "--forge-resources" or "--forge-preview" or "--forge-preview-size") { i++; continue; }
+            if (args[i] is "--game" or "--manifest" or "--ui-smoke" or "--forge-root" or "--forge-resources" or "--forge-preview" or "--forge-preview-size" or "--forge-preview-mode" or "--forge-render") { i++; continue; }
             if (args[i] == "--gui") { gui = true; continue; }
             if (args[i] is "--tui" or "--terminal" or "--plain" or "--help" or "-h" or "--version" or "status" or "install" or "vanilla" or "repair" or "finish" or "launch" or "report" or "record" or "record-setup" or "record-status" or "record-cancel") return true;
             if (!args[i].StartsWith('-')) return true;
