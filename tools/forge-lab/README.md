@@ -19,3 +19,16 @@ python drop_loop.py --label baseline --cycles 4 --difficulty 11 --faction automa
 From a packaged (MSIX) app such as the Claude desktop app, correct the container's copy of Steam's pid
 once per Steam start: `Set-ItemProperty 'HKCU:\Software\Valve\Steam\ActiveProcess' -Name pid -Value (Get-Process steam).Id -Type DWord`.
 Results so far: [QA sweep 2026-11-08](../../docs/QA-SWEEP-2026-11-08.md).
+
+The driver accepts only `clonedivers-armory` and refuses existing game/Forge or harness sessions.
+It waits for backend port 40558 and retries a port-related start failure once. During the mission hold,
+a HellForge `freeze:` diagnostic or a heartbeat stalled for 60 seconds fails the cycle and forces a
+harness stop with log collection and restoration. Teardown freezes remain separate from mission freezes.
+`--shots` captures ship arrival, briefing, landing, held ground and ship return in sequence.
+Optional `CLONEDIVERS_LAB_GUARD` and `CLONEDIVERS_LAB_MEMORY_SCRIPT` hooks have no dated defaults.
+
+Queue consumers can use `parse_queue_request(text)` or `load_queue_request(path)` from the driver.
+Requests require string fields `name`, `zip_or_folder`, `kind` and `checks`. Generate JSON with
+`json.dumps` so Windows backslashes are escaped correctly. Invalid escapes are rejected.
+
+Run the no-game regression checks with `python -B -m unittest discover -s tools/forge-lab -v`.
