@@ -293,6 +293,10 @@ internal static class TurnkeySetupTests
             fake.Calls.Clear(); await client.InstallGameplayAsync(client.GameplayCache);
             check(fake.Mods.Single(m => m.Id == pinned.Id).Enabled && fake.Calls.Count(c => c[0] == "mod-add") == 1 &&
                 HellForgePreset.Problem(await client.ModsAsync(), checkOrder: true) == null, "r3 setup imports, verifies, enables and orders Clean Exit by default");
+            var listed = await client.ModsAsync();
+            var clientLast = listed with { Mods = [.. listed.Mods.Where(m => m.Id != pinned.Id), .. listed.Mods.Where(m => m.Id == pinned.Id)] };
+            check(HellForgePreset.Problem(clientLast, checkOrder: true) == null,
+                "the real CLI's listing, which puts client-only Clean Exit after every gameplay mod, satisfies the pinned order");
             var optional = fake.Mods.FindIndex(m => m.Id == pinned.Id);
             fake.Mods[optional] = fake.Mods[optional] with { Enabled = false, Version = "player-version" };
             var difficulty = fake.Mods.FindIndex(m => m.Id == HellForgeClient.DifficultyId);
