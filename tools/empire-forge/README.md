@@ -14,3 +14,19 @@ index while resolving `g_medium_cape`, then `g_shock_trooper_cape`). Native cape
 an external GeometryGroup do not survive being overridden from the consolidated pack; r19's inline
 cape payloads do. r45-v4 restores those two UNITs and passed 3 of 3 live D11 drops. The verifier
 now rejects that pattern. See `REPORT-r45.md` and `triage/TRIAGE.md`.
+
+## r45-v4 Lighter textures
+
+Run `tools/optimize-pack.ps1` from the launcher workspace with `-Source
+D:\ClaudeWork\empire-forge\empire-forge-r45-v4` and `-OutDir
+D:\ClaudeWork\empire-forge\empire-forge-r45-v4-lighter`, then run
+`prepare_lighter.py --workspace D:\ClaudeWork\empire-forge --source-catalog
+Clonedivers/Resources/hellforge-empire-r45-v4.json --output-catalog
+Clonedivers/Resources/hellforge-empire-r45-v4-lighter.json`.
+
+Preparation restores any small textures the optimizer compressed, proves exact
+streamed chains and resident tails, preserves all other resource bytes, and runs
+the complete candidate verifier. Evidence, hash-named assets and JSON/CSV upload
+plans go to `D:\ClaudeWork\empire-forge\lighter-r45-v4`. The separate embedded
+catalog preserves existing Full receipt identities. Lighter gameplay acceptance
+and asset publication are still required before shipping the launcher.

@@ -211,6 +211,14 @@ static class HellForgeTests
                     Application.DoEvents();
                     check(appearanceHeading.Text == mode + " appearance" && primaryAction.PointToScreen(Point.Empty).Y == actionTop,
                         mode + " keeps a consistently labelled appearance block and a stable action position");
+                    if (mode == "Empire")
+                    {
+                        check(fullTextures.Enabled && lighterTextures.Enabled, "Empire enables both texture segments");
+                        lighterTextures.Checked = true;
+                        check(preferences.Selection().Texture == "lighter" && preferences.SelectionKey.Contains("/empire/lighter/"),
+                            "the Empire Lighter segment reaches the pinned streamed selection");
+                        fullTextures.Checked = true;
+                    }
                 }
                 var more = form.Controls.Cast<Control>().SelectMany(Children).OfType<Button>().Single(b => b.AccessibleName == "More launcher options");
                 check(more.FlatAppearance.BorderSize == 1 && more.Font.Size == fullTextures.Font.Size && more.Focus(),
@@ -382,6 +390,34 @@ static class HellForgeTests
         File.Copy(Path.Combine(source, selection.Files[0].Sha256), firstFile, true);
         var empire = HellForgePack.Select(parsed, sha, "empire", "full");
         check(await Reject(() => HellForgePack.VerifyAsync(output, empire)), "a Clone export cannot satisfy an Empire selection");
+        var empireVariants = new Manifest { Format = 3, Pack = new PackManifest { Version = "fixture-r45", GameBuild = HellForgePack.SupportedBuild,
+            Options = [new() { Id = "empire" }], TextureProfiles = [new() { Id = "full", Name = "Full" }, new() { Id = "lighter", Name = "Lighter" }],
+            Files = [FileRow("9ba626afa44a3aa3.patch_1000", "shared", ["empire"]),
+                FileRow("9ba626afa44a3aa3.patch_1000.gpu_resources", "full-gpu", ["empire"]),
+                FileRow("9ba626afa44a3aa3.patch_1000.gpu_resources", "tail-gpu", ["empire"])] } };
+        empireVariants.Pack.Files[1].TextureProfiles = ["full"]; empireVariants.Pack.Files[2].TextureProfiles = ["lighter"];
+        var fullVariant = HellForgePack.Select(empireVariants, sha, "empire", "full");
+        var lightVariant = HellForgePack.Select(empireVariants, sha, "empire", "lighter");
+        var exports = Path.Combine(area, "exports"); Directory.CreateDirectory(exports);
+        var interrupted = Path.Combine(exports, "empire-" + Guid.NewGuid().ToString("N"));
+        var wrong = Path.Combine(area, "wrong-gpu"); File.WriteAllText(wrong, "bad-data");
+        var failedPlan = new HellForgePack.Plan(fullVariant, interrupted, new() {
+            [fullVariant.Files[0].Sha256] = Path.Combine(source, fullVariant.Files[0].Sha256), [fullVariant.Files[1].Sha256] = wrong });
+        check(await Reject(() => HellForgePack.ExportAsync(failedPlan, false)) &&
+            File.Exists(Path.Combine(interrupted, fullVariant.Files[0].Name)) && !File.Exists(Path.Combine(interrupted, HellForgePack.ReceiptName)),
+            "an interrupted Empire Full export retains only verified bytes without a ready receipt");
+        var tails = Path.Combine(area, "tails"); Directory.CreateDirectory(tails);
+        File.Copy(Path.Combine(source, lightVariant.Files[1].Sha256), Path.Combine(tails, "tail"));
+        var resumed = Path.Combine(exports, "empire-" + Guid.NewGuid().ToString("N"));
+        var resumedPlan = await HellForgePack.PlanAsync(lightVariant, resumed, [tails]);
+        check(resumedPlan.Missing.Count == 0 && resumedPlan.Local[lightVariant.Files[0].Sha256].StartsWith(interrupted) &&
+            !resumedPlan.Local.ContainsKey(fullVariant.Files[1].Sha256),
+            "Empire Lighter recovery reuses shared verified bytes while excluding Full GPU content");
+        await HellForgePack.ExportAsync(resumedPlan, false);
+        await HellForgePack.VerifyAsync(resumed, lightVariant);
+        check(await Reject(() => HellForgePack.VerifyMetadataAsync(resumed, fullVariant)),
+            "an Empire Lighter receipt cannot satisfy the Full selection");
+        check(!Directory.Exists(interrupted), "a complete Empire Lighter export prunes the reused interrupted Full export");
         check(await Reject(async () => { await HellForgePack.PlanAsync(selection, output, [source]); }), "existing pack outputs are never overwritten");
         parsed.Pack!.GameBuild = "26251122";
         check(await Reject(() => { HellForgePack.Select(parsed, sha, "empire", "full"); return Task.CompletedTask; }), "current Steam-build assets are refused for the older HellForge build");
@@ -679,10 +715,25 @@ static class HellForgeTests
         var oldEmpire = new HellForgePreferences { Mode = "empire", Texture = "lighter", Droids = false, Covenant = true,
             AppliedSelection = $"r19/{HellForgePack.SupportedBuild}/empire/lighter/False/True" };
         var newEmpire = oldEmpire.Selection();
-        check(oldEmpire.SelectionKey == $"r45-v4/{HellForgePack.SupportedBuild}/empire/full/True/False" &&
+        check(oldEmpire.SelectionKey == $"r45-v4/{HellForgePack.SupportedBuild}/empire/lighter/True/False" &&
             oldEmpire.AppliedSelection != oldEmpire.SelectionKey && newEmpire.Version == "2026.11.08-r45-v4" &&
-            newEmpire.Texture == "full" && newEmpire.Options["droids"] && !newEmpire.Options["covenant"] && newEmpire.Files.Count == 96,
+            newEmpire.Texture == "lighter" && newEmpire.Options["droids"] && !newEmpire.Options["covenant"] && newEmpire.Files.Count == 96,
             "Empire r19 preferences require preparing the fixed r45-v4 selection before play");
+        var empireFull = HellForgePack.PinnedSelection("empire", "full");
+        check(empireFull.ManifestSha256 == "4a35045a9b628e0f2b476815e7a77f00ab31a6cde957abd574e8597513c7ad36" &&
+            empireFull.Files[0].Name == "9ba626afa44a3aa3.patch_1000" && newEmpire.Files[0].Name == empireFull.Files[0].Name,
+            "Empire Full keeps its shipped receipt identity and both profiles preserve the fixed layer numbers");
+        check(empireFull.Files.Select(f => f.Name).SequenceEqual(newEmpire.Files.Select(f => f.Name)) &&
+            empireFull.Files.Sum(f => f.Size) > 0 && newEmpire.Files.Any(f => f.Sha256 != empireFull.Files.Single(g => g.Name == f.Name).Sha256),
+            "Empire Lighter contains every Full archive and companion with distinct streamed content");
+        check(newEmpire.Files.Where(f => f.Name.EndsWith(".gpu_resources")).Sum(f => f.Size) <
+            empireFull.Files.Where(f => f.Name.EndsWith(".gpu_resources")).Sum(f => f.Size) / 2,
+            "Empire Lighter lowers resident GPU bytes by more than half");
+        oldEmpire.AppliedSelection = oldEmpire.SelectionKey;
+        oldEmpire.Texture = "full";
+        check(oldEmpire.AppliedSelection != oldEmpire.SelectionKey && oldEmpire.Selection().Texture == "full",
+            "switching Empire textures invalidates the applied selection");
+        oldEmpire.Texture = "lighter";
         oldEmpire.Mode = "clonedivers";
         check(oldEmpire.SelectionKey == $"r19/{HellForgePack.SupportedBuild}/commandos/lighter/False/True" &&
             oldEmpire.Selection().Version == pinned.Version,
@@ -698,7 +749,8 @@ static class HellForgeTests
                 var changes = new Dictionary<string, bool> { ["droids"] = (mask & 1) != 0, ["covenant"] = (mask & 2) != 0,
                     ["aimpoints"] = (mask & 4) != 0, ["commandos"] = (mask & 8) != 0 };
                 var selected = HellForgePack.PinnedSelection(mode, texture, changes);
-                var expected = mode == "empire" ? newEmpire : HellForgePack.Select(original, pinned.ManifestSha256, mode, texture, changes);
+                var expected = mode == "empire" ? texture == "lighter" ? newEmpire : empireFull :
+                    HellForgePack.Select(original, pinned.ManifestSha256, mode, texture, changes);
                 check(JsonSerializer.Serialize(selected, HellForgePack.Json) == JsonSerializer.Serialize(expected, HellForgePack.Json),
                     $"Forge release selection {mode}/{texture}/{mask} preserves Clones or resolves the fixed Empire pack");
             }

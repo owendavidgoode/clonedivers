@@ -56,16 +56,19 @@ public static class HellForgePack
     {
         if (mode == "empire")
         {
-            texture = "full";
             changes = new Dictionary<string, bool> { ["droids"] = true, ["covenant"] = false };
         }
-        var resource = mode == "empire" ? "Clonedivers.HellForge.Empire.Manifest.json" : "Clonedivers.HellForge.Manifest.json";
+        var resource = mode == "empire" ? texture == "lighter" ? "Clonedivers.HellForge.Empire.Lighter.Manifest.json" :
+            "Clonedivers.HellForge.Empire.Manifest.json" : "Clonedivers.HellForge.Manifest.json";
         using var stream = typeof(HellForgePack).Assembly.GetManifestResourceStream(resource)
             ?? throw new InvalidDataException("This launcher has no pinned HellForge pack catalog.");
         using var memory = new MemoryStream();
         stream.CopyTo(memory);
         var bytes = memory.ToArray();
-        return Select(Manifest.Parse(System.Text.Encoding.UTF8.GetString(bytes)), Convert.ToHexString(SHA256.HashData(bytes)).ToLowerInvariant(), mode, texture, changes);
+        var feed = Manifest.Parse(System.Text.Encoding.UTF8.GetString(bytes));
+        // Empire's fixed layers start at 1000. Catalog variants must not renumber them.
+        if (mode == "empire") feed.Pack!.Files = feed.Pack.Files.Where(f => PackProfiles.Includes(f, mode, texture)).ToList();
+        return Select(feed, Convert.ToHexString(SHA256.HashData(bytes)).ToLowerInvariant(), mode, texture, changes);
     }
 
     public static async Task<Plan> PlanAsync(Selection selection, string output, IEnumerable<string> sources,

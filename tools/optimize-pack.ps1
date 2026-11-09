@@ -153,7 +153,8 @@ $missing = @($bundles | Where-Object { -not (Test-Path (Join-Path $OutDir $_.Nam
 foreach ($g in ($bundles | Group-Object { ($_.Name -split '\.')[0] })) {
     $idx = Get-ChildItem $OutDir -File | Where-Object { $_.Name -match ('^' + [regex]::Escape($g.Name) + '\.patch_(\d+)$') } |
         ForEach-Object { [int]([regex]::Match($_.Name, '\.patch_(\d+)$').Groups[1].Value) } | Sort-Object -Unique
-    for ($i = 0; $i -lt $idx.Count; $i++) { if ($idx[$i] -ne $i) { Log "GAP in $($g.Name) at index $i"; $failed.Add("gap:$($g.Name):$i"); break } }
+    $first = [int]([regex]::Match($g.Group[0].Name, '\.patch_(\d+)$').Groups[1].Value)
+    for ($i = 0; $i -lt $idx.Count; $i++) { $expected = $first + $i; if ($idx[$i] -ne $expected) { Log "GAP in $($g.Name) at index $expected"; $failed.Add("gap:$($g.Name):$expected"); break } }
 }
 
 function Total($dir, $filter) { $f = Get-ChildItem $dir -File | Where-Object { $_.Name -match $filter }; if ($f) { ($f | Measure-Object Length -Sum).Sum } else { 0 } }

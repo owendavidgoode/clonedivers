@@ -375,7 +375,6 @@ public sealed class HellForgeForm : Form
         delta.Enabled = !working && preferences.Mode == "clonedivers";
         foreach (var control in new Control[] { regular, clone, empire, droids, covenant, textures, actions }) control.Enabled = !working;
         actions.Visible = !working;
-        textures.Enabled &= preferences.Mode != "empire";
         fullTextures.Checked = preferences.Texture == "full"; lighterTextures.Checked = preferences.Texture == "lighter";
         foreach (var option in new[] { fullTextures, lighterTextures }) option.FlatAppearance.BorderColor = option.Checked ? BlueHot : Border;
         prepare.Text = "SET UP SELECTED MODE";

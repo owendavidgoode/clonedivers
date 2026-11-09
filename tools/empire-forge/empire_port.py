@@ -233,7 +233,7 @@ def unit_safe(parts: tuple[bytes, ...], stock: bytes) -> bool:
     return bytes(normalized) == stock
 
 
-def write_archive(path: Path, header: bytes, resources: dict) -> None:
+def write_archive(path: Path, header: bytes, resources: dict, stream_alignment: int = 16) -> None:
     """Stream the project's archive layout with a fully aligned directory head."""
     kinds = sorted({k[1] for k in resources})
     keys = sorted(resources, key=lambda k: (k[1], k[0]))
@@ -251,7 +251,8 @@ def write_archive(path: Path, header: bytes, resources: dict) -> None:
             parts = resources[key].parts()
             offsets = []
             for i, handle in enumerate(handles):
-                handle.write(bytes(-handle.tell() % (64 if i == 2 else 16)))
+                alignment = 64 if i == 2 else stream_alignment if i == 1 else 16
+                handle.write(bytes(-handle.tell() % alignment))
                 offsets.append(handle.tell())
                 handle.write(parts[i])
                 if i == 0 and key[1] == STREAM and len(parts[i]) < 16:
