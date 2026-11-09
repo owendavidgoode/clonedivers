@@ -255,6 +255,11 @@ public sealed class HellForgeForm : Form
                 if (lastAccount == null || accountKey == null || accountKey != lastAccountFingerprint || DateTime.UtcNow - lastAccountReadUtc >= TimeSpan.FromMinutes(5))
                 {
                     (account, var reviewed) = await ReviewAccountAsync(new HellForgeAccount(root), lifetime.Token);
+                    if (reviewed && account.Imported && block == null)
+                    {
+                        var opened = await client.TryOpenOwnedWarbondsAsync(lifetime.Token);
+                        if (opened > 0) message.Text = $"Opened {opened} owned Warbonds";
+                    }
                     lastAccountFingerprint = reviewed ? accountKey : null; lastAccountReadUtc = DateTime.UtcNow;
                 }
             }
@@ -611,9 +616,9 @@ public sealed class HellForgeForm : Form
         if (lastAccount is { Captured: true, Imported: false })
         {
             message.Text = "Importing your HD2 account with a local backup…";
-            await client.ImportAccountAsync(WorkToken);
+            var opened = await client.ImportAccountAsync(WorkToken);
             lastAccount = await new HellForgeAccount(client.Root).ReadAsync(WorkToken);
-            message.Text = "Account imported. Regular, Clones and Empire now use this character.";
+            message.Text = "Account imported. Regular, Clones and Empire now use this character." + (opened > 0 ? $" Opened {opened} owned Warbonds." : "");
         }
         else
         {

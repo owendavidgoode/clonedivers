@@ -464,10 +464,19 @@ public sealed partial class HellForgeClient(string root, IHellForgeCommands comm
         return HellForgeAccount.Profile;
     }
 
-    public async Task ImportAccountAsync(CancellationToken ct = default)
+    public Task<int> OpenOwnedWarbondsAsync(CancellationToken ct = default) => new HellForgeWarbonds(Root, commands).OpenAsync(ct);
+    // Best effort after an import or an idle review: an open HellForge window or a busy profile only defers it to the next review.
+    public async Task<int> TryOpenOwnedWarbondsAsync(CancellationToken ct = default)
+    {
+        try { return await OpenOwnedWarbondsAsync(ct); }
+        catch (Exception e) when (e is InvalidOperationException or IOException or UnauthorizedAccessException or InvalidDataException or JsonException or TimeoutException) { return 0; }
+    }
+
+    public async Task<int> ImportAccountAsync(CancellationToken ct = default)
     {
         await SelectAccountAsync(ct);
         await new HellForgeAccount(Root).ImportAsync(ct);
+        return await TryOpenOwnedWarbondsAsync(ct);
     }
 
     public async Task InstallPackAsync(string folder, HellForgePack.Selection selection, CancellationToken ct = default)

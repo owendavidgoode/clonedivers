@@ -76,6 +76,7 @@ static class TestProgram
         }
         if (args is ["--hellforge-account-lease", var install, var access]) { AccountLeaseTests.Hold(install, access == "read"); return 0; }
         if (args.Contains("--hellforge-account-lease-only")) { Task.Run(() => AccountLeaseTests.Run(Check)).GetAwaiter().GetResult(); return failures == 0 ? 0 : 1; }
+        if (args is ["--warbonds-only", var warbondRoot]) { Task.Run(() => WarbondTests.Run(warbondRoot, Check)).GetAwaiter().GetResult(); return failures == 0 ? 0 : 1; }
         if (args.FirstOrDefault() == "--hellforge-form-layout")
         {
             Game.IsRunningCheck = () => false;
@@ -150,6 +151,7 @@ static class TestProgram
             TelemetryTests.Run(root, Check);
             Task.Run(() => HellForgeTests.Run(root, Check)).GetAwaiter().GetResult();
             Task.Run(() => AccountLeaseTests.Run(Check)).GetAwaiter().GetResult();
+            Task.Run(() => WarbondTests.Run(root, Check)).GetAwaiter().GetResult();
             Task.Run(() => ForgeMigrationTests.Run(root, Check)).GetAwaiter().GetResult();
             Task.Run(() => ForgeSetupTests.Run(root, Check)).GetAwaiter().GetResult();
             Task.Run(() => GameplayInstallTests.Run(root, Check)).GetAwaiter().GetResult();

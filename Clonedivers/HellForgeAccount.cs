@@ -118,6 +118,9 @@ public sealed class HellForgeAccount
         return new(key, account, utc);
     }
 
+    internal async Task VerifySnapshotAsync(CancellationToken ct) =>
+        _ = await InspectAsync(ct) ?? throw new InvalidDataException("Sync your complete HD2 account before opening owned Warbonds.");
+
     Receipt? ReadReceipt()
     {
         var path = Checked(profile, ReceiptName, 64 * 1024);
