@@ -1,6 +1,6 @@
 # Updating Clonedivers to Forge
 
-Windows 1.13.0 and Linux x86-64 0.7.0 target official HellForge 0.4.0-beta,
+Windows 1.14.0 and Linux x86-64 0.8.0 target official HellForge 0.4.0-beta,
 engine 0.1.47, SDK 16, game 25480438. Use Regular, Clones or Empire here; start the
 official online game directly through Steam. Progress imports HD2 → Forge only.
 
@@ -48,11 +48,15 @@ unqualified and blocked rather than silently falling back to solo operation.
 
 ## First Forge setup
 
-**Set up selected mode** obtains seven additional pinned gameplay archives:
+**Set up selected mode** obtains eight additional pinned gameplay archives:
 Heavy SEAF, Squad Stratagems, native Smarter SEAF, Operation Reroller, Bingus Shared
-Loader, Mod Options Menu and Smarter Guard Dogs. Three baseline mods come from
+Loader, Mod Options Menu, Smarter Guard Dogs and optional Clean Exit. Three baseline mods come from
 Forge. Appearance assets are verified and reused/downloaded separately with the
 large-download prompt. Credits and permission scope are retained.
+
+Empire uses r45-v4 with Full textures, CIS droids and walker weapons enabled,
+Covenant disabled. Prepare Empire again after updating. Clones retains the r19
+catalog and saved appearance choices. Interrupted exports reuse verified files.
 
 Setup applies load order, loader/menu options, Guard Dogs AI/safety ON and target
 markers OFF. It disables known conflicting alternatives and the retired private

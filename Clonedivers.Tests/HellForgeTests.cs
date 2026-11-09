@@ -587,6 +587,33 @@ static class HellForgeTests
         var pinned = HellForgePack.PinnedSelection("commandos", "lighter");
         check(pinned.GameBuild == HellForgePack.SupportedBuild && pinned.Version == "2026.09.27-r19" && pinned.Files.Count > 0,
             "the shipped launcher carries a pinned compatible catalog independent of the live Steam feed");
+        var oldEmpire = new HellForgePreferences { Mode = "empire", Texture = "lighter", Droids = false, Covenant = true,
+            AppliedSelection = $"r19/{HellForgePack.SupportedBuild}/empire/lighter/False/True" };
+        var newEmpire = oldEmpire.Selection();
+        check(oldEmpire.SelectionKey == $"r45-v4/{HellForgePack.SupportedBuild}/empire/full/True/False" &&
+            oldEmpire.AppliedSelection != oldEmpire.SelectionKey && newEmpire.Version == "2026.11.08-r45-v4" &&
+            newEmpire.Texture == "full" && newEmpire.Options["droids"] && !newEmpire.Options["covenant"] && newEmpire.Files.Count == 96,
+            "Empire r19 preferences require preparing the fixed r45-v4 selection before play");
+        oldEmpire.Mode = "clonedivers";
+        check(oldEmpire.SelectionKey == $"r19/{HellForgePack.SupportedBuild}/commandos/lighter/False/True" &&
+            oldEmpire.Selection().Version == pinned.Version,
+            "switching back to Clones retains r19 textures and optional skins");
+        using (var catalog = typeof(HellForgePack).Assembly.GetManifestResourceStream("Clonedivers.HellForge.Manifest.json")!)
+        using (var reader = new StreamReader(catalog))
+        {
+            var original = Manifest.Parse(reader.ReadToEnd());
+            foreach (var mode in new[] { "clonedivers", "commandos", "empire" })
+            foreach (var texture in new[] { "full", "lighter" })
+            for (int mask = 0; mask < 16; mask++)
+            {
+                var changes = new Dictionary<string, bool> { ["droids"] = (mask & 1) != 0, ["covenant"] = (mask & 2) != 0,
+                    ["aimpoints"] = (mask & 4) != 0, ["commandos"] = (mask & 8) != 0 };
+                var selected = HellForgePack.PinnedSelection(mode, texture, changes);
+                var expected = mode == "empire" ? newEmpire : HellForgePack.Select(original, pinned.ManifestSha256, mode, texture, changes);
+                check(JsonSerializer.Serialize(selected, HellForgePack.Json) == JsonSerializer.Serialize(expected, HellForgePack.Json),
+                    $"Forge release selection {mode}/{texture}/{mask} preserves Clones or resolves the fixed Empire pack");
+            }
+        }
         using var form = new HellForgeForm(new HellForgePreferences(), preview: true);
         form.SetPreviewState("ready");
         check(form.Text.Contains("HellForge") && !form.Visible && form.Controls.Count > 0,

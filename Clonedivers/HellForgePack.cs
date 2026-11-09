@@ -54,7 +54,13 @@ public static class HellForgePack
 
     public static Selection PinnedSelection(string mode, string texture, IReadOnlyDictionary<string, bool>? changes = null)
     {
-        using var stream = typeof(HellForgePack).Assembly.GetManifestResourceStream("Clonedivers.HellForge.Manifest.json")
+        if (mode == "empire")
+        {
+            texture = "full";
+            changes = new Dictionary<string, bool> { ["droids"] = true, ["covenant"] = false };
+        }
+        var resource = mode == "empire" ? "Clonedivers.HellForge.Empire.Manifest.json" : "Clonedivers.HellForge.Manifest.json";
+        using var stream = typeof(HellForgePack).Assembly.GetManifestResourceStream(resource)
             ?? throw new InvalidDataException("This launcher has no pinned HellForge pack catalog.");
         using var memory = new MemoryStream();
         stream.CopyTo(memory);

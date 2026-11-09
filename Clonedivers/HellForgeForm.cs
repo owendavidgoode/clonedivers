@@ -294,10 +294,12 @@ public sealed class HellForgeForm : Form
                 : "One-way import: HD2 → Forge. Import your account to start; Forge rewards stay local.");
         regular.Selected = preferences.IsRegular;
         clone.Selected = preferences.Mode == "clonedivers"; empire.Selected = preferences.Mode == "empire";
-        choices.Visible = textureRow.Visible = !preferences.IsRegular;
+        choices.Visible = !preferences.IsRegular && preferences.Mode != "empire"; textureRow.Visible = !preferences.IsRegular;
         delta.Visible = preferences.Mode == "clonedivers";
         delta.Enabled = !working && preferences.Mode == "clonedivers";
         foreach (var control in new Control[] { regular, clone, empire, droids, covenant, textures, actions }) control.Enabled = !working;
+        textures.Enabled &= preferences.Mode != "empire";
+        textures.Text = preferences.Mode == "empire" ? "r45-v4: Full / CIS droids" : preferences.Texture == "lighter" ? "Streamed textures" : "Full textures";
         prepare.Text = "SET UP SELECTED MODE";
         prepare.Enabled = !working && preferences.InstallRoot != null && !preview;
         location.Text = preview ? "D:\\HellForge" : preferences.InstallRoot ?? "No HellForge installation selected";
