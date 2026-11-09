@@ -31,6 +31,11 @@ static class TestProgram
 
     static int Main(string[] args)
     {
+        if (args is ["--download-regressions", var downloadRoot])
+        {
+            Directory.CreateDirectory(downloadRoot);
+            OperationTests.DownloadTests(downloadRoot).GetAwaiter().GetResult(); return 0;
+        }
         if (args is ["--turnkey-stream"])
         {
             for (int row = 0; row < 15; row++) Console.Error.WriteLine("\u001b[97;40m" + new string('\u2588', 29) + "\u001b[0m");
@@ -650,7 +655,9 @@ static class TestProgram
             var wrongSize = new PackFile { Url = srv.Url, Size = body.Length + 5, Sha256 = "" };
             var wsDest = Path.Combine(dlDir, "wrongsize.zip");
             IOException? shortError = null;
+            var retryDelay = Pack.DownloadRetryDelay; Pack.DownloadRetryDelay = TimeSpan.FromMilliseconds(1);
             try { await Pack.DownloadAsync(wrongSize, wsDest, null, CancellationToken.None); } catch (IOException e) { shortError = e; }
+            finally { Pack.DownloadRetryDelay = retryDelay; }
             Check(shortError is not null && shortError.Message.Contains("bytes"), "short response stops after bounded retries");
             Check(File.Exists(wsDest) && new FileInfo(wsDest).Length == body.Length, "short download is preserved for a later resume");
         }
