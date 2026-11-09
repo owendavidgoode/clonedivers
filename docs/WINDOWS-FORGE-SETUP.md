@@ -66,12 +66,10 @@ and Linux passed 99 in each edition. Linux builds used the process-local
 `AVALONIA_TELEMETRY_OPTOUT=1` because the sandbox denies its external log folder.
 NuGet vulnerability lookups were unavailable and produced NU1900 warnings.
 
-The full Windows suite passed 706 checks before the unchanged FPV defaults
-tests failed at `FpvDefaultsTests.cs` line 55. The sandbox denies `File.Replace`
-with `UnauthorizedAccessException`, both in the default Temp folder and in a
-worktree-local Temp folder. Full-suite green remains blocked on an unrestricted
-test run. Steam approval, real download resume and first-launch UAC also need a
-fresh-player acceptance run. No game was launched and no existing HellForge
+Outside the sandbox the full Windows suite passes 775 checks, including the
+long copy budget and reparse-point refusal; the two file-symlink partial cases
+skip without the Windows symbolic-link privilege. Steam approval, real download
+resume and first-launch UAC still need a fresh-player acceptance run. No game was launched and no existing HellForge
 installation was modified for these changes.
 
 Fresh installation, rollback/restart recovery, corrupt-cache repair and profile
