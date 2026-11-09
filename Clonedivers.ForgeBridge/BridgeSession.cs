@@ -1,3 +1,4 @@
+using System.Diagnostics;
 using System.Text;
 using System.Text.Json;
 
@@ -38,7 +39,7 @@ internal sealed class BridgeSession(Func<IReadOnlyList<string>, CancellationToke
                             var current = status.GetProperty("session").GetProperty("lastRun").GetString();
                             if (ownedRun == null || !string.Equals(current, ownedRun, StringComparison.OrdinalIgnoreCase))
                                 throw new InvalidOperationException("This bridge does not own the running session. End it in the launcher that started it.");
-                            args = ["stop", "--run", ownedRun, "--wait", "yes"];
+                            reply = new { id, ok = true, result = await StopOwnedAsync(ownedRun, ct) }; await WriteAsync(output, reply, ct); continue;
                         }
                         else if (running) throw new InvalidOperationException("Finish the running session before changing or launching Forge.");
                     }
@@ -49,12 +50,14 @@ internal sealed class BridgeSession(Func<IReadOnlyList<string>, CancellationToke
                             throw new InvalidDataException("Official CLI did not acknowledge a session with a run folder.");
                         ownedRun = run;
                     }
-                    if (args[0] == "stop") ownedRun = null;
                     reply = new { id, ok = true, result };
                 }
-                catch (Exception error) when (error is not OperationCanceledException)
+                // Only the caller's token ends the bridge. A CLI time limit (the killed CLI is confirmed
+                // exited, else OutcomeUnknown) is a definitive failure reply that keeps the stream usable.
+                catch (Exception error) when (error is not OperationCanceledException || !ct.IsCancellationRequested)
                 {
-                    reply = new { id, ok = false, error = error.Message };
+                    reply = new { id, ok = false, error = error is OperationCanceledException
+                        ? "The official Forge CLI did not finish in time and was stopped. Review Session details and the mod state before retrying." : error.Message };
                 }
                 await WriteAsync(output, reply, ct);
             }
@@ -65,13 +68,41 @@ internal sealed class BridgeSession(Func<IReadOnlyList<string>, CancellationToke
             // Never kill Wine/game/process trees: the official runner owns all cleanup.
             if (ownedRun != null)
             {
-                using var cleanup = new CancellationTokenSource(TimeSpan.FromMinutes(2));
+                using var cleanup = new CancellationTokenSource(StopWait + TimeSpan.FromMinutes(1));
                 var status = await execute(["status"], cleanup.Token);
                 var session = status.GetProperty("session");
                 if (session.GetProperty("running").GetBoolean() &&
                     string.Equals(session.GetProperty("lastRun").GetString(), ownedRun, StringComparison.OrdinalIgnoreCase))
-                    await execute(["stop", "--run", ownedRun, "--wait", "yes"], cleanup.Token);
+                    await StopOwnedAsync(ownedRun, cleanup.Token);
             }
+        }
+    }
+
+    internal TimeSpan StopWait { get; init; } = TimeSpan.FromMinutes(2);
+    internal TimeSpan StopPoll { get; init; } = TimeSpan.FromMilliseconds(250);
+
+    // `stop --wait yes` prints one JSON line per status until "ended", which is not one reply document.
+    // Request the stop alone, then poll status as the Windows client's End session does.
+    async Task<JsonElement> StopOwnedAsync(string run, CancellationToken ct)
+    {
+        if ((await execute(["stop", "--run", run], ct)).GetProperty("event").GetString() != "stopping")
+            throw new InvalidDataException("Official CLI did not acknowledge the stop request.");
+        var clock = Stopwatch.StartNew();
+        while (true)
+        {
+            var session = (await execute(["status"], ct)).GetProperty("session");
+            if (!session.GetProperty("running").GetBoolean())
+            {
+                ownedRun = null;
+                var last = session.TryGetProperty("lastStatus", out var text) && text.ValueKind == JsonValueKind.String ? text.GetString() : null;
+                // Same outcome as the official --wait exit code: only "observed" ended cleanly.
+                if (string.Equals(session.GetProperty("lastRun").GetString(), run, StringComparison.OrdinalIgnoreCase) && last != "observed")
+                    throw new InvalidOperationException("The session stopped, but HellForge cleanup needs attention. " +
+                        (session.TryGetProperty("lastFailure", out var failure) && failure.ValueKind == JsonValueKind.String ? failure.GetString() : "Open Session details before launching again."));
+                return JsonSerializer.SerializeToElement(new { @event = "ended", status = last, logs = run });
+            }
+            if (clock.Elapsed >= StopWait) throw new TimeoutException("HellForge accepted End session, but cleanup is still running. Keep the launcher open and retry End session; do not repair an active game.");
+            await Task.Delay(StopPoll, ct);
         }
     }
 

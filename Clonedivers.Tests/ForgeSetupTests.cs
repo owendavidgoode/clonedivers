@@ -115,7 +115,30 @@ internal static class ForgeSetupTests
             catch (IOException) { check(scenario == "failure" && calls == 2 && version == "0.3.0-beta" && File.ReadAllText(character) == "existing owner progress", "a failed installer invokes the retained verified previous installer and preserves profile bytes"); }
             catch (InvalidOperationException) { check(scenario == "active" && calls == 0, "an active runner blocks application updates before any installer executes"); }
         }
+        // The setup dialog offers Pause exactly while reports say CanCancel.
+        foreach (var pause in new[] { true, false })
+        {
+            var root = Path.Combine(area, pause ? "upgrade-paused" : "upgrade-reported"); FakeInstall(root);
+            var version = "0.3.0-beta"; int calls = 0; var reports = new List<ForgeSetupProgress>();
+            using var paused = new CancellationTokenSource();
+            Task<HellForgeStatus> Status(CancellationToken token) { token.ThrowIfCancellationRequested(); return Task.FromResult(new HellForgeStatus(root, version, HellForgePack.SupportedBuild, true, true, false, true, true, null, null,
+                Engine: version == "0.3.0-beta" ? "0.1.41" : "0.1.47", ModSdk: version == "0.3.0-beta" ? 15 : 16)); }
+            var progress = new SyncProgress(p => { reports.Add(p); if (pause && p.CanCancel) paused.Cancel(); });
+            try
+            {
+                await HellForgeSetup.UpdateAsync(root, progress, paused.Token, cache, artifact, artifact, (_, _) => { calls++; version = "0.4.0-beta"; return Task.CompletedTask; }, Status, _ => { });
+                check(!pause && calls == 1 && reports.Any(r => r.CanCancel) && !reports[^1].CanCancel && reports[^1].Message.StartsWith("Upgrading", StringComparison.Ordinal),
+                    "an upgrade's downloads are pausable and its installer phase is not");
+            }
+            catch (OperationCanceledException)
+            {
+                var records = Path.Combine(cache, "updates");
+                check(pause && calls == 0 && (!Directory.Exists(records) || !Directory.EnumerateFiles(records, "*.json").Any(f => File.ReadAllText(f).Contains("upgrade-paused"))),
+                    "pausing an upgrade download stops before any recovery record or installer run");
+            }
+        }
     }
+    sealed class SyncProgress(Action<ForgeSetupProgress> report) : IProgress<ForgeSetupProgress> { public void Report(ForgeSetupProgress value) => report(value); }
 
     static void FakeInstall(string root, string build = HellForgePack.SupportedBuild)
     {

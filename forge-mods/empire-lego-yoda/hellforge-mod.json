@@ -1,0 +1,10 @@
+{
+  "format": 1,
+  "id": "clonedivers.empire-lego-yoda",
+  "name": "Empire LEGO Yoda Death (prototype)",
+  "version": "0.1.0",
+  "description": "One local WAV on a confirmed LEGO body death. Requires exact r45 torso assets; build 25480438. Offline prototype.",
+  "gameplay": false,
+  "coop": "per-player",
+  "code": { "dll": "empire_lego_yoda.dll", "sdk": 16 }
+}

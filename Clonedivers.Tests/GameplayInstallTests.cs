@@ -11,9 +11,20 @@ internal static class GameplayInstallTests
     internal static async Task Run(string root, Action<bool, string> check)
     {
         var catalog = HellForgeGameplayCatalog.Pinned;
-        check(catalog.Artifacts.Count == 7 && catalog.Artifacts.Sum(a => a.Bytes) == 7780423, "the 0.4 preset covers seven artifacts and retires the upstream-fixed mine patch");
-        check(catalog.Artifacts.Count(a => a.Url.Contains("/owendavidgoode/clonedivers/")) == 2 && catalog.Artifacts.Count(a => !a.Url.Contains("/owendavidgoode/clonedivers/")) == 5, "only the two permitted compatibility packages are mirrored; five dependencies come from authors");
+        catalog.Validate();
+        check(catalog.Id == "build25480438-r3" && catalog.Artifacts.Count == 8 && catalog.Artifacts.Sum(a => a.Bytes) == 7788615, "the r3 preset adds optional Clean Exit to the seven required archives");
+        check(catalog.Artifacts.Count(a => a.Url.Contains("/owendavidgoode/clonedivers/")) == 3 && catalog.Artifacts.Count(a => !a.Url.Contains("/owendavidgoode/clonedivers/")) == 5, "the two permitted compatibility packages and project-owned Clean Exit use project assets; five dependencies come from authors");
         check(catalog.Artifacts.All(a => FileSafety.IsSha256(a.ContentHash) && FileSafety.IsSha256(a.Sha256)), "every gameplay dependency has independent archive and official content-hash pins");
+        var cleanExit = catalog.Artifacts.Single(a => a.Id == HellForgePreset.CleanExit);
+        check(catalog.Artifacts.Where(a => a.Optional).SequenceEqual([cleanExit]) && HellForgePreset.Required.All(r => r.Id != cleanExit.Id) &&
+            cleanExit.Version == "0.2.0" && cleanExit.Bytes == 8192 && cleanExit.Sha256 == "6835354fff8264c6f29c33dfac71a0b6e4c4da7a401920bb76e1b604d2435932" &&
+            cleanExit.ContentHash == "0006a02101583cf05e3bd9fa4e431409c18ff4ac72f59ae1ece8c7d9831a888a" &&
+            cleanExit.Url == "https://github.com/owendavidgoode/clonedivers/releases/download/forge-mods-2026-11-08/clean-exit-0.2.0.zip",
+            "Clean Exit is optional with the exact independently verified 0.2.0 release pins");
+        using (var stream = typeof(GameplayInstallTests).Assembly.GetManifestResourceStream("Clonedivers.Tests.CleanExit.json")!)
+        using (var manifest = JsonDocument.Parse(stream))
+            check(manifest.RootElement.GetProperty("id").GetString() == cleanExit.Id && manifest.RootElement.GetProperty("version").GetString() == cleanExit.Version &&
+                !manifest.RootElement.GetProperty("gameplay").GetBoolean(), "Clean Exit declares gameplay false so the official runtime excludes it from co-op matching");
         foreach (var entry in new[] { "../escape.dll", "C:/escape.dll", "safe/../../escape.dll", "safe/entry.dll" })
         {
             var file = Path.Combine(root, Guid.NewGuid().ToString("N") + ".zip");
@@ -28,6 +39,54 @@ internal static class GameplayInstallTests
                 try { await HellForgeGameplayCatalog.VerifyArchiveAsync(file, artifact with { Sha256 = new string('b', 64) }); check(false, "wrong gameplay hash must fail"); }
                 catch (InvalidDataException) { check(true, "size-correct wrong-hash gameplay artifacts fail before import"); }
             }
+        }
+        await RecordTests(root, check);
+    }
+
+    static async Task RecordTests(string root, Action<bool, string> check)
+    {
+        var install = Path.Combine(root, "gameplay-records", "HellForge"); Directory.CreateDirectory(Path.Combine(install, "mods"));
+        var commands = new RecordingCommands(install);
+        var client = new HellForgeClient(install, commands) { RequireCliQuiescent = () => { } };
+        var record = client.PackIntentPath + ".gameplay.json"; Directory.CreateDirectory(Path.GetDirectoryName(record)!);
+        var backup = Path.Combine(client.CacheRoot, "backups", "gameplay-" + Guid.NewGuid().ToString("N")); Directory.CreateDirectory(backup);
+        void Write(string catalog, string state, string? owner = null) => File.WriteAllText(record, JsonSerializer.Serialize(new {
+            Root = owner ?? client.Root, Catalog = catalog, Backup = backup, SnapshotSha256 = new string('a', 64), State = state }));
+        foreach (var revision in new[] { "build25480438-r1", "build25480438-r2" })
+        foreach (var state in new[] { "applied", "restored" })
+        {
+            Write(revision, state);
+            var problem = client.InterruptedGameplayProblem(); await client.RecoverGameplayAsync();
+            check(problem == null && File.Exists(record), "a completed " + state + " record from " + revision + " stays readable without blocking setup or recovery");
+        }
+        Write(HellForgeGameplayCatalog.Pinned.Id, "pending");
+        check(client.InterruptedGameplayProblem()?.StartsWith("Gameplay setup was interrupted", StringComparison.Ordinal) == true, "a pending record from the pinned catalog still requires recovery");
+        Write(HellForgeGameplayCatalog.Pinned.Id, "applied", Path.Combine(root, "other"));
+        check(client.InterruptedGameplayProblem()?.Contains("needs review") == true, "a record for another installation still needs review");
+        foreach (var revision in new[] { "build25480438-r1", "build25480438-r2" })
+        {
+            Write(revision, "pending");
+            check(client.InterruptedGameplayProblem()?.StartsWith("Gameplay setup from an earlier launcher", StringComparison.Ordinal) == true, "a pending " + revision + " record names its own recovery path");
+            try { await client.RecoverGameplayAsync(); check(false, "an earlier catalog's pending record must not report a restore"); }
+            catch (InvalidOperationException error)
+            {
+                check(error.Message.Contains(backup) && !File.Exists(record) && Directory.Exists(backup) && Directory.EnumerateFiles(Path.GetDirectoryName(record)!, "*.gameplay.json.retired-*").Any() &&
+                    client.InterruptedGameplayProblem() == null && commands.Calls.Count == 0, "recovering an earlier catalog's pending record retires it, keeps its backup and unblocks setup");
+            }
+        }
+        var zip = Path.Combine(backup, new string('b', 64) + ".zip");
+        check(HellForgeClient.BackupHashSource(new(HellForgePreset.GuardDogs, "Smarter Guard Dogs", true, Path.Combine(install, "mods", "guard-dogs"), ["pack"]), zip) == zip &&
+            HellForgeClient.BackupHashSource(new("local.operation-reroller", "Operation Reroller", true, Path.Combine(install, "mods", "reroller"), ["code"]), zip) == Path.Combine(install, "mods", "reroller"),
+            "a folder-installed cosmetic pack's backup is attested by its ZIP, not by the CLI's unhashable pack folder");
+    }
+
+    sealed class RecordingCommands(string root) : IHellForgeCommands
+    {
+        public List<string[]> Calls { get; } = [];
+        public Task<JsonElement> RunAsync(IReadOnlyList<string> args, CancellationToken ct = default)
+        {
+            Calls.Add(args.ToArray());
+            throw new IOException("Fixture CLI cannot run " + args[0] + " for " + root);
         }
     }
 
@@ -59,15 +118,17 @@ internal static class GameplayInstallTests
         // Only the known throwaway installation's catalog artifacts are removed.
         foreach (var mod in before.Mods.Where(m => catalog.Artifacts.Any(a => a.Id == m.Id)))
             await official.RunAsync(["mod-remove", "--id", mod.Id]);
+        // Reset the isolated fixture's one-time defaults before testing a fresh install.
+        File.Delete(client.PackIntentPath + ".gameplay.json");
         var clean = await client.ModsAsync();
         if (clean.Mods.Count != 3) throw new InvalidDataException("Clean fixture must contain exactly three official bundled mods.");
         var fault = new FailOnce(official);
         try { await new HellForgeClient(full, fault).InstallGameplayAsync(client.GameplayCache); throw new Exception("Injected failure did not happen."); }
         catch (IOException error) when (error.Message.Contains("previous mod selection was restored", StringComparison.Ordinal)) { }
         var restored = await client.ModsAsync();
-        if (restored.Mods.Count != 3 || client.InterruptedGameplayProblem() != null || (await client.MissingGameplayAsync()).Count != 7)
+        if (restored.Mods.Count != 3 || client.InterruptedGameplayProblem() != null || (await client.MissingGameplayAsync()).Count != catalog.Artifacts.Count)
             throw new InvalidDataException("Fresh-import rollback failed.");
-        Console.WriteLine("PASS: actual failed seven-mod installation restored all three bundled mods and cleared recovery");
+        Console.WriteLine("PASS: actual failed preset installation restored all three bundled mods and cleared recovery");
         try { await new HellForgeClient(full, new LoseAcknowledgement(official)).InstallGameplayAsync(client.GameplayCache); throw new Exception("Lost acknowledgement was not injected."); }
         catch (HellForgeCommandOutcomeUnknownException) { }
         if (client.InterruptedGameplayProblem() == null) throw new InvalidDataException("An unknown import outcome did not preserve recovery intent.");
@@ -87,7 +148,7 @@ internal static class GameplayInstallTests
         Console.WriteLine("PASS: actual lost import acknowledgement stays pending, rejects damaged backup metadata and recovers through a fresh client");
         await client.InstallGameplayAsync(client.GameplayCache);
         if ((await client.MissingGameplayAsync()).Count != 0) throw new InvalidDataException("Actual retry left missing dependencies.");
-        Console.WriteLine("PASS: actual retry installed and verified all ten gameplay mods");
+        Console.WriteLine("PASS: actual retry installed and verified all eleven preset mods");
         var settings = Path.Combine(full, "mods", "hellforge-mods.json"); var originalSettings = File.ReadAllBytes(settings);
         await client.InstallGameplayAsync(client.GameplayCache);
         if (!File.ReadAllBytes(settings).SequenceEqual(originalSettings)) throw new InvalidDataException("An already complete preset was rewritten.");

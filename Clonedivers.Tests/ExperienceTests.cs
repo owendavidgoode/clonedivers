@@ -33,6 +33,10 @@ static class ExperienceTests
             "legacy fallback preserves cached profile pack while exposing the launcher update");
         check(profileCache.App?.Version == "1.6.3" && ReferenceEquals(ManifestStore.PreserveProfiles(null, fallback), fallback),
             "fallback merge does not mutate cached metadata and supports a cold start");
+        var outage = ManifestStore.MarkLegacyFallback(new Manifest { Format = 2, Pack = fallback.Pack, App = fallback.App });
+        bool coldRefused = false; try { ManifestStore.PreserveProfiles(null, outage); } catch (InvalidDataException) { coldRefused = true; }
+        check(coldRefused && ManifestStore.PreserveProfiles(profileCache, outage).Pack == profileCache.Pack,
+            "a profile-feed outage on a cold start never adopts the frozen legacy pack; saved profiles still merge its app block");
         var freshProfiles = new Manifest { Format = 3, Pack = manifest.Pack };
         check(ReferenceEquals(ManifestStore.PreserveProfiles(profileCache, freshProfiles), freshProfiles),
             "fresh profile metadata replaces saved metadata normally");

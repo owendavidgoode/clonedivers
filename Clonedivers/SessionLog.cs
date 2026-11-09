@@ -20,7 +20,7 @@ public static class SessionLog
     static string? Version(string? value) => value is not null && Regex.IsMatch(value, @"\A[0-9][0-9A-Za-z._-]{0,63}\z") ? value : null;
     static Context Safe(Context? c) => new(Version(c?.Pack), Version(c?.GameBuild),
         c?.Profile is "full" or "lighter" or "reduced1024" or "reduced512" ? c.Profile : null,
-        c?.Mode is "Helldivers" or "Clonedivers" or "Commandodivers" ? c.Mode : null, c?.Delta, c?.Droids, c?.AimPoints);
+        Enum.GetValues<LauncherMode>().Any(m => LauncherModes.Name(m) == c?.Mode) ? c!.Mode : null, c?.Delta, c?.Droids, c?.AimPoints);
     static Entry Clean(Entry e) => e with { Selection = Safe(e.Selection), Seconds = e.Seconds is double s && double.IsFinite(s) && s >= 0 && s <= 31536000 ? Math.Round(s, 1) : null };
 
     public static IReadOnlyList<Entry> Read(string? path = null)

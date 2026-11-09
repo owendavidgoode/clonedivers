@@ -116,12 +116,35 @@ var fake = new Fake(); var output = new StringWriter();
 await new BridgeSession(fake.Execute).ServeAsync(new StringReader(Request(1, "play", "--profile", "default") + Request(2, "mods") + Request(3, "stop")), output);
 var replies = output.ToString().Split('\n', StringSplitOptions.RemoveEmptyEntries).Select(line => JsonDocument.Parse(line)).ToArray();
 Check(replies.Length == 3 && replies.All(r => r.RootElement.GetProperty("ok").GetBoolean()), "persistent proxy serves launch, status and stop in one namespace lifetime");
-Check(fake.Calls.Any(c => c.SequenceEqual(new[] { "stop", "--run", Fake.Run, "--wait", "yes" })) && !fake.Running,
+Check(fake.Calls.Any(c => c.SequenceEqual(new[] { "stop", "--run", Fake.Run })) && !fake.Running,
     "stop targets the acknowledged run and waits through official cleanup");
+
+fake = new Fake { StatusesUntilEnded = 2 }; output = new StringWriter();
+await new BridgeSession(fake.Execute) { StopPoll = TimeSpan.FromMilliseconds(1) }.ServeAsync(new StringReader(Request(1, "play", "--profile", "default") + Request(2, "stop") + Request(3, "stop")), output);
+replies = output.ToString().Split('\n', StringSplitOptions.RemoveEmptyEntries).Select(line => JsonDocument.Parse(line)).ToArray();
+Check(replies.All(r => r.RootElement.GetProperty("ok").GetBoolean()) && replies[1].RootElement.GetProperty("result").GetProperty("event").GetString() == "ended" &&
+    replies[2].RootElement.GetProperty("result").GetProperty("event").GetString() == "already-stopped" && !fake.Running && !fake.Calls.Any(c => c.Contains("--wait")),
+    "End session polls status after the single-line official stop instead of parsing --wait's JSON line stream");
+
+fake = new Fake { StatusesUntilEnded = 2 }; output = new StringWriter();
+await new BridgeSession(fake.Execute) { StopWait = TimeSpan.Zero, StopPoll = TimeSpan.FromMilliseconds(1) }.ServeAsync(new StringReader(Request(1, "play", "--profile", "default") + Request(2, "stop") + Request(3, "stop")), output);
+Check(output.ToString().Contains("\"id\":2,\"ok\":false") && output.ToString().Contains("cleanup is still running") && output.ToString().Contains("\"id\":3,\"ok\":true") && !fake.Running,
+    "slow official cleanup is a definitive failure that keeps ownership so End session can be retried");
+
+fake = new Fake { LastStatus = "cleanup_failed", LastFailure = "fixture cleanup failure" }; output = new StringWriter();
+await new BridgeSession(fake.Execute).ServeAsync(new StringReader(Request(1, "play", "--profile", "default") + Request(2, "stop") + Request(3, "stop")), output);
+Check(output.ToString().Contains("\"id\":2,\"ok\":false") && output.ToString().Contains("fixture cleanup failure") && output.ToString().Contains("already-stopped") && fake.Calls.Count(c => c[0] == "stop") == 1,
+    "an ended session with failed cleanup is reported like the official --wait exit code without a second stop");
+
+fake = new Fake(); output = new StringWriter();
+await new BridgeSession((a, c) => a[0] == "mods" ? Task.FromException<JsonElement>(new TaskCanceledException()) : fake.Execute(a, c))
+    .ServeAsync(new StringReader(Request(1, "play", "--profile", "default") + Request(2, "mods") + Request(3, "status")), output);
+Check(output.ToString().Contains("\"id\":2,\"ok\":false") && output.ToString().Contains("did not finish in time") && output.ToString().Contains("\"id\":3,\"ok\":true") &&
+    fake.Calls.Count(c => c[0] == "stop") == 1, "an internal CLI time limit replies ok=false and keeps serving instead of ending the bridge and its session");
 
 fake = new Fake(); output = new StringWriter();
 await new BridgeSession(fake.Execute).ServeAsync(new StringReader(Request(1, "play", "--profile", "default")), output);
-Check(!fake.Running && fake.Calls.Last().SequenceEqual(new[] { "stop", "--run", Fake.Run, "--wait", "yes" }), "frontend EOF cleans up its owned session using official stop");
+Check(!fake.Running && fake.Calls.Last()[0] == "status" && fake.Calls.Any(c => c.SequenceEqual(new[] { "stop", "--run", Fake.Run })), "frontend EOF cleans up its owned session using official stop");
 
 fake = new Fake { IsolationAfterPlay = "other-engine" }; output = new StringWriter();
 await new BridgeSession(fake.Execute).ServeAsync(new StringReader(Request(1, "play", "--profile", "default") + Request(2, "stop")), output);
@@ -143,7 +166,7 @@ await new BridgeSession(fake.Execute).ServeAsync(new StringReader("malformed\n" 
 Check(output.ToString().Contains("\"ok\":false") && output.ToString().Contains("\"id\":2,\"ok\":true"), "a malformed request reports failure without corrupting the next response");
 fake = new Fake(); output = new StringWriter();
 try { await new BridgeSession(fake.Execute).ServeAsync(new StringReader(Request(1, "play", "--profile", "default") + new string('x', BridgeSession.MaxRequest + 1)), output); throw new Exception("FAIL: oversized bridge input was accepted"); }
-catch (InvalidDataException) { Check(!fake.Running && fake.Calls.Last()[0] == "stop", "oversized input is bounded and still cleans up the owned session"); }
+catch (InvalidDataException) { Check(!fake.Running && fake.Calls.Any(c => c[0] == "stop"),"oversized input is bounded and still cleans up the owned session"); }
 const string hello = "{\"bridge\":\"clonedivers-forge\",\"format\":1}\n";
 var diagnostics = new List<string>(); var writes = new StringWriter();
 var protocol = new ForgeProtocol(new StringReader("Steam bridge ready\n{\"war\":true}\n" + hello + "Proton diagnostic\n{\"id\":1,\"ok\":true,\"result\":{\"running\":false}}\n"), writes, diagnostics.Add);
@@ -178,6 +201,11 @@ catch (InvalidDataException) { Check(true, "native protocol rejects an oversized
 
 var fixture = Path.Combine(Path.GetTempPath(), "clonedivers-forge-plan-" + Guid.NewGuid().ToString("N"));
 await Clonedivers.ForgeBridge.Tests.GameplayNativeTests.Run(fixture, Check);
+await Clonedivers.Tests.WarbondTests.Run(fixture, Check);
+Check(new[] { "helldivers2", "helldivers2.exe", "HellForge", "HellForge.exe", "HellForge.Launcher", "HellForge.Launc" }.All(HellForgeWarbonds.BlocksLinuxProcess),
+    "native and Proton game/manager process names, including Linux's truncated comm, defer Warbond opening");
+Check(new[] { "HellForge.Cli", "HellForge.Local", "steam-bridge", "clonedivers" }.All(name => !HellForgeWarbonds.BlocksLinuxProcess(name)),
+    "idle Linux CLI/Steam bridge infrastructure does not prevent opening owned Warbonds");
 Check(LinuxForgePlan.SupportsArchitecture(Architecture.X64) && !LinuxForgePlan.SupportsArchitecture(Architecture.Arm64) && !LinuxForgePlan.SupportsArchitecture(Architecture.X86),
     "Forge refuses unsupported architectures without confusing the separate ARM64 Steam package with Proton qualification");
 try
@@ -239,6 +267,10 @@ try
     var player = new PlayerCommands(install, playerOfficial, () => managerOpened = true);
     await player.RunAsync(["open-manager"], CancellationToken.None);
     Check(managerOpened && playerOfficial.Calls.Count == 0, "the manager dispatcher opens only the installed manager without running profile/CLI mutations");
+    var managerStart = PlayerCommands.ManagerStart(install);
+    Check(managerStart.FileName.StartsWith(install, StringComparison.Ordinal) && !managerStart.UseShellExecute &&
+        managerStart.RedirectStandardInput && managerStart.RedirectStandardOutput && managerStart.RedirectStandardError,
+        "the long-lived official manager never inherits the bridge's protocol stdio, so closing Clonedivers reaches EOF");
     var accountState = await player.RunAsync(["account-status"], CancellationToken.None);
     Check(!accountState.GetProperty("Imported").GetBoolean() && playerOfficial.Calls.Count == 0 && !Directory.Exists(Path.Combine(install, "profiles")),
         "native account status reuses verified account logic without creating/resetting a missing profile");
@@ -343,6 +375,10 @@ sealed class Fake : IHellForgeCommands
 {
     internal const string Run = @"C:\HellForge\logs\sessions\12345678901234567890123456789012";
     internal bool Running;
+    internal int StatusesUntilEnded; // official stop returns at once; the runner ends after this many status polls
+    internal string LastStatus = "observed";
+    internal string? LastFailure;
+    bool stopping;
     internal string Isolation = "normal";
     internal string? IsolationAfterPlay;
     internal string Root = Path.TrimEndingDirectorySeparator(Path.GetTempPath());
@@ -351,10 +387,12 @@ sealed class Fake : IHellForgeCommands
     {
         ct.ThrowIfCancellationRequested(); Calls.Add(args.ToArray());
         object result;
+        if (args[0] == "status" && stopping && StatusesUntilEnded-- <= 0) { Running = false; stopping = false; }
         if (args[0] == "status") result = new { install = Root, gameBuild = BridgeSession.Build, hellforge = "0.4.0-beta (d8a8b46)", engine = Isolation == "other-engine" ? "0.2.0" : "0.1.47", modSdk = 16,
-            networkBlock = Isolation == "none" ? "none" : "linux-netns", ready = new { linuxNamespace = Isolation != "none", gameCopy = !Running, sessionRunner = true }, settings = new { sandbox = Isolation != "sandbox-off", multiplayer = true, localPlayFab = true }, session = new { running = Running, lastRun = Run, lastStatus = "observed", lastFailure = (string?)null } };
+            networkBlock = Isolation == "none" ? "none" : "linux-netns", ready = new { linuxNamespace = Isolation != "none", gameCopy = !Running, sessionRunner = true }, settings = new { sandbox = Isolation != "sandbox-off", multiplayer = true, localPlayFab = true }, session = new { running = Running, lastRun = Run, lastStatus = LastStatus, lastFailure = LastFailure } };
         else if (args[0] == "play") { Running = true; if (IsolationAfterPlay != null) Isolation = IsolationAfterPlay; result = new { @event = "started", run = Run }; }
-        else if (args[0] == "stop") { Running = false; result = new { @event = "stopping" }; }
+        // The real `stop --wait yes` prints a "stopping" line, status lines and an "ended" line: never one JSON reply.
+        else if (args[0] == "stop") { if (args.Contains("--wait")) throw new JsonException("'{' is invalid after a single JSON value."); stopping = true; result = new { @event = "stopping", run = Run }; }
         else if (args[0] == "profiles") result = new { profiles = new[] { new { name = "default", template = "starter" } } };
         else if (args[0] == "mods") result = new { mods = Array.Empty<object>(), problems = Array.Empty<string>(), modlist = (string?)null };
         else result = new { fixture = true };

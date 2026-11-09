@@ -38,6 +38,9 @@ static class HellForgeTests
             Set("refreshing", false); poll.SetResult();
             await request.ConfigureAwait(false);
             check(actions == 1, "a queued operation executes once and ignores a duplicate click");
+            string? Diagnostic() => (string?)type.GetProperty("LauncherDiagnostic", members)!.GetValue(form);
+            Set("lastError", null); // what the next successful status refresh does
+            check(Diagnostic() == "isolated action finished", "the failed operation's full diagnostic survives the next refresh for Session details");
 
             Set("lastStatus", new HellForgeStatus(Path.GetTempPath(), "fixture", HellForgePack.SupportedBuild,
                 false, true, true, true, true, "observing", null));
@@ -81,8 +84,26 @@ static class HellForgeTests
             var readyMods = HellForgePreset.Required.Select(item => new HellForgeMod(item.Id, item.Name, true, "fixture", [], item.Version,
                 item.Id == HellForgePreset.GuardDogs ? [new("Smarter Guard Dogs and Sentries", true), new("Guard Dogs", true), new("Sentries", true), new("Intelligence", true), new("Safety", true), new("Sentry Safety", true), new("SEAF Safety", true), new("Targeting Marker", false)] : null)).ToList();
             readyMods.Add(new("skyeshade.vanilla-plus", "Vanilla Plus", true, "fixture", []));
+            readyMods.Sort((a, b) => HellForgeGameplayCatalog.Pinned.Order.IndexOf(a.Id).CompareTo(HellForgeGameplayCatalog.Pinned.Order.IndexOf(b.Id)));
             Set("lastStatus", new HellForgeStatus(Path.GetTempPath(), "fixture", HellForgePack.SupportedBuild, true, true, false, true, true, null, null));
             Set("lastMods", new HellForgeMods(readyMods, [], null));
+            foreach (var issue in new[] { "difficulty", "order", "sharing", "overlap", "notices" })
+            {
+                var drift = readyMods.ToList();
+                if (issue == "difficulty") { var index = drift.FindIndex(m => m.Id == HellForgeClient.DifficultyId); drift[index] = drift[index] with { Enabled = false }; }
+                if (issue == "order") drift.Reverse();
+                if (issue == "overlap") drift.Add(new("pack.80a03e3b-a671-4e54-a2ce-52c35bb64c91", "Reinforcement Beacons Fixed", true, "fixture", []));
+                Set("lastMods", new HellForgeMods(drift, issue == "notices" ? ["Duplicate custom mod ID"] : [], null, issue == "sharing" ? HellForgePreset.SharingProblem(null) : null));
+                type.GetMethod("UpdateView", members)!.Invoke(form, null);
+                check(end.Enabled && end.Text == (issue == "notices" ? "REVIEW MOD CHOICES" : "INSTALL REQUIRED MODS"),
+                    issue + " has an enabled main action for repair or an explained player choice");
+            }
+            Set("lastMods", new HellForgeMods(readyMods, [], null));
+            Set("lastStatus", new HellForgeStatus(Path.GetTempPath(), HellForgeRelease.Version, HellForgePack.SupportedBuild, true, true, false, true, true, null, null,
+                CompatibilityProblem: "Continue guided setup to enable the official sandbox.", Engine: HellForgeRelease.Engine, ModSdk: HellForgeRelease.Sdk));
+            type.GetMethod("UpdateView", members)!.Invoke(form, null);
+            check(end.Enabled && end.Text == "CONTINUE GUIDED SETUP", "sandbox setup has a reachable guided repair with the pinned engine");
+            Set("lastStatus", new HellForgeStatus(Path.GetTempPath(), "fixture", HellForgePack.SupportedBuild, true, true, false, true, true, null, null));
             Set("lastAccount", new HellForgeAccountState(false, false, "No verified capture in default."));
             type.GetMethod("UpdateView", members)!.Invoke(form, null);
             check(end.Enabled && end.Text == "SYNC HD2 ACCOUNT", "missing account capture offers an enabled next action instead of a grey launch button");
@@ -95,6 +116,17 @@ static class HellForgeTests
             Set("captureBlock", "Sync is still forwarding the normal game.");
             type.GetMethod("UpdateView", members)!.Invoke(form, null);
             check(!end.Enabled && !recover.Enabled && !sync.Enabled, "automatic import and setup stay blocked until account capture cleanup finishes");
+            Set("captureBlock", null);
+            type.GetMethod("UpdateView", members)!.Invoke(form, null);
+            bool offered = end.Enabled, reenabled = false;
+            EventHandler watch = (_, _) => reenabled |= end.Enabled;
+            end.EnabledChanged += watch;
+            await ((Task)type.GetMethod("OperationAsync", members)!.Invoke(form, [(Func<Task>)(() => Task.CompletedTask)])!).ConfigureAwait(false);
+            end.EnabledChanged -= watch;
+            check(offered && !reenabled, "a finished launch keeps the primary button locked until the follow-up status read replaces the pre-launch status");
+            check(type.GetField("failureDetail", members)!.GetValue(form) == null, "a new operation retires the previous failure's diagnostic");
+            check(HellForgeForm.SyncInstructions.Contains("Apply import") && HellForgeForm.SyncInstructions.Contains("auto-apply"),
+                "sync instructions keep players from applying HellForge's own import, which would refuse the Clonedivers link");
         }
         finally { HellForgeForm.SteamReadyCheck = steamReady; SynchronizationContext.SetSynchronizationContext(previousContext); }
     }
@@ -153,6 +185,14 @@ static class HellForgeTests
                 var setupNext = setup.Controls.Cast<Control>().SelectMany(Children).OfType<Button>().Single(b => b.AccessibleName == "Continue Forge setup");
                 check(setupNext.Text == "INSTALL FORGE" && setup.PointToClient(setupNext.PointToScreen(new Point(0, setupNext.Height))).Y <= setup.ClientSize.Height,
                     "small first-run windows keep the install action visible outside the scrolling instructions");
+                setup.ClientSize = new Size(700, 830);
+                var qrRows = Enumerable.Repeat(new string('\u2588', 29), 15).ToArray();
+                typeof(HellForgeSetupForm).GetMethod("SetApproval", fields)!.Invoke(setup, [SteamSetupOutput.RenderQr(qrRows)]); Application.DoEvents();
+                var qrControl = (PictureBox)typeof(HellForgeSetupForm).GetField("approval", fields)!.GetValue(setup)!;
+                var qrParent = qrControl.Parent!;
+                var qrTop = qrParent.PointToClient(qrControl.PointToScreen(Point.Empty));
+                check(qrControl.Visible && qrTop.Y >= 0 && qrTop.Y + qrControl.Height <= qrParent.ClientSize.Height,
+                    "Steam approval scrolls the complete integer-scale QR into the setup viewport");
                 setup.Close();
             }
             catch (Exception e) { failure = e; }
@@ -194,6 +234,13 @@ static class HellForgeTests
             check(false, "failed CLI launch preserves stderr diagnostics");
         }
         catch (IOException error) { check(error.Message.Contains("fixture failure"), "failed CLI launch preserves stderr diagnostics"); }
+        static async Task<JsonElement> Hang(CancellationToken ct) { await Task.Delay(Timeout.Infinite, ct); return default; }
+        Exception? deadline = null, cancel = null;
+        try { await HellForgeCommands.TimedAsync("mods", TimeSpan.FromMilliseconds(50), Hang, CancellationToken.None); } catch (Exception e) { deadline = e; }
+        check(deadline is TimeoutException && deadline.Message.Contains("'mods'"), "a CLI deadline is a named timeout, never swallowed or shown as a player cancel");
+        using (var player = new CancellationTokenSource(50))
+            try { await HellForgeCommands.TimedAsync("mods", TimeSpan.FromMinutes(2), Hang, player.Token); } catch (Exception e) { cancel = e; }
+        check(cancel is OperationCanceledException, "a real cancellation still arrives as a cancellation");
     }
     public static async Task Run(string root, Action<bool, string> check)
     {
@@ -266,7 +313,22 @@ static class HellForgeTests
         // This fake owns no operating-system CLI; real manager polling must not
         // interfere with an isolated transaction fixture.
         var client = new HellForgeClient(install, commands) { RequireCliQuiescent = () => { } };
-        var diagnosticRun = Path.Combine(install, "logs", "sessions", Guid.NewGuid().ToString("N"));
+        var unpacked = Path.Combine(install, "mods", ".unpacked"); Directory.CreateDirectory(unpacked);
+        var fingerprint = client.ModsFingerprint();
+        var oldPartial = Path.Combine(unpacked, ".zip-hashes.json.0a1b2c3d.partial"); File.WriteAllText(oldPartial, "{}");
+        File.SetLastWriteTimeUtc(oldPartial, DateTime.UtcNow.AddHours(-2));
+        var freshPartial = Path.Combine(unpacked, ".zip-hashes.json.4e5f6a7b.partial"); File.WriteAllText(freshPartial, "{}");
+        var decoy = Path.Combine(unpacked, ".zip-hashes.json.notours.partial"); File.WriteAllText(decoy, "{}");
+        File.SetLastWriteTimeUtc(decoy, DateTime.UtcNow.AddHours(-2));
+        var hashes = Path.Combine(unpacked, ".zip-hashes.json"); File.WriteAllText(hashes, "{}");
+        File.SetLastWriteTimeUtc(hashes, DateTime.UtcNow.AddHours(-2));
+        check(client.ModsFingerprint() == fingerprint, "HellForge's own .unpacked cache writes do not trigger another mod scan");
+        check(client.SweepHashPartials(DateTime.UtcNow.AddMinutes(-10)) == 1 && !File.Exists(oldPartial) && File.Exists(freshPartial) && File.Exists(decoy) && File.Exists(hashes),
+            "idle cleanup removes only old leaked .zip-hashes.json partials, never the live cache or other names");
+        File.WriteAllText(Path.Combine(install, "mods", "hellforge-mods.json"), "{}");
+        check(client.ModsFingerprint() != fingerprint, "a mod settings change triggers a fresh mod scan");
+        File.Delete(Path.Combine(install, "mods", "hellforge-mods.json")); Directory.Delete(unpacked, true);
+        var diagnosticRun =Path.Combine(install, "logs", "sessions", Guid.NewGuid().ToString("N"));
         Directory.CreateDirectory(diagnosticRun);
         commands.LastRun = diagnosticRun;
         var resultPath = Path.Combine(diagnosticRun, "result.json");
@@ -306,6 +368,13 @@ static class HellForgeTests
         check((await client.StatusAsync()).LastFailure == null, "unfinished result does not imply a game crash");
         File.WriteAllText(resultPath, "{partial");
         check((await client.StatusAsync()).LastFailure == null, "partially written diagnostic does not break readiness checks");
+        File.WriteAllText(resultPath, """{"status":"observed","completedUtc":"2026-11-03T17:58:43Z","exitCode":0,"sandboxCopyBackError":"fixture userdata locked"}""");
+        check((await client.StatusAsync()).LastFailure?.Contains("sandboxCopyBackError: fixture userdata locked") == true,
+            "a 0.4 cleanup step failure is reported although HellForge keeps the status observed");
+        File.WriteAllText(resultPath, """{"status":"observed","completedUtc":"2026-11-03T17:58:43Z","exitCode":0,"jobEmpty":false}""");
+        check((await client.StatusAsync()).LastFailure?.Contains("jobEmpty") == true, "a game job left running at cleanup is unclean, as HellForge itself judges it");
+        File.WriteAllText(resultPath, """{"status":"observed","completedUtc":"2026-11-03T17:58:43Z","exitCode":0,"jobEmpty":true,"sdkShimOriginalsRestored":true,"networkCensusError":"fixture"}""");
+        check((await client.StatusAsync()).LastFailure == null, "a clean job and diagnostic-only step errors do not block the next launch");
         File.WriteAllText(resultPath, """{"completedUtc":"2026-11-03T17:58:43Z","exitCode":1}""");
         commands.LastRun = Path.Combine(area, "outside-sessions");
         Directory.CreateDirectory(commands.LastRun);
@@ -341,11 +410,13 @@ static class HellForgeTests
             if (index < 0) commands.Mods.Add(mod); else commands.Mods[index] = mod;
         }
         commands.Mods.Add(new("skyeshade.vanilla-plus", "Vanilla Plus", true, Path.Combine(install, "mods", "vanilla-plus"), ["code"]));
+        commands.Mods.Add(new(HellForgePreset.CleanExit, "Clonedivers Clean Exit", true, Path.Combine(install, "mods", "clean-exit"), ["code"], "0.2.0"));
         commands.Mods.Add(new("pack.80a03e3b-a671-4e54-a2ce-52c35bb64c91", "Reinforcement Beacons Fixed", true, Path.Combine(install, "mods", "beacons"), ["data"]));
         var conflictPlays = commands.Calls.Count(c => c[0] == "play");
         check(await Reject(() => client.PlayAsync(selection)) && conflictPlays == commands.Calls.Count(c => c[0] == "play"),
             "overlapping reinforcement fixes cannot reach the official Clone launch");
         commands.Mods.RemoveAll(m => m.Id == "pack.80a03e3b-a671-4e54-a2ce-52c35bb64c91");
+        commands.Mods.Sort((a, b) => HellForgeGameplayCatalog.Pinned.Order.IndexOf(a.Id).CompareTo(HellForgeGameplayCatalog.Pinned.Order.IndexOf(b.Id)));
         var heavyIndex = commands.Mods.FindIndex(m => m.Id == "local.heavy-seaf-presence");
         var heavy = commands.Mods[heavyIndex];
         commands.Mods[heavyIndex] = heavy with { Version = "1.2.0" };
@@ -468,6 +539,11 @@ static class HellForgeTests
             "an unexpected stop response is not mistaken for completed cleanup");
         commands.StopAcknowledgement = "stopping"; commands.StopCompletes = true; commands.LastStatus = "cleanup_failed";
         check(await Reject(() => client.EndSessionAsync()), "an explicit cleanup failure is reported even when copy readiness is true");
+        commands.LastStatus = "observed"; commands.LastRun = diagnosticRun; commands.Running = true;
+        File.WriteAllText(resultPath, """{"status":"observed","completedUtc":"2026-11-03T17:58:43Z","exitCode":0,"jobStopTimeout":true}""");
+        check(await Reject(() => client.EndSessionAsync()), "End session is not reported complete when HellForge 0.4 recorded a failed cleanup step");
+        check(await Reject(() => client.EndSessionAsync()) && !commands.Running, "a session that ended before End session still has its cleanup checked");
+        commands.LastRun = null;
         commands.LastStatus = null; commands.Running = true;
         stops = commands.Calls.Count(c => c[0] == "stop");
         using (var cancelled = new CancellationTokenSource())
@@ -601,6 +677,28 @@ static class HellForgeTests
         var failing = new HellForgeAccount(install, (args, ct) => args[1] == "import" ? throw new IOException("Import failed") : Backend(args, ct));
         check(await reject(() => failing.ImportAsync()) && File.ReadAllText(Path.Combine(folder, "account-import.json")) == beforePolicy && !(await account.ReadAsync()).Imported,
             "failed official imports restore prior choices and never record a successful receipt");
+        foreach (var failure in new Exception[] { new TimeoutException("fixture review timed out"), new System.ComponentModel.Win32Exception(2, "fixture backend missing") })
+        {
+            var (state, reviewed) = await HellForgeForm.ReviewAccountAsync(new HellForgeAccount(install, (_, _) => throw failure), CancellationToken.None);
+            check(!reviewed && !state.Captured && !state.Imported && state.Message == failure.Message,
+                failure.GetType().Name + " from the account review becomes an account state instead of failing the refresh and its mods read");
+        }
+        using (var closing = new CancellationTokenSource())
+        {
+            closing.Cancel(); bool cancelled = false;
+            try { await HellForgeForm.ReviewAccountAsync(account, closing.Token); } catch (OperationCanceledException) { cancelled = true; }
+            check(cancelled, "closing the launcher still cancels an account review");
+        }
+        var probe = new HellForgeClient(install, new FakeCommands(install));
+        var accountKey = probe.AccountFingerprint();
+        check(probe.AccountFingerprint() == accountKey, "an unchanged capture and profile reuse the last account review");
+        File.WriteAllText(Path.Combine(snapshot, "progression.json"), "{\"experience\":4000}");
+        var recaptured = probe.AccountFingerprint();
+        check(recaptured != accountKey, "a new HD2 capture triggers a fresh account review");
+        Directory.CreateDirectory(Path.Combine(folder, "backups"));
+        File.WriteAllText(Path.Combine(folder, "backups", "20261101-000000-000-import.json"), "{}");
+        check(probe.AccountFingerprint() != recaptured, "a native HellForge import backup triggers a fresh account review");
+        File.Delete(Path.Combine(folder, "backups", "20261101-000000-000-import.json"));
     }
 
     static async Task NativeAccountMigrationTests(string root, Action<bool, string> check, Func<Func<Task>, Task<bool>> reject)
@@ -729,6 +827,22 @@ static class HellForgeTests
         await account.ImportAsync();
         check(imports == before + 1 && (await account.ReadAsync()).Imported && !File.Exists(pendingPath),
             "a reviewed official restore followed by a fresh same-account capture recovers an interrupted import without deleting bookkeeping by hand");
+        var settled = File.ReadAllText(receiptPath); // a lost journal delete leaves a committed journal beside its saved receipt
+        File.WriteAllText(pendingPath, JsonSerializer.Serialize(new { Phase = "committed", Receipt = JsonSerializer.Deserialize<JsonElement>(settled), BeforeProfileHash = "fixture" }));
+        Capture(1, recoveryTime.AddSeconds(2)); before = imports;
+        var forward = await account.ReadAsync(); await account.ImportAsync();
+        check(forward.Captured && !forward.Imported && imports == before + 1 && (await account.ReadAsync()).Imported && !File.Exists(pendingPath),
+            "a committed journal left beside its saved receipt does not block a later sync, which merges forward once");
+        var unsaved = System.Text.Json.Nodes.JsonNode.Parse(File.ReadAllText(receiptPath))!.AsObject();
+        unsaved["capture"] = new string('a', 64); unsaved["importedUtc"] = DateTimeOffset.UtcNow; var unsavedText = unsaved.ToJsonString();
+        File.WriteAllText(pendingPath, JsonSerializer.Serialize(new { Phase = "committed", Receipt = JsonSerializer.Deserialize<JsonElement>(unsavedText), BeforeProfileHash = "fixture" }));
+        Capture(1, recoveryTime.AddSeconds(3)); before = imports;
+        var unfinished = await account.ReadAsync(); await account.ImportAsync();
+        using (var finished = JsonDocument.Parse(File.ReadAllText(receiptPath)))
+            check(unfinished.Captured && !unfinished.Imported && imports == before && !File.Exists(pendingPath) && finished.RootElement.GetProperty("capture").GetString() == new string('a', 64),
+                "a committed import whose capture changed before its receipt was saved finishes bookkeeping without replaying the import");
+        await account.ImportAsync();
+        check(imports == before + 1 && (await account.ReadAsync()).Imported, "the newer capture then merges forward over the finished import");
     }
 
     static async Task AccountProcessLifetimeTests(string root, Action<bool, string> check)

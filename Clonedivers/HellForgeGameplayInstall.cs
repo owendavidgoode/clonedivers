@@ -9,9 +9,11 @@ public sealed partial class HellForgeClient
 {
     sealed record GameplayBackup(string Id, string Archive, long Bytes, string Sha256, string ContentHash);
     sealed record GameplaySnapshot(string Root, HellForgeMods Mods, List<GameplayBackup> Backups, bool HadShare = false, bool Share = true);
-    sealed record GameplayIntent(string Root, string Catalog, string Backup, string SnapshotSha256, string State);
+    sealed record GameplayIntent(string Root, string Catalog, string Backup, string SnapshotSha256, string State, bool OptionalDefaultsApplied = false);
     public string GameplayCache => Path.Combine(CacheRoot, "gameplay", HellForgeGameplayCatalog.Pinned.Id);
     string GameplayIntentPath => PackIntentPath + ".gameplay.json";
+    bool GameplayDefaultsApplied => ReadGameplayIntent() is { Catalog: var catalog } intent && catalog == HellForgeGameplayCatalog.Pinned.Id &&
+        (intent.State == "applied" || intent.OptionalDefaultsApplied);
 
     async Task RequireGameplayIdleAsync(CancellationToken ct)
     {
@@ -61,9 +63,13 @@ public sealed partial class HellForgeClient
         var catalog = await ModsAsync(ct);
         if (catalog.Problems.Length != 0) throw new InvalidDataException("Resolve the mod catalog errors first: " + string.Join("; ", catalog.Problems));
         var missing = new List<GameplayArtifact>();
+        var defaultsApplied = GameplayDefaultsApplied;
         foreach (var artifact in HellForgeGameplayCatalog.Pinned.Artifacts)
         {
             var found = catalog.Mods.SingleOrDefault(m => m.Id == artifact.Id);
+            // Offer optional defaults once. Later removal, disabling or replacement
+            // belongs to the player, including while required mods are repaired.
+            if (artifact.Optional && (defaultsApplied || found is { Enabled: false })) continue;
             if (found == null || artifact.Version.Length > 0 && found.Version != artifact.Version || artifact.Version.Length == 0 && found.Name != artifact.Name)
             { missing.Add(artifact); continue; }
             ValidateModFolder(found.Folder);
@@ -79,7 +85,9 @@ public sealed partial class HellForgeClient
         if (!File.Exists(GameplayIntentPath)) return null;
         if (new FileInfo(GameplayIntentPath).Length > 16384) throw new InvalidDataException("Gameplay recovery record is oversized.");
         var value = JsonSerializer.Deserialize<GameplayIntent>(File.ReadAllText(GameplayIntentPath), HellForgePack.Json) ?? throw new InvalidDataException("Empty gameplay recovery record.");
-        if (!Root.Equals(value.Root, RecoveryPathComparison) || value.Catalog != HellForgeGameplayCatalog.Pinned.Id || !FileSafety.IsSha256(value.SnapshotSha256) ||
+        // Completed records from an earlier launcher's catalog stay inert; only
+        // pending ones matter, and RecoverGameplayAsync handles their catalog.
+        if (!Root.Equals(value.Root, RecoveryPathComparison) || value.Catalog is not { Length: > 0 and <= 64 } || !FileSafety.IsSha256(value.SnapshotSha256) ||
             value.State is not ("pending" or "applied" or "restored") || !string.Equals(Path.GetDirectoryName(Path.GetFullPath(value.Backup)), Path.Combine(CacheRoot, "backups"), RecoveryPathComparison) || !Path.GetFileName(value.Backup).StartsWith("gameplay-", StringComparison.Ordinal))
             throw new InvalidDataException("Gameplay recovery record does not match this installation.");
         RejectAncestors(value.Backup); return value;
@@ -94,7 +102,15 @@ public sealed partial class HellForgeClient
     }
     public string? InterruptedGameplayProblem()
     {
-        try { return ReadGameplayIntent() is { State: "pending" } ? "Gameplay setup was interrupted. Recover the previous gameplay preset before continuing." : null; }
+        try
+        {
+            return ReadGameplayIntent() switch
+            {
+                not { State: "pending" } => null,
+                { Catalog: var catalog } when catalog != HellForgeGameplayCatalog.Pinned.Id => "Gameplay setup from an earlier launcher was interrupted. Recover to keep its backup for review and continue with the current preset.",
+                _ => "Gameplay setup was interrupted. Recover the previous gameplay preset before continuing."
+            };
+        }
         catch (Exception error) when (error is IOException or InvalidDataException or UnauthorizedAccessException or JsonException or ArgumentException or NullReferenceException)
         { return "Gameplay recovery needs review: " + error.Message; }
     }
@@ -107,7 +123,7 @@ public sealed partial class HellForgeClient
         await RequireGameplayIdleAsync(ct);
         var before = await ModsAsync(ct);
         var missing = await MissingGameplayAsync(ct);
-        if (missing.Count == 0 && HellForgePreset.Problem(before) == null) { progress?.Report("Required gameplay preset already verified."); return; }
+        if (missing.Count == 0 && GameplayDefaultsApplied && HellForgePreset.Problem(before, checkOrder: true) == null) { progress?.Report("Required gameplay preset already verified."); return; }
         foreach (var artifact in missing)
         {
             var path = FileSafety.Child(staged, artifact.FileName);
@@ -134,7 +150,7 @@ public sealed partial class HellForgeClient
                 await HellForgePack.CopyLocalAsync(old.Archive, path, size, ct);
                 content = await GameplayHashAsync(old.Archive, ct);
             }
-            else { await SnapshotGameplayAsync(old.Folder, path, ct); content = await GameplayHashAsync(old.Folder, ct); }
+            else { await SnapshotGameplayAsync(old.Folder, path, ct); content = await GameplayHashAsync(BackupHashSource(old, path), ct); }
             if (await GameplayHashAsync(path, ct) != content) throw new InvalidDataException("Could not produce a restorable backup of " + old.Name);
             copies.Add(new(old.Id, name, new FileInfo(path).Length, await HellForgePack.HashAsync(path, ct), content));
         }
@@ -143,7 +159,7 @@ public sealed partial class HellForgeClient
         var snapshotPath = FileSafety.Child(backup, "before.json");
         using (var file = new FileStream(snapshotPath, FileMode.CreateNew, FileAccess.Write, FileShare.None))
         { await JsonSerializer.SerializeAsync(file, snapshot, HellForgePack.Json, ct); file.Flush(flushToDisk: true); }
-        var intent = new GameplayIntent(Root, HellForgeGameplayCatalog.Pinned.Id, backup, await HellForgePack.HashAsync(snapshotPath, ct), "pending");
+        var intent = new GameplayIntent(Root, HellForgeGameplayCatalog.Pinned.Id, backup, await HellForgePack.HashAsync(snapshotPath, ct), "pending", GameplayDefaultsApplied);
         await RequireGameplayIdleAsync(ct); ct.ThrowIfCancellationRequested(); WriteGameplayIntent(intent);
         try
         {
@@ -154,14 +170,14 @@ public sealed partial class HellForgeClient
                 await ImportGameplayArchiveAsync(FileSafety.Child(staged, artifact.FileName), ct);
             }
             var imported = await ModsAsync(ct);
-            foreach (var artifact in HellForgeGameplayCatalog.Pinned.Artifacts)
+            foreach (var artifact in HellForgeGameplayCatalog.Pinned.Artifacts.Where(a => !a.Optional || missing.Contains(a)))
             {
                 var mod = imported.Mods.SingleOrDefault(m => m.Id == artifact.Id) ?? throw new InvalidDataException("Forge did not import " + artifact.Name);
                 if (await InstalledGameplayHashAsync(mod, artifact, ct) != artifact.ContentHash) throw new InvalidDataException("Installed content differs for " + artifact.Name);
             }
-            await ConfigureGameplayAsync(ct);
+            await ConfigureGameplayAsync(missing, ct);
             var after = await ModsAsync(ct);
-            if (HellForgePreset.Problem(after with { HostingProblem = null }) is { } issue) throw new InvalidDataException(issue);
+            if (HellForgePreset.Problem(after with { HostingProblem = null }, checkOrder: true) is { } issue) throw new InvalidDataException(issue);
             WriteGameplayIntent(intent with { State = "applied" });
             progress?.Report(after.HostingProblem ?? "Required gameplay mods installed and configured.");
         }
@@ -174,12 +190,13 @@ public sealed partial class HellForgeClient
         }
     }
 
-    async Task ConfigureGameplayAsync(CancellationToken ct)
+    async Task ConfigureGameplayAsync(List<GameplayArtifact> installed, CancellationToken ct)
     {
         var catalog = await ModsAsync(ct);
         var wanted = HellForgeGameplayCatalog.Pinned.Order.ToHashSet(StringComparer.Ordinal);
         foreach (var mod in catalog.Mods)
         {
+            if (HellForgeGameplayCatalog.Pinned.Artifacts.Any(a => a.Id == mod.Id && a.Optional) && installed.All(a => a.Id != mod.Id)) continue;
             var conflict = HellForgePreset.IsConflictingAlternative(mod);
             if (!wanted.Contains(mod.Id) && !conflict) continue;
             var on = wanted.Contains(mod.Id);
@@ -196,7 +213,7 @@ public sealed partial class HellForgeClient
             await RequireGameplayIdleAsync(ct);
             await commands.RunAsync(["mod-pack", "--id", HellForgePreset.GuardDogs, "--option", option, "--on", option == "Targeting Marker" ? "no" : "yes"], ct);
         }
-        var ordered = HellForgeGameplayCatalog.Pinned.Order.Concat(catalog.Mods.Select(m => m.Id).Where(id => !wanted.Contains(id))).ToArray();
+        var ordered = HellForgeGameplayCatalog.Pinned.Order.Where(id => catalog.Mods.Any(m => m.Id == id)).Concat(catalog.Mods.Select(m => m.Id).Where(id => !wanted.Contains(id))).ToArray();
         await RequireGameplayIdleAsync(ct); await commands.RunAsync(["mod-order", "--ids", string.Join(",", ordered)], ct);
         await WriteSharingAsync(true, false, ct);
     }
@@ -244,6 +261,9 @@ public sealed partial class HellForgeClient
         await RequireGameplayIdleAsync(ct); await commands.RunAsync(["mod-add", "--file", copy], ct);
     }
 
+    // The official hash command cannot read a cosmetic pack folder (it wants
+    // hellforge-mod.json); its backup ZIP is what recovery imports, so attest that.
+    internal static string BackupHashSource(HellForgeMod old, string backupZip) => old.Id.StartsWith("pack.", StringComparison.Ordinal) ? backupZip : old.Folder;
     static async Task SnapshotGameplayAsync(string folder, string archive, CancellationToken ct)
     {
         using var output = new FileStream(archive, FileMode.CreateNew, FileAccess.Write, FileShare.None);
@@ -267,6 +287,14 @@ public sealed partial class HellForgeClient
         using var operation = LockPackChange(); RequireCliQuiescent();
         var intent = ReadGameplayIntent() ?? throw new InvalidOperationException("No interrupted gameplay setup was found.");
         if (intent.State != "pending") return;
+        if (intent.Catalog != HellForgeGameplayCatalog.Pinned.Id)
+        {
+            // This launcher cannot restore another catalog's preset. Keep the
+            // record and backup for review rather than blocking setup forever.
+            var retired = GameplayIntentPath + ".retired-" + Guid.NewGuid().ToString("N"); RejectAncestors(retired);
+            File.Move(GameplayIntentPath, retired);
+            throw new InvalidOperationException("Gameplay setup from an earlier launcher cannot be restored automatically. Its backup was kept at " + intent.Backup + ". Prepare again to install the current preset.");
+        }
         await RestoreGameplayAsync(intent, ct);
     }
     async Task RestoreGameplayAsync(GameplayIntent intent, CancellationToken ct)
@@ -316,7 +344,8 @@ public sealed partial class HellForgeClient
         foreach (var copy in snapshot.Backups)
         {
             var actual = verified.Mods.Single(m => m.Id == copy.Id);
-            var restoredPath = actual.Id.StartsWith("pack.", StringComparison.Ordinal) && actual.Archive != null ? actual.Archive : actual.Folder;
+            var restoredPath = !actual.Id.StartsWith("pack.", StringComparison.Ordinal) ? actual.Folder
+                : actual.Archive ?? throw new InvalidDataException("Previous gameplay content could not be confirmed restored: " + actual.Name);
             ValidateModFolder(restoredPath);
             if (await GameplayHashAsync(restoredPath, ct) != copy.ContentHash)
                 throw new InvalidDataException("Previous gameplay content could not be confirmed restored: " + actual.Name);

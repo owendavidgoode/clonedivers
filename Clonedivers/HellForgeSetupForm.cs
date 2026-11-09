@@ -11,6 +11,8 @@ internal sealed class HellForgeSetupForm : Form
     readonly RoundButton next = new() { Height = 48, Dock = DockStyle.Fill, AccessibleName = "Continue Forge setup" };
     readonly Button change = new() { Text = "Change folder…", AutoSize = true }, locate = new() { Text = "Use existing Forge…", AutoSize = true }, cancel = new() { Text = "Close", AutoSize = true };
     readonly ProgressBar progress = new() { Dock = DockStyle.Fill, Height = 8, Visible = false };
+    readonly PictureBox approval = new() { SizeMode = PictureBoxSizeMode.CenterImage, Width = 330, Height = 330, Visible = false, AccessibleName = "Steam Guard sign-in QR code" };
+    readonly Button official = new() { Text = "Official setup (fallback)", AutoSize = true };
     readonly System.Windows.Forms.Timer timer = new() { Interval = 3000 };
     readonly CancellationTokenSource lifetime = new();
     CancellationTokenSource? download;
@@ -35,13 +37,14 @@ internal sealed class HellForgeSetupForm : Form
         pathRow.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100)); pathRow.ColumnStyles.Add(new ColumnStyle(SizeType.AutoSize));
         pathRow.Controls.Add(folder); pathRow.Controls.Add(change); layout.Controls.Add(pathRow);
         folder.BackColor = Disabled; folder.ForeColor = TextMain; change.Margin = new Padding(8, 0, 0, 0);
-        var storage = Row(); storage.Text = "301 MB installer · Allow at least 50 GB for setup, plus appearance packs."; storage.ForeColor = TextMute; layout.Controls.Add(storage);
+        var storage = Row(); storage.Text = "502 MB installer · Allow at least 50 GB for setup, plus appearance packs."; storage.ForeColor = TextMute; layout.Controls.Add(storage);
         detail.Margin = new Padding(0, 14, 0, 12); layout.Controls.Add(detail); layout.Controls.Add(progress);
+        layout.Controls.Add(approval);
         next.BackColor = Orange; next.ForeColor = Bg; next.FlatStyle = FlatStyle.Flat; next.FlatAppearance.BorderSize = 0; next.FlatAppearance.MouseOverBackColor = OrangeHot;
         next.Font = new Font("Segoe UI", 11, FontStyle.Bold); next.Margin = new Padding(0, 12, 0, 8);
         var footer = new TableLayoutPanel { Dock = DockStyle.Bottom, AutoSize = true, ColumnCount = 1, Padding = new Padding(26, 0, 26, 18) };
         footer.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100)); footer.Controls.Add(next);
-        var bottom = new FlowLayoutPanel { AutoSize = true, Dock = DockStyle.Fill, Controls = { locate, cancel } }; footer.Controls.Add(bottom); Controls.Add(footer);
+        var bottom = new FlowLayoutPanel { AutoSize = true, Dock = DockStyle.Fill, Controls = { locate, official, cancel } }; footer.Controls.Add(bottom); Controls.Add(footer);
         layout.SizeChanged += (_, _) => {
             var max = new Size(Math.Max(160, layout.ClientSize.Width - layout.Padding.Horizontal - 20), 0);
             foreach (var label in new[] { intro, steam, installed, game, storage, detail }) label.MaximumSize = max;
@@ -49,6 +52,7 @@ internal sealed class HellForgeSetupForm : Form
         folder.Text = root ?? HellForgeSetup.DefaultRoot;
         if (root != null && !preview) InstallationRoot = HellForgeCommands.ValidateRoot(root);
         next.Click += async (_, _) => await ContinueAsync();
+        official.Click += async (_, _) => { if (!busy && !polling) { try { await OpenManagerAsync(); } catch (Exception e) { detail.Text = e.Message; } UpdateView(); } };
         cancel.Click += (_, _) => { if (busy && canPause) download?.Cancel(); else if (!busy) Close(); };
         change.Click += (_, _) => ChooseFolder(false); locate.Click += async (_, _) => { ChooseFolder(true); await PollAsync(); };
         timer.Tick += async (_, _) => await PollAsync();
@@ -80,8 +84,9 @@ internal sealed class HellForgeSetupForm : Form
         var steamReady = preview || HellForgeForm.SteamReadyCheck();
         steam.Text = "1. Steam — " + (steamReady ? "signed in" : "open Steam and sign in");
         installed.Text = "2. Forge — " + (status != null && HellForgeSetup.IsPrevious(status.Version) ? "update available" : InstallationRoot != null ? "installed" : "ready to install");
-        game.Text = "3. Game copy — " + (ready ? "ready" : managerOpened ? "finish in the Forge window" : "set up after installation");
+        game.Text = "3. Game copy — " + (ready ? "ready" : managerOpened ? "finish in the Forge window" : "download or resume here");
         change.Enabled = locate.Enabled = !busy && !polling && !managerOpened;
+        official.Enabled = !busy && !polling && InstallationRoot != null && status?.Running != true;
         next.Enabled = !preview && !busy && !polling && status?.Running != true && !Game.IsRunning();
         cancel.Enabled = !busy || canPause; cancel.Text = busy ? canPause ? "Pause download" : "Installing…" : "Close";
         next.Text = ready ? "RETURN TO CLONEDIVERS" : !steamReady ? "OPEN STEAM" : InstallationRoot == null ? "INSTALL FORGE" : status != null && HellForgeSetup.IsPrevious(status.Version) ? "UPDATE HELLFORGE" : "CONTINUE GAME SETUP";
@@ -104,28 +109,51 @@ internal sealed class HellForgeSetupForm : Form
         busy = true; UpdateView();
         try
         {
+            // Both installs and upgrades only download while CanCancel; upgrades
+            // stop observing the token once their recovery record is saved.
+            download = CancellationTokenSource.CreateLinkedTokenSource(lifetime.Token);
+            var updates = new Progress<ForgeSetupProgress>(p => {
+                if (IsDisposed) return;
+                canPause = p.CanCancel;
+                progress.Visible = true; progress.Style = p.Total > 0 ? ProgressBarStyle.Continuous : ProgressBarStyle.Marquee;
+                if (p.Total > 0) progress.Value = (int)Math.Clamp(p.Done * 100 / p.Total, 0, 100);
+                if (p.QrRows != null)
+                {
+                    ClientSize = new Size(ClientSize.Width, Math.Max(ClientSize.Height, 830));
+                    var pixels = Math.Min(330, Math.Max(120, approval.Parent!.ClientSize.Height - 60));
+                    SetApproval(SteamSetupOutput.RenderQr(p.QrRows, pixels));
+                }
+                else if (p.Message == "Signed in.") SetApproval(null);
+                detail.Text = p.Message + (p.Total > 100 ? $" {Pack.FormatBytes(p.Done)} / {Pack.FormatBytes(p.Total)}" : "");
+                UpdateView();
+            });
             if (InstallationRoot == null)
             {
-                download = CancellationTokenSource.CreateLinkedTokenSource(lifetime.Token);
                 canPause = true;
-                var updates = new Progress<ForgeSetupProgress>(p => {
-                    if (IsDisposed) return;
-                    canPause = p.CanCancel;
-                    progress.Visible = true; progress.Style = p.Total > 0 ? ProgressBarStyle.Continuous : ProgressBarStyle.Marquee;
-                    if (p.Total > 0) progress.Value = (int)Math.Clamp(p.Done * 100 / p.Total, 0, 100);
-                    detail.Text = p.Message + (p.Total > 0 ? $" {Pack.FormatBytes(p.Done)} / {Pack.FormatBytes(p.Total)}" : "");
-                    UpdateView();
-                });
                 InstallationRoot = await HellForgeSetup.InstallAsync(folder.Text, updates, download.Token);
                 Connected?.Invoke(InstallationRoot);
             }
             else if (status != null && HellForgeSetup.IsPrevious(status.Version))
-                await HellForgeSetup.UpdateAsync(InstallationRoot, new Progress<ForgeSetupProgress>(p => { if (!IsDisposed) detail.Text = p.Message; }), lifetime.Token);
-            await OpenManagerAsync();
+            { canPause = true; await HellForgeSetup.UpdateAsync(InstallationRoot, updates, download.Token); }
+            if (ManagerRunning(InstallationRoot!)) throw new InvalidOperationException("Close the HellForge window before downloading here, or finish with Official setup.");
+            await HellForgeSetup.PrepareGameAsync(InstallationRoot!, updates, download.Token);
+            status = await new HellForgeClient(InstallationRoot!).StatusAsync(download.Token);
+            ready = status.GameCopyReady && status.RunnerReady && !status.Running && status.CompatibilityProblem == null;
+            if (ready) { busy = false; DialogResult = DialogResult.OK; Close(); }
         }
-        catch (OperationCanceledException) { detail.Text = "Download paused. Continue to resume it; existing installations are unchanged."; }
+        catch (OperationCanceledException) { detail.Text = "Download paused. Continue to resume the saved files. Steam may ask for a fresh QR approval."; }
         catch (Exception e) { detail.Text = e.Message; }
-        finally { download?.Dispose(); download = null; canPause = false; busy = false; progress.Visible = false; UpdateView(); }
+        finally { download?.Dispose(); download = null; canPause = false; busy = false; SetApproval(null); progress.Visible = false; if (!IsDisposed) UpdateView(); }
+    }
+
+    void SetApproval(Image? image)
+    {
+        var previous = approval.Image; approval.Image = image; approval.Visible = image != null; previous?.Dispose();
+        if (image != null)
+        {
+            approval.Size = image.Size;
+            if (approval.Parent is ScrollableControl scroller) scroller.ScrollControlIntoView(approval);
+        }
     }
 
     async Task OpenManagerAsync()
@@ -182,7 +210,7 @@ internal sealed class HellForgeSetupForm : Form
 
     protected override void Dispose(bool disposing)
     {
-        if (disposing && !disposed) { disposed = true; timer.Stop(); timer.Dispose(); lifetime.Cancel(); download?.Dispose(); manager?.Dispose(); lifetime.Dispose(); }
+        if (disposing && !disposed) { disposed = true; timer.Stop(); timer.Dispose(); lifetime.Cancel(); SetApproval(null); manager?.Dispose(); lifetime.Dispose(); }
         base.Dispose(disposing);
     }
 }

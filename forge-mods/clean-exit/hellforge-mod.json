@@ -1,0 +1,9 @@
+{
+  "format": 1,
+  "id": "clonedivers.clean-exit",
+  "name": "Clonedivers Clean Exit",
+  "version": "0.2.0",
+  "description": "Ends the shutdown crash or hang after the engine accepts Application.quit (build 25480438). Client only; changes no game data.",
+  "gameplay": false,
+  "code": { "dll": "clean_exit.dll", "sdk": 16 }
+}

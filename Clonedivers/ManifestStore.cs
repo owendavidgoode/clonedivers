@@ -12,13 +12,17 @@ public static class ManifestStore
     // Keep a usable profile pack during a feed outage, but do not lose the independent
     // launcher upgrade advertised by the legacy fallback. CanSelfUpdate still checks
     // the release URL, version and digest before the UI offers it.
+    // Without saved profiles the frozen legacy pack (built for an older game) must not become current.
     public static Manifest PreserveProfiles(Manifest? saved, Manifest fresh)
     {
         ValidateForUse(fresh);
-        return saved?.Format == 3 && fresh.Format < 3
-            ? new Manifest { Format = saved.Format, Pack = saved.Pack, App = fresh.App ?? saved.App }
-            : fresh;
+        if (saved?.Format == 3 && fresh.Format < 3) return new Manifest { Format = saved.Format, Pack = saved.Pack, App = fresh.App ?? saved.App };
+        if (LegacyFallbacks.TryGetValue(fresh, out _)) throw new InvalidDataException("The profile feed is unavailable. Pack information will load when it responds.");
+        return fresh;
     }
+
+    static readonly System.Runtime.CompilerServices.ConditionalWeakTable<Manifest, object> LegacyFallbacks = new();
+    internal static Manifest MarkLegacyFallback(Manifest manifest) { if (manifest.Format < 3) LegacyFallbacks.AddOrUpdate(manifest, manifest); return manifest; }
 
     public static void ValidateForUse(Manifest manifest)
     {
@@ -70,7 +74,7 @@ public static class ManifestStore
         catch (Exception) when (!ct.IsCancellationRequested)
         {
             // The old feed remains readable throughout the coordinated launcher rollout.
-            return await Pack.FetchManifestAsync(null, ct);
+            return MarkLegacyFallback(await Pack.FetchManifestAsync(null, ct));
         }
     }
 }

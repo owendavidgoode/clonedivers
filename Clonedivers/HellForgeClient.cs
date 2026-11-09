@@ -101,10 +101,18 @@ public sealed class HellForgeCommands : IHellForgeCommands
             WorkingDirectory = Root
         };
         foreach (var arg in args) start.ArgumentList.Add(arg);
-        using var timeout = CancellationTokenSource.CreateLinkedTokenSource(ct);
-        timeout.CancelAfter(TimeSpan.FromMinutes(args.FirstOrDefault() == "mod-add" ? 10 : 2));
-        try { return await ReadJsonProcessAsync(start, args.FirstOrDefault() == "play", timeout.Token); }
+        var command = args.FirstOrDefault() ?? "";
+        try { return await TimedAsync(command, TimeSpan.FromMinutes(command == "mod-add" ? 10 : 2), t => ReadJsonProcessAsync(start, command == "play", t), ct); }
         catch (HellForgeCommandOutcomeUnknownException) { UncertainRoots[Root] = true; throw; }
+    }
+    // A deadline is not a player cancel: callers show cancellations as "Operation cancelled" or drop them silently.
+    internal static async Task<JsonElement> TimedAsync(string command, TimeSpan limit, Func<CancellationToken, Task<JsonElement>> run, CancellationToken ct)
+    {
+        using var timeout = CancellationTokenSource.CreateLinkedTokenSource(ct);
+        timeout.CancelAfter(limit);
+        try { return await run(timeout.Token); }
+        catch (OperationCanceledException error) when (timeout.IsCancellationRequested && !ct.IsCancellationRequested)
+        { throw new TimeoutException($"HellForge CLI '{command}' did not finish within {limit.TotalMinutes:0} minutes and was stopped. Retry, or open Setup & mods to inspect HellForge.", error); }
     }
 
     internal static bool ReadAfterUncertain(IReadOnlyList<string> args) => args.FirstOrDefault() is "status" or "mods" or "logs" or "stop" || args.Count == 1 && args[0] == "profiles";
@@ -227,6 +235,8 @@ public sealed partial class HellForgeClient(string root, IHellForgeCommands comm
             if (!File.Exists(path) || new FileInfo(path).Length > 1024 * 1024) return (null, null);
             using var result = JsonDocument.Parse(File.ReadAllText(path));
             var json = result.RootElement;
+            if (json.ValueKind == JsonValueKind.Object && CleanupProblem(json) is { } cleanup)
+                return ($"HellForge did not finish cleaning up the last session ({cleanup}). Check HellForge's session logs before launching again.", null);
             // "observed" describes runner completion, even when the game crashed with exit1.
             if (json.ValueKind == JsonValueKind.Object && json.TryGetProperty("completedUtc", out var completed) &&
                 completed.ValueKind == JsonValueKind.String && json.TryGetProperty("exitCode", out var code) &&
@@ -243,6 +253,17 @@ public sealed partial class HellForgeClient(string root, IHellForgeCommands comm
             // Missing, pruned or partially written diagnostics must not prevent status checks.
         }
         return (null, null);
+    }
+
+    // HellForge 0.4 never writes "cleanup_failed": PlaySession.CleanUp records each failed step under its own key while
+    // status stays "observed". Mirror its SessionIntegrity.LastEndedUnclean, plus the steps that put files back.
+    internal static string? CleanupProblem(JsonElement result)
+    {
+        foreach (var key in new[] { "cleanupError", "jobStopTimeout", "jobStopError", "releaseHoldsError", "sdkShimRestoreFailure", "sandboxCopyBackError" })
+            if (result.TryGetProperty(key, out var value)) return value.ValueKind == JsonValueKind.String ? key + ": " + value.GetString() : key;
+        foreach (var key in new[] { "jobEmpty", "sdkShimOriginalsRestored" })
+            if (result.TryGetProperty(key, out var value) && value.ValueKind == JsonValueKind.False) return key + " = false";
+        return null;
     }
 
     static bool HasDocumentedQuitCrash(string folder)
@@ -270,6 +291,43 @@ public sealed partial class HellForgeClient(string root, IHellForgeCommands comm
             return found;
         }
         catch (Exception e) when (e is IOException or UnauthorizedAccessException) { return false; }
+    }
+    // `HellForge.Cli mods` rewrites mods/.unpacked/.zip-hashes.json through a random .partial file and
+    // leaves that file behind when another process holds the target (HellForge 0.4 Mods.SaveHashes).
+    // A 5-second poll left one per poll (11,405 on the owner's PC), so the launcher rescans only when the
+    // mods folder changed and sweeps old leftovers while idle.
+    internal string ModsFingerprint()
+    {
+        var folder = Path.Combine(Root, "mods");
+        if (!Directory.Exists(folder)) return "";
+        return string.Join("\n", new DirectoryInfo(folder).EnumerateFileSystemInfos("*", new EnumerationOptions { AttributesToSkip = 0 })
+            .Where(i => !i.Name.StartsWith('.'))
+            .Select(i => $"{i.Name}|{(i as FileInfo)?.Length}|{i.LastWriteTimeUtc.Ticks}")
+            .OrderBy(p => p, StringComparer.Ordinal));
+    }
+    // Each account review starts HellForge.LocalBackend and re-hashes the capture. Its outcome depends only on the capture,
+    // the profile's receipt/journal/profile.json and its restore/import backups (plus the Steam user, added by the caller).
+    internal string AccountFingerprint()
+    {
+        var profile = Path.Combine(Root, "profiles", HellForgeAccount.Profile);
+        return string.Join("\n", new[] { Path.Combine(Root, "account-snapshot", HellForgeAccount.Profile), profile, Path.Combine(profile, "backups") }
+            .Where(Directory.Exists).SelectMany(folder => new DirectoryInfo(folder).EnumerateFiles("*", new EnumerationOptions { AttributesToSkip = 0 }))
+            .Select(f => $"{f.FullName}|{f.Length}|{f.LastWriteTimeUtc.Ticks}").OrderBy(p => p, StringComparer.Ordinal));
+    }
+    static readonly System.Text.RegularExpressions.Regex HashPartial = new(@"^\.zip-hashes\.json\.[0-9a-f]{8}\.partial$");
+    internal int SweepHashPartials(DateTime olderThanUtc)
+    {
+        var cache = Path.Combine(Root, "mods", ".unpacked");
+        if (!Directory.Exists(cache)) return 0;
+        FileSafety.RejectLink(cache);
+        var removed = 0;
+        foreach (var file in new DirectoryInfo(cache).EnumerateFiles(".zip-hashes.json.*.partial", new EnumerationOptions { AttributesToSkip = 0 }))
+        {
+            if (!HashPartial.IsMatch(file.Name) || file.LastWriteTimeUtc >= olderThanUtc || file.Attributes.HasFlag(FileAttributes.ReparsePoint)) continue;
+            try { file.Delete(); removed++; }
+            catch (Exception e) when (e is IOException or UnauthorizedAccessException) { }
+        }
+        return removed;
     }
     public async Task<HellForgeMods> ModsAsync(CancellationToken ct = default)
     {
@@ -301,10 +359,10 @@ public sealed partial class HellForgeClient(string root, IHellForgeCommands comm
             return "This preset requires HellForge 0.4.0-beta, engine0.1.47 and SDK16. Review the installed version in official HellForge before preparing or launching; the launcher will not change engines.";
         static bool True(JsonElement parent, string key) => parent.ValueKind == JsonValueKind.Object && parent.TryGetProperty(key, out var value) && value.ValueKind == JsonValueKind.True;
         if (!json.TryGetProperty("settings", out var settings) || !True(settings, "sandbox") ||
-            OptionalText(json, "networkBlock") != (linuxNamespace ? "linux-netns" : "wfp") ||
+            (linuxNamespace ? OptionalText(json, "networkBlock") != "linux-netns" : OptionalText(json, "networkBlock") is not ("wfp" or "firewall")) ||
             linuxNamespace && !OperatingSystem.IsLinux() && (!json.TryGetProperty("ready", out var ready) || !True(ready, "linuxNamespace")))
             return linuxNamespace ? "Official Linux namespace and sandbox checks must pass before preparing or launching. Review official HellForge setup; isolation settings will not be changed automatically."
-                : "Official WFP isolation and sandbox checks must pass before preparing or launching. Review official HellForge setup; isolation settings will not be changed automatically.";
+                : "Continue guided setup to enable the official sandbox. HellForge verifies and installs its network block at launch, with Windows approval when needed.";
         return null;
     }
     public static void RequireReady(HellForgeStatus status)
@@ -331,7 +389,8 @@ public sealed partial class HellForgeClient(string root, IHellForgeCommands comm
         if (limit < TimeSpan.Zero || limit > TimeSpan.FromMinutes(2)) throw new ArgumentOutOfRangeException(nameof(wait));
         var status = await StatusAsync(ct);
         // Never stop an unrelated Steam game, and allow recovery while the copy is staged or the build has changed.
-        if (!status.Running) return;
+        // A session that ended before this request still has its cleanup checked before it is reported complete.
+        if (!status.Running) { RequireCompletedCleanup(status); return; }
         JsonElement response;
         try { response = await commands.RunAsync(["stop"], ct); }
         catch (IOException)
@@ -405,10 +464,19 @@ public sealed partial class HellForgeClient(string root, IHellForgeCommands comm
         return HellForgeAccount.Profile;
     }
 
-    public async Task ImportAccountAsync(CancellationToken ct = default)
+    public Task<int> OpenOwnedWarbondsAsync(CancellationToken ct = default) => new HellForgeWarbonds(Root, commands).OpenAsync(ct);
+    // Best effort after an import or an idle review: an open HellForge window or a busy profile only defers it to the next review.
+    public async Task<int> TryOpenOwnedWarbondsAsync(CancellationToken ct = default)
+    {
+        try { return await OpenOwnedWarbondsAsync(ct); }
+        catch (Exception e) when (e is InvalidOperationException or IOException or UnauthorizedAccessException or InvalidDataException or JsonException or TimeoutException) { return 0; }
+    }
+
+    public async Task<int> ImportAccountAsync(CancellationToken ct = default)
     {
         await SelectAccountAsync(ct);
         await new HellForgeAccount(Root).ImportAsync(ct);
+        return await TryOpenOwnedWarbondsAsync(ct);
     }
 
     public async Task InstallPackAsync(string folder, HellForgePack.Selection selection, CancellationToken ct = default)
@@ -661,8 +729,8 @@ public sealed partial class HellForgeClient(string root, IHellForgeCommands comm
         if (!status.Multiplayer || !status.LocalBackend) throw new InvalidDataException("Enable Steam co-op and the local backend in HellForge settings.");
         var catalog = await ModsAsync(ct);
         var selected = RequireSelected(catalog, selection);
-        if (HellForgePreset.Problem(catalog) is { } preset) throw new InvalidDataException(preset);
-        if ((await MissingGameplayAsync(ct)).Count != 0) throw new InvalidDataException("Required gameplay content changed. Use Prepare Star Wars pack to verify and repair the preset before launching.");
+        if (HellForgePreset.Problem(catalog, checkOrder: true) is { } preset) throw new InvalidDataException(preset);
+        if ((await MissingGameplayAsync(ct)).Any(a => !a.Optional)) throw new InvalidDataException("Required gameplay content changed. Use Prepare Star Wars pack to verify and repair the preset before launching.");
         if (!catalog.Mods.Any(m => m.Id == DifficultyId && m.Enabled)) throw new InvalidDataException("Open HellForge setup to install its built-in difficulty 11, then enable it on the Mods page.");
         ValidateModFolder(selected.Folder);
         await HellForgePack.VerifyAsync(selected.Folder, selection, ct);
@@ -678,8 +746,8 @@ public sealed partial class HellForgeClient(string root, IHellForgeCommands comm
         if (!status.Multiplayer || !status.LocalBackend) throw new InvalidDataException("Enable Steam co-op and the local backend in HellForge settings.");
         var catalog = await ModsAsync(ct);
         RequireRegular(catalog);
-        if (HellForgePreset.Problem(catalog) is { } preset) throw new InvalidDataException(preset);
-        if ((await MissingGameplayAsync(ct)).Count != 0) throw new InvalidDataException("Required gameplay content changed. Use Prepare to verify and repair the preset before launching.");
+        if (HellForgePreset.Problem(catalog, checkOrder: true) is { } preset) throw new InvalidDataException(preset);
+        if ((await MissingGameplayAsync(ct)).Any(a => !a.Optional)) throw new InvalidDataException("Required gameplay content changed. Use Prepare to verify and repair the preset before launching.");
         if (!catalog.Mods.Any(m => m.Id == DifficultyId && m.Enabled)) throw new InvalidDataException("Enable HellForge's bundled difficulty mod on its Mods page.");
         return await StartAsync(ct, profile);
     }

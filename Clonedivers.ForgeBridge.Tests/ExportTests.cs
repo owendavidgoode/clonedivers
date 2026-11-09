@@ -68,6 +68,7 @@ internal static class ExportTests
             bool stopped = false;
             try { await HellForgePack.CopyExactAsync(midInput, midOutput, 16, midCancellation.Token); } catch (OperationCanceledException) { stopped = true; }
             check(stopped && midOutput.Length == 0, "cancellation between an asynchronous read and write stops the copy immediately");
+            await ResumeTests(root, check);
         }
         finally
         {
@@ -76,6 +77,39 @@ internal static class ExportTests
                 !Path.GetFileName(resolved).StartsWith("clonedivers-export-io-", StringComparison.Ordinal)) throw new IOException("Fixture cleanup escaped its temporary root.");
             Directory.Delete(resolved, true);
         }
+    }
+    static async Task ResumeTests(string root, Action<bool, string> check)
+    {
+        var exports = Path.Combine(root, "cache", "exports"); Directory.CreateDirectory(exports);
+        byte[] first = Encoding.UTF8.GetBytes("first verified pack file"), second = Encoding.UTF8.GetBytes("second verified pack file");
+        string Hash(byte[] data) => Convert.ToHexString(SHA256.HashData(data)).ToLowerInvariant();
+        var files = new List<PackFile> { new() { Name = "a.patch_0", Size = first.Length, Sha256 = Hash(first) }, new() { Name = "b.patch_0", Size = second.Length, Sha256 = Hash(second) } };
+        var selection = new HellForgePack.Selection("clonedivers", "full", "fixture", HellForgePack.SupportedBuild, new string('a', 64), [], files);
+        string Output() => Path.Combine(exports, "clonedivers-" + Guid.NewGuid().ToString("N"));
+        var good = Path.Combine(root, "good.bin"); await File.WriteAllBytesAsync(good, first);
+        var bad = Path.Combine(root, "bad.bin"); await File.WriteAllBytesAsync(bad, Enumerable.Repeat((byte)'x', second.Length).ToArray());
+        var interrupted = new HellForgePack.Plan(selection, Output(), new(StringComparer.OrdinalIgnoreCase) { [files[0].Sha256] = good, [files[1].Sha256] = bad });
+        try { await HellForgePack.ExportAsync(interrupted, false, null, default, _ => null); check(false, "a tampered second file must stop the export"); }
+        catch (InvalidDataException)
+        {
+            check(File.Exists(Path.Combine(interrupted.Output, "a.patch_0")) && !File.Exists(Path.Combine(interrupted.Output, "b.patch_0")) && !File.Exists(Path.Combine(interrupted.Output, HellForgePack.ReceiptName)),
+                "an interrupted export keeps only its verified files and no completion receipt");
+        }
+        var empty = new HellForgePack.Plan(selection, Output(), new(StringComparer.OrdinalIgnoreCase) { [files[0].Sha256] = bad });
+        try { await HellForgePack.ExportAsync(empty, true, null, default, _ => null); check(false, "a tampered first file must stop the export"); }
+        catch (InvalidDataException) { check(!Directory.Exists(empty.Output), "an export stopped before verifying any file leaves no folder behind"); }
+        Directory.SetLastWriteTimeUtc(interrupted.Output, DateTime.UtcNow.AddHours(-1));
+        var finished = Path.Combine(exports, "clonedivers-" + Guid.NewGuid().ToString("N")); Directory.CreateDirectory(finished);
+        File.WriteAllText(Path.Combine(finished, HellForgePack.ReceiptName), "{}"); Directory.SetLastWriteTimeUtc(finished, DateTime.UtcNow.AddHours(-1));
+        var foreign = Path.Combine(exports, "keep me"); Directory.CreateDirectory(foreign); Directory.SetLastWriteTimeUtc(foreign, DateTime.UtcNow.AddHours(-1));
+        var sources = Path.Combine(root, "sources"); Directory.CreateDirectory(sources); await File.WriteAllBytesAsync(Path.Combine(sources, "second.bin"), second);
+        var retry = await HellForgePack.PlanAsync(selection, Output(), [sources]);
+        check(retry.Local.TryGetValue(files[0].Sha256, out var reused) && reused.StartsWith(interrupted.Output, StringComparison.OrdinalIgnoreCase) && retry.Missing.Count == 0,
+            "the next plan reuses an interrupted export's verified files instead of downloading them again");
+        await HellForgePack.ExportAsync(retry, false, null, default, _ => null);
+        await HellForgePack.VerifyAsync(retry.Output, selection);
+        check(!Directory.Exists(interrupted.Output) && Directory.Exists(finished) && Directory.Exists(foreign),
+            "a completed export prunes earlier interrupted exports but keeps receipted and unrelated folders");
     }
     sealed class CancelAfterReadStream(CancellationTokenSource cancellation) : MemoryStream(new byte[16])
     {

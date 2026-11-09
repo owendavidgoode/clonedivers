@@ -30,6 +30,8 @@ static class SessionLogTests
         File.WriteAllText(path, JsonSerializer.Serialize(new[] {new SessionLog.Entry(now, "launch-requested", unsafeContext, -99), new SessionLog.Entry(now, "secret event", selection)}));
         var report = SessionLog.Format(SessionLog.Read(path));
         check(!report.Contains("SecretName") && !report.Contains("secret.invalid") && !report.Contains("secret event") && !report.Contains("-99"), "tampered session fields are allowlisted on read and export");
+        SessionLog.Record(new(now, "launch-requested", selection with { Mode = LauncherModes.Name(LauncherMode.EmpireDivers) }), path);
+        check(SessionLog.Read(path).Last().Selection.Mode == "EmpireDivers" && SessionLog.Format(SessionLog.Read(path).TakeLast(1).ToArray()).Contains("mode=EmpireDivers"), "Empire sessions keep their mode in history and support reports");
         File.WriteAllText(path, "broken");
         check(SessionLog.Read(path).Count == 0, "corrupt session log is nonfatal");
         SessionLog.Record(new(now, "launcher-opened", selection), path);

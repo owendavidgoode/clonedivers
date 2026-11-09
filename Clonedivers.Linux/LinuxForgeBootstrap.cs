@@ -33,6 +33,22 @@ internal static class LinuxForgeBootstrap
         var found = candidates.Where(path => File.Exists(Path.Combine(path, "hellforge-install.json"))).Distinct(StringComparer.Ordinal).ToArray();
         return found.Length == 1 ? found[0] : null;
     }
+    /// <summary>A selection counts only when it holds the official marker inside a dedicated prefix; blank or foreign folders never block setup.</summary>
+    internal static string? ExistingRoot(string? root)
+    {
+        root = root?.Trim();
+        if (string.IsNullOrEmpty(root) || !File.Exists(Path.Combine(root, "hellforge-install.json"))) return null;
+        try { PrefixFor(root); return root; } catch (InvalidDataException) { return null; }
+    }
+    internal static string? StartupRoot(string? saved, string? home = null) =>
+        ExistingRoot(saved) ?? Detect(home: home) ?? (string.IsNullOrWhiteSpace(saved) ? null : saved.Trim()); // a stale saved folder never disables discovery
+    /// <summary>Under the setup lease no other run uses earlier staging, so only this run's copy of the 440 MB payload ever stays on disk.</summary>
+    internal static void SweepStaging(string cache) { foreach (var folder in Directory.EnumerateDirectories(cache, "unpacked-*")) RemoveStaging(folder); }
+    static void RemoveStaging(string folder)
+    {
+        try { if (Directory.Exists(folder) && new DirectoryInfo(folder).LinkTarget == null) Directory.Delete(folder, true); }
+        catch (Exception error) when (error is IOException or UnauthorizedAccessException) { } // cleanup never masks the setup result
+    }
     internal static async Task<string> ExtractAsync(string archive, string output, CancellationToken ct)
     {
         HellForgeGameplayCatalog.RejectLinks(archive); HellForgeGameplayCatalog.RejectLinks(output);
@@ -66,22 +82,34 @@ internal static class LinuxForgeBootstrap
         if (!OperatingSystem.IsLinux()) throw new PlatformNotSupportedException("Native Forge setup requires Linux.");
         if (!LinuxForgePlan.SupportsArchitecture(System.Runtime.InteropServices.RuntimeInformation.ProcessArchitecture)) throw new PlatformNotSupportedException("The native Forge installer requires x86-64 Linux.");
         if (Game.IsRunning()) throw new InvalidOperationException("End HD2 before upgrading its separate Forge application.");
+        existing = ExistingRoot(existing);
         if (MissingTools().Length != 0) await InstallToolsAsync(ct);
         var cache = Path.Combine(PlatformPaths.ConfigDirectory, "installers", "forge-0.4.0"); HellForgeGameplayCatalog.RejectLinks(cache); Directory.CreateDirectory(cache);
         using var lease = new FileStream(Path.Combine(cache, "setup.lock"), FileMode.OpenOrCreate, FileAccess.ReadWrite, FileShare.None);
+        SweepStaging(cache);
         var archive = Path.Combine(cache, Installer.Name);
         progress?.Report("Downloading and verifying official native Forge 0.4.0 setup…");
         await Pack.DownloadAsync(Installer, archive, null, ct);
         if (Game.IsRunning()) throw new InvalidOperationException("HD2 started during download. Close it; the verified installer is saved.");
         using var pinned = File.Open(archive, FileMode.Open, FileAccess.Read, FileShare.Read);
         if (pinned.Length != Installer.Size || await HellForgePack.HashAsync(archive, ct) != Installer.Sha256) throw new InvalidDataException("Native installer verification failed.");
-        var program = await ExtractAsync(archive, Path.Combine(cache, "unpacked-" + Guid.NewGuid().ToString("N")), ct);
-        progress?.Report(existing == null ? "In official setup, choose Proton and Install. Clonedivers will reconnect automatically." :
-            "In official setup, keep your existing prefix: " + PrefixFor(existing) + ". The installer keeps your game, account and mods.");
-        using var process = Process.Start(new ProcessStartInfo(program) { WorkingDirectory = Path.GetDirectoryName(program)!, UseShellExecute = false })
-            ?? throw new IOException("Official native setup did not open.");
-        await process.WaitForExitAsync(ct);
-        if (process.ExitCode != 0) throw new IOException("Official native setup ended with exit " + process.ExitCode + ". Existing profiles were not reset.");
+        var staging = Path.Combine(cache, "unpacked-" + Guid.NewGuid().ToString("N"));
+        Process? process = null;
+        try
+        {
+            var program = await ExtractAsync(archive, staging, ct);
+            progress?.Report(existing == null ? "In official setup, choose Proton and Install. Clonedivers will reconnect automatically." :
+                "In official setup, keep your existing prefix: " + PrefixFor(existing) + ". The installer keeps your game, account and mods.");
+            process = Process.Start(new ProcessStartInfo(program) { WorkingDirectory = Path.GetDirectoryName(program)!, UseShellExecute = false })
+                ?? throw new IOException("Official native setup did not open.");
+            await process.WaitForExitAsync(ct);
+            if (process.ExitCode != 0) throw new IOException("Official native setup ended with exit " + process.ExitCode + ". Existing profiles were not reset.");
+        }
+        finally
+        {
+            if (process?.HasExited != false) RemoveStaging(staging); // never pull the payload from under a still-running official setup
+            process?.Dispose();
+        }
         var root = Detect(existing);
         if (root == null) throw new IOException("Setup did not leave a discoverable installation. Use Locate to select the folder containing hellforge-install.json.");
         return root;

@@ -1,6 +1,7 @@
 <Project Sdk="Microsoft.NET.Sdk">
   <PropertyGroup><OutputType>Exe</OutputType><TargetFramework>net8.0</TargetFramework><Nullable>enable</Nullable><ImplicitUsings>enable</ImplicitUsings></PropertyGroup>
   <ItemGroup><ProjectReference Include="../Clonedivers.ForgeBridge/Clonedivers.ForgeBridge.csproj" /></ItemGroup>
+  <ItemGroup><Compile Include="../Clonedivers.Tests/WarbondTests.cs" Link="SharedWarbondTests.cs" /></ItemGroup>
   <ItemGroup><Compile Include="../Clonedivers.Linux/LinuxForgePlan.cs" Link="LinuxForgePlan.cs" /></ItemGroup>
   <ItemGroup><Compile Include="../Clonedivers.Linux/LinuxForgeTransport.cs" Link="LinuxForgeTransport.cs" /></ItemGroup>
   <ItemGroup><Compile Include="../Clonedivers.Linux/LinuxForgePlayer.cs" Link="LinuxForgePlayer.cs" /></ItemGroup>

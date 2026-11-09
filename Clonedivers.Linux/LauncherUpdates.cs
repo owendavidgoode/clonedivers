@@ -101,7 +101,7 @@ internal sealed class LauncherUpdates
                 result = new Cache(now(), latest.Version, true);
             }
             catch (OperationCanceledException) when (ct.IsCancellationRequested) { throw; }
-            catch (Exception ex) when (ex is HttpRequestException or IOException or JsonException or OperationCanceledException or InvalidOperationException)
+            catch (Exception ex) when (ex is HttpRequestException or IOException or JsonException or OperationCanceledException or InvalidOperationException or InvalidDataException)
             { result = new Cache(now(), cached?.LatestVersion, false); }
             try
             {
