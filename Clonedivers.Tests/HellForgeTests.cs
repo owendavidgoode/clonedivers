@@ -84,8 +84,26 @@ static class HellForgeTests
             var readyMods = HellForgePreset.Required.Select(item => new HellForgeMod(item.Id, item.Name, true, "fixture", [], item.Version,
                 item.Id == HellForgePreset.GuardDogs ? [new("Smarter Guard Dogs and Sentries", true), new("Guard Dogs", true), new("Sentries", true), new("Intelligence", true), new("Safety", true), new("Sentry Safety", true), new("SEAF Safety", true), new("Targeting Marker", false)] : null)).ToList();
             readyMods.Add(new("skyeshade.vanilla-plus", "Vanilla Plus", true, "fixture", []));
+            readyMods.Sort((a, b) => HellForgeGameplayCatalog.Pinned.Order.IndexOf(a.Id).CompareTo(HellForgeGameplayCatalog.Pinned.Order.IndexOf(b.Id)));
             Set("lastStatus", new HellForgeStatus(Path.GetTempPath(), "fixture", HellForgePack.SupportedBuild, true, true, false, true, true, null, null));
             Set("lastMods", new HellForgeMods(readyMods, [], null));
+            foreach (var issue in new[] { "difficulty", "order", "sharing", "overlap", "notices" })
+            {
+                var drift = readyMods.ToList();
+                if (issue == "difficulty") { var index = drift.FindIndex(m => m.Id == HellForgeClient.DifficultyId); drift[index] = drift[index] with { Enabled = false }; }
+                if (issue == "order") drift.Reverse();
+                if (issue == "overlap") drift.Add(new("pack.80a03e3b-a671-4e54-a2ce-52c35bb64c91", "Reinforcement Beacons Fixed", true, "fixture", []));
+                Set("lastMods", new HellForgeMods(drift, issue == "notices" ? ["Duplicate custom mod ID"] : [], null, issue == "sharing" ? HellForgePreset.SharingProblem(null) : null));
+                type.GetMethod("UpdateView", members)!.Invoke(form, null);
+                check(end.Enabled && end.Text == (issue == "notices" ? "REVIEW MOD CHOICES" : "INSTALL REQUIRED MODS"),
+                    issue + " has an enabled main action for repair or an explained player choice");
+            }
+            Set("lastMods", new HellForgeMods(readyMods, [], null));
+            Set("lastStatus", new HellForgeStatus(Path.GetTempPath(), HellForgeRelease.Version, HellForgePack.SupportedBuild, true, true, false, true, true, null, null,
+                CompatibilityProblem: "Continue guided setup to enable the official sandbox.", Engine: HellForgeRelease.Engine, ModSdk: HellForgeRelease.Sdk));
+            type.GetMethod("UpdateView", members)!.Invoke(form, null);
+            check(end.Enabled && end.Text == "CONTINUE GUIDED SETUP", "sandbox setup has a reachable guided repair with the pinned engine");
+            Set("lastStatus", new HellForgeStatus(Path.GetTempPath(), "fixture", HellForgePack.SupportedBuild, true, true, false, true, true, null, null));
             Set("lastAccount", new HellForgeAccountState(false, false, "No verified capture in default."));
             type.GetMethod("UpdateView", members)!.Invoke(form, null);
             check(end.Enabled && end.Text == "SYNC HD2 ACCOUNT", "missing account capture offers an enabled next action instead of a grey launch button");
@@ -167,6 +185,14 @@ static class HellForgeTests
                 var setupNext = setup.Controls.Cast<Control>().SelectMany(Children).OfType<Button>().Single(b => b.AccessibleName == "Continue Forge setup");
                 check(setupNext.Text == "INSTALL FORGE" && setup.PointToClient(setupNext.PointToScreen(new Point(0, setupNext.Height))).Y <= setup.ClientSize.Height,
                     "small first-run windows keep the install action visible outside the scrolling instructions");
+                setup.ClientSize = new Size(700, 830);
+                var qrRows = Enumerable.Repeat(new string('\u2588', 29), 15).ToArray();
+                typeof(HellForgeSetupForm).GetMethod("SetApproval", fields)!.Invoke(setup, [SteamSetupOutput.RenderQr(qrRows)]); Application.DoEvents();
+                var qrControl = (PictureBox)typeof(HellForgeSetupForm).GetField("approval", fields)!.GetValue(setup)!;
+                var qrParent = qrControl.Parent!;
+                var qrTop = qrParent.PointToClient(qrControl.PointToScreen(Point.Empty));
+                check(qrControl.Visible && qrTop.Y >= 0 && qrTop.Y + qrControl.Height <= qrParent.ClientSize.Height,
+                    "Steam approval scrolls the complete integer-scale QR into the setup viewport");
                 setup.Close();
             }
             catch (Exception e) { failure = e; }
@@ -389,6 +415,7 @@ static class HellForgeTests
         check(await Reject(() => client.PlayAsync(selection)) && conflictPlays == commands.Calls.Count(c => c[0] == "play"),
             "overlapping reinforcement fixes cannot reach the official Clone launch");
         commands.Mods.RemoveAll(m => m.Id == "pack.80a03e3b-a671-4e54-a2ce-52c35bb64c91");
+        commands.Mods.Sort((a, b) => HellForgeGameplayCatalog.Pinned.Order.IndexOf(a.Id).CompareTo(HellForgeGameplayCatalog.Pinned.Order.IndexOf(b.Id)));
         var heavyIndex = commands.Mods.FindIndex(m => m.Id == "local.heavy-seaf-presence");
         var heavy = commands.Mods[heavyIndex];
         commands.Mods[heavyIndex] = heavy with { Version = "1.2.0" };
