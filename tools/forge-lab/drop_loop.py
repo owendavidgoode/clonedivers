@@ -92,7 +92,8 @@ def cycle(args, number):
         harness('close'); harness('recover')
         return row
     for step, extra, limit in (('ship', [], 300),
-                               ('mission', ['--difficulty', str(args.difficulty), '--faction', args.faction], 600)):
+                               ('mission', ['--difficulty', str(args.difficulty), '--faction', args.faction]
+                                + (['--shots'] if args.shots else []), 600)):
         code, data, text = harness(step, *extra, timeout=limit)
         row['steps'][step] = code
         if step == 'mission' and data:
@@ -137,6 +138,7 @@ def main():
     parser.add_argument('--faction', default='automaton', choices=('automaton', 'terminid', 'illuminate'))
     parser.add_argument('--hold', type=int, default=240, help='seconds in mission after the player has control')
     parser.add_argument('--preset', default='light', choices=('light', 'private'))
+    parser.add_argument('--shots', action='store_true', help='capture briefing, landing and ship screenshots')
     parser.add_argument('--out', default=r'D:\ClaudeWork\clonedivers-lab\results')
     args = parser.parse_args()
     out = Path(args.out); out.mkdir(parents=True, exist_ok=True)

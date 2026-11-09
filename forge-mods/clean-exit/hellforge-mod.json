@@ -2,8 +2,8 @@
   "format": 1,
   "id": "clonedivers.clean-exit",
   "name": "Clonedivers Clean Exit",
-  "version": "0.1.0",
-  "description": "Quits HELLDIVERS 2 cleanly instead of crashing in its own shutdown (build 25480438, helldivers2.exe+0x626296). Client only; changes no game data.",
+  "version": "0.2.0",
+  "description": "Ends the shutdown crash or hang after the engine accepts Application.quit (build 25480438). Client only; changes no game data.",
   "gameplay": false,
   "code": { "dll": "clean_exit.dll", "sdk": 16 }
 }
