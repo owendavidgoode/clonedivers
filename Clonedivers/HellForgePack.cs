@@ -56,7 +56,7 @@ public static class HellForgePack
     {
         if (mode == "empire")
         {
-            changes = new Dictionary<string, bool> { ["droids"] = true, ["covenant"] = false };
+            changes = new Dictionary<string, bool> { ["droids"] = changes?.GetValueOrDefault("droids", true) ?? true, ["covenant"] = false };
         }
         var resource = mode == "empire" ? texture == "lighter" ? "Clonedivers.HellForge.Empire.Lighter.Manifest.json" :
             "Clonedivers.HellForge.Empire.Manifest.json" : "Clonedivers.HellForge.Manifest.json";
@@ -66,8 +66,14 @@ public static class HellForgePack
         stream.CopyTo(memory);
         var bytes = memory.ToArray();
         var feed = Manifest.Parse(System.Text.Encoding.UTF8.GetString(bytes));
-        // Empire's fixed layers start at 1000. Catalog variants must not renumber them.
-        if (mode == "empire") feed.Pack!.Files = feed.Pack.Files.Where(f => PackProfiles.Includes(f, mode, texture)).ToList();
+        // Prune Empire's conditional rows before selection so its fixed layers stay at 1000+.
+        if (mode == "empire")
+        {
+            var pack = feed.Pack!;
+            bool Enabled(string id) => PackExtras.AlwaysOn(pack, id) || changes!.GetValueOrDefault(id, pack.Options.FirstOrDefault(o => o.Id == id)?.Default ?? false);
+            pack.Files = pack.Files.Where(f => PackProfiles.Includes(f, mode, texture) &&
+                (f.Option == null || Enabled(f.Option)) && (f.UnlessOption == null || !Enabled(f.UnlessOption))).ToList();
+        }
         return Select(feed, Convert.ToHexString(SHA256.HashData(bytes)).ToLowerInvariant(), mode, texture, changes);
     }
 

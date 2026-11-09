@@ -367,11 +367,12 @@ public sealed class HellForgeForm : Form
         regular.Selected = preferences.IsRegular;
         clone.Selected = preferences.Mode == "clonedivers"; empire.Selected = preferences.Mode == "empire";
         appearance.Visible = !working;
-        choices.Visible = textureRow.Visible = !working && preferences.Mode == "clonedivers";
+        choices.Visible = textureRow.Visible = !working && !preferences.IsRegular;
         optionsLabel.Text = preferences.Mode switch { "empire" => "Empire appearance", "regular" => "Regular appearance", _ => "Clones appearance" };
-        appearanceInfo.Visible = preferences.Mode != "clonedivers";
-        appearanceInfo.Text = preferences.IsRegular ? "Standard Helldivers appearance with your selected gameplay mods." : "r46 · Full or Lighter textures with CIS droids.";
+        appearanceInfo.Visible = preferences.IsRegular;
+        appearanceInfo.Text = "Standard Helldivers appearance with your selected gameplay mods.";
         delta.Visible = preferences.Mode == "clonedivers";
+        covenant.Visible = preferences.Mode == "clonedivers";
         delta.Enabled = !working && preferences.Mode == "clonedivers";
         foreach (var control in new Control[] { regular, clone, empire, droids, covenant, textures, actions }) control.Enabled = !working;
         actions.Visible = !working;
@@ -392,7 +393,7 @@ public sealed class HellForgeForm : Form
             detail.Text = "Choose difficulty 1–11 at the war table.";
             message.Text = ""; later.Visible = false;
             progress.Visible = busy; progress.Style = ProgressBarStyle.Continuous; progress.Value = 42;
-            choices.Visible = textureRow.Visible = !busy && preferences.Mode == "clonedivers";
+            choices.Visible = textureRow.Visible = !busy && !preferences.IsRegular;
             appearance.Visible = !busy;
             actions.Visible = !busy;
             if (previewState == "setup") { state.Text = "Set up HellForge"; detail.Text = "We'll guide you through installing the separate game copy and your chosen mode."; launch.Text = "SET UP CLONEDIVERS"; }

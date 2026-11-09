@@ -214,6 +214,14 @@ static class HellForgeTests
                     if (mode == "Empire")
                     {
                         check(fullTextures.Enabled && lighterTextures.Enabled, "Empire enables both texture segments");
+                        var droids = (CheckBox)typeof(HellForgeForm).GetField("droids", fields)!.GetValue(form)!;
+                        var covenant = (CheckBox)typeof(HellForgeForm).GetField("covenant", fields)!.GetValue(form)!;
+                        check(droids.Visible, "Empire shows its CIS droids checkbox"); check(droids.Checked, "Empire CIS droids is on by default"); check(!covenant.Visible, "Empire hides the Clones-only Covenant option");
+                        var applied = preferences.SelectionKey;
+                        droids.Checked = false;
+                        check(!preferences.Droids && !preferences.Selection().Options["droids"] && preferences.SelectionKey != applied,
+                            "Empire checkbox reaches native Automaton composition and invalidates readiness");
+                        droids.Checked = true;
                         lighterTextures.Checked = true;
                         check(preferences.Selection().Texture == "lighter" && preferences.SelectionKey.Contains("/empire/lighter/"),
                             "the Empire Lighter segment reaches the pinned streamed selection");
@@ -715,12 +723,13 @@ static class HellForgeTests
         var oldEmpire = new HellForgePreferences { Mode = "empire", Texture = "lighter", Droids = false, Covenant = true,
             AppliedSelection = $"r19/{HellForgePack.SupportedBuild}/empire/lighter/False/True" };
         var newEmpire = oldEmpire.Selection();
-        check(oldEmpire.SelectionKey == $"r46/{HellForgePack.SupportedBuild}/empire/lighter/True/False" &&
-            oldEmpire.AppliedSelection != oldEmpire.SelectionKey && newEmpire.Version == "2026.11.09-r46" &&
-            newEmpire.Texture == "lighter" && newEmpire.Options["droids"] && !newEmpire.Options["covenant"] && newEmpire.Files.Count == 96,
-            "Empire r19 preferences require preparing the fixed r46 selection before play");
+        check(oldEmpire.SelectionKey == $"r46-droids/{HellForgePack.SupportedBuild}/empire/lighter/False/False" &&
+            oldEmpire.AppliedSelection != oldEmpire.SelectionKey && newEmpire.Version == "2026.11.09-r46-droids" &&
+            newEmpire.Texture == "lighter" && !newEmpire.Options["droids"] && !newEmpire.Options["covenant"] && newEmpire.Files.Count == 96,
+            "Empire honors the saved droid choice while requiring preparation of the option catalog");
         var empireFull = HellForgePack.PinnedSelection("empire", "full");
-        check(empireFull.Version == "2026.11.09-r46" &&
+        var empireLighter = HellForgePack.PinnedSelection("empire", "lighter");
+        check(empireFull.Version == "2026.11.09-r46-droids" && empireFull.Options["droids"] &&
             empireFull.Files[0].Name == "9ba626afa44a3aa3.patch_1000" && newEmpire.Files[0].Name == empireFull.Files[0].Name,
             "Empire Full selects r46 and both profiles preserve the fixed layer numbers");
         foreach (var texture in new[] { "full", "lighter" })
@@ -737,6 +746,18 @@ static class HellForgeTests
             var receipt = JsonSerializer.Serialize(new HellForgePack.Receipt { Selection = previous }, HellForgePack.Json);
             File.WriteAllText(receiptPath, receipt);
             await HellForgePack.VerifyMetadataAsync(receiptFolder, previous);
+            var on = HellForgePack.PinnedSelection("empire", texture);
+            var off = HellForgePack.PinnedSelection("empire", texture, new Dictionary<string, bool> { ["droids"] = false });
+            var optionReceipt = Path.Combine(area, "droid-receipt-" + texture); Directory.CreateDirectory(optionReceipt);
+            File.WriteAllText(Path.Combine(optionReceipt, HellForgePack.ReceiptName), JsonSerializer.Serialize(new HellForgePack.Receipt { Selection = on }, HellForgePack.Json));
+            await HellForgePack.VerifyMetadataAsync(optionReceipt, on);
+            check(await Reject(() => HellForgePack.VerifyMetadataAsync(optionReceipt, off)) && !off.Options["droids"] &&
+                on.Files.Count == 96 && off.Files.Count == 96 && on.Files.Select(f => f.Name).SequenceEqual(off.Files.Select(f => f.Name)) &&
+                on.Files.Any(f => f.Sha256 != off.Files.Single(g => g.Name == f.Name).Sha256),
+                $"Empire {texture} droid settings select distinct complete compositions and reject the opposite receipt");
+            var appliedR46 = new HellForgePreferences { Mode = "empire", Texture = texture,
+                AppliedSelection = $"r46/{HellForgePack.SupportedBuild}/empire/{texture}/True/False" };
+            check(appliedR46.SelectionKey != appliedR46.AppliedSelection, "the old fixed r46 receipt requires preparing the selectable catalog");
             var migrated = new HellForgePreferences { Mode = "empire", Texture = texture,
                 AppliedSelection = $"r45-v4/{HellForgePack.SupportedBuild}/empire/{texture}/True/False" };
             check(previous.Version == "2026.11.08-r45-v4" && previous.Files.Count == 96 &&
@@ -747,10 +768,10 @@ static class HellForgeTests
                 empireFull.Files.Count(f => f.Sha256 != previous.Files.Single(g => g.Name == f.Name).Sha256) == 6,
                 "the shipped r45-v4 Full catalog is preserved and r46 replaces exactly six archive files");
         }
-        check(empireFull.Files.Select(f => f.Name).SequenceEqual(newEmpire.Files.Select(f => f.Name)) &&
-            empireFull.Files.Sum(f => f.Size) > 0 && newEmpire.Files.Any(f => f.Sha256 != empireFull.Files.Single(g => g.Name == f.Name).Sha256),
+        check(empireFull.Files.Select(f => f.Name).SequenceEqual(empireLighter.Files.Select(f => f.Name)) &&
+            empireFull.Files.Sum(f => f.Size) > 0 && empireLighter.Files.Any(f => f.Sha256 != empireFull.Files.Single(g => g.Name == f.Name).Sha256),
             "Empire Lighter contains every Full archive and companion with distinct streamed content");
-        check(newEmpire.Files.Where(f => f.Name.EndsWith(".gpu_resources")).Sum(f => f.Size) <
+        check(empireLighter.Files.Where(f => f.Name.EndsWith(".gpu_resources")).Sum(f => f.Size) <
             empireFull.Files.Where(f => f.Name.EndsWith(".gpu_resources")).Sum(f => f.Size) / 2,
             "Empire Lighter lowers resident GPU bytes by more than half");
         oldEmpire.AppliedSelection = oldEmpire.SelectionKey;
@@ -773,10 +794,10 @@ static class HellForgeTests
                 var changes = new Dictionary<string, bool> { ["droids"] = (mask & 1) != 0, ["covenant"] = (mask & 2) != 0,
                     ["aimpoints"] = (mask & 4) != 0, ["commandos"] = (mask & 8) != 0 };
                 var selected = HellForgePack.PinnedSelection(mode, texture, changes);
-                var expected = mode == "empire" ? texture == "lighter" ? newEmpire : empireFull :
+                var expected = mode == "empire" ? HellForgePack.PinnedSelection(mode, texture, new Dictionary<string, bool> { ["droids"] = changes["droids"] }) :
                     HellForgePack.Select(original, pinned.ManifestSha256, mode, texture, changes);
                 check(JsonSerializer.Serialize(selected, HellForgePack.Json) == JsonSerializer.Serialize(expected, HellForgePack.Json),
-                    $"Forge release selection {mode}/{texture}/{mask} preserves Clones or resolves the fixed Empire pack");
+                    $"Forge release selection {mode}/{texture}/{mask} preserves Clones or honors Empire droids independently of hidden options");
             }
         }
         using var form = new HellForgeForm(new HellForgePreferences(), preview: true);

@@ -247,12 +247,13 @@ internal sealed class ForgeWindow : Window
         var lost = !preview && player?.Disconnected == true;
         updates.IsEnabled = !preview && !busy && !active && !checkingLauncherUpdate;
         foreach (var (id, button) in Modes) { button.Background = Brush.Parse(id == preferences.Mode ? "#1D3457" : "#111A2D"); button.BorderBrush = id == preferences.Mode ? Blue : Brush.Parse("#263047"); button.IsEnabled = !busy && !active; }
-        foreach (var control in new Control[] { delta, droids, covenant, textures }) { control.IsEnabled = !busy && !active; control.IsVisible = preferences.Mode == "clonedivers"; }
+        foreach (var control in new Control[] { delta, droids, covenant, textures }) { control.IsEnabled = !busy && !active; control.IsVisible = preferences.Mode != "regular"; }
         delta.IsVisible = preferences.Mode == "clonedivers";
+        covenant.IsVisible = preferences.Mode == "clonedivers";
         folder.IsEnabled = browse.IsEnabled = !busy && player == null && !preview;
         connect.IsEnabled = !busy && (player == null || lost) && !preview; refresh.IsEnabled = !busy && player != null && !lost && !preview;
         Prepare.IsEnabled = !busy && !active && player != null && player.State?.Status.CompatibilityProblem == null && !preview;
-        Prepare.Content = preferences.Mode == "empire" ? "Set up Empire r46 (Full / Lighter / CIS droids)" : "Set up selected mode";
+        Prepare.Content = "Set up selected mode";
         if (player?.State?.Status.RecoveryProblem is { } recovery) Prepare.Content = recovery.StartsWith("Gameplay", StringComparison.Ordinal) ? "Recover gameplay preset" : "Recover previous appearance";
         Import.IsEnabled = !busy && !active && player?.State?.Status is { GameCopyReady: true, RunnerReady: true, RecoveryProblem: null, CompatibilityProblem: null } && !preview;
         Import.Content = player?.State?.Account is { Captured: true, Imported: false } ? "Finish account sync" : "Sync HD2 account";

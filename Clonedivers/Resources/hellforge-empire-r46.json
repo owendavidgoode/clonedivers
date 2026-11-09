@@ -1,9 +1,9 @@
 {
     "format": 3,
     "pack": {
-        "version": "2026.11.09-r46",
+        "version": "2026.11.09-r46-droids",
         "name": "EmpireDivers Forge",
-        "notes": "Empire r46. Lambda, both Stormtrooper lower legs and crew66 body. CIS droids and walker weapons enabled. Covenant disabled.",
+        "notes": "Empire r46. CIS droids on by default; turn off for native Automaton models. Enemy audio and shared effects stay unchanged. Covenant disabled.",
         "gameBuild": "25480438",
         "gameDepots": [
             "1883032874832282552",
@@ -13,7 +13,7 @@
             "3382210389809902281"
         ],
         "status": "ok",
-        "statusNotes": "Full survived three D11 Windows drops with clean quits. Visual, Linux gameplay and multiplayer acceptance pending.",
+        "statusNotes": "CIS-on preserves the r46 archive payloads. Both option settings statically verified; visual and runtime acceptance pending.",
         "options": [
             {
                 "id": "commandos",
@@ -57,7 +57,21 @@
                 ],
                 "textureProfiles": [
                     "full"
-                ]
+                ],
+                "option": "droids"
+            },
+            {
+                "name": "9ba626afa44a3aa3.patch_1000",
+                "url": "https://github.com/owendavidgoode/clonedivers/releases/download/pack-2026.11.09-r46-droids-files/0ab2f8534f17cd486c46a5ddf3a6afb6e67e261cde4efd34b932b0cf365f7009",
+                "size": 29777648,
+                "sha256": "0ab2f8534f17cd486c46a5ddf3a6afb6e67e261cde4efd34b932b0cf365f7009",
+                "modes": [
+                    "empire"
+                ],
+                "textureProfiles": [
+                    "full"
+                ],
+                "unlessOption": "droids"
             },
             {
                 "name": "9ba626afa44a3aa3.patch_1000.gpu_resources",
@@ -69,7 +83,21 @@
                 ],
                 "textureProfiles": [
                     "full"
-                ]
+                ],
+                "option": "droids"
+            },
+            {
+                "name": "9ba626afa44a3aa3.patch_1000.gpu_resources",
+                "url": "https://github.com/owendavidgoode/clonedivers/releases/download/pack-2026.11.09-r46-droids-files/cc3da07e61a165b56880669abc77a54aab175f86d2b1491250986f4e9f7b274a",
+                "size": 244316032,
+                "sha256": "cc3da07e61a165b56880669abc77a54aab175f86d2b1491250986f4e9f7b274a",
+                "modes": [
+                    "empire"
+                ],
+                "textureProfiles": [
+                    "full"
+                ],
+                "unlessOption": "droids"
             },
             {
                 "name": "9ba626afa44a3aa3.patch_1000.stream",
@@ -93,7 +121,21 @@
                 ],
                 "textureProfiles": [
                     "full"
-                ]
+                ],
+                "option": "droids"
+            },
+            {
+                "name": "9ba626afa44a3aa3.patch_1001",
+                "url": "https://github.com/owendavidgoode/clonedivers/releases/download/pack-2026.11.09-r46-droids-files/929f51851de37fa457f5491ca8da1bdec5f1ed298ff1ad7c482cbd85d3b37665",
+                "size": 12025472,
+                "sha256": "929f51851de37fa457f5491ca8da1bdec5f1ed298ff1ad7c482cbd85d3b37665",
+                "modes": [
+                    "empire"
+                ],
+                "textureProfiles": [
+                    "full"
+                ],
+                "unlessOption": "droids"
             },
             {
                 "name": "9ba626afa44a3aa3.patch_1001.gpu_resources",
@@ -105,7 +147,21 @@
                 ],
                 "textureProfiles": [
                     "full"
-                ]
+                ],
+                "option": "droids"
+            },
+            {
+                "name": "9ba626afa44a3aa3.patch_1001.gpu_resources",
+                "url": "https://github.com/owendavidgoode/clonedivers/releases/download/pack-2026.11.09-r46-droids-files/3ccb94db5a77de47a2cf6d8c0ba5800ee5a2d90b02db6c1f4d1c2f343b346feb",
+                "size": 144042304,
+                "sha256": "3ccb94db5a77de47a2cf6d8c0ba5800ee5a2d90b02db6c1f4d1c2f343b346feb",
+                "modes": [
+                    "empire"
+                ],
+                "textureProfiles": [
+                    "full"
+                ],
+                "unlessOption": "droids"
             },
             {
                 "name": "9ba626afa44a3aa3.patch_1001.stream",
@@ -129,7 +185,21 @@
                 ],
                 "textureProfiles": [
                     "full"
-                ]
+                ],
+                "option": "droids"
+            },
+            {
+                "name": "9ba626afa44a3aa3.patch_1002",
+                "url": "https://github.com/owendavidgoode/clonedivers/releases/download/pack-2026.11.09-r46-droids-files/8a20b63a215961982ea592f96f3b3f1715448e22629d920ba9993f3a795635ad",
+                "size": 1062928,
+                "sha256": "8a20b63a215961982ea592f96f3b3f1715448e22629d920ba9993f3a795635ad",
+                "modes": [
+                    "empire"
+                ],
+                "textureProfiles": [
+                    "full"
+                ],
+                "unlessOption": "droids"
             },
             {
                 "name": "9ba626afa44a3aa3.patch_1002.gpu_resources",
@@ -141,7 +211,21 @@
                 ],
                 "textureProfiles": [
                     "full"
-                ]
+                ],
+                "option": "droids"
+            },
+            {
+                "name": "9ba626afa44a3aa3.patch_1002.gpu_resources",
+                "url": "https://github.com/owendavidgoode/clonedivers/releases/download/pack-2026.11.09-r46-droids-files/ac129f6c2b3ca0acdfb97893f13ec71b87cb65b39b999acd2a800b83503eab4f",
+                "size": 138595264,
+                "sha256": "ac129f6c2b3ca0acdfb97893f13ec71b87cb65b39b999acd2a800b83503eab4f",
+                "modes": [
+                    "empire"
+                ],
+                "textureProfiles": [
+                    "full"
+                ],
+                "unlessOption": "droids"
             },
             {
                 "name": "9ba626afa44a3aa3.patch_1002.stream",
@@ -165,7 +249,21 @@
                 ],
                 "textureProfiles": [
                     "full"
-                ]
+                ],
+                "option": "droids"
+            },
+            {
+                "name": "9ba626afa44a3aa3.patch_1003",
+                "url": "https://github.com/owendavidgoode/clonedivers/releases/download/pack-2026.11.09-r46-droids-files/6a10832d7b31a2277c9d6ae97dffd93e9ba24191318e37e09ced7c84a4acc531",
+                "size": 8394592,
+                "sha256": "6a10832d7b31a2277c9d6ae97dffd93e9ba24191318e37e09ced7c84a4acc531",
+                "modes": [
+                    "empire"
+                ],
+                "textureProfiles": [
+                    "full"
+                ],
+                "unlessOption": "droids"
             },
             {
                 "name": "9ba626afa44a3aa3.patch_1003.gpu_resources",
@@ -177,7 +275,21 @@
                 ],
                 "textureProfiles": [
                     "full"
-                ]
+                ],
+                "option": "droids"
+            },
+            {
+                "name": "9ba626afa44a3aa3.patch_1003.gpu_resources",
+                "url": "https://github.com/owendavidgoode/clonedivers/releases/download/pack-2026.11.09-r46-droids-files/51f3c7c5907ff34aae5fe8e4bea90277774273582ebb66243b54f6303e5ac9d6",
+                "size": 120913344,
+                "sha256": "51f3c7c5907ff34aae5fe8e4bea90277774273582ebb66243b54f6303e5ac9d6",
+                "modes": [
+                    "empire"
+                ],
+                "textureProfiles": [
+                    "full"
+                ],
+                "unlessOption": "droids"
             },
             {
                 "name": "9ba626afa44a3aa3.patch_1003.stream",
@@ -201,7 +313,21 @@
                 ],
                 "textureProfiles": [
                     "full"
-                ]
+                ],
+                "option": "droids"
+            },
+            {
+                "name": "9ba626afa44a3aa3.patch_1004",
+                "url": "https://github.com/owendavidgoode/clonedivers/releases/download/pack-2026.11.09-r46-droids-files/7704cd988d67ba10454b0f2bf0ccbb8e105221ecd9e3c7c6771a8dd120acdd6a",
+                "size": 19740416,
+                "sha256": "7704cd988d67ba10454b0f2bf0ccbb8e105221ecd9e3c7c6771a8dd120acdd6a",
+                "modes": [
+                    "empire"
+                ],
+                "textureProfiles": [
+                    "full"
+                ],
+                "unlessOption": "droids"
             },
             {
                 "name": "9ba626afa44a3aa3.patch_1004.gpu_resources",
@@ -213,7 +339,21 @@
                 ],
                 "textureProfiles": [
                     "full"
-                ]
+                ],
+                "option": "droids"
+            },
+            {
+                "name": "9ba626afa44a3aa3.patch_1004.gpu_resources",
+                "url": "https://github.com/owendavidgoode/clonedivers/releases/download/pack-2026.11.09-r46-droids-files/985f2a0ecb2ea76656566535df3dcbbd48a7be7ff9f5f1dad88cb87b0e9ffcc0",
+                "size": 215553408,
+                "sha256": "985f2a0ecb2ea76656566535df3dcbbd48a7be7ff9f5f1dad88cb87b0e9ffcc0",
+                "modes": [
+                    "empire"
+                ],
+                "textureProfiles": [
+                    "full"
+                ],
+                "unlessOption": "droids"
             },
             {
                 "name": "9ba626afa44a3aa3.patch_1004.stream",
@@ -237,7 +377,21 @@
                 ],
                 "textureProfiles": [
                     "full"
-                ]
+                ],
+                "option": "droids"
+            },
+            {
+                "name": "9ba626afa44a3aa3.patch_1005",
+                "url": "https://github.com/owendavidgoode/clonedivers/releases/download/pack-2026.11.09-r46-droids-files/2747b6b54d62036b8326d7a9604b9f9e20810ca50b749e03f3c66ce3d37357ab",
+                "size": 13122400,
+                "sha256": "2747b6b54d62036b8326d7a9604b9f9e20810ca50b749e03f3c66ce3d37357ab",
+                "modes": [
+                    "empire"
+                ],
+                "textureProfiles": [
+                    "full"
+                ],
+                "unlessOption": "droids"
             },
             {
                 "name": "9ba626afa44a3aa3.patch_1005.gpu_resources",
@@ -249,7 +403,21 @@
                 ],
                 "textureProfiles": [
                     "full"
-                ]
+                ],
+                "option": "droids"
+            },
+            {
+                "name": "9ba626afa44a3aa3.patch_1005.gpu_resources",
+                "url": "https://github.com/owendavidgoode/clonedivers/releases/download/pack-2026.11.09-r46-droids-files/8e4f290e138dc8aae800dcb942453c1a9de35321d2e07ab42d1d6f0fa9c78c5f",
+                "size": 126680576,
+                "sha256": "8e4f290e138dc8aae800dcb942453c1a9de35321d2e07ab42d1d6f0fa9c78c5f",
+                "modes": [
+                    "empire"
+                ],
+                "textureProfiles": [
+                    "full"
+                ],
+                "unlessOption": "droids"
             },
             {
                 "name": "9ba626afa44a3aa3.patch_1005.stream",
@@ -273,7 +441,21 @@
                 ],
                 "textureProfiles": [
                     "full"
-                ]
+                ],
+                "option": "droids"
+            },
+            {
+                "name": "9ba626afa44a3aa3.patch_1006",
+                "url": "https://github.com/owendavidgoode/clonedivers/releases/download/pack-2026.11.09-r46-droids-files/132ac2a5688cb6d4387db3e597b69f380ee006e64efe4a20d5bb028377316eb4",
+                "size": 5270416,
+                "sha256": "132ac2a5688cb6d4387db3e597b69f380ee006e64efe4a20d5bb028377316eb4",
+                "modes": [
+                    "empire"
+                ],
+                "textureProfiles": [
+                    "full"
+                ],
+                "unlessOption": "droids"
             },
             {
                 "name": "9ba626afa44a3aa3.patch_1006.gpu_resources",
@@ -285,7 +467,21 @@
                 ],
                 "textureProfiles": [
                     "full"
-                ]
+                ],
+                "option": "droids"
+            },
+            {
+                "name": "9ba626afa44a3aa3.patch_1006.gpu_resources",
+                "url": "https://github.com/owendavidgoode/clonedivers/releases/download/pack-2026.11.09-r46-droids-files/573d799f1eea8a7ba31822ef28dc5c583232ace592bc5a1f99cde841a8003a3a",
+                "size": 116795520,
+                "sha256": "573d799f1eea8a7ba31822ef28dc5c583232ace592bc5a1f99cde841a8003a3a",
+                "modes": [
+                    "empire"
+                ],
+                "textureProfiles": [
+                    "full"
+                ],
+                "unlessOption": "droids"
             },
             {
                 "name": "9ba626afa44a3aa3.patch_1006.stream",
@@ -309,7 +505,21 @@
                 ],
                 "textureProfiles": [
                     "full"
-                ]
+                ],
+                "option": "droids"
+            },
+            {
+                "name": "9ba626afa44a3aa3.patch_1007",
+                "url": "https://github.com/owendavidgoode/clonedivers/releases/download/pack-2026.11.09-r46-droids-files/b15d103808671537d93d3f26241004dfe7211e6ec54a17c39e7f1177061ce097",
+                "size": 6044752,
+                "sha256": "b15d103808671537d93d3f26241004dfe7211e6ec54a17c39e7f1177061ce097",
+                "modes": [
+                    "empire"
+                ],
+                "textureProfiles": [
+                    "full"
+                ],
+                "unlessOption": "droids"
             },
             {
                 "name": "9ba626afa44a3aa3.patch_1007.gpu_resources",
@@ -321,7 +531,21 @@
                 ],
                 "textureProfiles": [
                     "full"
-                ]
+                ],
+                "option": "droids"
+            },
+            {
+                "name": "9ba626afa44a3aa3.patch_1007.gpu_resources",
+                "url": "https://github.com/owendavidgoode/clonedivers/releases/download/pack-2026.11.09-r46-droids-files/e3a2564555c46bcd71f9c8a40f5936d946070b66d078d32909ab0ee4441f9833",
+                "size": 165046528,
+                "sha256": "e3a2564555c46bcd71f9c8a40f5936d946070b66d078d32909ab0ee4441f9833",
+                "modes": [
+                    "empire"
+                ],
+                "textureProfiles": [
+                    "full"
+                ],
+                "unlessOption": "droids"
             },
             {
                 "name": "9ba626afa44a3aa3.patch_1007.stream",
@@ -345,7 +569,21 @@
                 ],
                 "textureProfiles": [
                     "full"
-                ]
+                ],
+                "option": "droids"
+            },
+            {
+                "name": "9ba626afa44a3aa3.patch_1008",
+                "url": "https://github.com/owendavidgoode/clonedivers/releases/download/pack-2026.11.09-r46-droids-files/d13ce5e19d2ea8767a151731c0428a3b4d92ea97c46ee9b37e80ede9bf310e17",
+                "size": 4705776,
+                "sha256": "d13ce5e19d2ea8767a151731c0428a3b4d92ea97c46ee9b37e80ede9bf310e17",
+                "modes": [
+                    "empire"
+                ],
+                "textureProfiles": [
+                    "full"
+                ],
+                "unlessOption": "droids"
             },
             {
                 "name": "9ba626afa44a3aa3.patch_1008.gpu_resources",
@@ -357,7 +595,21 @@
                 ],
                 "textureProfiles": [
                     "full"
-                ]
+                ],
+                "option": "droids"
+            },
+            {
+                "name": "9ba626afa44a3aa3.patch_1008.gpu_resources",
+                "url": "https://github.com/owendavidgoode/clonedivers/releases/download/pack-2026.11.09-r46-droids-files/f8aa3bfd8efba6dd59942abea3a119eb52bc291b6977016f7cc7e368150fb13b",
+                "size": 140683648,
+                "sha256": "f8aa3bfd8efba6dd59942abea3a119eb52bc291b6977016f7cc7e368150fb13b",
+                "modes": [
+                    "empire"
+                ],
+                "textureProfiles": [
+                    "full"
+                ],
+                "unlessOption": "droids"
             },
             {
                 "name": "9ba626afa44a3aa3.patch_1008.stream",
@@ -381,7 +633,21 @@
                 ],
                 "textureProfiles": [
                     "full"
-                ]
+                ],
+                "option": "droids"
+            },
+            {
+                "name": "9ba626afa44a3aa3.patch_1009",
+                "url": "https://github.com/owendavidgoode/clonedivers/releases/download/pack-2026.11.09-r46-droids-files/aa11a5d4bec2d045092ec434f17f51ba76b127fdd1e07d939c4d40a55d2ffab5",
+                "size": 21611312,
+                "sha256": "aa11a5d4bec2d045092ec434f17f51ba76b127fdd1e07d939c4d40a55d2ffab5",
+                "modes": [
+                    "empire"
+                ],
+                "textureProfiles": [
+                    "full"
+                ],
+                "unlessOption": "droids"
             },
             {
                 "name": "9ba626afa44a3aa3.patch_1009.gpu_resources",
@@ -393,7 +659,21 @@
                 ],
                 "textureProfiles": [
                     "full"
-                ]
+                ],
+                "option": "droids"
+            },
+            {
+                "name": "9ba626afa44a3aa3.patch_1009.gpu_resources",
+                "url": "https://github.com/owendavidgoode/clonedivers/releases/download/pack-2026.11.09-r46-droids-files/f7ede95c165f9840c820fd94f2205f2f8898e2614365683aa95b4e1ec0031e02",
+                "size": 66739840,
+                "sha256": "f7ede95c165f9840c820fd94f2205f2f8898e2614365683aa95b4e1ec0031e02",
+                "modes": [
+                    "empire"
+                ],
+                "textureProfiles": [
+                    "full"
+                ],
+                "unlessOption": "droids"
             },
             {
                 "name": "9ba626afa44a3aa3.patch_1009.stream",
@@ -417,7 +697,21 @@
                 ],
                 "textureProfiles": [
                     "full"
-                ]
+                ],
+                "option": "droids"
+            },
+            {
+                "name": "9ba626afa44a3aa3.patch_1010",
+                "url": "https://github.com/owendavidgoode/clonedivers/releases/download/pack-2026.11.09-r46-droids-files/73dfda12fbc492155a4b3a43426186085a294dae594e8bb722c3ee8b427a237d",
+                "size": 12087136,
+                "sha256": "73dfda12fbc492155a4b3a43426186085a294dae594e8bb722c3ee8b427a237d",
+                "modes": [
+                    "empire"
+                ],
+                "textureProfiles": [
+                    "full"
+                ],
+                "unlessOption": "droids"
             },
             {
                 "name": "9ba626afa44a3aa3.patch_1010.gpu_resources",
@@ -429,7 +723,21 @@
                 ],
                 "textureProfiles": [
                     "full"
-                ]
+                ],
+                "option": "droids"
+            },
+            {
+                "name": "9ba626afa44a3aa3.patch_1010.gpu_resources",
+                "url": "https://github.com/owendavidgoode/clonedivers/releases/download/pack-2026.11.09-r46-droids-files/8567f4d983697a149f999e8f466d0421f3590b73c3da0badbb4ca81ff11a9dd1",
+                "size": 81448128,
+                "sha256": "8567f4d983697a149f999e8f466d0421f3590b73c3da0badbb4ca81ff11a9dd1",
+                "modes": [
+                    "empire"
+                ],
+                "textureProfiles": [
+                    "full"
+                ],
+                "unlessOption": "droids"
             },
             {
                 "name": "9ba626afa44a3aa3.patch_1010.stream",
@@ -453,7 +761,21 @@
                 ],
                 "textureProfiles": [
                     "full"
-                ]
+                ],
+                "option": "droids"
+            },
+            {
+                "name": "9ba626afa44a3aa3.patch_1011",
+                "url": "https://github.com/owendavidgoode/clonedivers/releases/download/pack-2026.11.09-r46-droids-files/32ff388d2255f95d9f20a1e2eca5cc8cd25eddb707e95e477760867de9f806cc",
+                "size": 99679552,
+                "sha256": "32ff388d2255f95d9f20a1e2eca5cc8cd25eddb707e95e477760867de9f806cc",
+                "modes": [
+                    "empire"
+                ],
+                "textureProfiles": [
+                    "full"
+                ],
+                "unlessOption": "droids"
             },
             {
                 "name": "9ba626afa44a3aa3.patch_1011.gpu_resources",
@@ -465,7 +787,21 @@
                 ],
                 "textureProfiles": [
                     "full"
-                ]
+                ],
+                "option": "droids"
+            },
+            {
+                "name": "9ba626afa44a3aa3.patch_1011.gpu_resources",
+                "url": "https://github.com/owendavidgoode/clonedivers/releases/download/pack-2026.11.09-r46-droids-files/d9a6030505b45ac8ccc09e9069b87178a3c0e30312170d27807dd9e39ffc2990",
+                "size": 188293632,
+                "sha256": "d9a6030505b45ac8ccc09e9069b87178a3c0e30312170d27807dd9e39ffc2990",
+                "modes": [
+                    "empire"
+                ],
+                "textureProfiles": [
+                    "full"
+                ],
+                "unlessOption": "droids"
             },
             {
                 "name": "9ba626afa44a3aa3.patch_1011.stream",
@@ -489,7 +825,21 @@
                 ],
                 "textureProfiles": [
                     "full"
-                ]
+                ],
+                "option": "droids"
+            },
+            {
+                "name": "9ba626afa44a3aa3.patch_1012",
+                "url": "https://github.com/owendavidgoode/clonedivers/releases/download/pack-2026.11.09-r46-droids-files/d57345e6b6cb6925b4b96b328f53c4083a91f9d4ae2c80281e4bcb4b859481a5",
+                "size": 25024720,
+                "sha256": "d57345e6b6cb6925b4b96b328f53c4083a91f9d4ae2c80281e4bcb4b859481a5",
+                "modes": [
+                    "empire"
+                ],
+                "textureProfiles": [
+                    "full"
+                ],
+                "unlessOption": "droids"
             },
             {
                 "name": "9ba626afa44a3aa3.patch_1012.gpu_resources",
@@ -501,7 +851,21 @@
                 ],
                 "textureProfiles": [
                     "full"
-                ]
+                ],
+                "option": "droids"
+            },
+            {
+                "name": "9ba626afa44a3aa3.patch_1012.gpu_resources",
+                "url": "https://github.com/owendavidgoode/clonedivers/releases/download/pack-2026.11.09-r46-droids-files/b0c3162581f4932da99d923c61c339aa70d536b06fd7905e140ad8027c720f21",
+                "size": 245055040,
+                "sha256": "b0c3162581f4932da99d923c61c339aa70d536b06fd7905e140ad8027c720f21",
+                "modes": [
+                    "empire"
+                ],
+                "textureProfiles": [
+                    "full"
+                ],
+                "unlessOption": "droids"
             },
             {
                 "name": "9ba626afa44a3aa3.patch_1012.stream",
@@ -525,7 +889,21 @@
                 ],
                 "textureProfiles": [
                     "full"
-                ]
+                ],
+                "option": "droids"
+            },
+            {
+                "name": "9ba626afa44a3aa3.patch_1013",
+                "url": "https://github.com/owendavidgoode/clonedivers/releases/download/pack-2026.11.09-r46-droids-files/a91a09610f7c41eab06eb675e61c76b2bf2c3a4c5b8f7e27a32a970c0dff76ce",
+                "size": 6133840,
+                "sha256": "a91a09610f7c41eab06eb675e61c76b2bf2c3a4c5b8f7e27a32a970c0dff76ce",
+                "modes": [
+                    "empire"
+                ],
+                "textureProfiles": [
+                    "full"
+                ],
+                "unlessOption": "droids"
             },
             {
                 "name": "9ba626afa44a3aa3.patch_1013.gpu_resources",
@@ -537,7 +915,21 @@
                 ],
                 "textureProfiles": [
                     "full"
-                ]
+                ],
+                "option": "droids"
+            },
+            {
+                "name": "9ba626afa44a3aa3.patch_1013.gpu_resources",
+                "url": "https://github.com/owendavidgoode/clonedivers/releases/download/pack-2026.11.09-r46-droids-files/a630a0c9c8d92a148d593cd9e47138698e58bbfc4f95b520aa31a0ed2192ae9c",
+                "size": 116083712,
+                "sha256": "a630a0c9c8d92a148d593cd9e47138698e58bbfc4f95b520aa31a0ed2192ae9c",
+                "modes": [
+                    "empire"
+                ],
+                "textureProfiles": [
+                    "full"
+                ],
+                "unlessOption": "droids"
             },
             {
                 "name": "9ba626afa44a3aa3.patch_1013.stream",
@@ -561,7 +953,21 @@
                 ],
                 "textureProfiles": [
                     "full"
-                ]
+                ],
+                "option": "droids"
+            },
+            {
+                "name": "9ba626afa44a3aa3.patch_1014",
+                "url": "https://github.com/owendavidgoode/clonedivers/releases/download/pack-2026.11.09-r46-droids-files/34dfeca806fe8dc0339697cd4e229972778d915f12a1241aef230f01f3c106f7",
+                "size": 13347488,
+                "sha256": "34dfeca806fe8dc0339697cd4e229972778d915f12a1241aef230f01f3c106f7",
+                "modes": [
+                    "empire"
+                ],
+                "textureProfiles": [
+                    "full"
+                ],
+                "unlessOption": "droids"
             },
             {
                 "name": "9ba626afa44a3aa3.patch_1014.gpu_resources",
@@ -573,7 +979,21 @@
                 ],
                 "textureProfiles": [
                     "full"
-                ]
+                ],
+                "option": "droids"
+            },
+            {
+                "name": "9ba626afa44a3aa3.patch_1014.gpu_resources",
+                "url": "https://github.com/owendavidgoode/clonedivers/releases/download/pack-2026.11.09-r46-droids-files/3336a3bfb8835f2eae82d2760ba9ae13abf7b09f5c6c78d068995acc8628b525",
+                "size": 207484736,
+                "sha256": "3336a3bfb8835f2eae82d2760ba9ae13abf7b09f5c6c78d068995acc8628b525",
+                "modes": [
+                    "empire"
+                ],
+                "textureProfiles": [
+                    "full"
+                ],
+                "unlessOption": "droids"
             },
             {
                 "name": "9ba626afa44a3aa3.patch_1014.stream",
@@ -597,7 +1017,21 @@
                 ],
                 "textureProfiles": [
                     "full"
-                ]
+                ],
+                "option": "droids"
+            },
+            {
+                "name": "9ba626afa44a3aa3.patch_1015",
+                "url": "https://github.com/owendavidgoode/clonedivers/releases/download/pack-2026.11.09-r46-droids-files/674a0963611c68d383b1dd559cfe1c564ed8cdc28ce28300265f1aaf29eced03",
+                "size": 16955312,
+                "sha256": "674a0963611c68d383b1dd559cfe1c564ed8cdc28ce28300265f1aaf29eced03",
+                "modes": [
+                    "empire"
+                ],
+                "textureProfiles": [
+                    "full"
+                ],
+                "unlessOption": "droids"
             },
             {
                 "name": "9ba626afa44a3aa3.patch_1015.gpu_resources",
@@ -609,7 +1043,21 @@
                 ],
                 "textureProfiles": [
                     "full"
-                ]
+                ],
+                "option": "droids"
+            },
+            {
+                "name": "9ba626afa44a3aa3.patch_1015.gpu_resources",
+                "url": "https://github.com/owendavidgoode/clonedivers/releases/download/pack-2026.11.09-r46-droids-files/c255be29ee74a7639974dd4c86a02ceb46ce0cc84664641da26e7952f4813226",
+                "size": 153724608,
+                "sha256": "c255be29ee74a7639974dd4c86a02ceb46ce0cc84664641da26e7952f4813226",
+                "modes": [
+                    "empire"
+                ],
+                "textureProfiles": [
+                    "full"
+                ],
+                "unlessOption": "droids"
             },
             {
                 "name": "9ba626afa44a3aa3.patch_1015.stream",
@@ -633,7 +1081,21 @@
                 ],
                 "textureProfiles": [
                     "full"
-                ]
+                ],
+                "option": "droids"
+            },
+            {
+                "name": "9ba626afa44a3aa3.patch_1016",
+                "url": "https://github.com/owendavidgoode/clonedivers/releases/download/pack-2026.11.09-r46-droids-files/527ecf79b2eca8cc4a42db4d5ab10ef2e64b0e64ea3c9d1b2429496c3b625501",
+                "size": 22630080,
+                "sha256": "527ecf79b2eca8cc4a42db4d5ab10ef2e64b0e64ea3c9d1b2429496c3b625501",
+                "modes": [
+                    "empire"
+                ],
+                "textureProfiles": [
+                    "full"
+                ],
+                "unlessOption": "droids"
             },
             {
                 "name": "9ba626afa44a3aa3.patch_1016.gpu_resources",
@@ -645,7 +1107,21 @@
                 ],
                 "textureProfiles": [
                     "full"
-                ]
+                ],
+                "option": "droids"
+            },
+            {
+                "name": "9ba626afa44a3aa3.patch_1016.gpu_resources",
+                "url": "https://github.com/owendavidgoode/clonedivers/releases/download/pack-2026.11.09-r46-droids-files/49bbb8448e3c0d5695ad43cce75b17ff5d36ed8f67358a63f766387c0b9fc4c7",
+                "size": 143290112,
+                "sha256": "49bbb8448e3c0d5695ad43cce75b17ff5d36ed8f67358a63f766387c0b9fc4c7",
+                "modes": [
+                    "empire"
+                ],
+                "textureProfiles": [
+                    "full"
+                ],
+                "unlessOption": "droids"
             },
             {
                 "name": "9ba626afa44a3aa3.patch_1016.stream",
@@ -669,7 +1145,21 @@
                 ],
                 "textureProfiles": [
                     "full"
-                ]
+                ],
+                "option": "droids"
+            },
+            {
+                "name": "9ba626afa44a3aa3.patch_1017",
+                "url": "https://github.com/owendavidgoode/clonedivers/releases/download/pack-2026.11.09-r46-droids-files/5c062b0cadc8c0e3472a3f1c29a7b85a6e9e552613b22953371bd12c621b262a",
+                "size": 4023248,
+                "sha256": "5c062b0cadc8c0e3472a3f1c29a7b85a6e9e552613b22953371bd12c621b262a",
+                "modes": [
+                    "empire"
+                ],
+                "textureProfiles": [
+                    "full"
+                ],
+                "unlessOption": "droids"
             },
             {
                 "name": "9ba626afa44a3aa3.patch_1017.gpu_resources",
@@ -681,7 +1171,21 @@
                 ],
                 "textureProfiles": [
                     "full"
-                ]
+                ],
+                "option": "droids"
+            },
+            {
+                "name": "9ba626afa44a3aa3.patch_1017.gpu_resources",
+                "url": "https://github.com/owendavidgoode/clonedivers/releases/download/pack-2026.11.09-r46-droids-files/34d9082fe655e4de0ca281279947e1647f38d2bf195d4d0f36c8a41a475da6d9",
+                "size": 103987392,
+                "sha256": "34d9082fe655e4de0ca281279947e1647f38d2bf195d4d0f36c8a41a475da6d9",
+                "modes": [
+                    "empire"
+                ],
+                "textureProfiles": [
+                    "full"
+                ],
+                "unlessOption": "droids"
             },
             {
                 "name": "9ba626afa44a3aa3.patch_1017.stream",
@@ -705,7 +1209,21 @@
                 ],
                 "textureProfiles": [
                     "full"
-                ]
+                ],
+                "option": "droids"
+            },
+            {
+                "name": "9ba626afa44a3aa3.patch_1018",
+                "url": "https://github.com/owendavidgoode/clonedivers/releases/download/pack-2026.11.09-r46-droids-files/ab1437977e696fd924d521eb6743fe307459b854b4c41632d254628f92f10650",
+                "size": 18016336,
+                "sha256": "ab1437977e696fd924d521eb6743fe307459b854b4c41632d254628f92f10650",
+                "modes": [
+                    "empire"
+                ],
+                "textureProfiles": [
+                    "full"
+                ],
+                "unlessOption": "droids"
             },
             {
                 "name": "9ba626afa44a3aa3.patch_1018.gpu_resources",
@@ -717,7 +1235,21 @@
                 ],
                 "textureProfiles": [
                     "full"
-                ]
+                ],
+                "option": "droids"
+            },
+            {
+                "name": "9ba626afa44a3aa3.patch_1018.gpu_resources",
+                "url": "https://github.com/owendavidgoode/clonedivers/releases/download/pack-2026.11.09-r46-droids-files/9b1056b74815a02e560acc25c26abf3df6f0a7576a25d4a37045fe152c753155",
+                "size": 54244480,
+                "sha256": "9b1056b74815a02e560acc25c26abf3df6f0a7576a25d4a37045fe152c753155",
+                "modes": [
+                    "empire"
+                ],
+                "textureProfiles": [
+                    "full"
+                ],
+                "unlessOption": "droids"
             },
             {
                 "name": "9ba626afa44a3aa3.patch_1018.stream",
@@ -741,7 +1273,21 @@
                 ],
                 "textureProfiles": [
                     "full"
-                ]
+                ],
+                "option": "droids"
+            },
+            {
+                "name": "9ba626afa44a3aa3.patch_1019",
+                "url": "https://github.com/owendavidgoode/clonedivers/releases/download/pack-2026.11.09-r46-droids-files/071fc1be15132d03b25c651dac9a25024c0d7d06f7380b874f0e5d044cd4bf51",
+                "size": 27274976,
+                "sha256": "071fc1be15132d03b25c651dac9a25024c0d7d06f7380b874f0e5d044cd4bf51",
+                "modes": [
+                    "empire"
+                ],
+                "textureProfiles": [
+                    "full"
+                ],
+                "unlessOption": "droids"
             },
             {
                 "name": "9ba626afa44a3aa3.patch_1019.gpu_resources",
@@ -753,7 +1299,21 @@
                 ],
                 "textureProfiles": [
                     "full"
-                ]
+                ],
+                "option": "droids"
+            },
+            {
+                "name": "9ba626afa44a3aa3.patch_1019.gpu_resources",
+                "url": "https://github.com/owendavidgoode/clonedivers/releases/download/pack-2026.11.09-r46-droids-files/a81d0b2e7b09521c81e057408172f4c9690e84091f1a555e488b7ba7ff6d8ce4",
+                "size": 199661056,
+                "sha256": "a81d0b2e7b09521c81e057408172f4c9690e84091f1a555e488b7ba7ff6d8ce4",
+                "modes": [
+                    "empire"
+                ],
+                "textureProfiles": [
+                    "full"
+                ],
+                "unlessOption": "droids"
             },
             {
                 "name": "9ba626afa44a3aa3.patch_1019.stream",
@@ -777,7 +1337,21 @@
                 ],
                 "textureProfiles": [
                     "full"
-                ]
+                ],
+                "option": "droids"
+            },
+            {
+                "name": "9ba626afa44a3aa3.patch_1020",
+                "url": "https://github.com/owendavidgoode/clonedivers/releases/download/pack-2026.11.09-r46-droids-files/ee114cf4f97c3492187858a6695c993a20a8010b08eb9305481984efe55eb7e8",
+                "size": 10226272,
+                "sha256": "ee114cf4f97c3492187858a6695c993a20a8010b08eb9305481984efe55eb7e8",
+                "modes": [
+                    "empire"
+                ],
+                "textureProfiles": [
+                    "full"
+                ],
+                "unlessOption": "droids"
             },
             {
                 "name": "9ba626afa44a3aa3.patch_1020.gpu_resources",
@@ -789,7 +1363,21 @@
                 ],
                 "textureProfiles": [
                     "full"
-                ]
+                ],
+                "option": "droids"
+            },
+            {
+                "name": "9ba626afa44a3aa3.patch_1020.gpu_resources",
+                "url": "https://github.com/owendavidgoode/clonedivers/releases/download/pack-2026.11.09-r46-droids-files/eb0edf8da1e5303380d7af9fe482f104c31bc9e6426a67859b659906ec19d48c",
+                "size": 81843840,
+                "sha256": "eb0edf8da1e5303380d7af9fe482f104c31bc9e6426a67859b659906ec19d48c",
+                "modes": [
+                    "empire"
+                ],
+                "textureProfiles": [
+                    "full"
+                ],
+                "unlessOption": "droids"
             },
             {
                 "name": "9ba626afa44a3aa3.patch_1020.stream",
@@ -813,7 +1401,21 @@
                 ],
                 "textureProfiles": [
                     "full"
-                ]
+                ],
+                "option": "droids"
+            },
+            {
+                "name": "9ba626afa44a3aa3.patch_1021",
+                "url": "https://github.com/owendavidgoode/clonedivers/releases/download/pack-2026.11.09-r46-droids-files/64a18ac04ef50f0916ee5d406465274f536f503e4048632943cba48f25076f39",
+                "size": 8655568,
+                "sha256": "64a18ac04ef50f0916ee5d406465274f536f503e4048632943cba48f25076f39",
+                "modes": [
+                    "empire"
+                ],
+                "textureProfiles": [
+                    "full"
+                ],
+                "unlessOption": "droids"
             },
             {
                 "name": "9ba626afa44a3aa3.patch_1021.gpu_resources",
@@ -825,7 +1427,21 @@
                 ],
                 "textureProfiles": [
                     "full"
-                ]
+                ],
+                "option": "droids"
+            },
+            {
+                "name": "9ba626afa44a3aa3.patch_1021.gpu_resources",
+                "url": "https://github.com/owendavidgoode/clonedivers/releases/download/pack-2026.11.09-r46-droids-files/4fe38dee5b668b6ca0285d63f3d31af4087722c588873c8e46fdde94c203d7ba",
+                "size": 135245184,
+                "sha256": "4fe38dee5b668b6ca0285d63f3d31af4087722c588873c8e46fdde94c203d7ba",
+                "modes": [
+                    "empire"
+                ],
+                "textureProfiles": [
+                    "full"
+                ],
+                "unlessOption": "droids"
             },
             {
                 "name": "9ba626afa44a3aa3.patch_1021.stream",
@@ -849,7 +1465,21 @@
                 ],
                 "textureProfiles": [
                     "full"
-                ]
+                ],
+                "option": "droids"
+            },
+            {
+                "name": "9ba626afa44a3aa3.patch_1022",
+                "url": "https://github.com/owendavidgoode/clonedivers/releases/download/pack-2026.11.09-r46-droids-files/d5a84c1988670e8da52f55558646864098c5e3b367c0821e76342dbe4938a452",
+                "size": 15827744,
+                "sha256": "d5a84c1988670e8da52f55558646864098c5e3b367c0821e76342dbe4938a452",
+                "modes": [
+                    "empire"
+                ],
+                "textureProfiles": [
+                    "full"
+                ],
+                "unlessOption": "droids"
             },
             {
                 "name": "9ba626afa44a3aa3.patch_1022.gpu_resources",
@@ -861,7 +1491,21 @@
                 ],
                 "textureProfiles": [
                     "full"
-                ]
+                ],
+                "option": "droids"
+            },
+            {
+                "name": "9ba626afa44a3aa3.patch_1022.gpu_resources",
+                "url": "https://github.com/owendavidgoode/clonedivers/releases/download/pack-2026.11.09-r46-droids-files/bb27172c5bdf88abb79bf10229af0cf4d601ec4174e8b01e9d5e976010228bb1",
+                "size": 200937280,
+                "sha256": "bb27172c5bdf88abb79bf10229af0cf4d601ec4174e8b01e9d5e976010228bb1",
+                "modes": [
+                    "empire"
+                ],
+                "textureProfiles": [
+                    "full"
+                ],
+                "unlessOption": "droids"
             },
             {
                 "name": "9ba626afa44a3aa3.patch_1022.stream",
@@ -885,7 +1529,21 @@
                 ],
                 "textureProfiles": [
                     "full"
-                ]
+                ],
+                "option": "droids"
+            },
+            {
+                "name": "9ba626afa44a3aa3.patch_1023",
+                "url": "https://github.com/owendavidgoode/clonedivers/releases/download/pack-2026.11.09-r46-droids-files/a487a1ed10340e486fc37a97798c0c2c580b475124aad160ca36f6d1a6caba1c",
+                "size": 7998928,
+                "sha256": "a487a1ed10340e486fc37a97798c0c2c580b475124aad160ca36f6d1a6caba1c",
+                "modes": [
+                    "empire"
+                ],
+                "textureProfiles": [
+                    "full"
+                ],
+                "unlessOption": "droids"
             },
             {
                 "name": "9ba626afa44a3aa3.patch_1023.gpu_resources",
@@ -897,7 +1555,21 @@
                 ],
                 "textureProfiles": [
                     "full"
-                ]
+                ],
+                "option": "droids"
+            },
+            {
+                "name": "9ba626afa44a3aa3.patch_1023.gpu_resources",
+                "url": "https://github.com/owendavidgoode/clonedivers/releases/download/pack-2026.11.09-r46-droids-files/9089373206d856c58accb56965b3e95d53abf5fb53c028577800133d8a957997",
+                "size": 182843904,
+                "sha256": "9089373206d856c58accb56965b3e95d53abf5fb53c028577800133d8a957997",
+                "modes": [
+                    "empire"
+                ],
+                "textureProfiles": [
+                    "full"
+                ],
+                "unlessOption": "droids"
             },
             {
                 "name": "9ba626afa44a3aa3.patch_1023.stream",
@@ -921,7 +1593,21 @@
                 ],
                 "textureProfiles": [
                     "full"
-                ]
+                ],
+                "option": "droids"
+            },
+            {
+                "name": "9ba626afa44a3aa3.patch_1024",
+                "url": "https://github.com/owendavidgoode/clonedivers/releases/download/pack-2026.11.09-r46-droids-files/bb11d50e9bf62f7d05b1f641f229c9bd8bcacf620f8066b4ea6fe080154909d7",
+                "size": 16681664,
+                "sha256": "bb11d50e9bf62f7d05b1f641f229c9bd8bcacf620f8066b4ea6fe080154909d7",
+                "modes": [
+                    "empire"
+                ],
+                "textureProfiles": [
+                    "full"
+                ],
+                "unlessOption": "droids"
             },
             {
                 "name": "9ba626afa44a3aa3.patch_1024.gpu_resources",
@@ -933,7 +1619,21 @@
                 ],
                 "textureProfiles": [
                     "full"
-                ]
+                ],
+                "option": "droids"
+            },
+            {
+                "name": "9ba626afa44a3aa3.patch_1024.gpu_resources",
+                "url": "https://github.com/owendavidgoode/clonedivers/releases/download/pack-2026.11.09-r46-droids-files/fe1febcf4379cfa18f3f816a1b01c20787e90d3b07b731708bbcfc482312eaad",
+                "size": 154072320,
+                "sha256": "fe1febcf4379cfa18f3f816a1b01c20787e90d3b07b731708bbcfc482312eaad",
+                "modes": [
+                    "empire"
+                ],
+                "textureProfiles": [
+                    "full"
+                ],
+                "unlessOption": "droids"
             },
             {
                 "name": "9ba626afa44a3aa3.patch_1024.stream",
@@ -957,7 +1657,21 @@
                 ],
                 "textureProfiles": [
                     "full"
-                ]
+                ],
+                "option": "droids"
+            },
+            {
+                "name": "9ba626afa44a3aa3.patch_1025",
+                "url": "https://github.com/owendavidgoode/clonedivers/releases/download/pack-2026.11.09-r46-droids-files/4cdfb86f798b2f52ba8b01cb07eda49fc3c6d3a0ce2dbfe28bee4ae3a7fd79e8",
+                "size": 16287232,
+                "sha256": "4cdfb86f798b2f52ba8b01cb07eda49fc3c6d3a0ce2dbfe28bee4ae3a7fd79e8",
+                "modes": [
+                    "empire"
+                ],
+                "textureProfiles": [
+                    "full"
+                ],
+                "unlessOption": "droids"
             },
             {
                 "name": "9ba626afa44a3aa3.patch_1025.gpu_resources",
@@ -969,7 +1683,21 @@
                 ],
                 "textureProfiles": [
                     "full"
-                ]
+                ],
+                "option": "droids"
+            },
+            {
+                "name": "9ba626afa44a3aa3.patch_1025.gpu_resources",
+                "url": "https://github.com/owendavidgoode/clonedivers/releases/download/pack-2026.11.09-r46-droids-files/fb075d775fc52e71a10e0a71ef96843f5c406f12480954e9daa6d9b1e89881bf",
+                "size": 243459008,
+                "sha256": "fb075d775fc52e71a10e0a71ef96843f5c406f12480954e9daa6d9b1e89881bf",
+                "modes": [
+                    "empire"
+                ],
+                "textureProfiles": [
+                    "full"
+                ],
+                "unlessOption": "droids"
             },
             {
                 "name": "9ba626afa44a3aa3.patch_1025.stream",
@@ -993,7 +1721,21 @@
                 ],
                 "textureProfiles": [
                     "full"
-                ]
+                ],
+                "option": "droids"
+            },
+            {
+                "name": "9ba626afa44a3aa3.patch_1026",
+                "url": "https://github.com/owendavidgoode/clonedivers/releases/download/pack-2026.11.09-r46-droids-files/da9ae0e2345800c8dc3ceb7b8e32447a6b2851f7889a368f096f1a66b9f20044",
+                "size": 24688160,
+                "sha256": "da9ae0e2345800c8dc3ceb7b8e32447a6b2851f7889a368f096f1a66b9f20044",
+                "modes": [
+                    "empire"
+                ],
+                "textureProfiles": [
+                    "full"
+                ],
+                "unlessOption": "droids"
             },
             {
                 "name": "9ba626afa44a3aa3.patch_1026.gpu_resources",
@@ -1005,7 +1747,21 @@
                 ],
                 "textureProfiles": [
                     "full"
-                ]
+                ],
+                "option": "droids"
+            },
+            {
+                "name": "9ba626afa44a3aa3.patch_1026.gpu_resources",
+                "url": "https://github.com/owendavidgoode/clonedivers/releases/download/pack-2026.11.09-r46-droids-files/4355f2917a659f9417c270c10c4a6feef914381a190c9926faa8ed4a3668a219",
+                "size": 161805696,
+                "sha256": "4355f2917a659f9417c270c10c4a6feef914381a190c9926faa8ed4a3668a219",
+                "modes": [
+                    "empire"
+                ],
+                "textureProfiles": [
+                    "full"
+                ],
+                "unlessOption": "droids"
             },
             {
                 "name": "9ba626afa44a3aa3.patch_1026.stream",
@@ -1029,7 +1785,21 @@
                 ],
                 "textureProfiles": [
                     "full"
-                ]
+                ],
+                "option": "droids"
+            },
+            {
+                "name": "9ba626afa44a3aa3.patch_1027",
+                "url": "https://github.com/owendavidgoode/clonedivers/releases/download/pack-2026.11.09-r46-droids-files/f327a681adda350bd8fc678d9589e47fc150d98afff98228ceac41c5198753d4",
+                "size": 14446112,
+                "sha256": "f327a681adda350bd8fc678d9589e47fc150d98afff98228ceac41c5198753d4",
+                "modes": [
+                    "empire"
+                ],
+                "textureProfiles": [
+                    "full"
+                ],
+                "unlessOption": "droids"
             },
             {
                 "name": "9ba626afa44a3aa3.patch_1027.gpu_resources",
@@ -1041,7 +1811,21 @@
                 ],
                 "textureProfiles": [
                     "full"
-                ]
+                ],
+                "option": "droids"
+            },
+            {
+                "name": "9ba626afa44a3aa3.patch_1027.gpu_resources",
+                "url": "https://github.com/owendavidgoode/clonedivers/releases/download/pack-2026.11.09-r46-droids-files/170802d21b1bce40bba61612dd87893871b547e14f027669ecf81e91c22b7112",
+                "size": 109277696,
+                "sha256": "170802d21b1bce40bba61612dd87893871b547e14f027669ecf81e91c22b7112",
+                "modes": [
+                    "empire"
+                ],
+                "textureProfiles": [
+                    "full"
+                ],
+                "unlessOption": "droids"
             },
             {
                 "name": "9ba626afa44a3aa3.patch_1027.stream",
@@ -1065,7 +1849,21 @@
                 ],
                 "textureProfiles": [
                     "full"
-                ]
+                ],
+                "option": "droids"
+            },
+            {
+                "name": "9ba626afa44a3aa3.patch_1028",
+                "url": "https://github.com/owendavidgoode/clonedivers/releases/download/pack-2026.11.09-r46-droids-files/37711fc323bc28a2165eb2ee73573cde41ca8124cfed50b019d2648e29bef1a1",
+                "size": 15431584,
+                "sha256": "37711fc323bc28a2165eb2ee73573cde41ca8124cfed50b019d2648e29bef1a1",
+                "modes": [
+                    "empire"
+                ],
+                "textureProfiles": [
+                    "full"
+                ],
+                "unlessOption": "droids"
             },
             {
                 "name": "9ba626afa44a3aa3.patch_1028.gpu_resources",
@@ -1077,7 +1875,21 @@
                 ],
                 "textureProfiles": [
                     "full"
-                ]
+                ],
+                "option": "droids"
+            },
+            {
+                "name": "9ba626afa44a3aa3.patch_1028.gpu_resources",
+                "url": "https://github.com/owendavidgoode/clonedivers/releases/download/pack-2026.11.09-r46-droids-files/d8b33f1e181391ea39f88b55257de417fec3de0894f1d06be69a6ec6830d170b",
+                "size": 174172544,
+                "sha256": "d8b33f1e181391ea39f88b55257de417fec3de0894f1d06be69a6ec6830d170b",
+                "modes": [
+                    "empire"
+                ],
+                "textureProfiles": [
+                    "full"
+                ],
+                "unlessOption": "droids"
             },
             {
                 "name": "9ba626afa44a3aa3.patch_1028.stream",
@@ -1101,7 +1913,21 @@
                 ],
                 "textureProfiles": [
                     "full"
-                ]
+                ],
+                "option": "droids"
+            },
+            {
+                "name": "9ba626afa44a3aa3.patch_1029",
+                "url": "https://github.com/owendavidgoode/clonedivers/releases/download/pack-2026.11.09-r46-droids-files/32b46c41803e02223f1faf55d27a6b445ae0c60d088582ee4a291b1f980b7ec3",
+                "size": 23573312,
+                "sha256": "32b46c41803e02223f1faf55d27a6b445ae0c60d088582ee4a291b1f980b7ec3",
+                "modes": [
+                    "empire"
+                ],
+                "textureProfiles": [
+                    "full"
+                ],
+                "unlessOption": "droids"
             },
             {
                 "name": "9ba626afa44a3aa3.patch_1029.gpu_resources",
@@ -1113,7 +1939,21 @@
                 ],
                 "textureProfiles": [
                     "full"
-                ]
+                ],
+                "option": "droids"
+            },
+            {
+                "name": "9ba626afa44a3aa3.patch_1029.gpu_resources",
+                "url": "https://github.com/owendavidgoode/clonedivers/releases/download/pack-2026.11.09-r46-droids-files/96dd1e807df43cfe7207fb6a2fb4d5f9c31a234a9715b59afb2612a4b43d8362",
+                "size": 190944256,
+                "sha256": "96dd1e807df43cfe7207fb6a2fb4d5f9c31a234a9715b59afb2612a4b43d8362",
+                "modes": [
+                    "empire"
+                ],
+                "textureProfiles": [
+                    "full"
+                ],
+                "unlessOption": "droids"
             },
             {
                 "name": "9ba626afa44a3aa3.patch_1029.stream",
@@ -1137,7 +1977,21 @@
                 ],
                 "textureProfiles": [
                     "full"
-                ]
+                ],
+                "option": "droids"
+            },
+            {
+                "name": "9ba626afa44a3aa3.patch_1030",
+                "url": "https://github.com/owendavidgoode/clonedivers/releases/download/pack-2026.11.09-r46-droids-files/96cc6076ea38438c96b63065f198a659cc76dadd12bc3bd2aebd08a7528261f7",
+                "size": 2928272,
+                "sha256": "96cc6076ea38438c96b63065f198a659cc76dadd12bc3bd2aebd08a7528261f7",
+                "modes": [
+                    "empire"
+                ],
+                "textureProfiles": [
+                    "full"
+                ],
+                "unlessOption": "droids"
             },
             {
                 "name": "9ba626afa44a3aa3.patch_1030.gpu_resources",
@@ -1149,7 +2003,21 @@
                 ],
                 "textureProfiles": [
                     "full"
-                ]
+                ],
+                "option": "droids"
+            },
+            {
+                "name": "9ba626afa44a3aa3.patch_1030.gpu_resources",
+                "url": "https://github.com/owendavidgoode/clonedivers/releases/download/pack-2026.11.09-r46-droids-files/36c8ff655ccd56a5ef4a0380551e0f09570ed82adba79a876835d75b224e3b91",
+                "size": 201552192,
+                "sha256": "36c8ff655ccd56a5ef4a0380551e0f09570ed82adba79a876835d75b224e3b91",
+                "modes": [
+                    "empire"
+                ],
+                "textureProfiles": [
+                    "full"
+                ],
+                "unlessOption": "droids"
             },
             {
                 "name": "9ba626afa44a3aa3.patch_1030.stream",
@@ -1173,7 +2041,21 @@
                 ],
                 "textureProfiles": [
                     "full"
-                ]
+                ],
+                "option": "droids"
+            },
+            {
+                "name": "9ba626afa44a3aa3.patch_1031",
+                "url": "https://github.com/owendavidgoode/clonedivers/releases/download/pack-2026.11.09-r46-droids-files/3744850efb7af8638baa1b809376e9ba7c2a2e1df9421a49d3015a66fd54f0e0",
+                "size": 8177360,
+                "sha256": "3744850efb7af8638baa1b809376e9ba7c2a2e1df9421a49d3015a66fd54f0e0",
+                "modes": [
+                    "empire"
+                ],
+                "textureProfiles": [
+                    "full"
+                ],
+                "unlessOption": "droids"
             },
             {
                 "name": "9ba626afa44a3aa3.patch_1031.gpu_resources",
@@ -1185,7 +2067,21 @@
                 ],
                 "textureProfiles": [
                     "full"
-                ]
+                ],
+                "option": "droids"
+            },
+            {
+                "name": "9ba626afa44a3aa3.patch_1031.gpu_resources",
+                "url": "https://github.com/owendavidgoode/clonedivers/releases/download/pack-2026.11.09-r46-droids-files/6e2734bec763b824c31c63a73801c154c03a0171c55653c2450249b10a8dfa84",
+                "size": 135538432,
+                "sha256": "6e2734bec763b824c31c63a73801c154c03a0171c55653c2450249b10a8dfa84",
+                "modes": [
+                    "empire"
+                ],
+                "textureProfiles": [
+                    "full"
+                ],
+                "unlessOption": "droids"
             },
             {
                 "name": "9ba626afa44a3aa3.patch_1031.stream",

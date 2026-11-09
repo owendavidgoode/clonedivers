@@ -7,6 +7,21 @@ internal static class LinuxForgePlayerTests
     internal static async Task Run(string root, Action<bool, string> check)
     {
         const string hello = "{\"bridge\":\"clonedivers-forge\",\"format\":1}\n";
+        foreach (var texture in new[] { "full", "lighter" })
+        {
+            var empire = new LinuxForgePreferences { Mode = "empire", Texture = texture };
+            var on = empire.PackSelection();
+            empire.Droids = false;
+            var off = empire.PackSelection();
+            var saved = Path.Combine(root, "empire-droids-" + texture + ".json"); empire.Save(saved);
+            var restored = LinuxForgePreferences.Load(saved);
+            check(on.Options["droids"] && !off.Options["droids"] && !restored.Droids &&
+                restored.SelectionCommand().Skip(1).Chunk(2).Any(p => p[0] == "--droids" && p[1] == "no"),
+                "Linux Empire " + texture + " defaults CIS on and persists/transmits the off choice");
+            check(on.Files.Count == 96 && off.Files.Count == 96 && on.Files.Select(f => f.Name).SequenceEqual(off.Files.Select(f => f.Name)) &&
+                on.Files.Any(f => f.Sha256 != off.Files.Single(g => g.Name == f.Name).Sha256),
+                "Linux Empire " + texture + " exports both enemy variants with stable archive layers");
+        }
         var protocol = new ForgeProtocol(new StringReader(hello + "{\"id\":7,\"ok\":true,\"result\":{}}\n"), new StringWriter(), _ => { });
         await protocol.ConnectAsync(CancellationToken.None);
         try { await protocol.SendAsync(["status"]); } catch (InvalidDataException) { }
