@@ -10,6 +10,7 @@ import zipfile
 
 BASE = 0x2C26BC4C6592FA14
 LOADER = 'sdk-shims/hellforge_modloader.dll'
+SDK_TEMPLATE = 'app/sdk/templates/c-mod/src/{{dll}}.c'
 PRIVATE_INPUTS = {
     '1db3fd414039d3e5815a5721925dd2e0a3a9f2549603c6cab7c49b84966a1af3',
     '80a6c2196f6048749ee35a141c91083b29613fd7c56c2207c9fc73ef87566547',
@@ -40,15 +41,18 @@ def json_bytes(data: bytes) -> dict:
     return json.loads(data.decode('utf-8-sig'), object_pairs_hook=pairs)
 
 
-def entries(archive: zipfile.ZipFile) -> dict[str, zipfile.ZipInfo]:
+def entries(archive: zipfile.ZipFile, *, app_payload: bool = False) -> dict[str, zipfile.ZipInfo]:
     result = {}
     folded = set()
     for entry in archive.infolist():
         name = entry.filename.replace('\\', '/')
         if name.endswith('/'):
             continue
-        need(re.fullmatch(r'[A-Za-z0-9_. -]+(?:/[A-Za-z0-9_. -]+)*', name) is not None
-             and not ({'.', '..'} & set(name.split('/'))), 'Unsafe ZIP path')
+        ordinary_name = re.fullmatch(r'[A-Za-z0-9_. -]+(?:/[A-Za-z0-9_. -]+)*', name) is not None
+        # Publish-HellForge copies this literal SDK template into the app payload.
+        sdk_template = app_payload and entry.orig_filename.replace('\\', '/') == SDK_TEMPLATE
+        need((ordinary_name or sdk_template) and not ({'.', '..'} & set(name.split('/'))),
+             f'Unsafe ZIP path: {ascii(entry.orig_filename)}')
         need(name.casefold() not in folded, 'Duplicate ZIP entry')
         folded.add(name.casefold())
         result[name] = entry
@@ -126,7 +130,7 @@ def verify(tree: Path, variant: str, output: Path) -> None:
     need({'HellForge.exe','app/cli/HellForge.Cli.exe','app/launcher/HellForge.Launcher.exe'} <= inventory.keys(), 'Incomplete app payload')
     need(all(inventory['app/'+name] == pin for name,pin in files.items()), 'Payload engine file differs')
     with zipfile.ZipFile(payload_zip) as archive:
-        names = entries(archive)
+        names = entries(archive, app_payload=True)
         need(names.keys() == inventory.keys(), 'Payload ZIP inventory differs')
         for name, entry in names.items():
             with archive.open(entry) as stream:

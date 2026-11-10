@@ -47,6 +47,29 @@ class Tests(unittest.TestCase):
         with zipfile.ZipFile(stream,'w') as archive:archive.writestr('app\\one.dll',b'legitimate upstream Windows separator')
         with zipfile.ZipFile(stream) as archive:self.assertEqual(list(v.entries(archive)),['app/one.dll'])
 
+    def test_literal_sdk_template_is_app_payload_only(self) -> None:
+        path = 'app/sdk/templates/c-mod/src/{{dll}}.c'
+        windows_path = path.replace('/', '\\')
+        stream = io.BytesIO()
+        with zipfile.ZipFile(stream, 'w') as archive:
+            archive.writestr(windows_path, b'template source')
+        with zipfile.ZipFile(stream) as archive:
+            with self.assertRaisesRegex(ValueError, r'Unsafe ZIP path: .*\{\{dll\}\}'):
+                v.entries(archive)
+            names = v.entries(archive, app_payload=True)
+            self.assertEqual(list(names), [path])
+            self.assertEqual(archive.read(names[path]), b'template source')
+
+        for names in ((path.upper(),), ('other/{{dll}}.c',), (path + '.bak',),
+                      ('../' + path,), ('/' + path,), (path, windows_path)):
+            stream = io.BytesIO()
+            with zipfile.ZipFile(stream, 'w') as archive:
+                for name in names:
+                    archive.writestr(name, b'test')
+            with self.subTest(names=names), zipfile.ZipFile(stream) as archive:
+                with self.assertRaises(ValueError):
+                    v.entries(archive, app_payload=True)
+
     def test_json_duplicate_reject(self):
         with self.assertRaises(ValueError):v.json_bytes(b'{"files":{},"files":{}}')
 
