@@ -1,6 +1,6 @@
 # Updating Clonedivers to Forge
 
-Windows 1.14.0 and Linux x86-64 0.8.0 target official HellForge 0.4.0-beta,
+Windows 1.14.1 and Linux x86-64 0.8.1 target official HellForge 0.4.0-beta,
 engine 0.1.47, SDK 16, game 25480438. Use Regular, Clones or Empire here; start the
 official online game directly through Steam. Progress imports HD2 → Forge only.
 
@@ -29,7 +29,7 @@ Install the complete .deb, or extract the entire portable archive including its
 forge/ folder. The package replaces the same application/menu entry. Linux update
 notices still require package installation; close the old launcher first.
 
-Press **Set up / update Forge**. Clonedivers installs missing Ubuntu/Debian tools
+Press **Set up Forge** in 0.8.1. Clonedivers installs missing Ubuntu/Debian tools
 through desktop approval, downloads/verifies the author's native Linux installer,
 and opens it. Keep an existing player's prefix selected; the default prefix is
 found automatically. Pick Proton and continue the official game/ownership setup.
@@ -54,8 +54,9 @@ Loader, Mod Options Menu, Smarter Guard Dogs and optional Clean Exit. Three base
 Forge. Appearance assets are verified and reused/downloaded separately with the
 large-download prompt. Credits and permission scope are retained.
 
-Empire uses r45-v4 with Full textures, CIS droids and walker weapons enabled,
-Covenant disabled. Prepare Empire again after updating. Clones retains the r19
+The integration builds offer Full and Lighter textures and a CIS droids toggle
+for Empire. Their r47 catalogs are staged for testing. Public rollout requires
+pack acceptance and verified hosting of all selected assets. Clones retains the r19
 catalog and saved appearance choices. Interrupted exports reuse verified files.
 
 Setup applies load order, loader/menu options, Guard Dogs AI/safety ON and target

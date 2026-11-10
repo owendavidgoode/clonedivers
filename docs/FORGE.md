@@ -1,8 +1,8 @@
 # Clonedivers Forge status
 
-The replacement launcher is Windows **1.13.0**, Linux x86-64 **0.7.0**, native controller
-**0.4.0**. Existing Windows update feeds point to the new default Forge executable;
-Linux notices the complete 0.7 release and requires package/manual installation.
+Public downloads are Windows **1.14.0** and Linux x86-64 **0.8.0**. This
+integration stages Windows **1.14.1** and Linux Forge **0.8.1** with native
+controller **0.4.0**. Linux updates require installing the complete package.
 See [the migration guide](FORGE-MIGRATION.md) for rollout and recovery.
 
 The launcher now installs the complete pinned gameplay preset through the

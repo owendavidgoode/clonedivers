@@ -5,14 +5,14 @@
 Choose **Regular**, **Clones** or **Empire** in a separate HellForge installation.
 Play the official online Helldivers 2 game directly through Steam.
 
-[Windows launcher](https://github.com/owendavidgoode/clonedivers/releases/latest/download/Clonedivers.exe) · [Ubuntu/Debian x86-64 package](https://github.com/owendavidgoode/clonedivers/releases/download/linux-v0.7.0/Clonedivers-linux-x64.deb) · [Linux portable](https://github.com/owendavidgoode/clonedivers/releases/download/linux-v0.7.0/Clonedivers-linux-x64.tar.gz)
+[Windows launcher](https://github.com/owendavidgoode/clonedivers/releases/latest/download/Clonedivers.exe) · [Ubuntu/Debian x86-64 package](https://github.com/owendavidgoode/clonedivers/releases/download/linux-v0.8.0/Clonedivers-linux-x64.deb) · [Linux portable](https://github.com/owendavidgoode/clonedivers/releases/download/linux-v0.8.0/Clonedivers-linux-x64.tar.gz)
 
 ## Update or install
 
-Existing Windows launchers receive **1.13.0** through their normal launcher-update
-button. Existing Linux launchers show the **0.7.0** release; install its complete
-.deb or extract the full portable archive. Linux updates require a package-manager
-or manual installation; a notice does not silently replace the old application.
+The current public versions are Windows **1.14.0** and Linux Forge **0.8.0**.
+Update Windows through the launcher. On Linux, install the complete .deb or
+extract the full portable archive. This branch stages Windows **1.14.1** and
+Linux Forge **0.8.1** pending pack acceptance and release verification.
 
 New players press **Set up Clonedivers** on Windows or **Set up / update Forge**
 on Linux. Windows installs or upgrades the verified Forge application; Linux

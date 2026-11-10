@@ -11,18 +11,20 @@ extract=$(mktemp -d)
 tar -xzf "$archive" -C "$extract"
 if find "$extract" -type l -print -quit | grep -q .; then echo 'Unexpected archive link' >&2; exit 1; fi
 [[ -x "$extract/clonedivers" && -f "$extract/forge/LICENSE-CLONEDIVERS.txt" && -f "$extract/preset.json" ]]
+cmp "$extract/clonedivers-forge-channel.json" clonedivers-forge-channel.json
+[[ $(jq -r .versions.linux clonedivers-forge-channel.json) == 0.8.1 ]]
 [[ $(jq -r .bridgeVersion "$extract/forge/companion.json") == 0.4.0 ]]
 [[ $(jq -r .gameBuild "$extract/forge/companion.json") == 25480438 ]]
 [[ $(jq -r .control "$extract/forge/companion.json") == native-linux ]]
 [[ $(sha256sum "$extract/forge/HellForge.Launcher.ClonediversBridge" | cut -d' ' -f1) == $(jq -r .bridgeSha256 "$extract/forge/companion.json") ]]
 "$extract/forge/HellForge.Launcher.ClonediversBridge" --help >/dev/null
-"$extract/clonedivers" --version | grep -F 'Clonedivers Forge Linux 0.8.0'
+"$extract/clonedivers" --version | grep -F 'Clonedivers Forge Linux 0.8.1'
 "$extract/clonedivers" --help | grep -F 'Clonedivers Forge for Linux'
 "$extract/clonedivers" --steam --help > /dev/null
-[[ $(dpkg-deb -f "$deb" Package) == clonedivers && $(dpkg-deb -f "$deb" Version) == 0.8.0 ]]
+[[ $(dpkg-deb -f "$deb" Package) == clonedivers && $(dpkg-deb -f "$deb" Version) == 0.8.1 ]]
 sudo apt-get update -qq
 sudo apt-get install -y "$artifacts/$deb"
-clonedivers --version | grep -F 'Clonedivers Forge Linux 0.8.0'
+clonedivers --version | grep -F 'Clonedivers Forge Linux 0.8.1'
 clonedivers --help | grep -F 'Clonedivers Forge for Linux'
 test -f /usr/lib/clonedivers/forge/companion.json
 test -x /usr/lib/clonedivers/forge/HellForge.Launcher.ClonediversBridge

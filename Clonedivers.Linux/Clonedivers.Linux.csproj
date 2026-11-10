@@ -13,7 +13,7 @@
     <EnableCompressionInSingleFile>true</EnableCompressionInSingleFile>
   </PropertyGroup>
   <PropertyGroup Condition="'$(ForgeEdition)' == 'true'">
-    <Version>0.8.0</Version>
+    <Version>0.8.1</Version>
     <DefineConstants>$(DefineConstants);FORGE_DEFAULT</DefineConstants>
   </PropertyGroup>
   <ItemGroup>

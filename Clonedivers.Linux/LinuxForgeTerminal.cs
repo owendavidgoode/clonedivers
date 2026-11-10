@@ -12,7 +12,8 @@ internal static class LinuxForgeTerminal
             Console.WriteLine("""
                 Clonedivers Forge for Linux
                 --forge --gui                     Open Regular / Clones / Empire desktop
-                --forge [--forge-root PATH] status Read readiness without starting a game
+                --forge [--forge-root PATH] status Read readiness as JSON without starting a game
+                --forge --plain status             Show a short readiness summary
                 --forge [--forge-root PATH] mods   Read the official mod catalog
                 --forge [--forge-root PATH] account Read verified account import status
                 --forge [--forge-root PATH] report Save a local Forge support ZIP
@@ -38,7 +39,7 @@ internal static class LinuxForgeTerminal
                     case "--forge-root": preferences.InstallRoot = Value(args, ref i); break;
                     case "--forge-resources": resources = Value(args, ref i); break;
                     case "status": case "mods": case "account": case "report": command = args[i]; break;
-                    default: throw new ArgumentException("Unsupported Forge diagnostic argument. Use --forge --help; player actions are in the desktop trial.");
+                    default: throw new ArgumentException("Unsupported Forge diagnostic argument. Use --forge --help; player actions are in the desktop launcher.");
                 }
             if (command == "report")
             {
@@ -53,6 +54,12 @@ internal static class LinuxForgeTerminal
             await using var player = await LinuxForgePlayer.ConnectAsync(preferences, resources, cancellation.Token);
             if (command == "mods") Console.WriteLine(JsonSerializer.Serialize(player.State?.Mods, HellForgePack.Json));
             else if (command == "account") Console.WriteLine(JsonSerializer.Serialize(player.State?.Account, HellForgePack.Json));
+            else if (args.Contains("--plain"))
+            {
+                var view = ForgePresentation.Resolve(player.State, connected: true, active: player.SessionActive, ownsSession: player.OwnsSession,
+                    canLaunch: player.CanLaunch, disconnected: player.Disconnected, error: player.Error);
+                Console.WriteLine(view.Headline + "\n" + view.Detail + (view.Action == ForgeAction.None ? "" : "\nOpen the desktop launcher to " + view.Button.ToLowerInvariant() + "."));
+            }
             else Console.WriteLine(JsonSerializer.Serialize(player.State, HellForgePack.Json));
             return 0;
         }

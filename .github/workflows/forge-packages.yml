@@ -84,10 +84,10 @@ jobs:
             cp "$runtime/LICENSE.TXT" "dist/forge-stage/licenses/dotnet-$rid-LICENSE.TXT"
             cp "$runtime/THIRD-PARTY-NOTICES.TXT" "dist/forge-stage/licenses/dotnet-$rid-NOTICES.TXT"
           done
-          jq -n '{format:1,channel:"forge",architecture:"x64",gameBuild:"25480438",engine:"0.1.47",hellforge:"0.4.0-beta",versions:{windows:"1.14.1",linux:"0.8.0",bridge:"0.4.0"},qualification:"Launcher/package migration; actual Linux gameplay and multiplayer unqualified",includesGameOrThirdPartyMods:false}' > artifacts/linux/clonedivers-forge-channel.json
+          jq -n '{format:1,channel:"forge",architecture:"x64",gameBuild:"25480438",engine:"0.1.47",hellforge:"0.4.0-beta",versions:{windows:"1.14.1",linux:"0.8.1",bridge:"0.4.0"},qualification:"Launcher/package migration; actual Linux gameplay and multiplayer unqualified",includesGameOrThirdPartyMods:false}' > artifacts/linux/clonedivers-forge-channel.json
           cp artifacts/linux/clonedivers-forge-channel.json dist/forge-stage/clonedivers-forge-channel.json
           bash tools/package-forge-portable.sh dist/forge-stage artifacts/linux/Clonedivers-linux-x64.tar.gz
-          bash tools/package-forge-deb.sh dist/forge-stage 0.8.0 artifacts/linux/Clonedivers-linux-x64.deb
+          bash tools/package-forge-deb.sh dist/forge-stage 0.8.1 artifacts/linux/Clonedivers-linux-x64.deb
           cd artifacts/linux
           sha256sum Clonedivers-linux-x64.tar.gz Clonedivers-linux-x64.deb clonedivers-forge-channel.json > SHA256SUMS
       - uses: actions/upload-artifact@v4
