@@ -8,9 +8,13 @@ An owned session's End session action takes priority over update offers and erro
 a failed bridge offers Reconnect. The terminal's `--plain status` uses the same
 short readiness summary; ordinary `status` keeps its JSON output.
 
-The 0.8.1 integration shows Full / Lighter textures and CIS droids in both
-Clones and Empire. Delta Squad and Covenant remain Clones choices. The Empire
-r47 catalogs are staged pending pack acceptance and verified asset hosting.
+The 0.8.1 release keeps Full / Lighter textures and CIS droids in Clones, alongside
+Delta Squad and Covenant. Empire retains published r45-v4 Full appearance with
+fixed enemy models. Experimental Empire Lighter and enemy switches are hidden
+and rejected by the selector and bridge. Unavailable saved choices remain readable;
+the explicit **Use published Empire appearance** action selects the supported
+configuration. Switching modes alone preserves them. The earlier r47 integration
+remains separate research, not content shipped by this launcher release.
 
 Linux launcher updates retain the existing release-page handoff: View update opens
 the compatible Linux release, Not now returns to setup or play, and a failed

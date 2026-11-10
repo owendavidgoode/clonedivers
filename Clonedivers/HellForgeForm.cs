@@ -57,6 +57,7 @@ public sealed class HellForgeForm : Form
         AccessibleDescription = "Switch between full textures and full-detail textures streamed on demand." };
     readonly RadioButton fullTextures = new() { Text = "Full", AccessibleName = "Full textures", Appearance = Appearance.Button, Dock = DockStyle.Fill, Margin = Padding.Empty, TextAlign = ContentAlignment.MiddleCenter };
     readonly RadioButton lighterTextures = new() { Text = "Lighter", AccessibleName = "Lighter textures", AccessibleDescription = "Full-detail textures streamed on demand.", Appearance = Appearance.Button, Dock = DockStyle.Fill, Margin = Padding.Empty, TextAlign = ContentAlignment.MiddleCenter };
+    readonly Button publishedEmpire = new() { Text = "Use published Empire appearance", AutoSize = true, AccessibleName = "Use published Empire appearance" };
     readonly Label state = new() { AutoSize = true, ForeColor = TextMain, Font = new Font("Segoe UI", 12, FontStyle.Bold) };
     readonly Label detail = new() { AutoSize = true, ForeColor = TextDim, MaximumSize = new Size(640, 0) };
     readonly ToolStripMenuItem location = new() { Enabled = false };
@@ -157,7 +158,13 @@ public sealed class HellForgeForm : Form
             option.FlatAppearance.MouseOverBackColor = SlateHot; option.BackColor = Bg; option.ForeColor = TextMain; option.Font = new Font("Segoe UI", 10F);
         }
         textures.Controls.Add(fullTextures, 0, 0); textures.Controls.Add(lighterTextures, 1, 0);
-        textureRow.Controls.Add(textures); appearance.Controls.Add(textureRow, 0, 2); root.Controls.Add(appearance, 0, 2);
+        textureRow.Controls.Add(textures); textureRow.Controls.Add(publishedEmpire);
+        publishedEmpire.Click += (_, _) => {
+            if (working) return;
+            preferences.Texture = "full"; preferences.Droids = true; droids.Checked = true;
+            Save(); message.Text = "Prepare the published Empire appearance to apply this choice."; UpdateView();
+        };
+        appearance.Controls.Add(textureRow, 0, 2); root.Controls.Add(appearance, 0, 2);
         var statusCard = new TableLayoutPanel { AutoSize = true, Dock = DockStyle.Fill, ColumnCount = 1,
             Margin = new Padding(0, 0, 0, 12) };
         statusCard.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100));
@@ -367,10 +374,13 @@ public sealed class HellForgeForm : Form
         regular.Selected = preferences.IsRegular;
         clone.Selected = preferences.Mode == "clonedivers"; empire.Selected = preferences.Mode == "empire";
         appearance.Visible = !working;
-        choices.Visible = textureRow.Visible = !working && !preferences.IsRegular;
+        choices.Visible = !working && preferences.Mode == "clonedivers";
+        textureRow.Visible = !working && (preferences.Mode == "clonedivers" || preferences.SelectionProblem != null);
+        foreach (Control control in textureRow.Controls) control.Visible = control == publishedEmpire ? preferences.SelectionProblem != null : preferences.Mode == "clonedivers";
+        publishedEmpire.Enabled = !working && (preview ? previewState != "running" : lastStatus?.Running != true && !Game.IsRunning());
         optionsLabel.Text = preferences.Mode switch { "empire" => "Empire appearance", "regular" => "Regular appearance", _ => "Clones appearance" };
-        appearanceInfo.Visible = preferences.IsRegular;
-        appearanceInfo.Text = "Standard Helldivers appearance with your selected gameplay mods.";
+        appearanceInfo.Visible = preferences.Mode != "clonedivers";
+        appearanceInfo.Text = preferences.Mode == "empire" ? HellForgePack.PublishedEmpireDescription : "Standard Helldivers appearance with your selected gameplay mods.";
         delta.Visible = preferences.Mode == "clonedivers";
         covenant.Visible = preferences.Mode == "clonedivers";
         delta.Enabled = !working && preferences.Mode == "clonedivers";
@@ -393,7 +403,8 @@ public sealed class HellForgeForm : Form
             detail.Text = "Choose difficulty 1–11 at the war table.";
             message.Text = ""; later.Visible = false;
             progress.Visible = busy; progress.Style = ProgressBarStyle.Continuous; progress.Value = 42;
-            choices.Visible = textureRow.Visible = !busy && !preferences.IsRegular;
+            choices.Visible = !busy && preferences.Mode == "clonedivers";
+            textureRow.Visible = !busy && (preferences.Mode == "clonedivers" || preferences.SelectionProblem != null);
             appearance.Visible = !busy;
             actions.Visible = !busy;
             if (previewState == "setup") { state.Text = "Set up HellForge"; detail.Text = "We'll guide you through installing the separate game copy and your chosen mode."; launch.Text = "SET UP CLONEDIVERS"; }
@@ -405,6 +416,9 @@ public sealed class HellForgeForm : Form
             if (previewState == "update-downloading") { state.Text = "Downloading update · v1.15.0"; detail.Text = "Temporary connection problems retry automatically until you cancel."; launch.Text = "DOWNLOADING…"; message.Text = "28 MB / 66 MB · 42%"; }
             if (previewState == "update-ready") { state.Text = "Update verified"; detail.Text = "The launcher is restarting with the new version."; launch.Text = "RESTARTING…"; launch.Enabled = false; }
             if (busy) { launch.Text = "CANCEL"; launch.Enabled = true; }
+            if (!busy && previewState != "running" && preferences.SelectionProblem is { } previewProblem) {
+                state.Text = "Choose the published Empire appearance"; detail.Text = previewProblem; launch.Enabled = prepare.Enabled = false;
+            }
             activity.Visible = busy;
             return;
         }
@@ -443,6 +457,10 @@ public sealed class HellForgeForm : Form
             prepare.Text = gameplay ? "RECOVER GAMEPLAY PRESET" : "RECOVER PREVIOUS APPEARANCE"; prepare.Enabled = true; accountSync.Enabled = false;
             launch.Text = prepare.Text; launch.Enabled = true;
             return;
+        }
+        if (preferences.SelectionProblem is { } selectionProblem) {
+            state.Text = "Choose the published Empire appearance"; detail.Text = selectionProblem;
+            launch.Text = "CHOOSE APPEARANCE"; launch.Enabled = prepare.Enabled = false; return;
         }
         if (preferences.InstallRoot != null && lastStatus != null && !SteamReadyCheck()) {
             state.Text = "Start Steam and sign in"; detail.Text = "Sign in to Steam with the account that owns HD2 before launching here.";
@@ -609,7 +627,10 @@ public sealed class HellForgeForm : Form
     {
         var client = Client();
         if (client.InterruptedGameplayProblem() != null) { await client.RecoverGameplayAsync(WorkToken); message.Text = "Previous gameplay preset restored."; return; }
-        if ((await client.StatusAsync(WorkToken)).RecoveryProblem == null) await InstallGameplayCoreAsync(client);
+        if ((await client.StatusAsync(WorkToken)).RecoveryProblem == null) {
+            if (preferences.SelectionProblem is { } problem) throw new InvalidOperationException(problem);
+            await InstallGameplayCoreAsync(client);
+        }
         await PrepareCoreAsync();
         if (client.InterruptedGameplayProblem() == null && client.InterruptedPackProblem() == null &&
             preferences.AppliedSelection == preferences.SelectionKey &&
@@ -708,6 +729,7 @@ public sealed class HellForgeForm : Form
         return output;
     }
     async Task LaunchAsync() => await OperationAsync(async () => {
+        if (preferences.SelectionProblem is { } problem) throw new InvalidOperationException(problem);
         if (!SteamReadyCheck()) {
             Process.Start(new ProcessStartInfo("steam://open/main") { UseShellExecute = true });
             message.Text = "Finish signing in to Steam, then launch your Forge session here.";

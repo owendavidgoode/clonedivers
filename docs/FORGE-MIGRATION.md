@@ -54,10 +54,14 @@ Loader, Mod Options Menu, Smarter Guard Dogs and optional Clean Exit. Three base
 Forge. Appearance assets are verified and reused/downloaded separately with the
 large-download prompt. Credits and permission scope are retained.
 
-The integration builds offer Full and Lighter textures and a CIS droids toggle
-for Empire. Their r47 catalogs are staged for testing. Public rollout requires
-pack acceptance and verified hosting of all selected assets. Clones retains the r19
-catalog and saved appearance choices. Interrupted exports reuse verified files.
+Empire retains the published r45-v4 Full appearance with fixed enemy models.
+It does not offer the experimental Lighter or enemy switches. Saved unavailable
+options are retained: choose **Use published Empire appearance** explicitly to
+apply the supported configuration, or return to Clones to use the saved choices.
+Clones retains r19, its Full/Lighter textures and optional skins. Regular has no
+appearance pack. Interrupted exports reuse verified files, and existing public
+Empire receipts remain compatible. This launcher update does not include r47
+appearance changes or a LEGO proportion fix.
 
 Setup applies load order, loader/menu options, Guard Dogs AI/safety ON and target
 markers OFF. It disables known conflicting alternatives and the retired private

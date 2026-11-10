@@ -35,6 +35,8 @@ internal sealed class ForgeWindow : Window
     readonly TextBox folder = new() { Watermark = "Separate HellForge installation inside its dedicated prefix" };
     readonly CheckBox delta = new() { Content = "Delta Squad armor" }, droids = new() { Content = "CIS droids" }, covenant = new() { Content = "Covenant squids" };
     readonly ToggleButton fullTextures = new() { Content = "Full", Width = 110 }, lighterTextures = new() { Content = "Lighter", Width = 110 };
+    readonly Button publishedEmpire = Action("Use published Empire appearance");
+    readonly StackPanel textureRow = new() { Orientation = Orientation.Horizontal, Spacing = 12 };
     readonly StackPanel appearance = new() { Spacing = 6, MinHeight = 100 }, packChoices = new() { Spacing = 2 };
     readonly TextBlock appearanceLabel = Text("Clones appearance", 13, Dim), appearanceInfo = Text("", 13, Dim);
     readonly Button later = Action("Not now");
@@ -94,8 +96,9 @@ internal sealed class ForgeWindow : Window
         AutomationProperties.SetName(fullTextures, "Full textures"); AutomationProperties.SetName(lighterTextures, "Lighter textures");
         foreach (var segment in new[] { fullTextures, lighterTextures }) { segment.BorderThickness = new Thickness(1); segment.BorderBrush = Brush.Parse("#263047"); segment.CornerRadius = new CornerRadius(0); }
         ToolTip.SetTip(lighterTextures, "Full-detail textures streamed on demand.");
-        var textureRow = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 12, Children = { Text("Textures", 13, Dim), textures } };
-        packChoices.Children.Add(choices); packChoices.Children.Add(textureRow);
+        textureRow.Children.Add(Text("Textures", 13, Dim)); textureRow.Children.Add(textures);
+        packChoices.Children.Add(choices); packChoices.Children.Add(textureRow); packChoices.Children.Add(publishedEmpire);
+        publishedEmpire.Click += (_, _) => Begin(async () => { preferences.Texture = "full"; preferences.Droids = true; await ChangedAsync(); });
         appearance.Children.Add(appearanceLabel); appearance.Children.Add(packChoices); appearance.Children.Add(appearanceInfo); panel.Children.Add(appearance);
         state.FontWeight = FontWeight.SemiBold; state.TextAlignment = detail.TextAlignment = TextAlignment.Center;
         panel.Children.Add(state); panel.Children.Add(detail);
@@ -287,6 +290,7 @@ internal sealed class ForgeWindow : Window
             else await player.RecoverAppearanceAsync(lifetime.Token);
             return;
         }
+        if (preferences.SelectionProblem is { } problem) throw new InvalidOperationException(problem);
         var progress = new Progress<string>(text => message.Text = text);
         await player.InstallGameplayAsync(progress, lifetime.Token);
         if (preferences.Mode == "regular") { await player.PrepareAppearanceAsync(null, false, ct: lifetime.Token); await FinishAccountAsync(); return; }
@@ -317,10 +321,12 @@ internal sealed class ForgeWindow : Window
         foreach (var (id, button) in Modes) { button.Background = Brush.Parse(id == preferences.Mode ? "#1D3457" : "#111A2D"); button.BorderBrush = id == preferences.Mode ? Blue : Brush.Parse("#263047"); button.IsEnabled = !working && !active && !checking; selectedModes[id].Text = id == preferences.Mode ? "SELECTED" : ""; }
         foreach (var control in new Control[] { delta, droids, covenant, fullTextures, lighterTextures }) control.IsEnabled = !working && !active && !checking;
         foreach (var segment in new[] { fullTextures, lighterTextures }) segment.Background = segment.IsChecked == true ? Brush.Parse("#1D3457") : Navy;
-        packChoices.IsVisible = preferences.Mode != "regular"; appearanceInfo.IsVisible = !packChoices.IsVisible;
-        delta.IsVisible = covenant.IsVisible = preferences.Mode == "clonedivers";
+        packChoices.IsVisible = preferences.Mode != "regular"; appearanceInfo.IsVisible = preferences.Mode != "clonedivers";
+        delta.IsVisible = droids.IsVisible = covenant.IsVisible = textureRow.IsVisible = preferences.Mode == "clonedivers";
+        publishedEmpire.IsVisible = preferences.SelectionProblem != null;
+        publishedEmpire.IsEnabled = !working && !active && !checking;
         appearanceLabel.Text = preferences.Mode == "clonedivers" ? "Clones appearance" : preferences.Mode == "empire" ? "Empire appearance" : "Regular HellForge";
-        appearanceInfo.Text = "Original HD2 appearance with the required Forge gameplay mods.";
+        appearanceInfo.Text = preferences.Mode == "empire" ? HellForgePack.PublishedEmpireDescription : "Original HD2 appearance with the required Forge gameplay mods.";
         folder.IsEnabled = browse.IsEnabled = !busy && player == null && !preview;
         connect.IsEnabled = !busy && (player == null || lost) && !preview; refresh.IsEnabled = !busy && player != null && !lost && !preview;
         Prepare.IsEnabled = !busy && !active && !lost && player != null && player.State?.Status.CompatibilityProblem == null && !preview;
@@ -342,6 +348,10 @@ internal sealed class ForgeWindow : Window
         if (!working && !active && lastError == null && updateHeadline != null) { state.Text = updateHeadline; detail.Text = updateDetail; }
         if (checking) { state.Text = "Checking launcher updates…"; detail.Text = "Looking for a compatible Linux package."; Launch.Content = "Checking…"; }
         Launch.IsEnabled = !working && !checking && view.Action != ForgeAction.None;
+        if (!working && !active && preferences.SelectionProblem is { } selectionProblem && player?.State?.Status.RecoveryProblem == null) {
+            state.Text = "Choose the published Empire appearance"; detail.Text = selectionProblem;
+            Launch.Content = "Choose appearance"; Launch.IsEnabled = Prepare.IsEnabled = false;
+        }
         AutomationProperties.SetName(Launch, Launch.Content?.ToString());
         progress.IsVisible = working || checking;
         later.IsVisible = version != null && !active && !working && !checking;

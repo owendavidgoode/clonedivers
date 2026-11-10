@@ -8,6 +8,11 @@ public static class HellForgePack
 {
     public const string SupportedBuild = "25480438";
     public const string ReceiptName = "clonedivers-export.json";
+    public const string PublishedEmpireDescription = "Published Empire appearance · Full textures · fixed enemy models";
+    public static string? SelectionProblem(string mode, string texture, bool droids) =>
+        mode == "empire" && (texture != "full" || !droids)
+            ? "Your saved appearance options are unavailable in this Empire release. Use the published Empire appearance to continue, or return to Clones to keep using them."
+            : null;
     public static readonly JsonSerializerOptions Json = new() { WriteIndented = true, PropertyNameCaseInsensitive = true };
 
     public sealed record Selection(string Mode, string Texture, string Version, string GameBuild, string ManifestSha256,
@@ -56,10 +61,11 @@ public static class HellForgePack
     {
         if (mode == "empire")
         {
-            changes = new Dictionary<string, bool> { ["droids"] = changes?.GetValueOrDefault("droids", true) ?? true, ["covenant"] = false };
+            if (SelectionProblem(mode, texture, changes?.GetValueOrDefault("droids", true) ?? true) is { } problem)
+                throw new InvalidOperationException(problem);
+            changes = new Dictionary<string, bool> { ["droids"] = true, ["covenant"] = false };
         }
-        var resource = mode == "empire" ? texture == "lighter" ? "Clonedivers.HellForge.Empire.Lighter.Manifest.json" :
-            "Clonedivers.HellForge.Empire.Manifest.json" : "Clonedivers.HellForge.Manifest.json";
+        var resource = mode == "empire" ? "Clonedivers.HellForge.Empire.Manifest.json" : "Clonedivers.HellForge.Manifest.json";
         using var stream = typeof(HellForgePack).Assembly.GetManifestResourceStream(resource)
             ?? throw new InvalidDataException("This launcher has no pinned HellForge pack catalog.");
         using var memory = new MemoryStream();
