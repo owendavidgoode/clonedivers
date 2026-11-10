@@ -281,6 +281,14 @@ try
     var selectionArgs = new[] { "select-mode", "--mode", "regular", "--delta", "yes", "--texture", "full", "--droids", "yes", "--covenant", "no" };
     BridgeSession.Validate(selectionArgs);
     await player.RunAsync(selectionArgs, CancellationToken.None);
+    foreach (var (texture, droids) in new[] { ("lighter", "yes"), ("full", "no"), ("lighter", "no") })
+    {
+        var callCount = playerOfficial.Calls.Count;
+        bool refused = false;
+        try { await player.RunAsync(["select-mode", "--mode", "empire", "--delta", "yes", "--texture", texture, "--droids", droids, "--covenant", "no"], CancellationToken.None); }
+        catch (InvalidOperationException) { refused = true; }
+        Check(refused && playerOfficial.Calls.Count == callCount, "the actual bridge rejects unavailable Empire selections before official commands");
+    }
     var state = await player.RunAsync(["player-status"], CancellationToken.None);
     Check(!state.GetProperty("ready").GetBoolean() && state.GetProperty("detail").GetString()!.Contains("turn OFF automatic gameplay-mod sharing"),
         "the native player dispatcher blocks the official default sharing-ON state before offering the private preset");

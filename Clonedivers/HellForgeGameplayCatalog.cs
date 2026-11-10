@@ -66,16 +66,20 @@ public sealed class HellForgeGameplayCatalog
             if (expanded > 256L * 1024 * 1024) throw new InvalidDataException("Oversized expanded mod archive.");
         }
     }
-    public static async Task StageAsync(string folder, IEnumerable<GameplayArtifact> artifacts, IProgress<string>? progress, CancellationToken ct = default)
+    public static async Task StageAsync(string folder, IEnumerable<GameplayArtifact> artifacts, IProgress<string>? progress, CancellationToken ct = default,
+        IProgress<(long done, long total)>? downloadProgress = null)
     {
         RejectLinks(folder); Directory.CreateDirectory(folder);
-        foreach (var artifact in artifacts)
+        var pending = artifacts.ToList(); long done = 0, total = pending.Sum(a => a.Bytes);
+        foreach (var artifact in pending)
         {
             ct.ThrowIfCancellationRequested();
             var path = FileSafety.Child(folder, artifact.FileName);
             progress?.Report("Getting " + artifact.Name + "…");
-            await Pack.DownloadAsync(new PackFile { Name = artifact.FileName, Url = artifact.Url, Size = artifact.Bytes, Sha256 = artifact.Sha256 }, path, null, ct);
+            await Pack.DownloadAsync(new PackFile { Name = artifact.FileName, Url = artifact.Url, Size = artifact.Bytes, Sha256 = artifact.Sha256 }, path,
+                new SyncProgress<(long done, long total)>(p => downloadProgress?.Report((done + p.done, total))), ct);
             await VerifyArchiveAsync(path, artifact, ct);
+            done += artifact.Bytes; downloadProgress?.Report((done, total));
         }
     }
 }

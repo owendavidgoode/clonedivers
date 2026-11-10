@@ -40,17 +40,19 @@ static class HellForgeTests
             check(actions == 1, "a queued operation executes once and ignores a duplicate click");
             string? Diagnostic() => (string?)type.GetProperty("LauncherDiagnostic", members)!.GetValue(form);
             Set("lastError", null); // what the next successful status refresh does
-            check(Diagnostic() == "isolated action finished", "the failed operation's full diagnostic survives the next refresh for Session details");
+            check(Diagnostic()?.Contains("isolated action finished") == true, "the failed operation's full diagnostic survives the next refresh for Session details");
 
             Set("lastStatus", new HellForgeStatus(Path.GetTempPath(), "fixture", HellForgePack.SupportedBuild,
                 false, true, true, true, true, "observing", null));
             Set("lastError", "Mods listing failed during an active session");
+            Set("launcherRelease", new AppRelease { Version = "999.0.0", Url = "https://github.com/owendavidgoode/clonedivers/releases/download/v999.0.0/Clonedivers.exe", Size = 1, Sha256 = new string('a', 64) });
             type.GetMethod("UpdateView", members)!.Invoke(form, null);
             var end = (Button)type.GetField("launch", members)!.GetValue(form)!;
             check(end.Enabled && end.Text == "END SESSION", "a mod/status-detail error cannot hide End session for a known active runner");
             HellForgeForm.SteamReadyCheck = () => false;
             type.GetMethod("UpdateView", members)!.Invoke(form, null);
             check(end.Enabled && end.Text == "END SESSION", "Steam going away cannot hide cleanup for a known active session");
+            Set("launcherRelease", null);
             Set("lastStatus", new HellForgeStatus(Path.GetTempPath(), "fixture", HellForgePack.SupportedBuild, true, true, false, true, true, null, null));
             Set("lastError", null);
             type.GetMethod("UpdateView", members)!.Invoke(form, null);
@@ -58,10 +60,10 @@ static class HellForgeTests
             Set("lastStatus", new HellForgeStatus(Path.GetTempPath(), "fixture", HellForgePack.SupportedBuild, true, true, false, true, true, null, null,
                 RecoveryProblem: "Fixture interrupted appearance; recover the previous selection."));
             type.GetMethod("UpdateView", members)!.Invoke(form, null);
-            var recover = (Button)type.GetField("prepare", members)!.GetValue(form)!;
-            var sync = (Button)type.GetField("accountSync", members)!.GetValue(form)!;
-            check(recover.Enabled && recover.Text == "RECOVER PREVIOUS APPEARANCE" && !end.Enabled && !sync.Enabled,
-                "interrupted appearance offers recovery while launch/account import stay blocked, even without Steam");
+            var recover = (ToolStripMenuItem)type.GetField("prepare", members)!.GetValue(form)!;
+            var sync = (ToolStripMenuItem)type.GetField("accountSync", members)!.GetValue(form)!;
+            check(recover.Enabled && recover.Text == "RECOVER PREVIOUS APPEARANCE" && end.Enabled && end.Text == "RECOVER PREVIOUS APPEARANCE" && !sync.Enabled,
+                "interrupted appearance uses the primary action for recovery while account import stays blocked, even without Steam");
             Set("lastStatus", new HellForgeStatus(Path.GetTempPath(), "fixture", HellForgePack.SupportedBuild, false, true, true, true, true, null, null,
                 RecoveryProblem: "Fixture interrupted appearance."));
             type.GetMethod("UpdateView", members)!.Invoke(form, null);
@@ -69,7 +71,7 @@ static class HellForgeTests
             Set("lastStatus", new HellForgeStatus(Path.GetTempPath(), "fixture", HellForgePack.SupportedBuild, true, true, false, true, true, null, null,
                 CompatibilityProblem: "Fixture engine/SDK/isolation mismatch."));
             type.GetMethod("UpdateView", members)!.Invoke(form, null);
-            check(!end.Enabled && !recover.Enabled && !sync.Enabled, "incompatible engine/SDK/isolation disables launch, preparation and account import");
+            check(end.Enabled && end.Text == "VIEW DETAILS" && !recover.Enabled && !sync.Enabled, "incompatible engine/SDK/isolation offers details while blocking launch, preparation and account import");
             Set("lastStatus", new HellForgeStatus(Path.GetTempPath(), "fixture", HellForgePack.SupportedBuild, false, true, true, true, true, null, null,
                 CompatibilityProblem: "Fixture engine/SDK/isolation mismatch."));
             type.GetMethod("UpdateView", members)!.Invoke(form, null);
@@ -114,19 +116,48 @@ static class HellForgeTests
             type.GetMethod("UpdateView", members)!.Invoke(form, null);
             check(end.Enabled && end.Text == "SET UP SELECTED MODE", "Regular mode needing appearance removal offers setup from its primary button");
             Set("captureBlock", "Sync is still forwarding the normal game.");
+            Set("launcherRelease", new AppRelease { Version = "999.0.0", Url = "https://github.com/owendavidgoode/clonedivers/releases/download/v999.0.0/Clonedivers.exe", Size = 1, Sha256 = new string('a', 64) });
             type.GetMethod("UpdateView", members)!.Invoke(form, null);
-            check(!end.Enabled && !recover.Enabled && !sync.Enabled, "automatic import and setup stay blocked until account capture cleanup finishes");
+            check(end.Enabled && end.Text == "VIEW DETAILS" && !recover.Enabled && !sync.Enabled, "account capture cleanup offers read-only details while automatic import and setup stay blocked");
             Set("captureBlock", null);
+            Set("updateFailed", true); Set("failureDetail", "Response status code does not indicate success: 504 (Gateway Time-out).");
+            type.GetMethod("UpdateView", members)!.Invoke(form, null);
+            check(end.Enabled && end.Text == "RETRY UPDATE", "a failed verified update offers an obvious retry after account capture finishes");
+            Set("lastError", null); // the periodic successful poll must not erase the update failure
+            type.GetMethod("UpdateView", members)!.Invoke(form, null);
+            check(end.Text == "RETRY UPDATE", "update failure survives a successful background status poll");
+            Set("lastError", "System.IO.IOException: unrelated status read failure");
+            type.GetMethod("UpdateView", members)!.Invoke(form, null);
+            var updateDetail = (Label)type.GetField("detail", members)!.GetValue(form)!;
+            check(end.Text == "RETRY UPDATE" && updateDetail.Text.Contains("GitHub") && Diagnostic()?.Contains("504") == true,
+                "a later status failure retains the failed update diagnostic and recovery message");
+            Set("lastError", null);
+            Set("updateDeferred", true);
+            type.GetMethod("UpdateView", members)!.Invoke(form, null);
+            check(end.Text == "SET UP SELECTED MODE", "deferring an update restores the existing setup or play action");
+            Set("launcherRelease", null); Set("updateFailed", false);
             type.GetMethod("UpdateView", members)!.Invoke(form, null);
             bool offered = end.Enabled, reenabled = false;
-            EventHandler watch = (_, _) => reenabled |= end.Enabled;
+            EventHandler watch = (_, _) => reenabled |= end.Enabled && end.Text.StartsWith("LAUNCH");
             end.EnabledChanged += watch;
             await ((Task)type.GetMethod("OperationAsync", members)!.Invoke(form, [(Func<Task>)(() => Task.CompletedTask)])!).ConfigureAwait(false);
             end.EnabledChanged -= watch;
-            check(offered && !reenabled, "a finished launch keeps the primary button locked until the follow-up status read replaces the pre-launch status");
-            check(type.GetField("failureDetail", members)!.GetValue(form) == null, "a new operation retires the previous failure's diagnostic");
+            check(offered && !reenabled, "a finished launch cannot re-offer Launch before the follow-up status read replaces the pre-launch status");
+            check(Diagnostic()?.Contains("504") != true && Diagnostic()?.Contains("isolated action finished") != true, "a new operation retires the previous failure's diagnostic even when the follow-up refresh fails");
             check(HellForgeForm.SyncInstructions.Contains("Apply import") && HellForgeForm.SyncInstructions.Contains("auto-apply"),
                 "sync instructions keep players from applying HellForge's own import, which would refuse the Clonedivers link");
+            CancellationToken downloadToken = default;
+            Func<Task> download = () => {
+                type.GetProperty("Cancellable", members)!.SetValue(form, true);
+                downloadToken = (CancellationToken)type.GetProperty("WorkToken", members)!.GetValue(form)!;
+                return Task.Delay(Timeout.Infinite, downloadToken);
+            };
+            var downloading = (Task)type.GetMethod("OperationAsync", members)!.Invoke(form, [download])!;
+            check(end.Enabled && end.Text == "CANCEL", "cancellable work makes Cancel the single primary action");
+            typeof(Button).GetMethod("OnClick", members)!.Invoke(end, [EventArgs.Empty]);
+            await downloading.ConfigureAwait(false);
+            check(downloadToken.IsCancellationRequested && type.GetField("operation", members)!.GetValue(form) == null,
+                "the primary Cancel action interrupts work and releases its cancellation source");
         }
         finally { HellForgeForm.SteamReadyCheck = steamReady; SynchronizationContext.SetSynchronizationContext(previousContext); }
     }
@@ -143,15 +174,70 @@ static class HellForgeTests
         check(summary.Contains("Steam") && summary.Contains("Session details") && !summary.Contains("CategoryInfo") && !summary.Contains("char:69"),
             "the launch failure remains actionable without pushing the main controls off-screen with a PowerShell stack");
         check(HellForgeForm.FailureSummary(new string('x', 1000)).Length <= 350, "long failure summaries stay bounded while full diagnostics remain in session logs");
+        foreach (var code in new[] { 500, 502, 503, 504, 508, 408, 429 })
+            check(HellForgeForm.FailureSummary($"Response status code does not indicate success: {code} (fixture).") == "GitHub didn't respond. Try again in a few minutes.",
+                "HTTP " + code + " has a plain-language network failure");
+        check(!HellForgeForm.FailureSummary("System.InvalidOperationException: secret diagnostic\r\n at fixture:17").Contains("secret diagnostic") &&
+            HellForgeForm.FailureSummary("SHA-256 mismatch").Contains("verified") && HellForgeForm.FailureSummary("Access denied").Contains("permissions"),
+            "unknown failures keep diagnostics out of the main view and common integrity/access errors stay actionable");
         Exception? failure = null;
         var thread = new Thread(() => {
             try
             {
                 using var form = new HellForgeForm(new HellForgePreferences(), preview: true);
                 form.SetPreviewState("ready"); form.Show(); Application.DoEvents();
+                var defaultClientSize = form.ClientSize;
                 const BindingFlags fields = BindingFlags.Instance | BindingFlags.NonPublic;
                 var footer = form.Controls.Cast<Control>().SelectMany(Children).OfType<Label>()
-                    .Single(c => c.Text.StartsWith("v") && c.Text.Contains("Multiplayer validation"));
+                    .Single(c => c.AccessibleName == "Launcher version");
+                check(footer.Text == $"v{AppInfo.Version}", "the footer keeps only the version beside the Steam fallback");
+                var fullTextures = (RadioButton)typeof(HellForgeForm).GetField("fullTextures", fields)!.GetValue(form)!;
+                var lighterTextures = (RadioButton)typeof(HellForgeForm).GetField("lighterTextures", fields)!.GetValue(form)!;
+                var preferences = (HellForgePreferences)typeof(HellForgeForm).GetField("preferences", fields)!.GetValue(form)!;
+                check(fullTextures.Checked && !lighterTextures.Checked && fullTextures.Parent!.AccessibleName == "Texture profile",
+                    "the texture profile retains its accessible name and exposes the selected Full segment");
+                lighterTextures.Checked = true;
+                check(preferences.Texture == "lighter" && preferences.SelectionKey.Contains("/lighter/") && !fullTextures.Checked &&
+                    lighterTextures.FlatAppearance.BorderColor == Palette.BlueHot, "the Lighter segment selects and highlights the streamed profile");
+                fullTextures.Checked = true;
+                check(preferences.Texture == "full" && !lighterTextures.Checked && preferences.DeltaSquad,
+                    "the Full segment restores full textures without altering appearance options");
+                var primaryAction = (Button)typeof(HellForgeForm).GetField("launch", fields)!.GetValue(form)!;
+                var appearanceHeading = (Label)typeof(HellForgeForm).GetField("optionsLabel", fields)!.GetValue(form)!;
+                var actionTop = primaryAction.PointToScreen(Point.Empty).Y;
+                lighterTextures.Checked = true;
+                foreach (var mode in new[] { "Empire", "Regular", "Clones" })
+                {
+                    form.Controls.Cast<Control>().SelectMany(Children).OfType<ModeButton>().Single(b => b.Text == mode).PerformClick();
+                    Application.DoEvents();
+                    check(appearanceHeading.Text == mode + " appearance" && (preferences.SelectionProblem != null || primaryAction.PointToScreen(Point.Empty).Y == actionTop),
+                        mode + " keeps a consistently labelled appearance block and supported modes retain a stable action position");
+                    if (mode == "Empire")
+                    {
+                        var droids = (CheckBox)typeof(HellForgeForm).GetField("droids", fields)!.GetValue(form)!;
+                        var published = (Button)typeof(HellForgeForm).GetField("publishedEmpire", fields)!.GetValue(form)!;
+                        check(!fullTextures.Visible && !lighterTextures.Visible && !droids.Visible,
+                            "Empire hides texture and enemy selectors that the published pack cannot honor");
+                        check(preferences.Texture == "lighter" && preferences.SelectionProblem != null && published.Visible && !primaryAction.Enabled,
+                            "saved unsupported preferences stay intact and block launch until explicitly changed");
+                        published.PerformClick(); Application.DoEvents();
+                        check(preferences.Texture == "full" && preferences.Droids && preferences.SelectionProblem == null &&
+                            preferences.Selection().Version == "2026.11.08-r45-v4" && !published.Visible,
+                            "explicit published appearance action selects the public pack and removes the blocked state");
+                    }
+                }
+                var more = form.Controls.Cast<Control>().SelectMany(Children).OfType<Button>().Single(b => b.AccessibleName == "More launcher options");
+                check(more.FlatAppearance.BorderSize == 1 && more.Font.Size == fullTextures.Font.Size && more.Focus(),
+                    "More options is an outlined body-size button with keyboard focus");
+                form.SetPreviewState("update-available"); Application.DoEvents();
+                var actionRow = (Control)typeof(HellForgeForm).GetField("actions", fields)!.GetValue(form)!;
+                var rowCenter = actionRow.PointToScreen(new Point(actionRow.Width / 2, 0)).X;
+                var primaryCenter = primaryAction.PointToScreen(new Point(primaryAction.Width / 2, 0)).X;
+                var notNow = (Button)typeof(HellForgeForm).GetField("later", fields)!.GetValue(form)!;
+                check(Math.Abs(rowCenter - primaryCenter) <= 2 && notNow.Text == "Not now" && notNow.FlatAppearance.BorderSize == 1 &&
+                    actionRow.PointToScreen(Point.Empty).Y >= primaryAction.PointToScreen(new Point(0, primaryAction.Height)).Y,
+                    "update secondary actions share one centred outlined row directly beneath the primary action");
+                form.SetPreviewState("ready"); Application.DoEvents();
                 var bottom = form.PointToClient(footer.PointToScreen(new Point(0, footer.Height)));
                 check(bottom.Y <= form.ClientSize.Height, "the default Forge layout keeps version and player readiness visible without scrolling");
                 var policyDetail = (Label)typeof(HellForgeForm).GetField("detail", fields)!.GetValue(form)!;
@@ -176,8 +262,25 @@ static class HellForgeTests
                 var scroller = (ScrollableControl)form.Controls[0];
                 check(!scroller.HorizontalScroll.Visible, "compact windows wrap long diagnostics instead of requiring horizontal scrolling");
                 form.SetPreviewState("running");
-                check(!form.Controls.Cast<Control>().SelectMany(Children).OfType<Button>().Single(c => c.AccessibleName == "Sync HD2 account").Enabled,
+                check(!((ToolStripMenuItem)typeof(HellForgeForm).GetField("accountSync", fields)!.GetValue(form)!).Enabled,
                     "running preview matches the real account-sync lock during a session");
+                form.ClientSize = defaultClientSize; Application.DoEvents();
+                foreach (var preview in HellForgeForm.PreviewStates)
+                {
+                    form.SetPreviewState(preview); Application.DoEvents();
+                    var primary = (Button)typeof(HellForgeForm).GetField("launch", fields)!.GetValue(form)!;
+                    var bar = (ProgressBar)typeof(HellForgeForm).GetField("progress", fields)!.GetValue(form)!;
+                    check(primary.Visible && form.PointToClient(primary.PointToScreen(new Point(0, primary.Height))).Y < form.ClientSize.Height &&
+                        !form.Controls.Cast<Control>().SelectMany(Children).OfType<Button>().Any(b => b.Text == "SET UP SELECTED MODE"),
+                        preview + " keeps a single visible primary path and setup in More");
+                    check(bar.Visible == (preview is "installing" or "update-downloading"), preview + " exposes progress only while working");
+                    check(!((ScrollableControl)form.Controls[0]).VerticalScroll.Visible, preview + " fits the tightened default window without scrolling");
+                }
+                form.SetPreviewState("update-failed");
+                check(policyDetail.Text.Contains("Nothing was changed") && !policyDetail.Text.Contains("504"), "failed updates explain recovery without exposing the raw gateway exception");
+                var menu = (ContextMenuStrip)typeof(HellForgeForm).GetField("moreMenu", fields)!.GetValue(form)!;
+                check(menu.Items.OfType<ToolStripMenuItem>().Any(i => i.AccessibleName == "Sync HD2 account") &&
+                    menu.Items.OfType<ToolStripMenuItem>().Any(i => i.Text == "Session details"), "maintenance and account sync retain keyboard/screen-reader menu entries");
                 form.Close(); form.Dispose();
                 check(form.IsDisposed, "closing and repeated disposal release launcher resources without a disposed-token exception");
                 using var setup = new HellForgeSetupForm(preview: true);
@@ -293,6 +396,34 @@ static class HellForgeTests
         File.Copy(Path.Combine(source, selection.Files[0].Sha256), firstFile, true);
         var empire = HellForgePack.Select(parsed, sha, "empire", "full");
         check(await Reject(() => HellForgePack.VerifyAsync(output, empire)), "a Clone export cannot satisfy an Empire selection");
+        var empireVariants = new Manifest { Format = 3, Pack = new PackManifest { Version = "fixture-r45", GameBuild = HellForgePack.SupportedBuild,
+            Options = [new() { Id = "empire" }], TextureProfiles = [new() { Id = "full", Name = "Full" }, new() { Id = "lighter", Name = "Lighter" }],
+            Files = [FileRow("9ba626afa44a3aa3.patch_1000", "shared", ["empire"]),
+                FileRow("9ba626afa44a3aa3.patch_1000.gpu_resources", "full-gpu", ["empire"]),
+                FileRow("9ba626afa44a3aa3.patch_1000.gpu_resources", "tail-gpu", ["empire"])] } };
+        empireVariants.Pack.Files[1].TextureProfiles = ["full"]; empireVariants.Pack.Files[2].TextureProfiles = ["lighter"];
+        var fullVariant = HellForgePack.Select(empireVariants, sha, "empire", "full");
+        var lightVariant = HellForgePack.Select(empireVariants, sha, "empire", "lighter");
+        var exports = Path.Combine(area, "exports"); Directory.CreateDirectory(exports);
+        var interrupted = Path.Combine(exports, "empire-" + Guid.NewGuid().ToString("N"));
+        var wrong = Path.Combine(area, "wrong-gpu"); File.WriteAllText(wrong, "bad-data");
+        var failedPlan = new HellForgePack.Plan(fullVariant, interrupted, new() {
+            [fullVariant.Files[0].Sha256] = Path.Combine(source, fullVariant.Files[0].Sha256), [fullVariant.Files[1].Sha256] = wrong });
+        check(await Reject(() => HellForgePack.ExportAsync(failedPlan, false)) &&
+            File.Exists(Path.Combine(interrupted, fullVariant.Files[0].Name)) && !File.Exists(Path.Combine(interrupted, HellForgePack.ReceiptName)),
+            "an interrupted Empire Full export retains only verified bytes without a ready receipt");
+        var tails = Path.Combine(area, "tails"); Directory.CreateDirectory(tails);
+        File.Copy(Path.Combine(source, lightVariant.Files[1].Sha256), Path.Combine(tails, "tail"));
+        var resumed = Path.Combine(exports, "empire-" + Guid.NewGuid().ToString("N"));
+        var resumedPlan = await HellForgePack.PlanAsync(lightVariant, resumed, [tails]);
+        check(resumedPlan.Missing.Count == 0 && resumedPlan.Local[lightVariant.Files[0].Sha256].StartsWith(interrupted) &&
+            !resumedPlan.Local.ContainsKey(fullVariant.Files[1].Sha256),
+            "Empire Lighter recovery reuses shared verified bytes while excluding Full GPU content");
+        await HellForgePack.ExportAsync(resumedPlan, false);
+        await HellForgePack.VerifyAsync(resumed, lightVariant);
+        check(await Reject(() => HellForgePack.VerifyMetadataAsync(resumed, fullVariant)),
+            "an Empire Lighter receipt cannot satisfy the Full selection");
+        check(!Directory.Exists(interrupted), "a complete Empire Lighter export prunes the reused interrupted Full export");
         check(await Reject(async () => { await HellForgePack.PlanAsync(selection, output, [source]); }), "existing pack outputs are never overwritten");
         parsed.Pack!.GameBuild = "26251122";
         check(await Reject(() => { HellForgePack.Select(parsed, sha, "empire", "full"); return Task.CompletedTask; }), "current Steam-build assets are refused for the older HellForge build");
@@ -589,29 +720,62 @@ static class HellForgeTests
             "the shipped launcher carries a pinned compatible catalog independent of the live Steam feed");
         var oldEmpire = new HellForgePreferences { Mode = "empire", Texture = "lighter", Droids = false, Covenant = true,
             AppliedSelection = $"r19/{HellForgePack.SupportedBuild}/empire/lighter/False/True" };
-        var newEmpire = oldEmpire.Selection();
-        check(oldEmpire.SelectionKey == $"r45-v4/{HellForgePack.SupportedBuild}/empire/full/True/False" &&
-            oldEmpire.AppliedSelection != oldEmpire.SelectionKey && newEmpire.Version == "2026.11.08-r45-v4" &&
-            newEmpire.Texture == "full" && newEmpire.Options["droids"] && !newEmpire.Options["covenant"] && newEmpire.Files.Count == 96,
-            "Empire r19 preferences require preparing the fixed r45-v4 selection before play");
+        var savedEmpire = Path.Combine(area, "unavailable-empire.json"); oldEmpire.Save(savedEmpire);
+        var savedText = File.ReadAllText(savedEmpire);
+        oldEmpire = HellForgePreferences.Load(savedEmpire);
+        check(oldEmpire.SelectionProblem != null && oldEmpire.Texture == "lighter" && !oldEmpire.Droids && oldEmpire.Covenant &&
+            File.ReadAllText(savedEmpire) == savedText, "unavailable saved Empire settings survive loading without silent conversion or a file rewrite");
+        foreach (var texture in new[] { "full", "lighter" })
+        foreach (var droids in new[] { true, false })
+        {
+            if (texture == "full" && droids) continue;
+            bool refused = false;
+            try { _ = HellForgePack.PinnedSelection("empire", texture, new Dictionary<string, bool> { ["droids"] = droids }); }
+            catch (InvalidOperationException) { refused = true; }
+            check(refused, $"shipping Empire rejects unavailable {texture}/droids={droids} instead of remapping bytes");
+        }
+        var empireFull = HellForgePack.PinnedSelection("empire", "full");
+        check(empireFull.Version == "2026.11.08-r45-v4" && empireFull.ManifestSha256 == "4a35045a9b628e0f2b476815e7a77f00ab31a6cde957abd574e8597513c7ad36" &&
+            empireFull.Options["droids"] && !empireFull.Options["covenant"] && empireFull.Files.Count == 96 &&
+            empireFull.Files.All(f => f.Url.Contains("pack-2026.11.08-r45-v4-files/")), "shipping Empire pins all 96 public r45-v4 rows and their exact catalog hash");
+        check(typeof(HellForgePack).Assembly.GetManifestResourceStream("Clonedivers.HellForge.Empire.Lighter.Manifest.json") == null,
+            "shipping assembly does not embed an experimental Empire Lighter catalog");
+        using (var oldCatalog = typeof(HellForgePack).Assembly.GetManifestResourceStream("Clonedivers.HellForge.Empire.Manifest.json")!)
+        using (var oldReader = new StreamReader(oldCatalog))
+        {
+            var published = HellForgePack.Select(Manifest.Parse(oldReader.ReadToEnd()), empireFull.ManifestSha256, "empire", "full",
+                new Dictionary<string, bool> { ["droids"] = true, ["covenant"] = false });
+            check(JsonSerializer.Serialize(published, HellForgePack.Json) == JsonSerializer.Serialize(empireFull, HellForgePack.Json),
+                "shipping selection is identical to the public selector for r45-v4 including file order, layers and options");
+            var receiptFolder = Path.Combine(area, "published-empire-receipt"); Directory.CreateDirectory(receiptFolder);
+            var receiptPath = Path.Combine(receiptFolder, HellForgePack.ReceiptName);
+            var receiptText = JsonSerializer.Serialize(new HellForgePack.Receipt { Selection = published }, HellForgePack.Json);
+            File.WriteAllText(receiptPath, receiptText);
+            await HellForgePack.VerifyMetadataAsync(receiptFolder, empireFull);
+            check(File.ReadAllText(receiptPath) == receiptText && new HellForgePreferences { Mode = "empire" }.SelectionKey ==
+                $"r45-v4/{HellForgePack.SupportedBuild}/empire/full/True/False", "existing public Empire receipt and applied key remain compatible without rewriting");
+            var future = published with { Version = "2026.11.09-r47", ManifestSha256 = new string('e', 64) };
+            File.WriteAllText(receiptPath, JsonSerializer.Serialize(new HellForgePack.Receipt { Selection = future }, HellForgePack.Json));
+            check(await Reject(() => HellForgePack.VerifyMetadataAsync(receiptFolder, empireFull)), "a future r47 receipt cannot authorize the public r45-v4 selection");
+        }
         oldEmpire.Mode = "clonedivers";
-        check(oldEmpire.SelectionKey == $"r19/{HellForgePack.SupportedBuild}/commandos/lighter/False/True" &&
-            oldEmpire.Selection().Version == pinned.Version,
-            "switching back to Clones retains r19 textures and optional skins");
+        check(oldEmpire.SelectionProblem == null && oldEmpire.SelectionKey == $"r19/{HellForgePack.SupportedBuild}/commandos/lighter/False/True" &&
+            oldEmpire.Selection().Version == pinned.Version, "switching back to Clones retains the saved r19 texture and optional skins");
         using (var catalog = typeof(HellForgePack).Assembly.GetManifestResourceStream("Clonedivers.HellForge.Manifest.json")!)
         using (var reader = new StreamReader(catalog))
         {
             var original = Manifest.Parse(reader.ReadToEnd());
-            foreach (var mode in new[] { "clonedivers", "commandos", "empire" })
+            foreach (var mode in new[] { "clonedivers", "commandos" })
             foreach (var texture in new[] { "full", "lighter" })
             for (int mask = 0; mask < 16; mask++)
             {
                 var changes = new Dictionary<string, bool> { ["droids"] = (mask & 1) != 0, ["covenant"] = (mask & 2) != 0,
                     ["aimpoints"] = (mask & 4) != 0, ["commandos"] = (mask & 8) != 0 };
                 var selected = HellForgePack.PinnedSelection(mode, texture, changes);
-                var expected = mode == "empire" ? newEmpire : HellForgePack.Select(original, pinned.ManifestSha256, mode, texture, changes);
+                var expected = mode == "empire" ? HellForgePack.PinnedSelection(mode, texture, new Dictionary<string, bool> { ["droids"] = changes["droids"] }) :
+                    HellForgePack.Select(original, pinned.ManifestSha256, mode, texture, changes);
                 check(JsonSerializer.Serialize(selected, HellForgePack.Json) == JsonSerializer.Serialize(expected, HellForgePack.Json),
-                    $"Forge release selection {mode}/{texture}/{mask} preserves Clones or resolves the fixed Empire pack");
+                    $"Forge release selection {mode}/{texture}/{mask} preserves Clones or honors Empire droids independently of hidden options");
             }
         }
         using var form = new HellForgeForm(new HellForgePreferences(), preview: true);
@@ -625,11 +789,11 @@ static class HellForgeTests
             Descendants(regularForm).OfType<ModeButton>().Single(b => b.Text == "Regular").Selected,
             "the HellForge surface offers Regular, Clones and Empire with Regular selected independently");
         check(!Descendants(regularForm).OfType<ComboBox>().Any(c => c.AccessibleName == "Loadout") &&
-            Descendants(regularForm).OfType<Button>().Any(c => c.AccessibleName == "Sync HD2 account"),
+            ((ToolStripMenuItem)typeof(HellForgeForm).GetField("accountSync", BindingFlags.Instance | BindingFlags.NonPublic)!.GetValue(regularForm)!).AccessibleName == "Sync HD2 account",
             "players see only account sync, with no armory or progression selector");
         regularForm.SetPreviewState("running");
         check(Descendants(regularForm).OfType<Button>().Any(c => c.Text == "END SESSION" && c.Enabled) &&
-            !Descendants(regularForm).OfType<Button>().Single(c => c.Text == "SET UP SELECTED MODE").Enabled,
+            !((ToolStripMenuItem)typeof(HellForgeForm).GetField("prepare", BindingFlags.Instance | BindingFlags.NonPublic)!.GetValue(regularForm)!).Enabled,
             "an active-session preview exposes End session while blocking pack changes");
 
         var selectedBefore = commands.Calls.Count(c => c[0] == "settings");

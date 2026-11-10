@@ -41,9 +41,12 @@ internal sealed class PlayerCommands
                 return JsonSerializer.SerializeToElement(AccountMessage(await account.ReadAsync(ct)));
             case "select-mode":
                 var values = args.Skip(1).Chunk(2).ToDictionary(p => p[0], p => p[1], StringComparer.Ordinal);
-                selection.Mode = values["--mode"]; selection.DeltaSquad = values["--delta"] == "yes";
-                selection.Texture = values["--texture"]; selection.Droids = values["--droids"] == "yes"; selection.Covenant = values["--covenant"] == "yes";
-                selection.Validate();
+                var requested = new HellForgePreferences { Mode = values["--mode"], DeltaSquad = values["--delta"] == "yes",
+                    Texture = values["--texture"], Droids = values["--droids"] == "yes", Covenant = values["--covenant"] == "yes" };
+                requested.Validate();
+                if (requested.SelectionProblem is { } selectionProblem) throw new InvalidOperationException(selectionProblem);
+                selection.Mode = requested.Mode; selection.DeltaSquad = requested.DeltaSquad;
+                selection.Texture = requested.Texture; selection.Droids = requested.Droids; selection.Covenant = requested.Covenant;
                 return JsonSerializer.SerializeToElement(new { selection.Mode, selection.DeltaSquad, selection.Texture, selection.Droids, selection.Covenant });
             case "prepare-regular":
                 if (!selection.IsRegular) throw new InvalidOperationException("Select Regular before applying that mode.");

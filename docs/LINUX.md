@@ -1,11 +1,12 @@
 # Clonedivers Forge for Linux
 
-The Ubuntu/Debian x86-64 launcher is **0.7.0**, with Forge as its default.
+The public Ubuntu/Debian x86-64 package is **0.8.0**. This integration stages
+**0.8.1**, which also opens Forge by default.
 Install the complete .deb or portable archive, including the adjacent `forge/`
 native controller. Existing launchers show an update notice; install the package
 or replace the complete portable folder. User configuration and accounts remain.
 
-Press **Set up / update Forge**. The launcher downloads the pinned official
+Press **Set up Forge** in 0.8.1. The launcher downloads the pinned official
 **HellForge 0.4.0-beta** native installer, verifies its SHA256, safely extracts it
 and opens it. On Ubuntu/Debian it offers installation of the required networking
 tools, including `pasta` from `passt`, through the normal system approval flow.

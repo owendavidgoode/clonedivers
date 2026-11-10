@@ -7,6 +7,26 @@ internal static class LinuxForgePlayerTests
     internal static async Task Run(string root, Action<bool, string> check)
     {
         const string hello = "{\"bridge\":\"clonedivers-forge\",\"format\":1}\n";
+        var publishedEmpire = new LinuxForgePreferences { Mode = "empire" };
+        check(publishedEmpire.PackSelection().Version == "2026.11.08-r45-v4" && publishedEmpire.PackSelection().Files.Count == 96,
+            "Linux shipping Empire retains the 96-row public r45-v4 catalog");
+        foreach (var texture in new[] { "full", "lighter" })
+        foreach (var droids in new[] { true, false })
+        {
+            if (texture == "full" && droids) continue;
+            var empire = new LinuxForgePreferences { Mode = "empire", Texture = texture, Droids = droids, Covenant = true };
+            var saved = Path.Combine(root, $"empire-unavailable-{texture}-{droids}.json"); empire.Save(saved);
+            var savedText = File.ReadAllText(saved); var restored = LinuxForgePreferences.Load(saved);
+            check(restored.SelectionProblem != null && restored.Texture == texture && restored.Droids == droids && restored.Covenant && File.ReadAllText(saved) == savedText,
+                "Linux preserves unavailable saved Empire preferences without a conversion");
+            var refusedConnection = new Connection(); var refusedPlayer = new LinuxForgePlayer(refusedConnection, restored);
+            bool refused = false;
+            try { await refusedPlayer.LaunchAsync(); } catch (InvalidOperationException) { refused = true; }
+            check(refused && refusedConnection.Calls.Count == 0, "Linux rejects unavailable Empire launch before any bridge command");
+            restored.Mode = "clonedivers";
+            check(restored.SelectionProblem == null && restored.PackSelection().Texture == texture && restored.PackSelection().Options["droids"] == droids,
+                "returning to Clones preserves its saved texture and droid selection");
+        }
         var protocol = new ForgeProtocol(new StringReader(hello + "{\"id\":7,\"ok\":true,\"result\":{}}\n"), new StringWriter(), _ => { });
         await protocol.ConnectAsync(CancellationToken.None);
         try { await protocol.SendAsync(["status"]); } catch (InvalidDataException) { }

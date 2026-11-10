@@ -1,0 +1,2108 @@
+{
+    "format": 3,
+    "pack": {
+        "version": "2026.11.09-r47",
+        "name": "EmpireDivers Forge",
+        "notes": "Empire r47: Stormtrooper SEAF, three clone veteran sets, restored Foesmasher and red Spear trails. CIS droids optional; Covenant disabled.",
+        "gameBuild": "25480438",
+        "gameDepots": [
+            "1883032874832282552",
+            "2566883558412717494",
+            "9065746766815828060",
+            "1417949467559619757",
+            "3382210389809902281"
+        ],
+        "status": "ok",
+        "statusNotes": "All four Full/Lighter and CIS-on/off variants passed static verification. Runtime and visual acceptance pending.",
+        "options": [
+            {
+                "id": "commandos",
+                "name": "Delta Squad",
+                "description": "Delta Squad is elite.",
+                "default": false
+            },
+            {
+                "id": "droids",
+                "name": "Droid skins",
+                "description": "Use CIS enemies, vehicles and structures. Enemy audio stays unchanged.",
+                "default": true
+            },
+            {
+                "id": "aimpoints",
+                "name": "Walker weapons",
+                "description": "Show original MTT cannons and spider-droid weapons. Does not add eye/vent markers or change hitboxes.",
+                "default": true
+            },
+            {
+                "id": "covenant",
+                "name": "Covenant squids",
+                "default": false,
+                "description": "Covenant models and voices for core Illuminate units. Newer units remain vanilla."
+            },
+            {
+                "id": "empire",
+                "name": "EmpireDivers",
+                "default": true,
+                "description": "Imperial armor, Star Destroyers, gray LAAT, AT-STs and battle intro with the shared Clonedivers weapon and vehicle setup."
+            }
+        ],
+        "files": [
+            {
+                "name": "9ba626afa44a3aa3.patch_1000",
+                "url": "https://github.com/owendavidgoode/clonedivers/releases/download/pack-2026.11.09-r47-files/e6aad21022e67f59266edbd2589d2ae11e6947279965422921936728055574ca",
+                "size": 29996432,
+                "sha256": "e6aad21022e67f59266edbd2589d2ae11e6947279965422921936728055574ca",
+                "modes": [
+                    "empire"
+                ],
+                "textureProfiles": [
+                    "full"
+                ],
+                "option": "droids"
+            },
+            {
+                "name": "9ba626afa44a3aa3.patch_1000",
+                "url": "https://github.com/owendavidgoode/clonedivers/releases/download/pack-2026.11.09-r47-files/33b62e17b8666eddf4ecf0c1750c999c1e952282eb18c23da8bb00308a455347",
+                "size": 29841648,
+                "sha256": "33b62e17b8666eddf4ecf0c1750c999c1e952282eb18c23da8bb00308a455347",
+                "modes": [
+                    "empire"
+                ],
+                "textureProfiles": [
+                    "full"
+                ],
+                "unlessOption": "droids"
+            },
+            {
+                "name": "9ba626afa44a3aa3.patch_1000.gpu_resources",
+                "url": "https://github.com/owendavidgoode/clonedivers/releases/download/pack-2026.11.09-r47-files/9a0eec2e6b21e4b71077a736c0b40c8736bb586d72bc883530ee8f257e27aaec",
+                "size": 415405248,
+                "sha256": "9a0eec2e6b21e4b71077a736c0b40c8736bb586d72bc883530ee8f257e27aaec",
+                "modes": [
+                    "empire"
+                ],
+                "textureProfiles": [
+                    "full"
+                ],
+                "option": "droids"
+            },
+            {
+                "name": "9ba626afa44a3aa3.patch_1000.gpu_resources",
+                "url": "https://github.com/owendavidgoode/clonedivers/releases/download/pack-2026.11.09-r47-files/675c5475e9d5f4ff10a063f130d9048ca48c896dc3852752c61c8ab4d920e6b5",
+                "size": 258106624,
+                "sha256": "675c5475e9d5f4ff10a063f130d9048ca48c896dc3852752c61c8ab4d920e6b5",
+                "modes": [
+                    "empire"
+                ],
+                "textureProfiles": [
+                    "full"
+                ],
+                "unlessOption": "droids"
+            },
+            {
+                "name": "9ba626afa44a3aa3.patch_1000.stream",
+                "url": "https://github.com/owendavidgoode/clonedivers/releases/download/pack-2026.11.08-r45-v4-files/1c13f96005e8da84b539da17febd5b94070a233436fbe1c5060e034e182603c1",
+                "size": 8024816,
+                "sha256": "1c13f96005e8da84b539da17febd5b94070a233436fbe1c5060e034e182603c1",
+                "modes": [
+                    "empire"
+                ],
+                "textureProfiles": [
+                    "full"
+                ]
+            },
+            {
+                "name": "9ba626afa44a3aa3.patch_1001",
+                "url": "https://github.com/owendavidgoode/clonedivers/releases/download/pack-2026.11.09-r47-files/257f633c595b8ddc7a44753bd4566deee887c396535bc5dfeba7b7ce0b766e00",
+                "size": 12323632,
+                "sha256": "257f633c595b8ddc7a44753bd4566deee887c396535bc5dfeba7b7ce0b766e00",
+                "modes": [
+                    "empire"
+                ],
+                "textureProfiles": [
+                    "full"
+                ],
+                "option": "droids"
+            },
+            {
+                "name": "9ba626afa44a3aa3.patch_1001",
+                "url": "https://github.com/owendavidgoode/clonedivers/releases/download/pack-2026.11.09-r47-files/9eb976a0d42c4d951a7de253e415f64c39d238fb12307fc09c22002aee802efb",
+                "size": 12085872,
+                "sha256": "9eb976a0d42c4d951a7de253e415f64c39d238fb12307fc09c22002aee802efb",
+                "modes": [
+                    "empire"
+                ],
+                "textureProfiles": [
+                    "full"
+                ],
+                "unlessOption": "droids"
+            },
+            {
+                "name": "9ba626afa44a3aa3.patch_1001.gpu_resources",
+                "url": "https://github.com/owendavidgoode/clonedivers/releases/download/pack-2026.11.09-r47-files/3e0b8165cae1c701e2f77ace3f22a225906c71f550b4c22517756df16bac1037",
+                "size": 261373376,
+                "sha256": "3e0b8165cae1c701e2f77ace3f22a225906c71f550b4c22517756df16bac1037",
+                "modes": [
+                    "empire"
+                ],
+                "textureProfiles": [
+                    "full"
+                ],
+                "option": "droids"
+            },
+            {
+                "name": "9ba626afa44a3aa3.patch_1001.gpu_resources",
+                "url": "https://github.com/owendavidgoode/clonedivers/releases/download/pack-2026.11.09-r47-files/2dd504e7989fff3713b0e0e8abb3597450f3f471fcad0d6030b25a298f43cd3a",
+                "size": 155328320,
+                "sha256": "2dd504e7989fff3713b0e0e8abb3597450f3f471fcad0d6030b25a298f43cd3a",
+                "modes": [
+                    "empire"
+                ],
+                "textureProfiles": [
+                    "full"
+                ],
+                "unlessOption": "droids"
+            },
+            {
+                "name": "9ba626afa44a3aa3.patch_1001.stream",
+                "url": "https://github.com/owendavidgoode/clonedivers/releases/download/pack-2026.11.08-r45-v4-files/466093b24388b6296739b3376f02893bed838984b62292ba3016a53030054f22",
+                "size": 8987808,
+                "sha256": "466093b24388b6296739b3376f02893bed838984b62292ba3016a53030054f22",
+                "modes": [
+                    "empire"
+                ],
+                "textureProfiles": [
+                    "full"
+                ]
+            },
+            {
+                "name": "9ba626afa44a3aa3.patch_1002",
+                "url": "https://github.com/owendavidgoode/clonedivers/releases/download/pack-2026.11.09-r47-files/268a265f3bed9c39f2be743c158183add715803250382fa38ecfa7d1a46e906b",
+                "size": 1555040,
+                "sha256": "268a265f3bed9c39f2be743c158183add715803250382fa38ecfa7d1a46e906b",
+                "modes": [
+                    "empire"
+                ],
+                "textureProfiles": [
+                    "full"
+                ],
+                "option": "droids"
+            },
+            {
+                "name": "9ba626afa44a3aa3.patch_1002",
+                "url": "https://github.com/owendavidgoode/clonedivers/releases/download/pack-2026.11.09-r47-files/6f4f4dc6837c551b28067b27ce46f7c71f2f068cf0ce0168ddec197c9dc8fc22",
+                "size": 1095712,
+                "sha256": "6f4f4dc6837c551b28067b27ce46f7c71f2f068cf0ce0168ddec197c9dc8fc22",
+                "modes": [
+                    "empire"
+                ],
+                "textureProfiles": [
+                    "full"
+                ],
+                "unlessOption": "droids"
+            },
+            {
+                "name": "9ba626afa44a3aa3.patch_1002.gpu_resources",
+                "url": "https://github.com/owendavidgoode/clonedivers/releases/download/pack-2026.11.09-r47-files/841c65f221ef44b5a6d3f77f056a45707857a96233385844bfcb96cf447246d2",
+                "size": 259464192,
+                "sha256": "841c65f221ef44b5a6d3f77f056a45707857a96233385844bfcb96cf447246d2",
+                "modes": [
+                    "empire"
+                ],
+                "textureProfiles": [
+                    "full"
+                ],
+                "option": "droids"
+            },
+            {
+                "name": "9ba626afa44a3aa3.patch_1002.gpu_resources",
+                "url": "https://github.com/owendavidgoode/clonedivers/releases/download/pack-2026.11.09-r47-files/4fc9f05659233e791cc57997413e22f3f25cc853b57e7804b0d46476a8e426fa",
+                "size": 140509120,
+                "sha256": "4fc9f05659233e791cc57997413e22f3f25cc853b57e7804b0d46476a8e426fa",
+                "modes": [
+                    "empire"
+                ],
+                "textureProfiles": [
+                    "full"
+                ],
+                "unlessOption": "droids"
+            },
+            {
+                "name": "9ba626afa44a3aa3.patch_1002.stream",
+                "url": "https://github.com/owendavidgoode/clonedivers/releases/download/pack-2026.11.08-r45-v4-files/515e072419914b1046ce84ae0fcadb1ce687175ede65a6a52fb8259261962943",
+                "size": 5655984,
+                "sha256": "515e072419914b1046ce84ae0fcadb1ce687175ede65a6a52fb8259261962943",
+                "modes": [
+                    "empire"
+                ],
+                "textureProfiles": [
+                    "full"
+                ]
+            },
+            {
+                "name": "9ba626afa44a3aa3.patch_1003",
+                "url": "https://github.com/owendavidgoode/clonedivers/releases/download/pack-2026.11.09-r47-files/0ac0272969a964631e302435d92eae12da625fc12764a1da011dfb83193f1acf",
+                "size": 8854416,
+                "sha256": "0ac0272969a964631e302435d92eae12da625fc12764a1da011dfb83193f1acf",
+                "modes": [
+                    "empire"
+                ],
+                "textureProfiles": [
+                    "full"
+                ],
+                "option": "droids"
+            },
+            {
+                "name": "9ba626afa44a3aa3.patch_1003",
+                "url": "https://github.com/owendavidgoode/clonedivers/releases/download/pack-2026.11.09-r47-files/68386ce8f81fa146fd3b33260d1ffcef3699f939f79b7bc04077af6dc209dcd1",
+                "size": 8558432,
+                "sha256": "68386ce8f81fa146fd3b33260d1ffcef3699f939f79b7bc04077af6dc209dcd1",
+                "modes": [
+                    "empire"
+                ],
+                "textureProfiles": [
+                    "full"
+                ],
+                "unlessOption": "droids"
+            },
+            {
+                "name": "9ba626afa44a3aa3.patch_1003.gpu_resources",
+                "url": "https://github.com/owendavidgoode/clonedivers/releases/download/pack-2026.11.09-r47-files/fcc2e8ca75f907c31b656afe9db007ebda893d8e912e4d62ac28eabdad9a2baf",
+                "size": 273826048,
+                "sha256": "fcc2e8ca75f907c31b656afe9db007ebda893d8e912e4d62ac28eabdad9a2baf",
+                "modes": [
+                    "empire"
+                ],
+                "textureProfiles": [
+                    "full"
+                ],
+                "option": "droids"
+            },
+            {
+                "name": "9ba626afa44a3aa3.patch_1003.gpu_resources",
+                "url": "https://github.com/owendavidgoode/clonedivers/releases/download/pack-2026.11.09-r47-files/1200839683b65d0367179e359e7dc361c4ea2bbe808a16558ef5311bf071ac5e",
+                "size": 177631296,
+                "sha256": "1200839683b65d0367179e359e7dc361c4ea2bbe808a16558ef5311bf071ac5e",
+                "modes": [
+                    "empire"
+                ],
+                "textureProfiles": [
+                    "full"
+                ],
+                "unlessOption": "droids"
+            },
+            {
+                "name": "9ba626afa44a3aa3.patch_1003.stream",
+                "url": "https://github.com/owendavidgoode/clonedivers/releases/download/pack-2026.11.08-r45-v4-files/224a3371bc73e13a20b02fdd7b4e57245e416ba02c1c1048d8aa713186445009",
+                "size": 5655872,
+                "sha256": "224a3371bc73e13a20b02fdd7b4e57245e416ba02c1c1048d8aa713186445009",
+                "modes": [
+                    "empire"
+                ],
+                "textureProfiles": [
+                    "full"
+                ]
+            },
+            {
+                "name": "9ba626afa44a3aa3.patch_1004",
+                "url": "https://github.com/owendavidgoode/clonedivers/releases/download/pack-2026.11.09-r47-files/d1714dae31bb5e82fe9649b616a2f04ee6899f6d60e4b3624a95777aa6fa0282",
+                "size": 20141920,
+                "sha256": "d1714dae31bb5e82fe9649b616a2f04ee6899f6d60e4b3624a95777aa6fa0282",
+                "modes": [
+                    "empire"
+                ],
+                "textureProfiles": [
+                    "full"
+                ],
+                "option": "droids"
+            },
+            {
+                "name": "9ba626afa44a3aa3.patch_1004",
+                "url": "https://github.com/owendavidgoode/clonedivers/releases/download/pack-2026.11.09-r47-files/770d82e84f5e028b023dda5960d2d7a6c0ee3b348f37b457ed60cc8d81e90ede",
+                "size": 19771520,
+                "sha256": "770d82e84f5e028b023dda5960d2d7a6c0ee3b348f37b457ed60cc8d81e90ede",
+                "modes": [
+                    "empire"
+                ],
+                "textureProfiles": [
+                    "full"
+                ],
+                "unlessOption": "droids"
+            },
+            {
+                "name": "9ba626afa44a3aa3.patch_1004.gpu_resources",
+                "url": "https://github.com/owendavidgoode/clonedivers/releases/download/pack-2026.11.09-r47-files/2ff812290ba3e735ef3f614780255b22e518cc26b701a84227f6218d4dd92763",
+                "size": 358202368,
+                "sha256": "2ff812290ba3e735ef3f614780255b22e518cc26b701a84227f6218d4dd92763",
+                "modes": [
+                    "empire"
+                ],
+                "textureProfiles": [
+                    "full"
+                ],
+                "option": "droids"
+            },
+            {
+                "name": "9ba626afa44a3aa3.patch_1004.gpu_resources",
+                "url": "https://github.com/owendavidgoode/clonedivers/releases/download/pack-2026.11.09-r47-files/a466d07154cde4980899faa1c8d1247eefe73b605894f275e8025e9b34097a7a",
+                "size": 221175232,
+                "sha256": "a466d07154cde4980899faa1c8d1247eefe73b605894f275e8025e9b34097a7a",
+                "modes": [
+                    "empire"
+                ],
+                "textureProfiles": [
+                    "full"
+                ],
+                "unlessOption": "droids"
+            },
+            {
+                "name": "9ba626afa44a3aa3.patch_1004.stream",
+                "url": "https://github.com/owendavidgoode/clonedivers/releases/download/pack-2026.11.08-r45-v4-files/79b53cc569f64876de3cbfc44eb7b46e9b27c7a0451e9145ea6dd6b071f9f1e6",
+                "size": 5852480,
+                "sha256": "79b53cc569f64876de3cbfc44eb7b46e9b27c7a0451e9145ea6dd6b071f9f1e6",
+                "modes": [
+                    "empire"
+                ],
+                "textureProfiles": [
+                    "full"
+                ]
+            },
+            {
+                "name": "9ba626afa44a3aa3.patch_1005",
+                "url": "https://github.com/owendavidgoode/clonedivers/releases/download/pack-2026.11.09-r47-files/03cd522133829ed0fd8e6d315830b3adc0aa48c8adfc437a72c7066216bef27d",
+                "size": 13544304,
+                "sha256": "03cd522133829ed0fd8e6d315830b3adc0aa48c8adfc437a72c7066216bef27d",
+                "modes": [
+                    "empire"
+                ],
+                "textureProfiles": [
+                    "full"
+                ],
+                "option": "droids"
+            },
+            {
+                "name": "9ba626afa44a3aa3.patch_1005",
+                "url": "https://github.com/owendavidgoode/clonedivers/releases/download/pack-2026.11.09-r47-files/dd68b261e6186f046623a8b63ea6bf50f3dd32f463791e6759acd156405a6c50",
+                "size": 13238464,
+                "sha256": "dd68b261e6186f046623a8b63ea6bf50f3dd32f463791e6759acd156405a6c50",
+                "modes": [
+                    "empire"
+                ],
+                "textureProfiles": [
+                    "full"
+                ],
+                "unlessOption": "droids"
+            },
+            {
+                "name": "9ba626afa44a3aa3.patch_1005.gpu_resources",
+                "url": "https://github.com/owendavidgoode/clonedivers/releases/download/pack-2026.11.09-r47-files/54ed9fcff70bd814d2407b41502a7881f0569b74eb86384e44cf06d7a015de73",
+                "size": 325470528,
+                "sha256": "54ed9fcff70bd814d2407b41502a7881f0569b74eb86384e44cf06d7a015de73",
+                "modes": [
+                    "empire"
+                ],
+                "textureProfiles": [
+                    "full"
+                ],
+                "option": "droids"
+            },
+            {
+                "name": "9ba626afa44a3aa3.patch_1005.gpu_resources",
+                "url": "https://github.com/owendavidgoode/clonedivers/releases/download/pack-2026.11.09-r47-files/c91b1dfb8292d1f22670bdbfc20129f47919c2a52582d0ad694b9ae140f2e7b8",
+                "size": 129654464,
+                "sha256": "c91b1dfb8292d1f22670bdbfc20129f47919c2a52582d0ad694b9ae140f2e7b8",
+                "modes": [
+                    "empire"
+                ],
+                "textureProfiles": [
+                    "full"
+                ],
+                "unlessOption": "droids"
+            },
+            {
+                "name": "9ba626afa44a3aa3.patch_1005.stream",
+                "url": "https://github.com/owendavidgoode/clonedivers/releases/download/pack-2026.11.08-r45-v4-files/93cd2f1069e4be24e56dbaf68a1a28151441dcb59e2710a79eebc5ffef96fedc",
+                "size": 5191776,
+                "sha256": "93cd2f1069e4be24e56dbaf68a1a28151441dcb59e2710a79eebc5ffef96fedc",
+                "modes": [
+                    "empire"
+                ],
+                "textureProfiles": [
+                    "full"
+                ]
+            },
+            {
+                "name": "9ba626afa44a3aa3.patch_1006",
+                "url": "https://github.com/owendavidgoode/clonedivers/releases/download/pack-2026.11.09-r47-files/44a476717b022793943b68d289c9669f3aaac79b9ac7c734209cd56bade2d12d",
+                "size": 5669568,
+                "sha256": "44a476717b022793943b68d289c9669f3aaac79b9ac7c734209cd56bade2d12d",
+                "modes": [
+                    "empire"
+                ],
+                "textureProfiles": [
+                    "full"
+                ],
+                "option": "droids"
+            },
+            {
+                "name": "9ba626afa44a3aa3.patch_1006",
+                "url": "https://github.com/owendavidgoode/clonedivers/releases/download/pack-2026.11.09-r47-files/b902980697af2b4f3e3e6b4ba8971c35c013d6f3b66a0e168c459d76b4abc3b6",
+                "size": 5308304,
+                "sha256": "b902980697af2b4f3e3e6b4ba8971c35c013d6f3b66a0e168c459d76b4abc3b6",
+                "modes": [
+                    "empire"
+                ],
+                "textureProfiles": [
+                    "full"
+                ],
+                "unlessOption": "droids"
+            },
+            {
+                "name": "9ba626afa44a3aa3.patch_1006.gpu_resources",
+                "url": "https://github.com/owendavidgoode/clonedivers/releases/download/pack-2026.11.09-r47-files/06b9d29d02dcc8c23ff14dd0577cadc7697629fd011862953dd8d241f85bee37",
+                "size": 143996992,
+                "sha256": "06b9d29d02dcc8c23ff14dd0577cadc7697629fd011862953dd8d241f85bee37",
+                "modes": [
+                    "empire"
+                ],
+                "textureProfiles": [
+                    "full"
+                ],
+                "option": "droids"
+            },
+            {
+                "name": "9ba626afa44a3aa3.patch_1006.gpu_resources",
+                "url": "https://github.com/owendavidgoode/clonedivers/releases/download/pack-2026.11.09-r47-files/6c1544802bd5b1e582b6878c155e18bee16f33c42aead8d63ff919f1d3391601",
+                "size": 119646080,
+                "sha256": "6c1544802bd5b1e582b6878c155e18bee16f33c42aead8d63ff919f1d3391601",
+                "modes": [
+                    "empire"
+                ],
+                "textureProfiles": [
+                    "full"
+                ],
+                "unlessOption": "droids"
+            },
+            {
+                "name": "9ba626afa44a3aa3.patch_1006.stream",
+                "url": "https://github.com/owendavidgoode/clonedivers/releases/download/pack-2026.11.08-r45-v4-files/cfd8a5396e8a8eb28f4580ddd08197fc736b3cb8b97c124384781932f4aba912",
+                "size": 4803696,
+                "sha256": "cfd8a5396e8a8eb28f4580ddd08197fc736b3cb8b97c124384781932f4aba912",
+                "modes": [
+                    "empire"
+                ],
+                "textureProfiles": [
+                    "full"
+                ]
+            },
+            {
+                "name": "9ba626afa44a3aa3.patch_1007",
+                "url": "https://github.com/owendavidgoode/clonedivers/releases/download/pack-2026.11.09-r47-files/83fa394ffc942de0016d5fc63250a358820cafda4a2596013384984bad32109b",
+                "size": 6399712,
+                "sha256": "83fa394ffc942de0016d5fc63250a358820cafda4a2596013384984bad32109b",
+                "modes": [
+                    "empire"
+                ],
+                "textureProfiles": [
+                    "full"
+                ],
+                "option": "droids"
+            },
+            {
+                "name": "9ba626afa44a3aa3.patch_1007",
+                "url": "https://github.com/owendavidgoode/clonedivers/releases/download/pack-2026.11.09-r47-files/195fda30b685f6569d84c40f7b6670e130555b93ea6a3e7834c275c72e40740a",
+                "size": 6090976,
+                "sha256": "195fda30b685f6569d84c40f7b6670e130555b93ea6a3e7834c275c72e40740a",
+                "modes": [
+                    "empire"
+                ],
+                "textureProfiles": [
+                    "full"
+                ],
+                "unlessOption": "droids"
+            },
+            {
+                "name": "9ba626afa44a3aa3.patch_1007.gpu_resources",
+                "url": "https://github.com/owendavidgoode/clonedivers/releases/download/pack-2026.11.09-r47-files/1d301490b10f49290a64ea77859c606cdc51e46b8b83be2de26f9aa06ffd312e",
+                "size": 261042368,
+                "sha256": "1d301490b10f49290a64ea77859c606cdc51e46b8b83be2de26f9aa06ffd312e",
+                "modes": [
+                    "empire"
+                ],
+                "textureProfiles": [
+                    "full"
+                ],
+                "option": "droids"
+            },
+            {
+                "name": "9ba626afa44a3aa3.patch_1007.gpu_resources",
+                "url": "https://github.com/owendavidgoode/clonedivers/releases/download/pack-2026.11.09-r47-files/afdb326560a5cc838057a21e499b71116e9aa6a3128eb70053cf7a0d0951f259",
+                "size": 181992384,
+                "sha256": "afdb326560a5cc838057a21e499b71116e9aa6a3128eb70053cf7a0d0951f259",
+                "modes": [
+                    "empire"
+                ],
+                "textureProfiles": [
+                    "full"
+                ],
+                "unlessOption": "droids"
+            },
+            {
+                "name": "9ba626afa44a3aa3.patch_1007.stream",
+                "url": "https://github.com/owendavidgoode/clonedivers/releases/download/pack-2026.11.08-r45-v4-files/186d551298e9ce855ea8f7f42035d0555b5ccca665311cb4119fbbfcf45860ba",
+                "size": 7866624,
+                "sha256": "186d551298e9ce855ea8f7f42035d0555b5ccca665311cb4119fbbfcf45860ba",
+                "modes": [
+                    "empire"
+                ],
+                "textureProfiles": [
+                    "full"
+                ]
+            },
+            {
+                "name": "9ba626afa44a3aa3.patch_1008",
+                "url": "https://github.com/owendavidgoode/clonedivers/releases/download/pack-2026.11.09-r47-files/b316f2f494d478bd1311b740b93d4b0d51a6123e7f930a8b95c32741be80140b",
+                "size": 4924496,
+                "sha256": "b316f2f494d478bd1311b740b93d4b0d51a6123e7f930a8b95c32741be80140b",
+                "modes": [
+                    "empire"
+                ],
+                "textureProfiles": [
+                    "full"
+                ],
+                "option": "droids"
+            },
+            {
+                "name": "9ba626afa44a3aa3.patch_1008",
+                "url": "https://github.com/owendavidgoode/clonedivers/releases/download/pack-2026.11.09-r47-files/a3e15d8adc108c9c7ed9f2eb6a2931b039d1e1030dcacd2b6148d12e7fe3d21e",
+                "size": 4741744,
+                "sha256": "a3e15d8adc108c9c7ed9f2eb6a2931b039d1e1030dcacd2b6148d12e7fe3d21e",
+                "modes": [
+                    "empire"
+                ],
+                "textureProfiles": [
+                    "full"
+                ],
+                "unlessOption": "droids"
+            },
+            {
+                "name": "9ba626afa44a3aa3.patch_1008.gpu_resources",
+                "url": "https://github.com/owendavidgoode/clonedivers/releases/download/pack-2026.11.09-r47-files/d7273f8fa05631ed206f4837065bcc1700fe12a7dbf98a40d26a88400d43f11a",
+                "size": 230977024,
+                "sha256": "d7273f8fa05631ed206f4837065bcc1700fe12a7dbf98a40d26a88400d43f11a",
+                "modes": [
+                    "empire"
+                ],
+                "textureProfiles": [
+                    "full"
+                ],
+                "option": "droids"
+            },
+            {
+                "name": "9ba626afa44a3aa3.patch_1008.gpu_resources",
+                "url": "https://github.com/owendavidgoode/clonedivers/releases/download/pack-2026.11.09-r47-files/dc1965f0720ce124f412abc88f42dfd0cb750f1a20f3fdade66c5b72e63591a9",
+                "size": 147768832,
+                "sha256": "dc1965f0720ce124f412abc88f42dfd0cb750f1a20f3fdade66c5b72e63591a9",
+                "modes": [
+                    "empire"
+                ],
+                "textureProfiles": [
+                    "full"
+                ],
+                "unlessOption": "droids"
+            },
+            {
+                "name": "9ba626afa44a3aa3.patch_1008.stream",
+                "url": "https://github.com/owendavidgoode/clonedivers/releases/download/pack-2026.11.08-r45-v4-files/0e8b9f86b3b573f483a062c7e601d47142722f8664a6b983d1f6dc2955763266",
+                "size": 6983520,
+                "sha256": "0e8b9f86b3b573f483a062c7e601d47142722f8664a6b983d1f6dc2955763266",
+                "modes": [
+                    "empire"
+                ],
+                "textureProfiles": [
+                    "full"
+                ]
+            },
+            {
+                "name": "9ba626afa44a3aa3.patch_1009",
+                "url": "https://github.com/owendavidgoode/clonedivers/releases/download/pack-2026.11.09-r47-files/e211c0e3df4b40abfe9eca034f02065632430bae4f714f6597fe9ed3966e3b8a",
+                "size": 21956800,
+                "sha256": "e211c0e3df4b40abfe9eca034f02065632430bae4f714f6597fe9ed3966e3b8a",
+                "modes": [
+                    "empire"
+                ],
+                "textureProfiles": [
+                    "full"
+                ],
+                "option": "droids"
+            },
+            {
+                "name": "9ba626afa44a3aa3.patch_1009",
+                "url": "https://github.com/owendavidgoode/clonedivers/releases/download/pack-2026.11.09-r47-files/0067c6b6241a14d7ac4c99ce876f51fed2146fe03be60d8266e5eb1228cab0e5",
+                "size": 21704304,
+                "sha256": "0067c6b6241a14d7ac4c99ce876f51fed2146fe03be60d8266e5eb1228cab0e5",
+                "modes": [
+                    "empire"
+                ],
+                "textureProfiles": [
+                    "full"
+                ],
+                "unlessOption": "droids"
+            },
+            {
+                "name": "9ba626afa44a3aa3.patch_1009.gpu_resources",
+                "url": "https://github.com/owendavidgoode/clonedivers/releases/download/pack-2026.11.09-r47-files/71115b2ecf849bb5c637f5fd90ec2376cba9fc01ca99fbc06028a7433937f428",
+                "size": 158919360,
+                "sha256": "71115b2ecf849bb5c637f5fd90ec2376cba9fc01ca99fbc06028a7433937f428",
+                "modes": [
+                    "empire"
+                ],
+                "textureProfiles": [
+                    "full"
+                ],
+                "option": "droids"
+            },
+            {
+                "name": "9ba626afa44a3aa3.patch_1009.gpu_resources",
+                "url": "https://github.com/owendavidgoode/clonedivers/releases/download/pack-2026.11.09-r47-files/c826badbc0422ff8cfa70f49c35ebd515a3279927f5bf770e8dc86a8f7e58fcd",
+                "size": 70606784,
+                "sha256": "c826badbc0422ff8cfa70f49c35ebd515a3279927f5bf770e8dc86a8f7e58fcd",
+                "modes": [
+                    "empire"
+                ],
+                "textureProfiles": [
+                    "full"
+                ],
+                "unlessOption": "droids"
+            },
+            {
+                "name": "9ba626afa44a3aa3.patch_1009.stream",
+                "url": "https://github.com/owendavidgoode/clonedivers/releases/download/pack-2026.11.08-r45-v4-files/c49f7575625e3c8ac31d6f1299693c7b0e3998eb0706267a6422abdb8da61271",
+                "size": 5317280,
+                "sha256": "c49f7575625e3c8ac31d6f1299693c7b0e3998eb0706267a6422abdb8da61271",
+                "modes": [
+                    "empire"
+                ],
+                "textureProfiles": [
+                    "full"
+                ]
+            },
+            {
+                "name": "9ba626afa44a3aa3.patch_1010",
+                "url": "https://github.com/owendavidgoode/clonedivers/releases/download/pack-2026.11.08-r45-v4-files/06727636bc7710d6a0513c2d34565b22b7a67e3e40dc80e9187e45e83c71e085",
+                "size": 12325632,
+                "sha256": "06727636bc7710d6a0513c2d34565b22b7a67e3e40dc80e9187e45e83c71e085",
+                "modes": [
+                    "empire"
+                ],
+                "textureProfiles": [
+                    "full"
+                ],
+                "option": "droids"
+            },
+            {
+                "name": "9ba626afa44a3aa3.patch_1010",
+                "url": "https://github.com/owendavidgoode/clonedivers/releases/download/pack-2026.11.09-r46-droids-files/73dfda12fbc492155a4b3a43426186085a294dae594e8bb722c3ee8b427a237d",
+                "size": 12087136,
+                "sha256": "73dfda12fbc492155a4b3a43426186085a294dae594e8bb722c3ee8b427a237d",
+                "modes": [
+                    "empire"
+                ],
+                "textureProfiles": [
+                    "full"
+                ],
+                "unlessOption": "droids"
+            },
+            {
+                "name": "9ba626afa44a3aa3.patch_1010.gpu_resources",
+                "url": "https://github.com/owendavidgoode/clonedivers/releases/download/pack-2026.11.08-r45-v4-files/3663dd43195d73a259de79b1d2f2e025191a7773c5fd9adbd94602c2bccba391",
+                "size": 182466368,
+                "sha256": "3663dd43195d73a259de79b1d2f2e025191a7773c5fd9adbd94602c2bccba391",
+                "modes": [
+                    "empire"
+                ],
+                "textureProfiles": [
+                    "full"
+                ],
+                "option": "droids"
+            },
+            {
+                "name": "9ba626afa44a3aa3.patch_1010.gpu_resources",
+                "url": "https://github.com/owendavidgoode/clonedivers/releases/download/pack-2026.11.09-r46-droids-files/8567f4d983697a149f999e8f466d0421f3590b73c3da0badbb4ca81ff11a9dd1",
+                "size": 81448128,
+                "sha256": "8567f4d983697a149f999e8f466d0421f3590b73c3da0badbb4ca81ff11a9dd1",
+                "modes": [
+                    "empire"
+                ],
+                "textureProfiles": [
+                    "full"
+                ],
+                "unlessOption": "droids"
+            },
+            {
+                "name": "9ba626afa44a3aa3.patch_1010.stream",
+                "url": "https://github.com/owendavidgoode/clonedivers/releases/download/pack-2026.11.08-r45-v4-files/8f2dfdff0990ab1d756558a840d3baa7d9f2c41d7a99252b7a3f806140b18e7f",
+                "size": 9273328,
+                "sha256": "8f2dfdff0990ab1d756558a840d3baa7d9f2c41d7a99252b7a3f806140b18e7f",
+                "modes": [
+                    "empire"
+                ],
+                "textureProfiles": [
+                    "full"
+                ]
+            },
+            {
+                "name": "9ba626afa44a3aa3.patch_1011",
+                "url": "https://github.com/owendavidgoode/clonedivers/releases/download/pack-2026.11.09-r47-files/c61fc0e4e46abd4c4e11a5fcbabfc2ee2b155818bfbdee17170f3ce6d61aa806",
+                "size": 99975536,
+                "sha256": "c61fc0e4e46abd4c4e11a5fcbabfc2ee2b155818bfbdee17170f3ce6d61aa806",
+                "modes": [
+                    "empire"
+                ],
+                "textureProfiles": [
+                    "full"
+                ],
+                "option": "droids"
+            },
+            {
+                "name": "9ba626afa44a3aa3.patch_1011",
+                "url": "https://github.com/owendavidgoode/clonedivers/releases/download/pack-2026.11.09-r47-files/563d2a987e53301da2aa37e4c420b88befe2a0b061774140ea0674a92f80f48a",
+                "size": 99844864,
+                "sha256": "563d2a987e53301da2aa37e4c420b88befe2a0b061774140ea0674a92f80f48a",
+                "modes": [
+                    "empire"
+                ],
+                "textureProfiles": [
+                    "full"
+                ],
+                "unlessOption": "droids"
+            },
+            {
+                "name": "9ba626afa44a3aa3.patch_1011.gpu_resources",
+                "url": "https://github.com/owendavidgoode/clonedivers/releases/download/pack-2026.11.09-r47-files/0f81ea5c604babcf18abbb7390efc52b11c5d156bbce1245461f401074023033",
+                "size": 243892864,
+                "sha256": "0f81ea5c604babcf18abbb7390efc52b11c5d156bbce1245461f401074023033",
+                "modes": [
+                    "empire"
+                ],
+                "textureProfiles": [
+                    "full"
+                ],
+                "option": "droids"
+            },
+            {
+                "name": "9ba626afa44a3aa3.patch_1011.gpu_resources",
+                "url": "https://github.com/owendavidgoode/clonedivers/releases/download/pack-2026.11.09-r47-files/d48384801426fb7281d72c94fd396f600c0e908b6b1af9bb66ab6d07e42e3745",
+                "size": 193315840,
+                "sha256": "d48384801426fb7281d72c94fd396f600c0e908b6b1af9bb66ab6d07e42e3745",
+                "modes": [
+                    "empire"
+                ],
+                "textureProfiles": [
+                    "full"
+                ],
+                "unlessOption": "droids"
+            },
+            {
+                "name": "9ba626afa44a3aa3.patch_1011.stream",
+                "url": "https://github.com/owendavidgoode/clonedivers/releases/download/pack-2026.11.08-r45-v4-files/50211a85921698be7a3cfd31423797744c136482dcb8ffcf3a58d40c9414111e",
+                "size": 39840544,
+                "sha256": "50211a85921698be7a3cfd31423797744c136482dcb8ffcf3a58d40c9414111e",
+                "modes": [
+                    "empire"
+                ],
+                "textureProfiles": [
+                    "full"
+                ]
+            },
+            {
+                "name": "9ba626afa44a3aa3.patch_1012",
+                "url": "https://github.com/owendavidgoode/clonedivers/releases/download/pack-2026.11.09-r47-files/5f2519cda6fc9617139e99beb7d03b74a323c59d13c3f080d3a3a11fd134f0d1",
+                "size": 25468176,
+                "sha256": "5f2519cda6fc9617139e99beb7d03b74a323c59d13c3f080d3a3a11fd134f0d1",
+                "modes": [
+                    "empire"
+                ],
+                "textureProfiles": [
+                    "full"
+                ],
+                "option": "droids"
+            },
+            {
+                "name": "9ba626afa44a3aa3.patch_1012",
+                "url": "https://github.com/owendavidgoode/clonedivers/releases/download/pack-2026.11.09-r47-files/f8201c60a0ebd75b7f17bb06909f398d35553f3085d4d9322f0c748eaf5430e7",
+                "size": 25217472,
+                "sha256": "f8201c60a0ebd75b7f17bb06909f398d35553f3085d4d9322f0c748eaf5430e7",
+                "modes": [
+                    "empire"
+                ],
+                "textureProfiles": [
+                    "full"
+                ],
+                "unlessOption": "droids"
+            },
+            {
+                "name": "9ba626afa44a3aa3.patch_1012.gpu_resources",
+                "url": "https://github.com/owendavidgoode/clonedivers/releases/download/pack-2026.11.09-r47-files/a62d126de96a692762bb4d56d0e86120d8b8d1f1d2ce2f97c94991367b6de0b9",
+                "size": 324683264,
+                "sha256": "a62d126de96a692762bb4d56d0e86120d8b8d1f1d2ce2f97c94991367b6de0b9",
+                "modes": [
+                    "empire"
+                ],
+                "textureProfiles": [
+                    "full"
+                ],
+                "option": "droids"
+            },
+            {
+                "name": "9ba626afa44a3aa3.patch_1012.gpu_resources",
+                "url": "https://github.com/owendavidgoode/clonedivers/releases/download/pack-2026.11.09-r47-files/25fbef94f910a590b07b0ec582740ed11f3d7a98fd832f31d4e58cb671851142",
+                "size": 278565888,
+                "sha256": "25fbef94f910a590b07b0ec582740ed11f3d7a98fd832f31d4e58cb671851142",
+                "modes": [
+                    "empire"
+                ],
+                "textureProfiles": [
+                    "full"
+                ],
+                "unlessOption": "droids"
+            },
+            {
+                "name": "9ba626afa44a3aa3.patch_1012.stream",
+                "url": "https://github.com/owendavidgoode/clonedivers/releases/download/pack-2026.11.08-r45-v4-files/6fc5e11eba9134217d383aad02cc219306fcca6c2c4891d6f3bb48f57408814d",
+                "size": 9280576,
+                "sha256": "6fc5e11eba9134217d383aad02cc219306fcca6c2c4891d6f3bb48f57408814d",
+                "modes": [
+                    "empire"
+                ],
+                "textureProfiles": [
+                    "full"
+                ]
+            },
+            {
+                "name": "9ba626afa44a3aa3.patch_1013",
+                "url": "https://github.com/owendavidgoode/clonedivers/releases/download/pack-2026.11.09-r47-files/f9a4e4a4f6a40e4505f0de6fe1b160862a42535f8247a75ff4a095bbbc75195c",
+                "size": 6377232,
+                "sha256": "f9a4e4a4f6a40e4505f0de6fe1b160862a42535f8247a75ff4a095bbbc75195c",
+                "modes": [
+                    "empire"
+                ],
+                "textureProfiles": [
+                    "full"
+                ],
+                "option": "droids"
+            },
+            {
+                "name": "9ba626afa44a3aa3.patch_1013",
+                "url": "https://github.com/owendavidgoode/clonedivers/releases/download/pack-2026.11.09-r47-files/5b8150c87a13c94240f8889b4ac5a13f831da49a1a457bb90f4772053194e457",
+                "size": 6164880,
+                "sha256": "5b8150c87a13c94240f8889b4ac5a13f831da49a1a457bb90f4772053194e457",
+                "modes": [
+                    "empire"
+                ],
+                "textureProfiles": [
+                    "full"
+                ],
+                "unlessOption": "droids"
+            },
+            {
+                "name": "9ba626afa44a3aa3.patch_1013.gpu_resources",
+                "url": "https://github.com/owendavidgoode/clonedivers/releases/download/pack-2026.11.09-r47-files/7280ca9f0784971d46d5c862780883d7ba6420412dded2836d86e688b641c7a3",
+                "size": 226340352,
+                "sha256": "7280ca9f0784971d46d5c862780883d7ba6420412dded2836d86e688b641c7a3",
+                "modes": [
+                    "empire"
+                ],
+                "textureProfiles": [
+                    "full"
+                ],
+                "option": "droids"
+            },
+            {
+                "name": "9ba626afa44a3aa3.patch_1013.gpu_resources",
+                "url": "https://github.com/owendavidgoode/clonedivers/releases/download/pack-2026.11.09-r47-files/88590b472cca0bb418b654c1ae57eb78d854c77917e07b6f1d9979204a37dd4a",
+                "size": 118321792,
+                "sha256": "88590b472cca0bb418b654c1ae57eb78d854c77917e07b6f1d9979204a37dd4a",
+                "modes": [
+                    "empire"
+                ],
+                "textureProfiles": [
+                    "full"
+                ],
+                "unlessOption": "droids"
+            },
+            {
+                "name": "9ba626afa44a3aa3.patch_1013.stream",
+                "url": "https://github.com/owendavidgoode/clonedivers/releases/download/pack-2026.11.08-r45-v4-files/41a1fab8aaabe3f9dfa20bf2cc8f71b1767a0003ec89844481753ac401c3342e",
+                "size": 5223712,
+                "sha256": "41a1fab8aaabe3f9dfa20bf2cc8f71b1767a0003ec89844481753ac401c3342e",
+                "modes": [
+                    "empire"
+                ],
+                "textureProfiles": [
+                    "full"
+                ]
+            },
+            {
+                "name": "9ba626afa44a3aa3.patch_1014",
+                "url": "https://github.com/owendavidgoode/clonedivers/releases/download/pack-2026.11.09-r47-files/e689d27243b60108b86134e6c44402a2e561c416182a1fcccf24eb273b4a0b5f",
+                "size": 13864128,
+                "sha256": "e689d27243b60108b86134e6c44402a2e561c416182a1fcccf24eb273b4a0b5f",
+                "modes": [
+                    "empire"
+                ],
+                "textureProfiles": [
+                    "full"
+                ],
+                "option": "droids"
+            },
+            {
+                "name": "9ba626afa44a3aa3.patch_1014",
+                "url": "https://github.com/owendavidgoode/clonedivers/releases/download/pack-2026.11.09-r47-files/82497dec43c6ef90544c275bf4da7893a6dc402c4c7ab91b0fe3d13cd95795a0",
+                "size": 13503840,
+                "sha256": "82497dec43c6ef90544c275bf4da7893a6dc402c4c7ab91b0fe3d13cd95795a0",
+                "modes": [
+                    "empire"
+                ],
+                "textureProfiles": [
+                    "full"
+                ],
+                "unlessOption": "droids"
+            },
+            {
+                "name": "9ba626afa44a3aa3.patch_1014.gpu_resources",
+                "url": "https://github.com/owendavidgoode/clonedivers/releases/download/pack-2026.11.09-r47-files/13482907c760812e2983bf1ea1bbecdde2ed6caa49815412f9a8f7ba3aaa2178",
+                "size": 286664768,
+                "sha256": "13482907c760812e2983bf1ea1bbecdde2ed6caa49815412f9a8f7ba3aaa2178",
+                "modes": [
+                    "empire"
+                ],
+                "textureProfiles": [
+                    "full"
+                ],
+                "option": "droids"
+            },
+            {
+                "name": "9ba626afa44a3aa3.patch_1014.gpu_resources",
+                "url": "https://github.com/owendavidgoode/clonedivers/releases/download/pack-2026.11.09-r47-files/bf23e815eb4cbff67c6bef35401dbc0065116ce51bb22d59f52d59c50650ff3c",
+                "size": 211425088,
+                "sha256": "bf23e815eb4cbff67c6bef35401dbc0065116ce51bb22d59f52d59c50650ff3c",
+                "modes": [
+                    "empire"
+                ],
+                "textureProfiles": [
+                    "full"
+                ],
+                "unlessOption": "droids"
+            },
+            {
+                "name": "9ba626afa44a3aa3.patch_1014.stream",
+                "url": "https://github.com/owendavidgoode/clonedivers/releases/download/pack-2026.11.08-r45-v4-files/5d8b87a8375f2d89eba7268937c05b2586bc5966facef488cd9ad4696e1fc4e2",
+                "size": 13178832,
+                "sha256": "5d8b87a8375f2d89eba7268937c05b2586bc5966facef488cd9ad4696e1fc4e2",
+                "modes": [
+                    "empire"
+                ],
+                "textureProfiles": [
+                    "full"
+                ]
+            },
+            {
+                "name": "9ba626afa44a3aa3.patch_1015",
+                "url": "https://github.com/owendavidgoode/clonedivers/releases/download/pack-2026.11.09-r47-files/0275ab57f022c077a27e77ea7dc2eed12aba2d578c63bb451f95d1d01d81f1e2",
+                "size": 17398800,
+                "sha256": "0275ab57f022c077a27e77ea7dc2eed12aba2d578c63bb451f95d1d01d81f1e2",
+                "modes": [
+                    "empire"
+                ],
+                "textureProfiles": [
+                    "full"
+                ],
+                "option": "droids"
+            },
+            {
+                "name": "9ba626afa44a3aa3.patch_1015",
+                "url": "https://github.com/owendavidgoode/clonedivers/releases/download/pack-2026.11.09-r47-files/ae312d28d467159c8c1207915440f1cf6156a3476121813a173c135ddc9e0267",
+                "size": 17059792,
+                "sha256": "ae312d28d467159c8c1207915440f1cf6156a3476121813a173c135ddc9e0267",
+                "modes": [
+                    "empire"
+                ],
+                "textureProfiles": [
+                    "full"
+                ],
+                "unlessOption": "droids"
+            },
+            {
+                "name": "9ba626afa44a3aa3.patch_1015.gpu_resources",
+                "url": "https://github.com/owendavidgoode/clonedivers/releases/download/pack-2026.11.09-r47-files/d43473753aecac7b62f5b283cc1ad83267828642591b39d1bf401810ec0a81dd",
+                "size": 312396352,
+                "sha256": "d43473753aecac7b62f5b283cc1ad83267828642591b39d1bf401810ec0a81dd",
+                "modes": [
+                    "empire"
+                ],
+                "textureProfiles": [
+                    "full"
+                ],
+                "option": "droids"
+            },
+            {
+                "name": "9ba626afa44a3aa3.patch_1015.gpu_resources",
+                "url": "https://github.com/owendavidgoode/clonedivers/releases/download/pack-2026.11.09-r47-files/309d874467e54adf417b94ebdd254d5463914439c9813e489f811199841065b9",
+                "size": 155308160,
+                "sha256": "309d874467e54adf417b94ebdd254d5463914439c9813e489f811199841065b9",
+                "modes": [
+                    "empire"
+                ],
+                "textureProfiles": [
+                    "full"
+                ],
+                "unlessOption": "droids"
+            },
+            {
+                "name": "9ba626afa44a3aa3.patch_1015.stream",
+                "url": "https://github.com/owendavidgoode/clonedivers/releases/download/pack-2026.11.08-r45-v4-files/57332137b58b0e2e56a072418d4d6b53e62698f8696a9fee7215b16e3cd9a8f1",
+                "size": 4105728,
+                "sha256": "57332137b58b0e2e56a072418d4d6b53e62698f8696a9fee7215b16e3cd9a8f1",
+                "modes": [
+                    "empire"
+                ],
+                "textureProfiles": [
+                    "full"
+                ]
+            },
+            {
+                "name": "9ba626afa44a3aa3.patch_1016",
+                "url": "https://github.com/owendavidgoode/clonedivers/releases/download/pack-2026.11.09-r47-files/9eef4165430e00537ba6bd68f2569db40aca3d8adbf2855d2fa153a6fb56f7a9",
+                "size": 22935552,
+                "sha256": "9eef4165430e00537ba6bd68f2569db40aca3d8adbf2855d2fa153a6fb56f7a9",
+                "modes": [
+                    "empire"
+                ],
+                "textureProfiles": [
+                    "full"
+                ],
+                "option": "droids"
+            },
+            {
+                "name": "9ba626afa44a3aa3.patch_1016",
+                "url": "https://github.com/owendavidgoode/clonedivers/releases/download/pack-2026.11.09-r47-files/5ee8ca163bf3340e32f10c86e99aa23bd0ff6d7f5f63cc7d5c63734250cd10cc",
+                "size": 22676544,
+                "sha256": "5ee8ca163bf3340e32f10c86e99aa23bd0ff6d7f5f63cc7d5c63734250cd10cc",
+                "modes": [
+                    "empire"
+                ],
+                "textureProfiles": [
+                    "full"
+                ],
+                "unlessOption": "droids"
+            },
+            {
+                "name": "9ba626afa44a3aa3.patch_1016.gpu_resources",
+                "url": "https://github.com/owendavidgoode/clonedivers/releases/download/pack-2026.11.09-r47-files/b65abf118db079d441c79918708de70fa99b59bd4cd56fe932a4baf8e6dd1420",
+                "size": 182400512,
+                "sha256": "b65abf118db079d441c79918708de70fa99b59bd4cd56fe932a4baf8e6dd1420",
+                "modes": [
+                    "empire"
+                ],
+                "textureProfiles": [
+                    "full"
+                ],
+                "option": "droids"
+            },
+            {
+                "name": "9ba626afa44a3aa3.patch_1016.gpu_resources",
+                "url": "https://github.com/owendavidgoode/clonedivers/releases/download/pack-2026.11.09-r47-files/24163d87fbd1f1c6587543e518ebb4339cb5233a34af28b8879199f37ffbf4d6",
+                "size": 144815040,
+                "sha256": "24163d87fbd1f1c6587543e518ebb4339cb5233a34af28b8879199f37ffbf4d6",
+                "modes": [
+                    "empire"
+                ],
+                "textureProfiles": [
+                    "full"
+                ],
+                "unlessOption": "droids"
+            },
+            {
+                "name": "9ba626afa44a3aa3.patch_1016.stream",
+                "url": "https://github.com/owendavidgoode/clonedivers/releases/download/pack-2026.11.08-r45-v4-files/3849e80f412c6953cdd57ecc85f27838274474865def459d90b471c434f413f4",
+                "size": 4478016,
+                "sha256": "3849e80f412c6953cdd57ecc85f27838274474865def459d90b471c434f413f4",
+                "modes": [
+                    "empire"
+                ],
+                "textureProfiles": [
+                    "full"
+                ]
+            },
+            {
+                "name": "9ba626afa44a3aa3.patch_1017",
+                "url": "https://github.com/owendavidgoode/clonedivers/releases/download/pack-2026.11.09-r47-files/c281214e010dc03d330ca2fc39fcb17ecbd23cedaa68f8414c36697af14486d6",
+                "size": 4339280,
+                "sha256": "c281214e010dc03d330ca2fc39fcb17ecbd23cedaa68f8414c36697af14486d6",
+                "modes": [
+                    "empire"
+                ],
+                "textureProfiles": [
+                    "full"
+                ],
+                "option": "droids"
+            },
+            {
+                "name": "9ba626afa44a3aa3.patch_1017",
+                "url": "https://github.com/owendavidgoode/clonedivers/releases/download/pack-2026.11.09-r47-files/773860e6790ba184be3d4552c2a11cebf1cd4c3a378aa9f3ba6704202ed0dbe7",
+                "size": 4099616,
+                "sha256": "773860e6790ba184be3d4552c2a11cebf1cd4c3a378aa9f3ba6704202ed0dbe7",
+                "modes": [
+                    "empire"
+                ],
+                "textureProfiles": [
+                    "full"
+                ],
+                "unlessOption": "droids"
+            },
+            {
+                "name": "9ba626afa44a3aa3.patch_1017.gpu_resources",
+                "url": "https://github.com/owendavidgoode/clonedivers/releases/download/pack-2026.11.09-r47-files/2d67693c1520e45c22525cedee8deba4bb6e611caf81f42aa12308baa3f5a851",
+                "size": 133629888,
+                "sha256": "2d67693c1520e45c22525cedee8deba4bb6e611caf81f42aa12308baa3f5a851",
+                "modes": [
+                    "empire"
+                ],
+                "textureProfiles": [
+                    "full"
+                ],
+                "option": "droids"
+            },
+            {
+                "name": "9ba626afa44a3aa3.patch_1017.gpu_resources",
+                "url": "https://github.com/owendavidgoode/clonedivers/releases/download/pack-2026.11.09-r47-files/68a4c932d7c859c0dd952b2db77b0b8404d5885c05968c69a5136cd509b452c0",
+                "size": 106249856,
+                "sha256": "68a4c932d7c859c0dd952b2db77b0b8404d5885c05968c69a5136cd509b452c0",
+                "modes": [
+                    "empire"
+                ],
+                "textureProfiles": [
+                    "full"
+                ],
+                "unlessOption": "droids"
+            },
+            {
+                "name": "9ba626afa44a3aa3.patch_1017.stream",
+                "url": "https://github.com/owendavidgoode/clonedivers/releases/download/pack-2026.11.08-r45-v4-files/f57be0e22611e1441de67565e23e2b06d0378e284041ec0f233454ff27f49d3b",
+                "size": 4031536,
+                "sha256": "f57be0e22611e1441de67565e23e2b06d0378e284041ec0f233454ff27f49d3b",
+                "modes": [
+                    "empire"
+                ],
+                "textureProfiles": [
+                    "full"
+                ]
+            },
+            {
+                "name": "9ba626afa44a3aa3.patch_1018",
+                "url": "https://github.com/owendavidgoode/clonedivers/releases/download/pack-2026.11.09-r47-files/03b21797676e351a969c0cf20731f5250432311fcfc248d40f23c39d3b0f0d6e",
+                "size": 18312640,
+                "sha256": "03b21797676e351a969c0cf20731f5250432311fcfc248d40f23c39d3b0f0d6e",
+                "modes": [
+                    "empire"
+                ],
+                "textureProfiles": [
+                    "full"
+                ],
+                "option": "droids"
+            },
+            {
+                "name": "9ba626afa44a3aa3.patch_1018",
+                "url": "https://github.com/owendavidgoode/clonedivers/releases/download/pack-2026.11.09-r47-files/32a5f96c43a4c465c9ab0c9b798208d3154c97dd1ad6fe345e2cb0a4834911cb",
+                "size": 18049120,
+                "sha256": "32a5f96c43a4c465c9ab0c9b798208d3154c97dd1ad6fe345e2cb0a4834911cb",
+                "modes": [
+                    "empire"
+                ],
+                "textureProfiles": [
+                    "full"
+                ],
+                "unlessOption": "droids"
+            },
+            {
+                "name": "9ba626afa44a3aa3.patch_1018.gpu_resources",
+                "url": "https://github.com/owendavidgoode/clonedivers/releases/download/pack-2026.11.09-r47-files/3c3dc7dd79586b4bb067d5a06f311bd962e6ea7cc7a452e5bed45571d0e66326",
+                "size": 98584448,
+                "sha256": "3c3dc7dd79586b4bb067d5a06f311bd962e6ea7cc7a452e5bed45571d0e66326",
+                "modes": [
+                    "empire"
+                ],
+                "textureProfiles": [
+                    "full"
+                ],
+                "option": "droids"
+            },
+            {
+                "name": "9ba626afa44a3aa3.patch_1018.gpu_resources",
+                "url": "https://github.com/owendavidgoode/clonedivers/releases/download/pack-2026.11.09-r47-files/65273eaccd1da2da49c73a43fb359bc8ca2d9f852604bc950571cd1fbe392e94",
+                "size": 56165696,
+                "sha256": "65273eaccd1da2da49c73a43fb359bc8ca2d9f852604bc950571cd1fbe392e94",
+                "modes": [
+                    "empire"
+                ],
+                "textureProfiles": [
+                    "full"
+                ],
+                "unlessOption": "droids"
+            },
+            {
+                "name": "9ba626afa44a3aa3.patch_1018.stream",
+                "url": "https://github.com/owendavidgoode/clonedivers/releases/download/pack-2026.11.08-r45-v4-files/90137c4ca472bb1eb7da037d2ce13102b8bb1d2a3d97a19f07c02fde00250d3a",
+                "size": 11784544,
+                "sha256": "90137c4ca472bb1eb7da037d2ce13102b8bb1d2a3d97a19f07c02fde00250d3a",
+                "modes": [
+                    "empire"
+                ],
+                "textureProfiles": [
+                    "full"
+                ]
+            },
+            {
+                "name": "9ba626afa44a3aa3.patch_1019",
+                "url": "https://github.com/owendavidgoode/clonedivers/releases/download/pack-2026.11.09-r47-files/0bf34039a3a1c256fddbb01b8a81241e8d2ea768205950cb7201360393913d84",
+                "size": 27561856,
+                "sha256": "0bf34039a3a1c256fddbb01b8a81241e8d2ea768205950cb7201360393913d84",
+                "modes": [
+                    "empire"
+                ],
+                "textureProfiles": [
+                    "full"
+                ],
+                "option": "droids"
+            },
+            {
+                "name": "9ba626afa44a3aa3.patch_1019",
+                "url": "https://github.com/owendavidgoode/clonedivers/releases/download/pack-2026.11.09-r47-files/9869c56687b4a7a54e8c6d539e39e73c838fad308ff63859b638313e53954005",
+                "size": 27351728,
+                "sha256": "9869c56687b4a7a54e8c6d539e39e73c838fad308ff63859b638313e53954005",
+                "modes": [
+                    "empire"
+                ],
+                "textureProfiles": [
+                    "full"
+                ],
+                "unlessOption": "droids"
+            },
+            {
+                "name": "9ba626afa44a3aa3.patch_1019.gpu_resources",
+                "url": "https://github.com/owendavidgoode/clonedivers/releases/download/pack-2026.11.09-r47-files/18d022ef053572425bee1a41ade9fe50ad797f5fddbee27f6939676a812df819",
+                "size": 225813952,
+                "sha256": "18d022ef053572425bee1a41ade9fe50ad797f5fddbee27f6939676a812df819",
+                "modes": [
+                    "empire"
+                ],
+                "textureProfiles": [
+                    "full"
+                ],
+                "option": "droids"
+            },
+            {
+                "name": "9ba626afa44a3aa3.patch_1019.gpu_resources",
+                "url": "https://github.com/owendavidgoode/clonedivers/releases/download/pack-2026.11.09-r47-files/590574a705e0c1635b5d5147aef96b5e71a32c666c4aa14dad536121e1a45701",
+                "size": 201615104,
+                "sha256": "590574a705e0c1635b5d5147aef96b5e71a32c666c4aa14dad536121e1a45701",
+                "modes": [
+                    "empire"
+                ],
+                "textureProfiles": [
+                    "full"
+                ],
+                "unlessOption": "droids"
+            },
+            {
+                "name": "9ba626afa44a3aa3.patch_1019.stream",
+                "url": "https://github.com/owendavidgoode/clonedivers/releases/download/pack-2026.11.08-r45-v4-files/cc4946f2bd24f6eb18d931f878e5e051360bbc8abfdbbba5d4d52dafbdfc07aa",
+                "size": 4438560,
+                "sha256": "cc4946f2bd24f6eb18d931f878e5e051360bbc8abfdbbba5d4d52dafbdfc07aa",
+                "modes": [
+                    "empire"
+                ],
+                "textureProfiles": [
+                    "full"
+                ]
+            },
+            {
+                "name": "9ba626afa44a3aa3.patch_1020",
+                "url": "https://github.com/owendavidgoode/clonedivers/releases/download/pack-2026.11.09-r47-files/13f811127facd0cdc1488cc17cb7641d3a52256bf88740d5c60a87eb1a21664a",
+                "size": 10482880,
+                "sha256": "13f811127facd0cdc1488cc17cb7641d3a52256bf88740d5c60a87eb1a21664a",
+                "modes": [
+                    "empire"
+                ],
+                "textureProfiles": [
+                    "full"
+                ],
+                "option": "droids"
+            },
+            {
+                "name": "9ba626afa44a3aa3.patch_1020",
+                "url": "https://github.com/owendavidgoode/clonedivers/releases/download/pack-2026.11.09-r47-files/2cafeac99655a9929dfcf5450533ddbc7a5cde9638d242b20cc2ee505750b886",
+                "size": 10295280,
+                "sha256": "2cafeac99655a9929dfcf5450533ddbc7a5cde9638d242b20cc2ee505750b886",
+                "modes": [
+                    "empire"
+                ],
+                "textureProfiles": [
+                    "full"
+                ],
+                "unlessOption": "droids"
+            },
+            {
+                "name": "9ba626afa44a3aa3.patch_1020.gpu_resources",
+                "url": "https://github.com/owendavidgoode/clonedivers/releases/download/pack-2026.11.09-r47-files/3e0962108efd26190a2cd7fbc8f9a5f9e1d6f1b41dd99ce29396c7d2f87e71f5",
+                "size": 157257280,
+                "sha256": "3e0962108efd26190a2cd7fbc8f9a5f9e1d6f1b41dd99ce29396c7d2f87e71f5",
+                "modes": [
+                    "empire"
+                ],
+                "textureProfiles": [
+                    "full"
+                ],
+                "option": "droids"
+            },
+            {
+                "name": "9ba626afa44a3aa3.patch_1020.gpu_resources",
+                "url": "https://github.com/owendavidgoode/clonedivers/releases/download/pack-2026.11.09-r47-files/735ad8027839d956090f0b2f08175825d32ff8e24a6cf82fb70b0a6643971832",
+                "size": 86113472,
+                "sha256": "735ad8027839d956090f0b2f08175825d32ff8e24a6cf82fb70b0a6643971832",
+                "modes": [
+                    "empire"
+                ],
+                "textureProfiles": [
+                    "full"
+                ],
+                "unlessOption": "droids"
+            },
+            {
+                "name": "9ba626afa44a3aa3.patch_1020.stream",
+                "url": "https://github.com/owendavidgoode/clonedivers/releases/download/pack-2026.11.08-r45-v4-files/edfcb3a47c4f07af5dfaf0637928e1c2bfa085a86f6bf5f19e75e88497439c78",
+                "size": 8221952,
+                "sha256": "edfcb3a47c4f07af5dfaf0637928e1c2bfa085a86f6bf5f19e75e88497439c78",
+                "modes": [
+                    "empire"
+                ],
+                "textureProfiles": [
+                    "full"
+                ]
+            },
+            {
+                "name": "9ba626afa44a3aa3.patch_1021",
+                "url": "https://github.com/owendavidgoode/clonedivers/releases/download/pack-2026.11.09-r47-files/472031e0be90e6ddac37cfceb5e770577337e39d930cb2ff39d381d5dbf73bf6",
+                "size": 9108672,
+                "sha256": "472031e0be90e6ddac37cfceb5e770577337e39d930cb2ff39d381d5dbf73bf6",
+                "modes": [
+                    "empire"
+                ],
+                "textureProfiles": [
+                    "full"
+                ],
+                "option": "droids"
+            },
+            {
+                "name": "9ba626afa44a3aa3.patch_1021",
+                "url": "https://github.com/owendavidgoode/clonedivers/releases/download/pack-2026.11.09-r47-files/63f91f4e8ed0e065714d8b6b1f11e4e23cfde318a941915eda05de6faa5c32c2",
+                "size": 8694560,
+                "sha256": "63f91f4e8ed0e065714d8b6b1f11e4e23cfde318a941915eda05de6faa5c32c2",
+                "modes": [
+                    "empire"
+                ],
+                "textureProfiles": [
+                    "full"
+                ],
+                "unlessOption": "droids"
+            },
+            {
+                "name": "9ba626afa44a3aa3.patch_1021.gpu_resources",
+                "url": "https://github.com/owendavidgoode/clonedivers/releases/download/pack-2026.11.09-r47-files/a7bb476e0b327f645d65f52edcd2aaecb76284f51613262a3047f55497179da7",
+                "size": 221465216,
+                "sha256": "a7bb476e0b327f645d65f52edcd2aaecb76284f51613262a3047f55497179da7",
+                "modes": [
+                    "empire"
+                ],
+                "textureProfiles": [
+                    "full"
+                ],
+                "option": "droids"
+            },
+            {
+                "name": "9ba626afa44a3aa3.patch_1021.gpu_resources",
+                "url": "https://github.com/owendavidgoode/clonedivers/releases/download/pack-2026.11.09-r47-files/5e7e5a0c0f78e8653379cfcfb63936f105696e70a582efeba914375e4dcb8b7f",
+                "size": 136851264,
+                "sha256": "5e7e5a0c0f78e8653379cfcfb63936f105696e70a582efeba914375e4dcb8b7f",
+                "modes": [
+                    "empire"
+                ],
+                "textureProfiles": [
+                    "full"
+                ],
+                "unlessOption": "droids"
+            },
+            {
+                "name": "9ba626afa44a3aa3.patch_1021.stream",
+                "url": "https://github.com/owendavidgoode/clonedivers/releases/download/pack-2026.11.08-r45-v4-files/765d249d529b226ece306e34ee71e59d2c1a68e2ec82f0b7f96ff09f49dac8f7",
+                "size": 15502640,
+                "sha256": "765d249d529b226ece306e34ee71e59d2c1a68e2ec82f0b7f96ff09f49dac8f7",
+                "modes": [
+                    "empire"
+                ],
+                "textureProfiles": [
+                    "full"
+                ]
+            },
+            {
+                "name": "9ba626afa44a3aa3.patch_1022",
+                "url": "https://github.com/owendavidgoode/clonedivers/releases/download/pack-2026.11.09-r47-files/8e7788ddf543d137da61280621424b47375e18853494b853f542fbbb7874f000",
+                "size": 16019808,
+                "sha256": "8e7788ddf543d137da61280621424b47375e18853494b853f542fbbb7874f000",
+                "modes": [
+                    "empire"
+                ],
+                "textureProfiles": [
+                    "full"
+                ],
+                "option": "droids"
+            },
+            {
+                "name": "9ba626afa44a3aa3.patch_1022",
+                "url": "https://github.com/owendavidgoode/clonedivers/releases/download/pack-2026.11.09-r47-files/7e9bf2271903e9582bec6074fab0dd745d8f95fc3f5ac366d8bb39d62c2c04fa",
+                "size": 15863104,
+                "sha256": "7e9bf2271903e9582bec6074fab0dd745d8f95fc3f5ac366d8bb39d62c2c04fa",
+                "modes": [
+                    "empire"
+                ],
+                "textureProfiles": [
+                    "full"
+                ],
+                "unlessOption": "droids"
+            },
+            {
+                "name": "9ba626afa44a3aa3.patch_1022.gpu_resources",
+                "url": "https://github.com/owendavidgoode/clonedivers/releases/download/pack-2026.11.09-r47-files/21b9196c898b1979b2ee99986275c7924735cfdfc05d3eecdf9c60970e2634f8",
+                "size": 309633536,
+                "sha256": "21b9196c898b1979b2ee99986275c7924735cfdfc05d3eecdf9c60970e2634f8",
+                "modes": [
+                    "empire"
+                ],
+                "textureProfiles": [
+                    "full"
+                ],
+                "option": "droids"
+            },
+            {
+                "name": "9ba626afa44a3aa3.patch_1022.gpu_resources",
+                "url": "https://github.com/owendavidgoode/clonedivers/releases/download/pack-2026.11.09-r47-files/ff30f8c79a04c8d7f530ec90bc6d9f6ec642a8fac79daa61e2e91df900bc827f",
+                "size": 202525632,
+                "sha256": "ff30f8c79a04c8d7f530ec90bc6d9f6ec642a8fac79daa61e2e91df900bc827f",
+                "modes": [
+                    "empire"
+                ],
+                "textureProfiles": [
+                    "full"
+                ],
+                "unlessOption": "droids"
+            },
+            {
+                "name": "9ba626afa44a3aa3.patch_1022.stream",
+                "url": "https://github.com/owendavidgoode/clonedivers/releases/download/pack-2026.11.08-r45-v4-files/47991fa1a0a5553bdcf432a815bae16036ed3491ac32c5d37632f46b3954bfe0",
+                "size": 2210368,
+                "sha256": "47991fa1a0a5553bdcf432a815bae16036ed3491ac32c5d37632f46b3954bfe0",
+                "modes": [
+                    "empire"
+                ],
+                "textureProfiles": [
+                    "full"
+                ]
+            },
+            {
+                "name": "9ba626afa44a3aa3.patch_1023",
+                "url": "https://github.com/owendavidgoode/clonedivers/releases/download/pack-2026.11.09-r47-files/fd9d9afdd82bba9ac95a60d9b7e4f2a111a99f132dae8995a688f73d19c427d0",
+                "size": 8317088,
+                "sha256": "fd9d9afdd82bba9ac95a60d9b7e4f2a111a99f132dae8995a688f73d19c427d0",
+                "modes": [
+                    "empire"
+                ],
+                "textureProfiles": [
+                    "full"
+                ],
+                "option": "droids"
+            },
+            {
+                "name": "9ba626afa44a3aa3.patch_1023",
+                "url": "https://github.com/owendavidgoode/clonedivers/releases/download/pack-2026.11.09-r47-files/a0ac018d344981bb06e04414aecffd079af98c5d86a62914247a926895ee1db6",
+                "size": 8111056,
+                "sha256": "a0ac018d344981bb06e04414aecffd079af98c5d86a62914247a926895ee1db6",
+                "modes": [
+                    "empire"
+                ],
+                "textureProfiles": [
+                    "full"
+                ],
+                "unlessOption": "droids"
+            },
+            {
+                "name": "9ba626afa44a3aa3.patch_1023.gpu_resources",
+                "url": "https://github.com/owendavidgoode/clonedivers/releases/download/pack-2026.11.09-r47-files/bdeba67632810119cbbbdd178c4a534d84bc6fd3a10ad427d562e797c6e803c9",
+                "size": 270531712,
+                "sha256": "bdeba67632810119cbbbdd178c4a534d84bc6fd3a10ad427d562e797c6e803c9",
+                "modes": [
+                    "empire"
+                ],
+                "textureProfiles": [
+                    "full"
+                ],
+                "option": "droids"
+            },
+            {
+                "name": "9ba626afa44a3aa3.patch_1023.gpu_resources",
+                "url": "https://github.com/owendavidgoode/clonedivers/releases/download/pack-2026.11.09-r47-files/2d8afd452b501f437e8f92bf7426d8f2f6f0a47fbdc12df9d44d3ffa0138e94d",
+                "size": 187621440,
+                "sha256": "2d8afd452b501f437e8f92bf7426d8f2f6f0a47fbdc12df9d44d3ffa0138e94d",
+                "modes": [
+                    "empire"
+                ],
+                "textureProfiles": [
+                    "full"
+                ],
+                "unlessOption": "droids"
+            },
+            {
+                "name": "9ba626afa44a3aa3.patch_1023.stream",
+                "url": "https://github.com/owendavidgoode/clonedivers/releases/download/pack-2026.11.08-r45-v4-files/e50ed337652d7eb9a7083a19f75532c9834b0cb5a53c4014f9e03c8e0a90c853",
+                "size": 6530640,
+                "sha256": "e50ed337652d7eb9a7083a19f75532c9834b0cb5a53c4014f9e03c8e0a90c853",
+                "modes": [
+                    "empire"
+                ],
+                "textureProfiles": [
+                    "full"
+                ]
+            },
+            {
+                "name": "9ba626afa44a3aa3.patch_1024",
+                "url": "https://github.com/owendavidgoode/clonedivers/releases/download/pack-2026.11.09-r47-files/f38410b74e7f9fdfc50aa2c9525ce1e67a438c7775fc5ee58909a93e90c5f26c",
+                "size": 16934608,
+                "sha256": "f38410b74e7f9fdfc50aa2c9525ce1e67a438c7775fc5ee58909a93e90c5f26c",
+                "modes": [
+                    "empire"
+                ],
+                "textureProfiles": [
+                    "full"
+                ],
+                "option": "droids"
+            },
+            {
+                "name": "9ba626afa44a3aa3.patch_1024",
+                "url": "https://github.com/owendavidgoode/clonedivers/releases/download/pack-2026.11.09-r47-files/185224a50eafb591b040bf7c772b945302f351e99d617793e9e0c3771a78f8f4",
+                "size": 16705776,
+                "sha256": "185224a50eafb591b040bf7c772b945302f351e99d617793e9e0c3771a78f8f4",
+                "modes": [
+                    "empire"
+                ],
+                "textureProfiles": [
+                    "full"
+                ],
+                "unlessOption": "droids"
+            },
+            {
+                "name": "9ba626afa44a3aa3.patch_1024.gpu_resources",
+                "url": "https://github.com/owendavidgoode/clonedivers/releases/download/pack-2026.11.09-r47-files/2cbd667b10392f61a9411fe5051f07a2c2ad2ec55cc890f6da311c6e2f2971f3",
+                "size": 196341056,
+                "sha256": "2cbd667b10392f61a9411fe5051f07a2c2ad2ec55cc890f6da311c6e2f2971f3",
+                "modes": [
+                    "empire"
+                ],
+                "textureProfiles": [
+                    "full"
+                ],
+                "option": "droids"
+            },
+            {
+                "name": "9ba626afa44a3aa3.patch_1024.gpu_resources",
+                "url": "https://github.com/owendavidgoode/clonedivers/releases/download/pack-2026.11.09-r47-files/4ee1b3efa36ac2acf2203543a2b5beb644687b60b79bbeeb8000bbced70c450c",
+                "size": 156310400,
+                "sha256": "4ee1b3efa36ac2acf2203543a2b5beb644687b60b79bbeeb8000bbced70c450c",
+                "modes": [
+                    "empire"
+                ],
+                "textureProfiles": [
+                    "full"
+                ],
+                "unlessOption": "droids"
+            },
+            {
+                "name": "9ba626afa44a3aa3.patch_1024.stream",
+                "url": "https://github.com/owendavidgoode/clonedivers/releases/download/pack-2026.11.08-r45-v4-files/c3e77fdd84d4df43ad682b49a5d09cc5e653bfa9adbfc49091bd89b0b3f9d3f9",
+                "size": 7202832,
+                "sha256": "c3e77fdd84d4df43ad682b49a5d09cc5e653bfa9adbfc49091bd89b0b3f9d3f9",
+                "modes": [
+                    "empire"
+                ],
+                "textureProfiles": [
+                    "full"
+                ]
+            },
+            {
+                "name": "9ba626afa44a3aa3.patch_1025",
+                "url": "https://github.com/owendavidgoode/clonedivers/releases/download/pack-2026.11.09-r47-files/030c8a071ef439813952e4e170cf73fde6542b33bad830e574818781dda792a0",
+                "size": 16786656,
+                "sha256": "030c8a071ef439813952e4e170cf73fde6542b33bad830e574818781dda792a0",
+                "modes": [
+                    "empire"
+                ],
+                "textureProfiles": [
+                    "full"
+                ],
+                "option": "droids"
+            },
+            {
+                "name": "9ba626afa44a3aa3.patch_1025",
+                "url": "https://github.com/owendavidgoode/clonedivers/releases/download/pack-2026.11.09-r47-files/3e696ef6abe6b89c48db62550e0ab49f5a78ff5a27bb6ed5b08bacd6dd9eae50",
+                "size": 16345312,
+                "sha256": "3e696ef6abe6b89c48db62550e0ab49f5a78ff5a27bb6ed5b08bacd6dd9eae50",
+                "modes": [
+                    "empire"
+                ],
+                "textureProfiles": [
+                    "full"
+                ],
+                "unlessOption": "droids"
+            },
+            {
+                "name": "9ba626afa44a3aa3.patch_1025.gpu_resources",
+                "url": "https://github.com/owendavidgoode/clonedivers/releases/download/pack-2026.11.09-r47-files/3cb74bc992d5a0b1b48dea8cb3c3f4b11b51f02a739333c9d12eedabc5da39b5",
+                "size": 421856064,
+                "sha256": "3cb74bc992d5a0b1b48dea8cb3c3f4b11b51f02a739333c9d12eedabc5da39b5",
+                "modes": [
+                    "empire"
+                ],
+                "textureProfiles": [
+                    "full"
+                ],
+                "option": "droids"
+            },
+            {
+                "name": "9ba626afa44a3aa3.patch_1025.gpu_resources",
+                "url": "https://github.com/owendavidgoode/clonedivers/releases/download/pack-2026.11.09-r47-files/4af85db0fb5290d9e9ce77c65837132c959688dda7801cc581a004ecffbdfe09",
+                "size": 243515008,
+                "sha256": "4af85db0fb5290d9e9ce77c65837132c959688dda7801cc581a004ecffbdfe09",
+                "modes": [
+                    "empire"
+                ],
+                "textureProfiles": [
+                    "full"
+                ],
+                "unlessOption": "droids"
+            },
+            {
+                "name": "9ba626afa44a3aa3.patch_1025.stream",
+                "url": "https://github.com/owendavidgoode/clonedivers/releases/download/pack-2026.11.08-r45-v4-files/8d8c2fbcad34003ebee3f372bc2e882d4d2f027f9451f2b731265aab73d99ac9",
+                "size": 5529232,
+                "sha256": "8d8c2fbcad34003ebee3f372bc2e882d4d2f027f9451f2b731265aab73d99ac9",
+                "modes": [
+                    "empire"
+                ],
+                "textureProfiles": [
+                    "full"
+                ]
+            },
+            {
+                "name": "9ba626afa44a3aa3.patch_1026",
+                "url": "https://github.com/owendavidgoode/clonedivers/releases/download/pack-2026.11.09-r47-files/f207f1371c6a9bc71527e48455a2d0d28409eec50e70b53741877e76a6758fea",
+                "size": 25056896,
+                "sha256": "f207f1371c6a9bc71527e48455a2d0d28409eec50e70b53741877e76a6758fea",
+                "modes": [
+                    "empire"
+                ],
+                "textureProfiles": [
+                    "full"
+                ],
+                "option": "droids"
+            },
+            {
+                "name": "9ba626afa44a3aa3.patch_1026",
+                "url": "https://github.com/owendavidgoode/clonedivers/releases/download/pack-2026.11.09-r47-files/580905646b2fc5c86cbe8ba0ab2029160f453b2a0670bd8728d40ea26864ad76",
+                "size": 24908048,
+                "sha256": "580905646b2fc5c86cbe8ba0ab2029160f453b2a0670bd8728d40ea26864ad76",
+                "modes": [
+                    "empire"
+                ],
+                "textureProfiles": [
+                    "full"
+                ],
+                "unlessOption": "droids"
+            },
+            {
+                "name": "9ba626afa44a3aa3.patch_1026.gpu_resources",
+                "url": "https://github.com/owendavidgoode/clonedivers/releases/download/pack-2026.11.09-r47-files/2598ac8e71690b0afa53714390d406654a0ce1a5736d085341e0453f3387305a",
+                "size": 311275328,
+                "sha256": "2598ac8e71690b0afa53714390d406654a0ce1a5736d085341e0453f3387305a",
+                "modes": [
+                    "empire"
+                ],
+                "textureProfiles": [
+                    "full"
+                ],
+                "option": "droids"
+            },
+            {
+                "name": "9ba626afa44a3aa3.patch_1026.gpu_resources",
+                "url": "https://github.com/owendavidgoode/clonedivers/releases/download/pack-2026.11.09-r47-files/6d1cd6ddc1d86ea28cd1a4df96eba68f1c34d96600610dfc5780f3a0a52e0b35",
+                "size": 190679872,
+                "sha256": "6d1cd6ddc1d86ea28cd1a4df96eba68f1c34d96600610dfc5780f3a0a52e0b35",
+                "modes": [
+                    "empire"
+                ],
+                "textureProfiles": [
+                    "full"
+                ],
+                "unlessOption": "droids"
+            },
+            {
+                "name": "9ba626afa44a3aa3.patch_1026.stream",
+                "url": "https://github.com/owendavidgoode/clonedivers/releases/download/pack-2026.11.08-r45-v4-files/f1a9404d0c50a42f1973b8e8bce8839c057a057f236bfaab12e62116ae456d06",
+                "size": 5215248,
+                "sha256": "f1a9404d0c50a42f1973b8e8bce8839c057a057f236bfaab12e62116ae456d06",
+                "modes": [
+                    "empire"
+                ],
+                "textureProfiles": [
+                    "full"
+                ]
+            },
+            {
+                "name": "9ba626afa44a3aa3.patch_1027",
+                "url": "https://github.com/owendavidgoode/clonedivers/releases/download/pack-2026.11.09-r47-files/7e3b46a7a09cf2389792136890e939bf823e5fdfe8ed800668244cf427587033",
+                "size": 14986288,
+                "sha256": "7e3b46a7a09cf2389792136890e939bf823e5fdfe8ed800668244cf427587033",
+                "modes": [
+                    "empire"
+                ],
+                "textureProfiles": [
+                    "full"
+                ],
+                "option": "droids"
+            },
+            {
+                "name": "9ba626afa44a3aa3.patch_1027",
+                "url": "https://github.com/owendavidgoode/clonedivers/releases/download/pack-2026.11.09-r47-files/44e5d0f9427ef68757a005c85373fab48f3f8a9447e212d9f18c73e84cb708a2",
+                "size": 14566784,
+                "sha256": "44e5d0f9427ef68757a005c85373fab48f3f8a9447e212d9f18c73e84cb708a2",
+                "modes": [
+                    "empire"
+                ],
+                "textureProfiles": [
+                    "full"
+                ],
+                "unlessOption": "droids"
+            },
+            {
+                "name": "9ba626afa44a3aa3.patch_1027.gpu_resources",
+                "url": "https://github.com/owendavidgoode/clonedivers/releases/download/pack-2026.11.09-r47-files/81eca5ebb156edb9524132ba9238592e8a91dff7c139e3f350ed2a10baec0595",
+                "size": 192917312,
+                "sha256": "81eca5ebb156edb9524132ba9238592e8a91dff7c139e3f350ed2a10baec0595",
+                "modes": [
+                    "empire"
+                ],
+                "textureProfiles": [
+                    "full"
+                ],
+                "option": "droids"
+            },
+            {
+                "name": "9ba626afa44a3aa3.patch_1027.gpu_resources",
+                "url": "https://github.com/owendavidgoode/clonedivers/releases/download/pack-2026.11.09-r47-files/f4b207259d93c28e9c67fb0eeafa5b5fd4a76ff0ca4b6ae5806b4375fe4488f5",
+                "size": 138900288,
+                "sha256": "f4b207259d93c28e9c67fb0eeafa5b5fd4a76ff0ca4b6ae5806b4375fe4488f5",
+                "modes": [
+                    "empire"
+                ],
+                "textureProfiles": [
+                    "full"
+                ],
+                "unlessOption": "droids"
+            },
+            {
+                "name": "9ba626afa44a3aa3.patch_1027.stream",
+                "url": "https://github.com/owendavidgoode/clonedivers/releases/download/pack-2026.11.08-r45-v4-files/e16cec94cd8383e5f34975b32da18424338f957c8324419daee1629a061f7192",
+                "size": 6746912,
+                "sha256": "e16cec94cd8383e5f34975b32da18424338f957c8324419daee1629a061f7192",
+                "modes": [
+                    "empire"
+                ],
+                "textureProfiles": [
+                    "full"
+                ]
+            },
+            {
+                "name": "9ba626afa44a3aa3.patch_1028",
+                "url": "https://github.com/owendavidgoode/clonedivers/releases/download/pack-2026.11.09-r47-files/ffa4ab9be6eaf2d1a94ca8fe365759df76ab23ea9a6a3cdf0ae87a3e107cafee",
+                "size": 15715504,
+                "sha256": "ffa4ab9be6eaf2d1a94ca8fe365759df76ab23ea9a6a3cdf0ae87a3e107cafee",
+                "modes": [
+                    "empire"
+                ],
+                "textureProfiles": [
+                    "full"
+                ],
+                "option": "droids"
+            },
+            {
+                "name": "9ba626afa44a3aa3.patch_1028",
+                "url": "https://github.com/owendavidgoode/clonedivers/releases/download/pack-2026.11.09-r47-files/c97329d69992f18a455bdde18cd2836352b675cdb7c2e273b046713c235c7626",
+                "size": 15509872,
+                "sha256": "c97329d69992f18a455bdde18cd2836352b675cdb7c2e273b046713c235c7626",
+                "modes": [
+                    "empire"
+                ],
+                "textureProfiles": [
+                    "full"
+                ],
+                "unlessOption": "droids"
+            },
+            {
+                "name": "9ba626afa44a3aa3.patch_1028.gpu_resources",
+                "url": "https://github.com/owendavidgoode/clonedivers/releases/download/pack-2026.11.09-r47-files/601188f57c0e3cc1f110d2b6f21f398f8320edd75d3c3d2963283a80040f228c",
+                "size": 233329984,
+                "sha256": "601188f57c0e3cc1f110d2b6f21f398f8320edd75d3c3d2963283a80040f228c",
+                "modes": [
+                    "empire"
+                ],
+                "textureProfiles": [
+                    "full"
+                ],
+                "option": "droids"
+            },
+            {
+                "name": "9ba626afa44a3aa3.patch_1028.gpu_resources",
+                "url": "https://github.com/owendavidgoode/clonedivers/releases/download/pack-2026.11.09-r47-files/116f25078e6a99ca646ae96cc9c24811420de395d866860863e9650408f98fa7",
+                "size": 181319360,
+                "sha256": "116f25078e6a99ca646ae96cc9c24811420de395d866860863e9650408f98fa7",
+                "modes": [
+                    "empire"
+                ],
+                "textureProfiles": [
+                    "full"
+                ],
+                "unlessOption": "droids"
+            },
+            {
+                "name": "9ba626afa44a3aa3.patch_1028.stream",
+                "url": "https://github.com/owendavidgoode/clonedivers/releases/download/pack-2026.11.08-r45-v4-files/bff0df9fed49bf04fc393b8414122e1d7a2f9e9fd5ca68b9b38589a6ab3b12c9",
+                "size": 11822496,
+                "sha256": "bff0df9fed49bf04fc393b8414122e1d7a2f9e9fd5ca68b9b38589a6ab3b12c9",
+                "modes": [
+                    "empire"
+                ],
+                "textureProfiles": [
+                    "full"
+                ]
+            },
+            {
+                "name": "9ba626afa44a3aa3.patch_1029",
+                "url": "https://github.com/owendavidgoode/clonedivers/releases/download/pack-2026.11.09-r47-files/0be22f3c05db4ff9f3147a8f1d14471733533cbdf911377a2ed0bf507fdeb855",
+                "size": 23941552,
+                "sha256": "0be22f3c05db4ff9f3147a8f1d14471733533cbdf911377a2ed0bf507fdeb855",
+                "modes": [
+                    "empire"
+                ],
+                "textureProfiles": [
+                    "full"
+                ],
+                "option": "droids"
+            },
+            {
+                "name": "9ba626afa44a3aa3.patch_1029",
+                "url": "https://github.com/owendavidgoode/clonedivers/releases/download/pack-2026.11.09-r47-files/6860fb2aa2ea6ed327cb946e98990fe63b005626e6dac2aaf3289413e1150c3c",
+                "size": 23648480,
+                "sha256": "6860fb2aa2ea6ed327cb946e98990fe63b005626e6dac2aaf3289413e1150c3c",
+                "modes": [
+                    "empire"
+                ],
+                "textureProfiles": [
+                    "full"
+                ],
+                "unlessOption": "droids"
+            },
+            {
+                "name": "9ba626afa44a3aa3.patch_1029.gpu_resources",
+                "url": "https://github.com/owendavidgoode/clonedivers/releases/download/pack-2026.11.09-r47-files/9922ea796aae28893d99cd1dbe1c087d655cdd687d5a7306d71af31a94f990b6",
+                "size": 229675264,
+                "sha256": "9922ea796aae28893d99cd1dbe1c087d655cdd687d5a7306d71af31a94f990b6",
+                "modes": [
+                    "empire"
+                ],
+                "textureProfiles": [
+                    "full"
+                ],
+                "option": "droids"
+            },
+            {
+                "name": "9ba626afa44a3aa3.patch_1029.gpu_resources",
+                "url": "https://github.com/owendavidgoode/clonedivers/releases/download/pack-2026.11.09-r47-files/aa0c50bd01562f2e3032735a7eba16454aa496575316b681717ad11b9c99076d",
+                "size": 198091776,
+                "sha256": "aa0c50bd01562f2e3032735a7eba16454aa496575316b681717ad11b9c99076d",
+                "modes": [
+                    "empire"
+                ],
+                "textureProfiles": [
+                    "full"
+                ],
+                "unlessOption": "droids"
+            },
+            {
+                "name": "9ba626afa44a3aa3.patch_1029.stream",
+                "url": "https://github.com/owendavidgoode/clonedivers/releases/download/pack-2026.11.08-r45-v4-files/7c46027936842d2c50de1c4d5702d3131dabc9553ab83666d9e4c67196601a31",
+                "size": 7489328,
+                "sha256": "7c46027936842d2c50de1c4d5702d3131dabc9553ab83666d9e4c67196601a31",
+                "modes": [
+                    "empire"
+                ],
+                "textureProfiles": [
+                    "full"
+                ]
+            },
+            {
+                "name": "9ba626afa44a3aa3.patch_1030",
+                "url": "https://github.com/owendavidgoode/clonedivers/releases/download/pack-2026.11.09-r47-files/3101e97d4e30f7ae07dd26e3abf108b533a5f12f0cce4ad97e44bc72a42a1add",
+                "size": 3128528,
+                "sha256": "3101e97d4e30f7ae07dd26e3abf108b533a5f12f0cce4ad97e44bc72a42a1add",
+                "modes": [
+                    "empire"
+                ],
+                "textureProfiles": [
+                    "full"
+                ],
+                "option": "droids"
+            },
+            {
+                "name": "9ba626afa44a3aa3.patch_1030",
+                "url": "https://github.com/owendavidgoode/clonedivers/releases/download/pack-2026.11.09-r47-files/b414e6eea4349963c6178f72a25bf7a71845fbad382bffecac0ce9f6a88e793a",
+                "size": 2911344,
+                "sha256": "b414e6eea4349963c6178f72a25bf7a71845fbad382bffecac0ce9f6a88e793a",
+                "modes": [
+                    "empire"
+                ],
+                "textureProfiles": [
+                    "full"
+                ],
+                "unlessOption": "droids"
+            },
+            {
+                "name": "9ba626afa44a3aa3.patch_1030.gpu_resources",
+                "url": "https://github.com/owendavidgoode/clonedivers/releases/download/pack-2026.11.09-r47-files/97ade6c6b50cc1b9266b496808b5d54815b561caeaa6b5f2aa3d6d3da2406da8",
+                "size": 298610752,
+                "sha256": "97ade6c6b50cc1b9266b496808b5d54815b561caeaa6b5f2aa3d6d3da2406da8",
+                "modes": [
+                    "empire"
+                ],
+                "textureProfiles": [
+                    "full"
+                ],
+                "option": "droids"
+            },
+            {
+                "name": "9ba626afa44a3aa3.patch_1030.gpu_resources",
+                "url": "https://github.com/owendavidgoode/clonedivers/releases/download/pack-2026.11.09-r47-files/33a6408a60016be31261683f0d43d9a1f96cab0e521c827618c85c767f74d57c",
+                "size": 206858112,
+                "sha256": "33a6408a60016be31261683f0d43d9a1f96cab0e521c827618c85c767f74d57c",
+                "modes": [
+                    "empire"
+                ],
+                "textureProfiles": [
+                    "full"
+                ],
+                "unlessOption": "droids"
+            },
+            {
+                "name": "9ba626afa44a3aa3.patch_1030.stream",
+                "url": "https://github.com/owendavidgoode/clonedivers/releases/download/pack-2026.11.08-r45-v4-files/be303ef564d4cb3051ca2a50edec9f8003183a1b1678bfa0f2490e4550bdae3d",
+                "size": 9440640,
+                "sha256": "be303ef564d4cb3051ca2a50edec9f8003183a1b1678bfa0f2490e4550bdae3d",
+                "modes": [
+                    "empire"
+                ],
+                "textureProfiles": [
+                    "full"
+                ]
+            },
+            {
+                "name": "9ba626afa44a3aa3.patch_1031",
+                "url": "https://github.com/owendavidgoode/clonedivers/releases/download/pack-2026.11.09-r47-files/8ef371f6610a6f35814f3efd6759cf76dc6ec77c8dc07ee6802904cb95b215ae",
+                "size": 8371840,
+                "sha256": "8ef371f6610a6f35814f3efd6759cf76dc6ec77c8dc07ee6802904cb95b215ae",
+                "modes": [
+                    "empire"
+                ],
+                "textureProfiles": [
+                    "full"
+                ],
+                "option": "droids"
+            },
+            {
+                "name": "9ba626afa44a3aa3.patch_1031",
+                "url": "https://github.com/owendavidgoode/clonedivers/releases/download/pack-2026.11.09-r47-files/770ae7e7018f224d356a2bbc0623fc0c068bacc9e8d3d0249015589fe0a9ad1f",
+                "size": 8236000,
+                "sha256": "770ae7e7018f224d356a2bbc0623fc0c068bacc9e8d3d0249015589fe0a9ad1f",
+                "modes": [
+                    "empire"
+                ],
+                "textureProfiles": [
+                    "full"
+                ],
+                "unlessOption": "droids"
+            },
+            {
+                "name": "9ba626afa44a3aa3.patch_1031.gpu_resources",
+                "url": "https://github.com/owendavidgoode/clonedivers/releases/download/pack-2026.11.09-r47-files/e1393dca38c0a78d2cea74ac460b0988382f55026f828eee6809d3f69f302d39",
+                "size": 182160704,
+                "sha256": "e1393dca38c0a78d2cea74ac460b0988382f55026f828eee6809d3f69f302d39",
+                "modes": [
+                    "empire"
+                ],
+                "textureProfiles": [
+                    "full"
+                ],
+                "option": "droids"
+            },
+            {
+                "name": "9ba626afa44a3aa3.patch_1031.gpu_resources",
+                "url": "https://github.com/owendavidgoode/clonedivers/releases/download/pack-2026.11.09-r47-files/8280cad7438116e207aae1ab0c128b56ed69e0c45e326fc3ce329ac6ff78687e",
+                "size": 135569216,
+                "sha256": "8280cad7438116e207aae1ab0c128b56ed69e0c45e326fc3ce329ac6ff78687e",
+                "modes": [
+                    "empire"
+                ],
+                "textureProfiles": [
+                    "full"
+                ],
+                "unlessOption": "droids"
+            },
+            {
+                "name": "9ba626afa44a3aa3.patch_1031.stream",
+                "url": "https://github.com/owendavidgoode/clonedivers/releases/download/pack-2026.11.08-r45-v4-files/5f97968d170e6464ba2a1df4f4b794fa076872fc028df78e0b7a0459902c93e7",
+                "size": 5300768,
+                "sha256": "5f97968d170e6464ba2a1df4f4b794fa076872fc028df78e0b7a0459902c93e7",
+                "modes": [
+                    "empire"
+                ],
+                "textureProfiles": [
+                    "full"
+                ]
+            }
+        ],
+        "textureProfiles": [
+            {
+                "id": "full",
+                "name": "Full textures",
+                "description": "Original texture detail."
+            }
+        ],
+        "combinedRoster": true
+    }
+}

@@ -8,6 +8,11 @@ public static class HellForgePack
 {
     public const string SupportedBuild = "25480438";
     public const string ReceiptName = "clonedivers-export.json";
+    public const string PublishedEmpireDescription = "Published Empire appearance · Full textures · fixed enemy models";
+    public static string? SelectionProblem(string mode, string texture, bool droids) =>
+        mode == "empire" && (texture != "full" || !droids)
+            ? "Your saved appearance options are unavailable in this Empire release. Use the published Empire appearance to continue, or return to Clones to keep using them."
+            : null;
     public static readonly JsonSerializerOptions Json = new() { WriteIndented = true, PropertyNameCaseInsensitive = true };
 
     public sealed record Selection(string Mode, string Texture, string Version, string GameBuild, string ManifestSha256,
@@ -56,7 +61,8 @@ public static class HellForgePack
     {
         if (mode == "empire")
         {
-            texture = "full";
+            if (SelectionProblem(mode, texture, changes?.GetValueOrDefault("droids", true) ?? true) is { } problem)
+                throw new InvalidOperationException(problem);
             changes = new Dictionary<string, bool> { ["droids"] = true, ["covenant"] = false };
         }
         var resource = mode == "empire" ? "Clonedivers.HellForge.Empire.Manifest.json" : "Clonedivers.HellForge.Manifest.json";
@@ -65,7 +71,16 @@ public static class HellForgePack
         using var memory = new MemoryStream();
         stream.CopyTo(memory);
         var bytes = memory.ToArray();
-        return Select(Manifest.Parse(System.Text.Encoding.UTF8.GetString(bytes)), Convert.ToHexString(SHA256.HashData(bytes)).ToLowerInvariant(), mode, texture, changes);
+        var feed = Manifest.Parse(System.Text.Encoding.UTF8.GetString(bytes));
+        // Prune Empire's conditional rows before selection so its fixed layers stay at 1000+.
+        if (mode == "empire")
+        {
+            var pack = feed.Pack!;
+            bool Enabled(string id) => PackExtras.AlwaysOn(pack, id) || changes!.GetValueOrDefault(id, pack.Options.FirstOrDefault(o => o.Id == id)?.Default ?? false);
+            pack.Files = pack.Files.Where(f => PackProfiles.Includes(f, mode, texture) &&
+                (f.Option == null || Enabled(f.Option)) && (f.UnlessOption == null || !Enabled(f.UnlessOption))).ToList();
+        }
+        return Select(feed, Convert.ToHexString(SHA256.HashData(bytes)).ToLowerInvariant(), mode, texture, changes);
     }
 
     public static async Task<Plan> PlanAsync(Selection selection, string output, IEnumerable<string> sources,
@@ -166,7 +181,6 @@ public static class HellForgePack
     }
     static async Task ExportFilesAsync(Plan plan, IProgress<string>? progress, CancellationToken ct, Action<string?> writing)
     {
-        using var http = new HttpClient { Timeout = TimeSpan.FromMinutes(30) };
         var exported = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
         int done = 0;
         foreach (var file in plan.Selection.Files)
@@ -182,12 +196,7 @@ public static class HellForgePack
                 if (!Uri.TryCreate(file.Url, UriKind.Absolute, out var uri) || uri.Scheme != "https" || uri.Host != "github.com" ||
                     !uri.AbsolutePath.StartsWith("/owendavidgoode/clonedivers/releases/download/", StringComparison.Ordinal))
                     throw new InvalidDataException("Only Clonedivers GitHub release assets may be downloaded.");
-                using var response = await http.GetAsync(uri, HttpCompletionOption.ResponseHeadersRead, ct);
-                response.EnsureSuccessStatusCode();
-                if (response.Content.Headers.ContentLength is long length && length != file.Size) throw new InvalidDataException("Download size differs from catalog.");
-                await using var content = await response.Content.ReadAsStreamAsync(ct);
-                await using var disk = new FileStream(target, FileMode.CreateNew, FileAccess.Write, FileShare.None, 128 * 1024, FileOptions.Asynchronous | FileOptions.SequentialScan);
-                await CopyExactAsync(content, disk, file.Size, ct);
+                await Pack.DownloadAsync(file, target, null, ct);
             }
             if (new FileInfo(target).Length != file.Size || !string.Equals(await HashAsync(target, ct), file.Sha256, StringComparison.OrdinalIgnoreCase))
                 throw new InvalidDataException($"Export hash mismatch: {file.Name}");

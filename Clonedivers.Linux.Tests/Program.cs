@@ -22,6 +22,7 @@ void Throws<T>(Action action, string name) where T : Exception
 }
 try
 {
+    ForgePresentationTests.Run(Check);
     LinuxFeedbackTests.Run(root, Check);
     await LinuxBootstrapTests.Run(root, Check);
     if (args.Contains("--linux-feedback-only")) { Console.WriteLine($"ALL {passed} LINUX FEEDBACK FIXTURES PASSED (no game/Proton qualification)"); return 0; }
@@ -51,6 +52,7 @@ try
         return 0;
     }
     Game.IsRunningCheck = () => false;
+    await LinuxDownloadTests.Run(root, Check);
     await LinuxForgePlayerTests.Run(root, Check);
     Check(!DesktopProgram.UseTerminal(Array.Empty<string>(), true) && DesktopProgram.UseTerminal(Array.Empty<string>(), false), "desktop stays default with a display; headless sessions route to the TUI");
     Check(DesktopProgram.UseTerminal(new[] { "--tui" }, true) && !DesktopProgram.UseTerminal(new[] { "--gui" }, false), "explicit GUI and TUI choices override environment detection");

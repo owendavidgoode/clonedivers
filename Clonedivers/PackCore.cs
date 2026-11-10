@@ -800,23 +800,38 @@ public static class Pack
     /// <summary>Downloads one file with HTTP Range resume, then checks size and SHA-256. A failed check deletes the file.</summary>
     public static async Task DownloadAsync(PackFile file, string destPath, IProgress<(long done, long total)>? progress, CancellationToken ct)
     {
+        var url = file.Url;
+        var serverFailures = 0;
         for (var attempt = 0; ; attempt++)
         {
-            try { await DownloadAttemptAsync(file, destPath, progress, ct); return; }
-            catch (Exception ex) when (!ct.IsCancellationRequested && attempt < 2 &&
+            try { await DownloadAttemptAsync(file, destPath, progress, ct, url); return; }
+            catch (Exception ex) when (!ct.IsCancellationRequested && attempt < 8 &&
                 (ex is DownloadInterruptedException || ex is HttpRequestException h &&
                     (h.StatusCode is null || h.StatusCode == HttpStatusCode.RequestTimeout || (int)h.StatusCode == 429 || (int)h.StatusCode >= 500)))
             {
-                await Task.Delay(DownloadRetryDelay * (attempt + 1), ct);
+                // Some GitHub release edges cache a 5xx for the exact asset path.
+                // Only vary the query for files whose expected bytes are pinned.
+                if (ex is HttpRequestException { StatusCode: { } status } && (int)status >= 500 && ++serverFailures >= 2 &&
+                    file.Size > 0 && System.Text.RegularExpressions.Regex.IsMatch(file.Sha256?.Trim() ?? "", "\\A[0-9a-fA-F]{64}\\z"))
+                    url = DownloadFreshUrl(file.Url);
+                progress?.Report((File.Exists(destPath) ? new FileInfo(destPath).Length : 0, file.Size));
+                await Task.Delay(DownloadRetryDelay * Math.Min(1 << attempt, 16), ct);
             }
         }
     }
 
+    internal static string DownloadFreshUrl(string url)
+    {
+        var fresh = new UriBuilder(url);
+        fresh.Query = fresh.Query.TrimStart('?') + (fresh.Query.Length > 1 ? "&" : "") + "clonedivers_retry=" + Guid.NewGuid().ToString("N");
+        return fresh.Uri.AbsoluteUri;
+    }
+
     internal static TimeSpan DownloadInactivityTimeout { get; set; } = TimeSpan.FromSeconds(30);
-    internal static TimeSpan DownloadRetryDelay { get; set; } = TimeSpan.FromSeconds(1);
+    internal static TimeSpan DownloadRetryDelay { get; set; } = TimeSpan.FromSeconds(5);
     sealed class DownloadInterruptedException(string message, Exception? inner = null) : IOException(message, inner);
 
-    static async Task DownloadAttemptAsync(PackFile file, string destPath, IProgress<(long done, long total)>? progress, CancellationToken ct)
+    static async Task DownloadAttemptAsync(PackFile file, string destPath, IProgress<(long done, long total)>? progress, CancellationToken ct, string? url = null)
     {
         FileSafety.RejectLink(destPath);
         Directory.CreateDirectory(Path.GetDirectoryName(destPath)!);
@@ -830,7 +845,7 @@ public static class Pack
             inactivity.CancelAfter(DownloadInactivityTimeout);
             try
             {
-            using var req = new HttpRequestMessage(HttpMethod.Get, file.Url);
+            using var req = new HttpRequestMessage(HttpMethod.Get, url ?? file.Url);
             if (existing > 0) req.Headers.Range = new RangeHeaderValue(existing, null);
             using var resp = await Http.SendAsync(req, HttpCompletionOption.ResponseHeadersRead, inactivity.Token);
 
@@ -838,7 +853,7 @@ public static class Pack
             {
                 if (existing == 0) throw new InvalidDataException("The server cannot provide this file. Retry the download later.");
                 File.Delete(destPath);
-                await DownloadAttemptAsync(file, destPath, progress, ct);   // one retry without a Range header
+                await DownloadAttemptAsync(file, destPath, progress, ct, url);   // one retry without a Range header
                 return;
             }
             resp.EnsureSuccessStatusCode();
@@ -860,6 +875,11 @@ public static class Pack
             while ((n = await net.ReadAsync(buffer, inactivity.Token)) > 0)
             {
                 inactivity.CancelAfter(DownloadInactivityTimeout);
+                if (file.Size > 0 && n > file.Size - written)
+                {
+                    await fs.DisposeAsync(); File.Delete(destPath);
+                    throw new InvalidDataException("Downloaded content exceeds the pinned size.");
+                }
                 await fs.WriteAsync(buffer.AsMemory(0, n), ct);
                 written += n;
                 progress?.Report((written, total));
@@ -884,7 +904,7 @@ public static class Pack
             if (!hash.Equals(file.Sha256.Trim(), StringComparison.OrdinalIgnoreCase))
             {
                 File.Delete(destPath);
-                if (reused) { await DownloadAttemptAsync(file, destPath, progress, ct); return; }   // one retry from scratch
+                if (reused) { await DownloadAttemptAsync(file, destPath, progress, ct, url); return; }   // one retry from scratch
                 throw new InvalidDataException("The download failed its integrity check (SHA-256 mismatch). Deleted it; try again.");
             }
         }

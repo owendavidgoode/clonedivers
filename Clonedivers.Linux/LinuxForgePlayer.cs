@@ -17,6 +17,7 @@ internal sealed class LinuxForgePreferences
     public string Texture { get; set; } = "full";
     public bool Droids { get; set; } = true;
     public bool Covenant { get; set; }
+    internal string? SelectionProblem => HellForgePack.SelectionProblem(Mode, Texture, Droids);
     internal static string PathName => Path.Combine(PlatformPaths.ConfigDirectory, "forge.json");
     internal void Validate()
     {
@@ -109,7 +110,12 @@ internal sealed class LinuxForgePlayer(IForgeConnection connection, LinuxForgePr
         catch (Exception error) { Error = error.Message; throw; }
     }
     // The bridge keeps its own selection; re-send ours so an earlier refused select-mode can never play or apply a stale mode.
-    Task SelectAsync(CancellationToken ct) { Preferences.Validate(); return connection.RunAsync(Preferences.SelectionCommand(), ct); }
+    Task SelectAsync(CancellationToken ct)
+    {
+        Preferences.Validate();
+        if (Preferences.SelectionProblem is { } problem) throw new InvalidOperationException(problem);
+        return connection.RunAsync(Preferences.SelectionCommand(), ct);
+    }
     internal async Task LaunchAsync(CancellationToken ct = default)
     {
         try

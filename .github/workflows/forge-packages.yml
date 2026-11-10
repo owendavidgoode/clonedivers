@@ -26,7 +26,7 @@ jobs:
           dotnet publish Clonedivers -c Release -o artifacts/windows -p:DebugType=None -p:DebugSymbols=false
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
           $exe = Get-Item artifacts/windows/Clonedivers.exe
-          if ($exe.VersionInfo.FileVersion -ne '1.14.0.0') { throw 'Unexpected Windows version.' }
+          if ($exe.VersionInfo.FileVersion -ne '1.14.1.0') { throw 'Unexpected Windows version.' }
           Copy-Item LICENSE artifacts/windows/LICENSE-CLONEDIVERS.txt
           Copy-Item docs/FORGE-MIGRATION.md artifacts/windows/README.md
           Copy-Item docs/FORGE-0.4-TURNKEY-2026-11-05.md artifacts/windows/FORGE-0.4-INTEGRATION.md
@@ -42,7 +42,7 @@ jobs:
             }
           }
           $files = @(Get-ChildItem artifacts/windows -File | Select-Object -ExpandProperty FullName)
-          Compress-Archive -LiteralPath $files -DestinationPath artifacts/windows/Clonedivers-windows-1.14.0.zip
+          Compress-Archive -LiteralPath $files -DestinationPath artifacts/windows/Clonedivers-windows-1.14.1.zip
           (Get-FileHash $exe.FullName).Hash.ToLowerInvariant() + '  Clonedivers.exe' | Set-Content artifacts/windows/SHA256SUMS -Encoding utf8
       - uses: actions/upload-artifact@v4
         with:
@@ -84,10 +84,10 @@ jobs:
             cp "$runtime/LICENSE.TXT" "dist/forge-stage/licenses/dotnet-$rid-LICENSE.TXT"
             cp "$runtime/THIRD-PARTY-NOTICES.TXT" "dist/forge-stage/licenses/dotnet-$rid-NOTICES.TXT"
           done
-          jq -n '{format:1,channel:"forge",architecture:"x64",gameBuild:"25480438",engine:"0.1.47",hellforge:"0.4.0-beta",versions:{windows:"1.14.0",linux:"0.8.0",bridge:"0.4.0"},qualification:"Launcher/package migration; actual Linux gameplay and multiplayer unqualified",includesGameOrThirdPartyMods:false}' > artifacts/linux/clonedivers-forge-channel.json
+          jq -n '{format:1,channel:"forge",architecture:"x64",gameBuild:"25480438",engine:"0.1.47",hellforge:"0.4.0-beta",versions:{windows:"1.14.1",linux:"0.8.1",bridge:"0.4.0"},qualification:"Launcher/package migration; actual Linux gameplay and multiplayer unqualified",includesGameOrThirdPartyMods:false}' > artifacts/linux/clonedivers-forge-channel.json
           cp artifacts/linux/clonedivers-forge-channel.json dist/forge-stage/clonedivers-forge-channel.json
           bash tools/package-forge-portable.sh dist/forge-stage artifacts/linux/Clonedivers-linux-x64.tar.gz
-          bash tools/package-forge-deb.sh dist/forge-stage 0.8.0 artifacts/linux/Clonedivers-linux-x64.deb
+          bash tools/package-forge-deb.sh dist/forge-stage 0.8.1 artifacts/linux/Clonedivers-linux-x64.deb
           cd artifacts/linux
           sha256sum Clonedivers-linux-x64.tar.gz Clonedivers-linux-x64.deb clonedivers-forge-channel.json > SHA256SUMS
       - uses: actions/upload-artifact@v4

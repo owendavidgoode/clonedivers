@@ -5,12 +5,16 @@ static class LauncherPreview
     [STAThread]
     static void Main(string[] args)
     {
-        Application.SetHighDpiMode(HighDpiMode.PerMonitorV2);
+        var requestedScale = Array.IndexOf(args, "--scale");
+        var dpiScale = requestedScale >= 0 && requestedScale + 1 < args.Length ? args[requestedScale + 1] : null;
+        Application.SetHighDpiMode(dpiScale == "1" ? HighDpiMode.DpiUnaware : HighDpiMode.PerMonitorV2);
         Application.EnableVisualStyles();
         Application.SetCompatibleTextRenderingDefault(false);
         Application.SetDefaultFont(new Font("Segoe UI", 10F));
         string? render = null;
         string? icons = null;
+        string? forge = null;
+        float? scale = null;
         Manifest? manifest = null;
         var mode = LauncherMode.Clonedivers;
         for (int i = 0; i < args.Length; i += 2)
@@ -20,6 +24,8 @@ static class LauncherPreview
             else if (args[i] == "--icons") icons = args[i + 1];
             else if (args[i] == "--manifest") manifest = Manifest.Parse(File.ReadAllText(args[i + 1]));
             else if (args[i] == "--mode") mode = Enum.Parse<LauncherMode>(args[i + 1], true);
+            else if (args[i] == "--forge") forge = args[i + 1];
+            else if (args[i] == "--scale") scale = float.Parse(args[i + 1], System.Globalization.CultureInfo.InvariantCulture);
             else throw new ArgumentException("Unknown preview option: " + args[i]);
         }
         if (icons is not null)
@@ -40,25 +46,50 @@ static class LauncherPreview
             bitmap.Save(Path.GetFullPath(icons), System.Drawing.Imaging.ImageFormat.Png);
             return;
         }
-        using var form = new MainForm(new Settings(), null, preview: true, previewManifest: manifest);
-        typeof(MainForm).GetMethod("OnMode", System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic)!.Invoke(form, new object[] { mode });
-        if (render is not null)
+        if (scale is not (null or 1 or 1.5F)) throw new ArgumentException("Supported preview scales are 1 and 1.5, or omit --scale for native DPI.");
+        if (forge == "all")
         {
-            // Render our own controls without displaying a window or accessing the game/profile.
-            _ = form.Handle;
-            void Prepare(Control control)
+            if (render == null) throw new ArgumentException("The Forge review loop requires --render <directory>.");
+            Directory.CreateDirectory(render);
+            foreach (var state in HellForgeForm.PreviewStates)
+            foreach (var selected in state == "ready" ? new[] { LauncherMode.Clonedivers, LauncherMode.Helldivers, LauncherMode.EmpireDivers } : new[] { LauncherMode.Clonedivers })
             {
-                _ = control.Handle;
-                foreach (Control child in control.Controls) Prepare(child);
-                control.PerformLayout();
+                var name = selected == LauncherMode.Helldivers ? "regular" : selected == LauncherMode.EmpireDivers ? "empire" : "clones";
+                using var sample = CreateForm(state, selected);
+                Render(sample, Path.Combine(render, $"{name}-{state}-{scale?.ToString(System.Globalization.CultureInfo.InvariantCulture) ?? "native"}.png"), scale);
             }
-            Prepare(form);
-            form.PerformLayout();
-            using var bitmap = new Bitmap(form.Width, form.Height);
-            form.DrawToBitmap(bitmap, new Rectangle(Point.Empty, bitmap.Size));
-            bitmap.Save(Path.GetFullPath(render), System.Drawing.Imaging.ImageFormat.Png);
             return;
         }
-        Application.Run(form);
+        using var form = CreateForm(forge, mode);
+        if (render != null) Render(form, render, scale);
+        else Application.Run(form);
+
+        Form CreateForm(string? state, LauncherMode selected)
+        {
+            Form window = state != null
+            ? new HellForgeForm(new HellForgePreferences { Mode = selected == LauncherMode.Helldivers ? "regular" : selected == LauncherMode.EmpireDivers ? "empire" : "clonedivers" }, preview: true)
+            : new MainForm(new Settings(), null, preview: true, previewManifest: manifest);
+            if (window is HellForgeForm forgeForm) forgeForm.SetPreviewState(state!);
+            else typeof(MainForm).GetMethod("OnMode", System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic)!.Invoke(window, new object[] { selected });
+            return window;
+        }
+    }
+    static void Render(Form form, string render, float? scale)
+    {
+        // Render our own controls without displaying a window or accessing the game/profile.
+        _ = form.Handle;
+        void Prepare(Control control)
+        {
+            _ = control.Handle;
+            foreach (Control child in control.Controls) Prepare(child);
+            control.PerformLayout();
+        }
+        Prepare(form);
+        if (scale is { } requested && form.DeviceDpi != (int)(96 * requested)) throw new InvalidOperationException($"Requested {requested * 100}% but this desktop renders at {form.DeviceDpi} DPI. Set the desktop scaling to 150% for --scale 1.5.");
+        Console.WriteLine($"Preview DPI {form.DeviceDpi}, scale {scale ?? form.DeviceDpi / 96f}, client {form.ClientSize}");
+        form.PerformLayout();
+        using var bitmap = new Bitmap(form.Width, form.Height);
+        form.DrawToBitmap(bitmap, new Rectangle(Point.Empty, bitmap.Size));
+        bitmap.Save(Path.GetFullPath(render), System.Drawing.Imaging.ImageFormat.Png);
     }
 }
