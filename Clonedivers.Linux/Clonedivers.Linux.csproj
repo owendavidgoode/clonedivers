@@ -13,7 +13,7 @@
     <EnableCompressionInSingleFile>true</EnableCompressionInSingleFile>
   </PropertyGroup>
   <PropertyGroup Condition="'$(ForgeEdition)' == 'true'">
-    <Version>0.8.1</Version>
+    <Version>0.8.2</Version>
     <DefineConstants>$(DefineConstants);FORGE_DEFAULT</DefineConstants>
   </PropertyGroup>
   <ItemGroup>
@@ -35,7 +35,7 @@
     <Compile Include="../Clonedivers/HellForgePreset.cs" Link="Core/HellForgePreset.cs" />
     <Compile Include="../Clonedivers/HellForgePack.cs" Link="Core/HellForgePack.cs" />
     <EmbeddedResource Include="../Clonedivers/Resources/hellforge-r19.json" LogicalName="Clonedivers.HellForge.Manifest.json" />
-    <EmbeddedResource Include="../Clonedivers/Resources/hellforge-empire-r45-v4.json" LogicalName="Clonedivers.HellForge.Empire.Manifest.json" />
+    <EmbeddedResource Include="../Clonedivers/Resources/hellforge-empire-r47-full.json" LogicalName="Clonedivers.HellForge.Empire.Manifest.json" />
     <EmbeddedResource Include="../Clonedivers/Resources/forge-gameplay-build25480438-r3.json" LogicalName="Clonedivers.Forge.Gameplay.json" />
     <Compile Include="../Clonedivers/HellForgeGameplayCatalog.cs" Link="Core/HellForgeGameplayCatalog.cs" />
   </ItemGroup>

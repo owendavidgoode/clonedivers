@@ -15,7 +15,8 @@
 
   <ItemGroup>
     <EmbeddedResource Include="../Clonedivers/Resources/hellforge-r19.json" LogicalName="Clonedivers.HellForge.Manifest.json" />
-    <EmbeddedResource Include="../Clonedivers/Resources/hellforge-empire-r45-v4.json" LogicalName="Clonedivers.HellForge.Empire.Manifest.json" />
+    <EmbeddedResource Include="../Clonedivers/Resources/hellforge-empire-r47-full.json" LogicalName="Clonedivers.HellForge.Empire.Manifest.json" />
+    <EmbeddedResource Include="../Clonedivers/Resources/hellforge-empire-r45-v4.json" LogicalName="Clonedivers.Tests.Empire.R45.Published.Manifest.json" />
     <EmbeddedResource Include="../Clonedivers/Resources/hellforge-empire-r46.json" LogicalName="Clonedivers.Tests.Empire.R46.Manifest.json" />
     <EmbeddedResource Include="../Clonedivers/Resources/hellforge-empire-r46-lighter.json" LogicalName="Clonedivers.Tests.Empire.R46.Lighter.Manifest.json" />
     <EmbeddedResource Include="../Clonedivers/Resources/hellforge-empire-r45-v4-lighter.json" LogicalName="Clonedivers.Tests.Empire.R45.Lighter.Manifest.json" />

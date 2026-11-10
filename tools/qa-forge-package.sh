@@ -55,48 +55,48 @@ check_pair() {
     "$root/clonedivers" --steam --help | grep -F 'Clonedivers Linux'
 }
 
-# Immutable public 0.8.0 identities, independently byte-verified in the release
+# Immutable public 0.8.1 identities, independently byte-verified in the release
 # rollback baseline. Do not replace these with latest/feed-derived artifacts.
-baseline_url=https://github.com/owendavidgoode/clonedivers/releases/download/linux-v0.8.0
+baseline_url=https://github.com/owendavidgoode/clonedivers/releases/download/linux-v0.8.1
 curl --fail --location --retry 3 --connect-timeout 20 --max-time 300 "$baseline_url/$archive" -o "$qa/baseline/$archive"
 curl --fail --location --retry 3 --connect-timeout 20 --max-time 300 "$baseline_url/$deb" -o "$qa/baseline/$deb"
-[[ $(stat -c %s "$qa/baseline/$archive") == 66998882 ]]
-[[ $(stat -c %s "$qa/baseline/$deb") == 60864948 ]]
+[[ $(stat -c %s "$qa/baseline/$archive") == 67002356 ]]
+[[ $(stat -c %s "$qa/baseline/$deb") == 60884032 ]]
 printf '%s  %s\n' \
-    25c1ca9960d45c3566c1ffddf4ee11ac3bc806dbefd2adf62b13ada4f3eac4cb "$qa/baseline/$archive" \
-    f0d8116f2f3b97fc276c74d90084a63a5a6ce2f5198b67dea49e6d8051eab6c9 "$qa/baseline/$deb" | sha256sum --check -
+    8899fd46e052229974c05b0a0854d6492551a376feef406bf62bd83e675c8ef2 "$qa/baseline/$archive" \
+    d79806ff979b04ad0e68d61029c6e034e97d563beeb75c2085e506bdf6edfa8a "$qa/baseline/$deb" | sha256sum --check -
 
 extract="$qa/candidate"
 portable="$qa/portable"
 extract_checked "$archive" "$extract"
 cmp "$extract/clonedivers-forge-channel.json" clonedivers-forge-channel.json
-check_pair "$extract" 0.8.1
+check_pair "$extract" 0.8.2
 check_preserved 'fresh portable candidate'
 
 # Upgrade the same portable directory from the real old package. Check the
 # actual new executable/companion bytes, not just a version string.
 extract_checked "$qa/baseline/$archive" "$portable"
-check_pair "$portable" 0.8.0
-check_preserved 'portable 0.8.0'
-extract_checked "$archive" "$portable"
 check_pair "$portable" 0.8.1
+check_preserved 'portable 0.8.1'
+extract_checked "$archive" "$portable"
+check_pair "$portable" 0.8.2
 for file in clonedivers forge/companion.json forge/HellForge.Launcher.ClonediversBridge clonedivers-forge-channel.json preset.json; do
     cmp "$extract/$file" "$portable/$file"
 done
-check_preserved 'portable 0.8.0 -> 0.8.1 overlay upgrade'
+check_preserved 'portable 0.8.1 -> 0.8.2 overlay upgrade'
 
-[[ $(dpkg-deb -f "$deb" Package) == clonedivers && $(dpkg-deb -f "$deb" Version) == 0.8.1 && $(dpkg-deb -f "$deb" Architecture) == amd64 ]]
-[[ $(dpkg-deb -f "$qa/baseline/$deb" Package) == clonedivers && $(dpkg-deb -f "$qa/baseline/$deb" Version) == 0.8.0 && $(dpkg-deb -f "$qa/baseline/$deb" Architecture) == amd64 ]]
+[[ $(dpkg-deb -f "$deb" Package) == clonedivers && $(dpkg-deb -f "$deb" Version) == 0.8.2 && $(dpkg-deb -f "$deb" Architecture) == amd64 ]]
+[[ $(dpkg-deb -f "$qa/baseline/$deb" Package) == clonedivers && $(dpkg-deb -f "$qa/baseline/$deb" Version) == 0.8.1 && $(dpkg-deb -f "$qa/baseline/$deb" Architecture) == amd64 ]]
 sudo apt-get update -qq
 sudo apt-get install -y "$qa/baseline/$deb"
-[[ $(dpkg-query -W -f='${Status} ${Version}' clonedivers) == 'install ok installed 0.8.0' ]]
-check_pair /usr/lib/clonedivers 0.8.0
-/usr/bin/clonedivers --version | grep -Fx 'Clonedivers Forge Linux 0.8.0'
-check_preserved 'deb 0.8.0 installed'
-sudo apt-get install -y "$artifacts/$deb"
 [[ $(dpkg-query -W -f='${Status} ${Version}' clonedivers) == 'install ok installed 0.8.1' ]]
 check_pair /usr/lib/clonedivers 0.8.1
 /usr/bin/clonedivers --version | grep -Fx 'Clonedivers Forge Linux 0.8.1'
+check_preserved 'deb 0.8.1 installed'
+sudo apt-get install -y "$artifacts/$deb"
+[[ $(dpkg-query -W -f='${Status} ${Version}' clonedivers) == 'install ok installed 0.8.2' ]]
+check_pair /usr/lib/clonedivers 0.8.2
+/usr/bin/clonedivers --version | grep -Fx 'Clonedivers Forge Linux 0.8.2'
 /usr/bin/clonedivers --help | grep -F 'Clonedivers Forge for Linux'
 /usr/bin/clonedivers --steam --help | grep -F 'Clonedivers Linux'
 dpkg-deb -x "$deb" "$qa/deb-expected"
@@ -104,8 +104,8 @@ cmp "$qa/deb-expected/usr/bin/clonedivers" /usr/bin/clonedivers
 for file in clonedivers forge/companion.json forge/HellForge.Launcher.ClonediversBridge clonedivers-forge-channel.json preset.json; do
     cmp "$extract/$file" "/usr/lib/clonedivers/$file"
 done
-check_preserved 'deb 0.8.0 -> 0.8.1 apt upgrade'
+check_preserved 'deb 0.8.1 -> 0.8.2 apt upgrade'
 if apt-cache show passt 2>/dev/null | grep -q '^Package: passt$'; then command -v pasta; else echo 'This distribution lacks passt: real co-op stays blocked by the launcher preflight.'; fi
 command -v python3
-echo 'Forge portable/deb 0.8.0 -> 0.8.1 package upgrade, preserved fixture bytes, default/Steam routing and exact launcher/companion pairing passed.'
+echo 'Forge portable/deb 0.8.1 -> 0.8.2 package upgrade, preserved fixture bytes, default/Steam routing and exact launcher/companion pairing passed.'
 echo 'Only version/help entrypoints ran: settings migration, real account ownership, gameplay, Proton and multiplayer remain unqualified.'

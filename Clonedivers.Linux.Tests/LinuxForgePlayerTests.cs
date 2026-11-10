@@ -8,8 +8,8 @@ internal static class LinuxForgePlayerTests
     {
         const string hello = "{\"bridge\":\"clonedivers-forge\",\"format\":1}\n";
         var publishedEmpire = new LinuxForgePreferences { Mode = "empire" };
-        check(publishedEmpire.PackSelection().Version == "2026.11.08-r45-v4" && publishedEmpire.PackSelection().Files.Count == 96,
-            "Linux shipping Empire retains the 96-row public r45-v4 catalog");
+        check(publishedEmpire.PackSelection().Version == "2026.11.09-r47" && publishedEmpire.PackSelection().Files.Count == 96,
+            "Linux shipping Empire retains the 96-row Full r47 catalog");
         foreach (var texture in new[] { "full", "lighter" })
         foreach (var droids in new[] { true, false })
         {
