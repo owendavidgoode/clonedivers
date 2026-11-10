@@ -15,7 +15,12 @@ try {
     switch($Stage){
         'test' { & ./scripts/Test.ps1 }
         'engine' { & ./scripts/Build-Engine.ps1 -SteamApi $SteamApi -SteamSdk $SteamSdk }
-        'package' { & ./scripts/Package-HellForge.ps1 -EnginePackage (Join-Path $Tree 'artifacts/engine-package/hellforge-engine-0.1.47.zip') }
+        'package' {
+            # DebugType=none still lets MSBuild copy an adjacent project-reference PDB.
+            # Use .NET SDK 10.0.403's related-file defaults with only .pdb removed.
+            $env:AllowedReferenceRelatedFileExtensions='.xml;.pri;.dll.config;.exe.config'
+            & ./scripts/Package-HellForge.ps1 -EnginePackage (Join-Path $Tree 'artifacts/engine-package/hellforge-engine-0.1.47.zip')
+        }
     }
 } finally { Pop-Location }
 # Official scripts throw on errors; some successful smoke tests deliberately leave
