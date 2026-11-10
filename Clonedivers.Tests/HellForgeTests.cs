@@ -723,15 +723,15 @@ static class HellForgeTests
         var oldEmpire = new HellForgePreferences { Mode = "empire", Texture = "lighter", Droids = false, Covenant = true,
             AppliedSelection = $"r19/{HellForgePack.SupportedBuild}/empire/lighter/False/True" };
         var newEmpire = oldEmpire.Selection();
-        check(oldEmpire.SelectionKey == $"r46-droids/{HellForgePack.SupportedBuild}/empire/lighter/False/False" &&
-            oldEmpire.AppliedSelection != oldEmpire.SelectionKey && newEmpire.Version == "2026.11.09-r46-droids" &&
+        check(oldEmpire.SelectionKey == $"r47/{HellForgePack.SupportedBuild}/empire/lighter/False/False" &&
+            oldEmpire.AppliedSelection != oldEmpire.SelectionKey && newEmpire.Version == "2026.11.09-r47" &&
             newEmpire.Texture == "lighter" && !newEmpire.Options["droids"] && !newEmpire.Options["covenant"] && newEmpire.Files.Count == 96,
             "Empire honors the saved droid choice while requiring preparation of the option catalog");
         var empireFull = HellForgePack.PinnedSelection("empire", "full");
         var empireLighter = HellForgePack.PinnedSelection("empire", "lighter");
-        check(empireFull.Version == "2026.11.09-r46-droids" && empireFull.Options["droids"] &&
+        check(empireFull.Version == "2026.11.09-r47" && empireFull.Options["droids"] &&
             empireFull.Files[0].Name == "9ba626afa44a3aa3.patch_1000" && newEmpire.Files[0].Name == empireFull.Files[0].Name,
-            "Empire Full selects r46 and both profiles preserve the fixed layer numbers");
+            "Empire Full selects r47 and both profiles preserve the fixed layer numbers");
         foreach (var texture in new[] { "full", "lighter" })
         {
             var resource = texture == "full" ? "Clonedivers.Tests.Empire.R45.Manifest.json" : "Clonedivers.Tests.Empire.R45.Lighter.Manifest.json";
@@ -763,10 +763,37 @@ static class HellForgeTests
             check(previous.Version == "2026.11.08-r45-v4" && previous.Files.Count == 96 &&
                 HellForgePack.IsOurPack(HellForgePack.PackId(previous.Mode)) && migrated.AppliedSelection != migrated.SelectionKey &&
                 await Reject(() => HellForgePack.VerifyMetadataAsync(receiptFolder, migrated.Selection())) && File.ReadAllText(receiptPath) == receipt,
-                $"r45-v4 {texture} receipts stay recognised and require r46 preparation without rewriting the old receipt");
-            if (texture == "full") check(previous.ManifestSha256 == "4a35045a9b628e0f2b476815e7a77f00ab31a6cde957abd574e8597513c7ad36" &&
-                empireFull.Files.Count(f => f.Sha256 != previous.Files.Single(g => g.Name == f.Name).Sha256) == 6,
-                "the shipped r45-v4 Full catalog is preserved and r46 replaces exactly six archive files");
+                $"r45-v4 {texture} receipts stay recognised and require r47 preparation without rewriting the old receipt");
+            foreach (var droids in new[] { true, false })
+            {
+                var oldResource = texture == "full" ? "Clonedivers.Tests.Empire.R46.Manifest.json" : "Clonedivers.Tests.Empire.R46.Lighter.Manifest.json";
+                using var oldCatalog = typeof(HellForgePack).Assembly.GetManifestResourceStream(oldResource)!;
+                using var oldMemory = new MemoryStream(); oldCatalog.CopyTo(oldMemory);
+                var oldBytes = oldMemory.ToArray();
+                var r46 = Manifest.Parse(System.Text.Encoding.UTF8.GetString(oldBytes));
+                bool Enabled(string id) => id == "droids" && droids;
+                r46.Pack!.Files = r46.Pack.Files.Where(f => PackProfiles.Includes(f, "empire", texture) &&
+                    (f.Option == null || Enabled(f.Option)) && (f.UnlessOption == null || !Enabled(f.UnlessOption))).ToList();
+                var oldSelection = HellForgePack.Select(r46, Convert.ToHexString(SHA256.HashData(oldBytes)).ToLowerInvariant(), "empire", texture,
+                    new Dictionary<string, bool> { ["droids"] = droids, ["covenant"] = false });
+                var oldFolder = Path.Combine(area, $"r46-receipt-{texture}-{droids}"); Directory.CreateDirectory(oldFolder);
+                var oldPath = Path.Combine(oldFolder, HellForgePack.ReceiptName);
+                var oldReceipt = JsonSerializer.Serialize(new HellForgePack.Receipt { Selection = oldSelection }, HellForgePack.Json);
+                File.WriteAllText(oldPath, oldReceipt);
+                await HellForgePack.VerifyMetadataAsync(oldFolder, oldSelection);
+                var current = HellForgePack.PinnedSelection("empire", texture, new Dictionary<string, bool> { ["droids"] = droids });
+                var preferences = new HellForgePreferences { Mode = "empire", Texture = texture, Droids = droids,
+                    AppliedSelection = $"r46-droids/{HellForgePack.SupportedBuild}/empire/{texture}/{droids}/False" };
+                check(oldSelection.Version == "2026.11.09-r46-droids" && oldSelection.Files.Count == 96 &&
+                    HellForgePack.IsOurPack(HellForgePack.PackId(oldSelection.Mode)) && preferences.SelectionKey != preferences.AppliedSelection &&
+                    current.Version == "2026.11.09-r47" && await Reject(() => HellForgePack.VerifyMetadataAsync(oldFolder, current)) &&
+                    File.ReadAllText(oldPath) == oldReceipt,
+                    $"r46 {texture} droids={droids} receipts stay recognised and require r47 preparation without rewriting the receipt");
+                if (texture == "full" && droids) check(previous.ManifestSha256 == "4a35045a9b628e0f2b476815e7a77f00ab31a6cde957abd574e8597513c7ad36" &&
+                    oldSelection.Files.Count(f => f.Sha256 != previous.Files.Single(g => g.Name == f.Name).Sha256) == 6 &&
+                    current.Files.Any(f => f.Sha256 != oldSelection.Files.Single(g => g.Name == f.Name).Sha256),
+                    "retained r45-v4 and r46 catalogs stay exact while r47 replaces the combined batch archives");
+            }
         }
         check(empireFull.Files.Select(f => f.Name).SequenceEqual(empireLighter.Files.Select(f => f.Name)) &&
             empireFull.Files.Sum(f => f.Size) > 0 && empireLighter.Files.Any(f => f.Sha256 != empireFull.Files.Single(g => g.Name == f.Name).Sha256),

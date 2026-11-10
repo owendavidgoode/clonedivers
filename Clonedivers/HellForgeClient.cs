@@ -19,7 +19,7 @@ public sealed class HellForgePreferences
     public bool IsRegular => Mode == "regular";
     public string PackMode => IsRegular ? "regular" : Mode == "empire" ? "empire" : DeltaSquad ? "commandos" : "clonedivers";
     public string SelectionKey => IsRegular ? $"regular/{HellForgePack.SupportedBuild}" :
-        Mode == "empire" ? $"r46-droids/{HellForgePack.SupportedBuild}/empire/{Texture}/{Droids}/False" :
+        Mode == "empire" ? $"r47/{HellForgePack.SupportedBuild}/empire/{Texture}/{Droids}/False" :
         $"r19/{HellForgePack.SupportedBuild}/{PackMode}/{Texture}/{Droids}/{Covenant}";
     public static string FilePath => Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), "Clonedivers", "hellforge.json");
 
