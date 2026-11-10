@@ -5,6 +5,11 @@ param(
 )
 $ErrorActionPreference='Stop'
 Set-StrictMode -Version Latest
+# A pwsh parent exports its module paths to Windows PowerShell. Prefer this
+# child's own built-in modules so cmdlets cannot resolve to incompatible PS7 code.
+$env:PSModulePath=(Join-Path $PSHOME 'Modules')+';'+$env:PSModulePath
+Import-Module (Join-Path $PSHOME 'Modules/Microsoft.PowerShell.Utility/Microsoft.PowerShell.Utility.psd1') -ErrorAction Stop
+$null=Get-Command Get-FileHash -ErrorAction Stop
 Push-Location $Tree
 try {
     switch($Stage){
