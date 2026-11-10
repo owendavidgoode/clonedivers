@@ -1,0 +1,62 @@
+diff --git a/mappings/references.json b/mappings/references.json
+--- a/mappings/references.json
++++ b/mappings/references.json
+@@ -34,6 +34,7 @@
+     "0x2947AFE42093062F": "packages/generated/loadout/mini_missile_silo",
+     "0x2A5298E1C2F70C82": "packages/generated/loadout/pistol_nacho",
+     "0x2A9FB8F5D0576EAE": "packages/generated/loadout/arc_thrower",
++    "0x2C26BC4C6592FA14": "packages/generated/loadout/eagle_base",
+     "0x2CB3F69AB9BC1297": "packages/generated/loadout/sticky_stun_grenade",
+     "0x2F1147605182C6AB": "packages/generated/loadout/at_explosive_grenade",
+     "0x2FE755E42B659F64": "packages/generated/loadout/assault_shotgun_incendiary",
+diff --git a/native/mod-loader/reference_data.h b/native/mod-loader/reference_data.h
+--- a/native/mod-loader/reference_data.h
++++ b/native/mod-loader/reference_data.h
+@@ -251,6 +251,7 @@
+     {0xFD3EEF9A0329B2C2ull, "packages/generated/loadout/assault_rifle_nacho"},
+     {0xFDE8230C79315087ull, "packages/generated/loadout/expendable_massive_rocket_launcher"},
+     {0xFE3EF44300E4A1E2ull, "packages/generated/loadout/orbital_barrage"},
++    {0x2C26BC4C6592FA14ull, "packages/generated/loadout/eagle_base"},
+ };
+ 
+ typedef struct RefRow { uint32_t type; uint16_t package, package2; uint8_t mission, shrapnel; } RefRow;
+diff --git a/scripts/ExportReferences.py b/scripts/ExportReferences.py
+--- a/scripts/ExportReferences.py
++++ b/scripts/ExportReferences.py
+@@ -327,12 +327,17 @@
+     # obj_gen_icbm holds the ICBM launch sequence (HD2Runtime research/sound-events: the bank ships in this package).
+     used.setdefault('0x20BDEC2A51065E1F', 'packages/content/gen_icbm (the Launch ICBM objective: its launch sounds)')
+ 
++    # Direct SDK callers can also hold the native Eagle base (it carries the shared Eagle flight unit).
++    # Append it after reference donors to preserve their generated 1-based indices.
++    catalogue = dict(sorted(used.items()))
++    catalogue.setdefault('0x2C26BC4C6592FA14', 'packages/generated/loadout/eagle_base')
++
+     loader = residency['loader']
+     engine = loader['engine']
+     data = {
+         'format': 1, 'build': '25480438',
+         'source': 'HD2Runtime 0.40.1 domains/attack_outputs, explosion_catalogue, status_catalog, package_residency',
+-        'packages': dict(sorted(used.items())),
++        'packages': dict(sorted(catalogue.items())),
+         'projectiles': sorted(projectiles.values(), key=lambda r: r['type']),
+         'explosions': explosion_rows, 'statuses': status_rows, 'ammunition': ammunition, 'hosts': hosts, 'refused': refused,
+         'payload': payload_info, 'programmable': dict(sorted(programmable.items())),
+@@ -343,7 +348,7 @@
+     }
+     Path(out_json).write_text(json.dumps(data, indent=2, ensure_ascii=False) + '\n', encoding='utf-8', newline='\n')
+ 
+-    ids = sorted(used)
++    ids = list(catalogue)
+     index = {pid: i + 1 for i, pid in enumerate(ids)}
+ 
+     def pin(name, hexbytes):
+@@ -387,7 +392,7 @@
+          '/* The packages references need (index + 1 in the rows below; 0: none) */',
+          'static const RefPackage kRefPackages[] = {']
+     for pid in ids:
+-        name = used[pid].replace('\\', '/').replace('"', "'")
++        name = catalogue[pid].replace('\\', '/').replace('"', "'")
+         h.append(f'    {{0x{int(pid, 16):016X}ull, "{name}"}},')
+     h += ['};', '',
+           'typedef struct RefRow { uint32_t type; uint16_t package, package2; uint8_t mission, shrapnel; } RefRow;',

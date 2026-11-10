@@ -1,0 +1,47 @@
+name: Held TIE runtime artifacts
+on:
+  push:
+    branches: [codex/tie-runtime-ci-20261110]
+    paths: ['.github/workflows/tie-runtime-artifacts.yml', 'tools/tie-runtime-ci/**']
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: held-tie-runtime-${{ github.ref }}
+  cancel-in-progress: false
+jobs:
+  baseline-and-patched:
+    if: github.repository == 'owendavidgoode/clonedivers' && github.ref == 'refs/heads/codex/tie-runtime-ci-20261110'
+    runs-on: windows-2022
+    timeout-minutes: 90
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          path: automation
+          persist-credentials: false
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          repository: SkyeShade/HellForge
+          ref: d8a8b46ea830d0a3b8811199180563a803a79bbb
+          path: hellforge-build
+          persist-credentials: false
+      - uses: astral-sh/setup-uv@d0cc045d04ccac9d8b7881df0226f9e82c39688e
+        with:
+          version: '0.13.7'
+          python-version: '3.13'
+          enable-cache: false
+      - name: Offline verifier contract tests
+        shell: pwsh
+        run: uv run --no-project --python 3.13 python -B -m unittest discover -s automation/tools/tie-runtime-ci -v
+      - name: Build both held variants at the same path
+        shell: pwsh
+        run: ./automation/tools/tie-runtime-ci/build.ps1 -Run
+      - name: Retain allowlisted evidence and complete packages only
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: HELD-TIE-runtime-${{ github.run_id }}-${{ github.run_attempt }}
+          path: artifact-publish/*
+          if-no-files-found: error
+          retention-days: 14
+          include-hidden-files: false
