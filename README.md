@@ -48,11 +48,7 @@ is needed. ARM64, Deck and Flatpak/Snap Forge are not qualified.
 ## Modes, account and gameplay
 
 Regular, Clones and Empire are Forge appearance choices. Clones retains Delta armor,
-CIS droids, Covenant squids and texture options. Empire retains the published r45-v4
-Full appearance with fixed enemy models; its experimental texture and enemy switches
-are not included. Saved unavailable options are retained until you explicitly choose
-the published Empire appearance or return to Clones. This launcher update does not
-change LEGO proportions or include the experimental r47 pack. Every mode uses the player's
+CIS droids, Covenant squids and texture options. This release candidate uses EmpireDivers r47 Full with fixed CIS models. Saved unavailable Empire options are retained until you explicitly choose Full or return to Clones. LEGO proportions are unchanged. Every mode uses the player's
 own verified **one-way HD2 → Forge account import**. Forge progression saves
 locally and does not count back in official HD2. Never share captures, profiles,
 receipts or keys or replay stale captures to test persistence.

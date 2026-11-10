@@ -222,7 +222,7 @@ static class HellForgeTests
                             "saved unsupported preferences stay intact and block launch until explicitly changed");
                         published.PerformClick(); Application.DoEvents();
                         check(preferences.Texture == "full" && preferences.Droids && preferences.SelectionProblem == null &&
-                            preferences.Selection().Version == "2026.11.08-r45-v4" && !published.Visible,
+                            preferences.Selection().Version == "2026.11.09-r47" && !published.Visible,
                             "explicit published appearance action selects the public pack and removes the blocked state");
                     }
                 }
@@ -735,9 +735,9 @@ static class HellForgeTests
             check(refused, $"shipping Empire rejects unavailable {texture}/droids={droids} instead of remapping bytes");
         }
         var empireFull = HellForgePack.PinnedSelection("empire", "full");
-        check(empireFull.Version == "2026.11.08-r45-v4" && empireFull.ManifestSha256 == "4a35045a9b628e0f2b476815e7a77f00ab31a6cde957abd574e8597513c7ad36" &&
+        check(empireFull.Version == "2026.11.09-r47" && empireFull.ManifestSha256 == "45686f7abb3e2f016037c9810f5afc0dcb757caf39cf58ac73faa57d5795bd2b" &&
             empireFull.Options["droids"] && !empireFull.Options["covenant"] && empireFull.Files.Count == 96 &&
-            empireFull.Files.All(f => f.Url.Contains("pack-2026.11.08-r45-v4-files/")), "shipping Empire pins all 96 public r45-v4 rows and their exact catalog hash");
+            empireFull.Files.Count(f => f.Url.Contains("pack-2026.11.08-r45-v4-files/")) == 34 && empireFull.Files.Count(f => f.Url.Contains("pack-2026.11.09-r47-files/")) == 62, "shipping Empire pins 34 reused and 62 new Full r47 rows and the exact catalog hash");
         check(typeof(HellForgePack).Assembly.GetManifestResourceStream("Clonedivers.HellForge.Empire.Lighter.Manifest.json") == null,
             "shipping assembly does not embed an experimental Empire Lighter catalog");
         using (var oldCatalog = typeof(HellForgePack).Assembly.GetManifestResourceStream("Clonedivers.HellForge.Empire.Manifest.json")!)
@@ -746,17 +746,20 @@ static class HellForgeTests
             var published = HellForgePack.Select(Manifest.Parse(oldReader.ReadToEnd()), empireFull.ManifestSha256, "empire", "full",
                 new Dictionary<string, bool> { ["droids"] = true, ["covenant"] = false });
             check(JsonSerializer.Serialize(published, HellForgePack.Json) == JsonSerializer.Serialize(empireFull, HellForgePack.Json),
-                "shipping selection is identical to the public selector for r45-v4 including file order, layers and options");
+                "shipping selection is identical to the Full r47 selector including file order, layers and options");
             var receiptFolder = Path.Combine(area, "published-empire-receipt"); Directory.CreateDirectory(receiptFolder);
             var receiptPath = Path.Combine(receiptFolder, HellForgePack.ReceiptName);
             var receiptText = JsonSerializer.Serialize(new HellForgePack.Receipt { Selection = published }, HellForgePack.Json);
             File.WriteAllText(receiptPath, receiptText);
             await HellForgePack.VerifyMetadataAsync(receiptFolder, empireFull);
             check(File.ReadAllText(receiptPath) == receiptText && new HellForgePreferences { Mode = "empire" }.SelectionKey ==
-                $"r45-v4/{HellForgePack.SupportedBuild}/empire/full/True/False", "existing public Empire receipt and applied key remain compatible without rewriting");
-            var future = published with { Version = "2026.11.09-r47", ManifestSha256 = new string('e', 64) };
-            File.WriteAllText(receiptPath, JsonSerializer.Serialize(new HellForgePack.Receipt { Selection = future }, HellForgePack.Json));
-            check(await Reject(() => HellForgePack.VerifyMetadataAsync(receiptFolder, empireFull)), "a future r47 receipt cannot authorize the public r45-v4 selection");
+                $"r47/{HellForgePack.SupportedBuild}/empire/full/True/False", "Full r47 receipt and applied key are stable without rewriting");
+            using var rollback = typeof(HellForgePack).Assembly.GetManifestResourceStream("Clonedivers.Tests.Empire.R45.Published.Manifest.json")!;
+            using var rollbackReader = new StreamReader(rollback);
+            var prior = HellForgePack.Select(Manifest.Parse(rollbackReader.ReadToEnd()), "4a35045a9b628e0f2b476815e7a77f00ab31a6cde957abd574e8597513c7ad36", "empire", "full",
+                new Dictionary<string, bool> { ["droids"] = true, ["covenant"] = false });
+            File.WriteAllText(receiptPath, JsonSerializer.Serialize(new HellForgePack.Receipt { Selection = prior }, HellForgePack.Json));
+            check(await Reject(() => HellForgePack.VerifyMetadataAsync(receiptFolder, empireFull)), "a public r45-v4 receipt cannot authorize the r47 selection");
         }
         oldEmpire.Mode = "clonedivers";
         check(oldEmpire.SelectionProblem == null && oldEmpire.SelectionKey == $"r19/{HellForgePack.SupportedBuild}/commandos/lighter/False/True" &&
@@ -883,7 +886,10 @@ static class HellForgeTests
         var probe = new HellForgeClient(install, new FakeCommands(install));
         var accountKey = probe.AccountFingerprint();
         check(probe.AccountFingerprint() == accountKey, "an unchanged capture and profile reuse the last account review");
-        File.WriteAllText(Path.Combine(snapshot, "progression.json"), "{\"experience\":4000}");
+        var capturePath = Path.Combine(snapshot, "progression.json");
+        var nextWriteTime = File.GetLastWriteTimeUtc(capturePath).AddSeconds(2);
+        File.WriteAllText(capturePath, "{\"experience\":4000}");
+        File.SetLastWriteTimeUtc(capturePath, nextWriteTime);
         var recaptured = probe.AccountFingerprint();
         check(recaptured != accountKey, "a new HD2 capture triggers a fresh account review");
         Directory.CreateDirectory(Path.Combine(folder, "backups"));
