@@ -31,6 +31,7 @@ static class TestProgram
 
     static int Main(string[] args)
     {
+        AppDomain.CurrentDomain.UnhandledException += (_, e) => { Console.Error.WriteLine("UNHANDLED TEST EXCEPTION: " + e.ExceptionObject); Environment.Exit(3); };
         if (args is ["--forge-form-recovery-only"])
         {
             var recovery = Path.Combine(Path.GetTempPath(), "forge-form-recovery-" + Guid.NewGuid().ToString("N")); Directory.CreateDirectory(recovery);
