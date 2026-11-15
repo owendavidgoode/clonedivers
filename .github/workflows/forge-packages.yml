@@ -107,5 +107,16 @@ jobs:
         with:
           name: Forge-Linux-migration
           path: artifacts/linux
+      - name: Install headless desktop dependencies
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y xvfb xauth fonts-dejavu-core libx11-6 libice6 libsm6 libfontconfig1 libgl1 libegl1
       - name: Verify complete package, installed entry point and checksums
         run: bash tools/qa-forge-package.sh artifacts/linux
+      - name: Upload Forge GUI smoke evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: Forge-Linux-GUI-${{ matrix.os }}
+          path: artifacts/linux/gui-smoke/
+          if-no-files-found: warn

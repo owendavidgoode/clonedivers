@@ -107,5 +107,29 @@ done
 check_preserved 'deb 0.8.0 -> 0.8.1 apt upgrade'
 if apt-cache show passt 2>/dev/null | grep -q '^Package: passt$'; then command -v pasta; else echo 'This distribution lacks passt: real co-op stays blocked by the launcher preflight.'; fi
 command -v python3
+
+# Use a fresh desktop config so startup cannot discover the preservation fixture.
+smoke="$artifacts/gui-smoke"
+mkdir -p "$smoke" "$qa/gui/config" "$qa/gui/data" "$qa/gui/cache"
+export XDG_CONFIG_HOME="$qa/gui/config"
+export XDG_DATA_HOME="$qa/gui/data"
+export XDG_CACHE_HOME="$qa/gui/cache"
+smoke_failure() {
+    echo "$1" >&2
+    cat "$smoke"/*.stderr >&2
+    exit 1
+}
+preview_status=0
+timeout 20s xvfb-run -a /usr/bin/clonedivers --forge-preview ready --forge-render "$smoke" > "$smoke/preview.stdout" 2> "$smoke/preview.stderr" || preview_status=$?
+[[ "$preview_status" == 0 ]] || smoke_failure "Forge preview exited $preview_status (expected 0)."
+png="$smoke/forge-ready-clonedivers-1.png"
+[[ -f "$png" && $(stat -c %s "$png") -gt 10240 ]] || smoke_failure 'Forge preview did not write a PNG larger than 10 KB.'
+gui_status=0
+timeout 20s xvfb-run -a /usr/bin/clonedivers --gui > "$smoke/gui.stdout" 2> "$smoke/gui.stderr" || gui_status=$?
+[[ "$gui_status" == 124 ]] || smoke_failure "Forge GUI exited $gui_status (expected timeout status 124)."
+if grep -Eiq 'could not open|unhandled[[:space:]-]*exception' "$smoke/gui.stderr"; then
+    smoke_failure 'Forge GUI stderr contains a desktop startup or unhandled-exception failure.'
+fi
+echo 'PASS Forge preview PNG larger than 10 KB and installed Forge GUI alive for 20 seconds under xvfb.'
 echo 'Forge portable/deb 0.8.0 -> 0.8.1 package upgrade, preserved fixture bytes, default/Steam routing and exact launcher/companion pairing passed.'
-echo 'Only version/help entrypoints ran: settings migration, real account ownership, gameplay, Proton and multiplayer remain unqualified.'
+echo 'Version/help and headless desktop startup/render ran: settings migration, real account ownership, gameplay, Proton and multiplayer remain unqualified.'
