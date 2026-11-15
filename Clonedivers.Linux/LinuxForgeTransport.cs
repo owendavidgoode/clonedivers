@@ -16,6 +16,7 @@ internal sealed class ForgeProtocol(TextReader input, TextWriter output, Action<
         "install-gameplay" => 35,
         "recover-gameplay" => 15,
         "mod-add" or "account-import" or "recover-pack" => 20,
+        "play" => 10,
         _ => 3
     });
     readonly SemaphoreSlim requests = new(1, 1);

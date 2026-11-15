@@ -14,10 +14,12 @@ internal static class CleanupFlowTests
             foreach (var cleanup in new[] { "\"sandboxCopyBackError\":\"fixture copy-back failed\"", "\"sdkShimRestoreFailure\":\"fixture restore failed\"", "\"sdkShimOriginalsRestored\":false" })
             {
                 File.WriteAllText(Path.Combine(run, "result.json"), "{\"status\":\"observed\"," + cleanup + "}");
-                var running = false; var stops = 0;
+                var running = false; var stops = 0; var statusesAfterStop = 0;
                 Task<JsonElement> Execute(IReadOnlyList<string> args, CancellationToken ct)
                 {
                     object result;
+                    // Reuse even the SAME run folder after failed cleanup: only cleared ownership can refuse this stop.
+                    if (args[0] == "status" && stops == 1) running = ++statusesAfterStop == 2;
                     if (args[0] == "status") result = new { install = root, gameBuild = BridgeSession.Build, hellforge = "0.4.0-beta (d8a8b46)", engine = "0.1.47", modSdk = 16,
                         networkBlock = "linux-netns", ready = new { linuxNamespace = true, gameCopy = true }, settings = new { sandbox = true },
                         session = new { running, lastRun = run, lastStatus = "observed", lastFailure = (string?)null } };
@@ -31,8 +33,9 @@ internal static class CleanupFlowTests
                 var replies = output.ToString().Split('\n', StringSplitOptions.RemoveEmptyEntries).Select(line => JsonSerializer.Deserialize<JsonElement>(line)).ToArray();
                 var key = cleanup.Split('"')[1];
                 check(!replies[1].GetProperty("ok").GetBoolean() && replies[1].GetProperty("error").GetString()!.Contains(key), "observed stop rejects retained result.json cleanup error: " + key);
-                check(!replies[2].GetProperty("ok").GetBoolean() && stops == 1, "already-stopped retry retains cleanup failure without stopping twice: " + key);
-                check(replies[3].GetProperty("ok").GetBoolean() && !running, "failed completed cleanup keeps diagnostics available and releases ownership: " + key);
+                check(!replies[2].GetProperty("ok").GetBoolean() && replies[2].GetProperty("error").GetString()!.Contains("does not own the running session") && stops == 1,
+                    "failed completed cleanup releases ownership even when another session reuses the same run: " + key);
+                check(replies[3].GetProperty("ok").GetBoolean() && !running && stops == 1, "failed completed cleanup keeps diagnostics available without another stop at EOF: " + key);
             }
         }
         finally { Directory.Delete(root, true); }

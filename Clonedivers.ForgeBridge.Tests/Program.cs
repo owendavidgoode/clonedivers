@@ -95,6 +95,7 @@ if (args.Contains("--export-only"))
 }
 string Request(long id, params string[] args) => JsonSerializer.Serialize(new { id, args }) + "\n";
 await Clonedivers.ForgeBridge.Tests.CleanupFlowTests.Run(Check);
+await Clonedivers.ForgeBridge.Tests.PlayerReviewTests.Run(Check);
 Check(ForgeEntryPolicy.Normalize([], true).SequenceEqual(new[] { "--forge" }), "Forge package defaults to Forge rather than silently opening the Steam-era UI");
 Check(ForgeEntryPolicy.Normalize(["--steam", "--gui"], true).SequenceEqual(new[] { "--gui" }), "explicit Steam fallback retains the existing desktop route");
 Check(ForgeEntryPolicy.Normalize(["--forge-preview", "running", "--gui"], true).SequenceEqual(new[] { "--forge-preview", "running", "--gui" }), "preview entry remains disconnected from live Forge routing");
@@ -249,7 +250,7 @@ try
     {
         var linked = Path.Combine(fixture, "linked-prefix"); Directory.CreateSymbolicLink(linked, plan.Prefix);
         var linkedInstall = Path.Combine(linked, Path.GetRelativePath(plan.Prefix, install));
-        RefusePlan(() => LinuxForgePlan.Stage(linkedInstall, helper, Hash(helper), bundle), "a linked prefix ancestor cannot redirect helper staging");
+        Check(LinuxForgePlan.Stage(linkedInstall, helper, Hash(helper), bundle) == plan, "a linked prefix ancestor resolves to the same verified staging plan");
         var dangling = Path.Combine(fixture, "dangling-prefix"); Directory.CreateSymbolicLink(dangling, Path.Combine(fixture, "missing-target"));
         RefusePlan(() => LinuxForgePlan.Stage(Path.Combine(dangling, "pfx", "drive_c", "Forge"), helper, Hash(helper), bundle), "a dangling link is rejected even though Exists follows it and reports false");
     }

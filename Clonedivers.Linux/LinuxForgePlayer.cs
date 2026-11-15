@@ -64,6 +64,11 @@ internal sealed class LinuxForgePlayer(IForgeConnection connection, LinuxForgePr
     internal ForgePlayerState? State { get; private set; }
     internal bool OwnsSession { get; private set; }
     internal bool RequestedAccountSync { get; private set; }
+    internal sealed record SyncRequest(bool SawAttempt);
+    SyncRequest? syncRequest;
+    internal SyncRequest? PendingAccountSync => RequestedAccountSync ? syncRequest : null;
+    internal void ResumeAccountSync(SyncRequest? request)
+    { syncRequest = request; RequestedAccountSync = request != null; }
     // A faulted bridge can neither confirm nor end a session; closing stdin hands cleanup to the bridge's EOF path, so it must not pin the window.
     internal bool Disconnected => connection.Faulted;
     internal bool SessionActive => !Disconnected && (OwnsSession || State?.Status.Running == true);
@@ -74,7 +79,8 @@ internal sealed class LinuxForgePlayer(IForgeConnection connection, LinuxForgePr
     {
         if (!OperatingSystem.IsLinux()) throw new PlatformNotSupportedException("Forge sessions require Linux or the Windows launcher; previews never connect.");
         if (Game.IsRunning()) throw new InvalidOperationException("Close the running HD2 session before starting Forge's dedicated namespace.");
-        if (LinuxForgeBootstrap.MissingTools().Length != 0) throw new InvalidOperationException("Linux components needed: " + string.Join(", ", LinuxForgeBootstrap.MissingTools()) + ". Use Set up / update Forge to install them with desktop approval.");
+        var missing = LinuxForgeBootstrap.MissingTools();
+        if (missing.Length != 0) throw new InvalidOperationException(MissingToolsMessage(missing));
         preferences.Validate();
         var root = preferences.InstallRoot ?? throw new InvalidOperationException(
             "No Forge installation selected. Read https://github.com/owendavidgoode/clonedivers/blob/main/docs/FORGE-MIGRATION.md#first-forge-setup\n" +
@@ -89,25 +95,35 @@ internal sealed class LinuxForgePlayer(IForgeConnection connection, LinuxForgePr
             throw new InvalidDataException("Forge companion targets a different client or game build. Install the complete matching Clonedivers package.");
         if (doc.RootElement.GetProperty("control").GetString() != "native-linux") throw new InvalidDataException("Install the complete native Forge companion package.");
         var plan = LinuxForgePlan.StageNative(root, Path.Combine(resourceDirectory, LinuxForgePlan.NativeBridgeName), doc.RootElement.GetProperty("bridgeSha256").GetString()!);
+        preferences.InstallRoot = plan.Install; // downstream account/cache checks use the resolved prefix path too
         var transport = await LinuxForgeTransport.StartAsync(plan, ct);
         var player = new LinuxForgePlayer(transport, preferences);
         try { await player.ApplySelectionAsync(ct); return player; }
         catch { await player.DisposeAsync(); throw; }
     }
-    internal async Task RefreshAsync(CancellationToken ct = default)
+    internal static string MissingToolsMessage(IReadOnlyList<string> missing) => "Linux components needed: " + string.Join(", ", missing) +
+        ". Use Set up / update Forge to install them with desktop approval." + (missing.Contains("pasta")
+        ? " pasta (the passt package) requires Ubuntu 24.04 or newer, Debian 13 or newer, or a distribution providing passt. This launcher requires it for both solo and co-op."
+        : "");
+    internal async Task RefreshAsync(CancellationToken ct = default, bool preserveError = false)
     {
+        var previousError = Error;
         try
         {
             var json = await connection.RunAsync(["player-status"], ct);
             State = json.Deserialize<ForgePlayerState>(HellForgePack.Json) ?? throw new InvalidDataException("Missing player status.");
             if (!State.Status.Running) OwnsSession = false;
-            Error = null;
-            if (RequestedAccountSync && !SessionActive && !Game.IsRunning())
+            if (!preserveError) Error = null;
+            var gameRunning = RequestedAccountSync && Game.IsRunning();
+            if (RequestedAccountSync && syncRequest is { } request &&
+                (SessionActive || gameRunning)) syncRequest = request with { SawAttempt = true };
+            if (RequestedAccountSync && !SessionActive && !gameRunning)
             {
-                if (State.Account is { Imported: true } or { NeedsFreshCapture: true }) RequestedAccountSync = false;
+                if (State.Account is { Imported: true } || State.Account is { NeedsFreshCapture: true } && syncRequest?.SawAttempt == true) ResumeAccountSync(null);
                 else if (State.Account is { Captured: true, Imported: false })
-                { RequestedAccountSync = false; await ImportAsync(ct); }
+                { ResumeAccountSync(null); await ImportAsync(ct); }
             }
+            if (preserveError && Error == null) Error = previousError;
         }
         catch (Exception error) { Error = error.Message; throw; }
     }
@@ -204,9 +220,10 @@ internal sealed class LinuxForgePlayer(IForgeConnection connection, LinuxForgePr
     internal async Task BeginAccountSyncAsync(CancellationToken ct = default)
     {
         if (SessionActive) throw new InvalidOperationException("End the session before syncing your account.");
+        var request = new SyncRequest(false);
         await connection.RunAsync(["select-account"], ct);
         await connection.RunAsync(["open-manager"], ct);
-        RequestedAccountSync = true;
+        ResumeAccountSync(request);
     }
     internal async Task<HellForgePack.Plan> PlanAppearanceAsync(IProgress<string>? progress = null, CancellationToken ct = default)
     {

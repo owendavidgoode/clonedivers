@@ -20,7 +20,7 @@ internal sealed record LinuxForgePlan(string Install, string Prefix, string Wind
     internal static LinuxForgePlan StageNative(string install, string bridgeSource, string expectedBridgeHash)
     {
         if (!SupportsArchitecture(RuntimeInformation.ProcessArchitecture)) throw new PlatformNotSupportedException("Forge requires x86-64 Linux.");
-        var root = Path.TrimEndingDirectorySeparator(Path.GetFullPath(install)); RejectLinks(root);
+        var root = ResolveInstall(install); RejectLinks(root);
         DirectoryInfo? drive = null;
         for (var parent = new DirectoryInfo(root); parent != null; parent = parent.Parent)
         {
@@ -47,7 +47,7 @@ internal sealed record LinuxForgePlan(string Install, string Prefix, string Wind
     internal static LinuxForgePlan Stage(string install, string bridgeSource, string expectedBridgeHash, string scriptBundle)
     {
         if (!SupportsArchitecture(RuntimeInformation.ProcessArchitecture)) throw new PlatformNotSupportedException("This Forge/Proton trial requires x86-64 Linux. The existing ARM64 Steam launcher is a separate workflow.");
-        var root = Path.TrimEndingDirectorySeparator(Path.GetFullPath(install));
+        var root = ResolveInstall(install);
         RejectLinks(root);
         for (var ancestor = new DirectoryInfo(root); ancestor != null; ancestor = ancestor.Parent)
             if (ancestor.Name.Equals("steamapps", StringComparison.OrdinalIgnoreCase))
@@ -118,6 +118,33 @@ internal sealed record LinuxForgePlan(string Install, string Prefix, string Wind
     }
 
     static bool Within(string child, string root) => child == root || child.StartsWith(root + Path.DirectorySeparatorChar, StringComparison.Ordinal);
+    // A moved prefix (or a linked /home) is normal on Linux. Resolve only its parents and the prefix itself;
+    // pfx/drive_c, the install, packaged helpers and writable cache still must not contain links.
+    internal static string ResolveInstall(string install)
+    {
+        var root = Path.TrimEndingDirectorySeparator(Path.GetFullPath(install));
+        DirectoryInfo? prefix = null;
+        for (var parent = new DirectoryInfo(root); parent != null; parent = parent.Parent)
+        {
+            if (parent.Name.Equals("steamapps", StringComparison.OrdinalIgnoreCase)) throw new InvalidDataException("Use the separate Forge prefix, outside Steam's game folders.");
+            if (parent.Name == "drive_c" && parent.Parent?.Name == "pfx") prefix = parent.Parent.Parent;
+        }
+        return prefix == null ? root : Path.Combine(ResolveDirectory(prefix.FullName, 0), Path.GetRelativePath(prefix.FullName, root));
+    }
+    static string ResolveDirectory(string path, int depth)
+    {
+        if (depth > 64) throw new InvalidDataException("Forge prefix links form a cycle or are too deep.");
+        var full = Path.GetFullPath(path); var current = Path.GetPathRoot(full)!;
+        foreach (var part in full[current.Length..].Split(Path.DirectorySeparatorChar, StringSplitOptions.RemoveEmptyEntries))
+        {
+            current = Path.Combine(current, part);
+            if ((File.GetAttributes(current) & FileAttributes.ReparsePoint) == 0) continue;
+            var target = new DirectoryInfo(current).ResolveLinkTarget(true);
+            if (target == null || !Directory.Exists(target.FullName)) throw new InvalidDataException("Forge prefix link has no existing directory target.");
+            current = ResolveDirectory(target.FullName, depth + 1);
+        }
+        return current;
+    }
     static bool IsHash(string value) => value.Length == 64 && value.All(Uri.IsHexDigit);
     static string Hash(string file) { using var stream = File.OpenRead(file); return Convert.ToHexString(SHA256.HashData(stream)).ToLowerInvariant(); }
     static void VerifyFile(string file, string hash)

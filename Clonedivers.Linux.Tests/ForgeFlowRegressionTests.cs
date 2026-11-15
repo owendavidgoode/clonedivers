@@ -25,6 +25,9 @@ internal static class ForgeFlowRegressionTests
             check(refusal.Action == ForgeAction.Sync && refusal.Detail == connection.Account.Message, "fresh-capture refusal is visible and offers reopening account sync");
             await player.BeginAccountSyncAsync();
             check(player.RequestedAccountSync && connection.Managers == 2 && connection.Selections == 2, "retry sync reopens the official manager with the account selected");
+            await player.RefreshAsync();
+            check(player.RequestedAccountSync && connection.Imports == 0, "idle refresh between retry and capture keeps the pending request despite the old refusal");
+            Game.IsRunningCheck = () => true; await player.RefreshAsync(); Game.IsRunningCheck = () => false;
             connection.Account = new(true, false, "Fresh capture ready."); await player.RefreshAsync();
             check(!player.RequestedAccountSync && player.State?.Account?.Imported == true && connection.Imports == 1,
                 "fresh capture after refusal completes exactly one launcher import and leaves waiting");
@@ -41,8 +44,8 @@ internal static class ForgeFlowRegressionTests
             check(failure.Headline == "Last session needs attention" && failure.Detail == connection.LastFailure && failure.Action == ForgeAction.Launch,
                 "idle refresh keeps last failure visible while allowing retry when Forge reports ready");
             var unready = ForgePresentation.Resolve(player.State! with { Status = player.State!.Status with { GameCopyReady = false } }, connected: true);
-            check(unready.Detail == connection.LastFailure && unready.Action == ForgeAction.Refresh,
-                "cleanup failure stays visible when the game copy is not ready");
+            check(unready.Headline == "Finish Forge setup" && unready.Action == ForgeAction.Manager,
+                "an old cleanup failure keeps unfinished game setup actionable");
             connection.LastFailure = null; connection.LastNotice = "The last exit matches HellForge's documented quit-time crash."; await player.RefreshAsync();
             var notice = ForgePresentation.Resolve(player.State, connected: true, canLaunch: player.CanLaunch);
             check(notice.Action == ForgeAction.Launch && notice.Detail == connection.LastNotice, "last session notice remains visible with the ready Launch action");

@@ -12,12 +12,20 @@ internal sealed class PlayerCommands
     readonly HellForgeAccount account;
     readonly HellForgePreferences selection = new();
     readonly Action openManager;
+    readonly Func<CancellationToken, Task<int>> reviewWarbonds;
+    internal Func<DateTime> UtcNow { get; init; } = () => DateTime.UtcNow;
+    internal Func<string?> CaptureBlockCheck { get; init; } = HellForgeAccount.CaptureBlock;
+    HellForgeAccountState? lastAccount;
+    string? lastAccountFingerprint;
+    DateTime lastAccountReview;
     string? warbondMessage;
-    internal PlayerCommands(string root, IHellForgeCommands official, Action? openManager = null)
+    internal PlayerCommands(string root, IHellForgeCommands official, Action? openManager = null,
+        Func<IReadOnlyList<string>, CancellationToken, Task<string>>? backend = null, Func<CancellationToken, Task<int>>? reviewWarbonds = null)
     {
         this.official = official;
         client = new(root, official) { LinuxNamespace = true };
-        account = new(root);
+        account = new(root, backend);
+        this.reviewWarbonds = reviewWarbonds ?? client.TryOpenOwnedWarbondsAsync;
         this.openManager = openManager ?? (() => {
             using var manager = Process.Start(ManagerStart(root)) ?? throw new IOException("Official HellForge manager did not start.");
             // The long-lived manager must not hold the frontend's protocol pipes (our stdio), or their EOF never arrives on close.
@@ -34,11 +42,14 @@ internal sealed class PlayerCommands
             case "open-manager": openManager(); return JsonSerializer.SerializeToElement(new { opened = "official-manager" });
             case "account-status": return JsonSerializer.SerializeToElement(await account.ReadAsync(ct));
             case "select-account":
+                lastAccount = null;
                 await client.SelectAccountAsync(ct, reviewCapture: false); return JsonSerializer.SerializeToElement(new { selected = "default" });
             case "account-import":
+                lastAccount = null;
                 var opened = await client.ImportAccountAsync(ct);
                 if (opened > 0) warbondMessage = $"Opened {opened} owned Warbonds.";
-                return JsonSerializer.SerializeToElement(AccountMessage(await account.ReadAsync(ct)));
+                // The frontend ignores the mutation reply and displays the following player-status account message.
+                return JsonSerializer.SerializeToElement(await account.ReadAsync(ct));
             case "select-mode":
                 var values = args.Skip(1).Chunk(2).ToDictionary(p => p[0], p => p[1], StringComparer.Ordinal);
                 var requested = new HellForgePreferences { Mode = values["--mode"], DeltaSquad = values["--delta"] == "yes",
@@ -83,16 +94,31 @@ internal sealed class PlayerCommands
         HellForgeAccountState imported;
         try
         {
-            imported = HellForgeAccount.CaptureBlock() is { } capturing ? new(false, false, capturing) : await account.ReadAsync(ct);
-            if (imported.Imported)
+            if (CaptureBlockCheck() is { } capturing)
             {
-                var opened = await client.TryOpenOwnedWarbondsAsync(ct);
-                if (opened > 0) warbondMessage = $"Opened {opened} owned Warbonds.";
+                lastAccount = null; imported = new(false, false, capturing);
+            }
+            else
+            {
+                var fingerprint = client.AccountFingerprint();
+                if (lastAccount == null || fingerprint != lastAccountFingerprint || UtcNow() - lastAccountReview >= TimeSpan.FromMinutes(5))
+                {
+                    imported = await account.ReadAsync(ct);
+                    if (imported.Imported)
+                    {
+                        var opened = await reviewWarbonds(ct);
+                        if (opened > 0) warbondMessage = $"Opened {opened} owned Warbonds.";
+                    }
+                    lastAccount = imported;
+                    lastAccountFingerprint = client.AccountFingerprint(); // opening Warbonds can update the profile/backups
+                    lastAccountReview = UtcNow();
+                }
+                else imported = lastAccount;
                 imported = AccountMessage(imported);
             }
         }
         catch (Exception error) when (error is IOException or InvalidDataException or JsonException or UnauthorizedAccessException)
-        { imported = new(false, false, error.Message); }
+        { lastAccount = null; imported = new(false, false, error.Message); }
         string? problem = null;
         try
         {
@@ -113,5 +139,9 @@ internal sealed class PlayerCommands
         return JsonSerializer.SerializeToElement(new { status, mods = catalog, account = imported, ready = problem == null,
             detail = problem ?? "Ready for a private Linux trial. Appearance hashes are checked before launch; Linux gameplay and squad compatibility remain unqualified." });
     }
-    HellForgeAccountState AccountMessage(HellForgeAccountState state) => warbondMessage == null ? state : state with { Message = warbondMessage + " " + state.Message };
+    HellForgeAccountState AccountMessage(HellForgeAccountState state)
+    {
+        var message = warbondMessage; warbondMessage = null;
+        return message == null ? state : state with { Message = message + " " + state.Message };
+    }
 }

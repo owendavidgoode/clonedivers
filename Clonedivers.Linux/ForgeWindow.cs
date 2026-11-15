@@ -18,13 +18,17 @@ internal sealed class ForgeWindow : Window
     readonly bool preview;
     readonly string previewState = "ready";
     LinuxForgePlayer? player;
-    bool busy, closing, closed, updating, requestedSetup;
+    readonly ForgeOperations operations = new();
+    bool busy => operations.Busy;
+    string? lastError => operations.Error;
+    bool closing, closed, updating, requestedSetup;
+    LinuxForgePlayer.SyncRequest? pendingSync;
     bool checkingLauncherUpdate, updateDeferred, updateFailed;
     ForgeAction primaryAction, retryAction = ForgeAction.Setup;
     readonly string? renderOutput;
     internal string PreviewName => previewState + "-" + preferences.Mode;
     LauncherUpdateStatus? launcherUpdate;
-    string? lastError, failureDetail, reportPath, updateHeadline, updateDetail;
+    string? failureDetail, reportPath, updateHeadline, updateDetail;
     readonly CancellationTokenSource lifetime = new();
     readonly DispatcherTimer timer = new() { Interval = TimeSpan.FromSeconds(5) };
     internal Task Operation { get; private set; } = Task.CompletedTask;
@@ -131,7 +135,7 @@ internal sealed class ForgeWindow : Window
         browse.Click += (_, _) => Begin(BrowseAsync);
         refresh.Click += (_, _) => Begin(RefreshPlayerAsync);
         report.Click += (_, _) => Begin(() => {
-            var output = LinuxSupport.SaveReport(null, new Settings(), forge: new LinuxSupport.ForgeReport(preferences.InstallRoot, preferences.Mode, player?.State, failureDetail ?? lastError ?? player?.Error));
+            var output = LinuxSupport.SaveReport(null, new Settings(), forge: new LinuxSupport.ForgeReport(preferences.InstallRoot, preferences.Mode, player?.State, operations.FailureDetail ?? failureDetail ?? lastError ?? player?.Error));
             reportPath = output; moreOptions.IsExpanded = sessionDetails.IsExpanded = true; return Task.CompletedTask;
         });
         Import.Click += (_, _) => Begin(FinishAccountAsync);
@@ -166,7 +170,7 @@ internal sealed class ForgeWindow : Window
             return Task.CompletedTask;
         });
         updates.Click += async (_, _) => await CheckLauncherUpdateAsync(true);
-        timer.Tick += (_, _) => { if (!busy && !closing && player is { Disconnected: false }) Begin(RefreshPlayerAsync); };
+        timer.Tick += async (_, _) => { if (!closing && player is { Disconnected: false }) await operations.RefreshAsync(() => RefreshPlayerAsync(true), UpdateView); };
         Closing += (_, e) =>
         {
             if (preview) { closed = true; return; }
@@ -227,10 +231,9 @@ internal sealed class ForgeWindow : Window
     }
     async Task RunAsync(Func<Task> action)
     {
-        busy = true; lastError = null; updateHeadline = updateDetail = null; UpdateView();
-        try { await action(); }
-        catch (Exception error) { lastError = error.Message; failureDetail = error.ToString(); if (closing) { closing = false; timer.Start(); } }
-        finally { busy = false; if (!closed) UpdateView(); }
+        updateHeadline = updateDetail = null; failureDetail = null;
+        await operations.RunAsync(action, () => { if (!closed) UpdateView(); });
+        if (lastError != null && closing) { closing = false; timer.Start(); }
     }
     async Task ChangedAsync()
     {
@@ -239,27 +242,29 @@ internal sealed class ForgeWindow : Window
     }
     async Task ConnectAsync()
     {
-        if (player is { Disconnected: true }) { var lost = player; player = null; await lost.DisposeAsync(); } // closing stdin lets the bridge finish its own cleanup
+        if (player is { Disconnected: true }) { var lost = player; pendingSync = lost.PendingAccountSync ?? pendingSync; player = null; await lost.DisposeAsync(); } // closing stdin lets the bridge finish its own cleanup
         if (player != null) throw new InvalidOperationException("Close this launcher before switching its active Forge installation.");
         var root = folder.Text?.Trim(); preferences.InstallRoot = string.IsNullOrEmpty(root) ? null : root;
         if (LinuxForgeBootstrap.ExistingRoot(root) != null) preferences.Save(); // a blank or wrong folder is never persisted over discovery
         message.Text = "Starting the official isolated Forge connection…";
         player = await LinuxForgePlayer.ConnectAsync(preferences, resources, lifetime.Token);
+        if (pendingSync != null) { player.ResumeAccountSync(pendingSync); pendingSync = null; await player.RefreshAsync(lifetime.Token); }
     }
     async Task SetupAsync()
     {
         if (player?.SessionActive == true) throw new InvalidOperationException("End the Forge session before setup.");
-        if (player != null) { await player.DisposeAsync(); player = null; }
+        if (player != null) { pendingSync = player.PendingAccountSync ?? pendingSync; await player.DisposeAsync(); player = null; }
         var result = await LinuxForgeBootstrap.InstallAsync(preferences.InstallRoot, new Progress<string>(text => message.Text = text), lifetime.Token);
         preferences.InstallRoot = result; preferences.Save(); folder.Text = result;
         await ConnectAsync();
         requestedSetup = true;
         if (player?.State?.Status is { GameCopyReady: true, RunnerReady: true, CompatibilityProblem: null }) { requestedSetup = false; await PrepareAsync(); }
     }
-    async Task RefreshPlayerAsync()
+    Task RefreshPlayerAsync() => RefreshPlayerAsync(false);
+    async Task RefreshPlayerAsync(bool background)
     {
         if (player == null) return;
-        await player.RefreshAsync(lifetime.Token);
+        await player.RefreshAsync(lifetime.Token, preserveError: background);
         if (requestedSetup && !player.SessionActive && player.State?.Status is { GameCopyReady: true, RunnerReady: true, CompatibilityProblem: null })
         { requestedSetup = false; await PrepareAsync(); }
     }
@@ -356,8 +361,37 @@ internal sealed class ForgeWindow : Window
         setup.IsEnabled = fallback.IsEnabled = !busy && !active && !preview;
         report.IsEnabled = !busy && !preview;
         account.Text = player?.State?.Account?.Message ?? "One-way account import: HD2 → Forge. Use only a capture the official backend verifies for this PC/account.";
-        diagnostics.Text = "Installation: " + (preferences.InstallRoot ?? "Not connected") + "\n" + (failureDetail ?? lastError ?? player?.Error ?? player?.State?.Status.LastFailure ?? player?.State?.Status.LastNotice ?? player?.State?.Detail ?? "No session diagnostics.");
+        diagnostics.Text = "Installation: " + (preferences.InstallRoot ?? "Not connected") + "\n" + (operations.FailureDetail ?? failureDetail ?? lastError ?? player?.Error ?? player?.State?.Status.LastFailure ?? player?.State?.Status.LastNotice ?? player?.State?.Detail ?? "No session diagnostics.");
         if (reportPath != null) diagnostics.Text += "\nSupport report saved: " + reportPath;
         updating = false;
+    }
+}
+
+// Polls leave the foreground state alone. A click takes priority, then waits for the current poll before issuing commands.
+internal sealed class ForgeOperations
+{
+    internal bool Busy { get; private set; }
+    internal bool Refreshing { get; private set; }
+    internal string? Error { get; private set; }
+    internal string? FailureDetail { get; private set; }
+    Task background = Task.CompletedTask;
+    internal async Task RunAsync(Func<Task> action, Action changed)
+    {
+        Busy = true; Error = FailureDetail = null; changed();
+        try { await background; Error = FailureDetail = null; await action(); }
+        catch (Exception error) { Error = error.Message; FailureDetail = error.ToString(); }
+        finally { Busy = false; changed(); }
+    }
+    internal Task RefreshAsync(Func<Task> action, Action changed)
+    {
+        if (Busy || Refreshing) return Task.CompletedTask;
+        Refreshing = true;
+        return background = RefreshCoreAsync(action, changed);
+    }
+    async Task RefreshCoreAsync(Func<Task> action, Action changed)
+    {
+        try { await action(); }
+        catch (Exception error) { Error ??= error.Message; FailureDetail ??= error.ToString(); }
+        finally { Refreshing = false; changed(); }
     }
 }
