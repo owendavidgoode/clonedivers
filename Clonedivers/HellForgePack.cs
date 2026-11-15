@@ -150,20 +150,29 @@ public static class HellForgePack
     public static Task ExportAsync(Plan plan, bool download, IProgress<string>? progress = null, CancellationToken ct = default) =>
         ExportAsync(plan, download, progress, ct, AvailableExportBytes);
 
-    internal static async Task ExportAsync(Plan plan, bool download, IProgress<string>? progress, CancellationToken ct, Func<string, long?> availableBytes)
+    internal static async Task ExportAsync(Plan plan, bool download, IProgress<string>? progress, CancellationToken ct, Func<string, long?> availableBytes,
+        Func<PackFile, string, CancellationToken, Task>? downloadFile = null)
     {
         ct.ThrowIfCancellationRequested();
         FileSafety.ValidateTargets(plan.Selection.Files);
         if (plan.Missing.Count > 0 && !download) throw new IOException("Missing content. Add source folders or allow verified downloads.");
         if (Directory.Exists(plan.Output) || File.Exists(plan.Output)) throw new IOException("Output already exists; choose a new folder.");
         RejectInstallationOutput(plan.Output);
-        var needed = checked(plan.Bytes + ExportReserve); // local reuse still makes independent copies of every target
+        var cache = DownloadCache(plan.Output);
+        if (Within(cache, Path.GetFullPath(plan.Output))) throw new IOException("Choose an export folder outside the appearance download cache.");
+        var needed = checked(plan.Bytes + ExportReserve + plan.Missing.Select(f => f.Size).DefaultIfEmpty().Max()); // export copies plus one cached download
         if (availableBytes(plan.Output) is long free && free < needed)
             throw new IOException($"Not enough space to prepare the pack files: {Pack.FormatBytes(needed)} needed for this copy including working space, {Pack.FormatBytes(Math.Max(0, free))} available. Free space on this drive, then try again.");
         ct.ThrowIfCancellationRequested();
         Directory.CreateDirectory(plan.Output);
         var started = DateTime.UtcNow; string? unverified = null;
-        try { await ExportFilesAsync(plan, progress, ct, target => unverified = target); }
+        try
+        {
+            RejectInstallationOutput(cache); FileSafety.RejectLink(cache); Directory.CreateDirectory(cache);
+            using var lease = new FileStream(FileSafety.Child(cache, "download.lock"), FileMode.OpenOrCreate, FileAccess.ReadWrite, FileShare.None);
+            PruneDownloadCache(cache, plan.Missing);
+            await ExportFilesAsync(plan, cache, progress, ct, target => unverified = target, downloadFile);
+        }
         catch
         {
             // Keep verified files for the next plan to reuse; drop anything
@@ -179,14 +188,33 @@ public static class HellForgePack
         }
         PruneAbandonedExports(plan.Output, started);
     }
-    static async Task ExportFilesAsync(Plan plan, IProgress<string>? progress, CancellationToken ct, Action<string?> writing)
+    internal static string DownloadCache(string output)
+    {
+        var parent = new DirectoryInfo(Path.GetDirectoryName(Path.GetFullPath(output))!);
+        // Both frontends choose a new GUID under exports for every attempt.
+        return Path.Combine(parent.Name == "exports" ? parent.Parent!.FullName : parent.FullName, "appearance-downloads");
+    }
+    static string CachedAsset(string cache, PackFile file) => FileSafety.Child(cache, file.Sha256.ToLowerInvariant() + ".partial");
+    internal static void PruneDownloadCache(string cache, IEnumerable<PackFile> files)
+    {
+        var wanted = files.Where(f => f.Size > 0).Select(f => f.Sha256 + ".partial").ToHashSet(StringComparer.OrdinalIgnoreCase);
+        foreach (var path in Directory.EnumerateFiles(cache, "*.partial"))
+        {
+            var name = Path.GetFileName(path);
+            if (!FileSafety.IsSha256(name[..^8]) || wanted.Contains(name)) continue;
+            try { FileSafety.RejectLink(path); File.Delete(path); }
+            catch (Exception error) when (error is IOException or UnauthorizedAccessException) { }
+        }
+    }
+    static async Task ExportFilesAsync(Plan plan, string cache, IProgress<string>? progress, CancellationToken ct, Action<string?> writing,
+        Func<PackFile, string, CancellationToken, Task>? downloadFile)
     {
         var exported = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
         int done = 0;
         foreach (var file in plan.Selection.Files)
         {
             ct.ThrowIfCancellationRequested();
-            var target = FileSafety.Child(plan.Output, file.Name); writing(target);
+            var target = FileSafety.Child(plan.Output, file.Name); writing(target); string? cached = null;
             if (file.Size == 0) await File.WriteAllBytesAsync(target, [], ct);
             else if (exported.TryGetValue(file.Sha256, out var prior)) await CopyLocalAsync(prior, target, file.Size, ct);
             else if (plan.Local.TryGetValue(file.Sha256, out var source)) await CopyLocalAsync(source, target, file.Size, ct);
@@ -196,11 +224,18 @@ public static class HellForgePack
                 if (!Uri.TryCreate(file.Url, UriKind.Absolute, out var uri) || uri.Scheme != "https" || uri.Host != "github.com" ||
                     !uri.AbsolutePath.StartsWith("/owendavidgoode/clonedivers/releases/download/", StringComparison.Ordinal))
                     throw new InvalidDataException("Only Clonedivers GitHub release assets may be downloaded.");
-                await Pack.DownloadAsync(file, target, null, ct);
+                cached = CachedAsset(cache, file);
+                if (downloadFile == null) await Pack.DownloadAsync(file, cached, null, ct);
+                else await downloadFile(file, cached, ct);
+                if (new FileInfo(cached).Length != file.Size || !string.Equals(await HashAsync(cached, ct), file.Sha256, StringComparison.OrdinalIgnoreCase))
+                    throw new InvalidDataException($"Download hash mismatch: {file.Name}");
+                await CopyLocalAsync(cached, target, file.Size, ct);
             }
             if (new FileInfo(target).Length != file.Size || !string.Equals(await HashAsync(target, ct), file.Sha256, StringComparison.OrdinalIgnoreCase))
                 throw new InvalidDataException($"Export hash mismatch: {file.Name}");
             writing(null); exported.TryAdd(file.Sha256, target);
+            // The verified export is now the reusable copy. Keep only unfinished downloads.
+            if (cached != null) File.Delete(cached);
             if (++done % 100 == 0) progress?.Report($"Verified {Math.Min(done, plan.Selection.Files.Count)}/{plan.Selection.Files.Count} files…");
         }
         await File.WriteAllTextAsync(Path.Combine(plan.Output, ReceiptName), JsonSerializer.Serialize(new Receipt { Selection = plan.Selection }, Json), ct);

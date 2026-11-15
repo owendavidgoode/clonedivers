@@ -89,6 +89,10 @@ internal static partial class HellForgeSetup
         await File.WriteAllTextAsync(Path.Combine(backup, "protected.json"), JsonSerializer.Serialize(records, HellForgePack.Json), ct);
         return records;
     }
+    internal static long ProtectedBackupBytes(string root) => ProtectedPaths(root).Sum(relative => {
+        var path = Path.Combine(root, relative); HellForgeGameplayCatalog.RejectLinks(path);
+        return new FileInfo(path).Length;
+    });
     static async Task VerifyProtected(string root, IEnumerable<ProtectedFile> files, CancellationToken ct)
     {
         foreach (var file in files)
@@ -102,7 +106,8 @@ internal static partial class HellForgeSetup
     }
     internal static async Task UpdateAsync(string root, IProgress<ForgeSetupProgress>? progress, CancellationToken ct,
         string? cache = null, PackFile? nextArtifact = null, PackFile? previousArtifact = null,
-        Func<string, string, Task>? unpack = null, Func<CancellationToken, Task<HellForgeStatus>>? status = null, Action<string>? idle = null)
+        Func<string, string, Task>? unpack = null, Func<CancellationToken, Task<HellForgeStatus>>? status = null, Action<string>? idle = null,
+        Func<string, long?>? cacheAvailableBytes = null)
     {
         root = HellForgeCommands.ValidateRoot(root); cache ??= CacheRoot; unpack ??= UnpackAsync; idle ??= RequireUpgradeIdle;
         status ??= token => new HellForgeClient(root).StatusAsync(token);
@@ -117,9 +122,12 @@ internal static partial class HellForgeSetup
         using var lease = new FileStream(record + ".lock", FileMode.OpenOrCreate, FileAccess.ReadWrite, FileShare.None);
         if (File.Exists(record) && JsonSerializer.Deserialize<UpgradeIntent>(File.ReadAllText(record), HellForgePack.Json)?.State == "pending")
             throw new IOException("Restore the interrupted Forge upgrade before retrying.");
-        var next = await DownloadAsync(cache, progress, ct, nextArtifact ?? Installer);
-        var previous = await DownloadAsync(cache, progress, ct, previousArtifact ?? PreviousInstaller);
+        nextArtifact ??= Installer; previousArtifact ??= PreviousInstaller;
+        await RequireCacheSpaceAsync(cache, [nextArtifact, previousArtifact], ProtectedBackupBytes(root), ct, cacheAvailableBytes);
+        var next = await DownloadAsync(cache, progress, ct, nextArtifact);
+        var previous = await DownloadAsync(cache, progress, ct, previousArtifact);
         idle(root); ct.ThrowIfCancellationRequested();
+        await RequireCacheSpaceAsync(cache, [], ProtectedBackupBytes(root), ct, cacheAvailableBytes);
         var backup = Path.Combine(cache, "backups", "forge-upgrade-" + Guid.NewGuid().ToString("N"));
         HellForgeGameplayCatalog.RejectLinks(backup); Directory.CreateDirectory(backup);
         var files = await SnapshotUpgrade(root, backup, ct);

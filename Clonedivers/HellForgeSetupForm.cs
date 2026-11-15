@@ -37,7 +37,7 @@ internal sealed class HellForgeSetupForm : Form
         pathRow.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100)); pathRow.ColumnStyles.Add(new ColumnStyle(SizeType.AutoSize));
         pathRow.Controls.Add(folder); pathRow.Controls.Add(change); layout.Controls.Add(pathRow);
         folder.BackColor = Disabled; folder.ForeColor = TextMain; change.Margin = new Padding(8, 0, 0, 0);
-        var storage = Row(); storage.Text = "502 MB installer · Allow at least 50 GB for setup, plus appearance packs."; storage.ForeColor = TextMute; layout.Controls.Add(storage);
+        var storage = Row(); storage.Text = "New installs save the 502 MB installer beside Forge. Allow at least 50 GB for setup, plus appearance packs."; storage.ForeColor = TextMute; layout.Controls.Add(storage);
         detail.Margin = new Padding(0, 14, 0, 12); layout.Controls.Add(detail); layout.Controls.Add(progress);
         layout.Controls.Add(approval);
         next.BackColor = Orange; next.ForeColor = Bg; next.FlatStyle = FlatStyle.Flat; next.FlatAppearance.BorderSize = 0; next.FlatAppearance.MouseOverBackColor = OrangeHot;
