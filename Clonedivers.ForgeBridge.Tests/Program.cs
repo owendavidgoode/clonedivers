@@ -94,6 +94,7 @@ if (args.Contains("--export-only"))
     return;
 }
 string Request(long id, params string[] args) => JsonSerializer.Serialize(new { id, args }) + "\n";
+await Clonedivers.ForgeBridge.Tests.CleanupFlowTests.Run(Check);
 Check(ForgeEntryPolicy.Normalize([], true).SequenceEqual(new[] { "--forge" }), "Forge package defaults to Forge rather than silently opening the Steam-era UI");
 Check(ForgeEntryPolicy.Normalize(["--steam", "--gui"], true).SequenceEqual(new[] { "--gui" }), "explicit Steam fallback retains the existing desktop route");
 Check(ForgeEntryPolicy.Normalize(["--forge-preview", "running", "--gui"], true).SequenceEqual(new[] { "--forge-preview", "running", "--gui" }), "preview entry remains disconnected from live Forge routing");
@@ -133,7 +134,7 @@ Check(output.ToString().Contains("\"id\":2,\"ok\":false") && output.ToString().C
 
 fake = new Fake { LastStatus = "cleanup_failed", LastFailure = "fixture cleanup failure" }; output = new StringWriter();
 await new BridgeSession(fake.Execute).ServeAsync(new StringReader(Request(1, "play", "--profile", "default") + Request(2, "stop") + Request(3, "stop")), output);
-Check(output.ToString().Contains("\"id\":2,\"ok\":false") && output.ToString().Contains("fixture cleanup failure") && output.ToString().Contains("already-stopped") && fake.Calls.Count(c => c[0] == "stop") == 1,
+Check(output.ToString().Contains("\"id\":2,\"ok\":false") && output.ToString().Contains("fixture cleanup failure") && output.ToString().Contains("\"id\":3,\"ok\":false") && fake.Calls.Count(c => c[0] == "stop") == 1,
     "an ended session with failed cleanup is reported like the official --wait exit code without a second stop");
 
 fake = new Fake(); output = new StringWriter();

@@ -52,7 +52,10 @@ internal sealed class LinuxForgePreferences
     internal HellForgePack.Selection PackSelection() => HellForgePack.PinnedSelection(Mode == "empire" ? "empire" : DeltaSquad ? "commandos" : "clonedivers", Texture,
         new Dictionary<string, bool> { ["droids"] = Droids, ["covenant"] = Covenant });
 }
-internal sealed record ForgeAccountView(bool Captured, bool Imported, string Message);
+internal sealed record ForgeAccountView(bool Captured, bool Imported, string Message)
+{
+    internal bool NeedsFreshCapture => !Captured && !Imported && Message.Contains("fresh HD2 capture", StringComparison.OrdinalIgnoreCase);
+}
 internal sealed record ForgePlayerState(HellForgeStatus Status, bool Ready, string Detail, ForgeAccountView? Account, HellForgeMods? Mods);
 
 internal sealed class LinuxForgePlayer(IForgeConnection connection, LinuxForgePreferences preferences) : IAsyncDisposable
@@ -60,6 +63,7 @@ internal sealed class LinuxForgePlayer(IForgeConnection connection, LinuxForgePr
     internal LinuxForgePreferences Preferences { get; } = preferences;
     internal ForgePlayerState? State { get; private set; }
     internal bool OwnsSession { get; private set; }
+    internal bool RequestedAccountSync { get; private set; }
     // A faulted bridge can neither confirm nor end a session; closing stdin hands cleanup to the bridge's EOF path, so it must not pin the window.
     internal bool Disconnected => connection.Faulted;
     internal bool SessionActive => !Disconnected && (OwnsSession || State?.Status.Running == true);
@@ -98,6 +102,12 @@ internal sealed class LinuxForgePlayer(IForgeConnection connection, LinuxForgePr
             State = json.Deserialize<ForgePlayerState>(HellForgePack.Json) ?? throw new InvalidDataException("Missing player status.");
             if (!State.Status.Running) OwnsSession = false;
             Error = null;
+            if (RequestedAccountSync && !SessionActive && !Game.IsRunning())
+            {
+                if (State.Account is { Imported: true } or { NeedsFreshCapture: true }) RequestedAccountSync = false;
+                else if (State.Account is { Captured: true, Imported: false })
+                { RequestedAccountSync = false; await ImportAsync(ct); }
+            }
         }
         catch (Exception error) { Error = error.Message; throw; }
     }
@@ -139,7 +149,13 @@ internal sealed class LinuxForgePlayer(IForgeConnection connection, LinuxForgePr
         OwnsSession = false; State = null;
         await RefreshAsync(ct);
         }
-        catch (Exception error) { Error = error.Message; throw; }
+        catch (Exception error)
+        {
+            // A definitive cleanup failure can arrive after the game has stopped. Refresh ownership so closing stays available.
+            if (!Disconnected)
+                try { await RefreshAsync(ct); } catch { }
+            Error = error.Message; throw;
+        }
     }
     internal async Task ImportAsync(CancellationToken ct = default)
     {
@@ -190,6 +206,7 @@ internal sealed class LinuxForgePlayer(IForgeConnection connection, LinuxForgePr
         if (SessionActive) throw new InvalidOperationException("End the session before syncing your account.");
         await connection.RunAsync(["select-account"], ct);
         await connection.RunAsync(["open-manager"], ct);
+        RequestedAccountSync = true;
     }
     internal async Task<HellForgePack.Plan> PlanAppearanceAsync(IProgress<string>? progress = null, CancellationToken ct = default)
     {
