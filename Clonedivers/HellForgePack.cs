@@ -147,11 +147,12 @@ public static class HellForgePack
         catch (Exception error) when (error is IOException or UnauthorizedAccessException or System.Security.SecurityException or ArgumentException)
         { return null; } // unavailable capacity is not evidence of a full disk; actual writes remain checked
     }
-    public static Task ExportAsync(Plan plan, bool download, IProgress<string>? progress = null, CancellationToken ct = default) =>
-        ExportAsync(plan, download, progress, ct, AvailableExportBytes);
+    public static Task ExportAsync(Plan plan, bool download, IProgress<string>? progress = null, CancellationToken ct = default,
+        IProgress<(long Done, long Total)>? bytes = null) =>
+        ExportAsync(plan, download, progress, ct, AvailableExportBytes, bytes: bytes);
 
     internal static async Task ExportAsync(Plan plan, bool download, IProgress<string>? progress, CancellationToken ct, Func<string, long?> availableBytes,
-        Func<PackFile, string, CancellationToken, Task>? downloadFile = null)
+        Func<PackFile, string, CancellationToken, Task>? downloadFile = null, IProgress<(long Done, long Total)>? bytes = null)
     {
         ct.ThrowIfCancellationRequested();
         FileSafety.ValidateTargets(plan.Selection.Files);
@@ -171,7 +172,7 @@ public static class HellForgePack
             RejectInstallationOutput(cache); FileSafety.RejectLink(cache); Directory.CreateDirectory(cache);
             using var lease = new FileStream(FileSafety.Child(cache, "download.lock"), FileMode.OpenOrCreate, FileAccess.ReadWrite, FileShare.None);
             PruneDownloadCache(cache, plan.Missing);
-            await ExportFilesAsync(plan, cache, progress, ct, target => unverified = target, downloadFile);
+            await ExportFilesAsync(plan, cache, progress, ct, target => unverified = target, downloadFile, bytes);
         }
         catch
         {
@@ -207,17 +208,20 @@ public static class HellForgePack
         }
     }
     static async Task ExportFilesAsync(Plan plan, string cache, IProgress<string>? progress, CancellationToken ct, Action<string?> writing,
-        Func<PackFile, string, CancellationToken, Task>? downloadFile)
+        Func<PackFile, string, CancellationToken, Task>? downloadFile, IProgress<(long Done, long Total)>? bytes)
     {
         var exported = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
-        int done = 0;
+        int done = 0; long completed = 0;
+        bytes?.Report((0, plan.Bytes));
         foreach (var file in plan.Selection.Files)
         {
             ct.ThrowIfCancellationRequested();
             var target = FileSafety.Child(plan.Output, file.Name); writing(target); string? cached = null;
+            long reported = 0;
+            void Report(long value) { reported = Math.Max(reported, Math.Clamp(value, 0, file.Size)); bytes?.Report((completed + reported, plan.Bytes)); }
             if (file.Size == 0) await File.WriteAllBytesAsync(target, [], ct);
-            else if (exported.TryGetValue(file.Sha256, out var prior)) await CopyLocalAsync(prior, target, file.Size, ct);
-            else if (plan.Local.TryGetValue(file.Sha256, out var source)) await CopyLocalAsync(source, target, file.Size, ct);
+            else if (exported.TryGetValue(file.Sha256, out var prior)) await CopyLocalAsync(prior, target, file.Size, ct, Report);
+            else if (plan.Local.TryGetValue(file.Sha256, out var source)) await CopyLocalAsync(source, target, file.Size, ct, Report);
             else
             {
                 progress?.Report($"Downloading {done + 1}/{plan.Selection.Files.Count}: {Pack.FormatBytes(file.Size)}");
@@ -225,7 +229,9 @@ public static class HellForgePack
                     !uri.AbsolutePath.StartsWith("/owendavidgoode/clonedivers/releases/download/", StringComparison.Ordinal))
                     throw new InvalidDataException("Only Clonedivers GitHub release assets may be downloaded.");
                 cached = CachedAsset(cache, file);
-                if (downloadFile == null) await Pack.DownloadAsync(file, cached, null, ct);
+                FileSafety.RejectLink(cached);
+                if (File.Exists(cached) && new FileInfo(cached).Length <= file.Size) Report(new FileInfo(cached).Length);
+                if (downloadFile == null) await Pack.DownloadAsync(file, cached, new ByteProgress(p => Report(p.Done)), ct);
                 else await downloadFile(file, cached, ct);
                 if (new FileInfo(cached).Length != file.Size || !string.Equals(await HashAsync(cached, ct), file.Sha256, StringComparison.OrdinalIgnoreCase))
                     throw new InvalidDataException($"Download hash mismatch: {file.Name}");
@@ -234,6 +240,7 @@ public static class HellForgePack
             if (new FileInfo(target).Length != file.Size || !string.Equals(await HashAsync(target, ct), file.Sha256, StringComparison.OrdinalIgnoreCase))
                 throw new InvalidDataException($"Export hash mismatch: {file.Name}");
             writing(null); exported.TryAdd(file.Sha256, target);
+            Report(file.Size); completed += file.Size;
             // The verified export is now the reusable copy. Keep only unfinished downloads.
             if (cached != null) File.Delete(cached);
             if (++done % 100 == 0) progress?.Report($"Verified {Math.Min(done, plan.Selection.Files.Count)}/{plan.Selection.Files.Count} files…");
@@ -245,6 +252,8 @@ public static class HellForgePack
             Description = "Star Wars pack for HellForge. Choose difficulties 1–11 in game. Gameplay and multiplayer validation pending.", Options = Array.Empty<object>()
         }, Json), ct);
     }
+    sealed class ByteProgress(Action<(long Done, long Total)> report) : IProgress<(long Done, long Total)>
+    { public void Report((long Done, long Total) value) => report(value); }
     // After a complete export, earlier interrupted ones (launcher-named, no
     // receipt, untouched since this one began) were reuse sources; drop them.
     internal static void PruneAbandonedExports(string output, DateTime before)
@@ -261,15 +270,61 @@ public static class HellForgePack
             catch (Exception error) when (error is IOException or UnauthorizedAccessException) { }
     }
 
-    internal static async Task CopyLocalAsync(string source, string target, long expected, CancellationToken ct)
+    internal static Selection? ReadStorageReceipt(string folder)
+    {
+        var path = Path.Combine(folder, ReceiptName);
+        for (var parent = new DirectoryInfo(folder); parent != null; parent = parent.Parent) FileSafety.RejectLink(parent.FullName);
+        FileSafety.RejectLink(path);
+        if (!File.Exists(path)) return null;
+        if (new FileInfo(path).Length > 4 * 1024 * 1024) throw new InvalidDataException("Oversized export receipt.");
+        var receipt = JsonSerializer.Deserialize<Receipt>(File.ReadAllText(path), Json);
+        if (receipt?.Format != 1 || receipt.Selection == null) throw new InvalidDataException("Invalid export receipt.");
+        _ = GuidFor(receipt.Selection.Mode); FileSafety.ValidateTargets(receipt.Selection.Files);
+        return receipt.Selection;
+    }
+    internal static string SelectionIdentity(Selection s) => JsonSerializer.Serialize(new {
+        s.Mode, s.Texture, s.Version, s.GameBuild, s.ManifestSha256,
+        Options = s.Options.OrderBy(p => p.Key, StringComparer.Ordinal),
+        Files = s.Files.OrderBy(f => f.Name, StringComparer.Ordinal).Select(f => new { f.Name, f.Size, f.Sha256 })
+    });
+    internal static List<string> SupersededExports(string exports, HashSet<string> selections)
+    {
+        FileSafety.RejectLink(exports);
+        if (!Directory.Exists(exports)) return [];
+        var receipts = new List<(DirectoryInfo Folder, Selection Selection)>();
+        foreach (var folder in new DirectoryInfo(exports).EnumerateDirectories())
+        {
+            if (!System.Text.RegularExpressions.Regex.IsMatch(folder.Name, "^[a-z]{1,16}-[0-9a-f]{32}$")) continue;
+            if (ReadStorageReceipt(folder.FullName) is { } selection) receipts.Add((folder, selection));
+        }
+        return receipts.GroupBy(r => r.Selection.Mode).SelectMany(group => group.OrderByDescending(r => r.Folder.LastWriteTimeUtc)
+            .ThenBy(r => r.Folder.Name, StringComparer.Ordinal).Skip(1))
+            .Where(r => !selections.Contains(SelectionIdentity(r.Selection))).Select(r => r.Folder.FullName).ToList();
+    }
+    internal static void DeleteStorageFolder(string cache, string folder)
+    {
+        cache = Path.GetFullPath(cache); folder = Path.GetFullPath(folder);
+        if (folder.Equals(cache, StringComparison.OrdinalIgnoreCase) || !Within(folder, cache)) throw new IOException("Storage cleanup escaped its cache.");
+        for (var parent = new DirectoryInfo(folder); parent != null; parent = parent.Parent) FileSafety.RejectLink(parent.FullName);
+        var pending = new Stack<string>(); pending.Push(folder);
+        while (pending.TryPop(out var directory))
+            foreach (var path in Directory.EnumerateFileSystemEntries(directory))
+            {
+                FileSafety.RejectLink(path);
+                if (Directory.Exists(path)) pending.Push(path);
+            }
+        Directory.Delete(folder, recursive: true);
+    }
+
+    internal static async Task CopyLocalAsync(string source, string target, long expected, CancellationToken ct, Action<long>? bytes = null)
     {
         FileSafety.RejectLink(source);
         await using var input = new FileStream(source, FileMode.Open, FileAccess.Read, FileShare.Read, 128 * 1024, FileOptions.Asynchronous | FileOptions.SequentialScan);
         if (input.Length != expected) throw new InvalidDataException("Reusable pack content changed size; prepare again.");
         await using var output = new FileStream(target, FileMode.CreateNew, FileAccess.Write, FileShare.None, 128 * 1024, FileOptions.Asynchronous | FileOptions.SequentialScan);
-        await CopyExactAsync(input, output, expected, ct);
+        await CopyExactAsync(input, output, expected, ct, bytes);
     }
-    internal static async Task CopyExactAsync(Stream input, Stream output, long expected, CancellationToken ct)
+    internal static async Task CopyExactAsync(Stream input, Stream output, long expected, CancellationToken ct, Action<long>? bytes = null)
     {
         var buffer = new byte[128 * 1024]; long total = 0;
         int count;
@@ -279,6 +334,7 @@ public static class HellForgePack
             if (count > expected - total) throw new InvalidDataException("Pack content exceeds catalog size.");
             await output.WriteAsync(buffer.AsMemory(0, count), ct);
             total += count;
+            bytes?.Invoke(total);
         }
         if (total != expected) throw new InvalidDataException("Pack content is shorter than its catalog size.");
     }

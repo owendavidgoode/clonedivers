@@ -112,19 +112,19 @@ internal static partial class HellForgeSetup
 
     internal static void RequireGameSpace(string game)
     {
-        // Completed files count towards the 50 GB budget on a resumed download.
+        // Completed files count towards the 70 GB budget on a resumed download.
         // The official downloader additionally checks its exact chunk plan.
         long saved = 0;
         if (Directory.Exists(game))
             foreach (var path in Directory.EnumerateFiles(game, "*", new EnumerationOptions { RecurseSubdirectories = true, AttributesToSkip = FileAttributes.ReparsePoint }))
-                saved = Math.Min(50L << 30, saved + new FileInfo(path).Length);
+                saved = Math.Min(SetupBudget, saved + new FileInfo(path).Length);
         var drive = new DriveInfo(Path.GetPathRoot(game)!);
-        CheckGameSpace(drive.AvailableFreeSpace, saved);
+        CheckGameSpace(drive.AvailableFreeSpace, saved, drive.Name);
     }
-    internal static void CheckGameSpace(long free, long saved)
+    internal static void CheckGameSpace(long free, long saved, string drive = "Forge")
     {
-        var needed = Math.Max(2L << 30, (50L << 30) - Math.Clamp(saved, 0, 50L << 30));
-        if (free < needed) throw new IOException($"Free {Pack.FormatBytes(needed - free)} more on the Forge drive, then continue. Downloaded files are kept for resume.");
+        var needed = Math.Max(2L << 30, SetupBudget - Math.Clamp(saved, 0, SetupBudget));
+        if (free < needed) throw new IOException($"Drive {drive} needs {Pack.FormatBytes(needed)} free for the 70 GB Forge setup budget; {Pack.FormatBytes(free)} available. Free {Pack.FormatBytes(needed - free)} more, then continue. Downloaded files are kept for resume.");
     }
 
     internal static ProcessStartInfo SetupStartInfo(string root, IReadOnlyList<string> args)

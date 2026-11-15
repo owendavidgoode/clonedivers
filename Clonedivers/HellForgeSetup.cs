@@ -51,8 +51,13 @@ internal static partial class HellForgeSetup
     internal static void RequireSpace(string root)
     {
         var drive = new DriveInfo(Path.GetPathRoot(root)!);
-        if (drive.IsReady && drive.AvailableFreeSpace < 50L * 1024 * 1024 * 1024)
-            throw new IOException($"Drive {drive.Name} has {Pack.FormatBytes(drive.AvailableFreeSpace)} free. Allow at least 50 GB for Forge setup, plus space for appearance packs. Choose another drive or free space first.");
+        if (drive.IsReady) CheckSetupSpace(drive.AvailableFreeSpace, drive.Name);
+    }
+    internal const long SetupBudget = 70L << 30;
+    internal static void CheckSetupSpace(long free, string drive)
+    {
+        if (free < SetupBudget)
+            throw new IOException($"Drive {drive} has {Pack.FormatBytes(free)} free. Allow at least 70 GB for Forge setup and appearance packs. Choose another drive or free space first.");
     }
 
     internal const long CacheReserve = 8L * 1024 * 1024; // backup inventory, recovery record and working space
@@ -61,6 +66,40 @@ internal static partial class HellForgeSetup
         FileSafety.ValidateFile(artifact, named: false);
         HellForgeGameplayCatalog.RejectLinks(cache);
         return FileSafety.Child(cache, "HellForge-Setup-" + artifact.Sha256 + ".exe");
+    }
+    internal static async Task ReuseInstallerAsync(string oldCache, string cache, PackFile artifact, CancellationToken ct,
+        Func<string, long?>? availableBytes = null)
+    {
+        var source = InstallerPath(oldCache, artifact); var target = InstallerPath(cache, artifact);
+        if (Path.GetFullPath(source).Equals(Path.GetFullPath(target), StringComparison.OrdinalIgnoreCase) || !File.Exists(source)) return;
+        HellForgeGameplayCatalog.RejectLinks(source); HellForgeGameplayCatalog.RejectLinks(target);
+        using var lease = new FileStream(FileSafety.Child(oldCache, "forge-setup.lock"), FileMode.OpenOrCreate, FileAccess.ReadWrite, FileShare.None);
+        async Task<long> Retained(string path)
+        {
+            if (!File.Exists(path)) return -1;
+            var length = new FileInfo(path).Length;
+            return length > artifact.Size || length == artifact.Size && !string.Equals(await HellForgePack.HashAsync(path, ct), artifact.Sha256, StringComparison.OrdinalIgnoreCase) ? -1 : length;
+        }
+        var retained = await Retained(source); var current = await Retained(target);
+        ct.ThrowIfCancellationRequested();
+        if (retained < 0 || current >= retained) { File.Delete(source); return; }
+        Directory.CreateDirectory(cache);
+        if (Path.GetPathRoot(source)!.Equals(Path.GetPathRoot(target), StringComparison.OrdinalIgnoreCase))
+            File.Move(source, target, overwrite: true);
+        else
+        {
+            if ((availableBytes ?? HellForgePack.AvailableExportBytes)(cache) is long free && free < retained + CacheReserve)
+                throw new IOException($"Not enough space to move the retained Forge installer into {cache} (drive {Path.GetPathRoot(cache)}). {Pack.FormatBytes(retained + CacheReserve)} needed.");
+            var temporary = target + ".migrating"; HellForgeGameplayCatalog.RejectLinks(temporary);
+            try
+            {
+                File.Delete(temporary);
+                await HellForgePack.CopyLocalAsync(source, temporary, retained, ct);
+                if (await HellForgePack.HashAsync(source, ct) != await HellForgePack.HashAsync(temporary, ct)) throw new IOException("Retained installer changed while moving its cache. Retry setup.");
+                File.Move(temporary, target, overwrite: true); File.Delete(source);
+            }
+            finally { File.Delete(temporary); }
+        }
     }
     internal static async Task RequireCacheSpaceAsync(string cache, IEnumerable<PackFile> artifacts, long backupBytes, CancellationToken ct,
         Func<string, long?>? availableBytes = null)
@@ -96,14 +135,16 @@ internal static partial class HellForgeSetup
 
     internal static async Task<string> InstallAsync(string target, IProgress<ForgeSetupProgress>? progress, CancellationToken ct,
         string? cache = null, PackFile? artifact = null, Func<string, string, Task>? unpack = null, Action<string>? spaceCheck = null,
-        Func<string, long?>? cacheAvailableBytes = null)
+        Func<string, long?>? cacheAvailableBytes = null, string? legacyCache = null)
     {
         target = ValidateTarget(target); RequireNewTarget(target);
         if (Game.IsRunning()) throw new InvalidOperationException("Close HD2 before installing Forge. Your current session has not been changed.");
         (spaceCheck ?? RequireSpace)(target);
+        bool defaultCache = cache == null;
         cache ??= InstallCache(target); artifact ??= Installer;
         HellForgeGameplayCatalog.RejectLinks(cache); Directory.CreateDirectory(cache);
         using var setupLock = new FileStream(FileSafety.Child(cache, "forge-setup.lock"), FileMode.OpenOrCreate, FileAccess.ReadWrite, FileShare.None);
+        if (defaultCache) await ReuseInstallerAsync(legacyCache ?? CacheRoot, cache, artifact, ct, cacheAvailableBytes);
         await RequireCacheSpaceAsync(cache, [artifact], 0, ct, cacheAvailableBytes);
         var installer = await DownloadAsync(cache, progress, ct, artifact);
         ct.ThrowIfCancellationRequested();

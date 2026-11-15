@@ -186,6 +186,7 @@ static class TestProgram
             Task.Run(() => ForgeMigrationTests.Run(root, Check)).GetAwaiter().GetResult();
             Task.Run(() => ForgeSetupTests.Run(root, Check)).GetAwaiter().GetResult();
             Task.Run(() => DownloadCacheTests.Run(root, Check)).GetAwaiter().GetResult();
+            Task.Run(() => StorageTests.Run(root, Check)).GetAwaiter().GetResult();
             Task.Run(() => GameplayInstallTests.Run(root, Check)).GetAwaiter().GetResult();
             Task.Run(() => TurnkeySetupTests.Run(root, Check)).GetAwaiter().GetResult();
             FpvDefaultsTests.Run(root, Check);

@@ -109,6 +109,7 @@ internal static partial class HellForgeSetup
         Func<string, string, Task>? unpack = null, Func<CancellationToken, Task<HellForgeStatus>>? status = null, Action<string>? idle = null,
         Func<string, long?>? cacheAvailableBytes = null)
     {
+        bool defaultCache = cache == null;
         root = HellForgeCommands.ValidateRoot(root); cache ??= CacheRoot; unpack ??= UnpackAsync; idle ??= RequireUpgradeIdle;
         status ??= token => new HellForgeClient(root).StatusAsync(token);
         idle(root);
@@ -123,6 +124,9 @@ internal static partial class HellForgeSetup
         if (File.Exists(record) && JsonSerializer.Deserialize<UpgradeIntent>(File.ReadAllText(record), HellForgePack.Json)?.State == "pending")
             throw new IOException("Restore the interrupted Forge upgrade before retrying.");
         nextArtifact ??= Installer; previousArtifact ??= PreviousInstaller;
+        if (defaultCache)
+            foreach (var artifact in new[] { nextArtifact, previousArtifact }.DistinctBy(a => a.Sha256))
+                await ReuseInstallerAsync(InstallCache(root), cache, artifact, ct, cacheAvailableBytes);
         await RequireCacheSpaceAsync(cache, [nextArtifact, previousArtifact], ProtectedBackupBytes(root), ct, cacheAvailableBytes);
         var next = await DownloadAsync(cache, progress, ct, nextArtifact);
         var previous = await DownloadAsync(cache, progress, ct, previousArtifact);

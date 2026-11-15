@@ -96,7 +96,7 @@ internal static class TurnkeySetupTests
             try { HellForgeSetup.CheckGameSpace(free, 0); check(false, "fresh download needs its space budget"); }
             catch (IOException) { check(true, "insufficient fresh-download space gives a recoverable failure"); }
         }
-        HellForgeSetup.CheckGameSpace(3L << 30, 48L << 30);
+        HellForgeSetup.CheckGameSpace(3L << 30, 68L << 30);
         check(true, "resume accounts for retained game bytes while preserving a free-space reserve");
         var start = HellForgeSetup.SetupStartInfo(root, ["steam-download", "--out", Path.Combine(root, "game with spaces"), "--sign-in", "qr"]);
         check(!start.UseShellExecute && start.CreateNoWindow && start.StandardErrorEncoding?.CodePage == HellForgeSetup.TerminalEncoding.CodePage && start.ArgumentList.Count == 5,
