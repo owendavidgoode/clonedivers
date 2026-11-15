@@ -18,7 +18,7 @@ internal sealed class ForgeWindow : Window
     readonly bool preview;
     readonly string previewState = "ready";
     LinuxForgePlayer? player;
-    bool busy, closing, closed, updating, requestedAccountSync, requestedSetup;
+    bool busy, closing, closed, updating, requestedSetup;
     bool checkingLauncherUpdate, updateDeferred, updateFailed;
     ForgeAction primaryAction, retryAction = ForgeAction.Setup;
     readonly string? renderOutput;
@@ -262,17 +262,15 @@ internal sealed class ForgeWindow : Window
         await player.RefreshAsync(lifetime.Token);
         if (requestedSetup && !player.SessionActive && player.State?.Status is { GameCopyReady: true, RunnerReady: true, CompatibilityProblem: null })
         { requestedSetup = false; await PrepareAsync(); }
-        if (requestedAccountSync && !player.SessionActive && !Game.IsRunning() && player.State?.Account is { Captured: true, Imported: false })
-        { requestedAccountSync = false; await player.ImportAsync(lifetime.Token); }
     }
     async Task FinishAccountAsync()
     {
         if (player == null) return;
-        if (player.State?.Account is { Captured: true, Imported: false }) { requestedAccountSync = false; await player.ImportAsync(lifetime.Token); }
+        if (player.State?.Account is { Captured: true, Imported: false }) await player.ImportAsync(lifetime.Token);
         else if (player.State?.Account?.Imported != true)
         {
-            await player.BeginAccountSyncAsync(lifetime.Token); requestedAccountSync = true;
-            message.Text = "In official Forge, open Profile > Account sync > Sync Inventory. Default is selected. Approve the Linux helper yourself and pass HD2’s title screen. Keep Clonedivers open; it finishes the verified import after cleanup.";
+            await player.BeginAccountSyncAsync(lifetime.Token);
+            message.Text = ForgePresentation.SyncInstructions;
             moreOptions.IsExpanded = sessionDetails.IsExpanded = true;
         }
     }
@@ -343,7 +341,7 @@ internal sealed class ForgeWindow : Window
             disconnected: lost, active: active, ownsSession: preview ? active : player?.OwnsSession == true,
             canLaunch: preview ? previewState is "ready" or "details" : player?.CanLaunch == true, busy: working,
             error: lastError ?? player?.Error ?? (preview && previewState == "error" ? "HttpRequestException: 504 /internal/diagnostic" : null),
-            updateVersion: version, updateFailed: updateFailed || preview && previewState == "update-failed", syncing: requestedAccountSync, retryAction: player == null ? retryAction : ForgeAction.Refresh);
+            updateVersion: version, updateFailed: updateFailed || preview && previewState == "update-failed", syncing: player?.RequestedAccountSync == true, retryAction: player == null ? retryAction : ForgeAction.Refresh);
         primaryAction = view.Action; state.Text = view.Headline; detail.Text = view.Detail; Launch.Content = view.Button;
         if (!working && !active && lastError == null && updateHeadline != null) { state.Text = updateHeadline; detail.Text = updateDetail; }
         if (checking) { state.Text = "Checking launcher updates…"; detail.Text = "Looking for a compatible Linux package."; Launch.Content = "Checking…"; }
@@ -358,7 +356,7 @@ internal sealed class ForgeWindow : Window
         setup.IsEnabled = fallback.IsEnabled = !busy && !active && !preview;
         report.IsEnabled = !busy && !preview;
         account.Text = player?.State?.Account?.Message ?? "One-way account import: HD2 → Forge. Use only a capture the official backend verifies for this PC/account.";
-        diagnostics.Text = "Installation: " + (preferences.InstallRoot ?? "Not connected") + "\n" + (failureDetail ?? lastError ?? player?.Error ?? player?.State?.Detail ?? "No session diagnostics.");
+        diagnostics.Text = "Installation: " + (preferences.InstallRoot ?? "Not connected") + "\n" + (failureDetail ?? lastError ?? player?.Error ?? player?.State?.Status.LastFailure ?? player?.State?.Status.LastNotice ?? player?.State?.Detail ?? "No session diagnostics.");
         if (reportPath != null) diagnostics.Text += "\nSupport report saved: " + reportPath;
         updating = false;
     }

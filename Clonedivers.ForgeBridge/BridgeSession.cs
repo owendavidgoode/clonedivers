@@ -35,7 +35,7 @@ internal sealed class BridgeSession(Func<IReadOnlyList<string>, CancellationToke
                         var running = status.GetProperty("session").GetProperty("running").GetBoolean();
                         if (args[0] == "stop")
                         {
-                            if (!running) { ownedRun = null; reply = new { id, ok = true, result = new { @event = "already-stopped" } }; await WriteAsync(output, reply, ct); continue; }
+                            if (!running) { ownedRun = null; RequireCompletedCleanup(status); reply = new { id, ok = true, result = new { @event = "already-stopped" } }; await WriteAsync(output, reply, ct); continue; }
                             var current = status.GetProperty("session").GetProperty("lastRun").GetString();
                             if (ownedRun == null || !string.Equals(current, ownedRun, StringComparison.OrdinalIgnoreCase))
                                 throw new InvalidOperationException("This bridge does not own the running session. End it in the launcher that started it.");
@@ -90,20 +90,50 @@ internal sealed class BridgeSession(Func<IReadOnlyList<string>, CancellationToke
         var clock = Stopwatch.StartNew();
         while (true)
         {
-            var session = (await execute(["status"], ct)).GetProperty("session");
+            var status = await execute(["status"], ct);
+            var session = status.GetProperty("session");
             if (!session.GetProperty("running").GetBoolean())
             {
                 ownedRun = null;
                 var last = session.TryGetProperty("lastStatus", out var text) && text.ValueKind == JsonValueKind.String ? text.GetString() : null;
-                // Same outcome as the official --wait exit code: only "observed" ended cleanly.
-                if (string.Equals(session.GetProperty("lastRun").GetString(), run, StringComparison.OrdinalIgnoreCase) && last != "observed")
-                    throw new InvalidOperationException("The session stopped, but HellForge cleanup needs attention. " +
-                        (session.TryGetProperty("lastFailure", out var failure) && failure.ValueKind == JsonValueKind.String ? failure.GetString() : "Open Session details before launching again."));
+                RequireCompletedCleanup(status);
                 return JsonSerializer.SerializeToElement(new { @event = "ended", status = last, logs = run });
             }
             if (clock.Elapsed >= StopWait) throw new TimeoutException("HellForge accepted End session, but cleanup is still running. Keep the launcher open and retry End session; do not repair an active game.");
             await Task.Delay(StopPoll, ct);
         }
+    }
+
+    static void RequireCompletedCleanup(JsonElement status)
+    {
+        var session = status.GetProperty("session");
+        var run = session.TryGetProperty("lastRun", out var folder) && folder.ValueKind == JsonValueKind.String ? folder.GetString() : null;
+        var last = session.TryGetProperty("lastStatus", out var text) && text.ValueKind == JsonValueKind.String ? text.GetString() : null;
+        var failure = session.TryGetProperty("lastFailure", out var error) && error.ValueKind == JsonValueKind.String ? error.GetString() : null;
+        failure ??= CompletedCleanupProblem(status.GetProperty("install").GetString()!, run);
+        // "observed" only describes runner completion; separate result keys record copy-back/restore failures.
+        if (failure != null || run != null && last != "observed" || !status.GetProperty("ready").GetProperty("gameCopy").GetBoolean())
+            throw new InvalidOperationException("The session stopped, but HellForge cleanup needs attention. " +
+                (failure ?? "Open Session details before launching again."));
+    }
+
+    static string? CompletedCleanupProblem(string root, string? run)
+    {
+        if (string.IsNullOrWhiteSpace(run)) return null;
+        try
+        {
+            root = Path.TrimEndingDirectorySeparator(Path.GetFullPath(root));
+            var sessions = Path.Combine(root, "logs", "sessions");
+            var folder = Path.TrimEndingDirectorySeparator(Path.GetFullPath(run));
+            if (!string.Equals(Path.GetDirectoryName(folder), sessions, OperatingSystem.IsWindows() ? StringComparison.OrdinalIgnoreCase : StringComparison.Ordinal) ||
+                !Guid.TryParseExact(Path.GetFileName(folder), "N", out _)) return null;
+            var path = Path.Combine(folder, "result.json");
+            foreach (var entry in new[] { root, Path.Combine(root, "logs"), sessions, folder, path }) FileSafety.RejectLink(entry);
+            if (!File.Exists(path) || new FileInfo(path).Length > 1024 * 1024) return null;
+            using var result = JsonDocument.Parse(File.ReadAllText(path));
+            return result.RootElement.ValueKind == JsonValueKind.Object ? HellForgeClient.CleanupProblem(result.RootElement) : null;
+        }
+        catch (Exception e) when (e is IOException or UnauthorizedAccessException or JsonException or ArgumentException or InvalidOperationException) { return null; }
     }
 
     static async Task WriteAsync(TextWriter output, object reply, CancellationToken ct)

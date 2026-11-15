@@ -3,6 +3,8 @@ namespace Clonedivers;
 internal enum ForgeAction { None, Setup, Connect, EndSession, Launch, Manager, Prepare, Sync, Refresh, Update }
 internal sealed record ForgePresentation(string Headline, string Detail, string Button, ForgeAction Action)
 {
+    internal const string SyncInstructions = "In HellForge choose Profile > Account sync > Sync Inventory (default is selected). Approve the Linux helper and pass HD2's title screen. " +
+        "When HD2 closes, return here. Leave Apply import and auto-apply off. Keep Clonedivers open; it verifies and merges your sealed capture after cleanup.";
     internal static ForgePresentation Resolve(ForgePlayerState? state = null, bool connected = false, bool disconnected = false,
         bool active = false, bool ownsSession = false, bool canLaunch = false, bool busy = false, string? error = null,
         string? updateVersion = null, bool updateFailed = false, bool syncing = false, ForgeAction retryAction = ForgeAction.Refresh)
@@ -13,13 +15,15 @@ internal sealed record ForgePresentation(string Headline, string Detail, string 
         if (updateVersion != null) return new(updateFailed ? "Update couldn't open" : "Update available", updateFailed ? "Try again or review Session details in More options." : $"Launcher v{updateVersion} is ready. Open its release page to download the Linux package.", updateFailed ? "Try update again" : "View update", ForgeAction.Update);
         if (error != null) return new("Couldn't finish this step", FailureSummary(error), "Try again", retryAction);
         if (!connected) return new("Let’s get you ready", "Install HellForge, or connect an existing installation in More options.", "Set up Forge", ForgeAction.Setup);
+        if (state?.Status.LastFailure is { } failure) return new("Last session needs attention", failure, canLaunch ? "Launch" : "Check session", canLaunch ? ForgeAction.Launch : ForgeAction.Refresh);
         if (state?.Status is { GameCopyReady: false } or { RunnerReady: false } or { CompatibilityProblem: not null })
             return new("Finish Forge setup", "Continue in HellForge to prepare the game and its dedicated Linux environment.", "Continue setup", ForgeAction.Manager);
         if (state?.Status.RecoveryProblem != null) return new("Restore the previous setup", "Recover the interrupted change before preparing your selected mode.", "Recover setup", ForgeAction.Prepare);
-        if (canLaunch) return new("Ready to play", "Your selected appearance and required gameplay mods are ready.", "Launch", ForgeAction.Launch);
+        if (canLaunch) return new("Ready to play", state?.Status.LastNotice ?? "Your selected appearance and required gameplay mods are ready.", "Launch", ForgeAction.Launch);
         if (syncing) return new("Finish account sync", "Follow the account instructions in Session details, then close HD2 to finish the verified import.", "Check account sync", ForgeAction.Refresh);
+        if (state?.Account is { NeedsFreshCapture: true }) return new("Sync a fresh HD2 capture", state.Account.Message, "Sync account", ForgeAction.Sync);
         if (state?.Account is { Imported: false }) return new("Bring your HD2 account", "Sync your inventory through HellForge. Forge rewards stay local.", state.Account.Captured ? "Finish account sync" : "Sync account", ForgeAction.Sync);
-        return new("Prepare your selected mode", "Install the verified appearance and required gameplay mods before playing.", "Set up mode", ForgeAction.Prepare);
+        return new("Prepare your selected mode", state?.Status.LastNotice ?? "Install the verified appearance and required gameplay mods before playing.", "Set up mode", ForgeAction.Prepare);
     }
 
     internal static string FailureSummary(string diagnostic)
