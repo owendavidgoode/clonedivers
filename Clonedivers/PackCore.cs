@@ -692,7 +692,9 @@ public static class Pack
         using var cts = CancellationTokenSource.CreateLinkedTokenSource(ct);
         cts.CancelAfter(TimeSpan.FromSeconds(12));
         var bust = url + (url.Contains('?') ? "&" : "?") + "t=" + DateTimeOffset.UtcNow.ToUnixTimeSeconds();
-        return await Http.GetStringAsync(bust, cts.Token);
+        try { return await Http.GetStringAsync(bust, cts.Token); }
+        catch (OperationCanceledException error) when (!ct.IsCancellationRequested)
+        { throw new TimeoutException("The manifest request timed out: " + url, error); }
     }
 
     // ---------------------------------------------------------------- legacy zip path (Install pack from file…)

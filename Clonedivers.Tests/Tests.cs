@@ -31,6 +31,13 @@ static class TestProgram
 
     static int Main(string[] args)
     {
+        if (args is ["--forge-form-recovery-only"])
+        {
+            var recovery = Path.Combine(Path.GetTempPath(), "forge-form-recovery-" + Guid.NewGuid().ToString("N")); Directory.CreateDirectory(recovery);
+            try { Task.Run(() => ForgeFormRecoveryTests.Run(recovery, Check)).GetAwaiter().GetResult(); }
+            finally { Directory.Delete(recovery, true); }
+            Console.WriteLine(failures == 0 ? "ALL FORM RECOVERY TESTS PASSED" : $"{failures} FORM RECOVERY TEST(S) FAILED"); return failures == 0 ? 0 : 1;
+        }
         if (args is ["--download-regressions", var downloadRoot])
         {
             Directory.CreateDirectory(downloadRoot);
@@ -170,6 +177,7 @@ static class TestProgram
             SessionLogTests.Run(root, Check);
             TelemetryTests.Run(root, Check);
             Task.Run(() => HellForgeTests.Run(root, Check)).GetAwaiter().GetResult();
+            Task.Run(() => ForgeFormRecoveryTests.Run(root, Check)).GetAwaiter().GetResult();
             Task.Run(() => AccountLeaseTests.Run(Check)).GetAwaiter().GetResult();
             Task.Run(() => WarbondTests.Run(root, Check)).GetAwaiter().GetResult();
             Task.Run(() => ForgeMigrationTests.Run(root, Check)).GetAwaiter().GetResult();

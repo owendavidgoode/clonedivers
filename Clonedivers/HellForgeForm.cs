@@ -8,6 +8,7 @@ namespace Clonedivers;
 public sealed class HellForgeForm : Form
 {
     internal static Func<bool> SteamReadyCheck = SteamReady;
+    internal static Func<string?> CaptureBlockCheck = HellForgeAccount.CaptureBlock;
     static bool SteamReady()
     {
         Process[] clients = [];
@@ -80,10 +81,12 @@ public sealed class HellForgeForm : Form
     readonly System.Windows.Forms.Timer timer = new() { Interval = 5000 };
     readonly ToolStripMenuItem updates = new("Check updates");
     readonly Button later = new() { Text = "Not now", Width = 120, Height = 36, Visible = false, AccessibleName = "Update later" };
+    readonly Button locateMissing = new() { Text = "Locate Forge", Width = 120, Height = 36, Visible = false, AccessibleName = "Locate Forge" };
     readonly ContextMenuStrip moreMenu = new() { BackColor = Slate, ForeColor = TextMain, RenderMode = ToolStripRenderMode.System };
     bool updateDeferred, updateFailed, updateDownloading, updateCancelled, launcherReplaced;
     AppRelease? launcherRelease;
     bool checkingUpdates;
+    bool installationMissing;
     readonly CancellationTokenSource lifetime = new();
     CancellationTokenSource? operation;
     CancellationToken WorkToken => operation?.Token ?? lifetime.Token;
@@ -184,13 +187,14 @@ public sealed class HellForgeForm : Form
         moreMenu.Items.Add(new ToolStripSeparator()); moreMenu.Items.Add(prepare); moreMenu.Items.Add(accountSync);
         moreMenu.Items.Add(updates); moreMenu.Items.Add(new ToolStripSeparator()); moreMenu.Items.Add(location);
         var more = new Button { Text = "&More options \u2304", Width = 180, Height = 36, AccessibleName = "More launcher options" };
-        foreach (var button in new[] { more, later }) {
+        foreach (var button in new[] { more, later, locateMissing }) {
             Style(button, Bg, SlateHot, TextMain); button.Font = new Font("Segoe UI", 10F);
             button.FlatAppearance.BorderSize = 1; button.FlatAppearance.BorderColor = Border; button.FlatAppearance.MouseDownBackColor = Slate;
             button.Margin = new Padding(6, 0, 6, 0);
         }
         more.Click += (_, _) => moreMenu.Show(more, new Point(0, more.Height));
         actions.Controls.Add(more);
+        locateMissing.Click += (_, _) => Locate(); actions.Controls.Add(locateMissing);
         later.Click += (_, _) => { updateDeferred = true; updateFailed = false; lastError = null; message.Text = ""; UpdateView(); };
         actions.Controls.Add(later); root.Controls.Add(actions, 0, 5);
         updates.Click += async (_, _) => { if (launcherRelease != null) { updateDeferred = false; await ApplyLauncherUpdateAsync(); } else await CheckLauncherUpdateAsync(true); };
@@ -218,6 +222,7 @@ public sealed class HellForgeForm : Form
             if (OfferUpdate) await ApplyLauncherUpdateAsync();
             else if (lastStatus?.Running == true) await EndSessionAsync();
             else if (detailsAction) await ShowDetailsAsync();
+            else if (installationMissing) await SetupAsync();
             else if (retryStatus) await RefreshAsync();
             else if (preferences.InstallRoot is { } root && HellForgeSetup.UpgradeProblem(root) != null) await RecoverForgeAsync();
             else if (lastStatus is { } old && HellForgeSetup.IsPrevious(old.Version)) await UpgradeForgeAsync();
@@ -264,6 +269,15 @@ public sealed class HellForgeForm : Form
     void Save() { if (!preview) preferences.Save(); }
     HellForgeClient Client() => new(preferences.InstallRoot ?? throw new InvalidOperationException("Locate your HellForge installation first."));
 
+    // Directory.Exists also returns false for access failures. Only a definite
+    // missing path permits skipping the CLI session check during self-update.
+    internal static bool InstallationMissing(string root)
+    {
+        try { File.GetAttributes(root); return false; }
+        catch (Exception error) when (error is FileNotFoundException or DirectoryNotFoundException or DriveNotFoundException) { return true; }
+        catch (Exception error) when (error is IOException or UnauthorizedAccessException or System.Security.SecurityException) { return false; }
+    }
+
     async Task RefreshAsync()
     {
         if (preview || working || refreshing) return;
@@ -274,6 +288,11 @@ public sealed class HellForgeForm : Form
         try
         {
             if (root == null) { preferences.InstallRoot = HellForgeClient.Detect(); root = preferences.InstallRoot; if (root != null) Save(); }
+            installationMissing = root != null && InstallationMissing(root);
+            if (installationMissing) {
+                lastStatus = null; lastMods = null; lastAccount = null; lastModsFingerprint = lastAccountFingerprint = null;
+                syncRequested = false; lastError = null; captureBlock = CaptureBlockCheck(); return;
+            }
             if (root == null) { lastError = null; return; }
             var client = new HellForgeClient(root);
             var status = await client.StatusAsync(lifetime.Token);
@@ -296,7 +315,7 @@ public sealed class HellForgeForm : Form
                 catch (Exception e) when (e is IOException or UnauthorizedAccessException or InvalidDataException) { }
             }
             string? block;
-            try { block = HellForgeAccount.CaptureBlock(); }
+            try { block = CaptureBlockCheck(); }
             catch (Exception e) when (e is IOException or UnauthorizedAccessException) { block = e.ToString(); }
             HellForgeAccountState? account = lastAccount;
             if (!status.Running && !Game.IsRunning())
@@ -358,15 +377,16 @@ public sealed class HellForgeForm : Form
         launch.AccessibleName = launch.Text;
         if (preview) return;
         later.Visible = false;
-        message.Visible = working;
-        activity.Visible = working;
+        message.Visible = working || !string.IsNullOrWhiteSpace(message.Text);
+        activity.Visible = message.Visible;
         if (working) return;
         if (OfferUpdate) ShowUpdateOffer(launcherRelease!.Version, updateFailed);
-        else if (lastError == null && !string.IsNullOrWhiteSpace(message.Text)) detail.Text = message.Text;
+        else if (!installationMissing && lastError == null && !string.IsNullOrWhiteSpace(message.Text)) detail.Text = message.Text;
     }
     void UpdateState()
     {
         retryStatus = detailsAction = false;
+        locateMissing.Visible = !working && installationMissing;
         activity.Visible = working || !string.IsNullOrWhiteSpace(message.Text) || Cancellable;
         updates.Enabled = !working && !checkingUpdates && lastStatus?.Running != true && (preview || !Game.IsRunning()) && captureBlock == null;
         accountSync.Enabled = !working && (preview ? previewState != "running" : preferences.InstallRoot != null && lastStatus?.Running != true && !Game.IsRunning());
@@ -431,6 +451,10 @@ public sealed class HellForgeForm : Form
             if (lastStatus?.Running == true) { prepare.Enabled = false; launch.Text = "END SESSION"; launch.Enabled = true; }
             else EnableDetails();
             return;
+        }
+        if (installationMissing) {
+            state.Text = "HellForge folder is missing"; detail.Text = "Locate your moved Forge folder, or set up Forge again.";
+            launch.Text = "SET UP FORGE"; launch.Enabled = true; prepare.Enabled = accountSync.Enabled = false; return;
         }
         if (preferences.InstallRoot is { } upgradeRoot && HellForgeSetup.UpgradeProblem(upgradeRoot) != null) {
             state.Text = "Restore the previous Forge application"; detail.Text = "Restore the previous Forge application before continuing."; launch.Text = "RECOVER FORGE UPGRADE"; launch.Enabled = true;
@@ -531,7 +555,7 @@ public sealed class HellForgeForm : Form
     async Task CheckLauncherUpdateAsync(bool interactive)
     {
         if (preview || checkingUpdates || working) return;
-        checkingUpdates = true; UpdateView();
+        checkingUpdates = true; if (interactive) message.Text = ""; UpdateView();
         try
         {
             launcherRelease = await ForgeLauncherUpdate.CheckAsync(AppInfo.Version, lifetime.Token);
@@ -541,16 +565,18 @@ public sealed class HellForgeForm : Form
             if (interactive) message.Text = launcherRelease == null ? "No newer Forge launcher is available." :
                 "Forge launcher " + launcherRelease.Version + " is available. Click its update button to download and restart; game and account data are preserved.";
         }
-        catch (OperationCanceledException) { }
+        catch (OperationCanceledException) when (lifetime.IsCancellationRequested) { }
+        catch (Exception error) when (error is OperationCanceledException or TimeoutException)
+        { if (!IsDisposed) { failureDetail = error.ToString(); if (interactive) message.Text = "Update check timed out. Try Check updates again."; } }
         catch (Exception error) when (error is IOException or HttpRequestException or JsonException or InvalidDataException or InvalidOperationException)
         { if (interactive && !IsDisposed) { failureDetail = error.ToString(); message.Text = FailureSummary(error.ToString()); } }
         finally { checkingUpdates = false; if (!IsDisposed && !Disposing) UpdateView(); }
     }
     async Task RequireUpdateIdleAsync()
     {
-        if (Game.IsRunning() || HellForgeAccount.CaptureBlock() != null)
+        if (Game.IsRunning() || CaptureBlockCheck() != null)
             throw new InvalidOperationException("Finish the game or account sync before replacing the launcher.");
-        if (preferences.InstallRoot != null && (await Client().StatusAsync(WorkToken)).Running)
+        if (preferences.InstallRoot != null && !InstallationMissing(preferences.InstallRoot) && (await Client().StatusAsync(WorkToken)).Running)
             throw new InvalidOperationException("End the Forge session before replacing the launcher.");
     }
     async Task ApplyLauncherUpdateAsync() => await OperationAsync(async () => {
@@ -781,6 +807,7 @@ public sealed class HellForgeForm : Form
         if (picker.ShowDialog(this) != DialogResult.OK) return;
         try {
             preferences.InstallRoot = HellForgeCommands.ValidateRoot(picker.SelectedPath); syncRequested = false; Save();
+            installationMissing = false;
             lastStatus = null; lastMods = null; lastAccount = null; captureBlock = null; lastError = null; UpdateView();
             if (refreshCompletion != null) await refreshCompletion.Task;
             if (!IsDisposed) await RefreshAsync();
@@ -788,12 +815,12 @@ public sealed class HellForgeForm : Form
         catch (Exception e) { MessageBox.Show(this, e.Message, "Locate HellForge", MessageBoxButtons.OK, MessageBoxIcon.Information); }
     }
     async Task SetupAsync() => await OperationAsync(async () => {
-        using var setup = new HellForgeSetupForm(preferences.InstallRoot);
+        using var setup = new HellForgeSetupForm(installationMissing ? null : preferences.InstallRoot);
         setup.Connected += root => { preferences.InstallRoot = HellForgeCommands.ValidateRoot(root); syncRequested = false; Save(); };
         var completed = setup.ShowDialog(this) == DialogResult.OK;
         if (setup.InstallationRoot is { } root)
         {
-            preferences.InstallRoot = HellForgeCommands.ValidateRoot(root); syncRequested = false; Save();
+            preferences.InstallRoot = HellForgeCommands.ValidateRoot(root); syncRequested = false; installationMissing = false; Save();
             lastStatus = null; lastMods = null; lastAccount = null; captureBlock = null;
             message.Text = "Forge is connected and ready for the gameplay mods.";
             if (completed) await PrepareSelectedCoreAsync();
@@ -804,7 +831,7 @@ public sealed class HellForgeForm : Form
         if (preview || working) return;
         try
         {
-            if (preferences.InstallRoot == null || lastStatus is { GameCopyReady: false } or { RunnerReady: false })
+            if (installationMissing || preferences.InstallRoot == null || lastStatus is { GameCopyReady: false } or { RunnerReady: false })
             {
                 await SetupAsync();
                 return;
