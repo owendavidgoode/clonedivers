@@ -31,6 +31,7 @@ static class TestProgram
 
     static int Main(string[] args)
     {
+        AppDomain.CurrentDomain.UnhandledException += (_, e) => { Console.Error.WriteLine("UNHANDLED TEST EXCEPTION: " + e.ExceptionObject); Environment.Exit(3); };
         if (args is ["--forge-form-recovery-only"])
         {
             var recovery = Path.Combine(Path.GetTempPath(), "forge-form-recovery-" + Guid.NewGuid().ToString("N")); Directory.CreateDirectory(recovery);
@@ -179,6 +180,7 @@ static class TestProgram
             TelemetryTests.Run(root, Check);
             Task.Run(() => HellForgeTests.Run(root, Check)).GetAwaiter().GetResult();
             Task.Run(() => ForgeFormRecoveryTests.Run(root, Check)).GetAwaiter().GetResult();
+            ForgeClarityTests.Run(root, Check);
             Task.Run(() => AccountLeaseTests.Run(Check)).GetAwaiter().GetResult();
             Task.Run(() => WarbondTests.Run(root, Check)).GetAwaiter().GetResult();
             Task.Run(() => ForgeMigrationTests.Run(root, Check)).GetAwaiter().GetResult();

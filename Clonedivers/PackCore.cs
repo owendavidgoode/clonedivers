@@ -668,6 +668,8 @@ public static class Pack
     /// <summary>Legacy entry point kept for the zip path and its tests: the pack block of any manifest shape.</summary>
     public static PackManifest? ParseManifest(string json) => Manifest.Parse(json).Pack;
 
+    internal static TimeSpan ManifestApiTimeout { get; set; } = TimeSpan.FromSeconds(10);
+    internal static TimeSpan ManifestFallbackTimeout { get; set; } = TimeSpan.FromSeconds(12);
     /// <summary>Fetches manifest.json: GitHub API first (fresh, but rate-limited to 60/hour per IP), raw CDN as fallback.
     /// <paramref name="overrideUrl"/> (Settings.ManifestUrl) replaces both — a hidden hook for testing against a local server.</summary>
     public static async Task<Manifest> FetchManifestAsync(string? overrideUrl, CancellationToken ct)
@@ -676,7 +678,7 @@ public static class Pack
         try
         {
             using var cts = CancellationTokenSource.CreateLinkedTokenSource(ct);
-            cts.CancelAfter(TimeSpan.FromSeconds(10));
+            cts.CancelAfter(ManifestApiTimeout);
             using var req = new HttpRequestMessage(HttpMethod.Get, ManifestApiUrl);
             req.Headers.Accept.ParseAdd("application/vnd.github.raw+json");
             using var resp = await Http.SendAsync(req, cts.Token);
@@ -690,7 +692,7 @@ public static class Pack
     static async Task<string> GetTextAsync(string url, CancellationToken ct)
     {
         using var cts = CancellationTokenSource.CreateLinkedTokenSource(ct);
-        cts.CancelAfter(TimeSpan.FromSeconds(12));
+        cts.CancelAfter(ManifestFallbackTimeout);
         var bust = url + (url.Contains('?') ? "&" : "?") + "t=" + DateTimeOffset.UtcNow.ToUnixTimeSeconds();
         try { return await Http.GetStringAsync(bust, cts.Token); }
         catch (OperationCanceledException error) when (!ct.IsCancellationRequested)

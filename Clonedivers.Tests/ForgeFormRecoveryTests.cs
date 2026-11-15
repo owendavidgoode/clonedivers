@@ -45,6 +45,9 @@ static class ForgeFormRecoveryTests
             throw new Exception("The metadata deadline did not cancel its request.");
         });
         var previous = ReplaceHandler(handler);
+        var apiTimeout = Pack.ManifestApiTimeout; var fallbackTimeout = Pack.ManifestFallbackTimeout;
+        check(apiTimeout == TimeSpan.FromSeconds(10) && fallbackTimeout == TimeSpan.FromSeconds(12), "production metadata deadlines remain 10 and 12 seconds");
+        Pack.ManifestApiTimeout = Pack.ManifestFallbackTimeout = TimeSpan.FromMilliseconds(50);
         try
         {
             Field<Label>(form, "message").Text = "No newer Forge launcher is available.";
@@ -59,9 +62,16 @@ static class ForgeFormRecoveryTests
             check(Diagnostic(form)?.Contains("TimeoutException") == true && Diagnostic(form)!.Contains(Pack.ManifestUrl) &&
                 !Field<bool>(form, "checkingUpdates") && Field<ToolStripMenuItem>(form, "updates").Enabled,
                 "metadata timeout retains its source diagnostic and re-enables Check updates");
+            check(!Field<Label>(form, "message").Visible, "manual timeout shown in the detail line is not repeated in the message label");
+            Set(form, "failureDetail", "Real CLI failure");
+            await Invoke(form, "CheckLauncherUpdateAsync", false);
+            check(Diagnostic(form) == "Real CLI failure", "silent startup timeout preserves the existing launcher diagnostic");
+            Set(form, "failureDetail", null);
+            await Invoke(form, "CheckLauncherUpdateAsync", false);
+            check(Diagnostic(form) == null, "silent startup timeout does not create a launcher diagnostic");
             Field<HellForgePreferences>(form, "preferences").InstallRoot = Path.GetTempPath(); // no auto-detection or official CLI
             await Invoke(form, "RefreshAsync");
-            check(Diagnostic(form)?.Contains("TimeoutException") == true, "a status refresh retains the update-check timeout diagnostic");
+            check(!Field<Label>(form, "message").Text.Contains("timed out"), "a changed installation headline clears the stale update timeout message");
 
             using var closing = new HellForgeForm(new HellForgePreferences());
             SynchronizationContext.SetSynchronizationContext(null);
@@ -70,7 +80,7 @@ static class ForgeFormRecoveryTests
             check(Diagnostic(closing) == null && Field<Label>(closing, "message").Text == "",
                 "only form-lifetime cancellation silently ends an update check");
         }
-        finally { ReplaceHandler(previous); }
+        finally { ReplaceHandler(previous); Pack.ManifestApiTimeout = apiTimeout; Pack.ManifestFallbackTimeout = fallbackTimeout; }
 
         using var fallback = new Handler((request, _) => request.RequestUri!.Host == "api.github.com"
             ? throw new TaskCanceledException("API timeout fixture")
@@ -121,18 +131,32 @@ static class ForgeFormRecoveryTests
             Set(form, "launcherRelease", new AppRelease { Version = "999.0.0" }); View(form);
             check(primary.Text == "UPDATE LAUNCHER", "launcher update is offered even when the saved installation has disappeared");
             Set(form, "launcherRelease", null);
-            // A returned drive/root must be checked again, never trusted as still missing.
+            // A returned empty folder still needs setup; a real installation resumes CLI checks.
             if (moved) Directory.Move(root + "-new", root); else Directory.CreateDirectory(root);
             await Invoke(form, "RefreshAsync");
-            check(!Field<bool>(form, "installationMissing") && primary.Text == "RETRY" &&
-                await Refused(() => Invoke(form, "RequireUpdateIdleAsync")),
-                "a returned but incomplete installation resumes normal error handling and cannot bypass update status checks");
+            check(Field<bool>(form, "installationMissing") && primary.Text == "SET UP FORGE",
+                "a returned empty or marker-only folder offers setup rather than a Retry loop");
+            await Invoke(form, "RequireUpdateIdleAsync");
+            check(true, "an incomplete installation does not block launcher self-update");
         }
         var present = Path.Combine(area, "forge-transient-failure"); Directory.CreateDirectory(present);
+        File.WriteAllText(Path.Combine(present, "hellforge-install.json"), "{\"schemaVersion\":1}");
+        Directory.CreateDirectory(Path.Combine(present, "app", "cli"));
+        File.WriteAllText(Path.Combine(present, "app", "cli", "HellForge.Cli.exe"), "fixture");
+        File.WriteAllText(Path.Combine(present, "HellForge.exe"), "fixture");
         using var retry = new HellForgeForm(new HellForgePreferences { InstallRoot = present });
         SynchronizationContext.SetSynchronizationContext(null);
         Set(retry, "lastError", "HellForge CLI timed out"); View(retry);
         check(!HellForgeForm.InstallationMissing(present) && Field<Button>(retry, "launch").Text == "RETRY" &&
             Field<Label>(retry, "detail").Text.Contains("timed-out"), "a transient CLI timeout keeps Retry rather than treating an existing folder as missing");
+        Set(retry, "failureDetail", "Old manual update timeout");
+        await Invoke(retry, "RefreshAsync"); // text fixture cannot execute as a CLI
+        check(Diagnostic(retry) != "Old manual update timeout" && Diagnostic(retry) == Field<string>(retry, "lastError"),
+            "a new refresh failure replaces an older update diagnostic");
+        Set(retry, "launcherRelease", new AppRelease { Version = "999.0.0" }); Set(retry, "updateFailed", true);
+        Set(retry, "failureDetail", "HTTP 504 from the launcher update");
+        await Invoke(retry, "RefreshAsync");
+        check(Diagnostic(retry) == "HTTP 504 from the launcher update" && Field<Label>(retry, "detail").Text.StartsWith("GitHub"),
+            "a failed update keeps its own diagnostic while Retry update is the primary action");
     }
 }
