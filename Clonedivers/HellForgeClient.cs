@@ -540,6 +540,7 @@ public sealed partial class HellForgeClient(string root, IHellForgeCommands comm
             await HellForgePack.VerifyAsync(selected.Folder, selection, ct);
             SavePackOutcome(backup, "applied");
             WritePackIntent(intent with { State = "applied" });
+            PrunePackStorage(backup, after);
         }
         catch (HellForgeCommandOutcomeUnknownException error)
         {
@@ -554,6 +555,7 @@ public sealed partial class HellForgeClient(string root, IHellForgeCommands comm
                 await RestorePackChangeAsync(before, beforeStatus, selection.Mode, old, backup, evidence, recovery.Token);
                 SavePackOutcome(backup, "restored");
                 WritePackIntent(intent with { State = "restored" });
+                PrunePackStorage(backup, before);
             }
             catch (Exception recoveryError)
             {
@@ -576,6 +578,48 @@ public sealed partial class HellForgeClient(string root, IHellForgeCommands comm
     {
         try { File.WriteAllText(Path.Combine(backup, "outcome.json"), JsonSerializer.Serialize(new { outcome, utc = DateTimeOffset.UtcNow })); }
         catch (Exception error) when (error is IOException or UnauthorizedAccessException) { }
+    }
+    // Called only under the appearance lock, after the durable terminal intent.
+    // Unrecorded/incomplete backups and unreceipted exports are never candidates.
+    internal void PrunePackStorage(string backup, HellForgeMods current)
+    {
+        try
+        {
+            var intent = ReadPackIntent();
+            if (intent == null || intent.State == "pending" || !intent.Backup.Equals(backup, RecoveryPathComparison) || InterruptedGameplayProblem() != null) return;
+            var keep = new HashSet<string>(StringComparer.OrdinalIgnoreCase) { backup };
+            var transactions = Path.GetDirectoryName(PackIntentPath)!;
+            foreach (var path in Directory.EnumerateFiles(transactions, "*.json"))
+            {
+                RejectAncestors(path);
+                if (new FileInfo(path).Length > 16384) return;
+                using var record = JsonDocument.Parse(File.ReadAllText(path));
+                var state = record.RootElement.GetProperty("State").GetString();
+                if (state is not ("applied" or "restored")) return;
+                if (record.RootElement.TryGetProperty("Backup", out var saved) && saved.GetString() is { } retained) keep.Add(Path.GetFullPath(retained));
+            }
+            var backups = Path.Combine(CacheRoot, "backups"); RejectAncestors(Path.Combine(backups, "entry"));
+            var completed = new List<string>();
+            foreach (var folder in Directory.EnumerateDirectories(backups))
+            {
+                if (!System.Text.RegularExpressions.Regex.IsMatch(Path.GetFileName(folder), @"^\d{8}-\d{6}-(regular-)?[0-9a-f]{32}$")) continue;
+                var outcome = Path.Combine(folder, "outcome.json"); RejectAncestors(outcome);
+                if (!File.Exists(outcome)) continue;
+                if (new FileInfo(outcome).Length > 16384) return;
+                using var record = JsonDocument.Parse(File.ReadAllText(outcome));
+                var state = record.RootElement.GetProperty("outcome").GetString();
+                if (state is not ("applied" or "restored")) return;
+                if (!keep.Contains(folder) && string.CompareOrdinal(Path.GetFileName(folder)[..15], Path.GetFileName(backup)[..15]) <= 0) completed.Add(folder);
+            }
+            // Read all metadata before deleting anything. A damaged record means review.
+            var selections = current.Mods.Where(m => HellForgePack.IsOurPack(m.Id)).Select(m => HellForgePack.ReadStorageReceipt(m.Folder))
+                .Where(s => s != null).Select(s => HellForgePack.SelectionIdentity(s!)).ToHashSet(StringComparer.Ordinal);
+            var exports = HellForgePack.SupersededExports(Path.Combine(CacheRoot, "exports"), selections);
+            foreach (var folder in completed.Concat(exports))
+                try { HellForgePack.DeleteStorageFolder(CacheRoot, folder); }
+                catch (Exception error) when (error is IOException or UnauthorizedAccessException) { }
+        }
+        catch (Exception error) when (error is IOException or UnauthorizedAccessException or JsonException or InvalidDataException or KeyNotFoundException or ArgumentException or InvalidOperationException or NullReferenceException) { }
     }
     static void ValidateCosmeticBackup(string folder, string id)
     {
@@ -687,6 +731,7 @@ public sealed partial class HellForgeClient(string root, IHellForgeCommands comm
             RequireRegular(await ModsAsync(ct));
             SavePackOutcome(backup, "applied");
             WritePackIntent(intent with { State = "applied" });
+            PrunePackStorage(backup, before);
         }
         catch (HellForgeCommandOutcomeUnknownException) { SavePackOutcome(backup, "outcome-unknown"); throw; }
         catch (Exception error)
@@ -697,6 +742,7 @@ public sealed partial class HellForgeClient(string root, IHellForgeCommands comm
                 await RestorePackChangeAsync(before, beforeStatus, "regular", null, backup, [], recovery.Token);
                 SavePackOutcome(backup, "restored");
                 WritePackIntent(intent with { State = "restored" });
+                PrunePackStorage(backup, before);
             }
             catch (Exception recoveryError) { throw new IOException("Regular mode failed and recovery needs attention. Backup: " + backup, new AggregateException(error, recoveryError)); }
             throw new IOException("Regular mode did not finish. The previous appearance selection was restored through HellForge. Backup: " + backup, error);

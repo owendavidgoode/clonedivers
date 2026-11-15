@@ -12,7 +12,8 @@ internal static class DownloadCacheTests
     {
         int failures = 0, checks = 0; Game.IsRunningCheck = () => false;
         var root = Path.Combine(Path.GetTempPath(), "download-cache-test-" + Guid.NewGuid().ToString("N")); Directory.CreateDirectory(root);
-        try { Run(root, (ok, name) => { checks++; if (!ok) failures++; Console.WriteLine((ok ? "PASS: " : "FAIL: ") + name); }).GetAwaiter().GetResult(); }
+        void Check(bool ok, string name) { checks++; if (!ok) failures++; Console.WriteLine((ok ? "PASS: " : "FAIL: ") + name); }
+        try { Run(root, Check).GetAwaiter().GetResult(); StorageTests.Run(root, Check).GetAwaiter().GetResult(); }
         finally { Directory.Delete(root, true); }
         Console.WriteLine($"{checks} download/cache checks, {failures} failures"); return failures == 0 ? 0 : 1;
     }
@@ -51,12 +52,16 @@ internal static class DownloadCacheTests
             "cancelling halfway through the first appearance asset retains exactly half outside the empty export without publishing content or a receipt");
         var old = Path.Combine(cache, new string('a', 64) + ".partial"); File.WriteAllText(old, "obsolete");
         var second = await HellForgePack.PlanAsync(selection, Output(), []);
-        await HellForgePack.ExportAsync(second, true, null, CancellationToken.None, _ => long.MaxValue, Download);
+        var reports = new List<(long done, long total)>();
+        await HellForgePack.ExportAsync(second, true, null, CancellationToken.None, _ => long.MaxValue, Download, new SyncProgress(reports.Add));
         await HellForgePack.VerifyAsync(second.Output, selection);
         check(server.Offsets.SequenceEqual(new[] { 0, bytes.Length / 2 }) && File.ReadAllBytes(Path.Combine(second.Output, file.Name)).SequenceEqual(bytes),
             "a new GUID export resumes the retained first asset with HTTP Range for its exact byte count and verifies the completed export");
         check(!File.Exists(partial) && !File.Exists(old) && Path.GetDirectoryName(cache) == area,
             "completed cached bytes and obsolete hash entries are pruned outside completed export folders");
+        check(reports.Contains((bytes.Length / 2, bytes.Length)) && reports.Last() == ((long)bytes.Length, (long)bytes.Length) &&
+            reports.Zip(reports.Skip(1)).All(p => p.First.done <= p.Second.done),
+            "export byte progress includes the resumed partial and reaches the cumulative total without going backwards");
 
         var bad = file.Clone(); bad.Sha256 = new string('b', 64);
         var failed = new HellForgePack.Plan(selection with { Files = [bad] }, Output(), new());
@@ -87,8 +92,14 @@ internal static class DownloadCacheTests
         try { await HellForgeSetup.RequireCacheSpaceAsync(cache, [artifact], 0, CancellationToken.None, _ => HellForgeSetup.CacheReserve + 99); }
         catch (IOException) { corruptCounted = true; }
         check(corruptCounted, "a full-size corrupt cached installer still requires its missing verified bytes");
-        check(HellForgeSetup.InstallCache(target) == Path.Combine(Path.GetDirectoryName(target)!, "Clonedivers-HellForge-cache", "installers"),
-            "new installs keep their stable resumable installer cache beside the chosen target");
+        checkedCache = null; failure = null; unpacked = false;
+        try { await HellForgeSetup.InstallAsync(target, null, CancellationToken.None, cache: null, artifact: artifact,
+            unpack: (_, _) => { unpacked = true; return Task.CompletedTask; }, spaceCheck: _ => { },
+            cacheAvailableBytes: folder => { checkedCache = folder; return 0; }); }
+        catch (IOException error) { failure = error; }
+        var adjacent = Path.Combine(Path.GetDirectoryName(target)!, "Clonedivers-HellForge-cache", "installers");
+        check(checkedCache == adjacent && failure?.Message.Contains(adjacent) == true && !unpacked,
+            "InstallAsync with no cache checks the cache beside the chosen Forge target and names it before unpacking");
         var otherRoot = Path.GetPathRoot(target)!.Equals(@"C:\", StringComparison.OrdinalIgnoreCase) ? @"D:\" : @"C:\";
         var otherDrive = Path.Combine(otherRoot, "Clonedivers-capacity-fixture-" + Guid.NewGuid().ToString("N"), "installers");
         bool separateVolume = false;
