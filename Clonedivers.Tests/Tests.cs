@@ -31,6 +31,7 @@ static class TestProgram
 
     static int Main(string[] args)
     {
+        if (args is ["--download-cache-only"]) return DownloadCacheTests.RunOnly();
         if (args is ["--download-regressions", var downloadRoot])
         {
             Directory.CreateDirectory(downloadRoot);
@@ -174,6 +175,7 @@ static class TestProgram
             Task.Run(() => WarbondTests.Run(root, Check)).GetAwaiter().GetResult();
             Task.Run(() => ForgeMigrationTests.Run(root, Check)).GetAwaiter().GetResult();
             Task.Run(() => ForgeSetupTests.Run(root, Check)).GetAwaiter().GetResult();
+            Task.Run(() => DownloadCacheTests.Run(root, Check)).GetAwaiter().GetResult();
             Task.Run(() => GameplayInstallTests.Run(root, Check)).GetAwaiter().GetResult();
             Task.Run(() => TurnkeySetupTests.Run(root, Check)).GetAwaiter().GetResult();
             FpvDefaultsTests.Run(root, Check);
