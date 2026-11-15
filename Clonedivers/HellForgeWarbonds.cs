@@ -9,6 +9,7 @@ namespace Clonedivers;
 public sealed class HellForgeWarbonds
 {
     const uint FreeWarbond = 1929468580;
+    internal static readonly string[] WindowsProcessNames = ["helldivers2", "HellForge", "HellForge.Launcher"];
     static readonly string[] SnapshotFiles = ["snapshot.json", "real-inventory.json", "progression.json", "seal.json"];
     readonly string root, profile, snapshot;
     readonly IHellForgeCommands commands;
@@ -41,7 +42,7 @@ public sealed class HellForgeWarbonds
             }
             finally { foreach (var process in processes) process.Dispose(); }
         }
-        foreach (var name in new[] { "helldivers2", "HellForge" })
+        foreach (var name in WindowsProcessNames)
         {
             var processes = Process.GetProcessesByName(name);
             try { if (processes.Length != 0) return true; }

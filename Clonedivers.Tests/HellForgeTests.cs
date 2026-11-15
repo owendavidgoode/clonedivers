@@ -118,7 +118,7 @@ static class HellForgeTests
             Set("captureBlock", "Sync is still forwarding the normal game.");
             Set("launcherRelease", new AppRelease { Version = "999.0.0", Url = "https://github.com/owendavidgoode/clonedivers/releases/download/v999.0.0/Clonedivers.exe", Size = 1, Sha256 = new string('a', 64) });
             type.GetMethod("UpdateView", members)!.Invoke(form, null);
-            check(end.Enabled && end.Text == "VIEW DETAILS" && !recover.Enabled && !sync.Enabled, "account capture cleanup offers read-only details while automatic import and setup stay blocked");
+            check(end.Enabled && end.Text == "OPEN HELLFORGE" && !recover.Enabled && !sync.Enabled, "account capture cleanup opens HellForge while automatic import and setup stay blocked");
             Set("captureBlock", null);
             Set("updateFailed", true); Set("failureDetail", "Response status code does not indicate success: 504 (Gateway Time-out).");
             type.GetMethod("UpdateView", members)!.Invoke(form, null);

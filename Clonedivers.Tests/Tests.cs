@@ -180,6 +180,7 @@ static class TestProgram
             TelemetryTests.Run(root, Check);
             Task.Run(() => HellForgeTests.Run(root, Check)).GetAwaiter().GetResult();
             Task.Run(() => ForgeFormRecoveryTests.Run(root, Check)).GetAwaiter().GetResult();
+            ForgeClarityTests.Run(root, Check);
             Task.Run(() => AccountLeaseTests.Run(Check)).GetAwaiter().GetResult();
             Task.Run(() => WarbondTests.Run(root, Check)).GetAwaiter().GetResult();
             Task.Run(() => ForgeMigrationTests.Run(root, Check)).GetAwaiter().GetResult();
