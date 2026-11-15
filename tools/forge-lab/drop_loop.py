@@ -12,12 +12,15 @@ Needs: Steam running, BingusDevelopmentHarness (HARNESS), a HellForge lab profil
 container's Steam ActiveProcess pid corrected when run from a packaged app (see the harness README).
 """
 import argparse
+import ctypes
+from ctypes import wintypes
 from datetime import datetime, time as datetime_time, timedelta, timezone
 import json
 import os
 import re
 import subprocess
 import sys
+import threading
 import time
 from pathlib import Path
 from typing import Any
@@ -29,6 +32,16 @@ HOME = Path(os.environ.setdefault('HD2H_HOME', r'D:\ClaudeWork\harness-home'))
 os.environ.setdefault('HD2H_LOADER_ZIP', r'D:\ClaudeWork\releases\Bingus-Shared-Loader-v20.zip')
 CRASH = re.compile(r'crash: (?:(?P<code>[0-9a-fA-F]{8}) on thread \d+ )?at (?P<site>\S+)')
 HEARTBEAT_LIMIT = 60
+SHIP_SETTLE_S = 10
+# Executed in the child before importing any harness/capture code. run_path does not
+# add the script directory to sys.path (unlike `python harness.py`), so do that too.
+HARNESS_WRAPPER = '''import ctypes, runpy, sys
+ctypes.windll.user32.SetProcessDpiAwarenessContext(ctypes.c_void_p(-4))
+script = sys.argv.pop(1)
+sys.argv[0] = script
+sys.path.insert(0, str(__import__('pathlib').Path(script).parent))
+runpy.run_path(script, run_name='__main__')
+'''
 
 
 def parse_queue_request(text: str) -> dict[str, Any]:
@@ -101,11 +114,12 @@ def harness(*args: str, timeout: int = 600, session: str | None = None) -> tuple
         raise RuntimeError('Refusing a non-lab harness session')
     if session is not None:
         require_owned_session(session)
-    command = [sys.executable, str(HARNESS / 'harness.py'), '--target', 'hellforge', '--hellforge-root', ROOT,
+    command = [sys.executable, '-B', '-c', HARNESS_WRAPPER, str(HARNESS / 'harness.py'), '--target', 'hellforge', '--hellforge-root', ROOT,
                '--profile', PROFILE, *args]
+    env = {key: value for key, value in os.environ.items() if key.upper() != 'HD2H_CONTROLS_DLL'}
     try:
         done = subprocess.run(command, cwd=str(HARNESS), capture_output=True, text=True, timeout=timeout,
-                              encoding='utf-8', errors='replace')
+                              encoding='utf-8', errors='replace', env=env)
     except subprocess.TimeoutExpired as expired:
         output = expired.stdout or b''
         if isinstance(output, bytes):
@@ -170,24 +184,43 @@ def scan_run(run: Path | None) -> dict[str, Any]:
              'seaf_spawns': 0, 'auto_waves': 0, 'squad_lost': 0, 'run_json': None}
     if run is None:
         return facts
+    run_json = run / 'run.json'
+    data = read_object(run_json) if run_json.exists() else {}
+    # Engine log copies can contain older sessions. Require the handler's PID and
+    # timestamp to match this run; loading/arming clean-exit is not mitigation.
+    handled = []
+    for log in run.rglob('*clean-exit*.log'):
+        for line in log.read_text(encoding='utf-8', errors='replace').splitlines():
+            match = re.match(r'(\S+) pid=(\d+) .*teardown fault at \+0x626296', line, re.I)
+            if match and int(match[2]) == data.get('pid') and data.get('started') and data.get('finished'):
+                at = datetime.fromisoformat(match[1])
+                if datetime.fromisoformat(data['started']) <= at <= datetime.fromisoformat(data['finished']):
+                    handled.append(line)
+    facts['handled_quit_evidence'] = handled
     for log in run.rglob('modloader.log'):
         for line in log.read_text(encoding='utf-8', errors='replace').splitlines():
             if 'freeze:' in line:
                 facts['freezes'].append(line)
-            m = CRASH.search(line)
-            if m and 'by module' not in line:
-                facts['crashes'].append({'code': m.group('code'), 'site': m.group('site'), 'line': line[:300]})
+            if 'crash:' in line:
+                m = CRASH.search(line)
+                site = re.search(r'([\w.-]+\.(?:exe|dll))\+(0x[0-9a-f]+)', line, re.I)
+                module, offset = site.groups() if site else (None, None)
+                is_handled = bool(module and module.lower() == 'helldivers2.exe'
+                                  and offset.lower() == '0x626296' and handled)
+                facts['crashes'].append({'code': m.group('code') if m else None,
+                                         'site': module + '+' + offset if site else None,
+                                         'module': module, 'offset': offset,
+                                         'handled_quit': is_handled, 'line': line})
     for log in run.rglob('mod-local.heavy-seaf-presence.log'):
         text = log.read_text(encoding='utf-8', errors='replace')
         facts['seaf_spawns'] += text.count('SPAWN:')
         dispatches = text.count('AUTO_WAVE_DISPATCH')
         facts['auto_waves'] += dispatches or len(re.findall(r'shuttle \d+ called in', text))
         facts['squad_lost'] += text.count('no longer alive')
-    run_json = run / 'run.json'
-    if run_json.exists():
-        data = read_object(run_json)
-        facts['run_json'] = {k: data.get(k) for k in ('outcome', 'clean', 'exit_code', 'ended', 'dumps', 'missions')
+    if data:
+        facts['run_json'] = {k: data.get(k) for k in ('outcome', 'clean', 'exit', 'pid', 'started', 'finished', 'dumps', 'missions')
                              if k in data}
+        facts['run_json']['exit_code'] = (data.get('exit') or {}).get('code')
         ended = (data.get('exit') or {}).get('at') or data.get('finished')
         if ended:
             facts['in_mission_freeze'] = mission_stalled(facts['freezes'], data.get('missions') or [], ended)
@@ -207,16 +240,107 @@ def wait_for_backend_port(port: int = 40558, limit: int = 300) -> bool:
 
 
 def classify_cycle(row: dict[str, Any]) -> None:
-    kinds = [d.get('kind') for d in ((row.get('run_json') or {}).get('dumps') or [])]
+    run = row.get('run_json') or {}
+    missions = run.get('missions') or []
+    mission = row.get('mission') or (missions[-1] if missions else {})
+    select = (mission.get('steps') or {}).get('select') or {}
+    row['planet'] = mission.get('planet', select.get('planet', row.get('planet')))
+    row['mission_type'] = select.get('mission_type', row.get('mission_type'))
+    row['difficulty'] = mission.get('difficulty', row.get('difficulty'))
+    row['faction'] = {2: 'terminid', 3: 'automaton', 4: 'illuminate'}.get(mission.get('race'), row.get('faction'))
+    row.setdefault('seaf_spawns', 0)
+    leave = row.get('leave') or (missions[-1].get('leave') if missions else {}) or {}
+    row['mission_ended_early'] = bool(row.get('mission_ended_early') or leave.get('to_ship_s') == 0)
+    row['reduced_coverage'] = row['mission_ended_early']
+    kinds = [d.get('kind') for d in (run.get('dumps') or [])]
     crashes = row.get('crashes') or []
-    row['quit_crash'] = 'quit-render-task-pool' in kinds or any(c['site'].endswith('+0x626296') for c in crashes)
-    mission_crashes = [c for c in crashes if not c['site'].endswith('+0x626296')]
+    row['quit_crash'] = 'quit-render-task-pool' in kinds or any((c.get('site') or '').lower().endswith('+0x626296') for c in crashes)
+    faults = [c for c in crashes if not c.get('handled_quit')]
     if row.get('in_mission_freeze'):
         if 'held_s' in row:
             row['attempted_hold_s'] = row.pop('held_s')
-        row['error'] = 'game stalled during mission; see freezes, heartbeat_age_s and run.json'
-    row['passed'] = (not row.get('in_mission_freeze') and not mission_crashes and 'error' not in row
-                     and 'died_in_mission_after_s' not in row)
+        row.setdefault('error', 'game stalled during mission; see freezes, heartbeat_age_s and run.json')
+    exit_code = (run.get('exit') or {}).get('code', run.get('exit_code'))
+    row['failed'] = bool(row.get('in_mission_freeze') or faults or 'error' in row
+                         or 'died_in_mission_after_s' in row or exit_code not in (None, 0)
+                         or any(code != 0 for code in row.get('steps', {}).values()))
+    row['qualifying'] = bool('held_s' in row and not row['reduced_coverage']
+                             and isinstance(leave.get('to_ship_s'), (float, int)) and leave['to_ship_s'] > 0
+                             and row.get('ship_settle_ok'))
+    row['passed'] = row['qualifying'] and not row['failed'] and exit_code == 0
+
+
+def game_peak_working_set(pid: int) -> int | None:
+    """Windows' lifetime process peak, in bytes; access failures are unknown."""
+    class Counters(ctypes.Structure):
+        _fields_ = [('cb', wintypes.DWORD), ('PageFaultCount', wintypes.DWORD)] + [
+            (name, ctypes.c_size_t) for name in ('PeakWorkingSetSize', 'WorkingSetSize', 'QuotaPeakPagedPoolUsage',
+                                               'QuotaPagedPoolUsage', 'QuotaPeakNonPagedPoolUsage',
+                                               'QuotaNonPagedPoolUsage', 'PagefileUsage', 'PeakPagefileUsage')]
+    kernel = ctypes.WinDLL('kernel32', use_last_error=True)
+    kernel.OpenProcess.argtypes = [wintypes.DWORD, wintypes.BOOL, wintypes.DWORD]
+    kernel.OpenProcess.restype = wintypes.HANDLE
+    kernel.CloseHandle.argtypes = [wintypes.HANDLE]
+    psapi = ctypes.WinDLL('psapi', use_last_error=True)
+    psapi.GetProcessMemoryInfo.argtypes = [wintypes.HANDLE, ctypes.POINTER(Counters), wintypes.DWORD]
+    handle = kernel.OpenProcess(0x1000, False, pid)
+    if not handle:
+        return None
+    try:
+        counters = Counters()
+        counters.cb = ctypes.sizeof(counters)
+        return counters.PeakWorkingSetSize if psapi.GetProcessMemoryInfo(handle, ctypes.byref(counters), counters.cb) else None
+    finally:
+        kernel.CloseHandle(handle)
+
+
+class MemorySampler:
+    """Small per-cycle sampler. GPU memory is total device use, not process attribution."""
+    def __init__(self, pid: int | None) -> None:
+        self.pid = pid
+        self.peak_working_set_bytes: int | None = None
+        self.peak_vram_mib: int | None = None
+        self.done = threading.Event()
+        self.thread = threading.Thread(target=self.poll, daemon=True)
+
+    def sample(self) -> None:
+        if self.pid:
+            try:
+                peak = game_peak_working_set(self.pid)
+            except OSError:
+                peak = None
+            if peak is not None:
+                self.peak_working_set_bytes = max(self.peak_working_set_bytes or 0, peak)
+        try:
+            result = subprocess.run(['nvidia-smi', '--query-gpu=memory.used', '--format=csv,noheader,nounits'],
+                                    capture_output=True, text=True, timeout=3, check=True)
+            values = [int(line.strip()) for line in result.stdout.splitlines() if line.strip()]
+            if values:
+                self.peak_vram_mib = max(self.peak_vram_mib or 0, max(values))
+        except (OSError, ValueError, subprocess.SubprocessError):
+            pass
+
+    def poll(self) -> None:
+        while not self.done.is_set():
+            self.sample()
+            self.done.wait(3)
+
+    def start(self) -> None:
+        self.thread.start()
+
+    def stop(self, row: dict[str, Any]) -> None:
+        self.done.set()
+        self.thread.join()
+        row.update(peak_working_set_bytes=self.peak_working_set_bytes, peak_vram_mib=self.peak_vram_mib)
+
+
+def check_state(row: dict[str, Any], session: str, step: str) -> dict[str, Any]:
+    code, data, text = harness('state', timeout=30, session=session)
+    row['steps'][step] = code
+    live = (data or {}).get('live') or {}
+    if code != 0 or live.get('state') is None:
+        raise RuntimeError('%s: %s' % (step, text[-1500:] or 'no live game state'))
+    return live
 
 
 def sample_memory(row: dict[str, Any], step: str) -> None:
@@ -230,6 +354,9 @@ def sample_memory(row: dict[str, Any], step: str) -> None:
 
 def cycle(args: argparse.Namespace, number: int) -> dict[str, Any]:
     row = {'label': args.label, 'cycle': number, 'difficulty': args.difficulty, 'faction': args.faction,
+           'planet': None, 'mission_type': None, 'seaf_spawns': 0, 'qualifying': False,
+           'mission_ended_early': False, 'reduced_coverage': False, 'ship_settle_ok': False,
+           'peak_working_set_bytes': None, 'peak_vram_mib': None, 'failed': True,
            'started': time.strftime('%Y-%m-%dT%H:%M:%S'), 'steps': {}, 'passed': False}
     prestart()
     if not wait_for_backend_port():
@@ -256,7 +383,9 @@ def cycle(args: argparse.Namespace, number: int) -> dict[str, Any]:
     session = active['session']
     require_owned_session(session)
     run = Path(active['run'])
+    memory = MemorySampler(active.get('pid'))
     try:
+        memory.start()
         for step, extra, limit in (('ship', [], 300),
                                    ('mission', ['--difficulty', str(args.difficulty), '--faction', args.faction]
                                     + (['--shots'] if args.shots else []), 600)):
@@ -265,10 +394,14 @@ def cycle(args: argparse.Namespace, number: int) -> dict[str, Any]:
             if step == 'mission' and data:
                 row['mission'] = data
             if code != 0:
-                row['error'] = '%s: %s' % (step, text[-1500:])
+                row.setdefault('error', '%s: %s' % (step, text[-1500:]))
                 break
             if step == 'ship' and args.shots:
-                row['steps']['ship_shot'] = harness('shot', 'ship-arrival', timeout=30, session=session)[0]
+                code, _, text = harness('shot', 'ship-arrival', timeout=30, session=session)
+                row['steps']['ship_shot'] = code
+                if code != 0:
+                    row.setdefault('error', 'ship_shot: ' + text[-1500:])
+                    break
             sample_memory(row, step)
         else:
             landed = time.monotonic()
@@ -283,35 +416,62 @@ def cycle(args: argparse.Namespace, number: int) -> dict[str, Any]:
                     row.update(in_mission_freeze=True, freezes=freezes, heartbeat_age_s=round(age, 1),
                                attempted_hold_s=args.hold, stalled_after_s=round(elapsed))
                     break
+                live = check_state(row, session, 'hold_state')
+                if live['state'] != 4 or live.get('in_mission') is False:
+                    row['mission_ended_early'] = True
+                    row['mission_ended_after_s'] = round(elapsed)
+                    break
                 if elapsed >= args.hold:
                     row['held_s'] = args.hold
                     break
                 time.sleep(min(10, args.hold - elapsed))
-        if 'held_s' in row and args.shots:
-            sample_memory(row, 'held')
-            row['steps']['held_shot'] = harness('shot', 'held-ground', timeout=30, session=session)[0]
+        if 'held_s' in row or row['mission_ended_early']:
+            if args.shots and 'held_s' in row:
+                sample_memory(row, 'held')
+                code, _, text = harness('shot', 'held-ground', timeout=30, session=session)
+                row['steps']['held_shot'] = code
+                if code != 0:
+                    row.setdefault('error', 'held_shot: ' + text[-1500:])
             code, data, text = harness('leave', timeout=300, session=session)
             row['steps']['leave'] = code
             if code == 0:
-                row['steps']['return_shot'] = harness('shot', 'ship-return', timeout=30, session=session)[0]
+                row['leave'] = data
+                row['mission_ended_early'] |= (data or {}).get('to_ship_s') == 0
+                time.sleep(SHIP_SETTLE_S)
+                live = check_state(row, session, 'ship_settle_state')
+                row['ship_settle_ok'] = live['state'] == 3
+                if not row['ship_settle_ok']:
+                    row.setdefault('error', 'ship settle: expected state 3, got %s' % live['state'])
+                if args.shots and row['ship_settle_ok']:
+                    code, _, text = harness('shot', 'ship-return', timeout=30, session=session)
+                    row['steps']['return_shot'] = code
+                    if code != 0:
+                        row.setdefault('error', 'return_shot: ' + text[-1500:])
             else:
-                row['error'] = 'leave: ' + text[-1500:]
+                row.setdefault('error', 'leave: ' + text[-1500:])
     except (OSError, ValueError, RuntimeError, subprocess.SubprocessError) as error:
-        row['error'] = str(error)
+        row.setdefault('error', str(error))
     finally:
-        require_owned_session(session)
-        if game_running():
-            force = row.get('in_mission_freeze') or 'error' in row or 'held_s' not in row
-            code, data, text = harness('stop', *(['--kill'] if force else []), timeout=300, session=session)
-            row['steps']['stop'] = code
-            if code != 0 and game_running():
-                code, data, text = harness('stop', '--kill', timeout=180, session=session)
-                row['steps']['forced_stop'] = code
-        else:
-            code, data, text = harness('finish', timeout=300, session=session)
-            row['steps']['finish'] = code
-        if code != 0:
-            row['error'] = 'cleanup: ' + text[-1500:]
+        try:
+            require_owned_session(session)
+            if game_running():
+                force = row.get('in_mission_freeze') or 'error' in row or not row['ship_settle_ok']
+                code, data, text = harness('stop', *(['--kill'] if force else []), timeout=300, session=session)
+                row['steps']['stop'] = code
+                if code != 0:
+                    row.setdefault('error', 'stop: ' + text[-1500:])
+                    if game_running():
+                        code, data, text = harness('stop', '--kill', timeout=180, session=session)
+                        row['steps']['forced_stop'] = code
+            else:
+                code, data, text = harness('finish', timeout=300, session=session)
+                row['steps']['finish'] = code
+            if code != 0:
+                row.setdefault('error', 'cleanup: ' + text[-1500:])
+        except (OSError, ValueError, RuntimeError, subprocess.SubprocessError) as error:
+            row.setdefault('error', 'cleanup: ' + str(error))
+        finally:
+            memory.stop(row)
     row['run'] = str(run)
     facts = scan_run(run)
     facts['in_mission_freeze'] |= bool(row.get('in_mission_freeze'))
@@ -321,7 +481,7 @@ def cycle(args: argparse.Namespace, number: int) -> dict[str, Any]:
     return row
 
 
-def main() -> None:
+def main() -> int:
     parser = argparse.ArgumentParser()
     parser.add_argument('--label', required=True)
     parser.add_argument('--cycles', type=int, default=1)
@@ -336,15 +496,21 @@ def main() -> None:
     if args.cycles < 1 or args.hold < 0 or not 1 <= args.difficulty <= 11:
         parser.error('cycles must be positive, hold nonnegative, and difficulty within 1-11')
     out = Path(args.out); out.mkdir(parents=True, exist_ok=True)
+    all_passed = True
     for number in range(1, args.cycles + 1):
         row = cycle(args, number)
+        all_passed &= bool(row['passed'])
         with open(out / 'cycles.jsonl', 'a', encoding='utf-8') as sink:
             sink.write(json.dumps(row) + '\n')
-        print(json.dumps({k: row.get(k) for k in ('label', 'cycle', 'passed', 'quit_crash', 'in_mission_freeze', 'steps', 'held_s',
+        print(json.dumps({k: row.get(k) for k in ('label', 'cycle', 'passed', 'failed', 'qualifying', 'reduced_coverage',
+                                                    'mission_ended_early', 'ship_settle_ok', 'planet', 'mission_type',
+                                                    'difficulty', 'faction', 'peak_working_set_bytes', 'peak_vram_mib',
+                                                    'quit_crash', 'in_mission_freeze', 'steps', 'held_s',
                                                     'died_in_mission_after_s', 'crashes', 'seaf_spawns', 'auto_waves',
                                                     'squad_lost', 'error')}),
               flush=True)
+    return 0 if all_passed else 1
 
 
 if __name__ == '__main__':
-    main()
+    sys.exit(main())

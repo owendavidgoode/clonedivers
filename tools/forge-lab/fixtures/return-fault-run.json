@@ -1,0 +1,94 @@
+{
+    "exit":  {
+
+             },
+    "outcome":  "crash",
+    "clean":  false,
+    "finished":  "2026-11-09T16:15:01-06:00",
+    "dumps":  [
+                  {
+                      "file":  "dump-2026-11-09-16.11.06-c024c581-GBOX1-2646.dmp",
+                      "kind":  "unclassified",
+                      "meaning":  "exception 0xC0000005 at helldivers2.exe+0x1e6b3e; needs cdb triage",
+                      "code":  "0xC0000005",
+                      "where":  "helldivers2.exe+0x1e6b3e",
+                      "thread":  14024,
+                      "quit_reason":  null,
+                      "uptime_s":  null
+                  }
+              ],
+    "missions":  [
+                     {
+                         "asked":  {
+                                       "difficulty":  3,
+                                       "faction":  null,
+                                       "mission_pick":  null,
+                                       "pick":  null,
+                                       "planet":  100,
+                                       "region_tag":  null
+                                   },
+                         "difficulty":  3,
+                         "in_control":  "2026-11-09T16:13:18-06:00",
+                         "leave":  {
+                                       "to_ship_s":  8.27
+                                   },
+                         "left":  "2026-11-09T16:14:41-06:00",
+                         "mission":  230,
+                         "operation":  2,
+                         "planet":  100,
+                         "race":  2,
+                         "reached_mission":  "2026-11-09T16:13:07-06:00",
+                         "started":  "2026-11-09T16:12:29-06:00",
+                         "steps":  {
+                                       "briefing":  {
+                                                        "intro_skipped":  true,
+                                                        "seconds":  0.5
+                                                    },
+                                       "control":  {
+                                                       "control_s":  9.52,
+                                                       "mission_type":  1,
+                                                       "seconds":  10.6
+                                                   },
+                                       "drop":  {
+                                                    "drop":  [
+                                                                 true,
+                                                                 0,
+                                                                 0
+                                                             ],
+                                                    "seconds":  0.2
+                                                },
+                                       "launch":  {
+                                                      "launch_s":  7.77,
+                                                      "load_s":  26.3,
+                                                      "seconds":  34.2
+                                                  },
+                                       "select":  {
+                                                      "commit":  [
+                                                                     true,
+                                                                     100,
+                                                                     230,
+                                                                     3,
+                                                                     1,
+                                                                     3,
+                                                                     2
+                                                                 ],
+                                                      "continued":  false,
+                                                      "difficulty":  3,
+                                                      "mission":  230,
+                                                      "mission_type":  66,
+                                                      "operation":  2,
+                                                      "operation_index":  6,
+                                                      "planet":  100,
+                                                      "pod_ready_s":  0.0,
+                                                      "race":  2,
+                                                      "region_tags":  [
+                                                                          1,
+                                                                          2,
+                                                                          4
+                                                                      ],
+                                                      "seconds":  3.4
+                                                  }
+                                   }
+                     }
+                 ]
+}

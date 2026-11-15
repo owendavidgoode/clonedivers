@@ -1,0 +1,23 @@
+{
+    "exit":  {
+
+             },
+    "outcome":  "crash",
+    "clean":  false,
+    "finished":  "2026-11-08T21:22:56-06:00",
+    "dumps":  [
+                  {
+                      "file":  "dump-2026-11-08-21.22.21-1a134d8f-GBOX1-8716.dmp",
+                      "kind":  "unclassified",
+                      "meaning":  "exception 0xC0000005 at helldivers2.exe+0x2bd8ad; needs cdb triage",
+                      "code":  "0xC0000005",
+                      "where":  "helldivers2.exe+0x2bd8ad",
+                      "thread":  24100,
+                      "quit_reason":  null,
+                      "uptime_s":  null
+                  }
+              ],
+    "missions":  [
+
+                 ]
+}

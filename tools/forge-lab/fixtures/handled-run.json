@@ -1,0 +1,87 @@
+{
+    "pid":  27228,
+    "started":  "2026-11-08T19:31:49-06:00",
+    "exit":  {
+                 "at":  "2026-11-08T19:36:13-06:00",
+                 "code":  0,
+                 "how":  "quit"
+             },
+    "outcome":  "clean-quit",
+    "clean":  true,
+    "finished":  "2026-11-08T19:36:16-06:00",
+    "dumps":  [
+
+              ],
+    "missions":  [
+                     {
+                         "asked":  {
+                                       "difficulty":  11,
+                                       "faction":  "automaton",
+                                       "mission_pick":  null,
+                                       "pick":  null,
+                                       "planet":  null,
+                                       "region_tag":  null
+                                   },
+                         "difficulty":  11,
+                         "in_control":  "2026-11-08T19:33:44-06:00",
+                         "leave":  {
+                                       "to_ship_s":  14.03
+                                   },
+                         "left":  "2026-11-08T19:36:10-06:00",
+                         "mission":  17,
+                         "operation":  2,
+                         "planet":  203,
+                         "race":  3,
+                         "reached_mission":  "2026-11-08T19:33:34-06:00",
+                         "started":  "2026-11-08T19:32:41-06:00",
+                         "steps":  {
+                                       "briefing":  {
+                                                        "intro_skipped":  true,
+                                                        "seconds":  0.4
+                                                    },
+                                       "control":  {
+                                                       "control_s":  9.52,
+                                                       "mission_type":  1,
+                                                       "seconds":  10.5
+                                                   },
+                                       "drop":  {
+                                                    "drop":  [
+                                                                 true,
+                                                                 0,
+                                                                 0
+                                                             ],
+                                                    "seconds":  0.1
+                                                },
+                                       "launch":  {
+                                                      "launch_s":  7.52,
+                                                      "load_s":  39.58,
+                                                      "seconds":  47.2
+                                                  },
+                                       "select":  {
+                                                      "commit":  [
+                                                                     true,
+                                                                     203,
+                                                                     17,
+                                                                     11,
+                                                                     1,
+                                                                     3,
+                                                                     2
+                                                                 ],
+                                                      "continued":  false,
+                                                      "difficulty":  11,
+                                                      "mission":  17,
+                                                      "mission_type":  22,
+                                                      "operation":  2,
+                                                      "operation_index":  100,
+                                                      "planet":  203,
+                                                      "pod_ready_s":  1.25,
+                                                      "race":  3,
+                                                      "region_tags":  [
+                                                                          1
+                                                                      ],
+                                                      "seconds":  4.7
+                                                  }
+                                   }
+                     }
+                 ]
+}
