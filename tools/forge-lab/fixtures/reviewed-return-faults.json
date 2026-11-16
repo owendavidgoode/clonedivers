@@ -1,0 +1,24 @@
+[
+  {
+    "session": "1283fd50f2af4b3f9a38a57d7f5c69d2",
+    "lines": [
+      "22:14:32.252 crash: c0000005 on thread 14024 at helldivers2.exe+0x1e6b3e (0x7ff793426b3e), reading 0x2c8ac460270; rax 2c72b3d2690 rbx c6c1 rcx 2c19844a7f8 rdx 2c8ac460270 rsi 2c5e6d928d0 rdi 2c8c05f6fe0 r8 7 r9 2c5e6d928d0 r12 ffffffff r13 0 r14 0 r15 0; Dr0 0 Dr1 0 Dr2 0 Dr3 0 Dr6 0 Dr7 0; stack: x+0x5c2f12 x+0x5c2e4b x+0x168b0d0 x+0x669ed1",
+      "22:14:32.252 crash: by module: at helldivers2.exe+0x1e6b3e; stack outside the game: nvwgf2umx.dll+0x2c0d0bc nvwgf2umx.dll+0x2c0d0a8 nvwgf2umx.dll+0x7c4448 nvwgf2umx.dll+0x3acc88c nvwgf2umx.dll+0x329ef2 nvwgf2umx.dll+0x3a98f4c nvwgf2umx.dll+0x165a52 nvwgf2umx.dll+0x363538 msvcp_win.dll+0x1366b D3D12Core.dll+0x3fc54 nvwgf2umx.dll+0x17d700 nvwgf2umx.dll+0x6f3800 nvwgf2umx.dll+0x748500 nvwgf2umx.dll+0x100220 nvwgf2umx.dll+0x326a5b nvwgf2umx.dll+0x39aff4",
+      "22:14:32.443 crash: fail-fast about to end the game (thread 16360, asked from dbgcore.DLL+0x129d2); stack: g+0x0 x+0x33a1058",
+      "22:14:32.620 crash: fail-fast about to end the game (thread 14024, asked from dbgcore.DLL+0x129d2); stack: g+0x0 x+0x33a1058",
+      "22:14:32.625 crash: c0000005 on thread 14024 at helldivers2.exe+0x99d7cd (0x7ff793bdd7cd), reading 0x58; rax 0 rbx 800 rcx 13 rdx 2c151953ce0 rsi 2c151953ce0 rdi 2c151953ce0 r8 800 r9 100 r12 ffffffffffffffff r13 7ffc8e2b2a78 r14 83afb61c243e r15 2c15e8a40d0; Dr0 0 Dr1 0 Dr2 0 Dr3 0 Dr6 0 Dr7 0; stack: x+0x1985330 x+0x99a9cd x+0x7d751a x+0x190d600 x+0x13f11fd x+0x190d5d0 x+0x12d6491 x+0x12377be x+0x12d60d5 x+0x12d659d x+0x1264adf x+0x12a7c41 x+0x19b2d30 x+0x12a7af1 x+0x12a7da7 x+0x5c0cd3 x+0x5c0884 x+0x5c175e x+0x2373098 x+0x168b500 x+0x168b31c x+0x5b9d30 x+0x5b9f68 x+0x5b9d30",
+      "22:14:32.625 crash: by module: at helldivers2.exe+0x99d7cd; r13 KERNELBASE.dll+0x3b2a78; stack outside the game: ntdll.dll+0x27475 KERNELBASE.dll+0x3b2a78 KERNELBASE.dll+0x3b2a78 ntdll.dll+0x1d32a0 KERNELBASE.dll+0x10faa3 ntdll.dll+0x0 ntdll.dll+0x16f8fd ntdll.dll+0x1b6bbc ntdll.dll+0x1b6bc8 ntdll.dll+0x127733 ntdll.dll+0x1e26dc ntdll.dll+0xc9c5c ntdll.dll+0x1e26dc ntdll.dll+0x16ab3f ntdll.dll+0x1e26dc ntdll.dll+0xc6985"
+    ]
+  },
+  {
+    "session": "500450cafa144353bbbac7b95636b1b3",
+    "lines": [
+      "02:36:37.971 crash: c0000005 on thread 32108 at helldivers2.exe+0x1e6b3e (0x7ff799356b3e), reading 0x1f0d4c10630; rax 1f35fc13420 rbx 9e26 rcx 1f04052b9d8 rdx 1f0d4c10630 rsi 1ede78b28d0 rdi 1f16b8fd2e0 r8 7 r9 1ede78b28d0 r12 ffffffff r13 0 r14 0 r15 0; Dr0 0 Dr1 0 Dr2 0 Dr3 0 Dr6 0 Dr7 0; stack:",
+      "02:36:37.971 crash: by module: at helldivers2.exe+0x1e6b3e; stack outside the game: nvwgf2umx.dll+0x264396 nvwgf2umx.dll+0x6f3a2f nvwgf2umx.dll+0x2c0d0bc nvwgf2umx.dll+0x2c0d0a8 nvwgf2umx.dll+0x7c4448 nvwgf2umx.dll+0x3acc88c nvwgf2umx.dll+0x329ef2 nvwgf2umx.dll+0x3a98f4c nvwgf2umx.dll+0x165a52 nvwgf2umx.dll+0x363538 msvcp_win.dll+0x1366b D3D12Core.dll+0x3fc54 nvwgf2umx.dll+0x17d700 nvwgf2umx.dll+0x6f3800 nvwgf2umx.dll+0x748500 nvwgf2umx.dll+0x100220",
+      "02:36:38.369 crash: fail-fast about to end the game (thread 39156, asked from dbgcore.DLL+0x129d2); stack: g+0x0 x+0x33a1058",
+      "02:36:38.543 crash: fail-fast about to end the game (thread 32108, asked from dbgcore.DLL+0x129d2); stack: g+0x0 x+0x33a1058",
+      "02:36:38.549 crash: c0000005 on thread 32108 at helldivers2.exe+0x99d7cd (0x7ff799b0d7cd), reading 0x58; rax 0 rbx 800 rcx 13 rdx 1e931c83ce0 rsi 1e931c83ce0 rdi 1e931c83ce0 r8 800 r9 100 r12 ffffffffffffffff r13 7ffc8e2b2a78 r14 82caa653ab55 r15 1e93ec430c0; Dr0 0 Dr1 0 Dr2 0 Dr3 0 Dr6 0 Dr7 0; stack: x+0x1985330 x+0x99a9cd x+0x7d751a x+0x190d600 x+0x13f11fd x+0x190d5d0 x+0x12d6491 x+0x12377be x+0x12d60d5 x+0x12d659d x+0x1264adf x+0x12a7c41 x+0x19b2d30 x+0x12a7af1 x+0x12a7da7 x+0x5c0cd3 x+0x5c0884 x+0x5c175e x+0x2373098 x+0x168b500 x+0x168b31c x+0x5b9d30 x+0x5b9f68 x+0x5b9d30",
+      "02:36:38.549 crash: by module: at helldivers2.exe+0x99d7cd; r13 KERNELBASE.dll+0x3b2a78; stack outside the game: ntdll.dll+0x27475 KERNELBASE.dll+0x3b2a78 KERNELBASE.dll+0x3b2a78 ntdll.dll+0x1d32a0 KERNELBASE.dll+0x10faa3 ntdll.dll+0x0 ntdll.dll+0x16f8fd ntdll.dll+0x1b6bbc ntdll.dll+0x1b6bc8 ntdll.dll+0x127733 ntdll.dll+0x1e26dc ntdll.dll+0xc9c5c ntdll.dll+0x1e26dc ntdll.dll+0x16ab3f ntdll.dll+0x1e26dc ntdll.dll+0xc6985"
+    ]
+  }
+]

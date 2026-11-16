@@ -1,0 +1,2 @@
+2026-11-09T01:31:44.162Z pid=27756 clean exit: committed teardown fault at +0x626296; idle 547 ms, state 3; TerminateProcess(0)
+2026-11-09T01:36:11.238Z pid=27228 clean exit: committed teardown fault at +0x626296; idle 656 ms, state 3; TerminateProcess(0)

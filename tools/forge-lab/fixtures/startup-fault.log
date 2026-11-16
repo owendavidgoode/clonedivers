@@ -1,0 +1,4 @@
+03:22:50.448 crash: c0000005 on thread 24100 at helldivers2.exe+0x2bd8ad (0x7ff75aa7d8ad), reading 0x2354de5e6f0; rax 2254de5e700 rbx a61438bc rcx 228b1654590 rdx ffffffff rsi 0 rdi 228b1654590 r8 1fffffffe r9 0 r12 0 r13 22900020ce0 r14 85d r15 2295dc520c0; Dr0 0 Dr1 0 Dr2 0 Dr3 0 Dr6 0 Dr7 0; stack: x+0x1c8eb9 x+0x9d921 x+0x8a1332 x+0x669e34 x+0x5c2e4b x+0x669dad x+0x5c2e4b x+0x0 x+0xf302ef x+0x16a1750 x+0xa0435 x+0x5c2e4b x+0x81718e x+0x5c2e4b x+0x5c2f12 x+0x99a557 x+0x5c2e4b x+0x81718e x+0xa0435 x+0xf374e1 x+0x236a400 x+0xf0cf40 x+0xf30c1e x+0x8a1e1d
+03:22:50.448 crash: by module: at helldivers2.exe+0x2bd8ad; stack outside the game: KERNEL32.DLL+0x33160 KERNELBASE.dll+0xb8cc4
+03:22:50.795 crash: fail-fast about to end the game (thread 8060, asked from dbgcore.DLL+0x129d2); stack: g+0x0 x+0x33a1058
+03:22:51.001 crash: fail-fast about to end the game (thread 24100, asked from dbgcore.DLL+0x129d2); stack: g+0x0 x+0x33a1058
