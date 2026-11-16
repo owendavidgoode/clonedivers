@@ -1,21 +1,25 @@
 # Discussed mod coverage — complete pinned preset
 
-The staged r3 Clones preset consists of three official bundled mods, seven required
-gameplay downloads, optional Clean Exit and one selected appearance, for 12 mods
-with all defaults enabled. The launcher obtains all eight downloads automatically
-on first setup with archive/content verification and official imports.
+The staged r4 Clones preset consists of three official bundled mods, seven required
+gameplay downloads, optional Clean Exit 0.2.0 and Empire LEGO Yoda Death 0.1.1,
+and one selected appearance, for 13 mods with all defaults enabled. The launcher
+obtains all nine downloads automatically on first setup with archive/content
+verification and official imports.
 Five original packages come directly from authors. The Heavy/Squad compatibility
 archives use the owner's confirmed written author permission; the mine fix is
 project-owned MIT source. See SEAF-COMPATIBILITY-PERMISSION.md and the embedded
 gameplay catalog for exact sources, hashes, versions, order and options.
 
-Clean Exit 0.2.0 is client-only (`gameplay: false`) and excluded from HellForge's
-co-op matching. It is enabled on first r3 setup. Disabling, replacing or removing
-it afterwards is respected across restarts, required-mod repair and rollback.
-An already disabled copy is respected on first setup too. Publish the exact
-`clean-exit-0.2.0.zip` asset on `forge-mods-2026-11-08` before releasing this
-catalog. The archive size, SHA-256, official content hash and planned URL are in
-[Forge status](FORGE.md).
+Clean Exit 0.2.0 and Empire LEGO Yoda Death 0.1.1 (prototype) are client-only
+(`gameplay: false`, `coop: per-player`) and excluded from HellForge's co-op
+matching. Each is enabled once on first setup for its catalog revision (r3
+upgrades preserve prior Clean Exit choices while offering Yoda 0.1.1 once).
+Disabling, replacing or removing either afterwards is respected across restarts,
+required-mod repair and rollback. An already disabled copy is respected on first
+setup too. Publish `empire-lego-yoda-0.1.1.zip` on `forge-mods-2026-11-15` (and
+`clean-exit-0.2.0.zip` on `forge-mods-2026-11-08`) before releasing this catalog.
+The archive sizes, SHA-256 digests, official content hashes and planned URLs are
+in [Forge status](FORGE.md).
 
 | Candidate | Owner state and decision | Dependencies / acquisition / redistribution |
 | --- | --- | --- |
@@ -28,6 +32,7 @@ catalog. The archive size, SHA-256, official content hash and planned URL are in
 | Smarter Guard Dogs and Sentries 5.2.0 | Enabled; initialization passed; owner observed yellow markers before OFF fix | https://github.com/Th3chef/Smarter-Guard-Dogs-and-Sentries/releases/tag/v5.2.0; loader 19+, installed 20; options menu optional. All rights reserved/private use, no redistribution. Marker-OFF combat is unqualified. |
 | Operation Reroller 0.1.2 | Enabled, initialized; actual reroll behavior unqualified | https://hf-mod.com/Mods/Details/12, file 138. SDK 6+. MIT plus SDK notices; retain attribution. No author digest available; local receipt hash recorded. |
 | Clonedivers Clean Exit 0.2.0 | Optional, enabled by default; every quit in the reported 20-cycle D11 soak exited cleanly | Project-owned client-only code mod, source in `forge-mods/clean-exit`. SDK 16, build 25480438. `gameplay: false` excludes it from peer matching. Exact pinned release asset is staged for publication. |
+| Empire LEGO Yoda Death 0.1.1 (prototype) | Optional, enabled by default; dual SDK/poll local death routing (122 offline checks; live death/audibility pending) | Project-owned client-only code mod, source in `forge-mods/empire-lego-yoda` (copyrighted WAV excluded from git). SDK 16, build 25480438. `gameplay: false`, `coop: per-player` excludes it from peer matching. Exact pinned release asset is staged for publication. |
 | D11 mine boundary fix0.1.1 | Retired/disabled on engine 0.1.47 | The author integrated the bounds/loading fix. Keep the old file for recovery; do not layer its hooks onto the new engine. |
 | Armored Overhaul 3.7.12 | Original rejected with Clones Bastion model conflict; handling-only private trial initialized, OFF | https://hf-mod.com/Mods/Details/15, file 299. SDK 7+; all rights reserved, private adaptation not redistributable. Actual driving/handling not tested; optional isolated trial only. |
 | Reinforcement Beacons Fixed 4.6.1 | Imported, initialized, OFF because VP supplies overlapping behavior | https://github.com/CowboyBingus/ReinforcementBeaconsFixed/releases/tag/v4.6.1; loader 18+. Zero-Clause BSD. Each peer must install. Never enable beside VP. |

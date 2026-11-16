@@ -7,6 +7,9 @@ internal static class LinuxForgePlayerTests
     internal static async Task Run(string root, Action<bool, string> check)
     {
         const string hello = "{\"bridge\":\"clonedivers-forge\",\"format\":1}\n";
+        check(HellForgeGameplayCatalog.Pinned.Id == "build25480438-r4" && HellForgeGameplayCatalog.Pinned.Artifacts.Count == 9 &&
+            HellForgeGameplayCatalog.Pinned.Artifacts.Where(a => a.Optional).Select(a => a.Id).ToHashSet(StringComparer.Ordinal).SetEquals(HellForgePreset.Optional),
+            "Linux embeds and validates the r4 gameplay catalog with both optional mods");
         var publishedEmpire = new LinuxForgePreferences { Mode = "empire" };
         check(publishedEmpire.PackSelection().Version == "2026.11.08-r45-v4" && publishedEmpire.PackSelection().Files.Count == 96,
             "Linux shipping Empire retains the 96-row public r45-v4 catalog");

@@ -12,19 +12,35 @@ internal static class GameplayInstallTests
     {
         var catalog = HellForgeGameplayCatalog.Pinned;
         catalog.Validate();
-        check(catalog.Id == "build25480438-r3" && catalog.Artifacts.Count == 8 && catalog.Artifacts.Sum(a => a.Bytes) == 7788615, "the r3 preset adds optional Clean Exit to the seven required archives");
-        check(catalog.Artifacts.Count(a => a.Url.Contains("/owendavidgoode/clonedivers/")) == 3 && catalog.Artifacts.Count(a => !a.Url.Contains("/owendavidgoode/clonedivers/")) == 5, "the two permitted compatibility packages and project-owned Clean Exit use project assets; five dependencies come from authors");
+        check(catalog.Id == "build25480438-r4" && catalog.Artifacts.Count == 9 && catalog.Artifacts.Sum(a => a.Bytes) == 7834117, "the r4 preset adds optional Empire LEGO Yoda Death to Clean Exit and the seven required archives");
+        check(catalog.Artifacts.Count(a => a.Url.Contains("/owendavidgoode/clonedivers/")) == 4 && catalog.Artifacts.Count(a => !a.Url.Contains("/owendavidgoode/clonedivers/")) == 5, "the two permitted compatibility packages and two project-owned optional mods use project assets; five dependencies come from authors");
         check(catalog.Artifacts.All(a => FileSafety.IsSha256(a.ContentHash) && FileSafety.IsSha256(a.Sha256)), "every gameplay dependency has independent archive and official content-hash pins");
         var cleanExit = catalog.Artifacts.Single(a => a.Id == HellForgePreset.CleanExit);
-        check(catalog.Artifacts.Where(a => a.Optional).SequenceEqual([cleanExit]) && HellForgePreset.Required.All(r => r.Id != cleanExit.Id) &&
+        var yoda = catalog.Artifacts.Single(a => a.Id == HellForgePreset.EmpireLegoYoda);
+        check(catalog.Artifacts.Where(a => a.Optional).Select(a => a.Id).ToHashSet(StringComparer.Ordinal).SetEquals(HellForgePreset.Optional) &&
+            HellForgePreset.Required.All(r => !HellForgePreset.Optional.Contains(r.Id)) &&
             cleanExit.Version == "0.2.0" && cleanExit.Bytes == 8192 && cleanExit.Sha256 == "6835354fff8264c6f29c33dfac71a0b6e4c4da7a401920bb76e1b604d2435932" &&
             cleanExit.ContentHash == "0006a02101583cf05e3bd9fa4e431409c18ff4ac72f59ae1ece8c7d9831a888a" &&
             cleanExit.Url == "https://github.com/owendavidgoode/clonedivers/releases/download/forge-mods-2026-11-08/clean-exit-0.2.0.zip",
-            "Clean Exit is optional with the exact independently verified 0.2.0 release pins");
+            "Clean Exit stays optional with the exact independently verified 0.2.0 release pins");
+        check(yoda.Name == "Empire LEGO Yoda Death (prototype)" && yoda.Version == "0.1.1" && yoda.Bytes == 45502 &&
+            yoda.Sha256 == "2a5b439a0ca9ab486ffa99b1b7fd650fd12f98b578c7acdbe903864336c7b03f" &&
+            yoda.ContentHash == "95cc05bd87855c6d06251fdaf3b7687a0ad9494dee4922d818b14a0feb697706" &&
+            yoda.Url == "https://github.com/owendavidgoode/clonedivers/releases/download/forge-mods-2026-11-15/empire-lego-yoda-0.1.1.zip",
+            "Empire LEGO Yoda Death is optional with the exact 0.1.1 release pins");
         using (var stream = typeof(GameplayInstallTests).Assembly.GetManifestResourceStream("Clonedivers.Tests.CleanExit.json")!)
         using (var manifest = JsonDocument.Parse(stream))
             check(manifest.RootElement.GetProperty("id").GetString() == cleanExit.Id && manifest.RootElement.GetProperty("version").GetString() == cleanExit.Version &&
                 !manifest.RootElement.GetProperty("gameplay").GetBoolean(), "Clean Exit declares gameplay false so the official runtime excludes it from co-op matching");
+        using (var stream = typeof(GameplayInstallTests).Assembly.GetManifestResourceStream("Clonedivers.Tests.EmpireLegoYoda.json")!)
+        using (var manifest = JsonDocument.Parse(stream))
+            check(manifest.RootElement.GetProperty("id").GetString() == yoda.Id && manifest.RootElement.GetProperty("version").GetString() == yoda.Version &&
+                !manifest.RootElement.GetProperty("gameplay").GetBoolean() && manifest.RootElement.GetProperty("coop").GetString() == "per-player",
+                "Empire LEGO Yoda Death declares 0.1.1, gameplay false and per-player co-op scope");
+        var clone = JsonSerializer.Deserialize<HellForgeGameplayCatalog>(JsonSerializer.Serialize(catalog, HellForgePack.Json), HellForgePack.Json)!;
+        clone.Artifacts[clone.Artifacts.FindIndex(a => a.Id == yoda.Id)] = yoda with { Optional = false };
+        try { clone.Validate(); check(false, "catalog validation must reject required-flagged optional mod"); }
+        catch (InvalidDataException) { check(true, "catalog validation enforces HellForgePreset.Optional membership"); }
         foreach (var entry in new[] { "../escape.dll", "C:/escape.dll", "safe/../../escape.dll", "safe/entry.dll" })
         {
             var file = Path.Combine(root, Guid.NewGuid().ToString("N") + ".zip");
@@ -52,7 +68,7 @@ internal static class GameplayInstallTests
         var backup = Path.Combine(client.CacheRoot, "backups", "gameplay-" + Guid.NewGuid().ToString("N")); Directory.CreateDirectory(backup);
         void Write(string catalog, string state, string? owner = null) => File.WriteAllText(record, JsonSerializer.Serialize(new {
             Root = owner ?? client.Root, Catalog = catalog, Backup = backup, SnapshotSha256 = new string('a', 64), State = state }));
-        foreach (var revision in new[] { "build25480438-r1", "build25480438-r2" })
+        foreach (var revision in new[] { "build25480438-r1", "build25480438-r2", "build25480438-r3" })
         foreach (var state in new[] { "applied", "restored" })
         {
             Write(revision, state);
@@ -63,7 +79,7 @@ internal static class GameplayInstallTests
         check(client.InterruptedGameplayProblem()?.StartsWith("Gameplay setup was interrupted", StringComparison.Ordinal) == true, "a pending record from the pinned catalog still requires recovery");
         Write(HellForgeGameplayCatalog.Pinned.Id, "applied", Path.Combine(root, "other"));
         check(client.InterruptedGameplayProblem()?.Contains("needs review") == true, "a record for another installation still needs review");
-        foreach (var revision in new[] { "build25480438-r1", "build25480438-r2" })
+        foreach (var revision in new[] { "build25480438-r1", "build25480438-r2", "build25480438-r3" })
         {
             Write(revision, "pending");
             check(client.InterruptedGameplayProblem()?.StartsWith("Gameplay setup from an earlier launcher", StringComparison.Ordinal) == true, "a pending " + revision + " record names its own recovery path");

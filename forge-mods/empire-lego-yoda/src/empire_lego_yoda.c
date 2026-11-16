@@ -28,6 +28,7 @@ static Snapshot saved;
 static uint64_t lastSample, sampleEvery = 100;
 static uint32_t consumedAvatar, consumedNetwork;
 static uint64_t consumedPeer;
+static int reportedPollRejection;
 static unsigned char audio[29454];
 static BOOL (WINAPI *play)(LPCWSTR, HMODULE, DWORD);
 
@@ -133,6 +134,36 @@ static int Life(HfMod* mod, uint32_t avatar, uint32_t* life)
     return found == 1;
 }
 
+static int SameSlot(const Snapshot* now)
+{
+    return now->peer == saved.peer && now->player == saved.player && now->network == saved.network;
+}
+
+static int Consumed(void)
+{
+    return consumedPeer == saved.peer && consumedAvatar == saved.avatar && consumedNetwork == saved.network;
+}
+
+/* Both routes must identify the same dead local avatar. Resolve its ID and read the manager's
+ * health record by ID, without retaining or dereferencing an avatar, unit or actor pointer. */
+static const char* ConfirmDeath(HfMod* mod, Snapshot* now, uint32_t lifecycle, uint64_t age, const char* route)
+{
+    if (age > 500) return "stale LEGO observation";
+    if (Consumed()) return "duplicate death";
+    if (lifecycle != 2) return "local slot is not waiting to respawn";
+    if (!SameSlot(now) || hf->entity_of_network(mod, now->network) != saved.avatar) return "local avatar identity changed/unavailable";
+    uint32_t life;
+    if (!Life(mod, saved.avatar, &life)) return "native health unavailable";
+    if (life < 2) return "native health has not confirmed death";
+    if (!Armor(now) || now->record != saved.record || memcmp(now->applied, saved.applied, sizeof now->applied)) return "applied outfit changed/unavailable";
+    if (!Unchanged(&proofs[saved.visual])) return "staged visuals changed/unavailable";
+    consumedPeer = saved.peer; consumedAvatar = saved.avatar; consumedNetwork = saved.network;
+    /* Keep the buffer for the whole session. A refused playback is consumed too: no retries. */
+    int played = play((LPCWSTR)audio, NULL, SND_MEMORY | SND_ASYNC | SND_NODEFAULT | SND_NOSTOP);
+    hf->log(mod, "yoda attempt avatar=%u kit=%08X body=%u result=%s route=%s", saved.avatar, saved.kit, saved.body, played ? "started" : "refused", route);
+    return NULL;
+}
+
 static void Tick(HfMod* mod, float dt, void* user)
 {
     (void)dt; (void)user;
@@ -143,7 +174,21 @@ static void Tick(HfMod* mod, float dt, void* user)
     lastSample = clock;
     Snapshot now = {0}; uint32_t lifecycle, life;
     if (!Local(mod, &now, &lifecycle)) { memset(&saved, 0, sizeof saved); return; }
-    /* Preserve the last alive observation while the death event is delivered, never indefinitely. */
+    /* The SDK only emits Down on consecutive 3 -> 2 samples. Check the same local life
+     * independently while its eligible observation is still fresh. Never infer death from disappearance. */
+    if (saved.avatar && !SameSlot(&now)) memset(&saved, 0, sizeof saved);
+    if (lifecycle == 2 && saved.avatar && !Consumed())
+    {
+        uint64_t age = clock - saved.observed;
+        const char* why = ConfirmDeath(mod, &now, lifecycle, age, "local-poll");
+        if (why && !reportedPollRejection)
+        {
+            hf->log(mod, "skip death: route=local-poll avatar=%u network=%u age_ms=%llu %s", saved.avatar, saved.network, (unsigned long long)age, why);
+            reportedPollRejection = 1;
+        }
+        if (age > 500) memset(&saved, 0, sizeof saved);
+        return;
+    }
     if (lifecycle != 3) return;
     now.avatar = hf->entity_of_network(mod, now.network);
     if (!now.avatar || now.avatar == UINT32_MAX || !Life(mod, now.avatar, &life)) { memset(&saved, 0, sizeof saved); return; }
@@ -153,25 +198,19 @@ static void Tick(HfMod* mod, float dt, void* user)
     if (saved.avatar != now.avatar || saved.network != now.network || saved.kit != now.kit || saved.body != now.body)
         hf->log(mod, "eligible local avatar=%u network=%u kit=%08X body=%u", now.avatar, now.network, now.kit, now.body);
     saved = now;
+    reportedPollRejection = 0;
 }
 
 static void Down(HfMod* mod, const HfPlayerEvent* event, void* user)
 {
     (void)user;
     if (!event->local) { hf->log(mod, "skip remote death"); return; }
-    if (!ready || !saved.avatar || hf->game_state(mod) != HF_STATE_MISSION || event->peer != saved.peer || event->entity != saved.player ||
-        GetTickCount64() - saved.observed > 500) { hf->log(mod, "skip death: no fresh local LEGO observation"); return; }
-    if (consumedPeer == saved.peer && consumedAvatar == saved.avatar && consumedNetwork == saved.network)
-    { hf->log(mod, "skip duplicate death avatar=%u", saved.avatar); return; }
-    Snapshot now = {0}; uint32_t lifecycle, life;
-    if (!Local(mod, &now, &lifecycle) || lifecycle != 2 || now.peer != saved.peer || now.player != saved.player ||
-        !Armor(&now) || now.record != saved.record || memcmp(now.applied, saved.applied, sizeof now.applied) ||
-        !Life(mod, saved.avatar, &life) || life < 2 || !Unchanged(&proofs[saved.visual]))
-    { hf->log(mod, "skip death: identity, dead state or staged visuals changed/unavailable"); return; }
-    consumedPeer = saved.peer; consumedAvatar = saved.avatar; consumedNetwork = saved.network;
-    /* Keep the buffer for the whole session. A refused playback is consumed too: no retries. */
-    int played = play((LPCWSTR)audio, NULL, SND_MEMORY | SND_ASYNC | SND_NODEFAULT | SND_NOSTOP);
-    hf->log(mod, "yoda attempt avatar=%u kit=%08X body=%u result=%s", saved.avatar, saved.kit, saved.body, played ? "started" : "refused");
+    if (!ready || !saved.avatar || hf->game_state(mod) != HF_STATE_MISSION || event->peer != saved.peer || event->entity != saved.player)
+    { hf->log(mod, "skip death: route=sdk-down update=%llu no matching local LEGO observation", (unsigned long long)event->info.update); return; }
+    Snapshot now = {0}; uint32_t lifecycle;
+    uint64_t age = GetTickCount64() - saved.observed;
+    const char* why = Local(mod, &now, &lifecycle) ? ConfirmDeath(mod, &now, lifecycle, age, "sdk-down") : "local slot unavailable";
+    if (why) hf->log(mod, "skip death: route=sdk-down update=%llu avatar=%u age_ms=%llu %s", (unsigned long long)event->info.update, saved.avatar, (unsigned long long)age, why);
 }
 
 static void State(HfMod* mod, const HfStateEvent* event, void* user)

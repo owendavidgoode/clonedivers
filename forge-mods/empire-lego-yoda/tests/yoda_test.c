@@ -1,6 +1,9 @@
 /* Standalone host: fake game memory and audio, real Win32 hashing/archive parsing. Never opens a game process. */
 #undef NDEBUG
 #include <assert.h>
+#include <windows.h>
+static ULONGLONG clockMs;
+#define GetTickCount64() clockMs
 #include "../src/empire_lego_yoda.c"
 struct HfMod { const HfApi* api; };
 static HfApi api;
@@ -10,7 +13,7 @@ static uintptr_t playerCell, userCell, healthCell, kitPointer, healthPointer;
 static uint32_t mapEntries[8];
 static int calls, playback = 1, checks;
 static uint32_t state = HF_STATE_MISSION;
-static int badPin;
+static int badPin, missingMapping;
 #define CHECK(x) do { assert(x); checks++; } while (0)
 static void Put32(void* p, size_t at, uint32_t value) { memcpy((char*)p + at, &value, 4); }
 static void Put64(void* p, size_t at, uint64_t value) { memcpy((char*)p + at, &value, 8); }
@@ -24,7 +27,15 @@ static uintptr_t Global(HfMod* m, const char* name)
     return 0;
 }
 static uint32_t GameState(HfMod* m) { (void)m; return state; }
-static uint32_t Entity(HfMod* m, uint32_t network) { (void)m; return network + 10; }
+static uint32_t Entity(HfMod* m, uint32_t network)
+{
+    (void)m;
+    if (missingMapping) return UINT32_MAX;
+    if (network == 580) return 710;
+    if (network == 606) return 738;
+    if (network == 0x7FFF) return UINT32_MAX;
+    return network + 10;
+}
 static void Log(HfMod* m, const char* format, ...) { (void)m; (void)format; }
 static void Status(HfMod* m, const char* text) { (void)m; (void)text; }
 static uintptr_t Module(const char* name, size_t* size) { (void)name; (void)size; return game; }
@@ -41,15 +52,17 @@ static BOOL WINAPI Play(LPCWSTR wav, HMODULE module, DWORD flags)
     CHECK(wav == (LPCWSTR)audio && (flags & SND_MEMORY) && (flags & SND_ASYNC)); calls++; return playback;
 }
 static void Observe(void) { Tick((HfMod*)&mod, 0.016f, NULL); }
+static void MarkDead(void) { Put32(players, 0x2E0, 2); Put32(healthRecord, 0x19C, 2); }
 static void Die(void)
 {
-    Put32(players, 0x2E0, 2); Put32(healthRecord, 0x19C, 2);
+    MarkDead();
     HfPlayerEvent event = {{sizeof event, HF_ON_PLAYER_DOWN, 1}, 42, 100, 1};
     Down((HfMod*)&mod, &event, NULL);
 }
 static void Reset(void)
 {
     memset(&saved, 0, sizeof saved); consumedPeer = consumedAvatar = consumedNetwork = 0;
+    clockMs = 1000; lastSample = 0; missingMapping = 0;
     memset(players, 0, sizeof players); memset(user, 0, sizeof user); memset(manager, 0, sizeof manager);
     memset(health, 0, sizeof health); memset(kit, 0, sizeof kit); memset(healthRecord, 0, sizeof healthRecord);
     playerCell = (uintptr_t)players; userCell = (uintptr_t)user; healthCell = (uintptr_t)health;
@@ -66,6 +79,26 @@ static void Reset(void)
     Put32(health, 0x1020, 1); healthPointer = (uintptr_t)healthDesc;
     Put64(health, 0x1048, (uintptr_t)&healthPointer); Put64(health, 0x1058, (uintptr_t)healthRecord); Put32(healthDesc, 8, 210);
     ready = proven = gameLoaded = 1; calls = 0; playback = 1; state = HF_STATE_MISSION; play = Play;
+}
+
+/* The controls recorded player 5, avatar 710 at lifecycle 3 then 2, and 738 at 3.
+ * There was no logged Down invocation. Native health >= 2 is a fixture input, not in the receipt. */
+static void RecordedMissingDown(void)
+{
+    Reset(); sampleEvery = 100;
+    Put32(playerDesc, 8, 5); mapEntries[2] = 5; mapEntries[3] = 0;
+    Put32(players, 0x3A8, 580); Put32(healthDesc, 8, 710);
+    Observe(); CHECK(saved.avatar == 710 && saved.network == 580 && saved.player == 5 && calls == 0);
+    MarkDead();
+    clockMs += 100; Observe(); CHECK(calls == 1);
+    clockMs += 100; Observe(); CHECK(calls == 1);
+    HfPlayerEvent late = {{sizeof late, HF_ON_PLAYER_DOWN, 1}, 42, 5, 1};
+    Down((HfMod*)&mod, &late, NULL); CHECK(calls == 1);
+    Put32(players, 0x2E0, 3); Put32(players, 0x3A8, 606);
+    Put32(healthDesc, 8, 738); Put32(healthRecord, 0x19C, 0);
+    clockMs += 5000; Observe(); CHECK(saved.avatar == 738 && calls == 1);
+    Down((HfMod*)&mod, &late, NULL); CHECK(calls == 1);
+    sampleEvery = 0;
 }
 static void WritePart(const wchar_t* target, const Proof* original, int gpu, int corrupt)
 {
@@ -125,8 +158,34 @@ int wmain(int argc, wchar_t** argv)
         Observe(); CHECK(saved.visual == v && saved.avatar == 210); Die(); CHECK(calls == 1); Die(); CHECK(calls == 1);
     }
     memset(proofs, 0, sizeof proofs); proofs[0] = good;
+    RecordedMissingDown();
+    /* SDK samples run before Tick. A Down callback can see health before it confirms death. */
+    Reset(); Observe(); Put32(players, 0x2E0, 2); Put32(healthRecord, 0x19C, 1);
+    HfPlayerEvent event = {{sizeof event, HF_ON_PLAYER_DOWN, 1}, 42, 100, 1};
+    Down((HfMod*)&mod, &event, NULL); Observe(); CHECK(calls == 0);
+    Put32(healthRecord, 0x19C, 2); clockMs += 100; Observe(); CHECK(calls == 1);
+    Down((HfMod*)&mod, &event, NULL); CHECK(calls == 1);
+    /* The SDK suppresses Down if its last sample was intermediate. An intermediate sample
+     * by itself, a missing mapping and a death belonging to another avatar must stay silent. */
+    Reset(); Observe(); Put32(players, 0x2E0, 1); Put32(healthRecord, 0x19C, 2);
+    clockMs += 100; Observe(); CHECK(calls == 0);
+    Put32(players, 0x2E0, 2); clockMs += 100; Observe(); CHECK(calls == 1);
+    Reset(); Observe(); MarkDead();
+    missingMapping = 1; Observe(); CHECK(calls == 0);
+    Reset(); Observe(); MarkDead();
+    Put32(players, 0x3A8, 201); Observe(); CHECK(calls == 0 && !saved.avatar);
+    Reset(); Observe(); MarkDead();
+    Put64(user, 0xB398, 999); Observe(); CHECK(calls == 0 && !saved.avatar);
+    Reset(); Observe(); MarkDead();
+    Put32(health, 0x1020, 0); Observe(); CHECK(calls == 0);
+    Reset(); Observe(); MarkDead();
+    Put32(manager, 0x96C + 4, 123); Observe(); CHECK(calls == 0);
+    Reset(); Observe(); MarkDead();
+    clockMs += 501; Observe(); CHECK(calls == 0 && !saved.avatar);
+    Reset(); Put32(manager, 0x96C + 12, 0x61B31723); Observe(); CHECK(!saved.avatar);
+    Die(); Observe(); CHECK(calls == 0);
     Reset(); gameLoaded = 0; Observe(); CHECK(!saved.avatar); Loaded((HfMod*)&mod, HF_EVENT_GAME_LOADED, NULL); Observe(); CHECK(saved.avatar == 210);
-    Reset(); Observe(); CHECK(saved.avatar == 210 && saved.kit == visuals[0].kit); Die(); CHECK(calls == 1); Die(); CHECK(calls == 1);
+    Reset(); Observe(); CHECK(saved.avatar == 210 && saved.kit == visuals[0].kit); Die(); CHECK(calls == 1); Die(); Observe(); CHECK(calls == 1);
     Reset(); Observe(); HfPlayerEvent remote = {{sizeof remote, HF_ON_PLAYER_DOWN, 1}, 42, 100, 0}; Down((HfMod*)&mod, &remote, NULL); CHECK(calls == 0);
     Reset(); Put32(manager, 0x96C + 12, 123); Observe(); Die(); CHECK(calls == 0);
     Reset(); Put32(manager, 0x96C + 4, visuals[0].kit); Put32(manager, 0x96C + 12, 123); Observe(); Die(); CHECK(calls == 0);
@@ -138,17 +197,17 @@ int wmain(int argc, wchar_t** argv)
     Reset(); Observe(); saved.observed = GetTickCount64() - 501; Die(); CHECK(calls == 0);
     Reset(); Observe(); Put32(manager, 0x96C + 4, 123); Die(); CHECK(calls == 0);
     Reset(); Observe(); Put32(players, 0x2E0, 2); Put32(healthRecord, 0x19C, 1);
-    HfPlayerEvent event = {{sizeof event, HF_ON_PLAYER_DOWN, 1}, 42, 100, 1}; Down((HfMod*)&mod, &event, NULL); CHECK(calls == 0);
+    Down((HfMod*)&mod, &event, NULL); CHECK(calls == 0);
     Reset(); Observe(); Put32(health, 0x1020, 0); Die(); CHECK(calls == 0);
     Reset(); Observe(); event.peer = 999; Down((HfMod*)&mod, &event, NULL); CHECK(calls == 0);
-    Reset(); Observe(); playback = 0; Die(); CHECK(calls == 1); playback = 1; Die(); CHECK(calls == 1);
+    Reset(); Observe(); playback = 0; Die(); CHECK(calls == 1); playback = 1; Die(); Observe(); CHECK(calls == 1);
     Reset(); Observe(); Die(); Put32(players, 0x2E0, 3); Put32(players, 0x3A8, 201); Put32(healthDesc, 8, 211); Put32(healthRecord, 0x19C, 0); Observe(); Die(); CHECK(calls == 2);
-    Reset(); Observe(); HfStateEvent changed = {{sizeof changed, HF_ON_STATE, 1}, 4, 3}; State((HfMod*)&mod, &changed, NULL); CHECK(!saved.avatar); Die(); CHECK(calls == 0);
-    Reset(); state = HF_STATE_SHIP; Observe(); CHECK(!saved.avatar); Die(); CHECK(calls == 0);
+    Reset(); Observe(); HfStateEvent changed = {{sizeof changed, HF_ON_STATE, 1}, 4, 3}; State((HfMod*)&mod, &changed, NULL); CHECK(!saved.avatar); Die(); Observe(); CHECK(calls == 0);
+    Reset(); state = HF_STATE_SHIP; Observe(); CHECK(!saved.avatar); Die(); Observe(); CHECK(calls == 0);
     Reset(); proofs[0].valid = 0; Observe(); Die(); CHECK(calls == 0); proofs[0] = good;
     Reset(); Observe(); HANDLE edit = CreateFileW(gpu, FILE_APPEND_DATA, 0, NULL, OPEN_EXISTING, 0, NULL); CHECK(edit != INVALID_HANDLE_VALUE);
-    DWORD wrote; CHECK(WriteFile(edit, "x", 1, &wrote, NULL)); CloseHandle(edit); CHECK(!Unchanged(&proofs[0])); Die(); CHECK(calls == 0);
+    DWORD wrote; CHECK(WriteFile(edit, "x", 1, &wrote, NULL)); CloseHandle(edit); CHECK(!Unchanged(&proofs[0])); Die(); Observe(); CHECK(calls == 0);
     free((void*)game);
-    printf("PASS: %d checks; real r45 4/4 torso hashes; synthetic deaths/overrides; audio stub only\n", checks);
+    printf("PASS: %d checks; real r45 4/4 torso hashes; offline SDK/poll death sequences and overrides; audio stub only\n", checks);
     return 0;
 }

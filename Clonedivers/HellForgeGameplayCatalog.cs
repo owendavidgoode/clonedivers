@@ -27,12 +27,13 @@ public sealed class HellForgeGameplayCatalog
     }
     public void Validate()
     {
-        if (Format != 1 || Id != "build25480438-r3" || GameBuild != HellForgePack.SupportedBuild || Artifacts.Count != 8 || Artifacts.Select(a => a.Id).Distinct().Count() != 8 || Order.Distinct().Count() != Order.Count)
+        if (Format != 1 || Id != "build25480438-r4" || GameBuild != HellForgePack.SupportedBuild || Artifacts.Count != 9 || Artifacts.Select(a => a.Id).Distinct().Count() != 9 || Order.Distinct().Count() != Order.Count)
             throw new InvalidDataException("Unsupported gameplay catalog.");
         var supplied = Artifacts.Select(a => a.Id).ToHashSet(StringComparer.Ordinal);
         var bundled = new[] { "hellforge.editor", "skyeshade.hell-forge", "skyeshade.vanilla-plus" };
-        if (!supplied.SetEquals(HellForgePreset.Required.Select(r => r.Id).Where(id => !bundled.Contains(id)).Append(HellForgePreset.CleanExit)) ||
-            !Artifacts.Where(a => a.Optional).Select(a => a.Id).SequenceEqual([HellForgePreset.CleanExit]) || !supplied.Concat(bundled).ToHashSet(StringComparer.Ordinal).SetEquals(Order))
+        if (!supplied.SetEquals(HellForgePreset.Required.Select(r => r.Id).Where(id => !bundled.Contains(id)).Concat(HellForgePreset.Optional)) ||
+            !Artifacts.Where(a => a.Optional).Select(a => a.Id).ToHashSet(StringComparer.Ordinal).SetEquals(HellForgePreset.Optional) ||
+            !supplied.Concat(bundled).ToHashSet(StringComparer.Ordinal).SetEquals(Order))
             throw new InvalidDataException("Gameplay catalog does not cover the required preset.");
         foreach (var a in Artifacts)
         {
