@@ -31,6 +31,15 @@ static class TestProgram
 
     static int Main(string[] args)
     {
+        AppDomain.CurrentDomain.UnhandledException += (_, e) => { Console.Error.WriteLine("UNHANDLED TEST EXCEPTION: " + e.ExceptionObject); Environment.Exit(3); };
+        if (args is ["--forge-form-recovery-only"])
+        {
+            var recovery = Path.Combine(Path.GetTempPath(), "forge-form-recovery-" + Guid.NewGuid().ToString("N")); Directory.CreateDirectory(recovery);
+            try { Task.Run(() => ForgeFormRecoveryTests.Run(recovery, Check)).GetAwaiter().GetResult(); }
+            finally { Directory.Delete(recovery, true); }
+            Console.WriteLine(failures == 0 ? "ALL FORM RECOVERY TESTS PASSED" : $"{failures} FORM RECOVERY TEST(S) FAILED"); return failures == 0 ? 0 : 1;
+        }
+        if (args is ["--download-cache-only"]) return DownloadCacheTests.RunOnly();
         if (args is ["--download-regressions", var downloadRoot])
         {
             Directory.CreateDirectory(downloadRoot);
@@ -170,10 +179,14 @@ static class TestProgram
             SessionLogTests.Run(root, Check);
             TelemetryTests.Run(root, Check);
             Task.Run(() => HellForgeTests.Run(root, Check)).GetAwaiter().GetResult();
+            Task.Run(() => ForgeFormRecoveryTests.Run(root, Check)).GetAwaiter().GetResult();
+            ForgeClarityTests.Run(root, Check);
             Task.Run(() => AccountLeaseTests.Run(Check)).GetAwaiter().GetResult();
             Task.Run(() => WarbondTests.Run(root, Check)).GetAwaiter().GetResult();
             Task.Run(() => ForgeMigrationTests.Run(root, Check)).GetAwaiter().GetResult();
             Task.Run(() => ForgeSetupTests.Run(root, Check)).GetAwaiter().GetResult();
+            Task.Run(() => DownloadCacheTests.Run(root, Check)).GetAwaiter().GetResult();
+            Task.Run(() => StorageTests.Run(root, Check)).GetAwaiter().GetResult();
             Task.Run(() => GameplayInstallTests.Run(root, Check)).GetAwaiter().GetResult();
             Task.Run(() => TurnkeySetupTests.Run(root, Check)).GetAwaiter().GetResult();
             FpvDefaultsTests.Run(root, Check);

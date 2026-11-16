@@ -3,7 +3,7 @@
     "pack": {
         "version": "2026.11.09-r47",
         "name": "EmpireDivers Forge",
-        "notes": "Empire r47: Stormtrooper SEAF, three clone veteran sets, restored Foesmasher and red Spear trails. CIS droids optional; Covenant disabled.",
+        "notes": "Empire r47 (+ Compact LEGO + lambda-fix): Stormtrooper SEAF, three clone veteran sets, Compact LEGO armor, restored Foesmasher, red Spear trails, and SEAF personnel Lambda ground-clearance repair. CIS droids optional; Covenant disabled.",
         "gameBuild": "25480438",
         "gameDepots": [
             "1883032874832282552",
@@ -13,7 +13,7 @@
             "3382210389809902281"
         ],
         "status": "ok",
-        "statusNotes": "All four Full/Lighter and CIS-on/off variants passed static verification. Runtime and visual acceptance pending.",
+        "statusNotes": "All four Full/Lighter and CIS-on/off variants (Compact LEGO + lambda-fix) passed static verification. Runtime and visual acceptance pending.",
         "options": [
             {
                 "id": "commandos",
@@ -49,9 +49,9 @@
         "files": [
             {
                 "name": "9ba626afa44a3aa3.patch_1000",
-                "url": "https://github.com/owendavidgoode/clonedivers/releases/download/pack-2026.11.09-r47-files/e6aad21022e67f59266edbd2589d2ae11e6947279965422921936728055574ca",
+                "url": "https://github.com/owendavidgoode/clonedivers/releases/download/pack-2026.11.09-r47-files/3b8fa45036327bde9047d0942a9b1624f4bdbad55f852f4df5c345180fe266d0",
                 "size": 29996432,
-                "sha256": "e6aad21022e67f59266edbd2589d2ae11e6947279965422921936728055574ca",
+                "sha256": "3b8fa45036327bde9047d0942a9b1624f4bdbad55f852f4df5c345180fe266d0",
                 "modes": [
                     "empire"
                 ],
@@ -62,9 +62,9 @@
             },
             {
                 "name": "9ba626afa44a3aa3.patch_1000",
-                "url": "https://github.com/owendavidgoode/clonedivers/releases/download/pack-2026.11.09-r47-files/33b62e17b8666eddf4ecf0c1750c999c1e952282eb18c23da8bb00308a455347",
+                "url": "https://github.com/owendavidgoode/clonedivers/releases/download/pack-2026.11.09-r47-files/34e58c4ec5c8398682ad2b708f46ffd2e3466b405437f2bb786affe800d67819",
                 "size": 29841648,
-                "sha256": "33b62e17b8666eddf4ecf0c1750c999c1e952282eb18c23da8bb00308a455347",
+                "sha256": "34e58c4ec5c8398682ad2b708f46ffd2e3466b405437f2bb786affe800d67819",
                 "modes": [
                     "empire"
                 ],
@@ -75,9 +75,9 @@
             },
             {
                 "name": "9ba626afa44a3aa3.patch_1000.gpu_resources",
-                "url": "https://github.com/owendavidgoode/clonedivers/releases/download/pack-2026.11.09-r47-files/9a0eec2e6b21e4b71077a736c0b40c8736bb586d72bc883530ee8f257e27aaec",
+                "url": "https://github.com/owendavidgoode/clonedivers/releases/download/pack-2026.11.09-r47-files/024fcc77eaf276419d0e2cf30e73c0440f2d499314ce31781b80b9a0d437a481",
                 "size": 415405248,
-                "sha256": "9a0eec2e6b21e4b71077a736c0b40c8736bb586d72bc883530ee8f257e27aaec",
+                "sha256": "024fcc77eaf276419d0e2cf30e73c0440f2d499314ce31781b80b9a0d437a481",
                 "modes": [
                     "empire"
                 ],
@@ -88,9 +88,9 @@
             },
             {
                 "name": "9ba626afa44a3aa3.patch_1000.gpu_resources",
-                "url": "https://github.com/owendavidgoode/clonedivers/releases/download/pack-2026.11.09-r47-files/675c5475e9d5f4ff10a063f130d9048ca48c896dc3852752c61c8ab4d920e6b5",
+                "url": "https://github.com/owendavidgoode/clonedivers/releases/download/pack-2026.11.09-r47-files/3233916e3f1fcf2b5e290e728f6f8300b8d6004f1b56c0e8960dc60ac6eaf317",
                 "size": 258106624,
-                "sha256": "675c5475e9d5f4ff10a063f130d9048ca48c896dc3852752c61c8ab4d920e6b5",
+                "sha256": "3233916e3f1fcf2b5e290e728f6f8300b8d6004f1b56c0e8960dc60ac6eaf317",
                 "modes": [
                     "empire"
                 ],
@@ -113,9 +113,9 @@
             },
             {
                 "name": "9ba626afa44a3aa3.patch_1001",
-                "url": "https://github.com/owendavidgoode/clonedivers/releases/download/pack-2026.11.09-r47-files/257f633c595b8ddc7a44753bd4566deee887c396535bc5dfeba7b7ce0b766e00",
+                "url": "https://github.com/owendavidgoode/clonedivers/releases/download/pack-2026.11.09-r47-files/26f02bb54c720048b8fbaabf0671e3ae4dca9d4a1a6b36956482a59469dfe072",
                 "size": 12323632,
-                "sha256": "257f633c595b8ddc7a44753bd4566deee887c396535bc5dfeba7b7ce0b766e00",
+                "sha256": "26f02bb54c720048b8fbaabf0671e3ae4dca9d4a1a6b36956482a59469dfe072",
                 "modes": [
                     "empire"
                 ],
@@ -126,9 +126,9 @@
             },
             {
                 "name": "9ba626afa44a3aa3.patch_1001",
-                "url": "https://github.com/owendavidgoode/clonedivers/releases/download/pack-2026.11.09-r47-files/9eb976a0d42c4d951a7de253e415f64c39d238fb12307fc09c22002aee802efb",
+                "url": "https://github.com/owendavidgoode/clonedivers/releases/download/pack-2026.11.09-r47-files/35c9af09ffc303ee7d32c3d0780853a40746c4fac14b8eaa488c7585fe87c6e7",
                 "size": 12085872,
-                "sha256": "9eb976a0d42c4d951a7de253e415f64c39d238fb12307fc09c22002aee802efb",
+                "sha256": "35c9af09ffc303ee7d32c3d0780853a40746c4fac14b8eaa488c7585fe87c6e7",
                 "modes": [
                     "empire"
                 ],
@@ -139,9 +139,9 @@
             },
             {
                 "name": "9ba626afa44a3aa3.patch_1001.gpu_resources",
-                "url": "https://github.com/owendavidgoode/clonedivers/releases/download/pack-2026.11.09-r47-files/3e0b8165cae1c701e2f77ace3f22a225906c71f550b4c22517756df16bac1037",
+                "url": "https://github.com/owendavidgoode/clonedivers/releases/download/pack-2026.11.09-r47-files/d7bd654117ae9985d52ece1999384d605475e6e2ba3876517ae5fb714331a76c",
                 "size": 261373376,
-                "sha256": "3e0b8165cae1c701e2f77ace3f22a225906c71f550b4c22517756df16bac1037",
+                "sha256": "d7bd654117ae9985d52ece1999384d605475e6e2ba3876517ae5fb714331a76c",
                 "modes": [
                     "empire"
                 ],
@@ -152,9 +152,9 @@
             },
             {
                 "name": "9ba626afa44a3aa3.patch_1001.gpu_resources",
-                "url": "https://github.com/owendavidgoode/clonedivers/releases/download/pack-2026.11.09-r47-files/2dd504e7989fff3713b0e0e8abb3597450f3f471fcad0d6030b25a298f43cd3a",
+                "url": "https://github.com/owendavidgoode/clonedivers/releases/download/pack-2026.11.09-r47-files/ef0ecfecbf77400088d18d80d41648d72137d8f59ceb55c885c726296aeeeb1e",
                 "size": 155328320,
-                "sha256": "2dd504e7989fff3713b0e0e8abb3597450f3f471fcad0d6030b25a298f43cd3a",
+                "sha256": "ef0ecfecbf77400088d18d80d41648d72137d8f59ceb55c885c726296aeeeb1e",
                 "modes": [
                     "empire"
                 ],
@@ -241,9 +241,9 @@
             },
             {
                 "name": "9ba626afa44a3aa3.patch_1003",
-                "url": "https://github.com/owendavidgoode/clonedivers/releases/download/pack-2026.11.09-r47-files/0ac0272969a964631e302435d92eae12da625fc12764a1da011dfb83193f1acf",
+                "url": "https://github.com/owendavidgoode/clonedivers/releases/download/pack-2026.11.09-r47-files/2825396edf61e82f075e355a6a9f005b6febcc9d6b7d4b52a8483d03cfeecd71",
                 "size": 8854416,
-                "sha256": "0ac0272969a964631e302435d92eae12da625fc12764a1da011dfb83193f1acf",
+                "sha256": "2825396edf61e82f075e355a6a9f005b6febcc9d6b7d4b52a8483d03cfeecd71",
                 "modes": [
                     "empire"
                 ],
@@ -254,9 +254,9 @@
             },
             {
                 "name": "9ba626afa44a3aa3.patch_1003",
-                "url": "https://github.com/owendavidgoode/clonedivers/releases/download/pack-2026.11.09-r47-files/68386ce8f81fa146fd3b33260d1ffcef3699f939f79b7bc04077af6dc209dcd1",
+                "url": "https://github.com/owendavidgoode/clonedivers/releases/download/pack-2026.11.09-r47-files/2fb56f5f1d1c707de6adcbfd4a55403b944dfd9901d273005805cd7482f6be87",
                 "size": 8558432,
-                "sha256": "68386ce8f81fa146fd3b33260d1ffcef3699f939f79b7bc04077af6dc209dcd1",
+                "sha256": "2fb56f5f1d1c707de6adcbfd4a55403b944dfd9901d273005805cd7482f6be87",
                 "modes": [
                     "empire"
                 ],
@@ -267,9 +267,9 @@
             },
             {
                 "name": "9ba626afa44a3aa3.patch_1003.gpu_resources",
-                "url": "https://github.com/owendavidgoode/clonedivers/releases/download/pack-2026.11.09-r47-files/fcc2e8ca75f907c31b656afe9db007ebda893d8e912e4d62ac28eabdad9a2baf",
+                "url": "https://github.com/owendavidgoode/clonedivers/releases/download/pack-2026.11.09-r47-files/4d141a6630b389ed7a85dadb24f68233ffccc5e6590c41938041a50c48a332b3",
                 "size": 273826048,
-                "sha256": "fcc2e8ca75f907c31b656afe9db007ebda893d8e912e4d62ac28eabdad9a2baf",
+                "sha256": "4d141a6630b389ed7a85dadb24f68233ffccc5e6590c41938041a50c48a332b3",
                 "modes": [
                     "empire"
                 ],
@@ -280,9 +280,9 @@
             },
             {
                 "name": "9ba626afa44a3aa3.patch_1003.gpu_resources",
-                "url": "https://github.com/owendavidgoode/clonedivers/releases/download/pack-2026.11.09-r47-files/1200839683b65d0367179e359e7dc361c4ea2bbe808a16558ef5311bf071ac5e",
+                "url": "https://github.com/owendavidgoode/clonedivers/releases/download/pack-2026.11.09-r47-files/d798096940d85a633c39dd3acaae09e8ad322810abe828635b3abc553a1d5129",
                 "size": 177631296,
-                "sha256": "1200839683b65d0367179e359e7dc361c4ea2bbe808a16558ef5311bf071ac5e",
+                "sha256": "d798096940d85a633c39dd3acaae09e8ad322810abe828635b3abc553a1d5129",
                 "modes": [
                     "empire"
                 ],
@@ -497,9 +497,9 @@
             },
             {
                 "name": "9ba626afa44a3aa3.patch_1007",
-                "url": "https://github.com/owendavidgoode/clonedivers/releases/download/pack-2026.11.09-r47-files/83fa394ffc942de0016d5fc63250a358820cafda4a2596013384984bad32109b",
+                "url": "https://github.com/owendavidgoode/clonedivers/releases/download/pack-2026.11.09-r47-files/7214d83bc2ceea23d90f83387f7f180f7510750296170c94f6c2c4eac5a94e9a",
                 "size": 6399712,
-                "sha256": "83fa394ffc942de0016d5fc63250a358820cafda4a2596013384984bad32109b",
+                "sha256": "7214d83bc2ceea23d90f83387f7f180f7510750296170c94f6c2c4eac5a94e9a",
                 "modes": [
                     "empire"
                 ],
@@ -510,9 +510,9 @@
             },
             {
                 "name": "9ba626afa44a3aa3.patch_1007",
-                "url": "https://github.com/owendavidgoode/clonedivers/releases/download/pack-2026.11.09-r47-files/195fda30b685f6569d84c40f7b6670e130555b93ea6a3e7834c275c72e40740a",
+                "url": "https://github.com/owendavidgoode/clonedivers/releases/download/pack-2026.11.09-r47-files/ab4e83d265f4c8cd18af750cf546f4672e87f4b4fdd6cfc987ebfbfa3a38cea6",
                 "size": 6090976,
-                "sha256": "195fda30b685f6569d84c40f7b6670e130555b93ea6a3e7834c275c72e40740a",
+                "sha256": "ab4e83d265f4c8cd18af750cf546f4672e87f4b4fdd6cfc987ebfbfa3a38cea6",
                 "modes": [
                     "empire"
                 ],
@@ -523,9 +523,9 @@
             },
             {
                 "name": "9ba626afa44a3aa3.patch_1007.gpu_resources",
-                "url": "https://github.com/owendavidgoode/clonedivers/releases/download/pack-2026.11.09-r47-files/1d301490b10f49290a64ea77859c606cdc51e46b8b83be2de26f9aa06ffd312e",
+                "url": "https://github.com/owendavidgoode/clonedivers/releases/download/pack-2026.11.09-r47-files/5113eae47ac5e7188ca92b90b3666fb9a8a9f92f0fd7058a6bbf0b3d945f14c3",
                 "size": 261042368,
-                "sha256": "1d301490b10f49290a64ea77859c606cdc51e46b8b83be2de26f9aa06ffd312e",
+                "sha256": "5113eae47ac5e7188ca92b90b3666fb9a8a9f92f0fd7058a6bbf0b3d945f14c3",
                 "modes": [
                     "empire"
                 ],
@@ -536,9 +536,9 @@
             },
             {
                 "name": "9ba626afa44a3aa3.patch_1007.gpu_resources",
-                "url": "https://github.com/owendavidgoode/clonedivers/releases/download/pack-2026.11.09-r47-files/afdb326560a5cc838057a21e499b71116e9aa6a3128eb70053cf7a0d0951f259",
+                "url": "https://github.com/owendavidgoode/clonedivers/releases/download/pack-2026.11.09-r47-files/6eabe6cf6be14408c54673316283b5d747bfca8d637b76e82e69972f9003fa71",
                 "size": 181992384,
-                "sha256": "afdb326560a5cc838057a21e499b71116e9aa6a3128eb70053cf7a0d0951f259",
+                "sha256": "6eabe6cf6be14408c54673316283b5d747bfca8d637b76e82e69972f9003fa71",
                 "modes": [
                     "empire"
                 ],
@@ -702,7 +702,7 @@
             },
             {
                 "name": "9ba626afa44a3aa3.patch_1010",
-                "url": "https://github.com/owendavidgoode/clonedivers/releases/download/pack-2026.11.09-r46-droids-files/73dfda12fbc492155a4b3a43426186085a294dae594e8bb722c3ee8b427a237d",
+                "url": "https://github.com/owendavidgoode/clonedivers/releases/download/pack-2026.11.09-r47-files/73dfda12fbc492155a4b3a43426186085a294dae594e8bb722c3ee8b427a237d",
                 "size": 12087136,
                 "sha256": "73dfda12fbc492155a4b3a43426186085a294dae594e8bb722c3ee8b427a237d",
                 "modes": [
@@ -728,7 +728,7 @@
             },
             {
                 "name": "9ba626afa44a3aa3.patch_1010.gpu_resources",
-                "url": "https://github.com/owendavidgoode/clonedivers/releases/download/pack-2026.11.09-r46-droids-files/8567f4d983697a149f999e8f466d0421f3590b73c3da0badbb4ca81ff11a9dd1",
+                "url": "https://github.com/owendavidgoode/clonedivers/releases/download/pack-2026.11.09-r47-files/8567f4d983697a149f999e8f466d0421f3590b73c3da0badbb4ca81ff11a9dd1",
                 "size": 81448128,
                 "sha256": "8567f4d983697a149f999e8f466d0421f3590b73c3da0badbb4ca81ff11a9dd1",
                 "modes": [
@@ -1521,9 +1521,9 @@
             },
             {
                 "name": "9ba626afa44a3aa3.patch_1023",
-                "url": "https://github.com/owendavidgoode/clonedivers/releases/download/pack-2026.11.09-r47-files/fd9d9afdd82bba9ac95a60d9b7e4f2a111a99f132dae8995a688f73d19c427d0",
+                "url": "https://github.com/owendavidgoode/clonedivers/releases/download/pack-2026.11.09-r47-files/89d153a5a6094c260b9ab53a4450b079cb96a84a18e4f3e572f43d62942cd142",
                 "size": 8317088,
-                "sha256": "fd9d9afdd82bba9ac95a60d9b7e4f2a111a99f132dae8995a688f73d19c427d0",
+                "sha256": "89d153a5a6094c260b9ab53a4450b079cb96a84a18e4f3e572f43d62942cd142",
                 "modes": [
                     "empire"
                 ],
@@ -1534,9 +1534,9 @@
             },
             {
                 "name": "9ba626afa44a3aa3.patch_1023",
-                "url": "https://github.com/owendavidgoode/clonedivers/releases/download/pack-2026.11.09-r47-files/a0ac018d344981bb06e04414aecffd079af98c5d86a62914247a926895ee1db6",
+                "url": "https://github.com/owendavidgoode/clonedivers/releases/download/pack-2026.11.09-r47-files/d0f855cc24fa9092321d40fed0e15b8dd39f26f67e1e18ecef0c3725b3db910c",
                 "size": 8111056,
-                "sha256": "a0ac018d344981bb06e04414aecffd079af98c5d86a62914247a926895ee1db6",
+                "sha256": "d0f855cc24fa9092321d40fed0e15b8dd39f26f67e1e18ecef0c3725b3db910c",
                 "modes": [
                     "empire"
                 ],
@@ -1547,9 +1547,9 @@
             },
             {
                 "name": "9ba626afa44a3aa3.patch_1023.gpu_resources",
-                "url": "https://github.com/owendavidgoode/clonedivers/releases/download/pack-2026.11.09-r47-files/bdeba67632810119cbbbdd178c4a534d84bc6fd3a10ad427d562e797c6e803c9",
+                "url": "https://github.com/owendavidgoode/clonedivers/releases/download/pack-2026.11.09-r47-files/95122d5136038bd986453a240dea103d79e1a948d3dc5d62cacd261b95fb3b87",
                 "size": 270531712,
-                "sha256": "bdeba67632810119cbbbdd178c4a534d84bc6fd3a10ad427d562e797c6e803c9",
+                "sha256": "95122d5136038bd986453a240dea103d79e1a948d3dc5d62cacd261b95fb3b87",
                 "modes": [
                     "empire"
                 ],
@@ -1560,9 +1560,9 @@
             },
             {
                 "name": "9ba626afa44a3aa3.patch_1023.gpu_resources",
-                "url": "https://github.com/owendavidgoode/clonedivers/releases/download/pack-2026.11.09-r47-files/2d8afd452b501f437e8f92bf7426d8f2f6f0a47fbdc12df9d44d3ffa0138e94d",
+                "url": "https://github.com/owendavidgoode/clonedivers/releases/download/pack-2026.11.09-r47-files/04b6e049428f87bff9a8888027f4eb2a3122cff622b5d6b171004df58bb7691c",
                 "size": 187621440,
-                "sha256": "2d8afd452b501f437e8f92bf7426d8f2f6f0a47fbdc12df9d44d3ffa0138e94d",
+                "sha256": "04b6e049428f87bff9a8888027f4eb2a3122cff622b5d6b171004df58bb7691c",
                 "modes": [
                     "empire"
                 ],
@@ -1841,9 +1841,9 @@
             },
             {
                 "name": "9ba626afa44a3aa3.patch_1028",
-                "url": "https://github.com/owendavidgoode/clonedivers/releases/download/pack-2026.11.09-r47-files/ffa4ab9be6eaf2d1a94ca8fe365759df76ab23ea9a6a3cdf0ae87a3e107cafee",
+                "url": "https://github.com/owendavidgoode/clonedivers/releases/download/pack-2026.11.09-r47-files/d755e6fae31bb921f3af3f14b102ae676ac03919edb7b09d54073447a599b776",
                 "size": 15715504,
-                "sha256": "ffa4ab9be6eaf2d1a94ca8fe365759df76ab23ea9a6a3cdf0ae87a3e107cafee",
+                "sha256": "d755e6fae31bb921f3af3f14b102ae676ac03919edb7b09d54073447a599b776",
                 "modes": [
                     "empire"
                 ],
@@ -1854,9 +1854,9 @@
             },
             {
                 "name": "9ba626afa44a3aa3.patch_1028",
-                "url": "https://github.com/owendavidgoode/clonedivers/releases/download/pack-2026.11.09-r47-files/c97329d69992f18a455bdde18cd2836352b675cdb7c2e273b046713c235c7626",
+                "url": "https://github.com/owendavidgoode/clonedivers/releases/download/pack-2026.11.09-r47-files/03a0d34a104263f9acf0f7b68dbc9ff686f928910045e3df11f9e0f2d2723c2b",
                 "size": 15509872,
-                "sha256": "c97329d69992f18a455bdde18cd2836352b675cdb7c2e273b046713c235c7626",
+                "sha256": "03a0d34a104263f9acf0f7b68dbc9ff686f928910045e3df11f9e0f2d2723c2b",
                 "modes": [
                     "empire"
                 ],
@@ -1867,9 +1867,9 @@
             },
             {
                 "name": "9ba626afa44a3aa3.patch_1028.gpu_resources",
-                "url": "https://github.com/owendavidgoode/clonedivers/releases/download/pack-2026.11.09-r47-files/601188f57c0e3cc1f110d2b6f21f398f8320edd75d3c3d2963283a80040f228c",
+                "url": "https://github.com/owendavidgoode/clonedivers/releases/download/pack-2026.11.09-r47-files/4e6715de32c2d266a5be691cfdba7869f8194de7dcfa0baa92110feda9e56b79",
                 "size": 233329984,
-                "sha256": "601188f57c0e3cc1f110d2b6f21f398f8320edd75d3c3d2963283a80040f228c",
+                "sha256": "4e6715de32c2d266a5be691cfdba7869f8194de7dcfa0baa92110feda9e56b79",
                 "modes": [
                     "empire"
                 ],
@@ -1880,9 +1880,9 @@
             },
             {
                 "name": "9ba626afa44a3aa3.patch_1028.gpu_resources",
-                "url": "https://github.com/owendavidgoode/clonedivers/releases/download/pack-2026.11.09-r47-files/116f25078e6a99ca646ae96cc9c24811420de395d866860863e9650408f98fa7",
+                "url": "https://github.com/owendavidgoode/clonedivers/releases/download/pack-2026.11.09-r47-files/bcaa82ff9864cf6c77c2606bfe0e648cb156bddaea1e525e2681726786edc3e9",
                 "size": 181319360,
-                "sha256": "116f25078e6a99ca646ae96cc9c24811420de395d866860863e9650408f98fa7",
+                "sha256": "bcaa82ff9864cf6c77c2606bfe0e648cb156bddaea1e525e2681726786edc3e9",
                 "modes": [
                     "empire"
                 ],
@@ -1969,9 +1969,9 @@
             },
             {
                 "name": "9ba626afa44a3aa3.patch_1030",
-                "url": "https://github.com/owendavidgoode/clonedivers/releases/download/pack-2026.11.09-r47-files/3101e97d4e30f7ae07dd26e3abf108b533a5f12f0cce4ad97e44bc72a42a1add",
-                "size": 3128528,
-                "sha256": "3101e97d4e30f7ae07dd26e3abf108b533a5f12f0cce4ad97e44bc72a42a1add",
+                "url": "https://github.com/owendavidgoode/clonedivers/releases/download/pack-2026.11.09-r47-files/b4e7d76131cbc99b3c7ceabaf049ba1536993e54933aeb2d30a049d0985105b0",
+                "size": 3572640,
+                "sha256": "b4e7d76131cbc99b3c7ceabaf049ba1536993e54933aeb2d30a049d0985105b0",
                 "modes": [
                     "empire"
                 ],
@@ -1982,9 +1982,9 @@
             },
             {
                 "name": "9ba626afa44a3aa3.patch_1030",
-                "url": "https://github.com/owendavidgoode/clonedivers/releases/download/pack-2026.11.09-r47-files/b414e6eea4349963c6178f72a25bf7a71845fbad382bffecac0ce9f6a88e793a",
-                "size": 2911344,
-                "sha256": "b414e6eea4349963c6178f72a25bf7a71845fbad382bffecac0ce9f6a88e793a",
+                "url": "https://github.com/owendavidgoode/clonedivers/releases/download/pack-2026.11.09-r47-files/f528da0090fb356bffff04d8dd5367ba70cdd2ed2ddf39d400cf2a2e5733b9f6",
+                "size": 3355456,
+                "sha256": "f528da0090fb356bffff04d8dd5367ba70cdd2ed2ddf39d400cf2a2e5733b9f6",
                 "modes": [
                     "empire"
                 ],
@@ -1995,9 +1995,9 @@
             },
             {
                 "name": "9ba626afa44a3aa3.patch_1030.gpu_resources",
-                "url": "https://github.com/owendavidgoode/clonedivers/releases/download/pack-2026.11.09-r47-files/97ade6c6b50cc1b9266b496808b5d54815b561caeaa6b5f2aa3d6d3da2406da8",
-                "size": 298610752,
-                "sha256": "97ade6c6b50cc1b9266b496808b5d54815b561caeaa6b5f2aa3d6d3da2406da8",
+                "url": "https://github.com/owendavidgoode/clonedivers/releases/download/pack-2026.11.09-r47-files/7725e75eb4f4ccae3fefdfbcc3901a1e1e8d5c35eec0d327d589a192e1ee1829",
+                "size": 302305408,
+                "sha256": "7725e75eb4f4ccae3fefdfbcc3901a1e1e8d5c35eec0d327d589a192e1ee1829",
                 "modes": [
                     "empire"
                 ],
@@ -2008,9 +2008,9 @@
             },
             {
                 "name": "9ba626afa44a3aa3.patch_1030.gpu_resources",
-                "url": "https://github.com/owendavidgoode/clonedivers/releases/download/pack-2026.11.09-r47-files/33a6408a60016be31261683f0d43d9a1f96cab0e521c827618c85c767f74d57c",
-                "size": 206858112,
-                "sha256": "33a6408a60016be31261683f0d43d9a1f96cab0e521c827618c85c767f74d57c",
+                "url": "https://github.com/owendavidgoode/clonedivers/releases/download/pack-2026.11.09-r47-files/f94d305310981f7068af70dc416b715617feb2c9a9814d2de64246b76e539c2f",
+                "size": 210552768,
+                "sha256": "f94d305310981f7068af70dc416b715617feb2c9a9814d2de64246b76e539c2f",
                 "modes": [
                     "empire"
                 ],

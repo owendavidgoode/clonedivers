@@ -94,6 +94,8 @@ if (args.Contains("--export-only"))
     return;
 }
 string Request(long id, params string[] args) => JsonSerializer.Serialize(new { id, args }) + "\n";
+await Clonedivers.ForgeBridge.Tests.CleanupFlowTests.Run(Check);
+await Clonedivers.ForgeBridge.Tests.PlayerReviewTests.Run(Check);
 Check(ForgeEntryPolicy.Normalize([], true).SequenceEqual(new[] { "--forge" }), "Forge package defaults to Forge rather than silently opening the Steam-era UI");
 Check(ForgeEntryPolicy.Normalize(["--steam", "--gui"], true).SequenceEqual(new[] { "--gui" }), "explicit Steam fallback retains the existing desktop route");
 Check(ForgeEntryPolicy.Normalize(["--forge-preview", "running", "--gui"], true).SequenceEqual(new[] { "--forge-preview", "running", "--gui" }), "preview entry remains disconnected from live Forge routing");
@@ -133,7 +135,7 @@ Check(output.ToString().Contains("\"id\":2,\"ok\":false") && output.ToString().C
 
 fake = new Fake { LastStatus = "cleanup_failed", LastFailure = "fixture cleanup failure" }; output = new StringWriter();
 await new BridgeSession(fake.Execute).ServeAsync(new StringReader(Request(1, "play", "--profile", "default") + Request(2, "stop") + Request(3, "stop")), output);
-Check(output.ToString().Contains("\"id\":2,\"ok\":false") && output.ToString().Contains("fixture cleanup failure") && output.ToString().Contains("already-stopped") && fake.Calls.Count(c => c[0] == "stop") == 1,
+Check(output.ToString().Contains("\"id\":2,\"ok\":false") && output.ToString().Contains("fixture cleanup failure") && output.ToString().Contains("\"id\":3,\"ok\":false") && fake.Calls.Count(c => c[0] == "stop") == 1,
     "an ended session with failed cleanup is reported like the official --wait exit code without a second stop");
 
 fake = new Fake(); output = new StringWriter();
@@ -248,7 +250,7 @@ try
     {
         var linked = Path.Combine(fixture, "linked-prefix"); Directory.CreateSymbolicLink(linked, plan.Prefix);
         var linkedInstall = Path.Combine(linked, Path.GetRelativePath(plan.Prefix, install));
-        RefusePlan(() => LinuxForgePlan.Stage(linkedInstall, helper, Hash(helper), bundle), "a linked prefix ancestor cannot redirect helper staging");
+        Check(LinuxForgePlan.Stage(linkedInstall, helper, Hash(helper), bundle) == plan, "a linked prefix ancestor resolves to the same verified staging plan");
         var dangling = Path.Combine(fixture, "dangling-prefix"); Directory.CreateSymbolicLink(dangling, Path.Combine(fixture, "missing-target"));
         RefusePlan(() => LinuxForgePlan.Stage(Path.Combine(dangling, "pfx", "drive_c", "Forge"), helper, Hash(helper), bundle), "a dangling link is rejected even though Exists follows it and reports false");
     }
@@ -280,15 +282,18 @@ try
         "account gating offers no profile creation, lab or unlock-all fallback");
     var selectionArgs = new[] { "select-mode", "--mode", "regular", "--delta", "yes", "--texture", "full", "--droids", "yes", "--covenant", "no" };
     BridgeSession.Validate(selectionArgs);
-    await player.RunAsync(selectionArgs, CancellationToken.None);
-    foreach (var (texture, droids) in new[] { ("lighter", "yes"), ("full", "no"), ("lighter", "no") })
+    foreach (var texture in new[] { "full", "lighter" })
+    foreach (var droids in new[] { "yes", "no" })
     {
         var callCount = playerOfficial.Calls.Count;
-        bool refused = false;
-        try { await player.RunAsync(["select-mode", "--mode", "empire", "--delta", "yes", "--texture", texture, "--droids", droids, "--covenant", "no"], CancellationToken.None); }
-        catch (InvalidOperationException) { refused = true; }
-        Check(refused && playerOfficial.Calls.Count == callCount, "the actual bridge rejects unavailable Empire selections before official commands");
+        string[] empireArgs = ["select-mode", "--mode", "empire", "--delta", "yes", "--texture", texture, "--droids", droids, "--covenant", "no"];
+        BridgeSession.Validate(empireArgs);
+        var selected = await player.RunAsync(empireArgs, CancellationToken.None);
+        Check(selected.GetProperty("Mode").GetString() == "empire" && selected.GetProperty("Texture").GetString() == texture &&
+            selected.GetProperty("Droids").GetBoolean() == (droids == "yes") && playerOfficial.Calls.Count == callCount,
+            $"the actual bridge accepts Empire {texture}/droids={droids} cleanly without running official commands");
     }
+    await player.RunAsync(selectionArgs, CancellationToken.None);
     var state = await player.RunAsync(["player-status"], CancellationToken.None);
     Check(!state.GetProperty("ready").GetBoolean() && state.GetProperty("detail").GetString()!.Contains("turn OFF automatic gameplay-mod sharing"),
         "the native player dispatcher blocks the official default sharing-ON state before offering the private preset");

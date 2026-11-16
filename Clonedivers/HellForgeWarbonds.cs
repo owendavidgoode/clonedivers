@@ -9,6 +9,9 @@ namespace Clonedivers;
 public sealed class HellForgeWarbonds
 {
     const uint FreeWarbond = 1929468580;
+    internal static readonly string[] WindowsProcessNames = ["helldivers2", "HellForge", "HellForge.Launcher"];
+    internal static readonly string[] ManagerProcessNames = ["HellForge", "HellForge.Launcher"];
+    internal static Func<string, bool> AnyProcessNamed = ProcessRunningByName;
     static readonly string[] SnapshotFiles = ["snapshot.json", "real-inventory.json", "progression.json", "seal.json"];
     readonly string root, profile, snapshot;
     readonly IHellForgeCommands commands;
@@ -26,6 +29,12 @@ public sealed class HellForgeWarbonds
         account = new HellForgeAccount(this.root, backend);
         this.processesRunning = processesRunning ?? ProcessesRunning;
     }
+    static bool ProcessRunningByName(string name)
+    {
+        var processes = Process.GetProcessesByName(name);
+        try { return processes.Length != 0; }
+        finally { foreach (var process in processes) process.Dispose(); }
+    }
     static bool ProcessesRunning()
     {
         if (OperatingSystem.IsLinux())
@@ -41,17 +50,33 @@ public sealed class HellForgeWarbonds
             }
             finally { foreach (var process in processes) process.Dispose(); }
         }
-        foreach (var name in new[] { "helldivers2", "HellForge" })
+        foreach (var name in WindowsProcessNames)
+            if (AnyProcessNamed(name)) return true;
+        return false;
+    }
+    internal static bool ManagerWindowOpen()
+    {
+        if (OperatingSystem.IsLinux())
         {
-            var processes = Process.GetProcessesByName(name);
-            try { if (processes.Length != 0) return true; }
+            var processes = Process.GetProcesses();
+            try
+            {
+                foreach (var process in processes)
+                    try { if (process.Id != Environment.ProcessId && BlocksLinuxManager(process.ProcessName)) return true; }
+                    catch (InvalidOperationException) { }
+                    catch (System.ComponentModel.Win32Exception) { return true; }
+                return false;
+            }
             finally { foreach (var process in processes) process.Dispose(); }
         }
+        foreach (var name in ManagerProcessNames)
+            if (AnyProcessNamed(name)) return true;
         return false;
     }
     // Linux comm may truncate the native launcher's name to 15 characters; Proton keeps the game's .exe suffix.
-    internal static bool BlocksLinuxProcess(string name) => name is "helldivers2" or "helldivers2.exe" or "HellForge" or "HellForge.exe" ||
+    static bool BlocksLinuxManager(string name) => name is "HellForge" or "HellForge.exe" ||
         name.StartsWith("HellForge.Launc", StringComparison.Ordinal);
+    internal static bool BlocksLinuxProcess(string name) => name is "helldivers2" or "helldivers2.exe" || BlocksLinuxManager(name);
     async Task RequireIdleAsync(CancellationToken ct)
     {
         if (processesRunning()) throw new InvalidOperationException("Close the game and HellForge window before opening owned Warbonds.");

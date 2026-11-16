@@ -1,0 +1,336 @@
+[
+  {
+    "source": "20261108-191823",
+    "hold_s": 120,
+    "run_json": {
+      "started": "2026-11-08T19:18:23-06:00",
+      "finished": "2026-11-08T19:22:49-06:00",
+      "exit": {
+        "at": "2026-11-08T19:22:46-06:00",
+        "code": 0,
+        "how": "quit"
+      },
+      "missions": [
+        {
+          "in_control": "2026-11-08T19:20:18-06:00",
+          "leave": {
+            "to_ship_s": 12.78
+          },
+          "left": "2026-11-08T19:22:42-06:00"
+        }
+      ]
+    },
+    "bodies": [
+      {
+        "name": "012210230-Operation_Mission_end.json",
+        "body": {
+          "missionSuccess": false,
+          "participants": [
+            {
+              "extracted": false
+            }
+          ]
+        }
+      }
+    ]
+  },
+  {
+    "source": "20261108-194108",
+    "hold_s": 120,
+    "run_json": {
+      "started": "2026-11-08T19:41:08-06:00",
+      "finished": "2026-11-08T19:45:31-06:00",
+      "exit": {
+        "at": "2026-11-08T19:45:28-06:00",
+        "code": 0,
+        "how": "quit"
+      },
+      "missions": [
+        {
+          "in_control": "2026-11-08T19:43:00-06:00",
+          "leave": {
+            "to_ship_s": 13.28
+          },
+          "left": "2026-11-08T19:45:25-06:00"
+        }
+      ]
+    },
+    "bodies": [
+      {
+        "name": "014437949-Operation_Mission_end.json",
+        "body": {
+          "missionSuccess": false,
+          "participants": [
+            {
+              "extracted": false
+            }
+          ]
+        }
+      }
+    ]
+  },
+  {
+    "source": "20261108-200242",
+    "hold_s": 120,
+    "run_json": {
+      "started": "2026-11-08T20:02:42-06:00",
+      "finished": "2026-11-08T20:07:00-06:00",
+      "exit": {
+        "at": "2026-11-08T20:06:57-06:00",
+        "code": 0,
+        "how": "quit"
+      },
+      "missions": [
+        {
+          "in_control": "2026-11-08T20:04:30-06:00",
+          "leave": {
+            "to_ship_s": 12.52
+          },
+          "left": "2026-11-08T20:06:54-06:00"
+        }
+      ]
+    },
+    "bodies": [
+      {
+        "name": "020607095-Operation_Mission_end.json",
+        "body": {
+          "missionSuccess": false,
+          "participants": [
+            {
+              "extracted": false
+            }
+          ]
+        }
+      }
+    ]
+  },
+  {
+    "source": "20261109-124213",
+    "hold_s": 240,
+    "run_json": {
+      "started": "2026-11-09T12:42:13-06:00",
+      "finished": "2026-11-09T12:48:37-06:00",
+      "exit": {
+        "at": "2026-11-09T12:48:33-06:00",
+        "code": 0,
+        "how": "quit"
+      },
+      "missions": [
+        {
+          "in_control": "2026-11-09T12:44:06-06:00",
+          "leave": {
+            "to_ship_s": 12.02
+          },
+          "left": "2026-11-09T12:48:30-06:00"
+        }
+      ]
+    },
+    "bodies": [
+      {
+        "name": "184756302-Operation_Mission_end.json",
+        "body": {
+          "missionSuccess": false,
+          "participants": [
+            {
+              "extracted": false
+            }
+          ]
+        }
+      }
+    ]
+  },
+  {
+    "source": "20261109-130946",
+    "hold_s": 120,
+    "run_json": {
+      "started": "2026-11-09T13:09:46-06:00",
+      "finished": "2026-11-09T13:14:12-06:00",
+      "exit": {
+        "at": "2026-11-09T13:14:08-06:00",
+        "code": 0,
+        "how": "quit"
+      },
+      "missions": [
+        {
+          "in_control": "2026-11-09T13:11:37-06:00",
+          "leave": {
+            "to_ship_s": 16.03
+          },
+          "left": "2026-11-09T13:14:05-06:00"
+        }
+      ]
+    },
+    "bodies": [
+      {
+        "name": "191337571-Operation_Mission_end.json",
+        "body": {
+          "missionSuccess": false,
+          "participants": [
+            {
+              "extracted": false
+            }
+          ]
+        }
+      }
+    ]
+  },
+  {
+    "source": "20261108-163100",
+    "hold_s": 300,
+    "run_json": {
+      "started": "2026-11-08T16:31:00-06:00",
+      "finished": "2026-11-08T16:38:47-06:00",
+      "exit": {
+        "at": "2026-11-08T16:38:44-06:00",
+        "code": 0,
+        "how": "quit"
+      },
+      "missions": [
+        {
+          "in_control": "2026-11-08T16:33:37-06:00"
+        }
+      ]
+    },
+    "bodies": [
+      {
+        "name": "223742678-Operation_Mission_end.json",
+        "body": {
+          "missionSuccess": false,
+          "participants": [
+            {
+              "extracted": false
+            }
+          ]
+        }
+      }
+    ]
+  },
+  {
+    "source": "20261108-165357",
+    "hold_s": 300,
+    "run_json": {
+      "started": "2026-11-08T16:53:57-06:00",
+      "finished": "2026-11-08T17:01:25-06:00",
+      "exit": {
+        "at": "2026-11-08T17:01:05-06:00",
+        "code": 3075604483,
+        "how": "quit"
+      },
+      "missions": [
+        {
+          "in_control": "2026-11-08T16:55:57-06:00"
+        }
+      ]
+    },
+    "bodies": [
+      {
+        "name": "225939702-Operation_Mission_end.json",
+        "body": {
+          "missionSuccess": false,
+          "participants": [
+            {
+              "extracted": false
+            }
+          ]
+        }
+      }
+    ]
+  },
+  {
+    "source": "20261108-210021",
+    "hold_s": 180,
+    "run_json": {
+      "started": "2026-11-08T21:00:21-06:00",
+      "finished": "2026-11-08T21:05:20-06:00",
+      "exit": {
+        "at": "2026-11-08T21:05:17-06:00",
+        "code": 0,
+        "how": "quit"
+      },
+      "missions": [
+        {
+          "in_control": "2026-11-08T21:02:10-06:00"
+        }
+      ]
+    },
+    "bodies": [
+      {
+        "name": "030245481-Operation_Mission_end.json",
+        "body": {
+          "missionSuccess": false,
+          "participants": [
+            {
+              "extracted": false
+            }
+          ]
+        }
+      }
+    ]
+  },
+  {
+    "source": "20261108-221633",
+    "hold_s": 180,
+    "run_json": {
+      "started": "2026-11-08T22:16:33-06:00",
+      "finished": "2026-11-08T22:21:37-06:00",
+      "exit": {
+        "at": "2026-11-08T22:21:33-06:00",
+        "code": 0,
+        "how": "quit"
+      },
+      "missions": [
+        {
+          "in_control": "2026-11-08T22:18:27-06:00"
+        }
+      ]
+    },
+    "bodies": [
+      {
+        "name": "041959557-Operation_Mission_end.json",
+        "body": {
+          "missionSuccess": false,
+          "participants": [
+            {
+              "extracted": false
+            }
+          ]
+        }
+      }
+    ]
+  },
+  {
+    "source": "20261109-192826",
+    "hold_s": 240,
+    "run_json": {
+      "started": "2026-11-09T19:28:26-06:00",
+      "finished": "2026-11-09T19:34:34-06:00",
+      "exit": {
+        "at": "2026-11-09T19:34:31-06:00",
+        "code": 0,
+        "how": "quit"
+      },
+      "missions": [
+        {
+          "in_control": "2026-11-09T19:30:16-06:00",
+          "leave": {
+            "to_ship_s": 0.0
+          },
+          "left": "2026-11-09T19:34:27-06:00"
+        }
+      ]
+    },
+    "bodies": [
+      {
+        "name": "013146006-Operation_Mission_end.json",
+        "body": {
+          "missionSuccess": false,
+          "participants": [
+            {
+              "extracted": false
+            }
+          ]
+        }
+      }
+    ]
+  }
+]

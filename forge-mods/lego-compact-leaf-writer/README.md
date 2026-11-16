@@ -1,0 +1,13 @@
+# LEGO Compact Leaf Writer — held private experiment (v0.0.6)
+
+Version 0.0.6: actual writer preparation selects enum 5 `CM_NECK_AND_ARM_SHOULDER_HINGE`, reported as `policy=neck_and_arm_shoulder_hinge`. It integrates the torso-sagittal shoulder-hinge arm correction (`arm_profile.py` `hinge=True`, modifying only nodes 14..49) together with the bounded NeckPeg/HeadPeg aim alignment (nodes 12..13). Policies 0..4 retain their exact paths (`CM_ARM_SHOULDER_HINGE=4` exposes isolated arm-only correction). Queue/read/owner/plan/leaf/asset contracts remain unchanged from v0.0.5; multi-player/remote co-op avatar discovery design is tracked separately in `COOP-AVATAR-DESIGN.md`.
+
+Boot-only clonedivers.lego-compact-leaf-writer, SDK16/build25480438. Keeps real 512B80 M/P/R8 and original return unchanged for qualified normal and grouped routes. Scoped5B2990 substitutes only private temporal graph arrays, preserving native factors, destinations, binds, palettes, maps, counts and early native M+C4 publication. No shared pose or graph writes.
+
+Readiness follows immutable local-avatar binding and both hooks. Correction continues independently of diagnostic quotas through owned cleanup. Math temporarily uses MXCSR0x1F80 and restores entry before native delegation. Every outer call masks ancestor leaf context, including refusals. State stays resident; no unhook-drain or arbitrary-unwind guarantee.
+
+Prefix LEGO_COMPACT_LEAF_WRITER; markers compact-leaf-writer.arm/.stop; DLL lego_compact_leaf_writer.dll. See PROTOCOL.md for record→math→leaf receipts and both route masks. Requires separately reviewed paired assets, driver and trial permit. Not a standalone release or all-actor proof. Root/hip translation, HeadPeg gap, contacts and animated culling remain limited.
+
+Version0.0.5 preserves the independently owned first-fatal record and v3 telemetry. Tick writes `leaf-fault-first.bin` only after the winning call completes; unavailable/pending and failed writes remain explicit. Fatal always requires cleanup. See FAULT-PROTOCOL.md for fixed failure wire and bounded witnesses.
+
+The81920-byte LGFAULT3 file retains complete original closing RenderMeta operands and nested schema/route/render/consistency/resolve witnesses before shared diagnostics are cleared. Underlying closing-read refusal stays separate from the generic capture reason. Only a qualified actual writer call with no group may ignore replacement of the eight-byte queue pointer between two complete fresh RenderReads. All other912 metadata bytes and every read, owner, pose, math, plan and hook guard remain unchanged. See QUEUE-POLICY.md and SAMPLER-PROTOCOL.md.

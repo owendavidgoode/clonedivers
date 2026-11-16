@@ -1,24 +1,31 @@
-# Private squad acceptance — November4,2026
+# HellForge Squad Acceptance Checklist
 
 **Multiplayer is not yet tested on separate PCs.** Solo startup and the owner's
 D11 gameplay report do not establish a two-, three- or four-player pass.
 
-Use HellForge 0.3.0-beta, engine 0.1.41, game 25480438 on every PC. Each player owns
-HD2, signs into their own Steam account and imports their own account locally.
-Keep the WFP block and sandbox enabled. Do not share account captures, seal keys,
-profiles or save files. Progress imports only from HD2 into Forge; Forge rewards
-stay local. The official Steam game remains a separate launch path.
+Use **HellForge `0.4.0-beta`**, **engine `0.1.47`**, **SDK `16`**, **game `25480438`**
+on every PC. Each player owns HD2, signs into their own Steam account and imports
+their own account locally. Keep the network block (`WFP`/`firewall` on Windows,
+`linux-netns` via `pasta` from `passt` on Linux) and sandbox enabled. Do not share
+account captures, seal keys, profiles or save files. Progress imports only from HD2
+into Forge; Forge rewards stay local. The official Steam game remains a separate
+launch path.
 
-Before joining, compare the complete12-mod preset, exact private Heavy/Squad/mine
-fix versions, load order and options, including Targeting Marker OFF. Begin with
-Republic/Delta/full+CIS on each PC. The gameplay code is75401ed0; that short code
-alone is insufficient to establish matching cosmetic/data-pack options. Keep
-Vanilla Plus enabled and the separate Beacon Fix, alternative Heavy spawner,
-roster replacements and Goliath disabled. Use reviewed matching local installs;
-automatic distribution/trust of these private code mods has not been qualified.
+Before joining, compare the pinned `build25480438-r3` preset (3 bundled Forge mods
++ 7 required gameplay downloads; optional client-only `Clonedivers Clean Exit 0.2.0`
+has `gameplay: false` and is excluded from HellForge co-op matching so friends may
+keep or disable it), load order, options (including Guard Dogs `Targeting Marker`
+OFF), and the **Squad modlist** code shown in **Session details**. Keep the
+retired standalone `mine-boundary 0.1.1` fix disabled (`engine 0.1.47` includes
+its bounds fix). Begin with matching appearances (`Clones r19` Full/Lighter and
+options, or live `Empire r45-v4` Full) on each PC; the short HellForge modlist
+code alone does not enforce matching cosmetic/data-pack options. Keep Vanilla Plus
+enabled and Reinforcement Beacons Fixed, alternative Heavy spawners, conflicting
+roster replacements and XS1 Goliath disabled. Each player acquires their own
+artifacts through setup; automatic host mod sharing stays OFF.
 
 The owner should run these checks with their intended players; no invitations or
-friend messages were sent as part of overnight QA.
+friend messages are sent automatically during development QA.
 
 | Step | Evidence to record | Pass condition |
 | --- | --- | --- |
@@ -29,18 +36,17 @@ friend messages were sent as part of overnight QA.
 | Extraction | Objective result and every client's debrief | Intended players extract and see a coherent mission result |
 | Local persistence | XP/currency before and after, legitimate spend, next launch | Earned rewards and a chosen spend persist on each player's own Forge character without another account import |
 | Rejoin and host change | Disconnect/rejoin order, second host's run IDs | Rejoin works; repeat a short mission with a different host |
-| Shutdown | End session and result.json on each PC | Runner/backend/broker stop and copy cleanup completes; next launch succeeds |
+| Shutdown | End session and `result.json` on each PC | Runner/backend/broker stop and copy cleanup completes; next launch succeeds |
 
-At **09:16 UTC November4**, upstream [issue 202](https://github.com/SkyeShade/HellForge/issues/202)
-is still open: the report describes a third player failing to join and the second
-player being disconnected. An [upstream comment](https://github.com/SkyeShade/HellForge/issues/202#issuecomment-6564764916)
-points to a future0.4.0 fix. The [published release](https://github.com/SkyeShade/HellForge/releases/tag/v0.3.0-beta)
-is still0.3.0-beta (October26), engine 0.1.41/SDK15. No update or isolation change
-was applied. Do not use the comment's sandbox-off workaround. If the third join
-fails, retain the logs and record that acceptance failure; do not call the squad
-build certified. Two-player success would qualify only two players.
+Upstream [issue 202](https://github.com/SkyeShade/HellForge/issues/202) (third-player
+join failure / second-player disconnect on `0.3.0-beta`) was addressed upstream in
+**HellForge `0.4.0-beta`** alongside Linux relay/namespace support. Never disable
+the sandbox or network block as a workaround. Even with `0.4.0-beta`, actual 2-,
+3-, and 4-player cross-PC Windows/Linux squad joins, mission completion, and
+reward persistence remain unverified until recorded above; two-player success
+qualifies only two players.
 
 Keep qualification explicit: **downloaded → imported → initialized →
 behavior-tested → mission-completed → multiplayer-tested**. Current evidence
-reaches owner-reported solo D11 behavior; multiplayer, extraction and local
-mission reward persistence remain pending.
+reaches owner-reported solo D11 behavior on `r45-v4` and `r19`; multiplayer,
+extraction and local mission reward persistence remain pending.

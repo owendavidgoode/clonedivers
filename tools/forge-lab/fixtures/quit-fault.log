@@ -1,0 +1,4 @@
+22:30:25.372 crash: c0000005 on thread 5364 at helldivers2.exe+0x626296 (0x7ff72fc86296), reading 0x21dc5b07820; rax 21dba8c31c4 rbx 6859aff738 rcx 16488cb rdx b5474e90 rsi 0 rdi 1 r8 6859afd650 r9 0 r12 1 r13 6859aff6f0 r14 6859afd658 r15 21db5470560; Dr0 0 Dr1 0 Dr2 0 Dr3 0 Dr6 0 Dr7 0; stack: x+0x166aaa0 x+0x108bb0 x+0x166a270 x+0x168b0d0 x+0x108b00 x+0x166a208
+22:30:25.375 crash: by module: at helldivers2.exe+0x626296; stack outside the game: none
+22:30:25.752 crash: fail-fast about to end the game (thread 20736, asked from dbgcore.DLL+0x129d2); stack: g+0x0 x+0x33a1058
+22:30:25.942 crash: fail-fast about to end the game (thread 5364, asked from dbgcore.DLL+0x129d2); stack: g+0x0 x+0x33a1058

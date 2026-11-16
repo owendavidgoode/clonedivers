@@ -65,6 +65,16 @@ static int Part(Proof* p, int gpu, const char* expected)
     return ok;
 }
 
+static int MatchesPair(Proof* p, const char* mainHash, const char* gpuHash)
+{
+    if (!mainHash || !gpuHash) return 0;
+    Proof probe = *p;
+    if (!Part(&probe, 0, mainHash) || !Part(&probe, 1, gpuHash)) return 0;
+    p->mainInfo = probe.mainInfo;
+    p->gpuInfo = probe.gpuInfo;
+    return 1;
+}
+
 static int Unchanged(const Proof* p)
 {
     for (int gpu = 0; gpu < 2; gpu++)
@@ -139,7 +149,9 @@ static int ScanVisuals(const wchar_t* directory)
     if (ok) for (int v = 0; v < 4; v++)
     {
         Proof* p = &proofs[v];
-        p->valid = p->found && p->row.d[1] == 0 && Part(p, 0, visuals[v].mainHash) && Part(p, 1, visuals[v].gpuHash);
+        p->valid = p->found && p->row.d[1] == 0 && (
+            MatchesPair(p, visuals[v].mainHash, visuals[v].gpuHash) ||
+            MatchesPair(p, visuals[v].altMainHash, visuals[v].altGpuHash));
         qualified += p->valid;
     }
     if (!ok) memset(proofs, 0, sizeof proofs);

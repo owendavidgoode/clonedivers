@@ -1,0 +1,5 @@
+# Small recorded test inputs, not generated runtime logs.
+!return-fault.log
+!quit-fault.log
+!handled-clean-exit.log
+!startup-fault.log

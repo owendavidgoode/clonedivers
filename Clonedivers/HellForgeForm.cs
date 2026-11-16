@@ -8,6 +8,61 @@ namespace Clonedivers;
 public sealed class HellForgeForm : Form
 {
     internal static Func<bool> SteamReadyCheck = SteamReady;
+    internal static Func<string?> CaptureBlockCheck = HellForgeAccount.CaptureBlock;
+    internal static Action<string> OpenManager = StartOrActivateManager;
+    internal static Action OpenSteamClient = () => Process.Start(new ProcessStartInfo("steam://open/main") { UseShellExecute = true });
+    internal static Func<string, IHellForgeCommands> CreateCommands = root => new HellForgeCommands(root);
+    internal static Func<string, HellForgeAccount> CreateAccount = root => new HellForgeAccount(root);
+    internal static Func<HellForgeClient, CancellationToken, Task<int>> ImportAccountAction = (client, ct) => client.ImportAccountAsync(ct);
+    internal static Func<HellForgeClient, CancellationToken, Task> SelectAccountAction = (client, ct) => client.SelectAccountAsync(ct);
+    internal static Func<HellForgeClient, CancellationToken, Task<int>> TryOpenWarbondsAction = (client, ct) => client.TryOpenOwnedWarbondsAsync(ct);
+    internal static Func<HellForgeClient, CancellationToken, Task<int>> OpenWarbondsAction = (client, ct) => client.OpenOwnedWarbondsAsync(ct);
+    internal static Func<HellForgeClient, CancellationToken, Task<string>> EnsureAccountAction = (client, ct) => client.EnsureAccountAsync(ct);
+    internal static Func<IWin32Window, string, string, MessageBoxButtons, MessageBoxIcon, DialogResult> ShowPrompt = MessageBox.Show;
+
+    const int SwRestore = 9;
+    [System.Runtime.InteropServices.DllImport("user32.dll")]
+    [return: System.Runtime.InteropServices.MarshalAs(System.Runtime.InteropServices.UnmanagedType.Bool)]
+    static extern bool IsIconic(IntPtr hWnd);
+    [System.Runtime.InteropServices.DllImport("user32.dll")]
+    [return: System.Runtime.InteropServices.MarshalAs(System.Runtime.InteropServices.UnmanagedType.Bool)]
+    static extern bool ShowWindow(IntPtr hWnd, int nCmdShow);
+    [System.Runtime.InteropServices.DllImport("user32.dll")]
+    [return: System.Runtime.InteropServices.MarshalAs(System.Runtime.InteropServices.UnmanagedType.Bool)]
+    static extern bool SetForegroundWindow(IntPtr hWnd);
+
+    internal static bool RestoreAndActivateWindow(IntPtr hwnd, Func<IntPtr, bool> isIconic, Func<IntPtr, int, bool> showWindow, Func<IntPtr, bool> setForeground)
+    {
+        if (hwnd == IntPtr.Zero) return false;
+        if (isIconic(hwnd)) showWindow(hwnd, SwRestore);
+        setForeground(hwnd);
+        return true;
+    }
+
+    static void StartOrActivateManager(string root)
+    {
+        var normalized = Path.TrimEndingDirectorySeparator(Path.GetFullPath(root)) + Path.DirectorySeparatorChar;
+        var processes = Process.GetProcessesByName("HellForge.Launcher").Concat(Process.GetProcessesByName("HellForge")).ToArray();
+        try
+        {
+            foreach (var process in processes)
+            {
+                try
+                {
+                    if (process.HasExited || process.MainModule?.FileName is not { } path ||
+                        !Path.GetFullPath(path).StartsWith(normalized, StringComparison.OrdinalIgnoreCase)) continue;
+                    if (!RestoreAndActivateWindow(process.MainWindowHandle, IsIconic, ShowWindow, SetForegroundWindow))
+                        Microsoft.VisualBasic.Interaction.AppActivate(process.Id);
+                    return;
+                }
+                catch (InvalidOperationException) { }
+                catch (Exception error) when (error is ArgumentException or System.ComponentModel.Win32Exception or UnauthorizedAccessException)
+                { throw new InvalidOperationException("Close the HellForge window, then try account sync again.", error); }
+            }
+            Process.Start(new ProcessStartInfo(Path.Combine(root, "HellForge.exe")) { UseShellExecute = true, WorkingDirectory = root });
+        }
+        finally { foreach (var process in processes) process.Dispose(); }
+    }
     static bool SteamReady()
     {
         Process[] clients = [];
@@ -20,22 +75,37 @@ public sealed class HellForgeForm : Form
         try { return Microsoft.Win32.Registry.GetValue(@"HKEY_CURRENT_USER\Software\Valve\Steam\ActiveProcess", "ActiveUser", null)?.ToString() ?? ""; }
         catch (Exception error) when (error is IOException or UnauthorizedAccessException or System.Security.SecurityException) { return ""; }
     }
-    internal const string SyncInstructions = "In HellForge choose Profile > Account sync > Sync Inventory (default is selected). Approve Windows and pass HD2's title screen. " +
-        "When HD2 closes, return here. Leave Apply import and auto-apply off. Clonedivers verifies and merges your sealed capture automatically.";
+    internal const string SetupRequirements = "Keep Helldivers 2 installed in Steam. Allow about 70 GB free for Forge and your pack. " +
+        "Use the Steam phone app to scan the sign-in QR code, or choose Official setup (fallback). Windows will ask for administrator approval two or three times.";
+    internal const string SyncInstructions = "Keep Helldivers 2 installed and up to date in Steam. Windows will ask for administrator approval for the sync proxy. " +
+        "In HellForge choose Profile > Account sync > Sync Inventory (default is selected). Pass HD2's title screen. " +
+        "When HD2 exits, close HellForge and return here. Leave Apply import and auto-apply off. Clonedivers verifies and merges your sealed capture automatically.";
+    const string DeferredWarbondsMessage = "Account imported. Close the HellForge window to unlock your owned Warbonds.";
+    const string CloseHellForgeToUnlockWarbondsMessage = "Close the HellForge window before launching to unlock your owned Warbonds.";
     internal static string FailureSummary(string diagnostic)
     {
         if (diagnostic.Contains("Steam ownership was not confirmed", StringComparison.OrdinalIgnoreCase))
             return "Sign in to Steam with the account that owns HD2 and review Session details to confirm ownership.";
+        if (diagnostic.Contains("HellForge programs are missing", StringComparison.OrdinalIgnoreCase))
+            return "Repair HellForge with the official installer, or Locate another folder";
+        if (diagnostic.Contains("Close the game and HellForge window", StringComparison.OrdinalIgnoreCase) ||
+            diagnostic.Contains("Close the HellForge window", StringComparison.OrdinalIgnoreCase))
+            return "Close the HellForge window before continuing.";
+        if (diagnostic.Contains("space", StringComparison.OrdinalIgnoreCase) || diagnostic.Contains("disk full", StringComparison.OrdinalIgnoreCase))
+            return "Free some disk space before trying again.";
+        if (diagnostic.Contains("HttpRequestException", StringComparison.OrdinalIgnoreCase) ||
+            diagnostic.Contains("SocketException", StringComparison.OrdinalIgnoreCase) ||
+            diagnostic.Contains("No such host", StringComparison.OrdinalIgnoreCase) ||
+            diagnostic.Contains("access a socket", StringComparison.OrdinalIgnoreCase))
+            return "GitHub didn't respond. Try again in a few minutes.";
+        if (diagnostic.Contains("denied", StringComparison.OrdinalIgnoreCase) || diagnostic.Contains("permission", StringComparison.OrdinalIgnoreCase))
+            return "Review folder permissions in More > Session details before trying again.";
         if (System.Text.RegularExpressions.Regex.IsMatch(diagnostic, @"\b(5\d\d|408|429)\b") ||
-            diagnostic.Contains("HttpRequestException") || diagnostic.Contains("connection", StringComparison.OrdinalIgnoreCase) ||
-            diagnostic.Contains("responding", StringComparison.OrdinalIgnoreCase) || diagnostic.Contains("No such host", StringComparison.OrdinalIgnoreCase))
+            diagnostic.Contains("connection", StringComparison.OrdinalIgnoreCase) ||
+            diagnostic.Contains("responding", StringComparison.OrdinalIgnoreCase))
             return "GitHub didn't respond. Try again in a few minutes.";
         if (diagnostic.Contains("SHA", StringComparison.OrdinalIgnoreCase) || diagnostic.Contains("integrity", StringComparison.OrdinalIgnoreCase))
             return "Download again because the file could not be verified.";
-        if (diagnostic.Contains("space", StringComparison.OrdinalIgnoreCase) || diagnostic.Contains("disk full", StringComparison.OrdinalIgnoreCase))
-            return "Free some disk space before trying again.";
-        if (diagnostic.Contains("denied", StringComparison.OrdinalIgnoreCase) || diagnostic.Contains("permission", StringComparison.OrdinalIgnoreCase))
-            return "Review folder permissions in More > Session details before trying again.";
         if (diagnostic.Contains("timed out", StringComparison.OrdinalIgnoreCase))
             return "Review More > Session details before retrying the timed-out HellForge step.";
         return "Open More > Session details to review why this step couldn't finish.";
@@ -57,7 +127,6 @@ public sealed class HellForgeForm : Form
         AccessibleDescription = "Switch between full textures and full-detail textures streamed on demand." };
     readonly RadioButton fullTextures = new() { Text = "Full", AccessibleName = "Full textures", Appearance = Appearance.Button, Dock = DockStyle.Fill, Margin = Padding.Empty, TextAlign = ContentAlignment.MiddleCenter };
     readonly RadioButton lighterTextures = new() { Text = "Lighter", AccessibleName = "Lighter textures", AccessibleDescription = "Full-detail textures streamed on demand.", Appearance = Appearance.Button, Dock = DockStyle.Fill, Margin = Padding.Empty, TextAlign = ContentAlignment.MiddleCenter };
-    readonly Button publishedEmpire = new() { Text = "Use published Empire appearance", AutoSize = true, AccessibleName = "Use published Empire appearance" };
     readonly Label state = new() { AutoSize = true, ForeColor = TextMain, Font = new Font("Segoe UI", 12, FontStyle.Bold) };
     readonly Label detail = new() { AutoSize = true, ForeColor = TextDim, MaximumSize = new Size(640, 0) };
     readonly ToolStripMenuItem location = new() { Enabled = false };
@@ -80,10 +149,12 @@ public sealed class HellForgeForm : Form
     readonly System.Windows.Forms.Timer timer = new() { Interval = 5000 };
     readonly ToolStripMenuItem updates = new("Check updates");
     readonly Button later = new() { Text = "Not now", Width = 120, Height = 36, Visible = false, AccessibleName = "Update later" };
+    readonly Button locateMissing = new() { Text = "Locate Forge", Width = 120, Height = 36, Visible = false, AccessibleName = "Locate Forge" };
     readonly ContextMenuStrip moreMenu = new() { BackColor = Slate, ForeColor = TextMain, RenderMode = ToolStripRenderMode.System };
     bool updateDeferred, updateFailed, updateDownloading, updateCancelled, launcherReplaced;
     AppRelease? launcherRelease;
     bool checkingUpdates;
+    bool installationMissing;
     readonly CancellationTokenSource lifetime = new();
     CancellationTokenSource? operation;
     CancellationToken WorkToken => operation?.Token ?? lifetime.Token;
@@ -96,10 +167,13 @@ public sealed class HellForgeForm : Form
     string? lastAccountFingerprint;
     DateTime lastAccountReadUtc;
     string? captureBlock;
+    bool captureBlockUnreadable, warbondsPending;
     bool syncRequested;
     bool working, refreshing, initializing = true, resourcesDisposed, retryStatus, detailsAction;
     TaskCompletionSource? refreshCompletion;
     string? lastError, failureDetail; // a refresh clears lastError; the failed operation's full text stays for Session details
+    string? operationFailure, startupNotice;
+    string? headline;
     string? LauncherDiagnostic => failureDetail ?? lastError;
     string previewState = "setup";
 
@@ -158,12 +232,7 @@ public sealed class HellForgeForm : Form
             option.FlatAppearance.MouseOverBackColor = SlateHot; option.BackColor = Bg; option.ForeColor = TextMain; option.Font = new Font("Segoe UI", 10F);
         }
         textures.Controls.Add(fullTextures, 0, 0); textures.Controls.Add(lighterTextures, 1, 0);
-        textureRow.Controls.Add(textures); textureRow.Controls.Add(publishedEmpire);
-        publishedEmpire.Click += (_, _) => {
-            if (working) return;
-            preferences.Texture = "full"; preferences.Droids = true; droids.Checked = true;
-            Save(); message.Text = "Prepare the published Empire appearance to apply this choice."; UpdateView();
-        };
+        textureRow.Controls.Add(textures);
         appearance.Controls.Add(textureRow, 0, 2); root.Controls.Add(appearance, 0, 2);
         var statusCard = new TableLayoutPanel { AutoSize = true, Dock = DockStyle.Fill, ColumnCount = 1,
             Margin = new Padding(0, 0, 0, 12) };
@@ -184,14 +253,15 @@ public sealed class HellForgeForm : Form
         moreMenu.Items.Add(new ToolStripSeparator()); moreMenu.Items.Add(prepare); moreMenu.Items.Add(accountSync);
         moreMenu.Items.Add(updates); moreMenu.Items.Add(new ToolStripSeparator()); moreMenu.Items.Add(location);
         var more = new Button { Text = "&More options \u2304", Width = 180, Height = 36, AccessibleName = "More launcher options" };
-        foreach (var button in new[] { more, later }) {
+        foreach (var button in new[] { more, later, locateMissing }) {
             Style(button, Bg, SlateHot, TextMain); button.Font = new Font("Segoe UI", 10F);
             button.FlatAppearance.BorderSize = 1; button.FlatAppearance.BorderColor = Border; button.FlatAppearance.MouseDownBackColor = Slate;
             button.Margin = new Padding(6, 0, 6, 0);
         }
         more.Click += (_, _) => moreMenu.Show(more, new Point(0, more.Height));
         actions.Controls.Add(more);
-        later.Click += (_, _) => { updateDeferred = true; updateFailed = false; lastError = null; message.Text = ""; UpdateView(); };
+        locateMissing.Click += (_, _) => Locate(); actions.Controls.Add(locateMissing);
+        later.Click += (_, _) => { updateDeferred = true; updateFailed = false; lastError = operationFailure = null; message.Text = ""; UpdateView(); };
         actions.Controls.Add(later); root.Controls.Add(actions, 0, 5);
         updates.Click += async (_, _) => { if (launcherRelease != null) { updateDeferred = false; await ApplyLauncherUpdateAsync(); } else await CheckLauncherUpdateAsync(true); };
         // Keep the Steam fallback and version visible even when Windows clamps
@@ -218,6 +288,7 @@ public sealed class HellForgeForm : Form
             if (OfferUpdate) await ApplyLauncherUpdateAsync();
             else if (lastStatus?.Running == true) await EndSessionAsync();
             else if (detailsAction) await ShowDetailsAsync();
+            else if (installationMissing) await SetupAsync();
             else if (retryStatus) await RefreshAsync();
             else if (preferences.InstallRoot is { } root && HellForgeSetup.UpgradeProblem(root) != null) await RecoverForgeAsync();
             else if (lastStatus is { } old && HellForgeSetup.IsPrevious(old.Version)) await UpgradeForgeAsync();
@@ -225,6 +296,7 @@ public sealed class HellForgeForm : Form
             else if (lastStatus?.CompatibilityProblem != null) await SetupAsync();
             else if (lastStatus?.RecoveryProblem != null) await PrepareAsync();
             else if (!SteamReadyCheck()) await LaunchAsync();
+            else if (captureBlock != null && !captureBlockUnreadable) OpenHellForge();
             else if (lastMods?.Problems.Length > 0) ReviewModNotices();
             else if (NeedsGameplaySetup()) await PrepareAsync();
             else if (NeedsModeSetup()) await PrepareAsync();
@@ -233,10 +305,11 @@ public sealed class HellForgeForm : Form
         };
         timer.Tick += async (_, _) => await RefreshAsync();
         Shown += async (_, _) => { if (!preview) { await RefreshAsync(); if (!IsDisposed && !Disposing) { timer.Start(); await CheckLauncherUpdateAsync(false); } } };
-        initializing = false;
+        startupNotice = string.IsNullOrWhiteSpace(migrationNotice) ? null : migrationNotice;
         AutoScaleDimensions = new SizeF(96, 96);
+        if (startupNotice != null) message.Text = startupNotice;
         UpdateView();
-        if (!string.IsNullOrWhiteSpace(migrationNotice)) message.Text = migrationNotice;
+        initializing = false;
     }
 
     protected override void OnHandleCreated(EventArgs e) { base.OnHandleCreated(e); Dwm.ApplyDark(Handle, Bg, TextMain, Border); }
@@ -253,16 +326,50 @@ public sealed class HellForgeForm : Form
         if (!PreviewStates.Contains(value)) throw new ArgumentException("Unknown Forge preview state.", nameof(value));
         previewState = value; UpdateView();
     }
-    void ChangeMode(string mode) { if (working) return; preferences.Mode = mode; Save(); UpdateView(); }
+    void ChangeMode(string mode) { if (working) return; operationFailure = null; preferences.Mode = mode; Save(); UpdateView(); }
     void ChangeTexture(string texture) { if (working || preferences.Texture == texture) return; preferences.Texture = texture; ChangeOptions(); }
     void ChangeOptions()
     {
         if (initializing || working) return;
+        operationFailure = null;
         preferences.DeltaSquad = delta.Checked; preferences.Droids = droids.Checked; preferences.Covenant = covenant.Checked;
         Save(); message.Text = "Prepare the pack to apply your selection."; UpdateView();
     }
     void Save() { if (!preview) preferences.Save(); }
-    HellForgeClient Client() => new(preferences.InstallRoot ?? throw new InvalidOperationException("Locate your HellForge installation first."));
+    static HellForgeClient CreateClient(string root) => new(HellForgeCommands.ValidateRoot(root), CreateCommands(root));
+    HellForgeClient Client() => CreateClient(preferences.InstallRoot ?? throw new InvalidOperationException("Locate your HellForge installation first."));
+
+    // Access failures cannot establish idle. An absent installation can, but an
+    // interrupted upgrade must keep its recovery action even with programs missing.
+    internal static bool InstallationMissing(string root)
+    {
+        try
+        {
+            File.GetAttributes(root);
+            if (HellForgeSetup.UpgradeProblem(root) != null) return false;
+            File.GetAttributes(Path.Combine(root, "hellforge-install.json"));
+            return false;
+        }
+        catch (Exception error) when (error is FileNotFoundException or DirectoryNotFoundException or DriveNotFoundException) { return true; }
+        catch (Exception error) when (error is IOException or UnauthorizedAccessException or System.Security.SecurityException) { return false; }
+    }
+    internal static bool ProgramsMissing(string root)
+    {
+        try
+        {
+            File.GetAttributes(root);
+            foreach (var relative in new[] { "app/cli/HellForge.Cli.exe", "HellForge.exe" })
+                File.GetAttributes(Path.Combine(root, relative));
+            return false;
+        }
+        catch (Exception error) when (error is FileNotFoundException or DirectoryNotFoundException or DriveNotFoundException) { return true; }
+        catch (Exception error) when (error is IOException or UnauthorizedAccessException or System.Security.SecurityException) { return false; }
+    }
+    static (string? Block, bool Unreadable) ReadCaptureBlock()
+    {
+        try { return (CaptureBlockCheck(), false); }
+        catch (Exception e) when (e is IOException or UnauthorizedAccessException) { return (e.ToString(), true); }
+    }
 
     async Task RefreshAsync()
     {
@@ -274,8 +381,13 @@ public sealed class HellForgeForm : Form
         try
         {
             if (root == null) { preferences.InstallRoot = HellForgeClient.Detect(); root = preferences.InstallRoot; if (root != null) Save(); }
+            installationMissing = root != null && InstallationMissing(root);
+            if (installationMissing) {
+                lastStatus = null; lastMods = null; lastAccount = null; lastModsFingerprint = lastAccountFingerprint = null;
+                syncRequested = false; warbondsPending = false; lastError = null; (captureBlock, captureBlockUnreadable) = ReadCaptureBlock(); return;
+            }
             if (root == null) { lastError = null; return; }
-            var client = new HellForgeClient(root);
+            var client = CreateClient(root);
             var status = await client.StatusAsync(lifetime.Token);
             // Keep the official runner state even if a later mods/account read fails.
             // End session must remain available during an unrelated catalog error.
@@ -295,9 +407,7 @@ public sealed class HellForgeForm : Form
                 try { client.SweepHashPartials(DateTime.UtcNow.AddMinutes(-10)); }
                 catch (Exception e) when (e is IOException or UnauthorizedAccessException or InvalidDataException) { }
             }
-            string? block;
-            try { block = HellForgeAccount.CaptureBlock(); }
-            catch (Exception e) when (e is IOException or UnauthorizedAccessException) { block = e.ToString(); }
+            var (block, blockUnreadable) = ReadCaptureBlock();
             HellForgeAccountState? account = lastAccount;
             if (!status.Running && !Game.IsRunning())
             {
@@ -305,23 +415,57 @@ public sealed class HellForgeForm : Form
                 try { accountKey = root + "\n" + client.AccountFingerprint() + "\n" + SteamUser(); }
                 catch (Exception e) when (e is IOException or UnauthorizedAccessException) { accountKey = null; }
                 // The review starts HellForge's backend; idle, rerun it when the capture/profile/Steam user change or every 5 minutes.
-                if (lastAccount == null || accountKey == null || accountKey != lastAccountFingerprint || DateTime.UtcNow - lastAccountReadUtc >= TimeSpan.FromMinutes(5))
+                if (account == null || accountKey == null || accountKey != lastAccountFingerprint || DateTime.UtcNow - lastAccountReadUtc >= TimeSpan.FromMinutes(5))
                 {
-                    (account, var reviewed) = await ReviewAccountAsync(new HellForgeAccount(root), lifetime.Token);
+                    (account, var reviewed) = await ReviewAccountAsync(CreateAccount(root), lifetime.Token);
                     if (reviewed && account.Imported && block == null)
                     {
-                        var opened = await client.TryOpenOwnedWarbondsAsync(lifetime.Token);
-                        if (opened > 0) message.Text = $"Opened {opened} owned Warbonds";
+                        var opened = await TryOpenWarbondsAction(client, lifetime.Token);
+                        if (opened > 0)
+                        {
+                            warbondsPending = false;
+                            message.Text = $"Opened {opened} owned Warbonds";
+                            if (startupNotice == null) headline = null;
+                        }
+                        else if (HellForgeWarbonds.ManagerWindowOpen())
+                            warbondsPending = true;
+                        else
+                        {
+                            warbondsPending = false;
+                            if (message.Text == DeferredWarbondsMessage || message.Text == CloseHellForgeToUnlockWarbondsMessage)
+                                message.Text = "Your HD2 account is imported for all three modes.";
+                        }
                     }
+                    else if (reviewed && !account.Imported)
+                        warbondsPending = false;
                     accountReviewFailed = !reviewed;
                     lastAccountFingerprint = reviewed ? accountKey : null; lastAccountReadUtc = DateTime.UtcNow;
                 }
+                else if (warbondsPending && account.Imported && block == null && !HellForgeWarbonds.ManagerWindowOpen())
+                {
+                    try
+                    {
+                        var opened = await OpenWarbondsAction(client, lifetime.Token);
+                        warbondsPending = false;
+                        if (opened > 0)
+                        {
+                            lastAccountFingerprint = null;
+                            message.Text = $"Opened {opened} owned Warbonds";
+                        }
+                        else if (message.Text == DeferredWarbondsMessage || message.Text == CloseHellForgeToUnlockWarbondsMessage)
+                            message.Text = "Your HD2 account is imported for all three modes.";
+                    }
+                    catch (Exception e) when (e is InvalidOperationException or IOException or UnauthorizedAccessException or InvalidDataException or JsonException or TimeoutException)
+                    {
+                        warbondsPending = true;
+                    }
+                }
             }
             if (root != preferences.InstallRoot) return;
-            lastStatus = status; lastMods = mods; lastAccount = account; captureBlock = block; lastError = null;
+            lastStatus = status; lastMods = mods; lastAccount = account; captureBlock = block; captureBlockUnreadable = blockUnreadable; lastError = null;
         }
         catch (OperationCanceledException) when (lifetime.IsCancellationRequested) { }
-        catch (Exception e) { if (!IsDisposed && root == preferences.InstallRoot) { lastMods = null; lastError = e.ToString(); } }
+        catch (Exception e) { if (!IsDisposed && root == preferences.InstallRoot) { lastMods = null; lastError = e.ToString(); if (!OfferUpdate || !updateFailed) failureDetail = lastError; message.Text = ""; } }
         finally { refreshing = false; completed.TrySetResult(); if (!IsDisposed) UpdateView(); }
         // Only finish an import the player requested in this launcher. Startup never
         // replays an old capture, and the backend still verifies its account/PC seal.
@@ -358,15 +502,32 @@ public sealed class HellForgeForm : Form
         launch.AccessibleName = launch.Text;
         if (preview) return;
         later.Visible = false;
-        message.Visible = working;
-        activity.Visible = working;
-        if (working) return;
-        if (OfferUpdate) ShowUpdateOffer(launcherRelease!.Version, updateFailed);
-        else if (lastError == null && !string.IsNullOrWhiteSpace(message.Text)) detail.Text = message.Text;
+        if (!working)
+        {
+            if (OfferUpdate) ShowUpdateOffer(launcherRelease!.Version, updateFailed);
+            var canShowMessage = !initializing && !OfferUpdate && !installationMissing && lastError == null && state.Text != "Checking HellForge…";
+            if (headline != null && headline != state.Text) message.Text = "";
+            if (startupNotice != null && canShowMessage)
+            {
+                if (operationFailure == null && string.IsNullOrWhiteSpace(message.Text)) message.Text = startupNotice;
+                startupNotice = null;
+            }
+            headline = initializing ? null : state.Text;
+            if (!OfferUpdate && !installationMissing && lastError == null)
+            {
+                if (operationFailure != null && lastStatus?.Running != true && !Game.IsRunning())
+                    detail.Text = operationFailure;
+                else if (!string.IsNullOrWhiteSpace(message.Text))
+                    detail.Text = message.Text;
+            }
+        }
+        message.Visible = working || (!string.IsNullOrWhiteSpace(message.Text) && message.Text != detail.Text);
+        activity.Visible = working || message.Visible || Cancellable;
     }
     void UpdateState()
     {
         retryStatus = detailsAction = false;
+        locateMissing.Visible = !working && installationMissing;
         activity.Visible = working || !string.IsNullOrWhiteSpace(message.Text) || Cancellable;
         updates.Enabled = !working && !checkingUpdates && lastStatus?.Running != true && (preview || !Game.IsRunning()) && captureBlock == null;
         accountSync.Enabled = !working && (preview ? previewState != "running" : preferences.InstallRoot != null && lastStatus?.Running != true && !Game.IsRunning());
@@ -374,13 +535,10 @@ public sealed class HellForgeForm : Form
         regular.Selected = preferences.IsRegular;
         clone.Selected = preferences.Mode == "clonedivers"; empire.Selected = preferences.Mode == "empire";
         appearance.Visible = !working;
-        choices.Visible = !working && preferences.Mode == "clonedivers";
-        textureRow.Visible = !working && (preferences.Mode == "clonedivers" || preferences.SelectionProblem != null);
-        foreach (Control control in textureRow.Controls) control.Visible = control == publishedEmpire ? preferences.SelectionProblem != null : preferences.Mode == "clonedivers";
-        publishedEmpire.Enabled = !working && (preview ? previewState != "running" : lastStatus?.Running != true && !Game.IsRunning());
+        choices.Visible = textureRow.Visible = !working && !preferences.IsRegular;
         optionsLabel.Text = preferences.Mode switch { "empire" => "Empire appearance", "regular" => "Regular appearance", _ => "Clones appearance" };
-        appearanceInfo.Visible = preferences.Mode != "clonedivers";
-        appearanceInfo.Text = preferences.Mode == "empire" ? HellForgePack.PublishedEmpireDescription : "Standard Helldivers appearance with your selected gameplay mods.";
+        appearanceInfo.Visible = preferences.IsRegular;
+        appearanceInfo.Text = "Standard Helldivers appearance with your selected gameplay mods.";
         delta.Visible = preferences.Mode == "clonedivers";
         covenant.Visible = preferences.Mode == "clonedivers";
         delta.Enabled = !working && preferences.Mode == "clonedivers";
@@ -403,8 +561,7 @@ public sealed class HellForgeForm : Form
             detail.Text = "Choose difficulty 1–11 at the war table.";
             message.Text = ""; later.Visible = false;
             progress.Visible = busy; progress.Style = ProgressBarStyle.Continuous; progress.Value = 42;
-            choices.Visible = !busy && preferences.Mode == "clonedivers";
-            textureRow.Visible = !busy && (preferences.Mode == "clonedivers" || preferences.SelectionProblem != null);
+            choices.Visible = textureRow.Visible = !busy && !preferences.IsRegular;
             appearance.Visible = !busy;
             actions.Visible = !busy;
             if (previewState == "setup") { state.Text = "Set up HellForge"; detail.Text = "We'll guide you through installing the separate game copy and your chosen mode."; launch.Text = "SET UP CLONEDIVERS"; }
@@ -416,9 +573,6 @@ public sealed class HellForgeForm : Form
             if (previewState == "update-downloading") { state.Text = "Downloading update · v1.15.0"; detail.Text = "Temporary connection problems retry automatically until you cancel."; launch.Text = "DOWNLOADING…"; message.Text = "28 MB / 66 MB · 42%"; }
             if (previewState == "update-ready") { state.Text = "Update verified"; detail.Text = "The launcher is restarting with the new version."; launch.Text = "RESTARTING…"; launch.Enabled = false; }
             if (busy) { launch.Text = "CANCEL"; launch.Enabled = true; }
-            if (!busy && previewState != "running" && preferences.SelectionProblem is { } previewProblem) {
-                state.Text = "Choose the published Empire appearance"; detail.Text = previewProblem; launch.Enabled = prepare.Enabled = false;
-            }
             activity.Visible = busy;
             return;
         }
@@ -431,6 +585,10 @@ public sealed class HellForgeForm : Form
             if (lastStatus?.Running == true) { prepare.Enabled = false; launch.Text = "END SESSION"; launch.Enabled = true; }
             else EnableDetails();
             return;
+        }
+        if (installationMissing) {
+            state.Text = "HellForge installation is missing"; detail.Text = "Locate your Forge folder, or set up Forge again.";
+            launch.Text = "SET UP FORGE"; launch.Enabled = true; prepare.Enabled = accountSync.Enabled = false; return;
         }
         if (preferences.InstallRoot is { } upgradeRoot && HellForgeSetup.UpgradeProblem(upgradeRoot) != null) {
             state.Text = "Restore the previous Forge application"; detail.Text = "Restore the previous Forge application before continuing."; launch.Text = "RECOVER FORGE UPGRADE"; launch.Enabled = true;
@@ -458,21 +616,30 @@ public sealed class HellForgeForm : Form
             launch.Text = prepare.Text; launch.Enabled = true;
             return;
         }
-        if (preferences.SelectionProblem is { } selectionProblem) {
-            state.Text = "Choose the published Empire appearance"; detail.Text = selectionProblem;
-            launch.Text = "CHOOSE APPEARANCE"; launch.Enabled = prepare.Enabled = false; return;
-        }
         if (preferences.InstallRoot != null && lastStatus != null && !SteamReadyCheck()) {
             state.Text = "Start Steam and sign in"; detail.Text = "Sign in to Steam with the account that owns HD2 before launching here.";
             launch.Text = "OPEN STEAM"; launch.Enabled = true; return;
         }
-        if (lastError != null) { state.Text = "Needs attention"; detail.Text = FailureSummary(lastError); launch.Text = "RETRY"; launch.Enabled = retryStatus = true; return; }
+        if (lastError != null) {
+            state.Text = "Needs attention"; detail.Text = operationFailure ?? FailureSummary(lastError); launch.Text = "RETRY"; launch.Enabled = retryStatus = true;
+            if (lastError.Contains("HellForge programs are missing", StringComparison.OrdinalIgnoreCase)) locateMissing.Visible = true;
+            return;
+        }
         if (preferences.InstallRoot == null) {
             state.Text = "Let’s get you ready"; detail.Text = "We'll guide you through the separate game copy and your chosen mode.";
             launch.Text = "SET UP CLONEDIVERS"; launch.Enabled = true; return;
         }
         if (lastStatus == null) { state.Text = "Checking HellForge…"; detail.Text = "Reading installation and pack information."; return; }
-        if (captureBlock != null) { state.Text = "Finish account sync"; detail.Text = "Review account sync cleanup in Session details before continuing."; accountSync.Enabled = false; prepare.Enabled = false; EnableDetails(); return; }
+        if (captureBlock != null) {
+            accountSync.Enabled = false; prepare.Enabled = false;
+            if (captureBlockUnreadable) {
+                state.Text = "Review account sync cleanup";
+                detail.Text = "Clonedivers couldn't read the hosts file to confirm account sync cleanup. Review Session details.";
+                EnableDetails();
+                return;
+            }
+            state.Text = "Finish account sync"; detail.Text = "In HellForge, finish sync or choose Profile > Account sync > Clean up. If its window is stuck, close it and retry."; launch.Text = "OPEN HELLFORGE"; launch.Enabled = true; return;
+        }
         if (!lastStatus.GameCopyReady || !lastStatus.RunnerReady) { state.Text = "Finish HellForge setup"; detail.Text = "Continue guided setup to download or resume the supported game copy."; launch.Text = "FINISH SETUP"; launch.Enabled = true; return; }
         if (lastStatus.Build != HellForgePack.SupportedBuild) { state.Text = "Pack update needed"; detail.Text = "This pack requires a compatible HellForge game build."; EnableDetails(); return; }
         if (lastMods?.Problems.Length > 0) { state.Text = "Review conflicting mod files"; detail.Text = "Choose which duplicate or custom mods to keep in HellForge."; launch.Text = "REVIEW MOD CHOICES"; launch.Enabled = true; return; }
@@ -513,11 +680,11 @@ public sealed class HellForgeForm : Form
         if (preview || working) return;
         var pendingRefresh = refreshCompletion?.Task ?? Task.CompletedTask;
         operation = CancellationTokenSource.CreateLinkedTokenSource(lifetime.Token);
-        working = true; progress.Style = ProgressBarStyle.Marquee; progress.Visible = true; message.Text = ""; UpdateView(); state.Text = "Working…"; detail.Text = "Please wait while this step finishes."; lastError = failureDetail = null;
+        working = true; progress.Style = ProgressBarStyle.Marquee; progress.Visible = true; message.Text = ""; UpdateView(); state.Text = "Working…"; detail.Text = "Please wait while this step finishes."; lastError = failureDetail = operationFailure = startupNotice = null;
         lastAccountFingerprint = null; // any operation can change the account; review it again afterwards
         try { await pendingRefresh; lastError = null; await action(); }
         catch (OperationCanceledException) { if (!IsDisposed) { updateCancelled = updateDownloading; message.Text = "Operation cancelled."; } }
-        catch (Exception e) { if (!IsDisposed) { lastError = e.Message; failureDetail = e.ToString(); if (updateDownloading) updateFailed = true; message.Text = FailureSummary(e.ToString()); } }
+        catch (Exception e) { if (!IsDisposed) { var summary = FailureSummary(e.ToString()); lastError = e.Message; failureDetail = e.ToString(); operationFailure = summary; if (updateDownloading) updateFailed = true; message.Text = summary; } }
         finally
         {
             Cancellable = false; launch.Enabled = false;
@@ -525,13 +692,13 @@ public sealed class HellForgeForm : Form
             operation.Dispose(); operation = null;
             // Keep the controls locked until the follow-up status read: the pre-operation status would
             // re-enable LAUNCH for a session HellForge has just started.
-            if (!IsDisposed) { progress.Visible = false; if (lastError == null) await RefreshAsync(); if (!IsDisposed) UpdateView(); }
+            if (!IsDisposed) { progress.Visible = false; headline = null; if (lastError == null) await RefreshAsync(); if (!IsDisposed) UpdateView(); }
         }
     }
     async Task CheckLauncherUpdateAsync(bool interactive)
     {
         if (preview || checkingUpdates || working) return;
-        checkingUpdates = true; UpdateView();
+        checkingUpdates = true; if (interactive) { message.Text = ""; operationFailure = null; } UpdateView();
         try
         {
             launcherRelease = await ForgeLauncherUpdate.CheckAsync(AppInfo.Version, lifetime.Token);
@@ -541,16 +708,18 @@ public sealed class HellForgeForm : Form
             if (interactive) message.Text = launcherRelease == null ? "No newer Forge launcher is available." :
                 "Forge launcher " + launcherRelease.Version + " is available. Click its update button to download and restart; game and account data are preserved.";
         }
-        catch (OperationCanceledException) { }
+        catch (OperationCanceledException) when (lifetime.IsCancellationRequested) { }
+        catch (Exception error) when (error is OperationCanceledException or TimeoutException)
+        { if (interactive && !IsDisposed) { failureDetail = error.ToString(); message.Text = "Update check timed out. Try Check updates again."; } }
         catch (Exception error) when (error is IOException or HttpRequestException or JsonException or InvalidDataException or InvalidOperationException)
         { if (interactive && !IsDisposed) { failureDetail = error.ToString(); message.Text = FailureSummary(error.ToString()); } }
         finally { checkingUpdates = false; if (!IsDisposed && !Disposing) UpdateView(); }
     }
     async Task RequireUpdateIdleAsync()
     {
-        if (Game.IsRunning() || HellForgeAccount.CaptureBlock() != null)
+        if (Game.IsRunning() || CaptureBlockCheck() != null)
             throw new InvalidOperationException("Finish the game or account sync before replacing the launcher.");
-        if (preferences.InstallRoot != null && (await Client().StatusAsync(WorkToken)).Running)
+        if (preferences.InstallRoot != null && !InstallationMissing(preferences.InstallRoot) && !ProgramsMissing(preferences.InstallRoot) && (await Client().StatusAsync(WorkToken)).Running)
             throw new InvalidOperationException("End the Forge session before replacing the launcher.");
     }
     async Task ApplyLauncherUpdateAsync() => await OperationAsync(async () => {
@@ -627,14 +796,11 @@ public sealed class HellForgeForm : Form
     {
         var client = Client();
         if (client.InterruptedGameplayProblem() != null) { await client.RecoverGameplayAsync(WorkToken); message.Text = "Previous gameplay preset restored."; return; }
-        if ((await client.StatusAsync(WorkToken)).RecoveryProblem == null) {
-            if (preferences.SelectionProblem is { } problem) throw new InvalidOperationException(problem);
-            await InstallGameplayCoreAsync(client);
-        }
+        if ((await client.StatusAsync(WorkToken)).RecoveryProblem == null) await InstallGameplayCoreAsync(client);
         await PrepareCoreAsync();
         if (client.InterruptedGameplayProblem() == null && client.InterruptedPackProblem() == null &&
             preferences.AppliedSelection == preferences.SelectionKey &&
-            (await new HellForgeAccount(client.Root).ReadAsync(WorkToken)).Imported != true)
+            (await CreateAccount(client.Root).ReadAsync(WorkToken)).Imported != true)
             await SyncAccountCoreAsync(client);
     }
     async Task InstallGameplayCoreAsync(HellForgeClient client)
@@ -729,15 +895,33 @@ public sealed class HellForgeForm : Form
         return output;
     }
     async Task LaunchAsync() => await OperationAsync(async () => {
-        if (preferences.SelectionProblem is { } problem) throw new InvalidOperationException(problem);
         if (!SteamReadyCheck()) {
-            Process.Start(new ProcessStartInfo("steam://open/main") { UseShellExecute = true });
+            OpenSteamClient();
             message.Text = "Finish signing in to Steam, then launch your Forge session here.";
             return;
         }
-        message.Text = "Checking the selected mode and asking HellForge to start…";
         var client = Client();
-        var profile = await client.EnsureAccountAsync(WorkToken);
+        if (warbondsPending)
+        {
+            if (HellForgeWarbonds.ManagerWindowOpen())
+            {
+                message.Text = CloseHellForgeToUnlockWarbondsMessage;
+                return;
+            }
+            message.Text = "Unlocking owned Warbonds…";
+            try
+            {
+                await OpenWarbondsAction(client, WorkToken);
+                warbondsPending = false;
+            }
+            catch (InvalidOperationException) when (HellForgeWarbonds.ManagerWindowOpen())
+            {
+                message.Text = CloseHellForgeToUnlockWarbondsMessage;
+                return;
+            }
+        }
+        message.Text = "Checking the selected mode and asking HellForge to start…";
+        var profile = await EnsureAccountAction(client, WorkToken);
         if (preferences.IsRegular) await Task.Run(() => client.PlayRegularAsync(WorkToken, profile), WorkToken);
         else await Task.Run(() => client.PlayAsync(preferences.Selection(), WorkToken, profile), WorkToken);
         message.Text = "HellForge accepted the launch and session status will update here.";
@@ -757,21 +941,39 @@ public sealed class HellForgeForm : Form
     async Task SyncAccountCoreAsync(HellForgeClient client)
     {
         syncRequested = false;
-        await client.SelectAccountAsync(WorkToken);
-        lastAccount = await new HellForgeAccount(client.Root).ReadAsync(WorkToken);
+        await SelectAccountAction(client, WorkToken);
+        lastAccount = await CreateAccount(client.Root).ReadAsync(WorkToken);
         if (lastAccount is { Captured: true, Imported: false })
         {
             message.Text = "Importing your HD2 account with a local backup…";
-            var opened = await client.ImportAccountAsync(WorkToken);
-            lastAccount = await new HellForgeAccount(client.Root).ReadAsync(WorkToken);
-            message.Text = opened > 0 ? $"Account imported with {opened} owned Warbonds opened." : "Your HD2 account is imported for all three modes.";
+            var managerWasOpen = HellForgeWarbonds.ManagerWindowOpen();
+            var opened = await ImportAccountAction(client, WorkToken);
+            if (opened == 0 && managerWasOpen && !HellForgeWarbonds.ManagerWindowOpen())
+                opened = await TryOpenWarbondsAction(client, WorkToken);
+            lastAccount = await CreateAccount(client.Root).ReadAsync(WorkToken);
+            if (opened > 0)
+            {
+                warbondsPending = false;
+                message.Text = $"Account imported with {opened} owned Warbonds opened.";
+            }
+            else if (HellForgeWarbonds.ManagerWindowOpen())
+            {
+                warbondsPending = true;
+                lastAccountFingerprint = null;
+                message.Text = DeferredWarbondsMessage;
+            }
+            else
+            {
+                warbondsPending = false;
+                message.Text = "Your HD2 account is imported for all three modes.";
+            }
         }
         else
         {
-            Process.Start(new ProcessStartInfo(Path.Combine(client.Root, "HellForge.exe")) { UseShellExecute = true, WorkingDirectory = client.Root });
+            ShowPrompt(this, SyncInstructions, "Sync HD2 account", MessageBoxButtons.OK, MessageBoxIcon.Information);
+            OpenManager(client.Root);
             syncRequested = true;
             message.Text = "Complete Sync Inventory in HellForge, then return here to import your account.";
-            MessageBox.Show(this, SyncInstructions, "Sync HD2 account", MessageBoxButtons.OK, MessageBoxIcon.Information);
         }
     }
     async void Locate()
@@ -781,20 +983,21 @@ public sealed class HellForgeForm : Form
         if (picker.ShowDialog(this) != DialogResult.OK) return;
         try {
             preferences.InstallRoot = HellForgeCommands.ValidateRoot(picker.SelectedPath); syncRequested = false; Save();
-            lastStatus = null; lastMods = null; lastAccount = null; captureBlock = null; lastError = null; UpdateView();
+            installationMissing = false; warbondsPending = false; operationFailure = null;
+            lastStatus = null; lastMods = null; lastAccount = null; captureBlock = null; captureBlockUnreadable = false; lastError = null; UpdateView();
             if (refreshCompletion != null) await refreshCompletion.Task;
             if (!IsDisposed) await RefreshAsync();
         }
         catch (Exception e) { MessageBox.Show(this, e.Message, "Locate HellForge", MessageBoxButtons.OK, MessageBoxIcon.Information); }
     }
     async Task SetupAsync() => await OperationAsync(async () => {
-        using var setup = new HellForgeSetupForm(preferences.InstallRoot);
-        setup.Connected += root => { preferences.InstallRoot = HellForgeCommands.ValidateRoot(root); syncRequested = false; Save(); };
+        using var setup = new HellForgeSetupForm(installationMissing ? null : preferences.InstallRoot);
+        setup.Connected += root => { preferences.InstallRoot = HellForgeCommands.ValidateRoot(root); syncRequested = false; warbondsPending = false; Save(); };
         var completed = setup.ShowDialog(this) == DialogResult.OK;
         if (setup.InstallationRoot is { } root)
         {
-            preferences.InstallRoot = HellForgeCommands.ValidateRoot(root); syncRequested = false; Save();
-            lastStatus = null; lastMods = null; lastAccount = null; captureBlock = null;
+            preferences.InstallRoot = HellForgeCommands.ValidateRoot(root); syncRequested = false; installationMissing = false; warbondsPending = false; Save();
+            lastStatus = null; lastMods = null; lastAccount = null; captureBlock = null; captureBlockUnreadable = false;
             message.Text = "Forge is connected and ready for the gameplay mods.";
             if (completed) await PrepareSelectedCoreAsync();
         }
@@ -804,15 +1007,15 @@ public sealed class HellForgeForm : Form
         if (preview || working) return;
         try
         {
-            if (preferences.InstallRoot == null || lastStatus is { GameCopyReady: false } or { RunnerReady: false })
+            if (installationMissing || preferences.InstallRoot == null || lastStatus is { GameCopyReady: false } or { RunnerReady: false })
             {
                 await SetupAsync();
                 return;
             }
             var client = Client();
-            Process.Start(new ProcessStartInfo(Path.Combine(client.Root, "HellForge.exe")) { UseShellExecute = true, WorkingDirectory = client.Root });
+            OpenManager(client.Root);
         }
-        catch (Exception e) { failureDetail = e.ToString(); message.Text = FailureSummary(e.ToString()); UpdateView(); }
+        catch (Exception e) { failureDetail = e.ToString(); message.Text = captureBlock != null && !captureBlockUnreadable ? "Close the HellForge window, then try account sync again." : FailureSummary(e.ToString()); UpdateView(); }
     }
     void ReviewModNotices()
     {
@@ -830,8 +1033,10 @@ public sealed class HellForgeForm : Form
     {
         if (preview || working) return;
         var launcherDiagnostic = LauncherDiagnostic; var kept = failureDetail; // OperationAsync clears both before its action.
+        var keptOperationFailure = operationFailure; var keptStartupNotice = startupNotice;
         await OperationAsync(async () => {
             failureDetail = kept; // viewing details is not a new attempt; keep the failed operation's text for the next view
+            operationFailure = keptOperationFailure; startupNotice = keptStartupNotice;
             var text = "Installation: " + (preferences.InstallRoot ?? "Not selected") + "\r\nLauncher diagnostic: " + (launcherDiagnostic ?? "none") +
                 "\r\nAccount review: " + (lastAccount?.Message ?? "none") + "\r\nAccount sync cleanup: " + (captureBlock ?? "none") + "\r\n\r\n";
             if (preferences.InstallRoot != null)

@@ -12,19 +12,57 @@ internal static class GameplayInstallTests
     {
         var catalog = HellForgeGameplayCatalog.Pinned;
         catalog.Validate();
-        check(catalog.Id == "build25480438-r3" && catalog.Artifacts.Count == 8 && catalog.Artifacts.Sum(a => a.Bytes) == 7788615, "the r3 preset adds optional Clean Exit to the seven required archives");
-        check(catalog.Artifacts.Count(a => a.Url.Contains("/owendavidgoode/clonedivers/")) == 3 && catalog.Artifacts.Count(a => !a.Url.Contains("/owendavidgoode/clonedivers/")) == 5, "the two permitted compatibility packages and project-owned Clean Exit use project assets; five dependencies come from authors");
+        check(catalog.Id == "build25480438-r4" && catalog.Artifacts.Count == 11 && catalog.Artifacts.Sum(a => a.Bytes) == 8063255, "the r4 preset adds four optional project mods to the seven required archives");
+        check(catalog.Artifacts.Count(a => a.Url.Contains("/owendavidgoode/clonedivers/")) == 6 && catalog.Artifacts.Count(a => !a.Url.Contains("/owendavidgoode/clonedivers/")) == 5, "the two permitted compatibility packages and four project-owned optional mods use project assets; five dependencies come from authors");
         check(catalog.Artifacts.All(a => FileSafety.IsSha256(a.ContentHash) && FileSafety.IsSha256(a.Sha256)), "every gameplay dependency has independent archive and official content-hash pins");
         var cleanExit = catalog.Artifacts.Single(a => a.Id == HellForgePreset.CleanExit);
-        check(catalog.Artifacts.Where(a => a.Optional).SequenceEqual([cleanExit]) && HellForgePreset.Required.All(r => r.Id != cleanExit.Id) &&
+        var leafWriter = catalog.Artifacts.Single(a => a.Id == HellForgePreset.LegoCompactLeafWriter);
+        var yoda = catalog.Artifacts.Single(a => a.Id == HellForgePreset.EmpireLegoYoda);
+        var chaos = catalog.Artifacts.Single(a => a.Id == HellForgePreset.ChaosInvasions);
+        check(catalog.Artifacts.Where(a => a.Optional).Select(a => a.Id).ToHashSet(StringComparer.Ordinal).SetEquals(HellForgePreset.Optional) &&
+            HellForgePreset.Required.All(r => !HellForgePreset.Optional.Contains(r.Id)) &&
             cleanExit.Version == "0.2.0" && cleanExit.Bytes == 8192 && cleanExit.Sha256 == "6835354fff8264c6f29c33dfac71a0b6e4c4da7a401920bb76e1b604d2435932" &&
             cleanExit.ContentHash == "0006a02101583cf05e3bd9fa4e431409c18ff4ac72f59ae1ece8c7d9831a888a" &&
             cleanExit.Url == "https://github.com/owendavidgoode/clonedivers/releases/download/forge-mods-2026-11-08/clean-exit-0.2.0.zip",
-            "Clean Exit is optional with the exact independently verified 0.2.0 release pins");
+            "Clean Exit stays optional with the exact independently verified 0.2.0 release pins");
+        check(leafWriter.Name == "LEGO Compact Leaf Writer (CO-OP v0.0.9)" && leafWriter.Version == "0.0.9" && leafWriter.Bytes == 199207 &&
+            leafWriter.Sha256 == "34e683e503d525ea5d419bb3477cb0f44e9b9f6cb3eed3c0ae4daebbf55b3dfa" &&
+            leafWriter.ContentHash == "71d0bbb0d550b6c312f7d660941c3b620821279c51be47d71d205eb67bedbee3" &&
+            leafWriter.Url == "https://github.com/owendavidgoode/clonedivers/releases/download/forge-mods-2026-11-15/lego-compact-leaf-writer-0.0.9.zip",
+            "LEGO Compact Leaf Writer is optional with the exact 0.0.9 release pins");
+        check(yoda.Name == "Empire LEGO Yoda Death" && yoda.Version == "0.1.2" && yoda.Bytes == 45907 &&
+            yoda.Sha256 == "3d41fe4b6c4f49c52df786a8f83e1e9a1ff501aa3c14edfe742126069aaf9b18" &&
+            yoda.ContentHash == "2e78173e56b6cc752ac27d810a7a6e7b72352ebe24437edae3a49b7d580f78dc" &&
+            yoda.Url == "https://github.com/owendavidgoode/clonedivers/releases/download/forge-mods-2026-11-15/empire-lego-yoda-0.1.2.zip",
+            "Empire LEGO Yoda Death is optional with the exact 0.1.2 release pins");
+        check(chaos.Name == "Chaos Invasions" && chaos.Version == "0.2.0" && chaos.Bytes == 29526 &&
+            chaos.Sha256 == "42498666f228ea433d4ee63fc0447b7f2ec3033893f2012a9b1349106c7d4d41" &&
+            chaos.ContentHash == "4c941838b63ce54291a7b8571f21e61817cce66e3548cd413705dfd9101d570b" &&
+            chaos.Url == "https://github.com/owendavidgoode/clonedivers/releases/download/forge-mods-2026-11-15/chaos-invasions-0.2.0.zip",
+            "Chaos Invasions is optional with the exact 0.2.0 release pins");
         using (var stream = typeof(GameplayInstallTests).Assembly.GetManifestResourceStream("Clonedivers.Tests.CleanExit.json")!)
         using (var manifest = JsonDocument.Parse(stream))
             check(manifest.RootElement.GetProperty("id").GetString() == cleanExit.Id && manifest.RootElement.GetProperty("version").GetString() == cleanExit.Version &&
                 !manifest.RootElement.GetProperty("gameplay").GetBoolean(), "Clean Exit declares gameplay false so the official runtime excludes it from co-op matching");
+        using (var stream = typeof(GameplayInstallTests).Assembly.GetManifestResourceStream("Clonedivers.Tests.LegoCompactLeafWriter.json")!)
+        using (var manifest = JsonDocument.Parse(stream))
+            check(manifest.RootElement.GetProperty("id").GetString() == leafWriter.Id && manifest.RootElement.GetProperty("version").GetString() == leafWriter.Version &&
+                !manifest.RootElement.GetProperty("gameplay").GetBoolean() && manifest.RootElement.GetProperty("coop").GetString() == "per-player",
+                "LEGO Compact Leaf Writer declares 0.0.9, gameplay false and per-player co-op scope");
+        using (var stream = typeof(GameplayInstallTests).Assembly.GetManifestResourceStream("Clonedivers.Tests.EmpireLegoYoda.json")!)
+        using (var manifest = JsonDocument.Parse(stream))
+            check(manifest.RootElement.GetProperty("id").GetString() == yoda.Id && manifest.RootElement.GetProperty("version").GetString() == yoda.Version &&
+                !manifest.RootElement.GetProperty("gameplay").GetBoolean() && manifest.RootElement.GetProperty("coop").GetString() == "per-player",
+                "Empire LEGO Yoda Death declares 0.1.2, gameplay false and per-player co-op scope");
+        using (var stream = typeof(GameplayInstallTests).Assembly.GetManifestResourceStream("Clonedivers.Tests.ChaosInvasions.json")!)
+        using (var manifest = JsonDocument.Parse(stream))
+            check(manifest.RootElement.GetProperty("id").GetString() == chaos.Id && manifest.RootElement.GetProperty("version").GetString() == chaos.Version &&
+                manifest.RootElement.GetProperty("gameplay").GetBoolean(),
+                "Chaos Invasions declares 0.2.0 and gameplay true as a host-driven optional gameplay mod");
+        var clone = JsonSerializer.Deserialize<HellForgeGameplayCatalog>(JsonSerializer.Serialize(catalog, HellForgePack.Json), HellForgePack.Json)!;
+        clone.Artifacts[clone.Artifacts.FindIndex(a => a.Id == yoda.Id)] = yoda with { Optional = false };
+        try { clone.Validate(); check(false, "catalog validation must reject required-flagged optional mod"); }
+        catch (InvalidDataException) { check(true, "catalog validation enforces HellForgePreset.Optional membership"); }
         foreach (var entry in new[] { "../escape.dll", "C:/escape.dll", "safe/../../escape.dll", "safe/entry.dll" })
         {
             var file = Path.Combine(root, Guid.NewGuid().ToString("N") + ".zip");
@@ -52,7 +90,7 @@ internal static class GameplayInstallTests
         var backup = Path.Combine(client.CacheRoot, "backups", "gameplay-" + Guid.NewGuid().ToString("N")); Directory.CreateDirectory(backup);
         void Write(string catalog, string state, string? owner = null) => File.WriteAllText(record, JsonSerializer.Serialize(new {
             Root = owner ?? client.Root, Catalog = catalog, Backup = backup, SnapshotSha256 = new string('a', 64), State = state }));
-        foreach (var revision in new[] { "build25480438-r1", "build25480438-r2" })
+        foreach (var revision in new[] { "build25480438-r1", "build25480438-r2", "build25480438-r3" })
         foreach (var state in new[] { "applied", "restored" })
         {
             Write(revision, state);
@@ -63,7 +101,7 @@ internal static class GameplayInstallTests
         check(client.InterruptedGameplayProblem()?.StartsWith("Gameplay setup was interrupted", StringComparison.Ordinal) == true, "a pending record from the pinned catalog still requires recovery");
         Write(HellForgeGameplayCatalog.Pinned.Id, "applied", Path.Combine(root, "other"));
         check(client.InterruptedGameplayProblem()?.Contains("needs review") == true, "a record for another installation still needs review");
-        foreach (var revision in new[] { "build25480438-r1", "build25480438-r2" })
+        foreach (var revision in new[] { "build25480438-r1", "build25480438-r2", "build25480438-r3" })
         {
             Write(revision, "pending");
             check(client.InterruptedGameplayProblem()?.StartsWith("Gameplay setup from an earlier launcher", StringComparison.Ordinal) == true, "a pending " + revision + " record names its own recovery path");

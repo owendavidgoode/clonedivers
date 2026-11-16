@@ -3,6 +3,8 @@ namespace Clonedivers;
 internal enum ForgeAction { None, Setup, Connect, EndSession, Launch, Manager, Prepare, Sync, Refresh, Update }
 internal sealed record ForgePresentation(string Headline, string Detail, string Button, ForgeAction Action)
 {
+    internal const string SyncInstructions = "In HellForge choose Profile > Account sync > Sync Inventory (default is selected). Approve the Linux helper and pass HD2's title screen. " +
+        "When HD2 closes, return here. Leave Apply import and auto-apply off. Keep Clonedivers open; it verifies and merges your sealed capture after cleanup.";
     internal static ForgePresentation Resolve(ForgePlayerState? state = null, bool connected = false, bool disconnected = false,
         bool active = false, bool ownsSession = false, bool canLaunch = false, bool busy = false, string? error = null,
         string? updateVersion = null, bool updateFailed = false, bool syncing = false, ForgeAction retryAction = ForgeAction.Refresh)
@@ -16,8 +18,9 @@ internal sealed record ForgePresentation(string Headline, string Detail, string 
         if (state?.Status is { GameCopyReady: false } or { RunnerReady: false } or { CompatibilityProblem: not null })
             return new("Finish Forge setup", "Continue in HellForge to prepare the game and its dedicated Linux environment.", "Continue setup", ForgeAction.Manager);
         if (state?.Status.RecoveryProblem != null) return new("Restore the previous setup", "Recover the interrupted change before preparing your selected mode.", "Recover setup", ForgeAction.Prepare);
-        if (canLaunch) return new("Ready to play", "Your selected appearance and required gameplay mods are ready.", "Launch", ForgeAction.Launch);
+        if (canLaunch) return new(state?.Status.LastFailure != null ? "Last session needs attention" : "Ready to play", state?.Status.LastFailure ?? state?.Status.LastNotice ?? "Your selected appearance and required gameplay mods are ready.", "Launch", ForgeAction.Launch);
         if (syncing) return new("Finish account sync", "Follow the account instructions in Session details, then close HD2 to finish the verified import.", "Check account sync", ForgeAction.Refresh);
+        if (state?.Account is { NeedsFreshCapture: true }) return new("Sync a fresh HD2 capture", state.Account.Message, "Sync account", ForgeAction.Sync);
         if (state?.Account is { Imported: false }) return new("Bring your HD2 account", "Sync your inventory through HellForge. Forge rewards stay local.", state.Account.Captured ? "Finish account sync" : "Sync account", ForgeAction.Sync);
         return new("Prepare your selected mode", "Install the verified appearance and required gameplay mods before playing.", "Set up mode", ForgeAction.Prepare);
     }
@@ -28,6 +31,7 @@ internal sealed record ForgePresentation(string Headline, string Detail, string 
         if (diagnostic.Contains("SHA", StringComparison.OrdinalIgnoreCase) || diagnostic.Contains("integrity", StringComparison.OrdinalIgnoreCase)) return "Download again because the file could not be verified.";
         if (diagnostic.Contains("space", StringComparison.OrdinalIgnoreCase) || diagnostic.Contains("disk full", StringComparison.OrdinalIgnoreCase)) return "Free some disk space before trying again.";
         if (diagnostic.Contains("denied", StringComparison.OrdinalIgnoreCase) || diagnostic.Contains("permission", StringComparison.OrdinalIgnoreCase)) return "Review folder permissions in More options > Session details before trying again.";
+        if (diagnostic.Contains("pasta", StringComparison.OrdinalIgnoreCase) || diagnostic.Contains("passt", StringComparison.OrdinalIgnoreCase)) return "This launcher needs pasta (passt) for both solo and co-op: requires Ubuntu 24.04+ / Debian 13+ or a distribution providing passt.";
         if (diagnostic.Contains("timed out", StringComparison.OrdinalIgnoreCase)) return "Review Session details in More options before retrying the timed-out step.";
         if (System.Text.RegularExpressions.Regex.IsMatch(diagnostic, @"\b(5\d\d|408|429)\b") || diagnostic.Contains("HttpRequestException") || diagnostic.Contains("No such host", StringComparison.OrdinalIgnoreCase)) return "The download service didn't respond. Try again in a few minutes.";
         return "Open Session details in More options to review why this step couldn't finish.";

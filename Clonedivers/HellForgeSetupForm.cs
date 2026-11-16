@@ -31,13 +31,13 @@ internal sealed class HellForgeSetupForm : Form
         var layout = new TableLayoutPanel { Dock = DockStyle.Fill, Padding = new Padding(26), ColumnCount = 1, AutoScroll = true };
         layout.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100)); Controls.Add(layout);
         layout.Controls.Add(new Label { Text = "LET’S GET YOU READY", Font = new Font("Segoe UI", 20, FontStyle.Bold), AutoSize = true, Margin = new Padding(0, 0, 0, 12) });
-        var intro = Row(); intro.Text = "We’ll install Forge, connect its game copy, then install the required gameplay mods and selected appearance. Your regular HD2 game stays in Steam."; layout.Controls.Add(intro);
+        var intro = Row(); intro.Text = HellForgeForm.SetupRequirements; layout.Controls.Add(intro);
         foreach (var label in new[] { steam, installed, game }) { label.Font = new Font("Segoe UI", 11, FontStyle.Bold); label.Margin = new Padding(0, 10, 0, 8); layout.Controls.Add(label); }
         var pathRow = new TableLayoutPanel { Dock = DockStyle.Top, AutoSize = true, ColumnCount = 2, Margin = new Padding(0, 12, 0, 8) };
         pathRow.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100)); pathRow.ColumnStyles.Add(new ColumnStyle(SizeType.AutoSize));
         pathRow.Controls.Add(folder); pathRow.Controls.Add(change); layout.Controls.Add(pathRow);
         folder.BackColor = Disabled; folder.ForeColor = TextMain; change.Margin = new Padding(8, 0, 0, 0);
-        var storage = Row(); storage.Text = "502 MB installer · Allow at least 50 GB for setup, plus appearance packs."; storage.ForeColor = TextMute; layout.Controls.Add(storage);
+        var storage = Row(); storage.Text = "New installs save the 502 MB installer beside Forge."; storage.ForeColor = TextMute; layout.Controls.Add(storage);
         detail.Margin = new Padding(0, 14, 0, 12); layout.Controls.Add(detail); layout.Controls.Add(progress);
         layout.Controls.Add(approval);
         next.BackColor = Orange; next.ForeColor = Bg; next.FlatStyle = FlatStyle.Flat; next.FlatAppearance.BorderSize = 0; next.FlatAppearance.MouseOverBackColor = OrangeHot;
@@ -102,7 +102,7 @@ internal sealed class HellForgeSetupForm : Form
         if (Game.IsRunning() || status?.Running == true) { UpdateView(); return; }
         if (!HellForgeForm.SteamReadyCheck())
         {
-            try { Process.Start(new ProcessStartInfo("steam://open/main") { UseShellExecute = true }); detail.Text = "Finish signing in to the Steam account that owns HD2, then continue here."; }
+            try { HellForgeForm.OpenSteamClient(); detail.Text = "Finish signing in to the Steam account that owns HD2, then continue here."; }
             catch (Exception e) { detail.Text = e.Message; }
             return;
         }
@@ -152,7 +152,14 @@ internal sealed class HellForgeSetupForm : Form
         if (image != null)
         {
             approval.Size = image.Size;
-            if (approval.Parent is ScrollableControl scroller) scroller.ScrollControlIntoView(approval);
+        }
+        if (approval.Parent is ScrollableControl scroller)
+        {
+            scroller.AutoScrollMinSize = Size.Empty;
+            if (image == null) return;
+            scroller.PerformLayout();
+            scroller.AutoScrollMinSize = new Size(0, approval.Bottom - scroller.AutoScrollPosition.Y + scroller.Padding.Bottom);
+            scroller.ScrollControlIntoView(approval);
         }
     }
 
