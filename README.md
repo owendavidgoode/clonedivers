@@ -39,7 +39,8 @@ Exit enabled by default on first setup) and one selected appearance pack form th
 complete 12-mod Clones or Empire baseline; Regular omits appearance packs. (A
 staged `build25480438-r4` experimental catalog on branch `claude/exp-yoda-011-20261115`
 is not live and would add optional `empire-lego-yoda` `0.1.1` at `45,502` bytes for
-9 catalog downloads / `7,834,117` bytes if selected.) Five required packages come
+9 catalog downloads / `7,834,117` bytes if selected; Wave 2 live death verification
+passed in Sub-Run 1A, and publication awaits Wave 3.) Five required packages come
 directly from authors; the permission-cleared Heavy/Squad fixes use pinned project
 assets (`forge-gameplay-build25480438-r1`), and Clean Exit `0.2.0` uses a pinned
 project asset (`forge-mods-2026-11-08`). The old mine-boundary fix (`0.1.1`) is
@@ -62,12 +63,14 @@ Regular, Clones and Empire are Forge appearance choices. Clones retains Delta ar
 CIS droids, Covenant squids and texture options (`2026.09.27-r19`). The live
 `1.14.1` / `0.8.1` release uses the published **Empire `2026.11.08-r45-v4` Full**
 appearance with fixed CIS enemy models (`8,435,474,224` bytes / `~7.86 GiB`).
-Experimental Empire Lighter, CIS-off variants and compact LEGO proportion changes
-are not included. Saved unavailable options are retained until you explicitly choose
-**Use published Empire appearance** or return to Clones. Candidate `1.14.2` /
-`0.8.2` launcher fixes and the `r47-shuttles` Full appearance candidate (if promoted
-after Wave 2 A/B acceptance, requiring `~25 GB` free and `~7.71 GiB` download when
-updating from `r45-v4`) are staged in [release notes](docs/releases/v1.14.2.md)
+Experimental Empire Lighter, CIS-off variants (`0ed1ac8`) and compact LEGO
+proportion changes (`lego-compact-leaf-writer` `0.0.9` on `claude/exp-lego-20261115`)
+are not included in the default `1.14.1` / `r47` Full baseline. Saved unavailable
+options are retained until you explicitly choose **Use published Empire appearance**
+or return to Clones. Candidate `1.14.2` / `0.8.2` launcher fixes and the `r47-shuttles`
+Full appearance candidate (which passed Wave 2's `W4` A/B gate and awaits Wave 3 asset
+upload plus attended `R2` verification, requiring `~25 GB` free and `~7.71 GiB` download
+when updating from `r45-v4`) are staged in [release notes](docs/releases/v1.14.2.md)
 and [r47 Full notes](docs/releases/pack-2026.11.09-r47-full.md). Every mode uses
 the player's own verified **one-way HD2 → Forge account import**. Forge progression
 saves locally and does not count back in official HD2. Never share captures, profiles,
@@ -86,10 +89,16 @@ matching artifacts; automatic host sharing stays OFF.
 
 The owner has played solo D11 with working SEAF drops on the live `r45-v4` stack,
 and Clean Exit `0.2.0` produced clean quits across the reported 20-cycle D11 soak.
-Windows source/session checks, native/bridge fixtures and Linux package
-installation/GUI smoke checks (`xvfb` on Ubuntu 22.04/24.04/26.04) are recorded in
-[Forge setup and status](docs/FORGE.md) and CI. These do not certify Linux Proton
-gameplay, account capture, mission reward persistence or multiplayer. Use the
+On PR `#25` (`c90673f`), Windows `run-suites.ps1` (`0` failures) and `11/11` CI
+jobs pass (including `xvfb` Linux package/GUI smoke across Ubuntu `22.04`, `24.04`,
+and `26.04`). Wave 2 live testing also passed on `r47-shuttles` (`W4` `12+12` D11
+Automaton A/B gate: `14` cycles with `0` crash events vs `r45-v4` `12` cycles /
+`1` `+0x1e6b3e` event), `empire-lego-yoda` `0.1.1` + `empire-lego-camera` `0.0.2`
+(Sub-Run 1A), `lego-compact-leaf-writer` `0.0.9` on `r47-lego-compact` (Sub-Run 1E),
+and `empire-tie-switch` `0.2.1` co-loaded with `clean-exit` `0.2.0` on patched
+`tie-held-root` (Sub-Run 1D Part 1). See [Forge setup and status](docs/FORGE.md).
+Attended `R2` landed Lambda clearance, Linux Proton gameplay, account capture,
+mission reward persistence, and multiplayer remain open. Use the
 [separate-PC squad checklist](docs/HELLFORGE-SQUAD-ACCEPTANCE.md) for joins, drops,
 extraction and reconnect tests. Native Quit hanging/teardown crashes (`+0x626296`)
 and ship distortion remain open; use **End session** for official cleanup.

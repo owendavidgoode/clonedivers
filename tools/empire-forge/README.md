@@ -55,9 +55,16 @@ with fixed CIS droids (`droids=true`, `covenant=false`).
 - **Staged `r47-shuttles` release catalog and upload manifest:** Generated in
   `D:\ClaudeWork\workstreams-20261115\r47-shuttles-catalog\` (`hellforge-empire-r47-shuttles.json`
   and `UPLOAD-MANIFEST.json`): reuses `34` files (`455,980,288` bytes) from published
-  `pack-2026.11.08-r45-v4-files` and requires `62` uploads (`8,282,726,720` bytes / `~7.71 GiB`)
-  to unpublished `pack-2026.11.09-r47-files` if Wave 2's `W4` 12+12 D11 Automaton A/B gate passes.
-- **Unshipped Lighter and CIS-off variants:** Local payloads in `empire-forge-r47-lighter`,
-  `empire-forge-r47-nodroids`, and `empire-forge-r47-nodroids-lighter` were retired (metadata only);
-  `Lighter` and `droids=false` remain held/unshipped because no RAM/VRAM benefit was measured
-  and `Lighter` showed an in-mission freeze.
+  `pack-2026.11.08-r45-v4-files` and plans `62` uploads (`8,282,726,720` bytes / `~7.71 GiB`)
+  to unpublished `pack-2026.11.09-r47-files`. Wave 2's **`W4` `12+12` D11 Automaton A/B gate**
+  passed (`14` cycles, `0` crash events vs Arm A `r45-v4` `12` cycles / `1` `+0x1e6b3e`
+  event), and Gate 3 `release-preflight` passed; promotion awaits Wave 3 `R1` upload approval
+  and `R2` attended visual clearance verification (feeds remain unchanged until upload).
+- **Unshipped 4-variant `r47 (+ lambda-fix)` matrix:** Earlier pre-fix Lighter/CIS-off variant
+  payloads were retired after an earlier Lighter in-mission freeze without measured RAM/VRAM
+  savings. During Wave 2 offline variant verification, all four `r47 (+ lambda-fix)` packs
+  (`Full` `r47-shuttles`, `r47-nodroids-lfix`, `r47-lighter-lfix`, and
+  `r47-nodroids-lighter-lfix`) were built and `verify_candidate.py`-verified on `D:\` (`318`
+  unique upload assets = `29,169,414,696` bytes + `34` reused `r45-v4` files), with conditional
+  four-way UI staged on `claude/exp-variants-ui-20261115` (`0ed1ac8`); `Lighter` and
+  `droids=false` remain outside the default shipping baseline pending `R1` and owner policy.

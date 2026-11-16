@@ -1,13 +1,17 @@
 # Clonedivers Release and Project Status
 
-## November 15, 2026 (in progress): Wave 1 launcher polish and Wave 2 `r47-shuttles` verification
+## November 16, 2026 (Wave 2 verified; Wave 3 pending): Launcher polish, r47-shuttles, and experimental tracks
 
 Live public downloads remain **Windows 1.14.1**, **Linux Forge 0.8.1**,
 **EmpireDivers `2026.11.08-r45-v4` Full**, **Clones `2026.09.27-r19`**, and
-**gameplay catalog `build25480438-r3`**. Active staging work targets candidate
-**Windows 1.14.2** and **Linux Forge 0.8.2**:
+**gameplay catalog `build25480438-r3`**. Wave 2 automated verification is complete
+for candidate **Windows 1.14.2**, **Linux Forge 0.8.2**, **`r47-shuttles`**, the
+4-variant offline matrix, experimental tracks, and release preflight. Wave 3
+publication remains gated on owner `R1` release-asset upload approval and `R2`
+attended visual and gameplay checks (feeds in `manifest*.json` remain unchanged
+until assets are live):
 
-- **Launcher polish (PR #25, `claude/polish-20261115`, `c90673f`):** Integrates
+- **Launcher polish (PR #25, `claude/polish-20261115` @ `c90673f`):** Integrates
   20 confirmed Wave 1 storage, Windows UI/Warbond, and Linux/bridge polish fixes
   alongside Wave A/B1 hardening (`70 GB` setup budget in `HellForgeSetup.cs` /
   `HellForgeGameSetup.cs`, resumable HTTP Range `.partial` appearance downloads,
@@ -15,25 +19,68 @@ Live public downloads remain **Windows 1.14.1**, **Linux Forge 0.8.1**,
   installer migration, sticky operation failures, deferred Warbond retry, read-only
   background polls, `pasta` guidance, and `c90673f` skipping a missing `<root>/mods`
   folder during fresh Linux `PlanAppearanceAsync`), plus headless `xvfb` Linux GUI
-  smoke in CI. All 11/11 GitHub Actions jobs pass on `c90673f`. See
+  smoke checks. All `11/11` GitHub Actions jobs pass (Windows and Ubuntu
+  `22.04`/`24.04`/`26.04`) and Windows `run-suites.ps1` reports `0` failures. See
   [v1.14.2](releases/v1.14.2.md) and [linux-0.8.2](releases/linux-0.8.2.md).
-- **`r47-shuttles` Full candidate:** Built offline at
+- **`r47-shuttles` Full candidate and `W4` A/B gate (PASS):** Built offline at
   `D:\ClaudeWork\empire-forge\empire-forge-r47-shuttles` (`102` files,
   `8,738,709,413` bytes; `96` archive files = `8,738,707,008` bytes, `6,880`
   resources), overlaying the SEAF personnel Lambda `+0.200000 m` ground-clearance
   repair (`lambda-fix` `9ba626afa44a3aa3.patch_1030` + `.gpu_resources`,
   `+4,138,768` bytes) onto `empire-forge-r47` while retaining extraction Pelican
-  `ef3a4136b21592cb` unchanged. Offline `verify_candidate.py` passes; Wave 2 `W4`
-  12+12 D11 Automaton A/B gate and visual clearance verification are running before
-  deciding whether `1.14.2` promotes `r47` or retains `r45-v4`. See
+  `ef3a4136b21592cb` unchanged. Offline `verify_candidate.py` passes, and the Wave 2
+  **`W4` `12+12` D11 Automaton A/B gate passed (`gate_pass=true, verdict=PASS`)**:
+  Arm A (`r45-v4`) completed `12` cycles (`9` qualifying, `2,095.672s` / `97.02%`,
+  `11/12` returns = `91.67%`, peak VRAM `30,020 MiB`) with `1` crash event
+  (`helldivers2.exe+0x1e6b3e` in `block05 c1`, `0.477` per 1000s); Arm B
+  (`r47-shuttles`) completed `14` cycles (`9` qualifying with `2` automatic top-ups,
+  `1,875.498s` / `86.83%`, `14/12` returns = `116.67%`, peak VRAM `30,211 MiB`)
+  with **`0` crash events (`0.000` per 1000s)**. Sub-Run 1A (`05-seaf-lambda-rear.png`)
+  verified the SEAF Lambda `135°` upward wing fold cleanly in flight; landed visual
+  ground clearance awaits attended `R2`. See
   [r47 Full notes](releases/pack-2026.11.09-r47-full.md).
-- **Experimental tracks:** Staged offline `build25480438-r4` (`empire-lego-yoda`
-  `0.1.1`), compact LEGO arms (`v0.0.6` / co-op `v0.0.7`) and `empire-lego-camera`
-  `0.0.2`, `empire-forge-r47-tie` + `empire-tie-switch` `0.2.0` (blocked on stock
-  `0.4.0-beta` pending upstream `eagle_base` catalog support), and observe-only
-  `chaos-probe` `0.1.0` remain outside the shipping release; `r47` Lighter/CIS-off,
-  `at-st` bone-merging, `empire-weapons`, `mixed-appearances`, and cross-faction
-  Chaos spawning remain unshipped/shelved.
+- **4-variant `r47 (+ lambda-fix)` offline matrix:** All four offline variants
+  (`Full`, `nodroids`, `Lighter`, `nodroids-lighter`) are built and
+  `verify_candidate.py`-verified on `D:\` (`318` unique upload assets =
+  `29,169,414,696` bytes plus `34` reused `r45-v4` assets = `455,980,288` bytes),
+  with conditional four-way launcher UI staged on branch
+  `claude/exp-variants-ui-20261115` (`0ed1ac8`); `Lighter` and CIS-off promotion
+  remains outside the default live baseline pending `R1` and owner variant policy.
+- **Experimental LEGO track (`claude/exp-lego-20261115` @ `ea5075a1`):**
+  - `empire-lego-yoda` `0.1.1` (`45,502` bytes) passed Sub-Run 1A on `r47-shuttles`
+    (`4/4` `r45` torso variants armed, `DP-40` kill logged `result=started route=local-poll`;
+    `FS-37 Ravager` silent), and `empire-lego-camera` `0.0.2` passed ship and mission
+    captures (`0` missing bytes).
+  - `lego-compact-leaf-writer` `0.0.9` (`199,207` bytes, SHA-256 `34e683e5...`,
+    `mod-hash` `71d0bbb0...`) passed `15,332` `coop_writer_test` checks, `9/9` C
+    suites, and `290`-pose math parity (`max_arm_world_err = 5.55e-16`), and
+    **passed Sub-Run 1E (`r47-lego-compact` + `0.0.9`)** cleanly (`clean=true, exit=0, dumps=[]`):
+    ship `admissions=28, active_targets=28` -> `1E7CD0` retire (`28`) -> ground
+    `unit_cap=15974` (`admissions=58, active_targets=28`) -> `leave` -> ship return
+    (`admissions=86, active_targets=28, corrected=90832, failed=0, fatal=0`) with
+    attached LEGO arms and C-hands across initial ship, four daylight ground angles,
+    and ship-return captures (fixing `0.0.7` and `0.0.8` runtime regressions).
+- **Experimental Eagle/TIE, `chaos-probe`, and shelved tracks:**
+  - `empire-tie-switch` `0.2.1` (`13,740` bytes, SHA-256 `a61ed213...`; `1,005` C
+    checks + `135` closure parts) **passed Sub-Run 1D Part 1** co-loaded with
+    `clean-exit` `0.2.0` on patched `tie-held-root` (`0` `+0x83dc` crashes,
+    `Eagle package=2c26bc4c6592fa14 state=2`, `8/8 assigned delivery=`, `clean=true`).
+    `upstream-pr-eagle-base.patch` is prepared for `>=0.4.1-beta`; stock `0.4.0-beta`
+    cannot mount `eagle_base` directly, and live Fighter/Bomber visual sorties plus
+    `235` synthetic Eagle beacon remain for attended `R2`.
+  - `chaos-probe` `0.1.0` completed lab Sub-Run 3 (`3x` D5) with clean exits
+    (`dumps=[]`), `6/6 CP_GUARD hook_result=0`, `6 x CP_UNHOOK result=0`, and
+    `CP_SUMMARY lifecycle_dropped=0` across Automaton (`2/2 op=air`), Terminid
+    (`2/2 op=breach`, post-breach death aborted arrival PNGs), and Illuminate
+    (`CP_LINES=10000` saturation, `0` natural `op=air`). `at-st` bone-merging,
+    `empire-weapons`, `mixed-appearances`, and cross-faction Chaos spawning remain
+    shelved offline.
+- **Release preflight (Gate 3 and dry run):** Live catalog audit passed (`r19`
+  `966/966`, `r45-v4` `96/96`, `build25480438-r3` `8/8`; `0` issues).
+  `publish-r1-assets.ps1` (pinned to `0.0.9`) passed `5/5` tests;
+  `-DryRun -IncludeLegoMods -IncludeVariants` planned `320` upload assets
+  (`29,169,659,405` bytes across `pack-2026.11.09-r47-files` and `forge-mods-2026-11-15`)
+  with `34/34` reused `r45-v4` assets (`455,980,288` bytes) and `feedsLastVerified: true`.
 
 ## November 9–10, 2026: Clonedivers 1.14.1 and Linux Forge 0.8.1 published
 
