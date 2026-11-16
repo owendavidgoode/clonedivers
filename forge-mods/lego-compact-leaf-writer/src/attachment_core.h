@@ -4,12 +4,14 @@
 #define MANAGER_RVA 0x1A100F0u
 #define VTABLE_RVA 0x1676D80u
 #define CAPACITY_LIMIT 8192u
+#define COOP_UNIT_CAPACITY_LIMIT 262144u
 #define RECORD_LIMIT 32u
 #define PER_TICK 2u
 #define ARM_MS 90000u
 #define NODE_LIMIT 128u
 #define PARENT_NODE_LIMIT 1024u
 #define CHILD_LIMIT 32u
+#define COOP_CHILD_LIMIT 256u
 #define READ_TICK_LIMIT 512u
 #define READ_TOTAL_LIMIT 131072u
 #define BYTE_TICK_LIMIT 65536u
@@ -19,8 +21,8 @@ static uintptr_t engine;
 static volatile LONG stopped, installed, tickLock;
 static _Thread_local int coopProbeActive;
 static _Thread_local uint32_t coopProbeReads, coopProbeBytes;
-#define COOP_PROBE_READ_LIMIT 4096u
-#define COOP_PROBE_BYTE_LIMIT 524288u
+#define COOP_PROBE_READ_LIMIT 16384u
+#define COOP_PROBE_BYTE_LIMIT 4194304u
 static uint64_t armedAt, nextPoll;
 static uint32_t cursor, visited, recordCount, updateSerial, observedMask, duplicateResources;
 static uint32_t readTick, readTotal, byteTick, byteTotal, rejected[8];
@@ -77,15 +79,17 @@ static int Pointer(uintptr_t at,uintptr_t *out)
 { return Read(at,out,8) && Address(*out); }
 static int Nullable(uintptr_t at,uintptr_t *out)
 { return Read(at,out,8) && (!*out || Address(*out)); }
-static int ManagerRead(Manager *out)
+static int ManagerReadBounded(Manager *out,uint32_t capacityLimit)
 {
     memset(out,0,sizeof *out);
     return Pointer(engine+MANAGER_RVA,&out->address) && Read(out->address+0x98,&out->capacity,4) &&
-        out->capacity && out->capacity<=CAPACITY_LIMIT && Pointer(out->address+0x88,&out->slots) &&
+        out->capacity && out->capacity<=capacityLimit && Pointer(out->address+0x88,&out->slots) &&
         Pointer(out->address+0xA0,&out->generations) &&
         (size_t)out->capacity*8<=0x0000800000000000ull-out->slots &&
         out->capacity<=0x0000800000000000ull-out->generations;
 }
+static int ManagerRead(Manager *out) { return ManagerReadBounded(out,CAPACITY_LIMIT); }
+static int CoopManagerRead(Manager *out) { return ManagerReadBounded(out,COOP_UNIT_CAPACITY_LIMIT); }
 static uint32_t Target(uint64_t id)
 {
     static const uint64_t ids[]={0x2BB094EDBC756963ull,0x7305FDF48136C05Cull,

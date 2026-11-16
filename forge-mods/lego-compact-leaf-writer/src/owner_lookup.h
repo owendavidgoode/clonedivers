@@ -2,6 +2,9 @@
 #define HASH_PROBE_LIMIT 16u
 #define HASH_CAPACITY_LIMIT 4096u
 #define DESCRIPTOR_LIMIT 2048u
+#define COOP_HASH_PROBE_LIMIT 512u
+#define COOP_HASH_CAPACITY_LIMIT 1048576u
+#define COOP_DESCRIPTOR_LIMIT 0x100000u
 #define AVATAR_RESOURCE 0x4D1C334D294DFA97ull
 static uintptr_t gameModule;
 static const char *ownerFailure;
@@ -30,29 +33,35 @@ typedef struct CoopRoster {
 static int Span(uintptr_t at,size_t size)
 { return Address(at) && size && size<=0x0000800000000000ull-at; }
 static int FailOwner(const char *reason) { ownerFailure=reason;return 0; }
-static int HashLookup(uintptr_t at,uint32_t key,Lookup *out)
+static int HashLookupBounded(uintptr_t at,uint32_t key,Lookup *out,uint32_t capLimit,uint32_t probeLimit,uint32_t descLimit,int requirePow2)
 {
     memset(out,0,sizeof *out);out->key=key;
     HashHeader after;memset(&after,0,sizeof after);
     if(!Read(at,&out->header,20))return FailOwner("lookup_header_unreadable");
     const HashHeader *h=&out->header;
-    if(!h->capacity || h->capacity>HASH_CAPACITY_LIMIT || (h->capacity&(h->capacity-1)) ||
+    if(!h->capacity || h->capacity>capLimit || (requirePow2 && (h->capacity&(h->capacity-1))) ||
        !Span(h->buckets,(size_t)h->capacity*8))return FailOwner("lookup_header_bounds");
     if(key==h->empty)return FailOwner("lookup_key_is_empty");
     uint32_t product=key*h->multiplier;
-    for(uint32_t probe=0;probe<h->capacity && probe<HASH_PROBE_LIMIT;probe++) {
-        uint32_t bucket[2];out->slot=(product+probe)&(h->capacity-1);out->probes=probe+1;
+    for(uint32_t probe=0;probe<h->capacity && probe<probeLimit;probe++) {
+        uint32_t bucket[2];
+        out->slot=requirePow2?((product+probe)&(h->capacity-1)):((uint32_t)(product+probe)%h->capacity);
+        out->probes=probe+1;
         if(!Read(h->buckets+(uintptr_t)out->slot*8,bucket,8))return FailOwner("lookup_bucket_unreadable");
         if(bucket[0]==h->empty)return FailOwner("lookup_empty_before_match");
         if(bucket[0]==key) {
-            if(bucket[1]>=DESCRIPTOR_LIMIT)return FailOwner("lookup_value_bounds");
+            if(bucket[1]>=descLimit)return FailOwner("lookup_value_bounds");
             out->index=bucket[1];
             if(!Read(at,&after,20) || memcmp(h,&after,sizeof after))return FailOwner("lookup_header_changed");
             return 1;
         }
     }
-    return FailOwner(h->capacity>HASH_PROBE_LIMIT?"lookup_probe_budget":"lookup_table_exhausted");
+    return FailOwner(h->capacity>probeLimit?"lookup_probe_budget":"lookup_table_exhausted");
 }
+static int HashLookup(uintptr_t at,uint32_t key,Lookup *out)
+{ return HashLookupBounded(at,key,out,HASH_CAPACITY_LIMIT,HASH_PROBE_LIMIT,DESCRIPTOR_LIMIT,1); }
+static int CoopHashLookup(uintptr_t at,uint32_t key,Lookup *out)
+{ return HashLookupBounded(at,key,out,COOP_HASH_CAPACITY_LIMIT,COOP_HASH_PROBE_LIMIT,COOP_DESCRIPTOR_LIMIT,0); }
 static int CoopPlayersRead(const Manager *mgr,CoopRoster *out)
 {
     memset(out,0,sizeof *out);ownerFailure="coop_players_unreadable";
@@ -73,10 +82,10 @@ static int CoopPlayersRead(const Manager *mgr,CoopRoster *out)
         if(Read(out->players+0xE8+(uintptr_t)i*8,&pdesc,8) && Address(pdesc) && Span(pdesc,21))
             Read(pdesc+20,&localFlag,1);
         if(network==0x7FFF)continue;
-        Lookup nl;if(!HashLookup(out->entities+0xF22EC8,network,&nl))continue;
+        Lookup nl;if(!CoopHashLookup(out->entities+0xF22EC8,network,&nl))continue;
         Descriptor d,dAgain;
         uintptr_t dAt=out->entities+0xF32F18+(uintptr_t)nl.index*24;
-        if(!Read(dAt,&d,sizeof d) || !Read(dAt,&dAgain,sizeof dAgain) || memcmp(&d,&dAgain,sizeof d))continue;
+        if(!Span(dAt,sizeof d) || !Read(dAt,&d,sizeof d) || !Read(dAt,&dAgain,sizeof dAgain) || memcmp(&d,&dAgain,sizeof d))continue;
         if(d.resource!=AVATAR_RESOURCE || !d.entity || d.network!=network)continue;
         uint32_t avatarIdx=d.reference&0x3FFFFFu;uint8_t avatarGen=(uint8_t)((d.reference>>22)&0xFFu);
         Identity id;

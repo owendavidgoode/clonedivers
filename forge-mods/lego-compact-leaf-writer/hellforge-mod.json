@@ -1,9 +1,9 @@
 {
   "format": 1,
   "id": "clonedivers.lego-compact-leaf-writer",
-  "name": "LEGO Compact Leaf Writer (CO-OP v0.0.8)",
-  "version": "0.0.8",
-  "description": "Multi-actor co-op compact LEGO leaf writer. Dynamically admits 107-node 4D1C334D294DFA97 avatars (local player, remote co-op players, previews/corpses), integrates 1E7CD0 render-handle retirement, fast-path parent graph validation, Unit generation ABA rebinding, and fail-closed teardown/mutation passthrough, with torso-sagittal shoulder hinge arm policy (enum 5).",
+  "name": "LEGO Compact Leaf Writer (CO-OP v0.0.9)",
+  "version": "0.0.9",
+  "description": "Multi-actor co-op compact LEGO leaf writer. Dynamically admits 107-node 4D1C334D294DFA97 avatars (local player, remote co-op players, previews/corpses) at mission scale (256K UnitManager, 1M EntityManager hash, 256-node child chains), O(1) player-avatar garment discovery, epoch-stamped negative cache with periodic refresh, 1E7CD0 render-handle retirement, fast-path parent graph validation, Unit generation ABA rebinding, and fail-closed teardown/mutation passthrough, with torso-sagittal shoulder hinge arm policy (enum 5).",
   "gameplay": false,
   "coop": "per-player",
   "code": {

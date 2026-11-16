@@ -132,10 +132,11 @@ static void Loaded(HfMod *mod,HfEvent event,void *user)
     writer.approved_remove_next=InterlockedCompareExchangePointer(&writer.remove_next,NULL,NULL);
     if(!writer.approved_remove_next){Finish(mod,"initial_remove_next_refused");return;}
     coopDynamicMode=1;
+    coop_discovery_init();
     writer.resolve_target=CoopResolveTarget;
     writer.retire_handle=CoopRetireHandle;
     RLog(mod,"LEGO_COMPACT_LEAF_WRITER ready coop_dynamic=1 auto_armed=1 managed_hook=512B80 leaf_hook=5B2990 remove_hook=1E7CD0 priority=0 max_targets=%u originals=M_P_R8_return leaf_graph=private_after_writer_ready pose_reads=bounded no_shared_pose_writes pid=%lu birth_100ns=%llu engine=%llX game=%llX hash_probe_limit=%u",
-        COOP_MAX_TARGETS,(unsigned long)GetCurrentProcessId(),(unsigned long long)birth,(unsigned long long)engine,(unsigned long long)gameModule,HASH_PROBE_LIMIT);
+        COOP_MAX_TARGETS,(unsigned long)GetCurrentProcessId(),(unsigned long long)birth,(unsigned long long)engine,(unsigned long long)gameModule,COOP_HASH_PROBE_LIMIT);
 }
 HF_MOD_EXPORT int hellforge_mod_init(const HfApi *api,HfMod *mod)
 {

@@ -23,7 +23,7 @@ struct HfMod { const HfApi *api; };
 static HfApi api;
 static struct HfMod mod;
 
-#define TEST_MAX_REGIONS 4096u
+#define TEST_MAX_REGIONS 8192u
 typedef struct {
     uintptr_t address;
     size_t size;
@@ -617,8 +617,9 @@ static void SpawnMockActor(MockActor *a, MockWorld *w, uint32_t baseUnitIdx, uin
     PutU64(a->parentUnit, 0x1D8u, a->childUnits[0]->address);
 }
 
-static void SetPlayerSlot(uint32_t slot, uint64_t peer, uint32_t networkId, uint32_t life,
-                          int localFlag, uint32_t entityId, const MockActor *actor) {
+static void SetPlayerSlotEx(uint32_t slot, uint64_t peer, uint32_t networkId, uint32_t life,
+                            int localFlag, uint32_t entityId, const MockActor *actor,
+                            uint32_t hashCap, uint32_t descIdx, uint32_t probeCollisions) {
     PutU64(sPlayerRow, 0x2C8u + slot * 0x38u, peer);
     PutU32(sPlayerRow, 0x2E0u + slot * 0x38u, life);
     PutU32(sPlayerRow, 0x3A8u + slot * 0x20u, networkId);
@@ -627,21 +628,42 @@ static void SetPlayerSlot(uint32_t slot, uint64_t peer, uint32_t networkId, uint
     PutU8(sPlayerDesc[slot], 20u, (uint8_t)localFlag);
 
     if (actor) {
-        uint32_t descIdx = slot + 1u;
-        uint32_t nBucket = (networkId * 2u) & 4095u;
-        uint32_t eBucket = (entityId * 2u) & 4095u;
+        uint32_t nBase = networkId * 2u;
+        uint32_t eBase = entityId * 2u;
+        for (uint32_t p = 0; p < probeCollisions; p++) {
+            uint32_t nb = (nBase + p) % hashCap;
+            uint32_t eb = (eBase + p) % hashCap;
+            PutU32(sNetBuckets, nb * 8u, 0x70000000u + p);
+            PutU32(sNetBuckets, nb * 8u + 4u, 0xFFFFFFFFu);
+            PutU32(sEntBuckets, eb * 8u, 0x71000000u + p);
+            PutU32(sEntBuckets, eb * 8u + 4u, 0xFFFFFFFFu);
+        }
+        uint32_t nBucket = (nBase + probeCollisions) % hashCap;
+        uint32_t eBucket = (eBase + probeCollisions) % hashCap;
         PutU32(sNetBuckets, nBucket * 8u, networkId);
         PutU32(sNetBuckets, nBucket * 8u + 4u, descIdx);
         PutU32(sEntBuckets, eBucket * 8u, entityId);
         PutU32(sEntBuckets, eBucket * 8u + 4u, descIdx);
 
         uint32_t unitRef = ((uint32_t)actor->parentGen << 22) | (actor->parentUnitIdx & 0x3FFFFFu);
-        size_t off = 0xF32F18u + descIdx * 24u;
+        size_t off = 0xF32F18u + (size_t)descIdx * 24u;
         PutU64(sEntities, off, COOP_HUMAN_AVATAR_RESOURCE);
         PutU32(sEntities, off + 8u, entityId);
         PutU32(sEntities, off + 12u, unitRef);
         PutU32(sEntities, off + 16u, networkId);
         PutU32(sEntities, off + 20u, 1u);
+    }
+}
+
+static void SetPlayerSlot(uint32_t slot, uint64_t peer, uint32_t networkId, uint32_t life,
+                          int localFlag, uint32_t entityId, const MockActor *actor) {
+    SetPlayerSlotEx(slot, peer, networkId, life, localFlag, entityId, actor, 4096u, slot + 1u, 0u);
+}
+
+static void SetActorSelfHandles(const MockActor *a) {
+    PutU32(a->parentUnit, 8u, ((uint32_t)a->parentGen << 22) | (a->parentUnitIdx & 0x3FFFFFu));
+    for (unsigned t = 0; t < 7u; t++) {
+        PutU32(a->childUnits[t], 8u, ((uint32_t)a->childGen[t] << 22) | (a->childUnitIdx[t] & 0x3FFFFFu));
     }
 }
 
@@ -669,13 +691,27 @@ static void InvokeActorMesh(const MockActor *a, unsigned t, unsigned j, int grou
     TCHECK(_mm_getcsr() == 0x5F81u && GetLastError() == 0x13579u);
 }
 
+static uint32_t unbindParentHandleOnResolve;
 static void InitMockHost(const char *logsDir) {
+    if (invocationDirectoryHandle != INVALID_HANDLE_VALUE) {
+        CloseHandle(invocationDirectoryHandle);
+        invocationDirectoryHandle = INVALID_HANDLE_VALUE;
+    }
+    for (unsigned i = 0; i < slabCount; i++) {
+        free(slabs[i].bytes);
+        slabs[i].bytes = NULL;
+    }
     snprintf(mockLogsDir, sizeof mockLogsDir, "%s", logsDir);
     slabCount = 0;
     nextSlabAddr = 0x200000000ULL;
+    testReadHook = NULL;
+    unbindParentHandleOnResolve = 0;
+    retireOnCaptureHandle = 0;
     memset(&writer, 0, sizeof writer);
     memset(&invocationEnvelope, 0, sizeof invocationEnvelope);
     installed = 0; stopped = 0; tickLock = 0; coopDynamicMode = 0;
+    writerPollAt = 0; writerHealthAt = 0; writerDrainAt = 0;
+    writerLastAdmissions = writerLastRetires = writerLastAba = writerLastPlayers = 0;
     writerHealthRows = 0; writerDiagnosticsDone = 0; writerReportedFatal = 0;
     writerDiagnosticSequence = 0; writerDiagnosticDropped = 0;
     memset((void *)writerDiagnosticAttempts, 0, sizeof writerDiagnosticAttempts);
@@ -735,7 +771,6 @@ static void InitMockHost(const char *logsDir) {
     TCHECK(writer.approved_remove_next == (void *)MockRemoveNext);
 }
 
-static uint32_t unbindParentHandleOnResolve;
 static MockWorld *unbindWorld;
 static int TestResolveWithUnbindParentGraph(struct gw_state *s, void *m, void *p, void *g,
                                             uintptr_t caller, LONG64 seq, se_target *out, coop_actor_kind *kind) {
@@ -1103,7 +1138,315 @@ int main(int argc, char **argv) {
     /* Emit final health row confirming new telemetry counters format cleanly under 900 chars. */
     writerHealthAt = 0;
     WriterTick(&mod, 0.016f, NULL);
-    TCHECK(strstr(lastLogLine, "health ") && strstr(lastLogLine, "passthrough=") && strstr(lastLogLine, "recheck_pass=") && strstr(lastLogLine, "fast_evicts="));
+    TCHECK(strstr(lastLogLine, "health ") && strstr(lastLogLine, "passthrough=") &&
+           strstr(lastLogLine, "recheck_pass=") && strstr(lastLogLine, "fast_evicts=") &&
+           strstr(lastLogLine, "unit_cap=") && strstr(lastLogLine, "garments=") &&
+           strstr(lastLogLine, "neg_hits=") && strstr(lastLogLine, "rej_mgr=") &&
+           strstr(lastLogLine, "rej_world=") && strstr(lastLogLine, "rej_nomatch=") &&
+           strstr(lastLogLine, "rej_meta=") && strstr(lastLogLine, "rej_parent=") &&
+           strstr(lastLogLine, "rej_admit=") && strlen(lastLogLine) < 900u);
+
+    /* Test 12: Sub-Run 1D post-teardown mission scale (UnitManager 2048 -> 32768 -> 32768 on ship return),
+     * garments at 18500..18506, >40 parent siblings incl. non-VTABLE_RVA, EntityManager hash 16384 / desc 5000. */
+    {
+        char subDir12[1024];
+        snprintf(subDir12, sizeof subDir12, "%s/test12", argv[2]);
+        CreateDirectoryA(subDir12, NULL);
+        InitMockHost(subDir12);
+        sSlots = AllocSlab(65536u * 8u);
+        sGens = AllocSlab(65536u);
+        PutU32(sMgr, 0x98u, 2048u);
+        PutU64(sMgr, 0x88u, sSlots->address);
+        PutU64(sMgr, 0xA0u, sGens->address);
+
+        PutU32(sPlayerRow, 0x84u, 0u);
+        WriterTick(&mod, 0.016f, NULL);
+        TCHECK(writer.ready == 1 && writer.unit_cap == 2048);
+
+        MockWorld wShip12 = CreateMockWorld();
+        MockWorld wMission12 = CreateMockWorld();
+        MockWorld wReturn12 = CreateMockWorld();
+        static MockActor ship12, mission12, return12;
+
+        SpawnMockActor(&ship12, &wShip12, 10u, 1u, COOP_HUMAN_AVATAR_RESOURCE, 107u, 1);
+        SetActorSelfHandles(&ship12);
+        PutU64(sContext, 0xB398u, 0x8888ULL);
+        PutU32(sPlayerRow, 0x84u, 1u);
+        SetPlayerSlot(0, 0x8888ULL, 60u, 3u, 1, 600u, &ship12);
+
+        for (unsigned t = 0; t < 7u; t++) {
+            for (unsigned j = 1; j <= 4u; j++) {
+                InvokeActorMesh(&ship12, t, j, 0, 1);
+            }
+        }
+        TCHECK(coopReg.admissions == 28u && coopReg.active_targets == 28u);
+        TCHECK(writer.corrected == 28 && writer.failed == 0 && writer.fatal == 0);
+
+        /* 1E7CD0 retires all 28 ship targets on Hellpod launch. */
+        MockSlab *sPkt12 = AllocSlab(16);
+        PutU32(sPkt12, 4u, ship12.parentAppHandle);
+        _mm_setcsr(0x9F81u); SetLastError(0x1357u);
+        RenderRemoveObserved((void *)wShip12.rw->address, (const void *)sPkt12->address, NULL);
+        TCHECK(coopReg.active_targets == 0u && writer.retires == 28);
+
+        /* Mission load: raise UnitManager.capacity to 32768, fill 0..4999 with dummy non-garments
+         * so cursor scan cannot reach 18500 in one 4096-slot slice, testing O(1) player garment discovery. */
+        PutU32(sMgr, 0x98u, 32768u);
+        MockSlab *dummyNonUnit = AllocSlab(0x200);
+        PutU64(dummyNonUnit, 0u, MOCK_ENGINE + 0x1234560u);
+        for (uint32_t i = 0; i < 5000u; i++) {
+            PutU64(sSlots, i * 8u, dummyNonUnit->address);
+            PutU8(sGens, i, 1u);
+        }
+
+        /* Mission EntityManager: hash capacity=16384, probe depth > 16 (24 collisions), descriptor index=5000. */
+        sEntities = AllocSlab(0x1000000);
+        sNetBuckets = AllocSlab(16384u * 8u);
+        sEntBuckets = AllocSlab(16384u * 8u);
+        memset(sNetBuckets->bytes, 0xFF, sNetBuckets->size);
+        memset(sEntBuckets->bytes, 0xFF, sEntBuckets->size);
+        PutU64(sEntities, 0xF22EC8u, sNetBuckets->address);
+        PutU32(sEntities, 0xF22EC8u + 8u, 16384u);
+        PutU32(sEntities, 0xF22EC8u + 12u, 0xFFFFFFFFu);
+        PutU32(sEntities, 0xF22EC8u + 16u, 2u);
+        PutU64(sEntities, 0xF1AEB0u, sEntBuckets->address);
+        PutU32(sEntities, 0xF1AEB0u + 8u, 16384u);
+        PutU32(sEntities, 0xF1AEB0u + 12u, 0xFFFFFFFFu);
+        PutU32(sEntities, 0xF1AEB0u + 16u, 2u);
+
+        SpawnMockActor(&mission12, &wMission12, 18499u, 3u, COOP_HUMAN_AVATAR_RESOURCE, 107u, 1);
+        SetActorSelfHandles(&mission12);
+
+        /* Add >40 parent siblings (41 extra + 7 garments = 48 siblings total) including non-VTABLE_RVA siblings! */
+        MockSlab *extraSibs[41];
+        for (unsigned k = 0; k < 41u; k++) {
+            extraSibs[k] = AllocSlab(0x200);
+            if (k % 3u == 0u) {
+                PutU64(extraSibs[k], 0u, MOCK_ENGINE + 0x1234567u); /* non-VTABLE_RVA weapon/effect */
+            } else if (k % 3u == 1u) {
+                PutU64(extraSibs[k], 0u, 0u); /* non-Unit attachment without VTABLE_RVA */
+            } else {
+                PutU64(extraSibs[k], 0u, MOCK_ENGINE + VTABLE_RVA);
+                PutU64(extraSibs[k], 0x1D0u, 0xCAFE0000ULL); /* unrelated parent */
+            }
+        }
+        /* Prepend 20 siblings before childUnits[0], 1 non-VTABLE_RVA between [2]->[3], and 20 after childUnits[6]. */
+        PutU64(mission12.parentUnit, 0x1D8u, extraSibs[0]->address);
+        for (unsigned k = 0; k < 19u; k++) PutU64(extraSibs[k], 0x1E0u, extraSibs[k + 1u]->address);
+        PutU64(extraSibs[19], 0x1E0u, mission12.childUnits[0]->address);
+        PutU64(mission12.childUnits[2], 0x1E0u, extraSibs[20]->address);
+        PutU64(extraSibs[20], 0x1E0u, mission12.childUnits[3]->address);
+        PutU64(mission12.childUnits[6], 0x1E0u, extraSibs[21]->address);
+        for (unsigned k = 21u; k < 40u; k++) PutU64(extraSibs[k], 0x1E0u, extraSibs[k + 1u]->address);
+        PutU64(extraSibs[40], 0x1E0u, 0u);
+
+        SetPlayerSlotEx(0, 0x8888ULL, 61u, 4u, 1, 601u, &mission12, 16384u, 5000u, 24u);
+
+        for (unsigned t = 0; t < 7u; t++) {
+            for (unsigned j = 1; j <= 4u; j++) {
+                InvokeActorMesh(&mission12, t, j, 0, 1);
+                InvokeActorMesh(&mission12, t, j, 1, 1);
+                const coop_target_slot *ts = coop_find_mesh(&coopReg, mission12.meshes[t][j]->address);
+                TCHECK(ts && ts->actor_kind == COOP_ACTOR_LOCAL_PLAYER && ts->child_index == 18500u + t);
+            }
+        }
+        TCHECK(coopReg.admissions == 56u && coopReg.active_targets == 28u);
+        TCHECK(writer.corrected == 84 && writer.failed == 0 && writer.fatal == 0);
+        TCHECK(writer.unit_cap == 32768);
+
+        /* Retire all 28 mission targets via 1E7CD0. */
+        PutU32(sPkt12, 4u, mission12.parentAppHandle);
+        _mm_setcsr(0x9F81u); SetLastError(0x1357u);
+        RenderRemoveObserved((void *)wMission12.rw->address, (const void *)sPkt12->address, NULL);
+        TCHECK(coopReg.active_targets == 0u && writer.retires == 56);
+
+        /* Ship return: UnitManager.capacity STAYS 32768! Spawn return avatar and re-admit all 28. */
+        SpawnMockActor(&return12, &wReturn12, 20000u, 4u, COOP_HUMAN_AVATAR_RESOURCE, 107u, 1);
+        SetActorSelfHandles(&return12);
+        SetPlayerSlotEx(0, 0x8888ULL, 62u, 3u, 1, 602u, &return12, 16384u, 5001u, 24u);
+        for (unsigned t = 0; t < 7u; t++) {
+            for (unsigned j = 1; j <= 4u; j++) {
+                InvokeActorMesh(&return12, t, j, 0, 1);
+                const coop_target_slot *ts = coop_find_mesh(&coopReg, return12.meshes[t][j]->address);
+                TCHECK(ts && ts->actor_kind == COOP_ACTOR_LOCAL_PLAYER);
+            }
+        }
+        TCHECK(coopReg.admissions == 84u && coopReg.active_targets == 28u);
+        TCHECK(writer.corrected == 112 && writer.failed == 0 && writer.fatal == 0);
+    }
+
+    /* Test 13: Poison coopNegCache on all 28 meshes before u + 0x60 is populated -> populate & refresh -> recover 28/28. */
+    {
+        char subDir13[1024];
+        snprintf(subDir13, sizeof subDir13, "%s/test13", argv[2]);
+        CreateDirectoryA(subDir13, NULL);
+        InitMockHost(subDir13);
+        sSlots = AllocSlab(65536u * 8u);
+        sGens = AllocSlab(65536u);
+        PutU32(sMgr, 0x98u, 32768u);
+        PutU64(sMgr, 0x88u, sSlots->address);
+        PutU64(sMgr, 0xA0u, sGens->address);
+
+        PutU32(sPlayerRow, 0x84u, 0u);
+        WriterTick(&mod, 0.016f, NULL);
+        TCHECK(writer.ready == 1);
+
+        MockWorld w13 = CreateMockWorld();
+        static MockActor actor13;
+        SpawnMockActor(&actor13, &w13, 18499u, 1u, COOP_HUMAN_AVATAR_RESOURCE, 107u, 1);
+        SetActorSelfHandles(&actor13);
+        PutU64(sContext, 0xB398u, 0x9999ULL);
+        PutU32(sPlayerRow, 0x84u, 1u);
+
+        /* First remove actor13 garments from sSlots so sweep completes (coopScanComplete=1) & poisons coopNegCache. */
+        uintptr_t savedChildPtrs[7];
+        for (unsigned t = 0; t < 7u; t++) {
+            savedChildPtrs[t] = actor13.childUnits[t]->address;
+            PutU64(sSlots, actor13.childUnitIdx[t] * 8u, 0u);
+        }
+        SetPlayerSlot(0, 0x9999ULL, 70u, 3u, 1, 700u, &actor13);
+
+        se_target tmpTgt;
+        coop_actor_kind tmpKind;
+        for (unsigned t = 0; t < 7u; t++) {
+            for (unsigned j = 1; j <= 4u; j++) {
+                TCHECK(!CoopResolveTarget(&writer, (void *)actor13.meshes[t][j]->address,
+                    (void *)(w13.rw->address + 0x318u), NULL, MOCK_ENGINE + 0x258E19u, 1, &tmpTgt, &tmpKind));
+            }
+        }
+        TCHECK(writer.rej_nomatch == 28 && coopReg.active_targets == 0u);
+        for (unsigned t = 0; t < 7u; t++) {
+            for (unsigned j = 1; j <= 4u; j++) {
+                TCHECK(!CoopResolveTarget(&writer, (void *)actor13.meshes[t][j]->address,
+                    (void *)(w13.rw->address + 0x318u), NULL, MOCK_ENGINE + 0x258E19u, 2, &tmpTgt, &tmpKind));
+            }
+        }
+        TCHECK(writer.neg_hits == 28);
+
+        /* Now bind childUnits into sSlots WITHOUT u + 0x60 populated, advance epoch, and probe again ->
+         * must stay uncommitted (coopScanComplete == 0) and must NOT re-poison coopNegCache! */
+        for (unsigned t = 0; t < 7u; t++) {
+            PutU64(sSlots, actor13.childUnitIdx[t] * 8u, savedChildPtrs[t]);
+            PutU32(actor13.childUnits[t], 0x64u, 0u);
+            PutU64(actor13.childUnits[t], 0x68u, 0u);
+        }
+        writerPollAt = 0;
+        WriterTick(&mod, 0.016f, NULL);
+        LONG64 negHitsBefore = writer.neg_hits;
+        for (unsigned t = 0; t < 7u; t++) {
+            for (unsigned j = 1; j <= 4u; j++) {
+                TCHECK(!CoopResolveTarget(&writer, (void *)actor13.meshes[t][j]->address,
+                    (void *)(w13.rw->address + 0x318u), NULL, MOCK_ENGINE + 0x258E19u, 3, &tmpTgt, &tmpKind));
+            }
+        }
+        TCHECK(coopReg.active_targets == 0u && !coopScanComplete);
+        /* Second call while u+0x60 still unbound must not hit neg cache (since coopScanComplete was 0). */
+        TCHECK(!CoopResolveTarget(&writer, (void *)actor13.meshes[0][1]->address,
+            (void *)(w13.rw->address + 0x318u), NULL, MOCK_ENGINE + 0x258E19u, 4, &tmpTgt, &tmpKind));
+        TCHECK(writer.neg_hits == negHitsBefore);
+
+        /* Also re-poison coopNegCache explicitly on all 28 meshes right before populating u + 0x60,
+         * then populate u + 0x60 and trigger WriterTick refresh/epoch advance -> verify 28/28 recover & admit! */
+        uint32_t savedEpoch = coopNegEpoch;
+        for (unsigned t = 0; t < 7u; t++) {
+            for (unsigned j = 1; j <= 4u; j++) {
+                coop_neg_insert(actor13.meshes[t][j]->address, actor13.childGraphHandle[t],
+                    actor13.childGraphs[t]->address, actor13.skins[t][j]->address, w13.rw->address);
+            }
+        }
+        for (unsigned t = 0; t < 7u; t++) {
+            PutU32(actor13.childUnits[t], 0x64u, actor13.childGraphHandle[t]);
+            PutU64(actor13.childUnits[t], 0x68u, w13.rm->address + 0x10u);
+        }
+        writerPollAt = 0;
+        WriterTick(&mod, 0.016f, NULL);
+        TCHECK(coopNegEpoch != savedEpoch && writer.garments_cached == 7);
+
+        for (unsigned t = 0; t < 7u; t++) {
+            for (unsigned j = 1; j <= 4u; j++) {
+                InvokeActorMesh(&actor13, t, j, 0, 1);
+            }
+        }
+        TCHECK(coopReg.active_targets == 28u && coopReg.admissions == 28u);
+        TCHECK(writer.corrected == 28 && writer.failed == 0 && writer.fatal == 0);
+
+        writerHealthAt = 0;
+        WriterTick(&mod, 0.016f, NULL);
+        TCHECK(strstr(lastLogLine, "unit_cap=32768") && strstr(lastLogLine, "garments=7") &&
+               strstr(lastLogLine, "neg_hits=28") && strstr(lastLogLine, "rej_nomatch=") &&
+               strlen(lastLogLine) < 900u);
+    }
+
+    /* Test 14: Legacy !coopDynamicMode refusal boundaries remain untouched (8192 / 4096 / 16 / 2048 / 32 / non-VTABLE). */
+    {
+        char subDir14[1024];
+        snprintf(subDir14, sizeof subDir14, "%s/test14", argv[2]);
+        CreateDirectoryA(subDir14, NULL);
+        InitMockHost(subDir14);
+        sSlots = AllocSlab(32768u * 8u);
+        sGens = AllocSlab(32768u);
+        PutU64(sMgr, 0x88u, sSlots->address);
+        PutU64(sMgr, 0xA0u, sGens->address);
+
+        coopProbeActive = 1; coopProbeReads = coopProbeBytes = 0;
+        Manager lm;
+        PutU32(sMgr, 0x98u, CAPACITY_LIMIT);
+        TCHECK(ManagerRead(&lm) && lm.capacity == CAPACITY_LIMIT);
+        PutU32(sMgr, 0x98u, CAPACITY_LIMIT + 1u);
+        TCHECK(!ManagerRead(&lm));
+        TCHECK(CoopManagerRead(&lm) && lm.capacity == CAPACITY_LIMIT + 1u);
+        PutU32(sMgr, 0x98u, COOP_UNIT_CAPACITY_LIMIT);
+        TCHECK(CoopManagerRead(&lm) && lm.capacity == COOP_UNIT_CAPACITY_LIMIT);
+        PutU32(sMgr, 0x98u, COOP_UNIT_CAPACITY_LIMIT + 1u);
+        TCHECK(!CoopManagerRead(&lm));
+
+        /* Legacy HashLookup vs CoopHashLookup */
+        MockSlab *hHdr = AllocSlab(32);
+        MockSlab *hBkt = AllocSlab(8192u * 8u);
+        memset(hBkt->bytes, 0xFF, hBkt->size);
+        PutU64(hHdr, 0u, hBkt->address);
+        PutU32(hHdr, 8u, 8192u);
+        PutU32(hHdr, 12u, 0xFFFFFFFFu);
+        PutU32(hHdr, 16u, 2u);
+        PutU32(hBkt, ((77u * 2u) % 8192u) * 8u, 77u);
+        PutU32(hBkt, ((77u * 2u) % 8192u) * 8u + 4u, 3000u);
+        Lookup lk;
+        TCHECK(!HashLookup(hHdr->address, 77u, &lk));
+        TCHECK(CoopHashLookup(hHdr->address, 77u, &lk) && lk.index == 3000u);
+        PutU32(hBkt, ((77u * 2u) % 8192u) * 8u + 4u, COOP_DESCRIPTOR_LIMIT);
+        TCHECK(!CoopHashLookup(hHdr->address, 77u, &lk));
+
+        /* Legacy ChainRead vs CoopChainRead */
+        MockSlab *pUnit = AllocSlab(0x200);
+        MockSlab *cUnit = AllocSlab(0x200);
+        MockSlab *nonUnit = AllocSlab(0x200);
+        PutU64(pUnit, 0u, MOCK_ENGINE + VTABLE_RVA);
+        PutU64(cUnit, 0u, MOCK_ENGINE + VTABLE_RVA);
+        PutU64(cUnit, 0x1D0u, pUnit->address);
+        PutU64(nonUnit, 0u, MOCK_ENGINE + 0x1234567u);
+        PutU64(nonUnit, 0x1E0u, cUnit->address);
+
+        Record lr;
+        memset(&lr, 0, sizeof lr);
+        lr.parent.id.unit = pUnit->address;
+        lr.parent.firstChild = nonUnit->address;
+        lr.child.id.unit = cUnit->address;
+        TCHECK(ChainRead(&lr) && lr.chainStatus == 3u && !lr.reciprocal);
+        memset(&lr, 0, sizeof lr);
+        lr.parent.id.unit = pUnit->address;
+        lr.parent.firstChild = nonUnit->address;
+        lr.child.id.unit = cUnit->address;
+        TCHECK(CoopChainRead(&lr) && lr.chainStatus == 0u && lr.reciprocal == 1u);
+
+        /* Cycle detection & 256 overflow */
+        PutU64(cUnit, 0x1E0u, nonUnit->address);
+        memset(&lr, 0, sizeof lr);
+        lr.parent.id.unit = pUnit->address;
+        lr.parent.firstChild = nonUnit->address;
+        lr.child.id.unit = cUnit->address;
+        TCHECK(CoopChainRead(&lr) && lr.chainStatus == 2u);
+        coopProbeActive = 0;
+    }
 
     if (invocationDirectoryHandle != INVALID_HANDLE_VALUE) {
         CloseHandle(invocationDirectoryHandle);
