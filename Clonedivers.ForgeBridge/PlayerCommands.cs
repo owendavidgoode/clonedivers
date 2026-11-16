@@ -66,7 +66,6 @@ internal sealed class PlayerCommands
                 var requested = new HellForgePreferences { Mode = values["--mode"], DeltaSquad = values["--delta"] == "yes",
                     Texture = values["--texture"], Droids = values["--droids"] == "yes", Covenant = values["--covenant"] == "yes" };
                 requested.Validate();
-                if (requested.SelectionProblem is { } selectionProblem) throw new InvalidOperationException(selectionProblem);
                 selection.Mode = requested.Mode; selection.DeltaSquad = requested.DeltaSquad;
                 selection.Texture = requested.Texture; selection.Droids = requested.Droids; selection.Covenant = requested.Covenant;
                 return JsonSerializer.SerializeToElement(new { selection.Mode, selection.DeltaSquad, selection.Texture, selection.Droids, selection.Covenant });
