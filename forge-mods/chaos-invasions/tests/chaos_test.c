@@ -2,6 +2,7 @@
 #include <stdarg.h>
 
 static unsigned checks, subscriptions, ticks, fail_subscription, skipped_logs, fallback_logs, landing_logs, preload_ready_logs;
+static unsigned spawn_logs, spawn_unmapped_logs, transport_spawn_logs, wave_complete_logs, wave_timeout_logs;
 static unsigned role = HF_SESSION_SOLO, game_state = HF_STATE_MISSION;
 static char fixture[1800];
 
@@ -36,10 +37,20 @@ static unsigned GameState(HfMod* m) { (void)m; return game_state; }
 static void Log(HfMod* m, const char* format, ...)
 {
     (void)m;
-    if (strstr(format, "CHAOS_SKIP")) ++skipped_logs;
-    if (strstr(format, "CHAOS_TRANSPORT_FALLBACK")) ++fallback_logs;
-    if (strstr(format, "CHAOS_LANDING")) ++landing_logs;
-    if (strstr(format, "CHAOS_PRELOAD_READY")) ++preload_ready_logs;
+    char buf[512];
+    va_list ap;
+    va_start(ap, format);
+    vsnprintf(buf, sizeof buf, format, ap);
+    va_end(ap);
+    if (strstr(buf, "CHAOS_SKIP")) ++skipped_logs;
+    if (strstr(buf, "CHAOS_TRANSPORT_FALLBACK")) ++fallback_logs;
+    if (strstr(buf, "CHAOS_LANDING")) ++landing_logs;
+    if (strstr(buf, "CHAOS_PRELOAD_READY")) ++preload_ready_logs;
+    if (strstr(buf, "CHAOS_SPAWN:")) ++spawn_logs;
+    if (strstr(buf, "CHAOS_SPAWN_UNMAPPED:")) ++spawn_unmapped_logs;
+    if (strstr(buf, "CHAOS_TRANSPORT_SPAWN:")) ++transport_spawn_logs;
+    if (strstr(buf, "CHAOS_WAVE_COMPLETE:") && strstr(buf, "result=complete")) ++wave_complete_logs;
+    if (strstr(buf, "CHAOS_WAVE_COMPLETE:") && strstr(buf, "result=timeout")) ++wave_timeout_logs;
 }
 
 static void Status(HfMod* m, const char* s) { (void)m; (void)s; }
@@ -566,6 +577,7 @@ static void ResetMockCountersAndModState(void)
     g_mock_alive = 1;
     g_force_anchor_z_bad = 0;
     skipped_logs = fallback_logs = landing_logs = preload_ready_logs = 0;
+    spawn_logs = spawn_unmapped_logs = transport_spawn_logs = wave_complete_logs = wave_timeout_logs = 0;
     stopped = 0;
     ResetMissionState();
 }
@@ -722,12 +734,12 @@ static void TestFailClosedPinsAndResidencyGate(void)
 
 static void TestSpawnersFallbacksAndJoiner(void)
 {
-    /* Native = Bugs -> test Joiner preloads only, no spawns; then Host Bots Dropship + 12s fallback */
+    /* Native = Bugs -> test Joiner preloads only, no spawns; then Host Bots Dropship + 22s fallback */
     InitMockGameArenas(CHAOS_NATIVE_BUGS_BIT, 5u);
     ResetMockCountersAndModState();
     config = ChaosDefaults();
     config.grace = 15;
-    config.cooldown = 30;
+    config.cooldown = 40;
     config.squids_weight = 0; /* force Bots only */
     config.bots_weight = 100;
     Publish();
@@ -777,18 +789,21 @@ static void TestSpawnersFallbacksAndJoiner(void)
         CHECK(cr <= 20u && sr == cr);
     }
 
-    /* Advance 12s with 0 unloaded troops -> triggers 12s fallback to SpawnRosterRow(0x3C) */
+    /* Advance 22s with 0 unloaded troops -> triggers 22s fallback to SpawnRosterRow(0x3C) */
     HfSpawnEvent ship_ev = {0};
     ship_ev.info.size = sizeof ship_ev;
     ship_ev.entity = 777u; ship_ev.resource = CHAOS_ENTITY_DROPSHIP; ship_ev.authority = 1;
     OnSpawn(self, (const HfEventInfo*)&ship_ev, NULL); /* transport hull must NOT count as unloaded troop! */
-    CHECK(g_pending.ship_seen == 2 && g_pending.unloaded_count == 0);
-    Seconds(11);
+    CHECK(g_pending.ship_seen == 2 && g_pending.unloaded_count == 0 && transport_spawn_logs == 2u);
+    Seconds(21);
     CHECK(g_roster_calls == 0);
     Seconds(1);
     CHECK(g_roster_calls == 4 && g_last_roster_flags == 0x3Cu && g_last_roster_kind == 3u && fallback_logs == 1u);
+    /* Wait 8s after fallback with 0 spawns -> timeout closes wave and releases reservations */
+    Seconds(8);
+    CHECK(!g_pending.active && wave_timeout_logs == 1u && g_tracker.mission_spawned == 0);
 
-    /* Squid scoped director=4 + roster=Squids + immediate restore + non-sync OnSpawn cargo patch fallback */
+    /* Squid scoped director=4 + roster=Squids + immediate restore + non-sync OnSpawn cargo patch + unload logs */
     InitMockGameArenas(CHAOS_NATIVE_BUGS_BIT, 5u);
     ResetMockCountersAndModState();
     g_fire_sync_transport_onspawn = 0; /* exercise post-call PassengerComponent prev_active fallback */
@@ -816,6 +831,36 @@ static void TestSpawnersFallbacksAndJoiner(void)
         memcpy(&cr, g_pass_cargo_mem + 0x08u + (size_t)k * 4u, 4);
         CHECK(cr <= 15u);
     }
+
+    /* Exercise OnSpawn diagnostics while active: unmapped (auth=1 & auth=0), native ignored, then 4 Squid troops complete wave */
+    HfSpawnEvent bad_ev = {0};
+    bad_ev.info.size = sizeof bad_ev;
+    bad_ev.entity = 9001u; bad_ev.resource = 0x1122334455667788ULL; bad_ev.authority = 1;
+    OnSpawn(self, (const HfEventInfo*)&bad_ev, NULL);
+    bad_ev.entity = 9002u; bad_ev.resource = 0x905809a4c28d8a45ULL; bad_ev.authority = 0;
+    OnSpawn(self, (const HfEventInfo*)&bad_ev, NULL);
+    bad_ev.entity = 9003u; bad_ev.resource = 0x51eea86bf6997e4eULL; bad_ev.authority = 1; /* native Bug ignored */
+    OnSpawn(self, (const HfEventInfo*)&bad_ev, NULL);
+    CHECK(spawn_unmapped_logs == 2u && spawn_logs == 0u && g_pending.unloaded_count == 0);
+
+    for (uint32_t s = 0; s < 4u; s++) {
+        HfSpawnEvent tr_ev = {0};
+        tr_ev.info.size = sizeof tr_ev;
+        tr_ev.entity = 1200u + s;
+        tr_ev.resource = (s == 3u) ? g_rosters[CHAOS_SQUIDS][0].entity_hash : 0x905809a4c28d8a45ULL;
+        tr_ev.authority = 1;
+        OnSpawn(self, (const HfEventInfo*)&tr_ev, NULL);
+    }
+    CHECK(spawn_logs == 4u && g_pending.unloaded_count == 4 && g_tracker.live[CHAOS_SQUIDS] == 4);
+    Seconds(1);
+    CHECK(!g_pending.active && wave_complete_logs == 1u && wave_timeout_logs == 0u && fallback_logs == 0u);
+
+    /* Late foreign spawn logs mode=late cleanly without active wave */
+    HfSpawnEvent late_ev = {0};
+    late_ev.info.size = sizeof late_ev;
+    late_ev.entity = 1300u; late_ev.resource = 0x4019623142351cb6ULL; late_ev.authority = 1;
+    OnSpawn(self, (const HfEventInfo*)&late_ev, NULL);
+    CHECK(spawn_logs == 5u && g_tracker.live[CHAOS_BOTS] == 1 && g_tracker.mission_spawned == 5);
 
     /* Leaving mission to ship resets landed and latched residency safely on game thread */
     game_state = HF_STATE_SHIP;
@@ -847,7 +892,7 @@ static void TestSpawnersFallbacksAndJoiner(void)
     memcpy(g_em_mem + 0x918u, &busy_q, 4);
     role = HF_SESSION_HOST;
     Seconds(15);
-    CHECK(g_transport_calls == 0 && g_roster_calls == 4 && g_last_roster_flags == 0x3Cu);
+    CHECK(g_transport_calls == 0 && g_roster_calls == 4 && g_last_roster_flags == 0x3Cu && g_pending.used_fallback == 1);
 }
 
 static void TestPerceptionMultiWay(void)

@@ -36,8 +36,8 @@ project-owned defaults: client-only `Clonedivers Clean Exit` `0.2.0` at `8,192`
 bytes `gameplay: false`, client-only `LEGO Compact Leaf Writer (CO-OP v0.0.9)`
 at `199,207` bytes `gameplay: false` `coop: per-player`, client-only
 `Empire LEGO Yoda Death` `0.1.2` at `45,907` bytes `gameplay: false`
-`coop: per-player`, and host-driven `Chaos Invasions` `0.2.0` at `28,837` bytes
-`gameplay: true`), totaling **`8,062,566` bytes (`~7.69 MiB`)** before appearance
+`coop: per-player`, and host-driven `Chaos Invasions` `0.2.0` at `29,526` bytes
+`gameplay: true`), totaling **`8,063,255` bytes (`~7.69 MiB`)** before appearance
 assets. It verifies their archives and content, imports them through Forge, applies
 preset order/options and then prepares the appearance.
 
@@ -108,7 +108,7 @@ and `empire-tie-switch` `0.2.1` co-loaded with `clean-exit` `0.2.0` on patched
 `tie-held-root` (Sub-Run 1D Part 1). Offline integration on `1.14.2` / `0.8.2` also
 verified all four Compact-LEGO-baked `r47` variants (`verify_candidate.py` exit `0`),
 `empire-lego-yoda` `0.1.2` (`139` C checks, `ScanVisuals == 4` on both `r47-lego-compact`
-and `r47-shuttles`), `chaos-invasions` `0.2.0` (`190` C checks, `52` LuaJIT checks,
+and `r47-shuttles`), `chaos-invasions` `0.2.0` (`195` C checks, `52` LuaJIT checks,
 `15` delivery checks), and `run-suites.ps1` (`0` failures / `0` warnings). See
 [Forge setup and status](docs/FORGE.md).
 Attended `R2` landed Lambda clearance, Compact LEGO multi-actor co-op, `chaos-invasions`

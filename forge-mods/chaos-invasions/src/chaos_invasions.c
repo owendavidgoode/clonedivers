@@ -41,7 +41,7 @@
 #define CHAOS_PERCEPTION_STRIDE   0x13F8u
 #define CHAOS_CARGO_STRIDE        0x54u
 #define CHAOS_SEATS_STRIDE        0x3D8u
-#define CHAOS_TRANSPORT_TIMEOUT_S 12.0
+#define CHAOS_TRANSPORT_TIMEOUT_S 22.0
 #define CHAOS_BREACH_TIMEOUT_S    8.0
 #define CHAOS_BREACH_STAGGER_S    3.5f
 
@@ -58,12 +58,14 @@ typedef struct ChaosRosterUnit {
 typedef struct ChaosPendingWave {
     int active;
     int is_transport;
+    int used_fallback;
     int faction;
     int difficulty;
     int unloaded_count;
     int ship_seen;
     int cargo_patched;
     int squad_size;
+    int unmapped_logged;
     uint32_t ship_entity;
     double elapsed;
     double timeout;
@@ -764,6 +766,27 @@ static int FindSafeGroundAnchor(uintptr_t gbase, float out_anchor[3], float out_
 
 /* ---- Wave Dispatch & Staggered Fallback ------------------------------------------------------------------------ */
 
+static int ChaosEnemyFamilyEx(uint64_t resource)
+{
+    int fam = ChaosEnemyFamily(resource);
+    if (fam >= 0) return fam;
+    for (int f = 0; f < CHAOS_FACTIONS; f++) {
+        if (!g_rosters_loaded[f]) continue;
+        for (int i = 0; i < CHAOS_CURATED_PER_FACTION; i++) {
+            if (g_rosters[f][i].valid && g_rosters[f][i].entity_hash == resource)
+                return f;
+        }
+    }
+    return -1;
+}
+
+static const char* PendingWaveMode(const ChaosPendingWave* w)
+{
+    if (w->used_fallback) return "fallback";
+    if (w->is_transport) return "transport";
+    return (w->faction == CHAOS_BUGS) ? "breach" : "roster";
+}
+
 static void PickRoleArrayAndRows(int faction, int diff, int count, uint32_t roles_out[6], int row_idx_out[6])
 {
     int avail[CHAOS_CURATED_PER_FACTION], n_avail = 0;
@@ -898,6 +921,7 @@ static void DispatchStaggeredRoster(uintptr_t gbase, uintptr_t director, int fac
         if (slot && ReadMem((uintptr_t)slot + 8u, &eid, 4) && eid != 0u && eid != 0xFFFFFFFFu &&
             ChaosTrackerRecordSpawn(&g_tracker, faction, eid, 1)) {
             ++dispatched;
+            if (g_pending.active && g_pending.faction == faction) ++g_pending.unloaded_count;
         }
     }
     hf->log(self, "CHAOS_ROSTER_DISPATCH: faction=%s flags=0x%x count=%d immediate=%d anchor=(%.1f,%.1f,%.1f)",
@@ -911,6 +935,7 @@ static void DispatchChaosWave(uintptr_t gbase, uintptr_t director, int faction, 
     if (sq < 1) sq = 1;
     if (sq > 6) sq = 6;
 
+    if (g_pending.active) ChaosTrackerReleaseUnusedReservations(&g_tracker, g_pending.faction);
     memset(&g_pending, 0, sizeof g_pending);
     g_pending.active = 1;
     g_pending.faction = faction;
@@ -969,8 +994,11 @@ static void DispatchChaosWave(uintptr_t gbase, uintptr_t director, int faction, 
 
         /* Transport slot busy or unreadable: fall back immediately to staggered SpawnRosterRow (0x3C) */
         g_pending.is_transport = 0;
+        g_pending.used_fallback = 1;
         g_pending.timeout = CHAOS_BREACH_TIMEOUT_S;
         DispatchStaggeredRoster(gbase, director, faction, diff, sq, 0x3Cu, anchor, player_pos, 2.0f);
+        hf->log(self, "CHAOS_WAVE_DISPATCH: event=%s mode=fallback_immediate count=%d anchor=(%.1f,%.1f,%.1f)",
+                chaos_names[faction], sq, anchor[0], anchor[1], anchor[2]);
         return;
     }
 
@@ -993,6 +1021,12 @@ static void ServicePendingWave(uintptr_t gbase, uintptr_t director, float dt)
     if (!g_pending.active) return;
     g_pending.elapsed += (double)dt;
     if (g_pending.unloaded_count >= g_pending.squad_size) {
+        ChaosTrackerReleaseUnusedReservations(&g_tracker, g_pending.faction);
+        hf->log(self,
+                "CHAOS_WAVE_COMPLETE: faction=%s mode=%s unloaded=%d/%d ship_seen=%d elapsed=%.1fs live=%d mission_spawned=%d result=complete",
+                chaos_faction_names[g_pending.faction], PendingWaveMode(&g_pending),
+                g_pending.unloaded_count, g_pending.squad_size, g_pending.ship_seen,
+                g_pending.elapsed, g_tracker.live[g_pending.faction], g_tracker.mission_spawned);
         g_pending.active = 0;
         return;
     }
@@ -1001,6 +1035,7 @@ static void ServicePendingWave(uintptr_t gbase, uintptr_t director, float dt)
     if (g_pending.is_transport && g_pending.unloaded_count == 0) {
         hf->log(self, "CHAOS_TRANSPORT_FALLBACK: faction=%s ship_seen=%d unloaded=0 after=%.1fs; calling SpawnRosterRow(0x3C)",
                 chaos_faction_names[g_pending.faction], g_pending.ship_seen, g_pending.elapsed);
+        g_pending.used_fallback = 1;
         g_pending.is_transport = 0;
         g_pending.elapsed = 0.0;
         g_pending.timeout = CHAOS_BREACH_TIMEOUT_S;
@@ -1009,7 +1044,13 @@ static void ServicePendingWave(uintptr_t gbase, uintptr_t director, float dt)
         return;
     }
 
+    int released = g_tracker.reserved[g_pending.faction];
     ChaosTrackerReleaseUnusedReservations(&g_tracker, g_pending.faction);
+    hf->log(self,
+            "CHAOS_WAVE_COMPLETE: faction=%s mode=%s unloaded=%d/%d ship_seen=%d elapsed=%.1fs released=%d live=%d mission_spawned=%d result=timeout",
+            chaos_faction_names[g_pending.faction], PendingWaveMode(&g_pending),
+            g_pending.unloaded_count, g_pending.squad_size, g_pending.ship_seen,
+            g_pending.elapsed, released, g_tracker.live[g_pending.faction], g_tracker.mission_spawned);
     g_pending.active = 0;
 }
 
@@ -1048,7 +1089,7 @@ static void UpdatePerceptionHostility(uintptr_t gbase)
             player_mask |= mask;
             continue;
         }
-        int fam = ChaosEnemyFamily(resource);
+        int fam = ChaosEnemyFamilyEx(resource);
         if (fam >= 0 && !ChaosIsTransportResource(resource)) observed_masks[fam] |= mask;
     }
 
@@ -1069,7 +1110,7 @@ static void UpdatePerceptionHostility(uintptr_t gbase)
         uintptr_t rec_addr = perc_recs + (uintptr_t)i * CHAOS_PERCEPTION_STRIDE;
         if (!ReadMem(rec_addr + 0x13F0u, &active, 1) || !active) continue;
 
-        int fam = ChaosEnemyFamily(resource);
+        int fam = ChaosEnemyFamilyEx(resource);
         if (fam < 0 || ChaosIsTransportResource(resource)) continue;
 
         uint32_t fidx = 0, own_mask = 0, cur_ignore = 0;
@@ -1186,12 +1227,33 @@ static void OnSpawn(HfMod* mod, const HfEventInfo* info, void* user)
     if (!ReadyPhase() || !info || info->size < sizeof(HfSpawnEvent) || hf->game_state(self) != HF_STATE_MISSION || !Host())
         return;
     const HfSpawnEvent* e = (const HfSpawnEvent*)info;
-    if (!e->authority) return;
-    int fam = ChaosEnemyFamily(e->resource);
-    if (fam < 0) return;
+    int fam = ChaosEnemyFamilyEx(e->resource);
+
+    if (!e->authority) {
+        if (g_pending.active && fam != g_native_faction && e->resource != CHAOS_ENTITY_AVATAR &&
+            g_pending.unmapped_logged < 12) {
+            ++g_pending.unmapped_logged;
+            hf->log(self, "CHAOS_SPAWN_UNMAPPED: faction=%s entity=%u resource=%016llx auth=0 pending_faction=%s elapsed=%.1fs",
+                    (fam >= 0 && fam < CHAOS_FACTIONS) ? chaos_faction_names[fam] : "unknown",
+                    e->entity, (unsigned long long)e->resource,
+                    chaos_faction_names[g_pending.faction], g_pending.elapsed);
+        }
+        return;
+    }
+
+    if (fam < 0) {
+        if (g_pending.active && e->resource != CHAOS_ENTITY_AVATAR && g_pending.unmapped_logged < 12) {
+            ++g_pending.unmapped_logged;
+            hf->log(self, "CHAOS_SPAWN_UNMAPPED: faction=unknown entity=%u resource=%016llx auth=1 pending_faction=%s elapsed=%.1fs",
+                    e->entity, (unsigned long long)e->resource,
+                    chaos_faction_names[g_pending.faction], g_pending.elapsed);
+        }
+        return;
+    }
 
     if (ChaosIsTransportResource(e->resource)) {
-        if (g_pending.active && g_pending.faction == fam) {
+        int in_wave = (g_pending.active && g_pending.faction == fam);
+        if (in_wave) {
             ++g_pending.ship_seen;
             g_pending.ship_entity = e->entity;
             if (!g_pending.cargo_patched && g_pins_ok) {
@@ -1202,12 +1264,33 @@ static void OnSpawn(HfMod* mod, const HfEventInfo* info, void* user)
                 }
             }
         }
+        if (in_wave || (g_native_faction >= 0 && fam != g_native_faction)) {
+            hf->log(self, "CHAOS_TRANSPORT_SPAWN: faction=%s entity=%u resource=%016llx ship_seen=%d elapsed=%.1fs cargo_patched=%d",
+                    chaos_faction_names[fam], e->entity, (unsigned long long)e->resource,
+                    in_wave ? g_pending.ship_seen : 0, in_wave ? g_pending.elapsed : 0.0,
+                    in_wave ? g_pending.cargo_patched : 0);
+        }
         return;
     }
 
     if (g_pending.active && g_pending.faction == fam) {
-        ++g_pending.unloaded_count;
-        ChaosTrackerRecordSpawn(&g_tracker, fam, e->entity, 1);
+        if (ChaosTrackerRecordSpawn(&g_tracker, fam, e->entity, 1)) {
+            ++g_pending.unloaded_count;
+            hf->log(self,
+                    "CHAOS_SPAWN: faction=%s entity=%u resource=%016llx mode=%s wave_unloaded=%d/%d elapsed=%.1fs live=%d mission_spawned=%d",
+                    chaos_faction_names[fam], e->entity, (unsigned long long)e->resource,
+                    PendingWaveMode(&g_pending),
+                    g_pending.unloaded_count, g_pending.squad_size, g_pending.elapsed,
+                    g_tracker.live[fam], g_tracker.mission_spawned);
+        }
+    } else if (g_native_faction >= 0 && fam != g_native_faction) {
+        if (ChaosTrackerRecordSpawn(&g_tracker, fam, e->entity, 0)) {
+            hf->log(self,
+                    "CHAOS_SPAWN: faction=%s entity=%u resource=%016llx mode=late wave_unloaded=0/0 elapsed=%.1fs live=%d mission_spawned=%d",
+                    chaos_faction_names[fam], e->entity, (unsigned long long)e->resource,
+                    g_pending.active ? g_pending.elapsed : 0.0,
+                    g_tracker.live[fam], g_tracker.mission_spawned);
+        }
     }
 }
 

@@ -105,10 +105,10 @@
       "Id": "clonedivers.chaos-invasions",
       "Name": "Chaos Invasions",
       "Version": "0.2.0",
-      "ArchiveSha256": "8d314d5b818eaaba27430c1479ba0265f90fd93ef232704c72d0224dd053d6e2",
+      "ArchiveSha256": "42498666f228ea433d4ee63fc0447b7f2ec3033893f2012a9b1349106c7d4d41",
       "Source": "https://github.com/owendavidgoode/clonedivers/releases/download/forge-mods-2026-11-15/chaos-invasions-0.2.0.zip",
       "License": "Project-owned gameplay code mod (gameplay: true, optional default; private Heavy SEAF design fork)",
-      "NativeContentHash": "400697eaa4d1adf821c248e06f8f2f8382b76ae7ea88d240cb0c2a55f33b6754",
+      "NativeContentHash": "4c941838b63ce54291a7b8571f21e61817cce66e3548cd413705dfd9101d570b",
       "Optional": true,
       "Options": []
     },
