@@ -49,6 +49,7 @@ typedef struct {
     uint32_t parent_unit_index;
     uint32_t child_graph_handle;
     uint32_t parent_graph_handle;
+    uintptr_t expected_assoc;
     uint32_t garment_ordinal; /* 1..4 for live calls, 0 allowed in minimal probe tests */
 } coop_mesh_probe;
 
@@ -85,6 +86,7 @@ typedef struct {
     uintptr_t normal_graph;
     uint32_t child_graph_handle;
     uint32_t parent_graph_handle;
+    uintptr_t expected_assoc;
     uint32_t garment_ordinal;
     uint32_t target_kind; /* 0..6 garment table index */
     uint32_t node_index;

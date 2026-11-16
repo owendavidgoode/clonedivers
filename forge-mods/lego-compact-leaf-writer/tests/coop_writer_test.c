@@ -23,7 +23,7 @@ struct HfMod { const HfApi *api; };
 static HfApi api;
 static struct HfMod mod;
 
-#define TEST_MAX_REGIONS 2048u
+#define TEST_MAX_REGIONS 4096u
 typedef struct {
     uintptr_t address;
     size_t size;
@@ -52,6 +52,7 @@ static uint32_t retireOnCaptureHandle;
 static uintptr_t retireOnCaptureWorld;
 static MockSlab *retirePktSlab;
 static const lp_asset *activeAsset;
+static void (*testReadHook)(uintptr_t at, size_t bytes);
 
 void gw_test_fatal_cas_pause(gw_state *s) { (void)s; }
 
@@ -182,6 +183,7 @@ static int MockRead(uintptr_t at, void *out, size_t bytes) {
         MockSlab *s = &slabs[i];
         if (at >= s->address && bytes <= s->size && at - s->address <= s->size - bytes) {
             memcpy(out, s->bytes + (at - s->address), bytes);
+            if (testReadHook) testReadHook(at, bytes);
             return 0;
         }
     }
@@ -263,6 +265,9 @@ static uint32_t MockLeafNext(void *dst, const void *factor, const void *graph, c
     if (expectSubstitution) {
         TCHECK((uintptr_t)graph != activeDrawRef.poses[0]->address &&
                (uintptr_t)graph != activeDrawRef.poses[1]->address);
+    } else if (activeDrawRef.poses[0] && activeDrawRef.poses[1]) {
+        TCHECK((uintptr_t)graph == activeDrawRef.poses[0]->address ||
+               (uintptr_t)graph == activeDrawRef.poses[1]->address);
     }
     leafCalls++;
     _mm_setcsr(0x7F85u);
@@ -682,8 +687,8 @@ static void InitMockHost(const char *logsDir) {
     outerCalls = leafCalls = removeNextCalls = logCount = 0;
 
     sMgr = AllocSlab(0xB0);
-    sSlots = AllocSlab(512 * 8);
-    sGens = AllocSlab(512);
+    sSlots = AllocSlab(1024 * 8);
+    sGens = AllocSlab(1024);
     PutU32(sMgr, 0x98u, 512u);
     PutU64(sMgr, 0x88u, sSlots->address);
     PutU64(sMgr, 0xA0u, sGens->address);
@@ -728,6 +733,72 @@ static void InitMockHost(const char *logsDir) {
     TCHECK(writer.approved_next == (void *)MockSkinNextDirectCaller);
     TCHECK(writer.approved_leaf_next == (void *)MockLeafNext);
     TCHECK(writer.approved_remove_next == (void *)MockRemoveNext);
+}
+
+static uint32_t unbindParentHandleOnResolve;
+static MockWorld *unbindWorld;
+static int TestResolveWithUnbindParentGraph(struct gw_state *s, void *m, void *p, void *g,
+                                            uintptr_t caller, LONG64 seq, se_target *out, coop_actor_kind *kind) {
+    int ok = CoopResolveTarget(s, m, p, g, caller, seq, out, kind);
+    if (ok && unbindParentHandleOnResolve && unbindWorld) {
+        uint32_t idx = unbindParentHandleOnResolve & 0x7FFu;
+        PutU32(unbindWorld->handles, idx * 4u, 0u);
+        unbindParentHandleOnResolve = 0;
+    }
+    return ok;
+}
+
+static uintptr_t hookWatchMgrAddr, hookWatchWorldAddr, hookWatchPoseAddr;
+static MockSlab *hookWatchMgrSlab, *hookWatchWorldSlab, *hookWatchPoseSlab;
+static unsigned hookMgrHits, hookWorldHits, hookPoseHits;
+static size_t hookWatchPoseOff;
+
+static void HookMutateUnitMgrCount(uintptr_t at, size_t bytes) {
+    (void)bytes;
+    if (hookWatchMgrSlab && at == hookWatchMgrAddr) {
+        hookMgrHits++;
+        /* After openMgr is read inside CoopCaptureTarget (2nd read after CoopResolveTarget), bump capacity 512 -> 514 and populate new enemy slots. */
+        if (hookMgrHits == 2u) {
+            MockSlab *enemy1 = AllocSlab(0x200);
+            MockSlab *enemy2 = AllocSlab(0x200);
+            PutU64(sSlots, 512u * 8u, enemy1->address);
+            PutU8(sGens, 512u, 1u);
+            PutU64(sSlots, 513u * 8u, enemy2->address);
+            PutU8(sGens, 513u, 1u);
+            PutU32(hookWatchMgrSlab, 0x98u, 514u);
+        }
+    }
+}
+
+static void HookMutateRenderWorldLen(uintptr_t at, size_t bytes) {
+    (void)bytes;
+    if (hookWatchWorldSlab && at == hookWatchWorldAddr) {
+        hookWorldHits++;
+        /* Mutate objects.length (2040 -> 2041, keeping <= capacity 2048) right before the closing RenderRead inside CoopCaptureTarget. */
+        if (hookWorldHits == 2u) {
+            PutU32(hookWatchWorldSlab, 0x168u, 2041u);
+        }
+    }
+}
+
+static void HookMutatePoseDuringRecheck(uintptr_t at, size_t bytes) {
+    (void)bytes;
+    if (hookWatchPoseSlab && at == hookWatchPoseAddr) {
+        hookPoseHits++;
+        /* Corrupt one float at mesh_node row right after lp_capture (1st read at mesh_node offset) so lp_recheck (2nd read) catches it! */
+        if (hookPoseHits == 1u) {
+            uint32_t orig = 0;
+            memcpy(&orig, hookWatchPoseSlab->bytes + hookWatchPoseOff, 4);
+            orig ^= 0x00000001u;
+            PutU32(hookWatchPoseSlab, hookWatchPoseOff, orig);
+        }
+    }
+}
+
+static void ResetMockUnitsAndWorld(void) {
+    memset(sSlots->bytes, 0, sSlots->size);
+    memset(sGens->bytes, 0, sGens->size);
+    PutU32(sMgr, 0x98u, 512u);
 }
 
 int main(int argc, char **argv) {
@@ -905,6 +976,134 @@ int main(int argc, char **argv) {
     TCHECK(fullReg.last_reject == COOP_FAIL_CAPACITY);
     TCHECK(coop_retire_handle(&fullReg, MakeHandle(300u, 1u)) == 1u);
     TCHECK(coop_admit_mesh(&fullReg, &extra, NULL) == COOP_ACTOR_REMOTE_PLAYER);
+
+    /* Test 9: Sub-Run 1C ship->Hellpod regression (parent_graph_handle unresolvable & nodes != 107 -> retire 28 ship meshes -> spawn 28 ground meshes). */
+    ResetMockUnitsAndWorld();
+    for (unsigned s = 0; s < 4u; s++) {
+        PutU32(sPlayerRow, 0x3A8u + s * 0x20u, 0x7FFFu);
+    }
+    MockWorld wShip = CreateMockWorld();
+    MockWorld wGround = CreateMockWorld();
+    static MockActor shipAvatar, groundAvatar;
+    SpawnMockActor(&shipAvatar, &wShip, 0u, 1u, COOP_HUMAN_AVATAR_RESOURCE, 107u, 1);
+    PutU64(sContext, 0xB398u, 0x7777ULL);
+    PutU32(sPlayerRow, 0x84u, 1u);
+    SetPlayerSlot(0, 0x7777ULL, 50u, 3u, 1, 500u, &shipAvatar);
+
+    for (unsigned t = 0; t < 7u; t++) {
+        for (unsigned j = 1; j <= 4u; j++) {
+            InvokeActorMesh(&shipAvatar, t, j, 0, 1);
+        }
+    }
+    TCHECK(writer.fatal == 0 && writer.failed == 0);
+    TCHECK(coop_find_mesh(&coopReg, shipAvatar.meshes[1][2]->address) != NULL);
+
+    /* 9a: Destroy shipAvatar parent RenderGraph handle (0x2036a1-equivalent) while UnitManager still holds parentUnit -> fast-path evicts cleanly, 0 substitutions, fatal == 0! */
+    uint32_t shipParentIdx = shipAvatar.parentAppHandle & 0x7FFu;
+    uint32_t savedShipParentHandle = shipAvatar.parentAppHandle;
+    PutU32(wShip.handles, shipParentIdx * 4u, 0u);
+    LONG64 baseCorrected = writer.corrected;
+    LONG64 prevFastEvicts = writer.fast_evicts;
+    InvokeActorMesh(&shipAvatar, 1, 2, 1, 0); /* target=1 ordinal=2 grouped (exact leaf-fault-first shape) */
+    TCHECK(writer.fatal == 0 && writer.failed == 0 && writer.corrected == baseCorrected);
+    TCHECK(writer.fast_evicts > prevFastEvicts && coop_find_mesh(&coopReg, shipAvatar.meshes[1][2]->address) == NULL);
+
+    /* 9b: Restore handle temporarily, corrupt parent graph nodes (107 -> 106) -> fast-path also rejects & evicts cleanly! */
+    PutU32(wShip.handles, shipParentIdx * 4u, savedShipParentHandle);
+    PutU32(shipAvatar.parentGraph, 0x10u, 106u);
+    PutU32(shipAvatar.parentGraph, 0x28u, 106u);
+    prevFastEvicts = writer.fast_evicts;
+    InvokeActorMesh(&shipAvatar, 0, 1, 0, 0);
+    TCHECK(writer.fatal == 0 && writer.failed == 0 && writer.corrected == baseCorrected);
+    TCHECK(writer.fast_evicts > prevFastEvicts && coop_find_mesh(&coopReg, shipAvatar.meshes[0][1]->address) == NULL);
+
+    /* 9c: Restore nodes=107, unbind parentAppHandle mid-call AFTER CoopResolveTarget succeeds -> CoopCaptureTarget passthrough IV_RETIRED (no GW_CAPTURE fatal=3)! */
+    PutU32(shipAvatar.parentGraph, 0x10u, 107u);
+    PutU32(shipAvatar.parentGraph, 0x28u, 107u);
+    /* Admit target=2 ordinal=1 cleanly first */
+    InvokeActorMesh(&shipAvatar, 2, 1, 0, 1);
+    TCHECK(writer.corrected == baseCorrected + 1 && coop_find_mesh(&coopReg, shipAvatar.meshes[2][1]->address) != NULL);
+    LONG64 prevPassthrough = writer.passthrough_retired;
+    LONG64 prevTeardownEvicts = writer.capture_teardown_evicts;
+    unbindWorld = &wShip;
+    unbindParentHandleOnResolve = savedShipParentHandle;
+    writer.resolve_target = TestResolveWithUnbindParentGraph;
+    InvokeActorMesh(&shipAvatar, 2, 1, 1, 0);
+    writer.resolve_target = CoopResolveTarget;
+    TCHECK(writer.fatal == 0 && writer.failed == 0 && writer.corrected == baseCorrected + 1);
+    TCHECK(writer.passthrough_retired == prevPassthrough + 1 && writer.capture_teardown_evicts == prevTeardownEvicts + 1);
+    TCHECK(coop_find_mesh(&coopReg, shipAvatar.meshes[2][1]->address) == NULL);
+
+    /* 9d: Retire all 28 ship meshes cleanly and spawn 28 ground mission avatar meshes in wGround -> 100% corrections! */
+    for (unsigned t = 0; t < 7u; t++) {
+        for (unsigned j = 1; j <= 4u; j++) {
+            PutU32(sPkt, 4u, shipAvatar.meshHandles[t][j]);
+            _mm_setcsr(0x9F81u); SetLastError(0x1357u);
+            RenderRemoveObserved((void *)wShip.rw->address, (const void *)sPkt->address, NULL);
+            TCHECK(coop_find_mesh(&coopReg, shipAvatar.meshes[t][j]->address) == NULL);
+        }
+    }
+    SpawnMockActor(&groundAvatar, &wGround, 16u, 2u, COOP_HUMAN_AVATAR_RESOURCE, 107u, 1);
+    SetPlayerSlot(0, 0x7777ULL, 50u, 4u, 1, 501u, &groundAvatar);
+    baseCorrected = writer.corrected;
+    for (unsigned t = 0; t < 7u; t++) {
+        for (unsigned j = 1; j <= 4u; j++) {
+            InvokeActorMesh(&groundAvatar, t, j, 0, 1);
+            InvokeActorMesh(&groundAvatar, t, j, 1, 1);
+        }
+    }
+    TCHECK(writer.corrected == baseCorrected + 56 && writer.failed == 0 && writer.fatal == 0);
+
+    /* Test 10: Concurrent unrelated UnitManager capacity/free-list change mid-CoopCaptureTarget -> correction SUCCEEDS with fatal == 0! */
+    hookWatchMgrSlab = sMgr;
+    hookWatchMgrAddr = sMgr->address + 0x98u;
+    hookMgrHits = 0;
+    testReadHook = HookMutateUnitMgrCount;
+    baseCorrected = writer.corrected;
+    InvokeActorMesh(&groundAvatar, 3, 2, 1, 1);
+    testReadHook = NULL;
+    TCHECK(hookMgrHits >= 2u && U32(sMgr->bytes + 0x98u) == 514u);
+    TCHECK(writer.corrected == baseCorrected + 1 && writer.failed == 0 && writer.fatal == 0);
+
+    /* Test 11: Concurrent RenderWorld.objects.length change (CaptureRenderClose) & lp_recheck pose mutation -> passthrough with fatal == 0, next frame recovers 100%! */
+    PutU32(wGround.rw, 0x168u, 2040u);
+    hookWatchWorldSlab = wGround.rw;
+    hookWatchWorldAddr = wGround.rw->address + 0x168u;
+    hookWorldHits = 0;
+    testReadHook = HookMutateRenderWorldLen;
+    prevPassthrough = writer.passthrough_retired;
+    LONG64 prevMutSkips = writer.capture_mutation_skips;
+    baseCorrected = writer.corrected;
+    InvokeActorMesh(&groundAvatar, 4, 1, 0, 0);
+    testReadHook = NULL;
+    TCHECK(hookWorldHits >= 2u && U32(wGround.rw->bytes + 0x168u) == 2041u);
+    TCHECK(writer.fatal == 0 && writer.failed == 0 && writer.corrected == baseCorrected);
+    TCHECK(writer.passthrough_retired == prevPassthrough + 1 && writer.capture_mutation_skips == prevMutSkips + 1);
+    TCHECK(coop_find_mesh(&coopReg, groundAvatar.meshes[4][1]->address) != NULL);
+    InvokeActorMesh(&groundAvatar, 4, 1, 0, 1);
+    TCHECK(writer.corrected == baseCorrected + 1 && writer.fatal == 0);
+
+    /* 11b: Mid-sm_evaluate pose mutation causing lp_recheck failure -> passthrough without GW_RECHECK fatal, next frame recovers 100%! */
+    hookWatchPoseSlab = groundAvatar.childPoses[5][0];
+    hookWatchPoseOff = (size_t)COMPACT_BASES[5] * 48u;
+    hookWatchPoseAddr = hookWatchPoseSlab->address + hookWatchPoseOff;
+    uint32_t savedPoseWord = U32(hookWatchPoseSlab->bytes + hookWatchPoseOff);
+    hookPoseHits = 0;
+    testReadHook = HookMutatePoseDuringRecheck;
+    LONG64 prevRecheckPass = writer.passthrough_recheck;
+    baseCorrected = writer.corrected;
+    InvokeActorMesh(&groundAvatar, 5, 1, 0, 0);
+    testReadHook = NULL;
+    TCHECK(hookPoseHits >= 2u && writer.fatal == 0 && writer.failed == 0 && writer.corrected == baseCorrected);
+    TCHECK(writer.passthrough_recheck == prevRecheckPass + 1);
+    PutU32(hookWatchPoseSlab, hookWatchPoseOff, savedPoseWord);
+    InvokeActorMesh(&groundAvatar, 5, 1, 0, 1);
+    TCHECK(writer.corrected == baseCorrected + 1 && writer.fatal == 0);
+
+    /* Emit final health row confirming new telemetry counters format cleanly under 900 chars. */
+    writerHealthAt = 0;
+    WriterTick(&mod, 0.016f, NULL);
+    TCHECK(strstr(lastLogLine, "health ") && strstr(lastLogLine, "passthrough=") && strstr(lastLogLine, "recheck_pass=") && strstr(lastLogLine, "fast_evicts="));
 
     if (invocationDirectoryHandle != INVALID_HANDLE_VALUE) {
         CloseHandle(invocationDirectoryHandle);

@@ -86,7 +86,7 @@ static void WriterTick(HfMod *mod,float dt,void *context) {
                     activeTargets,adm,ret,aba,players,(unsigned long long)WriterCounter(&writer.local_hits),(unsigned long long)WriterCounter(&writer.remote_hits),(unsigned long long)WriterCounter(&writer.preview_hits));
             }
         }
-        hf->log(mod,"LEGO_COMPACT_LEAF_WRITER health row=%u correction_active=1 matched=%llu corrected=%llu failed=%llu unclassified=%llu warmup=%llu inflight=%llu peak=%llu diagnostic_dropped=%llu fatal=%ld teardown=%ld active_targets=%u retires=%llu aba=%llu local=%llu remote=%llu preview=%llu players=%u",
+        hf->log(mod,"LEGO_COMPACT_LEAF_WRITER health row=%u correction_active=1 matched=%llu corrected=%llu failed=%llu unclassified=%llu warmup=%llu inflight=%llu peak=%llu diagnostic_dropped=%llu fatal=%ld teardown=%ld active_targets=%u retires=%llu aba=%llu local=%llu remote=%llu preview=%llu players=%u passthrough=%llu plan_pass=%llu recheck_pass=%llu fast_evicts=%llu teardown_evicts=%llu mut_skips=%llu",
             writerHealthRows,(unsigned long long)WriterCounter(&writer.matched),(unsigned long long)WriterCounter(&writer.corrected),
             (unsigned long long)WriterCounter(&writer.failed),(unsigned long long)WriterCounter(&writer.unclassified),
             (unsigned long long)WriterCounter(&writer.warmup),(unsigned long long)WriterCounter(&writer.inflight),
@@ -94,7 +94,13 @@ static void WriterTick(HfMod *mod,float dt,void *context) {
             InterlockedCompareExchange(&writer.teardown,0,0),activeTargets,
             (unsigned long long)WriterCounter(&writer.retires),(unsigned long long)WriterCounter(&writer.aba_rebinds),
             (unsigned long long)WriterCounter(&writer.local_hits),(unsigned long long)WriterCounter(&writer.remote_hits),
-            (unsigned long long)WriterCounter(&writer.preview_hits),players);
+            (unsigned long long)WriterCounter(&writer.preview_hits),players,
+            (unsigned long long)WriterCounter(&writer.passthrough_retired),
+            (unsigned long long)WriterCounter(&writer.passthrough_plan),
+            (unsigned long long)WriterCounter(&writer.passthrough_recheck),
+            (unsigned long long)WriterCounter(&writer.fast_evicts),
+            (unsigned long long)WriterCounter(&writer.capture_teardown_evicts),
+            (unsigned long long)WriterCounter(&writer.capture_mutation_skips));
     }
     InterlockedExchange(&tickLock,0);
 }

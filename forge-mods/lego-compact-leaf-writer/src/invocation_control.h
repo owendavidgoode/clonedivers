@@ -39,7 +39,8 @@ static void InvocationObserve(const se_observe_context *ctx,se_observation_resul
     Record record;RenderMeta meta;Owner owner;uint64_t matches=0;
     int ok=0;
     if(coopDynamicMode) {
-        ok=token<56 && t<7 && ordinal>=1 && ordinal<=4 && CoopCaptureTarget(ctx,&record,&meta,&owner);
+        ok=token<56 && t<7 && ordinal>=1 && ordinal<=4 && CoopCaptureTarget(&writer,ctx,&record,&meta,&owner);
+        if(!ok)budget.status=(uint32_t)IV_RETIRED;
     } else {
         ok=token<56 && t<7 && ordinal<targets[t].render.meshes &&
             ctx->target->mesh==targets[t].render.mesh[ordinal].resolved.object &&

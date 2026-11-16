@@ -74,18 +74,26 @@ uint32_t gw_dispatch(gw_state *s,void *mesh,void *pool,void *graph,uintptr_t cal
     record->target=resolved_target;
     record->call=(se_call){(uintptr_t)mesh,(uintptr_t)pool,(uintptr_t)graph,caller,GetCurrentThreadId(),entry_csr,entry_error};
     se_observation_result observed={-1000,0};
-    if(gw_metadata_depth)gw_fail(s,GW_REENTRY,sequence);
+    int reentry=0,plan_capture_failed=0;
+    if(gw_metadata_depth){reentry=1;gw_fail(s,GW_REENTRY,sequence);}
     else {
      gw_metadata_depth=1;AcquireSRWLockExclusive(&s->metadata);
      se_observe_context context={s->binding,&record->target,&record->call,record->payload,SE_PAYLOAD};
      s->capture(&context,&observed,s->user);
      slot->sampler_status=observed.status;slot->sampler_used=observed.used;
      if(s->copy_sampler)s->copy_sampler(slot->sampler,s->sampler_user);
-     if(!observed.status && observed.used==SM_RAW_BYTES && (!s->plan_capture || !s->plan_capture(&slot->plan,record,0,s->plan_user)))observed.status=-1002;
+     if(!observed.status && observed.used==SM_RAW_BYTES && (!s->plan_capture || !s->plan_capture(&slot->plan,record,0,s->plan_user))){
+      plan_capture_failed=1;
+      observed.status=s->resolve_target?-1003:-1002;
+     }
      ReleaseSRWLockExclusive(&s->metadata);gw_metadata_depth=0;
     }
-    if(observed.status==-1003) {
-     /* Concurrent 1E7CD0/unit generation retirement between resolve and capture: pass through untouched. */
+    if(!reentry && (observed.status==-1003 || (s->resolve_target && (observed.status || observed.used!=SM_RAW_BYTES)))) {
+     /* Concurrent 1E7CD0/unit generation retirement or teardown/mutation between resolve and capture: pass through untouched. */
+     if(s->resolve_target) {
+      if(plan_capture_failed)gw_inc(s,&s->passthrough_plan);
+      else gw_inc(s,&s->passthrough_retired);
+     }
      retired_mid_call=1;substitution=0;
     } else {
      record->capture_status=observed.used<=SE_PAYLOAD?observed.status:-1001;
@@ -100,14 +108,23 @@ uint32_t gw_dispatch(gw_state *s,void *mesh,void *pool,void *graph,uintptr_t cal
       gw_metadata_depth=1;AcquireSRWLockExclusive(&s->metadata);
       int checked=s->plan_capture && s->plan_capture(&slot->plan,record,1,s->plan_user);
       ReleaseSRWLockExclusive(&s->metadata);gw_metadata_depth=0;
-      if(!checked)gw_fail(s,GW_RECHECK,sequence);else substitution=1;
+      if(!checked) {
+       if(s->resolve_target) {
+        gw_inc(s,&s->passthrough_recheck);
+        retired_mid_call=1;substitution=0;
+       } else {
+        gw_fail(s,GW_RECHECK,sequence);
+       }
+      } else substitution=1;
      }
-     gw_receipt *receipt=(gw_receipt*)(record->payload+GW_RECEIPT_OFFSET);
-     receipt->route=graph?2:1;receipt->expected=slot->plan.groups*2;receipt->outer_args_unchanged=1;
-     receipt->plan_blocks=slot->plan.blocks;receipt->plan_bytes=slot->plan.bytes;receipt->recheck_ok=(uint32_t)substitution;
-     frame.slot=slot;frame.receipt=receipt;
-     /* The private header is diagnostic only; outer R8 is never replaced. */
-     uintptr_t supplied=(uintptr_t)graph;memcpy(math->reserved,&supplied,8);math->reserved[2]=0;
+     if(!retired_mid_call) {
+      gw_receipt *receipt=(gw_receipt*)(record->payload+GW_RECEIPT_OFFSET);
+      receipt->route=graph?2:1;receipt->expected=slot->plan.groups*2;receipt->outer_args_unchanged=1;
+      receipt->plan_blocks=slot->plan.blocks;receipt->plan_bytes=slot->plan.bytes;receipt->recheck_ok=(uint32_t)substitution;
+      frame.slot=slot;frame.receipt=receipt;
+      /* The private header is diagnostic only; outer R8 is never replaced. */
+      uintptr_t supplied=(uintptr_t)graph;memcpy(math->reserved,&supplied,8);math->reserved[2]=0;
+     }
     }
    }
   }

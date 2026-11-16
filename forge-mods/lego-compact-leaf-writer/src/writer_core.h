@@ -35,6 +35,7 @@ typedef struct gw_state {
  volatile LONG ready,fatal,teardown,diagnostics_closed;
  volatile LONG64 calls,matched,corrected,failed,unclassified,warmup,inflight,peak,first_failure_sequence;
  volatile LONG64 retires,aba_rebinds,dynamic_admissions,local_hits,remote_hits,preview_hits;
+ volatile LONG64 passthrough_retired,passthrough_plan,passthrough_recheck,fast_evicts,capture_teardown_evicts,capture_mutation_skips;
  gw_slot slots[GW_SLOTS];
  gw_fault fault;
 } gw_state;

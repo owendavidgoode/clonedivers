@@ -108,6 +108,7 @@ static void fill_slot(coop_target_slot *slot, const coop_mesh_probe *probe, uint
     slot->normal_graph = probe->normal_graph ? probe->normal_graph : probe->graph;
     slot->child_graph_handle = probe->child_graph_handle;
     slot->parent_graph_handle = probe->parent_graph_handle;
+    slot->expected_assoc = probe->expected_assoc;
     slot->garment_ordinal = probe->garment_ordinal;
     slot->target_kind = target_kind;
     slot->node_index = probe->node_index;
@@ -153,6 +154,8 @@ coop_actor_kind coop_admit_mesh(coop_registry *reg, const coop_mesh_probe *probe
             slot->child_gen == probe->child_unit_gen &&
             slot->descriptor == probe->descriptor &&
             slot->skin == probe->skin &&
+            slot->world == probe->world &&
+            slot->expected_assoc == probe->expected_assoc &&
             slot->child_graph_handle == probe->child_graph_handle &&
             slot->parent_graph_handle == probe->parent_graph_handle) {
             slot->actor_kind = kind;
