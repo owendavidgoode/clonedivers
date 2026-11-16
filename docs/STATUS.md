@@ -1,14 +1,16 @@
 # Clonedivers Release and Project Status
 
-## November 16, 2026 (`1.14.2` / `0.8.2` release integration ready; `R1`/`R2` pending): 4-way Compact LEGO Empire r47 + `build25480438-r4`
+## November 16, 2026 (`v1.14.2` / `linux-v0.8.2` live; `R1` published, `R2` pending): 4-way Compact LEGO Empire r47 + `build25480438-r4`
 
-Live public downloads remain **Windows 1.14.1**, **Linux Forge 0.8.1**,
-**EmpireDivers `2026.11.08-r45-v4` Full**, **Clones `2026.09.27-r19`**, and
-**gameplay catalog `build25480438-r3`** (`manifest*.json` feeds remain unchanged until
-Wave 3 `R1` asset upload and `R2` attended checks complete). Candidate **Windows
-1.14.2** / **Linux Forge 0.8.2** (`claude/release-1.14.2-all`) integrates the
-Wave 1 + `c90673f` launcher polish, all **4 Compact-LEGO-baked `r47` Empire variants**,
-and **`build25480438-r4`** with all **4 project-owned optional mods**:
+Live public versions are **Windows 1.14.2** (`v1.14.2`) and **Linux Forge 0.8.2**
+(`linux-v0.8.2`), backed by published `R1` prerelease asset stores
+**`pack-2026.11.09-r47-files`** (`318` assets, `29,169,414,696` bytes) and
+**`forge-mods-2026-11-15`** (`3` assets, `274,640` bytes) plus `34` reused
+`pack-2026.11.08-r45-v4-files` assets (`455,980,288` bytes); attended `R2`
+acceptance checks remain pending. **Windows 1.14.2** / **Linux Forge 0.8.2**
+integrate the Wave 1 + `c90673f` launcher polish, all **4 Compact-LEGO-baked
+`r47` Empire variants**, and **`build25480438-r4`** with all **4 project-owned
+optional mods** (while `manifest*.json` `"pack"` blocks remain byte-for-byte unchanged):
 
 - **Launcher polish (PR #25, `claude/polish-20261115` @ `c90673f`):** Integrates
   20 confirmed Wave 1 storage, Windows UI/Warbond, and Linux/bridge polish fixes

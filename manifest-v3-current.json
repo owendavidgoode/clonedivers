@@ -21480,5 +21480,5 @@
     ],
     "combinedRoster": true
   },
-  "app": {"channel": "forge", "version": "1.14.1", "url": "https://github.com/owendavidgoode/clonedivers/releases/download/v1.14.1/Clonedivers.exe", "size": 66637372, "sha256": "abf38712eec9ab83b26d7dca1d079a4a0cdcd967690ca08f9a0090169aff47f0"}
+  "app": {"channel": "forge", "version": "1.14.2", "url": "https://github.com/owendavidgoode/clonedivers/releases/download/v1.14.2/Clonedivers.exe", "size": 66682636, "sha256": "60a4b2418addbf3056afa97a214317a3bee135c4efd5fffd1cf817926636d9c9"}
 }
