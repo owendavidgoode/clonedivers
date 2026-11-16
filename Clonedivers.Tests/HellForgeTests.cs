@@ -555,7 +555,9 @@ static class HellForgeTests
         }
         commands.Mods.Add(new("skyeshade.vanilla-plus", "Vanilla Plus", true, Path.Combine(install, "mods", "vanilla-plus"), ["code"]));
         commands.Mods.Add(new(HellForgePreset.CleanExit, "Clonedivers Clean Exit", true, Path.Combine(install, "mods", "clean-exit"), ["code"], "0.2.0"));
-        commands.Mods.Add(new(HellForgePreset.EmpireLegoYoda, "Empire LEGO Yoda Death (prototype)", true, Path.Combine(install, "mods", "empire-lego-yoda"), ["code"], "0.1.1"));
+        commands.Mods.Add(new(HellForgePreset.LegoCompactLeafWriter, "LEGO Compact Leaf Writer (CO-OP v0.0.9)", true, Path.Combine(install, "mods", "lego-compact-leaf-writer"), ["code"], "0.0.9"));
+        commands.Mods.Add(new(HellForgePreset.EmpireLegoYoda, "Empire LEGO Yoda Death", true, Path.Combine(install, "mods", "empire-lego-yoda"), ["code"], "0.1.2"));
+        commands.Mods.Add(new(HellForgePreset.ChaosInvasions, "Chaos Invasions", true, Path.Combine(install, "mods", "chaos-invasions"), ["gameplay", "code"], "0.2.0"));
         commands.Mods.Add(new("pack.80a03e3b-a671-4e54-a2ce-52c35bb64c91", "Reinforcement Beacons Fixed", true, Path.Combine(install, "mods", "beacons"), ["data"]));
         var conflictPlays = commands.Calls.Count(c => c[0] == "play");
         check(await Reject(() => client.PlayAsync(selection)) && conflictPlays == commands.Calls.Count(c => c[0] == "play"),
@@ -820,11 +822,18 @@ static class HellForgeTests
             }
         }
         check(empireFull.Files.Select(f => f.Name).SequenceEqual(empireLighter.Files.Select(f => f.Name)) &&
-            empireFull.Files.Sum(f => f.Size) > 0 && empireLighter.Files.Any(f => f.Sha256 != empireFull.Files.Single(g => g.Name == f.Name).Sha256),
-            "Empire Lighter contains every Full archive and companion with distinct streamed content");
-        check(empireLighter.Files.Where(f => f.Name.EndsWith(".gpu_resources")).Sum(f => f.Size) <
+            empireFull.Files.Sum(f => f.Size) == 8738707008L && empireLighter.Files.Sum(f => f.Size) == 8961480892L &&
+            HellForgePack.PinnedSelection("empire", "full", new Dictionary<string, bool> { ["droids"] = false }).Files.Sum(f => f.Size) == 6013620208L &&
+            HellForgePack.PinnedSelection("empire", "lighter", new Dictionary<string, bool> { ["droids"] = false }).Files.Sum(f => f.Size) == 6172775164L &&
+            empireFull.Files.Count(f => f.Url.Contains("pack-2026.11.08-r45-v4-files/")) == 34 &&
+            empireFull.Files.Count(f => f.Url.Contains("pack-2026.11.09-r47-files/")) == 62 &&
+            empireLighter.Files.Any(f => f.Sha256 != empireFull.Files.Single(g => g.Name == f.Name).Sha256),
+            "Empire 4-variant Compact LEGO catalogs pin exact archive sizes and r47/r45-v4 asset routing");
+        check(empireLighter.Files.Where(f => f.Name.EndsWith(".gpu_resources")).Sum(f => f.Size) == 2542440456L &&
+            empireFull.Files.Where(f => f.Name.EndsWith(".gpu_resources")).Sum(f => f.Size) == 7934299136L &&
+            empireLighter.Files.Where(f => f.Name.EndsWith(".gpu_resources")).Sum(f => f.Size) <
             empireFull.Files.Where(f => f.Name.EndsWith(".gpu_resources")).Sum(f => f.Size) / 2,
-            "Empire Lighter lowers resident GPU bytes by more than half");
+            "Empire Lighter Compact LEGO lowers resident GPU bytes by more than half");
         oldEmpire.AppliedSelection = oldEmpire.SelectionKey;
         oldEmpire.Texture = "full";
         check(oldEmpire.AppliedSelection != oldEmpire.SelectionKey && oldEmpire.Selection().Texture == "full",

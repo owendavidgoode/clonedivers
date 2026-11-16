@@ -15,14 +15,36 @@
       "Optional": true
     },
     {
+      "Id": "clonedivers.lego-compact-leaf-writer",
+      "Name": "LEGO Compact Leaf Writer (CO-OP v0.0.9)",
+      "Version": "0.0.9",
+      "Url": "https://github.com/owendavidgoode/clonedivers/releases/download/forge-mods-2026-11-15/lego-compact-leaf-writer-0.0.9.zip",
+      "Bytes": 199207,
+      "Sha256": "34e683e503d525ea5d419bb3477cb0f44e9b9f6cb3eed3c0ae4daebbf55b3dfa",
+      "ContentHash": "71d0bbb0d550b6c312f7d660941c3b620821279c51be47d71d205eb67bedbee3",
+      "Source": "Project-owned client-only code mod (0.0.9 multi-actor co-op Compact LEGO arms); gameplay false excludes it from HellForge co-op matching",
+      "Optional": true
+    },
+    {
       "Id": "clonedivers.empire-lego-yoda",
-      "Name": "Empire LEGO Yoda Death (prototype)",
-      "Version": "0.1.1",
-      "Url": "https://github.com/owendavidgoode/clonedivers/releases/download/forge-mods-2026-11-15/empire-lego-yoda-0.1.1.zip",
-      "Bytes": 45502,
-      "Sha256": "2a5b439a0ca9ab486ffa99b1b7fd650fd12f98b578c7acdbe903864336c7b03f",
-      "ContentHash": "95cc05bd87855c6d06251fdaf3b7687a0ad9494dee4922d818b14a0feb697706",
-      "Source": "Project-owned client-only code mod (0.1.1 dual SDK/poll local death routing); gameplay false excludes it from HellForge co-op matching",
+      "Name": "Empire LEGO Yoda Death",
+      "Version": "0.1.2",
+      "Url": "https://github.com/owendavidgoode/clonedivers/releases/download/forge-mods-2026-11-15/empire-lego-yoda-0.1.2.zip",
+      "Bytes": 45907,
+      "Sha256": "3d41fe4b6c4f49c52df786a8f83e1e9a1ff501aa3c14edfe742126069aaf9b18",
+      "ContentHash": "2e78173e56b6cc752ac27d810a7a6e7b72352ebe24437edae3a49b7d580f78dc",
+      "Source": "Project-owned client-only code mod (0.1.2 dual Compact LEGO and r45/r47 torso gate + local death routing); gameplay false excludes it from HellForge co-op matching",
+      "Optional": true
+    },
+    {
+      "Id": "clonedivers.chaos-invasions",
+      "Name": "Chaos Invasions",
+      "Version": "0.2.0",
+      "Url": "https://github.com/owendavidgoode/clonedivers/releases/download/forge-mods-2026-11-15/chaos-invasions-0.2.0.zip",
+      "Bytes": 27317,
+      "Sha256": "2284d270aeac9610415b3c1fe4f56538a10aba099fd913e612cbd61edd498813",
+      "ContentHash": "6dee64f20bdfcce28a5b26dae8ffb86d2472845d3d0be32fa656f0e8d2bf1c82",
+      "Source": "Project-owned gameplay code mod (0.2.0 cross-faction drops, breaches, preloading, and mutual-hostility perception); optional default",
       "Optional": true
     },
     {
@@ -98,7 +120,9 @@
   ],
   "Order": [
     "clonedivers.clean-exit",
+    "clonedivers.lego-compact-leaf-writer",
     "clonedivers.empire-lego-yoda",
+    "clonedivers.chaos-invasions",
     "local.operation-reroller",
     "chef.smarter-seaf",
     "local.heavy-seaf-presence",

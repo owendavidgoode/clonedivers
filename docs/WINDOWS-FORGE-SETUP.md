@@ -41,20 +41,23 @@ The update retains the separately verified0.3 installer and private account/prof
 snapshots before application changes. Known failures restore the previous app;
 unknown process outcomes keep recovery pending. Profile backups are not replayed.
 
-Required mods, order, options, marker OFF and sharing OFF are automatic. Nine
-archives are pinned in `forge-gameplay-build25480438-r4.json`, including optional
-Clonedivers Clean Exit 0.2.0 and Empire LEGO Yoda Death 0.1.1 (prototype). Their
-`gameplay: false` manifests exclude them from co-op matching. Each is enabled
-once on first setup for its catalog revision (`r3` upgrades preserve prior Clean
-Exit choices while offering Yoda 0.1.1 once). Players can disable, replace or
-remove either afterwards without setup re-adding it, including during
-required-mod repairs or rollback. First setup also respects already disabled
-copies. Completed r1/r2/r3 records remain readable; interrupted older setup keeps
-its backup for review through recovery. Both optional release assets are staged
-and must be published before launcher release, with the exact release pins
-listed in [Forge status](FORGE.md). The older mine patch is disabled because the
-new engine includes it. An already prepared same-build appearance is retained on
-application upgrade and its files are checked at launch.
+Required mods, order, options, marker OFF and sharing OFF are automatic. Eleven
+archives are pinned in `forge-gameplay-build25480438-r4.json`, including four
+optional project-owned defaults: Clonedivers Clean Exit `0.2.0`, LEGO Compact
+Leaf Writer `0.0.9`, Empire LEGO Yoda Death `0.1.2` (`gameplay: false` excludes
+these three from co-op matching), and Chaos Invasions `0.2.0` (`gameplay: true`).
+Each is enabled once on first setup for its catalog revision (`r3` upgrades
+preserve prior Clean Exit choices while offering the three newly introduced `r4`
+optional defaults once). Players can disable, replace or remove any optional
+afterwards without setup re-adding it, including during required-mod repairs or
+rollback. First setup also respects already disabled copies. Completed r1/r2/r3
+records remain readable; interrupted older setup keeps its backup for review
+through recovery. Pending `forge-mods-2026-11-15` release assets (`lego-compact-leaf-writer-0.0.9.zip`,
+`empire-lego-yoda-0.1.2.zip`, `chaos-invasions-0.2.0.zip`) must be published
+before launcher release, with the exact release pins listed in [Forge status](FORGE.md).
+The older mine patch is disabled because the new engine includes it. An already
+prepared same-build appearance is retained on application upgrade and its files
+are checked at launch.
 
 The main button now routes disabled Difficulty, changed preset order/options,
 overlapping preset alternatives and sharing ON through the existing backed-up

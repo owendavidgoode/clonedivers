@@ -67,27 +67,27 @@ Full/Lighter textures, Delta Squad, CIS droids, Covenant squids) and **Empire**
   `455,980,288` bytes; re-prepare requires `~25 GB` free) and attended `R2`
   visual ground-clearance acceptance (feeds stay untouched until upload). See
   [pack-2026.11.09-r47-full](releases/pack-2026.11.09-r47-full.md).
-- **Experimental tracks and release preflight (Wave 2 verified, unshipped):**
-  - *4-variant `r47 (+ lambda-fix)` matrix (`Full`, `nodroids`, `Lighter`,
-    `nodroids-lighter`):* Built and `verify_candidate.py`-verified offline on `D:\`
-    (`318` unique uploads = `29,169,414,696` bytes + `34` reused `r45-v4` files),
-    with conditional four-way UI staged on `claude/exp-variants-ui-20261115`
-    (`0ed1ac8`).
-  - *Experimental LEGO track (`claude/exp-lego-20261115` @ `ea5075a1`):*
-    `empire-lego-yoda` `0.1.1` (`45,502` bytes, staged in `build25480438-r4`) and
-    `empire-lego-camera` `0.0.2` passed Sub-Run 1A (`r47-shuttles` live death and
-    capture checks); `lego-compact-leaf-writer` `0.0.9` (`199,207` bytes) passed
-    `15,332` C checks, `9/9` suites, `290`-pose parity, and Sub-Run 1E
-    (`r47-lego-compact` ship/ground/return with zero failures).
-  - *Experimental Eagle/TIE and diagnostic tracks:* `empire-tie-switch` `0.2.1`
-    passed Sub-Run 1D Part 1 co-loaded with `clean-exit` `0.2.0` on patched
-    `tie-held-root` (upstream `eagle_base` PR patch prepared for `>=0.4.1-beta`;
-    live sorties stay in `R2`), and `chaos-probe` `0.1.0` completed lab Sub-Run 3
-    cleanly (`0` dumps, `lifecycle_dropped=0`).
-  - *Release preflight (Gate 3):* Live catalog audit (`r19` `966/966`, `r45-v4`
-    `96/96`, `r3` `8/8`) passed with `0` issues, and `publish-r1-assets.ps1`
-    (`-DryRun -IncludeLegoMods -IncludeVariants`) planned `320` upload assets
-    (`29,169,659,405` bytes) with `feedsLastVerified: true`.
+- **4-variant Compact-LEGO-baked `r47 (+ lambda-fix)` Empire catalogs (`1.14.2` / `0.8.2`):**
+  All four offline packs (`Full`, `nodroids`, `Lighter`, `nodroids-lighter`) passed
+  `verify_candidate.py` (`0` findings), embedding `hellforge-empire-r47.json` (`160` rows)
+  and `hellforge-empire-r47-lighter.json` (`352` rows) with 4-way UI across Windows,
+  Linux, and Bridge (`318` unique `pack-2026.11.09-r47-files` assets = `29,169,414,696` B +
+  `34` reused `r45-v4` assets = `455,980,288` B).
+- **Gameplay catalog `build25480438-r4` (`11` downloads, `8,061,046` bytes):**
+  - *Required (`7` downloads, `7,780,423` bytes):* unchanged from `r3`.
+  - *Optional defaults (`4` downloads, `280,623` bytes):* `clean-exit` `0.2.0` (`8,192` B),
+    `lego-compact-leaf-writer` `0.0.9` (`199,207` B, `15,332` C checks + `290`-pose parity +
+    Sub-Run 1E pass on `r47-lego-compact`), `empire-lego-yoda` `0.1.2` (`45,907` B, dual
+    Compact LEGO & `r45`/`r47` torso hashes — `139` C checks, `ScanVisuals == 4` on both
+    packs), and `chaos-invasions` `0.2.0` (`27,317` B, `gameplay: true`, `161` C + `52`
+    LuaJIT + `15` delivery checks).
+- **Non-shipping / held boundaries (`1.14.2` / `0.8.2`):**
+  `empire-tie-switch` `0.2.1` (Sub-Run 1D Part 1 pass on patched `tie-held-root` +
+  `upstream-pr-eagle-base.patch` for `>=0.4.1-beta`), diagnostic-only `empire-lego-camera`
+  `0.0.2` and `chaos-probe` `0.1.0`, plus shelved `at-st` Hulk rig, `empire-weapons`, and
+  `mixed-appearances` stay outside `1.14.2` / `0.8.2`. Live public feeds (`manifest*.json`)
+  remain at `1.14.1` / `0.8.1` / `r45-v4` / `r3` until Wave 3 `R1` asset upload and
+  attended `R2` checks pass.
 
 ## Qualification, Migration, and Cleanup
 

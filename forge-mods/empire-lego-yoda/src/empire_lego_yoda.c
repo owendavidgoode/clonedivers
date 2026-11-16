@@ -249,11 +249,11 @@ HF_MOD_EXPORT int hellforge_mod_init(const HfApi* api, HfMod* mod)
     if (file != INVALID_HANDLE_VALUE) CloseHandle(file);
     int qualified = ScanVisuals(directory);
     if (!audioOk || !qualified)
-    { hf->log(mod, "off: WAV qualified=%d r45 torso variants=%d/4", audioOk, qualified); hf->set_status(mod, "off: exact r45 LEGO torso assets or WAV absent"); return 0; }
+    { hf->log(mod, "off: WAV qualified=%d LEGO torso variants=%d/4", audioOk, qualified); hf->set_status(mod, "off: exact Compact LEGO or r45/r47 torso assets or WAV absent"); return 0; }
     if (hf_on_game_loaded(mod, Loaded, NULL) || hf_on_player_down(mod, Down, NULL, 0) ||
         hf_on_state(mod, State, NULL, 0) || hf_on_game_thread(mod, Tick, NULL)) return 1;
     ready = 1;
-    hf->log(mod, "armed: r45 torso variants=%d/4; local mission death only; WAV via Windows PlaySound (non-positional)", qualified);
-    hf->set_status(mod, "waiting for a confirmed local LEGO death (r45 assets)");
+    hf->log(mod, "armed: LEGO torso variants=%d/4; local mission death only; WAV via Windows PlaySound (non-positional)", qualified);
+    hf->set_status(mod, "waiting for a confirmed local LEGO death (Compact LEGO / r45 assets)");
     return 0;
 }

@@ -1,8 +1,9 @@
-Offline native prototype for HellForge 0.4.0-beta / SDK 16 / build 25480438.
+Offline native mod for HellForge 0.4.0-beta / SDK 16 / build 25480438.
 Client only (`gameplay: false`, `coop: per-player`); no Lua loader or HD2Runtime dependency.
 
 Reads applied category-0 armor, never menu selection or helmet. DP-40 B513FD54 and AF-02 E9ADD047
-qualify only for the corresponding Brawny/Lean torso whose staged MAIN and GPU payloads match r45-v3.
+qualify only for the corresponding Brawny/Lean torso whose staged MAIN and GPU payloads match either
+Compact LEGO (`r47-lego-compact`) or stilt (`r45`/`r47-shuttles`).
 Scans staged patch directories at startup, respecting numeric patch order within a family; ambiguous
 cross-family providers refuse the gate. Never changes game memory, patches, banks, statistics or network state.
 Use one appearance pack; this gate is a version-specific torso proof, not a general pack conflict resolver.

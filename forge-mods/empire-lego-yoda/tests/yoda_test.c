@@ -128,12 +128,25 @@ int wmain(int argc, wchar_t** argv)
     CHECK(ScanVisuals(argv[1]) == 4);
     Proof candidate[4]; memcpy(candidate, proofs, sizeof candidate);
     Proof source = proofs[0]; CHECK(Unchanged(&source));
+    CHECK(visuals[0].altMainHash && visuals[0].altGpuHash && strcmp(visuals[0].mainHash, visuals[0].altMainHash) && strcmp(visuals[0].gpuHash, visuals[0].altGpuHash));
+    {
+        Proof probe = source;
+        int isCompact = MatchesPair(&probe, visuals[0].mainHash, visuals[0].gpuHash);
+        int isAlt = MatchesPair(&probe, visuals[0].altMainHash, visuals[0].altGpuHash);
+        CHECK(isCompact != isAlt);
+        CHECK(!MatchesPair(&probe, visuals[0].mainHash, visuals[0].altGpuHash));
+        CHECK(!MatchesPair(&probe, visuals[0].altMainHash, visuals[0].gpuHash));
+    }
     CHECK(CreateDirectoryW(argv[2], NULL));
     CHECK(ScanVisuals(argv[2]) == 0);
     wchar_t main[1100], gpu[1100], later[1100], other[1100];
     swprintf(main, 1100, L"%ls\\9ba626afa44a3aa3.patch_1", argv[2]);
     swprintf(gpu, 1100, L"%ls.gpu_resources", main);
     WritePart(main, &source, 0, 0); WritePart(gpu, &source, 1, 0);
+    CHECK(ScanVisuals(argv[2]) == 1); CHECK(proofs[0].valid && Unchanged(&proofs[0]));
+    WritePart(gpu, &source, 1, 1);
+    CHECK(ScanVisuals(argv[2]) == 0);
+    WritePart(gpu, &source, 1, 0);
     CHECK(ScanVisuals(argv[2]) == 1); CHECK(proofs[0].valid && Unchanged(&proofs[0]));
     Proof good = proofs[0];
     swprintf(later, 1100, L"%ls\\9ba626afa44a3aa3.patch_2", argv[2]);
@@ -208,6 +221,6 @@ int wmain(int argc, wchar_t** argv)
     Reset(); Observe(); HANDLE edit = CreateFileW(gpu, FILE_APPEND_DATA, 0, NULL, OPEN_EXISTING, 0, NULL); CHECK(edit != INVALID_HANDLE_VALUE);
     DWORD wrote; CHECK(WriteFile(edit, "x", 1, &wrote, NULL)); CloseHandle(edit); CHECK(!Unchanged(&proofs[0])); Die(); Observe(); CHECK(calls == 0);
     free((void*)game);
-    printf("PASS: %d checks; real r45 4/4 torso hashes; offline SDK/poll death sequences and overrides; audio stub only\n", checks);
+    printf("PASS: %d checks; real 4/4 LEGO torso hashes (Compact/r45); offline SDK/poll death sequences and overrides; audio stub only\n", checks);
     return 0;
 }

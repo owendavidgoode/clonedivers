@@ -8,8 +8,10 @@ public static class HellForgePreset
         mod.Name.Contains("Smarter SEAF", StringComparison.OrdinalIgnoreCase) && mod.Id != "chef.smarter-seaf";
     public const string GuardDogs = "pack.6f1d2c8e-5a47-4b93-9e0a-3c7b1f4d8a21";
     public const string CleanExit = "clonedivers.clean-exit";
+    public const string LegoCompactLeafWriter = "clonedivers.lego-compact-leaf-writer";
     public const string EmpireLegoYoda = "clonedivers.empire-lego-yoda";
-    public static readonly string[] Optional = [CleanExit, EmpireLegoYoda];
+    public const string ChaosInvasions = "clonedivers.chaos-invasions";
+    public static readonly string[] Optional = [CleanExit, LegoCompactLeafWriter, EmpireLegoYoda, ChaosInvasions];
     public static readonly (string Id, string Name, string Version)[] Required = [
         ("hellforge.editor", "HellForge Editor", "0.4.2"),
         ("skyeshade.hell-forge", "Hell Forge Difficulty", "0.16.1"),

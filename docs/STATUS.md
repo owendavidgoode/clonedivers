@@ -1,15 +1,14 @@
 # Clonedivers Release and Project Status
 
-## November 16, 2026 (Wave 2 verified; Wave 3 pending): Launcher polish, r47-shuttles, and experimental tracks
+## November 16, 2026 (`1.14.2` / `0.8.2` release integration ready; `R1`/`R2` pending): 4-way Compact LEGO Empire r47 + `build25480438-r4`
 
 Live public downloads remain **Windows 1.14.1**, **Linux Forge 0.8.1**,
 **EmpireDivers `2026.11.08-r45-v4` Full**, **Clones `2026.09.27-r19`**, and
-**gameplay catalog `build25480438-r3`**. Wave 2 automated verification is complete
-for candidate **Windows 1.14.2**, **Linux Forge 0.8.2**, **`r47-shuttles`**, the
-4-variant offline matrix, experimental tracks, and release preflight. Wave 3
-publication remains gated on owner `R1` release-asset upload approval and `R2`
-attended visual and gameplay checks (feeds in `manifest*.json` remain unchanged
-until assets are live):
+**gameplay catalog `build25480438-r3`** (`manifest*.json` feeds remain unchanged until
+Wave 3 `R1` asset upload and `R2` attended checks complete). Candidate **Windows
+1.14.2** / **Linux Forge 0.8.2** (`claude/release-1.14.2-all`) integrates the
+Wave 1 + `c90673f` launcher polish, all **4 Compact-LEGO-baked `r47` Empire variants**,
+and **`build25480438-r4`** with all **4 project-owned optional mods**:
 
 - **Launcher polish (PR #25, `claude/polish-20261115` @ `c90673f`):** Integrates
   20 confirmed Wave 1 storage, Windows UI/Warbond, and Linux/bridge polish fixes
@@ -39,48 +38,65 @@ until assets are live):
   verified the SEAF Lambda `135°` upward wing fold cleanly in flight; landed visual
   ground clearance awaits attended `R2`. See
   [r47 Full notes](releases/pack-2026.11.09-r47-full.md).
-- **4-variant `r47 (+ lambda-fix)` offline matrix:** All four offline variants
-  (`Full`, `nodroids`, `Lighter`, `nodroids-lighter`) are built and
-  `verify_candidate.py`-verified on `D:\` (`318` unique upload assets =
-  `29,169,414,696` bytes plus `34` reused `r45-v4` assets = `455,980,288` bytes),
-  with conditional four-way launcher UI staged on branch
-  `claude/exp-variants-ui-20261115` (`0ed1ac8`); `Lighter` and CIS-off promotion
-  remains outside the default live baseline pending `R1` and owner variant policy.
-- **Experimental LEGO track (`claude/exp-lego-20261115` @ `ea5075a1`):**
-  - `empire-lego-yoda` `0.1.1` (`45,502` bytes) passed Sub-Run 1A on `r47-shuttles`
-    (`4/4` `r45` torso variants armed, `DP-40` kill logged `result=started route=local-poll`;
-    `FS-37 Ravager` silent), and `empire-lego-camera` `0.0.2` passed ship and mission
-    captures (`0` missing bytes).
-  - `lego-compact-leaf-writer` `0.0.9` (`199,207` bytes, SHA-256 `34e683e5...`,
-    `mod-hash` `71d0bbb0...`) passed `15,332` `coop_writer_test` checks, `9/9` C
-    suites, and `290`-pose math parity (`max_arm_world_err = 5.55e-16`), and
-    **passed Sub-Run 1E (`r47-lego-compact` + `0.0.9`)** cleanly (`clean=true, exit=0, dumps=[]`):
-    ship `admissions=28, active_targets=28` -> `1E7CD0` retire (`28`) -> ground
-    `unit_cap=15974` (`admissions=58, active_targets=28`) -> `leave` -> ship return
-    (`admissions=86, active_targets=28, corrected=90832, failed=0, fatal=0`) with
-    attached LEGO arms and C-hands across initial ship, four daylight ground angles,
-    and ship-return captures (fixing `0.0.7` and `0.0.8` runtime regressions).
-- **Experimental Eagle/TIE, `chaos-probe`, and shelved tracks:**
+- **4-variant Compact-LEGO-baked `r47 (+ lambda-fix)` Empire catalogs & UI (`1.14.2` / `0.8.2`):**
+  All four Compact-LEGO-baked variants (`Full`, `nodroids`, `Lighter`,
+  `nodroids-lighter`) passed `verify_candidate.py` (`VERIFIER_EXIT=0`, `0`
+  findings): `Full + Droids` (`8,738,707,008` archive bytes, `62` `r47` + `34`
+  reused `r45-v4`), `Full + Native` (`6,013,620,208` archive bytes, `64` `r47` +
+  `32` `r45-v4`), `Lighter + Droids` (`8,961,480,892` archive bytes, `2,542,440,456`
+  GPU vs `7,934,299,136` Full GPU), and `Lighter + Native` (`6,172,775,164`
+  archive bytes). Embedded catalogs `hellforge-empire-r47.json` (`160` rows) and
+  `hellforge-empire-r47-lighter.json` (`352` rows) plus 4-way UI routing (`SelectionKey`
+  `r47/25480438/empire/{Texture}/{Droids}/False`) are integrated across Windows,
+  Linux, and Bridge (`318` unique `pack-2026.11.09-r47-files` assets =
+  `29,169,414,696` bytes + `34` reused `r45-v4` assets = `455,980,288` bytes).
+- **Gameplay catalog `build25480438-r4` & 4 project-owned optional mods (`11` downloads, `8,061,046` bytes):**
+  - `clonedivers.clean-exit` `0.2.0` (`8,192` bytes, `gameplay: false`, live on
+    `forge-mods-2026-11-08`).
+  - `clonedivers.lego-compact-leaf-writer` `0.0.9` (`199,207` bytes, SHA-256
+    `34e683e503d525ea5d419bb3477cb0f44e9b9f6cb3eed3c0ae4daebbf55b3dfa`, content hash
+    `71d0bbb0d550b6c312f7d660941c3b620821279c51be47d71d205eb67bedbee3`, `gameplay: false`,
+    `coop: per-player`): passed `15,332` `coop_writer_test` checks, `9/9` C suites,
+    `290`-pose parity (`max_arm_world_err = 5.55e-16`), and **Sub-Run 1E (`r47-lego-compact`
+    + `0.0.9`)** cleanly (`clean=true, exit=0, dumps=[]`, `admissions=86, active_targets=28,
+    corrected=90832, failed=0, fatal=0`).
+  - `clonedivers.empire-lego-yoda` `0.1.2` (`45,907` bytes, SHA-256
+    `3d41fe4b6c4f49c52df786a8f83e1e9a1ff501aa3c14edfe742126069aaf9b18`, content hash
+    `2e78173e56b6cc752ac27d810a7a6e7b72352ebe24437edae3a49b7d580f78dc`, `gameplay: false`,
+    `coop: per-player`): accepts both Compact LEGO and stilt (`r45`/`r47-shuttles`)
+    `0xBB11C8041C14C747` torso hashes (`yoda_test.exe` `139` checks, `ScanVisuals == 4`
+    on both packs; `0.1.1` passed Sub-Run 1A death routing; copyrighted audio excluded
+    from git source).
+  - `clonedivers.chaos-invasions` `0.2.0` (`27,317` bytes, SHA-256
+    `2284d270aeac9610415b3c1fe4f56538a10aba099fd913e612cbd61edd498813`, content hash
+    `6dee64f20bdfcce28a5b26dae8ffb86d2472845d3d0be32fa656f0e8d2bf1c82`, `gameplay: true`):
+    playable cross-faction Chaos Mode (10-RVA 32-byte code pins, all-peer `<75%` curated
+    foreign preloading, Host/Solo Automaton Dropship / Illuminate Warp Ship / Terminid
+    Breach wave spawner, 250ms `BHV_PERCEPTION` mutual-hostility narrowing leaving
+    `BHV_FACTIONS` intact); passed `161` C checks, `52` LuaJIT menu checks, and `15`
+    delivery verification checks (`chaos-invasions-0.2.0.zip`). Live 3/4/5-way combat
+    and co-op sync remain in `R2`.
+  - All 4 optional mods are enabled by default on fresh `r4` setup and newly offered once
+    on `r3` -> `r4` upgrades while preserving prior player opt-outs.
+- **Non-shipping / held boundaries (`1.14.2` / `0.8.2`):**
   - `empire-tie-switch` `0.2.1` (`13,740` bytes, SHA-256 `a61ed213...`; `1,005` C
     checks + `135` closure parts) **passed Sub-Run 1D Part 1** co-loaded with
     `clean-exit` `0.2.0` on patched `tie-held-root` (`0` `+0x83dc` crashes,
     `Eagle package=2c26bc4c6592fa14 state=2`, `8/8 assigned delivery=`, `clean=true`).
     `upstream-pr-eagle-base.patch` is prepared for `>=0.4.1-beta`; stock `0.4.0-beta`
-    cannot mount `eagle_base` directly, and live Fighter/Bomber visual sorties plus
-    `235` synthetic Eagle beacon remain for attended `R2`.
-  - `chaos-probe` `0.1.0` completed lab Sub-Run 3 (`3x` D5) with clean exits
-    (`dumps=[]`), `6/6 CP_GUARD hook_result=0`, `6 x CP_UNHOOK result=0`, and
-    `CP_SUMMARY lifecycle_dropped=0` across Automaton (`2/2 op=air`), Terminid
-    (`2/2 op=breach`, post-breach death aborted arrival PNGs), and Illuminate
-    (`CP_LINES=10000` saturation, `0` natural `op=air`). `at-st` bone-merging,
-    `empire-weapons`, `mixed-appearances`, and cross-faction Chaos spawning remain
-    shelved offline.
+    cannot mount `eagle_base` directly, so TIE switching remains outside `build25480438-r4`.
+  - `empire-lego-camera` `0.0.2` (Sub-Run 1A capture helper) and `chaos-probe` `0.1.0`
+    (Sub-Run 3 `3x` D5 diagnostic) are lab-only and not shipped in `r4`.
+  - **`at-st` Hulk rig** (`88` palettes / `198` nodes vs native `<=64` / `<=128` limit),
+    **`empire-weapons`** (`E-11`/`DLT-19` lack `.unit` art), and **`mixed-appearances`**
+    recipe remain shelved offline and do NOT ship in `1.14.2` / `0.8.2`.
 - **Release preflight (Gate 3 and dry run):** Live catalog audit passed (`r19`
-  `966/966`, `r45-v4` `96/96`, `build25480438-r3` `8/8`; `0` issues).
-  `publish-r1-assets.ps1` (pinned to `0.0.9`) passed `5/5` tests;
-  `-DryRun -IncludeLegoMods -IncludeVariants` planned `320` upload assets
-  (`29,169,659,405` bytes across `pack-2026.11.09-r47-files` and `forge-mods-2026-11-15`)
-  with `34/34` reused `r45-v4` assets (`455,980,288` bytes) and `feedsLastVerified: true`.
+  `966/966`, `r45-v4` `96/96`, `build25480438-r3` `8/8`; `0` issues). Wave 2
+  `publish-r1-assets.ps1` dry run verified `318` variant assets (`29,169,414,696`
+  bytes) + `34/34` reused `r45-v4` assets (`455,980,288` bytes) + `lego-compact-leaf-writer`
+  `0.0.9`; `forge-mods-2026-11-15` additionally ships `empire-lego-yoda-0.1.2.zip`
+  (`45,907` bytes) and `chaos-invasions-0.2.0.zip` (`27,317` bytes) upon Wave 3 `R1`
+  upload approval and `R2` attended acceptance.
 
 ## November 9–10, 2026: Clonedivers 1.14.1 and Linux Forge 0.8.1 published
 

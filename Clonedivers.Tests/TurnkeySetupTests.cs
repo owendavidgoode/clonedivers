@@ -296,19 +296,22 @@ internal static class TurnkeySetupTests
         try
         {
             var cleanExit = catalog.Artifacts.Single(a => a.Id == HellForgePreset.CleanExit);
+            var leafWriter = catalog.Artifacts.Single(a => a.Id == HellForgePreset.LegoCompactLeafWriter);
             var yoda = catalog.Artifacts.Single(a => a.Id == HellForgePreset.EmpireLegoYoda);
+            var chaos = catalog.Artifacts.Single(a => a.Id == HellForgePreset.ChaosInvasions);
+            var newInR4 = HellForgePreset.Optional.Where(id => id != cleanExit.Id).ToHashSet(StringComparer.Ordinal);
             fake.Mods.RemoveAll(m => HellForgePreset.Optional.Contains(m.Id) || HellForgePreset.IsConflictingAlternative(m));
             foreach (var oldCatalog in new[] { "build25480438-r1", "build25480438-r2" })
             {
                 WriteRecord(oldCatalog);
                 check((await client.MissingGameplayAsync()).Select(a => a.Id).ToHashSet(StringComparer.Ordinal).SetEquals(HellForgePreset.Optional),
-                    "an " + oldCatalog + " installation offers both optional defaults once");
+                    "an " + oldCatalog + " installation offers all four optional defaults once");
             }
             fake.Ready = true;
             check((await client.PlayRegularAsync()).GetProperty("event").GetString() == "started", "optional mods are absent from launch requirements before first r4 setup");
             fake.Calls.Clear(); await client.InstallGameplayAsync(client.GameplayCache);
             check(HellForgePreset.Optional.All(id => fake.Mods.Single(m => m.Id == id).Enabled) && fake.Calls.Count(c => c[0] == "mod-add") == HellForgePreset.Optional.Length &&
-                HellForgePreset.Problem(await client.ModsAsync(), checkOrder: true) == null, "r4 setup imports, verifies, enables and orders both Clean Exit and Empire LEGO Yoda by default");
+                HellForgePreset.Problem(await client.ModsAsync(), checkOrder: true) == null, "r4 setup imports, verifies, enables and orders all four optional mods by default");
             var listed = await client.ModsAsync();
             var clientLast = listed with { Mods = [.. listed.Mods.Where(m => !HellForgePreset.Optional.Contains(m.Id)), .. listed.Mods.Where(m => HellForgePreset.Optional.Contains(m.Id)).Reverse()] };
             check(HellForgePreset.Problem(clientLast, checkOrder: true) == null,
@@ -324,13 +327,13 @@ internal static class TurnkeySetupTests
             check(HellForgePreset.Optional.All(id => !fake.Mods.Single(m => m.Id == id).Enabled) &&
                 fake.Calls.All(c => c[0] != "mod-add" && !(c[0] == "mod-switch" && HellForgePreset.Optional.Contains(c[2]))),
                 "required-mod repair preserves disabled or player-replaced optional mods");
-            fake.Mods.RemoveAll(m => m.Id == yoda.Id);
+            fake.Mods.RemoveAll(m => m.Id == yoda.Id || m.Id == chaos.Id);
             var restarted = new HellForgeClient(root, fake) { RequireCliQuiescent = () => { } };
             check((await restarted.MissingGameplayAsync()).Count == 0 && HellForgePreset.Problem(await restarted.ModsAsync(), checkOrder: true) == null,
-                "removing Empire LEGO Yoda while keeping disabled Clean Exit survives a fresh client and leaves the required preset ready");
-            fake.Mods.RemoveAll(m => m.Id == cleanExit.Id);
+                "removing optional gameplay and client mods while keeping disabled optionals survives a fresh client and leaves the required preset ready");
+            fake.Mods.RemoveAll(m => m.Id == cleanExit.Id || m.Id == leafWriter.Id);
             check((await restarted.MissingGameplayAsync()).Count == 0 && HellForgePreset.Problem(await restarted.ModsAsync(), checkOrder: true) == null,
-                "removing both optional mods survives a fresh client and leaves the required preset ready");
+                "removing all four optional mods survives a fresh client and leaves the required preset ready");
             fake.Ready = true;
             check((await restarted.PlayRegularAsync()).GetProperty("event").GetString() == "started", "optional removal still reaches the normal verified launch entry point");
             fake.Calls.Clear(); await restarted.InstallGameplayAsync(restarted.GameplayCache);
@@ -354,30 +357,36 @@ internal static class TurnkeySetupTests
             check(fake.Calls.All(c => c[0] != "mod-add") && HellForgePreset.Optional.All(id => fake.Mods.All(m => m.Id != id)),
                 "retry after rollback keeps removed optional mods removed");
 
-            // Upgrading from r3 preserves prior Clean Exit choices while offering Yoda 0.1.1 once.
+            // Upgrading from r3 preserves prior Clean Exit choices while offering the three new optional mods once.
             WriteRecord("build25480438-r3");
-            check((await restarted.MissingGameplayAsync()).Select(a => a.Id).SequenceEqual([yoda.Id]),
-                "an r3 installation with removed Clean Exit offers only the new Yoda optional default");
+            check((await restarted.MissingGameplayAsync()).Select(a => a.Id).ToHashSet(StringComparer.Ordinal).SetEquals(newInR4),
+                "an r3 installation with removed Clean Exit offers only the three newly added optional defaults");
             fake.FailPackOnce = true;
             try { await restarted.InstallGameplayAsync(restarted.GameplayCache); check(false, "failed r3->r4 upgrade must roll back"); }
-            catch (IOException error) { check(error.Message.Contains("previous mod selection was restored"), "failed r3->r4 upgrade rolls back newly imported Yoda"); }
-            check(fake.Mods.All(m => !HellForgePreset.Optional.Contains(m.Id)) && (await restarted.MissingGameplayAsync()).Select(a => a.Id).SequenceEqual([yoda.Id]),
-                "r3->r4 upgrade rollback keeps removed Clean Exit removed and still offers Yoda on retry");
+            catch (IOException error) { check(error.Message.Contains("previous mod selection was restored"), "failed r3->r4 upgrade rolls back newly imported optional mods"); }
+            check(fake.Mods.All(m => !HellForgePreset.Optional.Contains(m.Id)) &&
+                (await restarted.MissingGameplayAsync()).Select(a => a.Id).ToHashSet(StringComparer.Ordinal).SetEquals(newInR4),
+                "r3->r4 upgrade rollback keeps removed Clean Exit removed and still offers the three new optionals on retry");
             fake.Calls.Clear(); await restarted.InstallGameplayAsync(restarted.GameplayCache);
-            check(fake.Mods.Single(m => m.Id == yoda.Id).Enabled && fake.Mods.All(m => m.Id != cleanExit.Id) && fake.Calls.Count(c => c[0] == "mod-add") == 1,
-                "r3->r4 upgrade installs and enables Yoda while preserving removed Clean Exit");
+            check(newInR4.All(id => fake.Mods.Single(m => m.Id == id).Enabled) && fake.Mods.All(m => m.Id != cleanExit.Id) &&
+                fake.Calls.Count(c => c[0] == "mod-add") == newInR4.Count,
+                "r3->r4 upgrade installs and enables Leaf Writer, Yoda and Chaos Invasions while preserving removed Clean Exit");
 
-            // Upgrading an enabled pre-release Yoda 0.1.0 from r3 upgrades to 0.1.1; a disabled 0.1.0 stays disabled.
+            // Upgrading an enabled pre-release Yoda 0.1.0 from r3 upgrades to 0.1.2; a disabled 0.1.0 stays disabled (with Clean Exit/Leaf Writer/Chaos already disabled).
+            foreach (var otherId in new[] { leafWriter.Id, chaos.Id })
+                fake.Mods[fake.Mods.FindIndex(m => m.Id == otherId)] = fake.Mods.Single(m => m.Id == otherId) with { Enabled = false };
             var yodaOldDir = Path.Combine(root, "mods", yoda.Id + "-0.1.0");
             Directory.CreateDirectory(yodaOldDir);
             File.WriteAllText(Path.Combine(yodaOldDir, "hellforge-mod.json"), JsonSerializer.Serialize(new { id = yoda.Id, name = yoda.Name, version = "0.1.0", gameplay = false, coop = "per-player" }));
             fake.Mods[fake.Mods.FindIndex(m => m.Id == yoda.Id)] = new(yoda.Id, yoda.Name, true, yodaOldDir, ["code"], "0.1.0");
             WriteRecord("build25480438-r3");
             check((await restarted.MissingGameplayAsync()).Select(a => a.Id).SequenceEqual([yoda.Id]),
-                "an enabled 0.1.0 Yoda prototype is upgraded to 0.1.1 on first r4 setup");
+                "an enabled 0.1.0 Yoda prototype is upgraded to 0.1.2 on first r4 setup while disabled new optionals stay opted out");
             fake.Calls.Clear(); await restarted.InstallGameplayAsync(restarted.GameplayCache);
-            check(fake.Mods.Single(m => m.Id == yoda.Id) is { Enabled: true, Version: "0.1.1" } && fake.Calls.Count(c => c[0] == "mod-add") == 1,
-                "Yoda 0.1.0->0.1.1 upgrade imports and enables 0.1.1 cleanly");
+            check(fake.Mods.Single(m => m.Id == yoda.Id) is { Enabled: true, Version: var yodaVer } && yodaVer == yoda.Version &&
+                !fake.Mods.Single(m => m.Id == leafWriter.Id).Enabled && !fake.Mods.Single(m => m.Id == chaos.Id).Enabled &&
+                fake.Calls.Count(c => c[0] == "mod-add") == 1,
+                "Yoda 0.1.0->0.1.2 upgrade imports and enables 0.1.2 cleanly while keeping disabled Leaf Writer and Chaos disabled");
 
             fake.Mods[fake.Mods.FindIndex(m => m.Id == yoda.Id)] = new(yoda.Id, yoda.Name, false, yodaOldDir, ["code"], "0.1.0");
             WriteRecord("build25480438-r3");
@@ -388,11 +397,14 @@ internal static class TurnkeySetupTests
 
             // Upgrading from an earlier r4 record with partial OptionalDefaults offers newly added optionals while preserving prior opt-outs.
             fake.Mods.RemoveAll(m => HellForgePreset.Optional.Contains(m.Id));
-            WriteRecord(HellForgeGameplayCatalog.Pinned.Id, "applied", true, [cleanExit.Id]);
-            check((await restarted.MissingGameplayAsync()).Select(a => a.Id).SequenceEqual([yoda.Id]),
+            WriteRecord(HellForgeGameplayCatalog.Pinned.Id, "applied", true, [cleanExit.Id, yoda.Id]);
+            var partialNew = new[] { leafWriter.Id, chaos.Id };
+            check((await restarted.MissingGameplayAsync()).Select(a => a.Id).ToHashSet(StringComparer.Ordinal).SetEquals(partialNew),
                 "an applied r4 record with partial OptionalDefaults offers newly added optional defaults while keeping prior opt-outs");
             fake.Calls.Clear(); await restarted.InstallGameplayAsync(restarted.GameplayCache);
-            check(fake.Mods.Single(m => m.Id == yoda.Id).Enabled && fake.Mods.All(m => m.Id != cleanExit.Id) && fake.Calls.Count(c => c[0] == "mod-add") == 1,
+            check(partialNew.All(id => fake.Mods.Single(m => m.Id == id).Enabled) &&
+                fake.Mods.All(m => m.Id != cleanExit.Id && m.Id != yoda.Id) &&
+                fake.Calls.Count(c => c[0] == "mod-add") == partialNew.Length,
                 "partial-OptionalDefaults r4 upgrade installs and enables newly offered optionals while preserving removed prior optionals");
 
             foreach (var id in HellForgePreset.Optional)
