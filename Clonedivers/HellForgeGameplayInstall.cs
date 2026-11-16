@@ -20,7 +20,7 @@ public sealed partial class HellForgeClient
         var applied = new HashSet<string>(StringComparer.Ordinal);
         foreach (var id in intent.OptionalDefaults ?? [])
             if (!string.IsNullOrEmpty(id)) applied.Add(id);
-        if (intent.State == "applied" || intent.OptionalDefaultsApplied)
+        if (intent.OptionalDefaults == null && (intent.State == "applied" || intent.OptionalDefaultsApplied))
         {
             if (intent.Catalog == HellForgeGameplayCatalog.Pinned.Id)
                 foreach (var artifact in HellForgeGameplayCatalog.Pinned.Artifacts.Where(a => a.Optional))
