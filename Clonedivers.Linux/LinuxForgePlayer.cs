@@ -246,7 +246,10 @@ internal sealed class LinuxForgePlayer(IForgeConnection connection, LinuxForgePr
         var selection = Preferences.PackSelection();
         var exports = Directory.Exists(cache) ? new DirectoryInfo(cache).EnumerateDirectories().OrderByDescending(d => d.LastWriteTimeUtc).Take(32).Select(d => d.FullName).ToList() : [];
         if (await FindExportAsync(exports, selection, progress, ct) is { } prepared) return prepared;
-        return await HellForgePack.PlanAsync(selection, Path.Combine(cache, "linux-" + Guid.NewGuid().ToString("N")), exports.Prepend(Path.Combine(root, "mods")), progress, ct);
+        var mods = Path.Combine(root, "mods");
+        FileSafety.RejectLink(mods);
+        IEnumerable<string> sources = Directory.Exists(mods) ? exports.Prepend(mods) : exports;
+        return await HellForgePack.PlanAsync(selection, Path.Combine(cache, "linux-" + Guid.NewGuid().ToString("N")), sources, progress, ct);
     }
     /// <summary>Like Windows, reuse a verified earlier export instead of writing another full copy; its plan needs no download or export.</summary>
     internal static async Task<HellForgePack.Plan?> FindExportAsync(IEnumerable<string> exports, HellForgePack.Selection selection, IProgress<string>? progress = null, CancellationToken ct = default)

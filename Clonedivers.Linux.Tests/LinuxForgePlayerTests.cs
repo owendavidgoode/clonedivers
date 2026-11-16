@@ -57,7 +57,7 @@ internal static class LinuxForgePlayerTests
             "Linux import refresh displays the bridge's owned-Warbond status without losing imported-account readiness");
         connection.Account = new(true, true, "Opened 1 owned Warbonds.");
         await player.RefreshAsync();
-        check(player.State?.Account.Message == "Opened 1 owned Warbonds.", "Linux idle refresh carries the owned-Warbond status into the displayed account message");
+        check(player.State is { Account.Message: "Opened 1 owned Warbonds." }, "Linux idle refresh carries the owned-Warbond status into the displayed account message");
         await player.LaunchAsync();
         var imports = connection.Calls.Count(c => c[0] == "account-import");
         try { await player.ImportAsync(); throw new Exception("FAIL: active session accepted account import"); } catch (InvalidOperationException) { }
@@ -80,6 +80,57 @@ internal static class LinuxForgePlayerTests
         LinuxForgePlayer.PruneExports(exports, full);
         check(Directory.Exists(full) && Directory.Exists(windows) && Directory.Exists(Path.Combine(exports, "linux-old3")) && Directory.Exists(Path.Combine(exports, "linux-old2")) &&
             Directory.EnumerateDirectories(exports, "linux-*").Count() == 3, "an applied import prunes older Linux exports to the imported copy and two recent sources");
+
+        var freshRoot = Path.Combine(root, "fresh-forge", "pfx", "drive_c", "Forge");
+        Directory.CreateDirectory(freshRoot);
+        var freshPrefs = new LinuxForgePreferences { InstallRoot = freshRoot, Mode = "regular" };
+        var freshPlayer = new LinuxForgePlayer(new Connection(), freshPrefs);
+        freshPrefs.Mode = "clonedivers";
+        var freshPlan = await freshPlayer.PlanAppearanceAsync();
+        var freshExportsRoot = Path.Combine(Path.GetDirectoryName(freshRoot)!, "Clonedivers-HellForge-cache", "exports");
+        check(freshPlan.Selection.Mode == freshPrefs.PackSelection().Mode && freshPlan.Missing.Count > 0 &&
+            freshPlan.Output.StartsWith(Path.Combine(freshExportsRoot, "linux-"), StringComparison.Ordinal),
+            "appearance planning succeeds on a fresh Forge install without a mods folder");
+
+        var modsDir = Path.Combine(freshRoot, "mods");
+        Directory.CreateDirectory(modsDir);
+        File.WriteAllBytes(Path.Combine(modsDir, "sample.patch_0"), new byte[freshPlan.Missing.Min(f => f.Size)]);
+        var withModsPlan = await freshPlayer.PlanAppearanceAsync();
+        check(withModsPlan.Selection.Mode == freshPrefs.PackSelection().Mode && withModsPlan.Output != freshPlan.Output &&
+            withModsPlan.Output.StartsWith(Path.Combine(freshExportsRoot, "linux-"), StringComparison.Ordinal),
+            "appearance planning succeeds when a normal Forge mods folder exists");
+
+        var fileModsRoot = Path.Combine(root, "file-mods-forge", "pfx", "drive_c", "Forge");
+        Directory.CreateDirectory(fileModsRoot);
+        File.WriteAllText(Path.Combine(fileModsRoot, "mods"), "not a directory");
+        var fileModsPrefs = new LinuxForgePreferences { InstallRoot = fileModsRoot, Mode = "clonedivers" };
+        var fileModsPlan = await new LinuxForgePlayer(new Connection(), fileModsPrefs).PlanAppearanceAsync();
+        check(fileModsPlan.Selection.Mode == fileModsPrefs.PackSelection().Mode &&
+            fileModsPlan.Output.StartsWith(Path.Combine(Path.GetDirectoryName(fileModsRoot)!, "Clonedivers-HellForge-cache", "exports", "linux-"), StringComparison.Ordinal),
+            "appearance planning ignores a regular file at mods instead of failing");
+
+        try
+        {
+            var outsideMods = Path.Combine(root, "outside-mods");
+            Directory.CreateDirectory(outsideMods);
+            var linkModsRoot = Path.Combine(root, "link-mods-forge", "pfx", "drive_c", "Forge");
+            Directory.CreateDirectory(linkModsRoot);
+            Directory.CreateSymbolicLink(Path.Combine(linkModsRoot, "mods"), outsideMods);
+            var rejectedLink = false;
+            try { await new LinuxForgePlayer(new Connection(), new LinuxForgePreferences { InstallRoot = linkModsRoot, Mode = "clonedivers" }).PlanAppearanceAsync(); }
+            catch (InvalidDataException) { rejectedLink = true; }
+            check(rejectedLink, "appearance planning rejects a symlinked Forge mods folder");
+
+            var danglingModsRoot = Path.Combine(root, "dangling-mods-forge", "pfx", "drive_c", "Forge");
+            Directory.CreateDirectory(danglingModsRoot);
+            Directory.CreateSymbolicLink(Path.Combine(danglingModsRoot, "mods"), Path.Combine(root, "missing-outside-mods"));
+            var rejectedDangling = false;
+            try { await new LinuxForgePlayer(new Connection(), new LinuxForgePreferences { InstallRoot = danglingModsRoot, Mode = "clonedivers" }).PlanAppearanceAsync(); }
+            catch (InvalidDataException) { rejectedDangling = true; }
+            check(rejectedDangling, "appearance planning rejects a dangling symlink at Forge mods");
+        }
+        catch (UnauthorizedAccessException) when (OperatingSystem.IsWindows()) { Console.WriteLine("SKIP: mods symlink fixtures require Windows privileges; Linux CI must run these cases."); }
+        catch (IOException error) when (OperatingSystem.IsWindows() && (error.HResult & 0xffff) == 1314) { Console.WriteLine("SKIP: mods symlink fixtures require Windows privileges; Linux CI must run these cases."); }
     }
 
     sealed class Connection : IForgeConnection
