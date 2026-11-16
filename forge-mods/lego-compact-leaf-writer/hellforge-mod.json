@@ -1,0 +1,13 @@
+{
+  "format": 1,
+  "id": "clonedivers.lego-compact-leaf-writer",
+  "name": "LEGO Compact Leaf Writer (CO-OP v0.0.7)",
+  "version": "0.0.7",
+  "description": "Multi-actor co-op compact LEGO leaf writer. Dynamically admits 107-node 4D1C334D294DFA97 avatars (local player, remote co-op players, previews/corpses), integrates 1E7CD0 render-handle retirement and Unit generation ABA rebinding, with torso-sagittal shoulder hinge arm policy (enum 5).",
+  "gameplay": false,
+  "coop": "per-player",
+  "code": {
+    "dll": "lego_compact_leaf_writer.dll",
+    "sdk": 16
+  }
+}
