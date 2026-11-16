@@ -58,9 +58,11 @@ internal sealed record ForgeAccountView(bool Captured, bool Imported, string Mes
 }
 internal sealed record ForgePlayerState(HellForgeStatus Status, bool Ready, string Detail, ForgeAccountView? Account, HellForgeMods? Mods);
 
-internal sealed class LinuxForgePlayer(IForgeConnection connection, LinuxForgePreferences preferences) : IAsyncDisposable
+internal sealed class LinuxForgePlayer(IForgeConnection connection, LinuxForgePreferences preferences, string? resolvedInstallRoot = null) : IAsyncDisposable
 {
+    internal const string PastaGuidance = "pasta (the passt package) requires Ubuntu 24.04 or newer, Debian 13 or newer, or a distribution providing passt. This launcher requires it for both solo and co-op.";
     internal LinuxForgePreferences Preferences { get; } = preferences;
+    internal string? ResolvedInstallRoot { get; } = resolvedInstallRoot ?? preferences.InstallRoot;
     internal ForgePlayerState? State { get; private set; }
     internal bool OwnsSession { get; private set; }
     internal bool RequestedAccountSync { get; private set; }
@@ -69,10 +71,12 @@ internal sealed class LinuxForgePlayer(IForgeConnection connection, LinuxForgePr
     internal SyncRequest? PendingAccountSync => RequestedAccountSync ? syncRequest : null;
     internal void ResumeAccountSync(SyncRequest? request)
     { syncRequest = request; RequestedAccountSync = request != null; }
+    internal bool NeedsAccountImport => RequestedAccountSync && !Disconnected && !SessionActive && !Game.IsRunning() && State?.Account is { Captured: true, Imported: false };
     // A faulted bridge can neither confirm nor end a session; closing stdin hands cleanup to the bridge's EOF path, so it must not pin the window.
     internal bool Disconnected => connection.Faulted;
     internal bool SessionActive => !Disconnected && (OwnsSession || State?.Status.Running == true);
     internal string? Error { get; private set; }
+    bool errorFromPoll;
     internal bool CanLaunch => !SessionActive && !Disconnected && Error == null && State?.Ready == true;
 
     internal static async Task<LinuxForgePlayer> ConnectAsync(LinuxForgePreferences preferences, string resourceDirectory, CancellationToken ct = default)
@@ -95,37 +99,44 @@ internal sealed class LinuxForgePlayer(IForgeConnection connection, LinuxForgePr
             throw new InvalidDataException("Forge companion targets a different client or game build. Install the complete matching Clonedivers package.");
         if (doc.RootElement.GetProperty("control").GetString() != "native-linux") throw new InvalidDataException("Install the complete native Forge companion package.");
         var plan = LinuxForgePlan.StageNative(root, Path.Combine(resourceDirectory, LinuxForgePlan.NativeBridgeName), doc.RootElement.GetProperty("bridgeSha256").GetString()!);
-        preferences.InstallRoot = plan.Install; // downstream account/cache checks use the resolved prefix path too
-        var transport = await LinuxForgeTransport.StartAsync(plan, ct);
-        var player = new LinuxForgePlayer(transport, preferences);
+        return await ConnectWithPlanAsync(preferences, plan, async (p, token) => await LinuxForgeTransport.StartAsync(p, token), ct);
+    }
+    internal static async Task<LinuxForgePlayer> ConnectWithPlanAsync(LinuxForgePreferences preferences, LinuxForgePlan plan,
+        Func<LinuxForgePlan, CancellationToken, Task<IForgeConnection>> startConnection, CancellationToken ct = default)
+    {
+        var transport = await startConnection(plan, ct);
+        var player = new LinuxForgePlayer(transport, preferences, plan.Install);
         try { await player.ApplySelectionAsync(ct); return player; }
         catch { await player.DisposeAsync(); throw; }
     }
     internal static string MissingToolsMessage(IReadOnlyList<string> missing) => "Linux components needed: " + string.Join(", ", missing) +
-        ". Use Set up / update Forge to install them with desktop approval." + (missing.Contains("pasta")
-        ? " pasta (the passt package) requires Ubuntu 24.04 or newer, Debian 13 or newer, or a distribution providing passt. This launcher requires it for both solo and co-op."
-        : "");
-    internal async Task RefreshAsync(CancellationToken ct = default, bool preserveError = false)
+        ". Use Set up / update Forge to install them with desktop approval." + (missing.Contains("pasta") ? " " + PastaGuidance : "");
+    internal async Task RefreshAsync(CancellationToken ct = default, bool preserveError = false, bool allowImport = true)
     {
         var previousError = Error;
+        var keepForegroundError = preserveError && previousError != null && !errorFromPoll;
         try
         {
             var json = await connection.RunAsync(["player-status"], ct);
             State = json.Deserialize<ForgePlayerState>(HellForgePack.Json) ?? throw new InvalidDataException("Missing player status.");
             if (!State.Status.Running) OwnsSession = false;
-            if (!preserveError) Error = null;
+            if (!keepForegroundError) { Error = null; errorFromPoll = false; }
             var gameRunning = RequestedAccountSync && Game.IsRunning();
             if (RequestedAccountSync && syncRequest is { } request &&
                 (SessionActive || gameRunning)) syncRequest = request with { SawAttempt = true };
             if (RequestedAccountSync && !SessionActive && !gameRunning)
             {
                 if (State.Account is { Imported: true } || State.Account is { NeedsFreshCapture: true } && syncRequest?.SawAttempt == true) ResumeAccountSync(null);
-                else if (State.Account is { Captured: true, Imported: false })
+                else if (allowImport && State.Account is { Captured: true, Imported: false })
                 { ResumeAccountSync(null); await ImportAsync(ct); }
             }
-            if (preserveError && Error == null) Error = previousError;
+            if (keepForegroundError && Error == null) { Error = previousError; errorFromPoll = false; }
         }
-        catch (Exception error) { Error = error.Message; throw; }
+        catch (Exception error)
+        {
+            if (!preserveError || Error == null || errorFromPoll) { Error = error.Message; errorFromPoll = preserveError; }
+            throw;
+        }
     }
     internal async Task ApplySelectionAsync(CancellationToken ct = default)
     {
@@ -133,7 +144,7 @@ internal sealed class LinuxForgePlayer(IForgeConnection connection, LinuxForgePr
         if (SessionActive) throw new InvalidOperationException("End the current Forge session before changing its selection.");
         State = null;
         try { await SelectAsync(ct); await RefreshAsync(ct); }
-        catch (Exception error) { Error = error.Message; throw; }
+        catch (Exception error) { Error = error.Message; errorFromPoll = false; throw; }
     }
     // The bridge keeps its own selection; re-send ours so an earlier refused select-mode can never play or apply a stale mode.
     Task SelectAsync(CancellationToken ct)
@@ -154,7 +165,7 @@ internal sealed class LinuxForgePlayer(IForgeConnection connection, LinuxForgePr
         OwnsSession = true; // keep End session available if the following refresh fails
         await RefreshAsync(ct);
         }
-        catch (Exception error) { Error = error.Message; throw; }
+        catch (Exception error) { Error = error.Message; errorFromPoll = false; throw; }
     }
     internal async Task EndSessionAsync(CancellationToken ct = default)
     {
@@ -170,7 +181,7 @@ internal sealed class LinuxForgePlayer(IForgeConnection connection, LinuxForgePr
             // A definitive cleanup failure can arrive after the game has stopped. Refresh ownership so closing stays available.
             if (!Disconnected)
                 try { await RefreshAsync(ct); } catch { }
-            Error = error.Message; throw;
+            Error = error.Message; errorFromPoll = false; throw;
         }
     }
     internal async Task ImportAsync(CancellationToken ct = default)
@@ -181,7 +192,7 @@ internal sealed class LinuxForgePlayer(IForgeConnection connection, LinuxForgePr
         await connection.RunAsync(["account-import"], ct);
         await RefreshAsync(ct);
         }
-        catch (Exception error) { Error = error.Message; throw; }
+        catch (Exception error) { Error = error.Message; errorFromPoll = false; throw; }
     }
     internal async Task RecoverAppearanceAsync(CancellationToken ct = default)
     {
@@ -197,7 +208,7 @@ internal sealed class LinuxForgePlayer(IForgeConnection connection, LinuxForgePr
         var pinned = HellForgeGameplayCatalog.Pinned;
         foreach (var requested in missing)
             if (!pinned.Artifacts.Contains(requested)) throw new InvalidDataException("Bridge requested an artifact outside the pinned preset.");
-        var root = Preferences.InstallRoot ?? throw new InvalidOperationException("Choose the Forge installation first.");
+        var root = ResolvedInstallRoot ?? throw new InvalidOperationException("Choose the Forge installation first.");
         var cache = Path.Combine(Path.GetDirectoryName(root)!, "Clonedivers-HellForge-cache", "gameplay", pinned.Id);
         var windows = connection.NativePaths ? cache : WindowsPath(root, cache);
         // HTTPS runs here in the native frontend, never in the isolated Wine bridge.
@@ -229,7 +240,7 @@ internal sealed class LinuxForgePlayer(IForgeConnection connection, LinuxForgePr
     {
         if (SessionActive) throw new InvalidOperationException("End the current session before preparing this mode.");
         if (Preferences.Mode == "regular") throw new InvalidOperationException("Regular needs no appearance download.");
-        var root = Preferences.InstallRoot ?? throw new InvalidOperationException("Choose a Forge installation.");
+        var root = ResolvedInstallRoot ?? throw new InvalidOperationException("Choose a Forge installation.");
         var cache = Path.Combine(Path.GetDirectoryName(root)!, "Clonedivers-HellForge-cache", "exports");
         FileSafety.RejectLink(cache);
         var selection = Preferences.PackSelection();
@@ -271,7 +282,7 @@ internal sealed class LinuxForgePlayer(IForgeConnection connection, LinuxForgePr
             if (plan.Selection.Mode != expected.Mode || plan.Selection.Texture != expected.Texture || plan.Selection.ManifestSha256 != expected.ManifestSha256 ||
                 plan.Selection.Options.Count != expected.Options.Count || expected.Options.Any(pair => !plan.Selection.Options.TryGetValue(pair.Key, out var on) || on != pair.Value))
                 throw new InvalidDataException("The selected mode/options changed after planning. Prepare the selection again.");
-            var path = connection.NativePaths ? plan.Output : WindowsPath(Preferences.InstallRoot!, plan.Output);
+            var path = connection.NativePaths ? plan.Output : WindowsPath(ResolvedInstallRoot!, plan.Output);
             // This code runs in the native frontend, outside the isolated Wine namespace.
             if (Directory.Exists(plan.Output)) await HellForgePack.VerifyMetadataAsync(plan.Output, expected, ct); // reused export; the bridge re-hashes before import
             else await HellForgePack.ExportAsync(plan, allowDownloads, progress, ct);

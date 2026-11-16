@@ -22,7 +22,7 @@ internal sealed class ForgeWindow : Window
     bool busy => operations.Busy;
     string? lastError => operations.Error;
     bool closing, closed, updating, requestedSetup;
-    LinuxForgePlayer.SyncRequest? pendingSync;
+    readonly ForgeSyncHandoff syncHandoff = new();
     bool checkingLauncherUpdate, updateDeferred, updateFailed;
     ForgeAction primaryAction, retryAction = ForgeAction.Setup;
     readonly string? renderOutput;
@@ -170,7 +170,16 @@ internal sealed class ForgeWindow : Window
             return Task.CompletedTask;
         });
         updates.Click += async (_, _) => await CheckLauncherUpdateAsync(true);
-        timer.Tick += async (_, _) => { if (!closing && player is { Disconnected: false }) await operations.RefreshAsync(() => RefreshPlayerAsync(true), UpdateView); };
+        timer.Tick += async (_, _) =>
+        {
+            if (!closing && player is { Disconnected: false })
+                await operations.PollAsync(
+                    () => RefreshPlayerAsync(true),
+                    () => !closing && !closed && ForgeWindowFlow.NeedsForegroundRefresh(requestedSetup, player),
+                    Begin,
+                    RefreshPlayerAsync,
+                    UpdateView);
+        };
         Closing += (_, e) =>
         {
             if (preview) { closed = true; return; }
@@ -242,30 +251,29 @@ internal sealed class ForgeWindow : Window
     }
     async Task ConnectAsync()
     {
-        if (player is { Disconnected: true }) { var lost = player; pendingSync = lost.PendingAccountSync ?? pendingSync; player = null; await lost.DisposeAsync(); } // closing stdin lets the bridge finish its own cleanup
+        if (player is { Disconnected: true }) { var lost = player; player = null; await syncHandoff.ReleaseAsync(lost); } // closing stdin lets the bridge finish its own cleanup
         if (player != null) throw new InvalidOperationException("Close this launcher before switching its active Forge installation.");
         var root = folder.Text?.Trim(); preferences.InstallRoot = string.IsNullOrEmpty(root) ? null : root;
         if (LinuxForgeBootstrap.ExistingRoot(root) != null) preferences.Save(); // a blank or wrong folder is never persisted over discovery
         message.Text = "Starting the official isolated Forge connection…";
-        player = await LinuxForgePlayer.ConnectAsync(preferences, resources, lifetime.Token);
-        if (pendingSync != null) { player.ResumeAccountSync(pendingSync); pendingSync = null; await player.RefreshAsync(lifetime.Token); }
+        await syncHandoff.ConnectAsync(() => LinuxForgePlayer.ConnectAsync(preferences, resources, lifetime.Token), connected => player = connected, lifetime.Token);
     }
     async Task SetupAsync()
     {
         if (player?.SessionActive == true) throw new InvalidOperationException("End the Forge session before setup.");
-        if (player != null) { pendingSync = player.PendingAccountSync ?? pendingSync; await player.DisposeAsync(); player = null; }
+        if (player != null) { var existing = player; player = null; await syncHandoff.ReleaseAsync(existing); }
         var result = await LinuxForgeBootstrap.InstallAsync(preferences.InstallRoot, new Progress<string>(text => message.Text = text), lifetime.Token);
         preferences.InstallRoot = result; preferences.Save(); folder.Text = result;
         await ConnectAsync();
         requestedSetup = true;
-        if (player?.State?.Status is { GameCopyReady: true, RunnerReady: true, CompatibilityProblem: null }) { requestedSetup = false; await PrepareAsync(); }
+        if (ForgeWindowFlow.ShouldPrepareAfterSetup(requestedSetup, player)) { requestedSetup = false; await PrepareAsync(); }
     }
     Task RefreshPlayerAsync() => RefreshPlayerAsync(false);
     async Task RefreshPlayerAsync(bool background)
     {
         if (player == null) return;
-        await player.RefreshAsync(lifetime.Token, preserveError: background);
-        if (requestedSetup && !player.SessionActive && player.State?.Status is { GameCopyReady: true, RunnerReady: true, CompatibilityProblem: null })
+        await player.RefreshAsync(lifetime.Token, preserveError: background, allowImport: !background);
+        if (!background && ForgeWindowFlow.ShouldPrepareAfterSetup(requestedSetup, player))
         { requestedSetup = false; await PrepareAsync(); }
     }
     async Task FinishAccountAsync()
@@ -374,24 +382,72 @@ internal sealed class ForgeOperations
     internal bool Refreshing { get; private set; }
     internal string? Error { get; private set; }
     internal string? FailureDetail { get; private set; }
+    bool backgroundError;
     Task background = Task.CompletedTask;
     internal async Task RunAsync(Func<Task> action, Action changed)
     {
-        Busy = true; Error = FailureDetail = null; changed();
-        try { await background; Error = FailureDetail = null; await action(); }
-        catch (Exception error) { Error = error.Message; FailureDetail = error.ToString(); }
+        Busy = true; Error = FailureDetail = null; backgroundError = false; changed();
+        try { await background; Error = FailureDetail = null; backgroundError = false; await action(); }
+        catch (Exception error) { Error = error.Message; FailureDetail = error.ToString(); backgroundError = false; }
         finally { Busy = false; changed(); }
     }
-    internal Task RefreshAsync(Func<Task> action, Action changed)
+    internal Task<bool> RefreshAsync(Func<Task> action, Action changed)
     {
-        if (Busy || Refreshing) return Task.CompletedTask;
+        if (Busy || Refreshing) return Task.FromResult(false);
         Refreshing = true;
-        return background = RefreshCoreAsync(action, changed);
+        var task = RefreshCoreAsync(action, changed);
+        background = task;
+        return task;
     }
-    async Task RefreshCoreAsync(Func<Task> action, Action changed)
+    internal async Task PollAsync(Func<Task> poll, Func<bool> needsForeground, Action<Func<Task>> begin, Func<Task> foreground, Action changed)
     {
-        try { await action(); }
-        catch (Exception error) { Error ??= error.Message; FailureDetail ??= error.ToString(); }
+        if (await RefreshAsync(poll, changed) && !Busy && needsForeground()) begin(foreground);
+    }
+    async Task<bool> RefreshCoreAsync(Func<Task> action, Action changed)
+    {
+        try
+        {
+            await action();
+            if (backgroundError) { Error = FailureDetail = null; backgroundError = false; }
+            return true;
+        }
+        catch (Exception error)
+        {
+            if (Error == null || backgroundError) { Error = error.Message; FailureDetail = error.ToString(); backgroundError = true; }
+            return false;
+        }
         finally { Refreshing = false; changed(); }
     }
+}
+
+internal sealed class ForgeSyncHandoff
+{
+    internal LinuxForgePlayer.SyncRequest? Pending { get; private set; }
+    internal async Task ReleaseAsync(LinuxForgePlayer player)
+    {
+        Pending = player.PendingAccountSync ?? Pending;
+        await player.DisposeAsync();
+    }
+    internal async Task<LinuxForgePlayer> ConnectAsync(Func<Task<LinuxForgePlayer>> connect, Action<LinuxForgePlayer> attach, CancellationToken ct)
+    {
+        var connected = await connect();
+        attach(connected);
+        if (Pending != null)
+        {
+            connected.ResumeAccountSync(Pending);
+            Pending = null;
+            await connected.RefreshAsync(ct);
+        }
+        return connected;
+    }
+}
+
+internal static class ForgeWindowFlow
+{
+    internal static bool ShouldPrepareAfterSetup(bool requestedSetup, LinuxForgePlayer? player) =>
+        requestedSetup && player is { Disconnected: false, SessionActive: false } &&
+        player.State?.Status is { GameCopyReady: true, RunnerReady: true, CompatibilityProblem: null };
+
+    internal static bool NeedsForegroundRefresh(bool requestedSetup, LinuxForgePlayer? player) =>
+        player is { Disconnected: false } && (ShouldPrepareAfterSetup(requestedSetup, player) || player.NeedsAccountImport);
 }
