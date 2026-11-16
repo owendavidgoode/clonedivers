@@ -9,16 +9,21 @@ internal static class LinuxForgeBootstrap
     internal static string[] MissingTools(string? searchPath = null) => new[] { "ip", "unshare", "flock", "pgrep", "pasta", "python3" }
         .Where(name => !(searchPath ?? Environment.GetEnvironmentVariable("PATH") ?? "").Split(Path.PathSeparator)
             .Any(folder => folder.Length > 0 && File.Exists(Path.Combine(folder, name)))).ToArray();
+    internal const string NonAptToolsMessage = "Install iproute2, util-linux, procps, passt and Python3 with your distribution's package manager. " + LinuxForgePlayer.PastaGuidance;
+    internal static string InstallToolsFailureMessage(IReadOnlyList<string> missing) =>
+        missing.Count > 0 ? LinuxForgePlayer.MissingToolsMessage(missing)
+        : "Linux component installation did not finish. " + LinuxForgePlayer.PastaGuidance + " No security setting was disabled.";
     internal static async Task InstallToolsAsync(CancellationToken ct)
     {
         if (!OperatingSystem.IsLinux()) throw new PlatformNotSupportedException();
         if (Game.IsRunning()) throw new InvalidOperationException("End HD2 before installing the Linux setup components.");
-        if (!File.Exists("/usr/bin/apt-get")) throw new InvalidOperationException("Install iproute2, util-linux, procps, passt and Python3 with your distribution's package manager.");
+        if (!File.Exists("/usr/bin/apt-get")) throw new InvalidOperationException(NonAptToolsMessage);
         // The desktop owns approval; neither passwords nor approval dialogs are handled here.
         var start = new ProcessStartInfo("pkexec") { UseShellExecute = false, ArgumentList = { "/usr/bin/apt-get", "install", "-y", "iproute2", "util-linux", "procps", "passt", "python3" } };
         using var process = Process.Start(start) ?? throw new IOException("The desktop package approval could not open.");
         await process.WaitForExitAsync(ct);
-        if (process.ExitCode != 0 || MissingTools().Length != 0) throw new IOException("Linux component installation did not finish. Co-op requires pasta (passt) and Python3; no security setting was disabled.");
+        var missing = MissingTools();
+        if (process.ExitCode != 0 || missing.Length != 0) throw new IOException(InstallToolsFailureMessage(missing));
     }
     internal static PackFile Installer => new() { Name = "HellForge-Linux-Installer-0.4.0.tar.gz",
         Url = "https://github.com/SkyeShade/HellForge/releases/download/v0.4.0-beta/HellForge-Linux-Installer.tar.gz",
