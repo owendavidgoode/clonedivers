@@ -42,28 +42,54 @@ the game's 1280x720 window pixels instead of 853x480 DPI-scaled captures. Instal
 checked by the release runner; removing the environment override does not audit the installed mod list.
 With or without `--shots`, a completed hold is followed by `leave`, a further 10-second ship wait and a
 harness `state` recheck for live state 3 before stopping. During the hold, state is checked about every
-10 seconds to detect missions that finish themselves.
+10 seconds to detect missions that finish themselves. The driver also watches the active HellForge
+session's `backend/mission-bodies/*-Operation_Mission_end.json`: state 4 can persist for about 29 seconds
+after a squad wipe. Once a mission ends itself, the driver waits up to 180 seconds, polling every two
+seconds, for state 3 before calling the harness's ship no-op `leave` to record the return. It then settles
+and quits normally. A stuck return is a driver error; a squad wipe by itself is reduced coverage.
 Optional `CLONEDIVERS_LAB_GUARD` and `CLONEDIVERS_LAB_MEMORY_SCRIPT` hooks have no dated defaults.
 
-The command exits 0 only if **every** requested cycle passed. Failures and reduced coverage both give
-exit 1; invalid arguments give exit 2. Reduced coverage needs another qualifying run, and is not a crash
-event by itself. A later cleanup error never replaces the first error. A failed stop remains a failure
-even if a forced stop succeeds.
+Exit codes are 0 when every cycle is clean and qualifying, 1 when any cycle has an event, 2 for a driver
+or infrastructure error (including start/harness/cleanup failure or invalid arguments), and 3 when there
+are no events or errors but some cycles have reduced coverage. Errors take precedence over events.
+The last stdout line is a summary JSON object (`summary: true`) with counts for `cycles`, `planned_cycles`,
+`events`, `driver_errors`, `qualifying`, `reduced_coverage`, `returns`, total `mission_s`, and `exit_code`.
+A later cleanup error never replaces the first error. A failed stop remains an error even if a forced
+stop succeeds, except the expected unclean stop/finish status when collecting a recorded game event.
 
 Cycle rows retain the raw `mission`, `steps`, `run`, freeze and SEAF counters, and add these gate fields:
 
 | Field | Meaning |
 | --- | --- |
 | `planet`, `mission_type`, `difficulty`, `faction`, `seaf_spawns` | Top-level scenario and activity. Mission type comes from `mission.steps.select.mission_type`, not the control step's runtime mode. Planet/type are null when selection never completed. |
-| `mission_ended_early`, `reduced_coverage` | Mission left gameplay during the hold, or `leave.to_ship_s == 0`. Such a cycle cannot pass; without an independent error it has `failed: false`. |
-| `qualifying` | Full requested hold, a real return (`leave.to_ship_s > 0`), and verified ship settle. This describes coverage independently of later quit faults. |
+| `mission_ended_early` | A mission-body end or state change ended gameplay before the hold, or `leave.to_ship_s == 0`. Mission-body clocks are UTC and matched to the mission across midnight. Harness `in_control` is saved to whole seconds, so an end in the final clock second is conservatively early, including the recorded 120.571 s end on a 120 s hold. |
+| `mission_s`, `hold_s`, `mission_end_after_s` | Mission exposure in seconds, capped at the requested hold and the earliest observed mission end; live elapsed time starts at the harness's player-control timestamp. `hold_s` is the requested duration. `mission_end_after_s`, when present, retains the body timestamp's millisecond precision. Exposure is rounded to three decimals. |
+| `return_observed` | The game reached the ship (by harness abandon or its own return), passed the ship settle check, and took the normal quit path. An early mission can still provide return coverage. |
+| `qualifying`, `reduced_coverage` | Qualifying means a full hold and an observed return. Reduced coverage means that full combination was not observed; it is not an event or error by itself. |
 | `ship_settle_ok` | State was still 3 after the extra 10 seconds on the ship. |
-| `passed`, `failed` | Pass requires qualifying coverage, no detected failure and a recorded process exit of 0. `failed` covers step/cleanup errors, process death, mission stalls, other native faults and nonzero process exits. Missing exit evidence cannot pass. |
+| `event`, `event_signatures` | One event per affected cycle, on **every** cycle regardless of qualification: an in-mission freeze or a native fault except an evidenced, handled `+0x626296`. Signatures are deduplicated. Fail-fast/by-module follow-ons add no signature; `+0x99d7cd` accompanying `+0x1e6b3e` belongs to that primary fault. |
+| `passed`, `failed`, `driver_error` | `passed` means no event and no driver error; `failed` is its inverse. A clean early-ended cycle has `passed: true`, `qualifying: false`. `driver_error` separates harness/cleanup errors and unexplained process exits from game events. Missing exit evidence without a recorded event is a driver error. |
 | `run_json.exit`, `run_json.exit_code` | Original nested exit details and a convenient copy of `exit.code`; the harness has no top-level `exit_code`. |
 | `peak_working_set_bytes` | Game PID's Windows lifetime peak working set, sampled from launch through cleanup. Null when unavailable. |
 | `peak_vram_mib` | Highest device memory usage reported by `nvidia-smi --query-gpu=memory.used --format=csv,noheader,nounits`, sampled in a thread about every 3 seconds. Maximum across GPUs; includes other applications and is not process-attributed VRAM. Null if NVIDIA tooling/data is unavailable. |
-| `crashes` | Every native `crash:` line from the session's copied `modloader.log`, including secondary and by-module lines. Each has full `line`, `code`, `site`, `module`, `offset`, `handled_quit`. Module/offset are null if the source line has none. |
-| `handled_quit_evidence`, `quit_crash` | Only `helldivers2.exe+0x626296` with an actual teardown-handler message matching this run's PID and time window is tagged `handled_quit` and exempt. Copied engine logs can contain older sessions; merely loading/arming clean-exit or an unscoped legacy message is insufficient. `quit_crash` preserves the separate quit-signature indicator; any other fault, including secondary faults, fails the cycle. |
+| `crashes` | Every `crash:` line from the copied `modloader.log`. Each has `kind` (`fault`, `by-module`, `fail-fast`), full `line`, `code`, `site`, `module`, `offset`, `handled_quit`. Only a primary `at module+offset` supplies a site; follow-on entries retain their text with null module/offset. |
+| `handled_quit_evidence`, `quit_crash` | Only `helldivers2.exe+0x626296` with an actual teardown-handler message matching this run's PID and time window is tagged `handled_quit` and exempt. Copied engine logs can contain older sessions; loading/arming clean-exit, an unscoped legacy message, or exit code 0 alone is insufficient. `quit_crash` preserves the separate quit-signature indicator. |
+
+The local A/B wrapper `D:\ClaudeWork\orch\lab\pack-gate.ps1` treats driver codes 0, 1 and 3 as data and
+continues. Code 2 (or a missing/unexpected exit) makes the gate INVALID: stop, restore, and report.
+`-TopUp 4` is the default: after the planned AABB cycles it adds up to four one-cycle blocks per short
+arm, interleaved A/B, checking exposure and returns after each. `-TopUp 0` disables extra cycles.
+`-DryRun` prints the complete plan, including conditional top-ups, exit handling and restoration.
+
+`score_ab.py A B --expected 12 --hold 180` scores events over all cycles. Its rule is PASS when B has
+at most one event or B events are no greater than A; FAIL when B has at least two and A has zero, or
+`+0x1e6b3e` occurs only on B; otherwise INCONCLUSIVE. Additionally, the verdict is INCONCLUSIVE for
+coverage unless **each arm** reaches at least 80% of planned mission exposure (`cycles x hold`) and
+80% of planned returns. Top-ups add exposure/returns without changing those planned denominators.
+The report shows both coverages, events per 1000 mission-seconds (unknown at zero exposure), and
+BASELINE for signatures shared by both arms. `rule_verdict` retains the event-only result when coverage
+is short. PASS means only “no gross regression.” Legacy rows use their recorded durations and clean
+returns when explicit coverage fields are absent; new gate runs always use explicit fields.
 
 Queue consumers can use `parse_queue_request(text)` or `load_queue_request(path)` from the driver.
 Requests require string fields `name`, `zip_or_folder`, `kind` and `checks`. Generate JSON with

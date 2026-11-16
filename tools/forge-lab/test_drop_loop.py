@@ -22,6 +22,83 @@ def qualifying_row() -> dict:
     return row
 
 
+def scan_review(record: dict) -> dict:
+    run = MagicMock()
+    run.rglob.side_effect = [[], [], []]
+    (run / 'run.json').read_text.return_value = json.dumps(record['run_json'])
+    bodies = []
+    for item in record['bodies']:
+        body = Mock()
+        body.name = item['name']
+        body.read_text.return_value = json.dumps(item['body'])
+        bodies.append(body)
+    (run / 'hellforge-session/backend/mission-bodies').glob.return_value = bodies
+    return drop_loop.scan_run(run)
+
+
+class ReviewReplayTests(unittest.TestCase):
+    def test_five_recorded_late_failures_are_reduced_with_exact_exposure(self) -> None:
+        for record, seconds in zip(fixture('reviewed-mission-ends.json')[:5], [112.230, 97.949, 97.095, 230.302, 120]):
+            with self.subTest(source=record['source']):
+                row = qualifying_row()
+                row.update(scan_review(record), hold_s=record['hold_s'], held_s=record['hold_s'], mission_s=90)
+                drop_loop.classify_cycle(row)
+                self.assertTrue(row['mission_ended_early'])
+                self.assertTrue(row['passed'])
+                self.assertTrue(row['reduced_coverage'])
+                self.assertFalse(row['qualifying'])
+                self.assertFalse(row['event'])
+                self.assertEqual(row['mission_s'], seconds)
+
+    def test_five_recorded_squad_wipes_are_not_events_or_driver_errors(self) -> None:
+        for record, seconds in zip(fixture('reviewed-mission-ends.json')[5:], [245.678, 222.702, 35.481, 92.557, 90.006]):
+            with self.subTest(source=record['source']):
+                row = qualifying_row()
+                facts = scan_review(record)
+                # Replay a clean auto-return/quit path; the source runs predate
+                # this flow and some ended via a timed forced stop.
+                facts['run_json']['exit'] = {'code': 0, 'how': 'quit'}
+                row.update(facts, hold_s=record['hold_s'], held_s=record['hold_s'])
+                drop_loop.classify_cycle(row)
+                self.assertTrue(row['passed'])
+                self.assertTrue(row['reduced_coverage'])
+                self.assertFalse(row['qualifying'])
+                self.assertEqual(row['mission_s'], seconds)
+
+    def test_mission_body_clock_handles_midnight_and_ignores_other_missions(self) -> None:
+        folder, body = Mock(), Mock()
+        body.name = '000005250-Operation_Mission_end.json'
+        body.read_text.return_value = '{"missionSuccess": false}'
+        folder.glob.return_value = [body]
+        mission = {'in_control': '2026-11-09T23:59:50Z'}
+        self.assertEqual(drop_loop.mission_end_after(folder, mission, '2026-11-10T00:00:30Z'), 15.25)
+        self.assertIsNone(drop_loop.mission_end_after(folder, mission, '2026-11-09T23:59:59Z'))
+
+    def test_two_recorded_return_sessions_have_only_the_primary_signature(self) -> None:
+        records = fixture('reviewed-return-faults.json')
+        self.assertEqual(len(records), 2)
+        for record in records:
+            with self.subTest(session=record['session']):
+                run, log = MagicMock(), Mock()
+                run.rglob.side_effect = [[], [log], []]
+                (run / 'run.json').read_text.return_value = '{}'
+                log.read_text.return_value = '\n'.join(record['lines'])
+                row = drop_loop.scan_run(run)
+                drop_loop.classify_cycle(row)
+                self.assertTrue(row['event'])
+                self.assertFalse(row['driver_error'])
+                self.assertEqual(row['event_signatures'], ['helldivers2.exe+0x1e6b3e'])
+
+    def test_recorded_lighter_freeze_counts_without_qualifying(self) -> None:
+        row = fixture('reviewed-freeze-cycle.json')
+        drop_loop.classify_cycle(row)
+        self.assertTrue(row['event'])
+        self.assertFalse(row['qualifying'])
+        self.assertFalse(row['driver_error'])
+        self.assertEqual(row['event_signatures'], ['freeze:helldivers2.exe+0x700afb'])
+        self.assertEqual(row['mission_s'], row['stalled_after_s'])
+
+
 class ClassificationTests(unittest.TestCase):
     def setUp(self) -> None:
         self.missions = [{'in_control': '2026-11-09T12:12:42-06:00',
@@ -84,12 +161,13 @@ class ClassificationTests(unittest.TestCase):
 
     def test_recorded_zero_return_is_reduced_coverage(self) -> None:
         row = fixture('early-cycle.json')
+        row['run_json']['exit'] = {'code': 0, 'how': 'quit'}
         row['ship_settle_ok'] = True
         drop_loop.classify_cycle(row)
         self.assertTrue(row['mission_ended_early'])
         self.assertTrue(row['reduced_coverage'])
         self.assertFalse(row['qualifying'])
-        self.assertFalse(row['passed'])
+        self.assertTrue(row['passed'])
         self.assertFalse(row['failed'])
 
     def test_recorded_selection_metadata_is_promoted(self) -> None:
@@ -101,13 +179,13 @@ class ClassificationTests(unittest.TestCase):
         # The control step's mission_type=1 is a runtime mode, not the selected type=21.
         self.assertEqual(row['mission']['steps']['control']['mission_type'], 1)
 
-    def test_missing_real_return_or_settle_cannot_pass(self) -> None:
+    def test_missing_full_hold_or_settle_is_not_qualifying(self) -> None:
         for field in ('held_s', 'ship_settle_ok'):
             row = qualifying_row()
             row.pop(field)
             drop_loop.classify_cycle(row)
             self.assertFalse(row['qualifying'])
-            self.assertFalse(row['passed'])
+            self.assertTrue(row['passed'])
         row = qualifying_row()
         row['run_json']['missions'][0].pop('leave')
         drop_loop.classify_cycle(row)
@@ -126,6 +204,13 @@ class ClassificationTests(unittest.TestCase):
         row['run_json']['exit'] = fixture('return-fault-run.json')['exit']
         drop_loop.classify_cycle(row)
         self.assertFalse(row['passed'])
+
+    def test_short_hold_cannot_qualify_even_with_return(self) -> None:
+        row = qualifying_row()
+        row['hold_s'] = row['held_s'] + 1
+        drop_loop.classify_cycle(row)
+        self.assertFalse(row['qualifying'])
+        self.assertTrue(row['passed'])
 
     def test_freeze_preserves_original_step_error(self) -> None:
         row = fixture('failed-cycle.json')
@@ -155,26 +240,30 @@ class RecordedLogTests(unittest.TestCase):
         lines = (FIXTURES / 'return-fault.log').read_text().splitlines()
         self.assertEqual([c['line'] for c in facts['crashes']], lines)
         self.assertEqual([c['offset'] for c in facts['crashes']],
-                         ['0x1e6b3e', '0x1e6b3e', '0x129d2', '0x129d2', '0x99d7cd', '0x99d7cd'])
+                         ['0x1e6b3e', None, None, None, '0x99d7cd', None])
         self.assertEqual([c['module'] for c in facts['crashes']],
-                         ['helldivers2.exe', 'helldivers2.exe', 'dbgcore.DLL', 'dbgcore.DLL', 'helldivers2.exe', 'helldivers2.exe'])
+                         ['helldivers2.exe', None, None, None, 'helldivers2.exe', None])
+        self.assertEqual([c['kind'] for c in facts['crashes']],
+                         ['fault', 'by-module', 'fail-fast', 'fail-fast', 'fault', 'by-module'])
         row = qualifying_row()
         row.update(facts)
         drop_loop.classify_cycle(row)
         self.assertTrue(row['failed'])
+        self.assertEqual(row['event_signatures'], ['helldivers2.exe+0x1e6b3e'])
 
     def test_only_evidenced_quit_fault_is_exempt(self) -> None:
         facts = self.scan('quit-fault.log', handled=True, run_json='handled-run.json')
-        # Later fail-fast lines are separate faults and remain failures.
-        self.assertTrue(all(c['handled_quit'] for c in facts['crashes'][:2]))
-        self.assertTrue(all(not c['handled_quit'] for c in facts['crashes'][2:]))
-        self.assertEqual(facts['crashes'][2]['module'], 'dbgcore.DLL')
+        self.assertTrue(facts['crashes'][0]['handled_quit'])
+        self.assertTrue(all(not c['handled_quit'] for c in facts['crashes'][1:]))
+        self.assertEqual(facts['crashes'][2]['kind'], 'fail-fast')
+        self.assertIsNone(facts['crashes'][2]['module'])
         row = qualifying_row()
-        row['crashes'] = facts['crashes'][:2]
+        row['crashes'] = facts['crashes']
         drop_loop.classify_cycle(row)
         self.assertTrue(row['passed'])
         self.assertTrue(row['quit_crash'])
-        row['crashes'] = self.scan('quit-fault.log')['crashes'][:2]
+        self.assertFalse(row['event'])
+        row['crashes'] = self.scan('quit-fault.log')['crashes']
         drop_loop.classify_cycle(row)
         self.assertTrue(row['failed'])
 
@@ -230,7 +319,7 @@ class CycleTests(unittest.TestCase):
                 'state': {'live': {'state': 3 if ('leave',) in self.calls else 4, 'in_mission': ('leave',) not in self.calls}}}
         return 0, data.get(args[0], {}), ''
 
-    def run_cycle(self, command: object = None) -> dict:
+    def run_cycle(self, command: object = None, end_after: float | None = None) -> dict:
         with (patch.object(drop_loop, 'prestart'), patch.object(drop_loop, 'wait_for_backend_port', return_value=True),
               patch.object(drop_loop, 'sample_memory'),
               patch.object(drop_loop, 'harness', side_effect=command or self.command),
@@ -238,6 +327,7 @@ class CycleTests(unittest.TestCase):
               patch.object(drop_loop, 'require_owned_session', return_value=self.active),
               patch.object(drop_loop, 'game_running', return_value=True),
               patch.object(drop_loop, 'live_freeze', return_value=(False, [], 1)),
+              patch.object(drop_loop, 'live_mission_end', return_value=end_after),
               patch.object(drop_loop, 'scan_run', return_value={'in_mission_freeze': False, 'freezes': [],
                                                                'run_json': fixture('good-run.json')})):
             return drop_loop.cycle(self.args, 1)
@@ -271,7 +361,7 @@ class CycleTests(unittest.TestCase):
         self.assertEqual([c[0] for c in self.calls], ['start', 'ship', 'mission', 'state', 'leave', 'state', 'stop'])
         self.sleep.assert_called_once_with(10)
 
-    def test_mission_ending_during_hold_is_not_a_pass_or_failure(self) -> None:
+    def test_mission_ending_during_hold_is_a_clean_reduced_cycle(self) -> None:
         def command(*args: str, **kwargs: object) -> tuple[int, dict, str]:
             code, data, text = self.command(*args, **kwargs)
             if args[0] == 'state':
@@ -283,7 +373,7 @@ class CycleTests(unittest.TestCase):
         self.assertTrue(row['mission_ended_early'])
         self.assertTrue(row['reduced_coverage'])
         self.assertFalse(row['qualifying'])
-        self.assertFalse(row['passed'])
+        self.assertTrue(row['passed'])
         self.assertFalse(row['failed'])
         self.assertNotIn('held_s', row)
         self.assertNotIn(('shot', 'held-ground'), self.calls)
@@ -299,6 +389,129 @@ class CycleTests(unittest.TestCase):
         self.assertFalse(row['ship_settle_ok'])
         self.assertFalse(row['passed'])
         self.assertIn(('stop', '--kill'), self.calls)
+
+    def test_auto_end_waits_through_prepare_ship_before_leave(self) -> None:
+        states = iter([5, 3, 3])
+        current = 4
+        def command(*args: str, **kwargs: object) -> tuple[int, dict | None, str]:
+            nonlocal current
+            if args[0] == 'state':
+                current = next(states)
+                self.calls.append(args)
+                return 0, {'live': {'state': current, 'in_mission': False}}, ''
+            if args[0] == 'leave' and current != 3:
+                self.calls.append(args)
+                return 2, None, 'error: not in a mission or on the ship (state %s)' % current
+            return self.command(*args, **kwargs)
+        row = self.run_cycle(command)
+        self.assertFalse(row['failed'])
+        self.assertTrue(row['passed'])
+        self.assertTrue(row['return_observed'])
+        self.assertTrue(row['reduced_coverage'])
+        self.assertFalse(row['qualifying'])
+        self.assertNotIn(('stop', '--kill'), self.calls)
+        self.assertEqual(row['steps']['auto_return_state'], 0)
+
+    def test_live_mission_end_ignores_incomplete_body(self) -> None:
+        partial, complete = Mock(), Mock()
+        partial.name = '012209000-Operation_Mission_end.json'
+        partial.read_text.return_value = '{"missionSuccess":'
+        complete.name = '012210230-Operation_Mission_end.json'
+        complete.read_text.return_value = '{"missionSuccess": false}'
+        active = {'hellforge_run': 'run-dir'}
+        mission = {'in_control': '2026-11-08T19:20:18-06:00'}
+        with patch.object(Path, 'glob', return_value=[partial, complete]):
+            self.assertEqual(drop_loop.live_mission_end(active, mission), 112.23)
+        with patch.object(Path, 'glob', return_value=[partial]):
+            self.assertIsNone(drop_loop.live_mission_end(active, mission))
+
+    def test_return_crash_during_ship_settle_is_event_not_driver_error(self) -> None:
+        self.args.hold = 0
+        running = [True]
+        def command(*args: str, **kwargs: object) -> tuple[int, dict | None, str]:
+            if args[0] == 'leave':
+                running[0] = False
+            if args[0] == 'finish':
+                self.calls.append(args)
+                return 1, None, 'NOT CLEAN: crash dump'
+            return self.command(*args, **kwargs)
+        scan = {'crashes': [{'kind': 'fault', 'site': 'helldivers2.exe+0x1e6b3e', 'handled_quit': False}],
+                'in_mission_freeze': False, 'freezes': [], 'run_json': {'exit': {}, 'exit_code': None}}
+        with (patch.object(drop_loop, 'prestart'), patch.object(drop_loop, 'wait_for_backend_port', return_value=True),
+              patch.object(drop_loop, 'sample_memory'), patch.object(drop_loop, 'harness', side_effect=command),
+              patch.object(drop_loop, 'active_session', return_value=self.active),
+              patch.object(drop_loop, 'require_owned_session', return_value=self.active),
+              patch.object(drop_loop, 'game_running', side_effect=lambda: running[0]),
+              patch.object(drop_loop, 'live_freeze', return_value=(False, [], 1)),
+              patch.object(drop_loop, 'live_mission_end', return_value=None),
+              patch.object(drop_loop, 'scan_run', return_value=scan)):
+            row = drop_loop.cycle(self.args, 1)
+        self.assertTrue(row['event'])
+        self.assertEqual(row['event_signatures'], ['helldivers2.exe+0x1e6b3e'])
+        self.assertFalse(row['driver_error'])
+        self.assertFalse(row['return_observed'])
+        self.assertFalse(row['ship_settle_ok'])
+        self.assertIn(('finish',), self.calls)
+        unexplained = copy.deepcopy(row)
+        unexplained['crashes'] = []
+        drop_loop.classify_cycle(unexplained)
+        self.assertTrue(unexplained['driver_error'])
+
+    def test_auto_return_crash_during_prepare_ship_is_event_not_driver_error(self) -> None:
+        running = [True]
+        def command(*args: str, **kwargs: object) -> tuple[int, dict | None, str]:
+            if args[0] == 'state':
+                self.calls.append(args)
+                running[0] = False
+                return 0, {'live': {'state': 5, 'in_mission': False}}, ''
+            if args[0] == 'finish':
+                self.calls.append(args)
+                return 1, None, 'NOT CLEAN: crash dump'
+            return self.command(*args, **kwargs)
+        scan = {'crashes': [{'kind': 'fault', 'site': 'helldivers2.exe+0x1e6b3e', 'handled_quit': False}],
+                'in_mission_freeze': False, 'freezes': [], 'run_json': {'exit': {}, 'exit_code': None}}
+        with (patch.object(drop_loop, 'prestart'), patch.object(drop_loop, 'wait_for_backend_port', return_value=True),
+              patch.object(drop_loop, 'sample_memory'), patch.object(drop_loop, 'harness', side_effect=command),
+              patch.object(drop_loop, 'active_session', return_value=self.active),
+              patch.object(drop_loop, 'require_owned_session', return_value=self.active),
+              patch.object(drop_loop, 'game_running', side_effect=lambda: running[0]),
+              patch.object(drop_loop, 'live_freeze', return_value=(False, [], 1)),
+              patch.object(drop_loop, 'live_mission_end', return_value=None),
+              patch.object(drop_loop, 'scan_run', return_value=scan)):
+            row = drop_loop.cycle(self.args, 1)
+        self.assertTrue(row['event'])
+        self.assertFalse(row['driver_error'])
+        self.assertNotIn(('leave',), self.calls)
+        self.assertIn(('finish',), self.calls)
+
+    def test_recorded_mission_body_triggers_wait_even_in_state_four(self) -> None:
+        record = fixture('reviewed-mission-ends.json')[1]
+        end_after = scan_review(record)['mission_end_after_s']
+        states = iter([4, 4, 5, 3, 3])
+        def command(*args: str, **kwargs: object) -> tuple[int, dict, str]:
+            if args[0] == 'state':
+                self.calls.append(args)
+                return 0, {'live': {'state': next(states), 'in_mission': True}}, ''
+            return self.command(*args, **kwargs)
+        row = self.run_cycle(command, end_after)
+        self.assertTrue(row['auto_return'])
+        self.assertTrue(row['passed'])
+        self.assertTrue(row['reduced_coverage'])
+        self.assertTrue(row['return_observed'])
+        self.assertEqual([c[0] for c in self.calls].count('state'), 5)
+        self.assertNotIn(('stop', '--kill'), self.calls)
+
+    def test_auto_return_timeout_is_driver_error(self) -> None:
+        def command(*args: str, **kwargs: object) -> tuple[int, dict, str]:
+            if args[0] == 'state':
+                self.calls.append(args)
+                return 0, {'live': {'state': 5}}, ''
+            return self.command(*args, **kwargs)
+        with patch.object(drop_loop.time, 'monotonic', side_effect=[0, 0, 0, 181]):
+            row = self.run_cycle(command)
+        self.assertTrue(row['driver_error'])
+        self.assertIn('stuck returning', row['error'])
+        self.assertNotIn(('leave',), self.calls)
 
     def test_missing_live_state_is_a_failure(self) -> None:
         row = self.run_cycle(lambda *args, **kwargs: (0, {}, '') if args[0] == 'state' else self.command(*args, **kwargs))
@@ -488,13 +701,31 @@ class MemoryTests(unittest.TestCase):
 
 
 class MainTests(unittest.TestCase):
-    def test_exit_zero_requires_every_cycle_to_pass(self) -> None:
+    def test_output_setup_or_write_error_is_exit_two_with_summary(self) -> None:
+        for setup in (True, False):
+            with self.subTest(setup=setup):
+                with (patch.object(drop_loop.sys, 'argv', ['drop_loop', '--label', 'test', '--out', 'fixture-output']),
+                      patch.object(drop_loop, 'require_lab_profile'),
+                      patch.object(Path, 'mkdir', side_effect=OSError('output unavailable') if setup else None),
+                      patch.object(drop_loop, 'cycle', return_value=qualifying_row()),
+                      patch('builtins.open', side_effect=OSError('write failed')), patch('builtins.print') as printed):
+                    self.assertEqual(drop_loop.main(), 2)
+                summary = json.loads(printed.call_args.args[0])
+                self.assertTrue(summary['summary'])
+                self.assertEqual(summary['driver_errors'], 1)
+
+    def test_exit_codes_and_summary_use_events_errors_and_coverage(self) -> None:
         good = qualifying_row()
         bad = fixture('failed-cycle.json')
         early = fixture('early-cycle.json')
+        early['run_json']['exit'] = {'code': 0}
         for row in (good, bad, early):
             drop_loop.classify_cycle(row)
-        for rows, expected in (([good, good], 0), ([bad, good], 1), ([good, bad], 1), ([early, good], 1)):
+        event = copy.deepcopy(good)
+        event['crashes'] = [{'site': 'helldivers2.exe+0x1e6b3e'}]
+        drop_loop.classify_cycle(event)
+        for rows, expected in (([good, good], 0), ([bad, good], 2), ([good, bad], 2),
+                               ([early, good], 3), ([event, good], 1), ([event, bad], 2)):
             with self.subTest(expected=expected, passes=[r['passed'] for r in rows]):
                 args = ['drop_loop.py', '--label', 'fixture', '--cycles', '2', '--out', 'fixture-output']
                 sink = io.StringIO()
@@ -502,11 +733,27 @@ class MainTests(unittest.TestCase):
                 opened.__enter__.return_value = sink
                 with (patch.object(drop_loop.sys, 'argv', args), patch.object(drop_loop, 'require_lab_profile'),
                       patch.object(drop_loop, 'cycle', side_effect=copy.deepcopy(rows)) as cycle,
-                      patch.object(Path, 'mkdir'), patch('builtins.open', return_value=opened), patch('builtins.print')):
+                      patch.object(Path, 'mkdir'), patch('builtins.open', return_value=opened), patch('builtins.print') as printed):
                     self.assertEqual(drop_loop.main(), expected)
-                self.assertEqual(cycle.call_count, 2)
+                wanted = rows[:1] if rows[0].get('driver_error') else rows
+                self.assertEqual(cycle.call_count, len(wanted))
                 written = [json.loads(line) for line in sink.getvalue().splitlines()]
-                self.assertEqual([r['passed'] for r in written], [r['passed'] for r in rows])
+                self.assertEqual([r['passed'] for r in written], [r['passed'] for r in wanted])
+                summary = json.loads(printed.call_args.args[0])
+                self.assertTrue(summary['summary'])
+                self.assertEqual(summary['exit_code'], expected)
+                self.assertEqual(summary['events'], sum(bool(r['event']) for r in wanted))
+                self.assertEqual(summary['mission_s'], sum(r['mission_s'] for r in wanted))
+
+    def test_driver_exception_is_exit_two_with_final_summary(self) -> None:
+        for error in (RuntimeError('harness unavailable'), KeyError('unexpected field')):
+            with self.subTest(error=type(error).__name__):
+                with (patch.object(drop_loop.sys, 'argv', ['drop_loop', '--label', 'test', '--out', 'fixture-output']),
+                      patch.object(drop_loop, 'require_lab_profile'), patch.object(Path, 'mkdir'),
+                      patch.object(drop_loop, 'cycle', side_effect=error),
+                      patch('builtins.open', unittest.mock.mock_open()), patch('builtins.print') as printed):
+                    self.assertEqual(drop_loop.main(), 2)
+                self.assertEqual(json.loads(printed.call_args.args[0])['driver_errors'], 1)
 
 
 if __name__ == '__main__':

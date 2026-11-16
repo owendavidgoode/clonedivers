@@ -33,6 +33,7 @@ os.environ.setdefault('HD2H_LOADER_ZIP', r'D:\ClaudeWork\releases\Bingus-Shared-
 CRASH = re.compile(r'crash: (?:(?P<code>[0-9a-fA-F]{8}) on thread \d+ )?at (?P<site>\S+)')
 HEARTBEAT_LIMIT = 60
 SHIP_SETTLE_S = 10
+RETURN_TIMEOUT_S = 180
 # Executed in the child before importing any harness/capture code. run_path does not
 # add the script directory to sys.path (unlike `python harness.py`), so do that too.
 HARNESS_WRAPPER = '''import ctypes, runpy, sys
@@ -178,6 +179,52 @@ def live_freeze(active: dict[str, Any], elapsed: float) -> tuple[bool, list[str]
     return mission_stalled(freezes, active.get('missions') or [], ended, age), freezes, age
 
 
+def mission_end_after(folder: Path, mission: dict[str, Any], ended: str,
+                      ignore_incomplete: bool = False) -> float | None:
+    """Match UTC mission-body clocks to this mission, including midnight rollover."""
+    if not mission.get('in_control'):
+        return None
+    control = datetime.fromisoformat(mission['in_control']).astimezone(timezone.utc)
+    end = datetime.fromisoformat(mission.get('left') or ended).astimezone(timezone.utc)
+    times = []
+    for body in folder.glob('*-Operation_Mission_end.json'):
+        clock = re.match(r'(\d{2})(\d{2})(\d{2})(\d{3})-', body.name)
+        if not clock:
+            continue
+        # Reading also verifies the body was completely written. Any mission end
+        # (success or failure) ends player exposure; abandon is a different body.
+        try:
+            data = read_object(body)
+        except (OSError, ValueError):
+            if ignore_incomplete:
+                continue
+            raise
+        if not isinstance(data.get('missionSuccess'), bool):
+            continue
+        h, m, s, ms = map(int, clock.groups())
+        at = datetime.combine(control.date(), datetime_time(h, m, s, ms * 1000), timezone.utc)
+        if at < control:
+            at += timedelta(days=1)
+        if control <= at <= end:
+            times.append((at - control).total_seconds())
+    return min(times) if times else None
+
+
+def live_mission_end(active: dict[str, Any], mission: dict[str, Any]) -> float | None:
+    if not active.get('hellforge_run'):
+        return None
+    return mission_end_after(Path(active['hellforge_run']) / 'backend/mission-bodies', mission,
+                             datetime.now(timezone.utc).isoformat(), ignore_incomplete=True)
+
+
+def fault_signatures(crashes: list[dict[str, Any]]) -> set[str]:
+    faults = [c for c in crashes if c.get('kind', 'fault') == 'fault' and not c.get('handled_quit')]
+    sites = {(c.get('site') or 'native-fault:unknown').lower() for c in faults}
+    if 'helldivers2.exe+0x1e6b3e' in sites:
+        sites.discard('helldivers2.exe+0x99d7cd')
+    return sites
+
+
 def scan_run(run: Path | None) -> dict[str, Any]:
     """Crash lines and SEAF activity from the copied HellForge session folder of a harness run."""
     facts = {'crashes': [], 'freezes': [], 'in_mission_freeze': False,
@@ -203,11 +250,12 @@ def scan_run(run: Path | None) -> dict[str, Any]:
                 facts['freezes'].append(line)
             if 'crash:' in line:
                 m = CRASH.search(line)
-                site = re.search(r'([\w.-]+\.(?:exe|dll))\+(0x[0-9a-f]+)', line, re.I)
+                kind = 'fail-fast' if 'crash: fail-fast' in line else 'by-module' if 'crash: by module:' in line else 'fault'
+                site = re.search(r'\bat ([\w.-]+\.(?:exe|dll))\+(0x[0-9a-f]+)', line, re.I) if kind == 'fault' else None
                 module, offset = site.groups() if site else (None, None)
                 is_handled = bool(module and module.lower() == 'helldivers2.exe'
                                   and offset.lower() == '0x626296' and handled)
-                facts['crashes'].append({'code': m.group('code') if m else None,
+                facts['crashes'].append({'kind': kind, 'code': m.group('code') if m else None,
                                          'site': module + '+' + offset if site else None,
                                          'module': module, 'offset': offset,
                                          'handled_quit': is_handled, 'line': line})
@@ -224,6 +272,11 @@ def scan_run(run: Path | None) -> dict[str, Any]:
         ended = (data.get('exit') or {}).get('at') or data.get('finished')
         if ended:
             facts['in_mission_freeze'] = mission_stalled(facts['freezes'], data.get('missions') or [], ended)
+            missions = data.get('missions') or []
+            if missions:
+                after = mission_end_after(run / 'hellforge-session/backend/mission-bodies', missions[-1], ended)
+                if after is not None:
+                    facts['mission_end_after_s'] = after
     return facts
 
 
@@ -250,24 +303,47 @@ def classify_cycle(row: dict[str, Any]) -> None:
     row['faction'] = {2: 'terminid', 3: 'automaton', 4: 'illuminate'}.get(mission.get('race'), row.get('faction'))
     row.setdefault('seaf_spawns', 0)
     leave = row.get('leave') or (missions[-1].get('leave') if missions else {}) or {}
-    row['mission_ended_early'] = bool(row.get('mission_ended_early') or leave.get('to_ship_s') == 0)
-    row['reduced_coverage'] = row['mission_ended_early']
+    hold = row.get('hold_s', row.get('held_s', row.get('attempted_hold_s')))
+    end_after = row.get('mission_end_after_s')
+    # Harness in_control is truncated to whole seconds; a body in the final
+    # clock second is conservatively reduced (the recorded 120 s case is 120.571).
+    row['mission_ended_early'] = bool(row.get('mission_ended_early') or leave.get('to_ship_s') == 0
+                                    or end_after is not None and (hold is None or end_after < hold + 1))
     kinds = [d.get('kind') for d in (run.get('dumps') or [])]
     crashes = row.get('crashes') or []
     row['quit_crash'] = 'quit-render-task-pool' in kinds or any((c.get('site') or '').lower().endswith('+0x626296') for c in crashes)
-    faults = [c for c in crashes if not c.get('handled_quit')]
+    signatures = fault_signatures(crashes)
+    if row.get('in_mission_freeze'):
+        sites = [re.search(r'\bat ([\w.-]+\.(?:exe|dll)\+0x[0-9a-f]+)', line, re.I)
+                 for line in row.get('freezes', [])]
+        site = next((m[1].lower() for m in sites if m and m[1].lower() == 'helldivers2.exe+0x700afb'), 'in-mission')
+        signatures.add('freeze:' + site)
+    row['event_signatures'] = sorted(signatures)
+    row['event'] = bool(signatures)
     if row.get('in_mission_freeze'):
         if 'held_s' in row:
             row['attempted_hold_s'] = row.pop('held_s')
-        row.setdefault('error', 'game stalled during mission; see freezes, heartbeat_age_s and run.json')
     exit_code = (run.get('exit') or {}).get('code', run.get('exit_code'))
-    row['failed'] = bool(row.get('in_mission_freeze') or faults or 'error' in row
-                         or 'died_in_mission_after_s' in row or exit_code not in (None, 0)
-                         or any(code != 0 for code in row.get('steps', {}).values()))
+    row['driver_error'] = bool(row.get('error') or exit_code is None and not row['event']
+                               or not row['event'] and (exit_code != 0 or 'died_in_mission_after_s' in row
+                                                        or row.get('died_after_return'))
+                               or any(code != 0 and not (row['event'] and step in ('stop', 'finish') and code == 1)
+                                      for step, code in row.get('steps', {}).items()))
+    row['failed'] = row['event'] or row['driver_error']
+    duration_keys = (('mission_end_after_s',) if end_after is not None else ('mission_s', 'mission_ended_after_s'))
+    durations = [row[k] for k in (*duration_keys, 'stalled_after_s', 'died_in_mission_after_s', 'held_s')
+                 if isinstance(row.get(k), (int, float))]
+    if hold is not None and durations:
+        durations.append(hold)
+    row['mission_s'] = round(max(0, min(durations)), 3) if durations else 0
+    normal_quit = row.get('normal_quit', row.get('steps', {}).get('stop') == 0 and exit_code == 0)
+    row['return_observed'] = bool(row.get('ship_settle_ok') and normal_quit and leave)
+    row['reduced_coverage'] = row['mission_ended_early']
     row['qualifying'] = bool('held_s' in row and not row['reduced_coverage']
-                             and isinstance(leave.get('to_ship_s'), (float, int)) and leave['to_ship_s'] > 0
-                             and row.get('ship_settle_ok'))
-    row['passed'] = row['qualifying'] and not row['failed'] and exit_code == 0
+                             and (hold is None or row['held_s'] >= hold)
+                             and row['return_observed'])
+    row['reduced_coverage'] = not row['qualifying']
+    row['passed'] = not row['failed']
 
 
 def game_peak_working_set(pid: int) -> int | None:
@@ -343,6 +419,18 @@ def check_state(row: dict[str, Any], session: str, step: str) -> dict[str, Any]:
     return live
 
 
+def poll_state(row: dict[str, Any], session: str, step: str) -> dict[str, Any] | None:
+    """Read live game state, returning None if the game exited before or during the poll."""
+    if not game_running():
+        return None
+    try:
+        return check_state(row, session, step)
+    except RuntimeError:
+        if not game_running():
+            return None
+        raise
+
+
 def sample_memory(row: dict[str, Any], step: str) -> None:
     script = os.environ.get('CLONEDIVERS_LAB_MEMORY_SCRIPT')
     if script:
@@ -357,10 +445,13 @@ def cycle(args: argparse.Namespace, number: int) -> dict[str, Any]:
            'planet': None, 'mission_type': None, 'seaf_spawns': 0, 'qualifying': False,
            'mission_ended_early': False, 'reduced_coverage': False, 'ship_settle_ok': False,
            'peak_working_set_bytes': None, 'peak_vram_mib': None, 'failed': True,
+           'hold_s': args.hold, 'mission_s': 0, 'event': False, 'event_signatures': [],
+           'return_observed': False, 'driver_error': False,
            'started': time.strftime('%Y-%m-%dT%H:%M:%S'), 'steps': {}, 'passed': False}
     prestart()
     if not wait_for_backend_port():
         row['error'] = 'backend port did not become free'
+        row['driver_error'] = True
         return row
     prestart()
     code, data, text = harness('start', '--preset', args.preset, '--keep-running', timeout=300)
@@ -368,6 +459,7 @@ def cycle(args: argparse.Namespace, number: int) -> dict[str, Any]:
         if not wait_for_backend_port():
             row['error'] = 'backend port did not become free before retry'
             row['steps']['start'] = code
+            row['driver_error'] = True
             return row
         prestart()
         code, data, text = harness('start', '--preset', args.preset, '--keep-running', timeout=300)
@@ -375,6 +467,7 @@ def cycle(args: argparse.Namespace, number: int) -> dict[str, Any]:
     row['steps']['start'] = code
     if code != 0:
         row['error'] = text[-1500:]
+        row['driver_error'] = True
         return row
 
     active = active_session()
@@ -405,9 +498,13 @@ def cycle(args: argparse.Namespace, number: int) -> dict[str, Any]:
             sample_memory(row, step)
         else:
             landed = time.monotonic()
+            control = (row.get('mission') or {}).get('in_control')
+            if control:
+                landed -= max(0, (datetime.now(timezone.utc) - datetime.fromisoformat(control)).total_seconds())
             while True:
                 active = require_owned_session(session)
                 elapsed = time.monotonic() - landed
+                row['mission_s'] = round(min(elapsed, args.hold), 3)
                 if not game_running():
                     row['died_in_mission_after_s'] = round(elapsed)
                     break
@@ -416,8 +513,15 @@ def cycle(args: argparse.Namespace, number: int) -> dict[str, Any]:
                     row.update(in_mission_freeze=True, freezes=freezes, heartbeat_age_s=round(age, 1),
                                attempted_hold_s=args.hold, stalled_after_s=round(elapsed))
                     break
-                live = check_state(row, session, 'hold_state')
-                if live['state'] != 4 or live.get('in_mission') is False:
+                live = poll_state(row, session, 'hold_state')
+                if live is None:
+                    row['died_in_mission_after_s'] = round(elapsed)
+                    break
+                end_after = live_mission_end(active, row.get('mission') or {})
+                if end_after is not None:
+                    row['mission_end_after_s'] = end_after
+                if (end_after is not None and end_after < args.hold + 1
+                        or live['state'] != 4 or live.get('in_mission') is False):
                     row['mission_ended_early'] = True
                     row['mission_ended_after_s'] = round(elapsed)
                     break
@@ -432,23 +536,54 @@ def cycle(args: argparse.Namespace, number: int) -> dict[str, Any]:
                 row['steps']['held_shot'] = code
                 if code != 0:
                     row.setdefault('error', 'held_shot: ' + text[-1500:])
-            code, data, text = harness('leave', timeout=300, session=session)
-            row['steps']['leave'] = code
-            if code == 0:
-                row['leave'] = data
-                row['mission_ended_early'] |= (data or {}).get('to_ship_s') == 0
-                time.sleep(SHIP_SETTLE_S)
-                live = check_state(row, session, 'ship_settle_state')
-                row['ship_settle_ok'] = live['state'] == 3
-                if not row['ship_settle_ok']:
-                    row.setdefault('error', 'ship settle: expected state 3, got %s' % live['state'])
-                if args.shots and row['ship_settle_ok']:
-                    code, _, text = harness('shot', 'ship-return', timeout=30, session=session)
-                    row['steps']['return_shot'] = code
-                    if code != 0:
-                        row.setdefault('error', 'return_shot: ' + text[-1500:])
-            else:
-                row.setdefault('error', 'leave: ' + text[-1500:])
+            if row['mission_ended_early']:
+                # Mission_end precedes the game's own abandon by about 29 s.
+                # Never abandon from the load screen or while that return runs.
+                deadline = time.monotonic() + RETURN_TIMEOUT_S
+                while live['state'] != 3:
+                    now = time.monotonic()
+                    if now >= deadline:
+                        raise RuntimeError('stuck returning after mission end (state %s)' % live['state'])
+                    active = require_owned_session(session)
+                    if not game_running():
+                        row['died_in_mission_after_s'] = round(now - landed)
+                        break
+                    frozen, freezes, age = live_freeze(active, now - landed)
+                    if frozen:
+                        row.update(in_mission_freeze=True, freezes=freezes, heartbeat_age_s=round(age, 1),
+                                   attempted_hold_s=args.hold, stalled_after_s=round(now - landed))
+                        break
+                    time.sleep(2)
+                    polled = poll_state(row, session, 'auto_return_state')
+                    if polled is None:
+                        row['died_in_mission_after_s'] = round(time.monotonic() - landed)
+                        break
+                    live = polled
+                else:
+                    row['auto_return'] = True
+            if not row['mission_ended_early'] or row.get('auto_return'):
+                # On state 3 this is a no-op that records left/in_mission in the
+                # harness manifest; on a full hold it performs the normal abandon.
+                code, data, text = harness('leave', timeout=300, session=session)
+                row['steps']['leave'] = code
+                if code == 0:
+                    row['leave'] = data
+                    row['mission_ended_early'] |= (data or {}).get('to_ship_s') == 0
+                    time.sleep(SHIP_SETTLE_S)
+                    live = poll_state(row, session, 'ship_settle_state')
+                    if live is None:
+                        row['died_after_return'] = True
+                    else:
+                        row['ship_settle_ok'] = live['state'] == 3
+                        if not row['ship_settle_ok']:
+                            row.setdefault('error', 'ship settle: expected state 3, got %s' % live['state'])
+                        if args.shots and row['ship_settle_ok']:
+                            code, _, text = harness('shot', 'ship-return', timeout=30, session=session)
+                            row['steps']['return_shot'] = code
+                            if code != 0:
+                                row.setdefault('error', 'return_shot: ' + text[-1500:])
+                else:
+                    row.setdefault('error', 'leave: ' + text[-1500:])
     except (OSError, ValueError, RuntimeError, subprocess.SubprocessError) as error:
         row.setdefault('error', str(error))
     finally:
@@ -456,9 +591,10 @@ def cycle(args: argparse.Namespace, number: int) -> dict[str, Any]:
             require_owned_session(session)
             if game_running():
                 force = row.get('in_mission_freeze') or 'error' in row or not row['ship_settle_ok']
+                row['normal_quit'] = not force
                 code, data, text = harness('stop', *(['--kill'] if force else []), timeout=300, session=session)
                 row['steps']['stop'] = code
-                if code != 0:
+                if code != 0 and not (code == 1 and (force and row.get('in_mission_freeze') or not game_running())):
                     row.setdefault('error', 'stop: ' + text[-1500:])
                     if game_running():
                         code, data, text = harness('stop', '--kill', timeout=180, session=session)
@@ -466,7 +602,7 @@ def cycle(args: argparse.Namespace, number: int) -> dict[str, Any]:
             else:
                 code, data, text = harness('finish', timeout=300, session=session)
                 row['steps']['finish'] = code
-            if code != 0:
+            if code != 0 and not (code == 1 and (row.get('in_mission_freeze') or not game_running())):
                 row.setdefault('error', 'cleanup: ' + text[-1500:])
         except (OSError, ValueError, RuntimeError, subprocess.SubprocessError) as error:
             row.setdefault('error', 'cleanup: ' + str(error))
@@ -476,9 +612,24 @@ def cycle(args: argparse.Namespace, number: int) -> dict[str, Any]:
     facts = scan_run(run)
     facts['in_mission_freeze'] |= bool(row.get('in_mission_freeze'))
     facts['freezes'] = list(dict.fromkeys(row.get('freezes', []) + facts['freezes']))
+    facts['mission_ended_early'] = bool(row['mission_ended_early'] or facts.get('mission_ended_early'))
     row.update(facts)
     classify_cycle(row)
     return row
+
+
+def print_summary(rows: list[dict[str, Any]], planned: int, error: str | None = None) -> int:
+    errors = sum(bool(r.get('driver_error')) for r in rows) + bool(error)
+    code = (2 if errors else 1 if any(r.get('event') for r in rows)
+            else 3 if any(not r.get('qualifying') for r in rows) else 0)
+    print(json.dumps({'summary': True, 'cycles': len(rows), 'planned_cycles': planned,
+                      'events': sum(bool(r.get('event')) for r in rows), 'driver_errors': errors,
+                      'qualifying': sum(bool(r.get('qualifying')) for r in rows),
+                      'reduced_coverage': sum(bool(r.get('reduced_coverage')) for r in rows),
+                      'returns': sum(bool(r.get('return_observed')) for r in rows),
+                      'mission_s': round(sum(r.get('mission_s', 0) for r in rows), 3),
+                      'exit_code': code, 'error': error}), flush=True)
+    return code
 
 
 def main() -> int:
@@ -492,24 +643,39 @@ def main() -> int:
     parser.add_argument('--shots', action='store_true', help='capture briefing, landing and ship screenshots')
     parser.add_argument('--out', default=r'D:\ClaudeWork\clonedivers-lab\results')
     args = parser.parse_args()
-    require_lab_profile()
     if args.cycles < 1 or args.hold < 0 or not 1 <= args.difficulty <= 11:
         parser.error('cycles must be positive, hold nonnegative, and difficulty within 1-11')
-    out = Path(args.out); out.mkdir(parents=True, exist_ok=True)
-    all_passed = True
+    out = Path(args.out)
+    try:
+        require_lab_profile()
+        out.mkdir(parents=True, exist_ok=True)
+    except Exception as error:
+        return print_summary([], args.cycles, str(error))
+    rows = []
     for number in range(1, args.cycles + 1):
-        row = cycle(args, number)
-        all_passed &= bool(row['passed'])
-        with open(out / 'cycles.jsonl', 'a', encoding='utf-8') as sink:
-            sink.write(json.dumps(row) + '\n')
-        print(json.dumps({k: row.get(k) for k in ('label', 'cycle', 'passed', 'failed', 'qualifying', 'reduced_coverage',
+        try:
+            row = cycle(args, number)
+        except Exception as error:
+            row = {'label': args.label, 'cycle': number, 'passed': False, 'failed': True,
+                   'driver_error': True, 'event': False, 'event_signatures': [], 'mission_s': 0,
+                   'qualifying': False, 'return_observed': False, 'reduced_coverage': True, 'error': str(error)}
+        rows.append(row)
+        try:
+            with open(out / 'cycles.jsonl', 'a', encoding='utf-8') as sink:
+                sink.write(json.dumps(row) + '\n')
+        except Exception as error:
+            return print_summary(rows, args.cycles, 'write cycles.jsonl: ' + str(error))
+        print(json.dumps({k: row.get(k) for k in ('label', 'cycle', 'passed', 'failed', 'driver_error', 'event',
+                                                    'event_signatures', 'mission_s', 'return_observed', 'qualifying', 'reduced_coverage',
                                                     'mission_ended_early', 'ship_settle_ok', 'planet', 'mission_type',
                                                     'difficulty', 'faction', 'peak_working_set_bytes', 'peak_vram_mib',
                                                     'quit_crash', 'in_mission_freeze', 'steps', 'held_s',
                                                     'died_in_mission_after_s', 'crashes', 'seaf_spawns', 'auto_waves',
                                                     'squad_lost', 'error')}),
               flush=True)
-    return 0 if all_passed else 1
+        if row.get('driver_error'):
+            break
+    return print_summary(rows, args.cycles)
 
 
 if __name__ == '__main__':
