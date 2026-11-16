@@ -587,37 +587,85 @@ public sealed partial class HellForgeClient(string root, IHellForgeCommands comm
         {
             var intent = ReadPackIntent();
             if (intent == null || intent.State == "pending" || !intent.Backup.Equals(backup, RecoveryPathComparison) || InterruptedGameplayProblem() != null) return;
-            var keep = new HashSet<string>(StringComparer.OrdinalIgnoreCase) { backup };
+            var normalizedBackup = Path.TrimEndingDirectorySeparator(Path.GetFullPath(backup));
+            var currentStamp = Path.GetFileName(normalizedBackup);
+            var keep = new HashSet<string>(StringComparer.FromComparison(RecoveryPathComparison)) { normalizedBackup };
             var transactions = Path.GetDirectoryName(PackIntentPath)!;
+            RejectAncestors(transactions);
             foreach (var path in Directory.EnumerateFiles(transactions, "*.json"))
             {
-                RejectAncestors(path);
-                if (new FileInfo(path).Length > 16384) return;
-                using var record = JsonDocument.Parse(File.ReadAllText(path));
-                var state = record.RootElement.GetProperty("State").GetString();
-                if (state is not ("applied" or "restored")) return;
-                if (record.RootElement.TryGetProperty("Backup", out var saved) && saved.GetString() is { } retained) keep.Add(Path.GetFullPath(retained));
+                try
+                {
+                    RejectAncestors(path);
+                    if (new FileInfo(path).Length > 16384) continue;
+                    using var record = JsonDocument.Parse(File.ReadAllText(path));
+                    if (record.RootElement.ValueKind == JsonValueKind.Object &&
+                        record.RootElement.TryGetProperty("Backup", out var saved) &&
+                        saved.ValueKind == JsonValueKind.String &&
+                        saved.GetString() is { Length: > 0 } retained)
+                        keep.Add(Path.TrimEndingDirectorySeparator(Path.GetFullPath(retained)));
+                }
+                catch (Exception error) when (error is IOException or UnauthorizedAccessException or JsonException or InvalidDataException or KeyNotFoundException or ArgumentException or InvalidOperationException or NullReferenceException or NotSupportedException)
+                {
+                    // Skip unreadable, oversized, or damaged records from other roots without aborting cleanup.
+                }
             }
             var backups = Path.Combine(CacheRoot, "backups"); RejectAncestors(Path.Combine(backups, "entry"));
+            var exportsRoot = Path.Combine(CacheRoot, "exports"); RejectAncestors(Path.Combine(exportsRoot, "entry"));
             var completed = new List<string>();
-            foreach (var folder in Directory.EnumerateDirectories(backups))
+            var deleting = new List<string>();
+            if (Directory.Exists(backups))
             {
-                if (!System.Text.RegularExpressions.Regex.IsMatch(Path.GetFileName(folder), @"^\d{8}-\d{6}-(regular-)?[0-9a-f]{32}$")) continue;
-                var outcome = Path.Combine(folder, "outcome.json"); RejectAncestors(outcome);
-                if (!File.Exists(outcome)) continue;
-                if (new FileInfo(outcome).Length > 16384) return;
-                using var record = JsonDocument.Parse(File.ReadAllText(outcome));
-                var state = record.RootElement.GetProperty("outcome").GetString();
-                if (state is not ("applied" or "restored")) return;
-                if (!keep.Contains(folder) && string.CompareOrdinal(Path.GetFileName(folder)[..15], Path.GetFileName(backup)[..15]) <= 0) completed.Add(folder);
+                foreach (var folder in Directory.EnumerateDirectories(backups))
+                {
+                    try
+                    {
+                        var name = Path.GetFileName(folder);
+                        var normalized = Path.TrimEndingDirectorySeparator(Path.GetFullPath(folder));
+                        if (name.StartsWith("deleting-", StringComparison.Ordinal))
+                        {
+                            FileSafety.RejectLink(folder);
+                            if (!keep.Contains(normalized)) deleting.Add(folder);
+                            continue;
+                        }
+                        if (!System.Text.RegularExpressions.Regex.IsMatch(name, @"^\d{8}-\d{6}-(regular-)?[0-9a-f]{32}$")) continue;
+                        var outcome = Path.Combine(folder, "outcome.json"); RejectAncestors(outcome);
+                        if (!File.Exists(outcome)) continue;
+                        if (new FileInfo(outcome).Length > 16384) continue;
+                        using var record = JsonDocument.Parse(File.ReadAllText(outcome));
+                        if (record.RootElement.ValueKind != JsonValueKind.Object ||
+                            !record.RootElement.TryGetProperty("outcome", out var outcomeProp) ||
+                            outcomeProp.ValueKind != JsonValueKind.String ||
+                            outcomeProp.GetString() is not ("applied" or "restored")) continue;
+                        if (!keep.Contains(normalized) && currentStamp.Length >= 15 && string.CompareOrdinal(name[..15], currentStamp[..15]) <= 0)
+                            completed.Add(folder);
+                    }
+                    catch (Exception error) when (error is IOException or UnauthorizedAccessException or JsonException or InvalidDataException or KeyNotFoundException or ArgumentException or InvalidOperationException or NullReferenceException)
+                    {
+                        // Non-(applied/restored) or unreadable outcome.json stays kept without aborting other cleanup.
+                    }
+                }
             }
-            // Read all metadata before deleting anything. A damaged record means review.
+            // Read all metadata before deleting anything. A damaged installed-mod record means review.
             var selections = current.Mods.Where(m => HellForgePack.IsOurPack(m.Id)).Select(m => HellForgePack.ReadStorageReceipt(m.Folder))
                 .Where(s => s != null).Select(s => HellForgePack.SelectionIdentity(s!)).ToHashSet(StringComparer.Ordinal);
-            var exports = HellForgePack.SupersededExports(Path.Combine(CacheRoot, "exports"), selections);
-            foreach (var folder in completed.Concat(exports))
+            var exports = HellForgePack.SupersededExports(exportsRoot, selections);
+            if (Directory.Exists(exportsRoot))
+            {
+                foreach (var folder in Directory.EnumerateDirectories(exportsRoot))
+                {
+                    if (!Path.GetFileName(folder).StartsWith("deleting-", StringComparison.Ordinal)) continue;
+                    try
+                    {
+                        FileSafety.RejectLink(folder);
+                        if (!keep.Contains(Path.TrimEndingDirectorySeparator(Path.GetFullPath(folder)))) deleting.Add(folder);
+                    }
+                    catch (Exception error) when (error is IOException or UnauthorizedAccessException or InvalidDataException) { }
+                }
+            }
+            foreach (var folder in completed.Concat(exports).Concat(deleting))
                 try { HellForgePack.DeleteStorageFolder(CacheRoot, folder); }
-                catch (Exception error) when (error is IOException or UnauthorizedAccessException) { }
+                catch (Exception error) when (error is IOException or UnauthorizedAccessException or InvalidDataException) { }
         }
         catch (Exception error) when (error is IOException or UnauthorizedAccessException or JsonException or InvalidDataException or KeyNotFoundException or ArgumentException or InvalidOperationException or NullReferenceException) { }
     }
