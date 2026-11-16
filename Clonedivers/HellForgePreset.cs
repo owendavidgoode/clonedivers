@@ -8,6 +8,8 @@ public static class HellForgePreset
         mod.Name.Contains("Smarter SEAF", StringComparison.OrdinalIgnoreCase) && mod.Id != "chef.smarter-seaf";
     public const string GuardDogs = "pack.6f1d2c8e-5a47-4b93-9e0a-3c7b1f4d8a21";
     public const string CleanExit = "clonedivers.clean-exit";
+    public const string EmpireLegoYoda = "clonedivers.empire-lego-yoda";
+    public static readonly string[] Optional = [CleanExit, EmpireLegoYoda];
     public static readonly (string Id, string Name, string Version)[] Required = [
         ("hellforge.editor", "HellForge Editor", "0.4.2"),
         ("skyeshade.hell-forge", "Hell Forge Difficulty", "0.16.1"),
@@ -38,8 +40,8 @@ public static class HellForgePreset
         bool Enabled(string id) => catalog.Mods.Any(m => m.Enabled && m.Id == id);
         if (!Enabled("skyeshade.vanilla-plus") && !Enabled("pack.80a03e3b-a671-4e54-a2ce-52c35bb64c91"))
             issues.Add("Enable Vanilla Plus or Reinforcement Beacons Fixed");
-        // HellForge lists client-only mods after every gameplay mod whatever order it stores, so an
-        // optional client-only artifact (clean exit) has no checkable position.
+        // HellForge lists client-only mods after every gameplay mod whatever order it stores, so
+        // optional client-only artifacts have no checkable position.
         var order = HellForgeGameplayCatalog.Pinned.Order.Where(id => catalog.Mods.Any(m => m.Id == id) &&
             !HellForgeGameplayCatalog.Pinned.Artifacts.Any(a => a.Id == id && a.Optional)).ToArray();
         if (checkOrder && !catalog.Mods.Where(m => order.Contains(m.Id)).Select(m => m.Id).SequenceEqual(order))

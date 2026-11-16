@@ -1,0 +1,10 @@
+build/
+dist/
+workspace/
+actual-output/
+sdk/
+*.dll
+*.exe
+*.zip
+*.bin
+*.log

@@ -9,11 +9,35 @@ public sealed partial class HellForgeClient
 {
     sealed record GameplayBackup(string Id, string Archive, long Bytes, string Sha256, string ContentHash);
     sealed record GameplaySnapshot(string Root, HellForgeMods Mods, List<GameplayBackup> Backups, bool HadShare = false, bool Share = true);
-    sealed record GameplayIntent(string Root, string Catalog, string Backup, string SnapshotSha256, string State, bool OptionalDefaultsApplied = false);
+    sealed record GameplayIntent(string Root, string Catalog, string Backup, string SnapshotSha256, string State,
+        bool OptionalDefaultsApplied = false, string[]? OptionalDefaults = null);
     public string GameplayCache => Path.Combine(CacheRoot, "gameplay", HellForgeGameplayCatalog.Pinned.Id);
     string GameplayIntentPath => PackIntentPath + ".gameplay.json";
-    bool GameplayDefaultsApplied => ReadGameplayIntent() is { Catalog: var catalog } intent && catalog == HellForgeGameplayCatalog.Pinned.Id &&
-        (intent.State == "applied" || intent.OptionalDefaultsApplied);
+    HashSet<string> AppliedOptionalDefaults()
+    {
+        var intent = ReadGameplayIntent();
+        if (intent == null) return [];
+        var applied = new HashSet<string>(StringComparer.Ordinal);
+        foreach (var id in intent.OptionalDefaults ?? [])
+            if (!string.IsNullOrEmpty(id)) applied.Add(id);
+        if (intent.State == "applied" || intent.OptionalDefaultsApplied)
+        {
+            if (intent.Catalog == HellForgeGameplayCatalog.Pinned.Id)
+                foreach (var artifact in HellForgeGameplayCatalog.Pinned.Artifacts.Where(a => a.Optional))
+                    applied.Add(artifact.Id);
+            else if (intent.Catalog == "build25480438-r3")
+                applied.Add(HellForgePreset.CleanExit);
+        }
+        return applied;
+    }
+    bool GameplayDefaultsApplied
+    {
+        get
+        {
+            var applied = AppliedOptionalDefaults();
+            return HellForgeGameplayCatalog.Pinned.Artifacts.Where(a => a.Optional).All(a => applied.Contains(a.Id));
+        }
+    }
 
     async Task RequireGameplayIdleAsync(CancellationToken ct)
     {
@@ -63,13 +87,13 @@ public sealed partial class HellForgeClient
         var catalog = await ModsAsync(ct);
         if (catalog.Problems.Length != 0) throw new InvalidDataException("Resolve the mod catalog errors first: " + string.Join("; ", catalog.Problems));
         var missing = new List<GameplayArtifact>();
-        var defaultsApplied = GameplayDefaultsApplied;
+        var appliedDefaults = AppliedOptionalDefaults();
         foreach (var artifact in HellForgeGameplayCatalog.Pinned.Artifacts)
         {
             var found = catalog.Mods.SingleOrDefault(m => m.Id == artifact.Id);
-            // Offer optional defaults once. Later removal, disabling or replacement
-            // belongs to the player, including while required mods are repaired.
-            if (artifact.Optional && (defaultsApplied || found is { Enabled: false })) continue;
+            // Offer each optional default once. Later removal, disabling or replacement
+            // belongs to the player, including while required mods or newer optionals are applied.
+            if (artifact.Optional && (appliedDefaults.Contains(artifact.Id) || found is { Enabled: false })) continue;
             if (found == null || artifact.Version.Length > 0 && found.Version != artifact.Version || artifact.Version.Length == 0 && found.Name != artifact.Name)
             { missing.Add(artifact); continue; }
             ValidateModFolder(found.Folder);
@@ -159,7 +183,9 @@ public sealed partial class HellForgeClient
         var snapshotPath = FileSafety.Child(backup, "before.json");
         using (var file = new FileStream(snapshotPath, FileMode.CreateNew, FileAccess.Write, FileShare.None))
         { await JsonSerializer.SerializeAsync(file, snapshot, HellForgePack.Json, ct); file.Flush(flushToDisk: true); }
-        var intent = new GameplayIntent(Root, HellForgeGameplayCatalog.Pinned.Id, backup, await HellForgePack.HashAsync(snapshotPath, ct), "pending", GameplayDefaultsApplied);
+        var priorDefaults = AppliedOptionalDefaults();
+        var intent = new GameplayIntent(Root, HellForgeGameplayCatalog.Pinned.Id, backup, await HellForgePack.HashAsync(snapshotPath, ct), "pending",
+            GameplayDefaultsApplied, priorDefaults.Count == 0 ? null : priorDefaults.OrderBy(id => id, StringComparer.Ordinal).ToArray());
         await RequireGameplayIdleAsync(ct); ct.ThrowIfCancellationRequested(); WriteGameplayIntent(intent);
         try
         {
@@ -178,7 +204,12 @@ public sealed partial class HellForgeClient
             await ConfigureGameplayAsync(missing, ct);
             var after = await ModsAsync(ct);
             if (HellForgePreset.Problem(after with { HostingProblem = null }, checkOrder: true) is { } issue) throw new InvalidDataException(issue);
-            WriteGameplayIntent(intent with { State = "applied" });
+            WriteGameplayIntent(intent with
+            {
+                State = "applied",
+                OptionalDefaultsApplied = true,
+                OptionalDefaults = HellForgeGameplayCatalog.Pinned.Artifacts.Where(a => a.Optional).Select(a => a.Id).OrderBy(id => id, StringComparer.Ordinal).ToArray()
+            });
             progress?.Report(after.HostingProblem ?? "Required gameplay mods installed and configured.");
         }
         catch (Exception error)

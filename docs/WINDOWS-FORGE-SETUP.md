@@ -41,18 +41,20 @@ The update retains the separately verified0.3 installer and private account/prof
 snapshots before application changes. Known failures restore the previous app;
 unknown process outcomes keep recovery pending. Profile backups are not replayed.
 
-Required mods, order, options, marker OFF and sharing OFF are automatic. Eight
-archives are pinned in `forge-gameplay-build25480438-r3.json`, including optional
-Clonedivers Clean Exit 0.2.0 enabled on first r3 setup. Its `gameplay: false`
-manifest excludes it from co-op matching. Players can disable, replace or remove
-it afterwards without setup re-adding it, including during required-mod repairs
-or rollback. First setup also respects an already disabled copy. Completed
-r1/r2 records remain readable; interrupted older setup keeps its backup for
-review through recovery. The Clean Exit asset is staged and must be published
-before launcher release, with the exact release pins listed in [Forge status](FORGE.md).
-The older mine patch is disabled because the new engine includes it. An already
-prepared same-build appearance is retained on application upgrade and its files
-are checked at launch.
+Required mods, order, options, marker OFF and sharing OFF are automatic. Nine
+archives are pinned in `forge-gameplay-build25480438-r4.json`, including optional
+Clonedivers Clean Exit 0.2.0 and Empire LEGO Yoda Death 0.1.1 (prototype). Their
+`gameplay: false` manifests exclude them from co-op matching. Each is enabled
+once on first setup for its catalog revision (`r3` upgrades preserve prior Clean
+Exit choices while offering Yoda 0.1.1 once). Players can disable, replace or
+remove either afterwards without setup re-adding it, including during
+required-mod repairs or rollback. First setup also respects already disabled
+copies. Completed r1/r2/r3 records remain readable; interrupted older setup keeps
+its backup for review through recovery. Both optional release assets are staged
+and must be published before launcher release, with the exact release pins
+listed in [Forge status](FORGE.md). The older mine patch is disabled because the
+new engine includes it. An already prepared same-build appearance is retained on
+application upgrade and its files are checked at launch.
 
 The main button now routes disabled Difficulty, changed preset order/options,
 overlapping preset alternatives and sharing ON through the existing backed-up

@@ -7,6 +7,9 @@ internal static class LinuxForgePlayerTests
     internal static async Task Run(string root, Action<bool, string> check)
     {
         const string hello = "{\"bridge\":\"clonedivers-forge\",\"format\":1}\n";
+        check(HellForgeGameplayCatalog.Pinned.Id == "build25480438-r4" && HellForgeGameplayCatalog.Pinned.Artifacts.Count == 9 &&
+            HellForgeGameplayCatalog.Pinned.Artifacts.Where(a => a.Optional).Select(a => a.Id).ToHashSet(StringComparer.Ordinal).SetEquals(HellForgePreset.Optional),
+            "Linux embeds and validates the r4 gameplay catalog with both optional mods");
         foreach (var texture in new[] { "full", "lighter" })
         {
             var empire = new LinuxForgePreferences { Mode = "empire", Texture = texture, Covenant = true };
