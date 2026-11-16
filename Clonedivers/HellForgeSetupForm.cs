@@ -102,7 +102,7 @@ internal sealed class HellForgeSetupForm : Form
         if (Game.IsRunning() || status?.Running == true) { UpdateView(); return; }
         if (!HellForgeForm.SteamReadyCheck())
         {
-            try { Process.Start(new ProcessStartInfo("steam://open/main") { UseShellExecute = true }); detail.Text = "Finish signing in to the Steam account that owns HD2, then continue here."; }
+            try { HellForgeForm.OpenSteamClient(); detail.Text = "Finish signing in to the Steam account that owns HD2, then continue here."; }
             catch (Exception e) { detail.Text = e.Message; }
             return;
         }
