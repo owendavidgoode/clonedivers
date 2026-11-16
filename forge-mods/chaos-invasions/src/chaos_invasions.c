@@ -17,6 +17,7 @@
 #define CHAOS_TRANSFORM_RVA     0x3326508u
 #define CHAOS_PERCEPTION_RVA    0x3326548u
 #define CHAOS_FACTIONS_RVA      0x3326CB8u
+#define CHAOS_PASSENGER_RVA     0x3326CC0u
 
 #define CHAOS_ROSTER_BOTS_RVA   0x21CBCB0u
 #define CHAOS_ROSTER_SQUIDS_RVA 0x21CE910u
@@ -38,6 +39,8 @@
 #define CHAOS_CURATED_PER_FACTION 6
 #define CHAOS_MAX_PRELOAD_PKGS    40
 #define CHAOS_PERCEPTION_STRIDE   0x13F8u
+#define CHAOS_CARGO_STRIDE        0x54u
+#define CHAOS_SEATS_STRIDE        0x3D8u
 #define CHAOS_TRANSPORT_TIMEOUT_S 12.0
 #define CHAOS_BREACH_TIMEOUT_S    8.0
 #define CHAOS_BREACH_STAGGER_S    3.5f
@@ -56,9 +59,12 @@ typedef struct ChaosPendingWave {
     int active;
     int is_transport;
     int faction;
+    int difficulty;
     int unloaded_count;
     int ship_seen;
+    int cargo_patched;
     int squad_size;
+    uint32_t ship_entity;
     double elapsed;
     double timeout;
     float anchor[3];
@@ -129,7 +135,7 @@ typedef struct ChaosNativeMock {
                               const float target_pos[3], const float* quat4, const void* extra, float delay, uint32_t z);
     uint8_t (*has_headroom)(void* dir, uint32_t kind, uint8_t bypass);
     void (*spawn_transport)(void* em, uint32_t eid, const uint32_t* roles, uint32_t count, const float pos[3],
-                            float spacing, const float target[3], const float look[3], uint64_t ship);
+                            float spacing, const float drop_pos[3], const float target_pos[3], uint64_t ship);
     float* (*project_anchor)(void* em, float out[3], const float in[3], int radius);
     void (*particle_fx)(void* q, uint64_t res, const float pos[3], uint32_t fx, uint32_t se, uint32_t oe, uint64_t cr, uint32_t te);
     void (*breach_burst)(void* q, const float pos[3], uint32_t fx, uint32_t se, uint32_t oe, uint64_t z, uint32_t te);
@@ -170,6 +176,12 @@ static uint32_t ReadU32(uintptr_t at, uint32_t fallback)
 }
 
 static int WriteU32(uintptr_t at, uint32_t val)
+{
+    if (!hf || !hf->write || !PtrValid(at)) return 0;
+    return hf->write(at, &val, sizeof val) == 0;
+}
+
+static int WriteU64(uintptr_t at, uint64_t val)
 {
     if (!hf || !hf->write || !PtrValid(at)) return 0;
     return hf->write(at, &val, sizeof val) == 0;
@@ -276,7 +288,7 @@ static int ProveChaosRuntime(void)
         }
     }
 
-    hf->log(self, "CHAOS_PINS: ok=1 verified=10 exe_pkg_pins=%d", g_exe_pins_ok);
+    hf->log(self, "CHAOS_PINS: ok=1 verified=%u exe_pkg_pins=%d", (unsigned)CPIN_COUNT, g_exe_pins_ok);
     return g_pins_ok;
 }
 
@@ -329,18 +341,18 @@ static float* CallProjectAnchor(uintptr_t gbase, void* em, float out_pos[3], con
 
 static void CallSpawnTransport(uintptr_t gbase, void* em, uint32_t eid, const uint32_t* roles,
                                uint32_t count, const float pos[3], float spacing,
-                               const float target_pos[3], const float look_pos[3], uint64_t ship)
+                               const float drop_pos[3], const float target_pos[3], uint64_t ship)
 {
 #ifdef CHAOS_UNIT_TEST
     if (g_mock.spawn_transport) {
-        g_mock.spawn_transport(em, eid, roles, count, pos, spacing, target_pos, look_pos, ship);
+        g_mock.spawn_transport(em, eid, roles, count, pos, spacing, drop_pos, target_pos, ship);
         return;
     }
 #endif
     typedef void (*Fn)(void*, uint32_t, const uint32_t*, uint32_t, const float*, float,
                        const float*, const float*, uint64_t);
     ((Fn)(gbase + kChaosCodePins[CPIN_SPAWN_TRANSPORT].rva))(em, eid, roles, count, pos, spacing,
-                                                              target_pos, look_pos, ship);
+                                                              drop_pos, target_pos, ship);
 }
 
 static void* CallSpawnRosterRow(uintptr_t gbase, void* director, const void* row, const float pos[3],
@@ -747,26 +759,122 @@ static int FindSafeGroundAnchor(uintptr_t gbase, float out_anchor[3], float out_
 
 /* ---- Wave Dispatch & Staggered Fallback ------------------------------------------------------------------------ */
 
-static void PickRoleArrayAndRows(int faction, int count, uint32_t roles_out[6], int row_idx_out[6])
+static void PickRoleArrayAndRows(int faction, int diff, int count, uint32_t roles_out[6], int row_idx_out[6])
 {
     int avail[CHAOS_CURATED_PER_FACTION], n_avail = 0;
+    int weighted[CHAOS_CURATED_PER_FACTION], n_weighted = 0;
+    int d = (diff < 1) ? 1 : (diff > 10 ? 10 : diff);
     for (int i = 0; i < CHAOS_CURATED_PER_FACTION; i++) {
-        if (g_rosters[faction][i].valid) avail[n_avail++] = i;
+        if (!g_rosters[faction][i].valid) continue;
+        avail[n_avail++] = i;
+        float w = 0.0f;
+        memcpy(&w, g_rosters[faction][i].row_bytes + 0x30u + (size_t)(d - 1) * 4u, sizeof w);
+        if (isfinite(w) && w > 0.0f) weighted[n_weighted++] = i;
     }
+    const int* pool = n_weighted > 0 ? weighted : avail;
+    int pool_n = n_weighted > 0 ? n_weighted : n_avail;
     for (int i = 0; i < count && i < 6; i++) {
-        int slot = n_avail > 0 ? avail[(int)(NextRand() % (uint32_t)n_avail)] : 0;
+        int slot = pool_n > 0 ? pool[(int)(NextRand() % (uint32_t)pool_n)] : 0;
         row_idx_out[i] = slot;
-        roles_out[i] = n_avail > 0 ? g_rosters[faction][slot].role_id : 0u;
+        roles_out[i] = pool_n > 0 ? g_rosters[faction][slot].role_id : 0u;
     }
 }
 
-static void DispatchStaggeredRoster(uintptr_t gbase, uintptr_t director, int faction, int count,
+static int ResolveTransportCargoSlot(uintptr_t pass_comp, uint32_t active, uintptr_t descs,
+                                     uintptr_t cargo_base, uint32_t prev_active, uint32_t ship_hint,
+                                     uint32_t* slot_out, uint32_t* ship_out)
+{
+    uint32_t slot = 0xFFFFFFFFu;
+    if (ship_hint != 0u && HashFindU32(pass_comp + 0x20u, ship_hint, &slot) && slot < active) {
+        *slot_out = slot;
+        *ship_out = ship_hint;
+        return 1;
+    }
+    if (active > prev_active && active <= 256u && descs) {
+        for (uint32_t s = prev_active; s < active; s++) {
+            uintptr_t edesc = 0;
+            uint64_t eres = 0;
+            uint32_t eeid = 0, hslot = 0xFFFFFFFFu;
+            if (!ReadPtr(descs + (uintptr_t)s * 8u, &edesc) ||
+                !ReadMem(edesc, &eres, sizeof eres) || !ChaosIsTransportResource(eres) ||
+                !ReadMem(edesc + 8u, &eeid, sizeof eeid))
+                continue;
+            if (!HashFindU32(pass_comp + 0x20u, eeid, &hslot) || hslot != s) continue;
+            if (ReadU32(cargo_base + (uintptr_t)s * CHAOS_CARGO_STRIDE, 99u) != 0u ||
+                ReadU32(cargo_base + (uintptr_t)s * CHAOS_CARGO_STRIDE + 0x48u, 0u) != 3u)
+                continue;
+            *slot_out = s;
+            *ship_out = eeid;
+            return 1;
+        }
+    }
+    return 0;
+}
+
+static int FixTransportCargoSlot(uintptr_t gbase, int faction, uint32_t cargo_faction,
+                                 uint32_t prev_active, uint32_t ship_hint,
+                                 const int idxs[6], int sq)
+{
+    uintptr_t pass_comp = 0, descs = 0, cargo_base = 0, seats_base = 0;
+    uint32_t active = 0;
+    if (!ReadPtr(gbase + CHAOS_PASSENGER_RVA, &pass_comp) ||
+        !ReadMem(pass_comp + 0x10u, &active, sizeof active) || active == 0u || active > 256u ||
+        !ReadPtr(pass_comp + 0x50u, &cargo_base))
+        return 0;
+    ReadPtr(pass_comp + 0x38u, &descs);
+    ReadPtr(pass_comp + 0x48u, &seats_base);
+
+    uint32_t slot = 0xFFFFFFFFu, ship_eid = ship_hint;
+    if (!ResolveTransportCargoSlot(pass_comp, active, descs, cargo_base, prev_active, ship_hint,
+                                   &slot, &ship_eid))
+        return 0;
+
+    uintptr_t slot_addr = cargo_base + (uintptr_t)slot * CHAOS_CARGO_STRIDE;
+    uint32_t cur_fac = ReadU32(slot_addr, 0xFFFFFFFFu);
+    uint32_t kind = ReadU32(slot_addr + 0x48u, 0u);
+    if ((cur_fac != 0u && cur_fac != cargo_faction) || kind != 3u) return 0;
+
+    int wrote_fac = 0;
+    if (cur_fac == 0u) {
+        if (!WriteU32(slot_addr, cargo_faction)) return 0;
+        wrote_fac = 1;
+    }
+    if (!g_pending.ship_entity && ship_eid) g_pending.ship_entity = ship_eid;
+    g_pending.cargo_patched = 1;
+
+    uint32_t c_cnt = ReadU32(slot_addr + 0x04u, 0u);
+    uint32_t repaired = 0u;
+    if (idxs && sq > 0 && c_cnt > 0u && c_cnt <= 16u) {
+        uintptr_t seats_addr = seats_base ? (seats_base + (uintptr_t)slot * CHAOS_SEATS_STRIDE) : 0u;
+        uint32_t s_cnt = seats_addr ? ReadU32(seats_addr + 0x3CCu, 0u) : 0u;
+        for (uint32_t k = 0; k < c_cnt; k++) {
+            uint32_t ridx = ReadU32(slot_addr + 0x08u + (uintptr_t)k * 4u, 0u);
+            if (ridx == 0xFFFFFFFFu) {
+                uint32_t curated = kCuratedRows[faction][idxs[k % (uint32_t)sq]];
+                if (WriteU32(slot_addr + 0x08u + (uintptr_t)k * 4u, curated)) {
+                    ++repaired;
+                    if (seats_addr && s_cnt == c_cnt &&
+                        ReadU32(seats_addr + 0x80u + (uintptr_t)k * 4u, 0u) == 0xFFFFFFFFu) {
+                        WriteU32(seats_addr + 0x80u + (uintptr_t)k * 4u, curated);
+                    }
+                }
+            }
+        }
+    }
+    if (wrote_fac || repaired > 0u) {
+        hf->log(self, "CHAOS_PASSENGER_PATCH: faction=%s ship=%u slot=%u cargo_faction=%u count=%u repaired=%u",
+                chaos_faction_names[faction], ship_eid, slot, cargo_faction, c_cnt, repaired);
+    }
+    return 1;
+}
+
+static void DispatchStaggeredRoster(uintptr_t gbase, uintptr_t director, int faction, int diff, int count,
                                     uint32_t flags, const float anchor[3], const float target[3],
                                     float total_span_s)
 {
     uint32_t roles[6] = {0};
     int idxs[6] = {0};
-    PickRoleArrayAndRows(faction, count, roles, idxs);
+    PickRoleArrayAndRows(faction, diff, count, roles, idxs);
 
     int dispatched = 0;
     for (int i = 0; i < count && i < 6; i++) {
@@ -791,7 +899,7 @@ static void DispatchStaggeredRoster(uintptr_t gbase, uintptr_t director, int fac
             chaos_faction_names[faction], flags, count, dispatched, anchor[0], anchor[1], anchor[2]);
 }
 
-static void DispatchChaosWave(uintptr_t gbase, uintptr_t director, int faction,
+static void DispatchChaosWave(uintptr_t gbase, uintptr_t director, int faction, int diff,
                               const float anchor[3], const float player_pos[3])
 {
     int sq = config.squad_size;
@@ -801,17 +909,22 @@ static void DispatchChaosWave(uintptr_t gbase, uintptr_t director, int faction,
     memset(&g_pending, 0, sizeof g_pending);
     g_pending.active = 1;
     g_pending.faction = faction;
+    g_pending.difficulty = diff;
     g_pending.squad_size = sq;
     memcpy(g_pending.anchor, anchor, 12);
     memcpy(g_pending.target, player_pos, 12);
     ChaosTrackerReserveWave(&g_tracker, faction, sq);
 
     if (faction == CHAOS_BOTS || faction == CHAOS_SQUIDS) {
-        uintptr_t em = 0;
-        uint32_t q_transports = 999u, orig_dir_faction = 0;
-        int can_transport = ReadPtr(gbase + CHAOS_ENCOUNTER_RVA, &em) &&
+        uintptr_t em = 0, orig_dir_roster = 0, pass_comp = 0;
+        uint32_t q_transports = 999u, orig_dir_faction = 0, prev_pass_active = 0u;
+        uintptr_t scoped_roster = gbase + FactionRosterRva(faction);
+        uint32_t cargo_faction = ChaosCargoFactionFromFaction(faction);
+        int can_transport = cargo_faction != 0u &&
+                            ReadPtr(gbase + CHAOS_ENCOUNTER_RVA, &em) &&
                             ReadMem(em + 0x918u, &q_transports, 4) && q_transports < 8u &&
-                            ReadMem(director + 0x518BCu, &orig_dir_faction, 4);
+                            ReadMem(director + 0x518BCu, &orig_dir_faction, 4) &&
+                            ReadPtr(director + 0x660u, &orig_dir_roster);
 
         if (can_transport) {
             uint32_t roles[6] = {0};
@@ -819,7 +932,11 @@ static void DispatchChaosWave(uintptr_t gbase, uintptr_t director, int faction,
             float spacing = 4.0f;
             ReadMem(em + 0x91Cu, &spacing, 4);
             if (!isfinite(spacing) || spacing < 1.0f || spacing > 30.0f) spacing = 4.0f;
-            PickRoleArrayAndRows(faction, sq, roles, idxs);
+            PickRoleArrayAndRows(faction, diff, sq, roles, idxs);
+
+            if (ReadPtr(gbase + CHAOS_PASSENGER_RVA, &pass_comp)) {
+                prev_pass_active = ReadU32(pass_comp + 0x10u, 0u);
+            }
 
             if (faction == CHAOS_BOTS && g_bot_smoke_resident && hf->spawn_explosion) {
                 hf->spawn_explosion(self, CHAOS_EXPLOSION_G3_SMOKE, anchor);
@@ -827,24 +944,28 @@ static void DispatchChaosWave(uintptr_t gbase, uintptr_t director, int faction,
 
             uint64_t ship = (faction == CHAOS_BOTS) ? CHAOS_ENTITY_DROPSHIP : CHAOS_ENTITY_WARPSHIP;
             uint32_t scoped_mask = ChaosDirectorMaskFromFaction(faction);
-            volatile uint32_t* dir_faction_ptr = (volatile uint32_t*)(director + 0x518BCu);
-            *dir_faction_ptr = scoped_mask;
+            WriteU32(director + 0x518BCu, scoped_mask);
+            WriteU64(director + 0x660u, (uint64_t)scoped_roster);
             CallSpawnTransport(gbase, (void*)em, 0u, roles, (uint32_t)sq, anchor, spacing,
-                               player_pos, anchor, ship);
-            *dir_faction_ptr = orig_dir_faction;
+                               anchor, player_pos, ship);
+            WriteU64(director + 0x660u, (uint64_t)orig_dir_roster);
+            WriteU32(director + 0x518BCu, orig_dir_faction);
+
+            FixTransportCargoSlot(gbase, faction, cargo_faction, prev_pass_active,
+                                  g_pending.ship_entity, idxs, sq);
 
             g_pending.is_transport = 1;
             g_pending.timeout = CHAOS_TRANSPORT_TIMEOUT_S;
-            hf->log(self, "CHAOS_WAVE_DISPATCH: event=%s mode=transport ship=%016llx q=%u count=%d anchor=(%.1f,%.1f,%.1f)",
+            hf->log(self, "CHAOS_WAVE_DISPATCH: event=%s mode=transport ship=%016llx q=%u count=%d cargo_patched=%d anchor=(%.1f,%.1f,%.1f)",
                     chaos_names[faction], (unsigned long long)ship, q_transports, sq,
-                    anchor[0], anchor[1], anchor[2]);
+                    g_pending.cargo_patched, anchor[0], anchor[1], anchor[2]);
             return;
         }
 
         /* Transport slot busy or unreadable: fall back immediately to staggered SpawnRosterRow (0x3C) */
         g_pending.is_transport = 0;
         g_pending.timeout = CHAOS_BREACH_TIMEOUT_S;
-        DispatchStaggeredRoster(gbase, director, faction, sq, 0x3Cu, anchor, player_pos, 2.0f);
+        DispatchStaggeredRoster(gbase, director, faction, diff, sq, 0x3Cu, anchor, player_pos, 2.0f);
         return;
     }
 
@@ -857,7 +978,7 @@ static void DispatchChaosWave(uintptr_t gbase, uintptr_t director, int faction,
     }
     g_pending.is_transport = 0;
     g_pending.timeout = CHAOS_BREACH_TIMEOUT_S;
-    DispatchStaggeredRoster(gbase, director, CHAOS_BUGS, sq, 0x24u, anchor, player_pos, CHAOS_BREACH_STAGGER_S);
+    DispatchStaggeredRoster(gbase, director, CHAOS_BUGS, diff, sq, 0x24u, anchor, player_pos, CHAOS_BREACH_STAGGER_S);
     hf->log(self, "CHAOS_WAVE_DISPATCH: event=bug_breach mode=breach_fx count=%d anchor=(%.1f,%.1f,%.1f)",
             sq, anchor[0], anchor[1], anchor[2]);
 }
@@ -878,7 +999,7 @@ static void ServicePendingWave(uintptr_t gbase, uintptr_t director, float dt)
         g_pending.is_transport = 0;
         g_pending.elapsed = 0.0;
         g_pending.timeout = CHAOS_BREACH_TIMEOUT_S;
-        DispatchStaggeredRoster(gbase, director, g_pending.faction, g_pending.squad_size,
+        DispatchStaggeredRoster(gbase, director, g_pending.faction, g_pending.difficulty, g_pending.squad_size,
                                 0x3Cu, g_pending.anchor, g_pending.target, 2.0f);
         return;
     }
@@ -1085,7 +1206,17 @@ static void OnSpawn(HfMod* mod, const HfEventInfo* info, void* user)
     if (fam < 0) return;
 
     if (ChaosIsTransportResource(e->resource)) {
-        if (g_pending.active && g_pending.faction == fam) ++g_pending.ship_seen;
+        if (g_pending.active && g_pending.faction == fam) {
+            ++g_pending.ship_seen;
+            g_pending.ship_entity = e->entity;
+            if (!g_pending.cargo_patched && g_pins_ok) {
+                uintptr_t gbase = GameBase(NULL);
+                uint32_t cf = ChaosCargoFactionFromFaction(fam);
+                if (gbase && cf) {
+                    FixTransportCargoSlot(gbase, fam, cf, UINT32_MAX, e->entity, NULL, 0);
+                }
+            }
+        }
         return;
     }
 
@@ -1184,7 +1315,7 @@ static void Tick(HfMod* mod, float dt, void* user)
         return;
     }
 
-    DispatchChaosWave(gbase, director, chosen, anchor, target);
+    DispatchChaosWave(gbase, director, chosen, diff, anchor, target);
 }
 
 HF_MOD_EXPORT int hellforge_mod_init(const HfApi* api, HfMod* mod)

@@ -113,6 +113,7 @@ static uint8_t* g_hm_mem;
 static uint8_t* g_fac_mgr_mem;
 static uint8_t* g_perc_mgr_mem;
 static uint8_t* g_pkg_sys_mem;
+static uint8_t* g_pass_comp_mem;
 
 typedef struct RefSlot { uint64_t key; uint64_t ref; } RefSlot;
 static RefSlot g_ref_slots[256];
@@ -144,11 +145,12 @@ static uint8_t g_exe_engine_mem[0x500];
 static uint8_t g_exe_mgr_mem[0x300];
 static uint8_t g_exe_res_mem[0x100];
 
-/* Hash table helper storage for PM / EM / TM / Factions */
+/* Hash table helper storage for PM / EM / TM / Factions / Passenger */
 typedef struct KV32 { uint32_t k; uint32_t v; } KV32;
 static KV32 g_em_net_buckets[32];
 static KV32 g_tm_buckets[32];
 static KV32 g_fac_buckets[32];
+static KV32 g_pass_buckets[32];
 static uint8_t g_tm_data[32][0x308];
 
 typedef struct FacDesc { uint64_t resource; uint32_t entity; uint8_t pad[8]; uint8_t flags; } FacDesc;
@@ -158,11 +160,19 @@ static uint32_t g_fac_masks[16];
 static FacDesc g_perc_descs_storage[16];
 static void* g_perc_desc_ptrs[16];
 static uint8_t* g_perc_records_mem;
+static FacDesc g_pass_descs_storage[16];
+static void* g_pass_desc_ptrs[16];
+static uint8_t g_pass_cargo_mem[16 * CHAOS_CARGO_STRIDE];
+static uint8_t g_pass_seats_mem[16 * CHAOS_SEATS_STRIDE];
 
 /* Mock call counters & captures */
 static unsigned g_transport_calls = 0, g_roster_calls = 0, g_fx_calls = 0, g_burst_calls = 0;
 static uint64_t g_last_ship = 0;
 static uint32_t g_scoped_director_faction_during_transport = 0;
+static uint64_t g_scoped_director_roster_during_transport = 0;
+static float g_last_transport_pos[3], g_last_transport_drop[3], g_last_transport_target[3];
+static int g_fire_sync_transport_onspawn = 0;
+static int g_force_reject_last_role = 0;
 static uint32_t g_last_roster_flags = 0, g_last_roster_kind = 0;
 static float g_last_roster_delays[8];
 static uint8_t g_mock_idle = 1;
@@ -238,12 +248,74 @@ static float* MockProjectAnchor(void* em, float out[3], const float in[3], int r
 }
 
 static void MockSpawnTransport(void* em, uint32_t eid, const uint32_t* roles, uint32_t count, const float pos[3],
-                               float spacing, const float target[3], const float look[3], uint64_t ship)
+                               float spacing, const float drop_pos[3], const float target_pos[3], uint64_t ship)
 {
-    (void)em; (void)eid; (void)roles; (void)count; (void)pos; (void)spacing; (void)target; (void)look;
+    (void)em; (void)eid; (void)spacing;
     ++g_transport_calls;
     g_last_ship = ship;
+    if (pos) memcpy(g_last_transport_pos, pos, 12);
+    if (drop_pos) memcpy(g_last_transport_drop, drop_pos, 12);
+    if (target_pos) memcpy(g_last_transport_target, target_pos, 12);
     memcpy(&g_scoped_director_faction_during_transport, g_director_mem + 0x518BCu, 4);
+    memcpy(&g_scoped_director_roster_during_transport, g_director_mem + 0x660u, 8);
+
+    /* Simulate native 0xFDC140 -> 0x687E40 -> 0x683E50 -> 0x953150([director+0x660]):
+     * 0x8B61F0 zeroes cargo.faction = 0, 0x683E50 resolves roles against [director+0x660]. */
+    if (g_pass_comp_mem && count <= 16u) {
+        uint32_t active = 0;
+        memcpy(&active, g_pass_comp_mem + 0x10u, 4);
+        if (active < 16u) {
+            uint32_t slot = active;
+            uint32_t ship_eid = 777u + (uint32_t)g_transport_calls;
+            g_pass_descs_storage[slot].resource = ship;
+            g_pass_descs_storage[slot].entity = ship_eid;
+            g_pass_desc_ptrs[slot] = &g_pass_descs_storage[slot];
+            g_pass_buckets[ship_eid % 32u].k = ship_eid;
+            g_pass_buckets[ship_eid % 32u].v = slot;
+
+            uint8_t* cargo = g_pass_cargo_mem + (size_t)slot * CHAOS_CARGO_STRIDE;
+            uint8_t* seats = g_pass_seats_mem + (size_t)slot * CHAOS_SEATS_STRIDE;
+            memset(cargo, 0, CHAOS_CARGO_STRIDE);
+            memset(seats, 0, CHAOS_SEATS_STRIDE);
+            uint32_t zero_fac = 0u, kind3 = 3u;
+            memcpy(cargo + 0x00u, &zero_fac, 4); /* 0x8B61F0 zeroes context+0x628 */
+            memcpy(cargo + 0x04u, &count, 4);
+            memcpy(cargo + 0x48u, &kind3, 4);
+            memcpy(seats + 0x3CCu, &count, 4);
+
+            uintptr_t roster_ptr = (uintptr_t)g_scoped_director_roster_during_transport;
+            uintptr_t rows_ptr = 0;
+            uint32_t rcount = 0;
+            if (roster_ptr) {
+                memcpy(&rows_ptr, (const void*)roster_ptr, 8);
+                memcpy(&rcount, (const void*)(roster_ptr + 8u), 4);
+            }
+            for (uint32_t k = 0; k < count; k++) {
+                uint32_t resolved = 0xFFFFFFFFu;
+                if (!(g_force_reject_last_role && k + 1u == count) && rows_ptr && rcount <= 512u) {
+                    for (uint32_t r = 0; r < rcount; r++) {
+                        uint32_t rr = 0;
+                        memcpy(&rr, (const void*)(rows_ptr + (uintptr_t)r * 0x80u), 4);
+                        if (rr == roles[k]) { resolved = r; break; }
+                    }
+                }
+                memcpy(cargo + 0x08u + (uintptr_t)k * 4u, &resolved, 4);
+                memcpy(seats + 0x80u + (uintptr_t)k * 4u, &resolved, 4);
+            }
+            active = slot + 1u;
+            memcpy(g_pass_comp_mem + 0x10u, &active, 4);
+
+            if (g_fire_sync_transport_onspawn) {
+                HfSpawnEvent ship_ev = {0};
+                ship_ev.info.size = sizeof ship_ev;
+                ship_ev.info.kind = HF_ON_SPAWN;
+                ship_ev.entity = ship_eid;
+                ship_ev.resource = ship;
+                ship_ev.authority = 1;
+                OnSpawn(self, (const HfEventInfo*)&ship_ev, NULL);
+            }
+        }
+    }
 }
 
 static void* MockSpawnRosterRow(void* dir, const void* row, const float pos[3], uint32_t kind, uint32_t flags,
@@ -298,27 +370,25 @@ static void InitMockGameArenas(uint32_t native_director_mask, uint32_t difficult
     else memset(g_perc_records_mem, 0, 16u * CHAOS_PERCEPTION_STRIDE);
     if (!g_pkg_sys_mem) g_pkg_sys_mem = (uint8_t*)calloc(1, 0x40u);
     else memset(g_pkg_sys_mem, 0, 0x40u);
+    if (!g_pass_comp_mem) g_pass_comp_mem = (uint8_t*)calloc(1, 0x100u);
+    else memset(g_pass_comp_mem, 0, 0x100u);
 
-    /* Copy all 10 game.dll 32-byte code pins + 2 exe pins */
+    /* Copy all game.dll 32-byte code pins + 2 exe pins */
     for (int i = 0; i < CPIN_COUNT; i++) {
         memcpy(g_arena_game + kChaosCodePins[i].rva, kChaosCodePins[i].bytes, 32);
     }
     memcpy(g_arena_exe + CHAOS_EXE_PKG_HAS_LOADED_RVA, kExeHasLoadedPin, 32);
     memcpy(g_arena_exe + CHAOS_EXE_PKG_FIND_RVA, kExeFindPin, 32);
 
-    /* Director */
-    void* p = g_director_mem;
-    memcpy(g_arena_game + CHAOS_DIRECTOR_RVA, &p, 8);
-    memcpy(g_director_mem + 0x518BCu, &native_director_mask, 4);
-    memcpy(g_director_mem + 0x518C4u, &difficulty, 4);
-
     /* Static rosters */
+    float w1 = 1.0f;
     for (int r = 0; r < 61; r++) {
         uint32_t role_id = 0x1000u + (uint32_t)r;
         uint64_t eh = 0x4019623142351cb6ull + (uint64_t)r;
         if (r == 0) eh = 0x4019623142351cb6ull; /* Automaton known hash */
         memcpy(g_bot_rows[r], &role_id, 4);
         memcpy(g_bot_rows[r] + 8, &eh, 8);
+        for (int d = 0; d < 10; d++) memcpy(g_bot_rows[r] + 0x30 + d * 4, &w1, 4);
     }
     for (int r = 0; r < 46; r++) {
         uint32_t role_id = 0x2000u + (uint32_t)r;
@@ -326,6 +396,7 @@ static void InitMockGameArenas(uint32_t native_director_mask, uint32_t difficult
         if (r == 4) eh = 0x905809a4c28d8a45ull; /* Voteless known hash */
         memcpy(g_squid_rows[r], &role_id, 4);
         memcpy(g_squid_rows[r] + 8, &eh, 8);
+        for (int d = 0; d < 10; d++) memcpy(g_squid_rows[r] + 0x30 + d * 4, &w1, 4);
     }
     for (int r = 0; r < 45; r++) {
         uint32_t role_id = 0x3000u + (uint32_t)r;
@@ -333,6 +404,7 @@ static void InitMockGameArenas(uint32_t native_director_mask, uint32_t difficult
         if (r == 0) eh = 0x51eea86bf6997e4eull; /* Scavenger known hash */
         memcpy(g_bug_rows[r], &role_id, 4);
         memcpy(g_bug_rows[r] + 8, &eh, 8);
+        for (int d = 0; d < 10; d++) memcpy(g_bug_rows[r] + 0x30 + d * 4, &w1, 4);
     }
     void* br = g_bot_rows; uint32_t bc = 61u;
     void* sr = g_squid_rows; uint32_t sc = 46u;
@@ -340,6 +412,38 @@ static void InitMockGameArenas(uint32_t native_director_mask, uint32_t difficult
     memcpy(g_arena_game + CHAOS_ROSTER_BOTS_RVA, &br, 8); memcpy(g_arena_game + CHAOS_ROSTER_BOTS_RVA + 8, &bc, 4);
     memcpy(g_arena_game + CHAOS_ROSTER_SQUIDS_RVA, &sr, 8); memcpy(g_arena_game + CHAOS_ROSTER_SQUIDS_RVA + 8, &sc, 4);
     memcpy(g_arena_game + CHAOS_ROSTER_BUGS_RVA, &ur, 8); memcpy(g_arena_game + CHAOS_ROSTER_BUGS_RVA + 8, &uc, 4);
+
+    /* Director (+0x518BC, +0x518C4, +0x660) */
+    void* p = g_director_mem;
+    memcpy(g_arena_game + CHAOS_DIRECTOR_RVA, &p, 8);
+    memcpy(g_director_mem + 0x518BCu, &native_director_mask, 4);
+    memcpy(g_director_mem + 0x518C4u, &difficulty, 4);
+    uint32_t native_rva = CHAOS_ROSTER_BUGS_RVA;
+    if (native_director_mask == CHAOS_NATIVE_BOTS_BIT) native_rva = CHAOS_ROSTER_BOTS_RVA;
+    else if (native_director_mask == CHAOS_NATIVE_SQUIDS_BIT) native_rva = CHAOS_ROSTER_SQUIDS_RVA;
+    uint64_t dir_roster = (uint64_t)(uintptr_t)(g_arena_game + native_rva);
+    memcpy(g_director_mem + 0x660u, &dir_roster, 8);
+
+    /* PassengerComponent (game+0x3326CC0) */
+    memset(g_pass_buckets, 0xFF, sizeof g_pass_buckets);
+    memset(g_pass_descs_storage, 0, sizeof g_pass_descs_storage);
+    memset(g_pass_desc_ptrs, 0, sizeof g_pass_desc_ptrs);
+    memset(g_pass_cargo_mem, 0, sizeof g_pass_cargo_mem);
+    memset(g_pass_seats_mem, 0, sizeof g_pass_seats_mem);
+    uint32_t cap32 = 32u, empty32 = 0xFFFFFFFFu, mult32 = 1u;
+    void* pbptr = g_pass_buckets;
+    void* pdptr = g_pass_desc_ptrs;
+    void* psptr = g_pass_seats_mem;
+    void* pcptr = g_pass_cargo_mem;
+    memcpy(g_pass_comp_mem + 0x20u + 0, &pbptr, 8);
+    memcpy(g_pass_comp_mem + 0x20u + 8, &cap32, 4);
+    memcpy(g_pass_comp_mem + 0x20u + 12, &empty32, 4);
+    memcpy(g_pass_comp_mem + 0x20u + 16, &mult32, 4);
+    memcpy(g_pass_comp_mem + 0x38u, &pdptr, 8);
+    memcpy(g_pass_comp_mem + 0x48u, &psptr, 8);
+    memcpy(g_pass_comp_mem + 0x50u, &pcptr, 8);
+    p = g_pass_comp_mem;
+    memcpy(g_arena_game + CHAOS_PASSENGER_RVA, &p, 8);
 
     /* Register unit package lookups */
     g_lookup_count = 0;
@@ -395,7 +499,6 @@ static void InitMockGameArenas(uint32_t native_director_mask, uint32_t difficult
     memcpy(g_pm_mem + 0x2E0u, &plife, 4);
     memcpy(g_pm_mem + 0x3A8u, &pnet, 4);
     p = g_emgr_mem; memcpy(g_arena_game + CHAOS_ENTITIES_RVA, &p, 8);
-    uint32_t cap32 = 32u, empty32 = 0xFFFFFFFFu, mult32 = 1u;
     void* nbptr = g_em_net_buckets;
     g_em_net_buckets[pnet % 32u].k = pnet; g_em_net_buckets[pnet % 32u].v = pslot;
     memcpy(g_emgr_mem + 0xF22EC8u + 0, &nbptr, 8);
@@ -450,6 +553,12 @@ static void ResetMockCountersAndModState(void)
     g_transport_calls = g_roster_calls = g_fx_calls = g_burst_calls = 0;
     g_last_ship = 0;
     g_scoped_director_faction_during_transport = 0;
+    g_scoped_director_roster_during_transport = 0;
+    memset(g_last_transport_pos, 0, sizeof g_last_transport_pos);
+    memset(g_last_transport_drop, 0, sizeof g_last_transport_drop);
+    memset(g_last_transport_target, 0, sizeof g_last_transport_target);
+    g_fire_sync_transport_onspawn = 1;
+    g_force_reject_last_role = 0;
     g_mock_idle = 1;
     g_mock_headroom = 1;
     g_mock_alive = 1;
@@ -625,28 +734,51 @@ static void TestSpawnersFallbacksAndJoiner(void)
     Seconds(1);
     CHECK(!landed);
     Landing();
+    g_fire_sync_transport_onspawn = 1;
+    g_force_reject_last_role = 1; /* simulate SelectRosterIndex returning -1 on 4th slot -> Verify repair */
     Seconds(14);
     CHECK(g_transport_calls == 0);
     Seconds(1);
     CHECK(g_transport_calls == 1 && g_last_ship == CHAOS_ENTITY_DROPSHIP);
     CHECK(g_scoped_director_faction_during_transport == CHAOS_NATIVE_BOTS_BIT);
+    CHECK(g_scoped_director_roster_during_transport == (uint64_t)(uintptr_t)(g_arena_game + CHAOS_ROSTER_BOTS_RVA));
     CHECK(ReadU32((uintptr_t)g_director_mem + 0x518BCu, 0u) == CHAOS_NATIVE_BUGS_BIT); /* restored immediately */
+    uint64_t restored_roster = 0;
+    memcpy(&restored_roster, g_director_mem + 0x660u, 8);
+    CHECK(restored_roster == (uint64_t)(uintptr_t)(g_arena_game + CHAOS_ROSTER_BUGS_RVA));
+    /* Verify arg7 = anchor (drop_pos) and arg8 = player_pos (target_pos) */
+    CHECK(memcmp(g_last_transport_drop, g_last_transport_pos, 12) == 0);
+    CHECK(fabsf(g_last_transport_target[0] - 100.0f) < 0.01f &&
+          fabsf(g_last_transport_target[1] - 200.0f) < 0.01f &&
+          fabsf(g_last_transport_target[2] - 10.0f) < 0.01f);
     CHECK(g_mock_explosion_calls == 1 && g_mock_explosion_type == CHAOS_EXPLOSION_G3_SMOKE);
+    /* Verify PassengerComponent cargo slot 0 was patched to faction=3 (Bots) & rejected slot repaired */
+    uint32_t pass_fac = 0, pass_cnt = 0;
+    memcpy(&pass_fac, g_pass_cargo_mem + 0x00u, 4);
+    memcpy(&pass_cnt, g_pass_cargo_mem + 0x04u, 4);
+    CHECK(pass_fac == 3u && pass_cnt == 4u && g_pending.cargo_patched == 1);
+    for (uint32_t k = 0; k < 4u; k++) {
+        uint32_t cr = 0, sr = 0;
+        memcpy(&cr, g_pass_cargo_mem + 0x08u + (size_t)k * 4u, 4);
+        memcpy(&sr, g_pass_seats_mem + 0x80u + (size_t)k * 4u, 4);
+        CHECK(cr <= 20u && sr == cr);
+    }
 
     /* Advance 12s with 0 unloaded troops -> triggers 12s fallback to SpawnRosterRow(0x3C) */
     HfSpawnEvent ship_ev = {0};
     ship_ev.info.size = sizeof ship_ev;
     ship_ev.entity = 777u; ship_ev.resource = CHAOS_ENTITY_DROPSHIP; ship_ev.authority = 1;
     OnSpawn(self, (const HfEventInfo*)&ship_ev, NULL); /* transport hull must NOT count as unloaded troop! */
-    CHECK(g_pending.ship_seen == 1 && g_pending.unloaded_count == 0);
+    CHECK(g_pending.ship_seen == 2 && g_pending.unloaded_count == 0);
     Seconds(11);
     CHECK(g_roster_calls == 0);
     Seconds(1);
     CHECK(g_roster_calls == 4 && g_last_roster_flags == 0x3Cu && g_last_roster_kind == 3u && fallback_logs == 1u);
 
-    /* Squid scoped director=4 + immediate restore */
+    /* Squid scoped director=4 + roster=Squids + immediate restore + non-sync OnSpawn cargo patch fallback */
     InitMockGameArenas(CHAOS_NATIVE_BUGS_BIT, 5u);
     ResetMockCountersAndModState();
+    g_fire_sync_transport_onspawn = 0; /* exercise post-call PassengerComponent prev_active fallback */
     config = ChaosDefaults(); config.grace = 15; config.cooldown = 30;
     config.bots_weight = 0; config.squids_weight = 100;
     Publish();
@@ -655,7 +787,21 @@ static void TestSpawnersFallbacksAndJoiner(void)
     Seconds(15);
     CHECK(g_transport_calls == 1 && g_last_ship == CHAOS_ENTITY_WARPSHIP);
     CHECK(g_scoped_director_faction_during_transport == CHAOS_NATIVE_SQUIDS_BIT);
+    CHECK(g_scoped_director_roster_during_transport == (uint64_t)(uintptr_t)(g_arena_game + CHAOS_ROSTER_SQUIDS_RVA));
     CHECK(ReadU32((uintptr_t)g_director_mem + 0x518BCu, 0u) == CHAOS_NATIVE_BUGS_BIT);
+    memcpy(&restored_roster, g_director_mem + 0x660u, 8);
+    CHECK(restored_roster == (uint64_t)(uintptr_t)(g_arena_game + CHAOS_ROSTER_BUGS_RVA));
+    CHECK(memcmp(g_last_transport_drop, g_last_transport_pos, 12) == 0);
+    CHECK(fabsf(g_last_transport_target[0] - 100.0f) < 0.01f &&
+          fabsf(g_last_transport_target[1] - 200.0f) < 0.01f);
+    memcpy(&pass_fac, g_pass_cargo_mem + 0x00u, 4);
+    memcpy(&pass_cnt, g_pass_cargo_mem + 0x04u, 4);
+    CHECK(pass_fac == 4u && pass_cnt == 4u && g_pending.cargo_patched == 1);
+    for (uint32_t k = 0; k < 4u; k++) {
+        uint32_t cr = 0;
+        memcpy(&cr, g_pass_cargo_mem + 0x08u + (size_t)k * 4u, 4);
+        CHECK(cr <= 15u);
+    }
 
     /* Bug breach on Automaton planet -> TriggerParticleFx(0x7B) + TriggerBreachBurst(0x7B) + SpawnRosterRow(0x24, kind=3, ~3.5s) */
     InitMockGameArenas(CHAOS_NATIVE_BOTS_BIT, 5u);
@@ -810,7 +956,7 @@ int main(int argc, char** argv)
     Seconds(5);
     CHECK(stopped == 1); /* latched until session restart */
 
-    printf("PASS %u checks; 0.2.0 policy, 10 code pins, preloader, Bot/Squid/Bug spawners+fallback, and 3/4/5-way perception verified\n",
-           checks);
+    printf("PASS %u checks; 0.2.0 policy, %u code pins, preloader, Bot/Squid/Bug spawners+fallback, PassengerComponent, and 3/4/5-way perception verified\n",
+           checks, (unsigned)CPIN_COUNT);
     return 0;
 }

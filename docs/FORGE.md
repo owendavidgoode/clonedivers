@@ -73,13 +73,13 @@ Full/Lighter textures, Delta Squad, CIS droids, Covenant squids) and **Empire**
   and `hellforge-empire-r47-lighter.json` (`352` rows) with 4-way UI across Windows,
   Linux, and Bridge (`318` unique `pack-2026.11.09-r47-files` assets = `29,169,414,696` B +
   `34` reused `r45-v4` assets = `455,980,288` B).
-- **Gameplay catalog `build25480438-r4` (`11` downloads, `8,061,046` bytes):**
+- **Gameplay catalog `build25480438-r4` (`11` downloads, `8,062,621` bytes):**
   - *Required (`7` downloads, `7,780,423` bytes):* unchanged from `r3`.
-  - *Optional defaults (`4` downloads, `280,623` bytes):* `clean-exit` `0.2.0` (`8,192` B),
+  - *Optional defaults (`4` downloads, `282,198` bytes):* `clean-exit` `0.2.0` (`8,192` B),
     `lego-compact-leaf-writer` `0.0.9` (`199,207` B, `15,332` C checks + `290`-pose parity +
     Sub-Run 1E pass on `r47-lego-compact`), `empire-lego-yoda` `0.1.2` (`45,907` B, dual
     Compact LEGO & `r45`/`r47` torso hashes — `139` C checks, `ScanVisuals == 4` on both
-    packs), and `chaos-invasions` `0.2.0` (`27,317` B, `gameplay: true`, `161` C + `52`
+    packs), and `chaos-invasions` `0.2.0` (`28,892` B, `gameplay: true`, `185` C + `52`
     LuaJIT + `15` delivery checks).
 - **Non-shipping / held boundaries (`1.14.2` / `0.8.2`):**
   `empire-tie-switch` `0.2.1` (Sub-Run 1D Part 1 pass on patched `tie-held-root` +

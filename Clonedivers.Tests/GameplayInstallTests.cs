@@ -12,7 +12,7 @@ internal static class GameplayInstallTests
     {
         var catalog = HellForgeGameplayCatalog.Pinned;
         catalog.Validate();
-        check(catalog.Id == "build25480438-r4" && catalog.Artifacts.Count == 11 && catalog.Artifacts.Sum(a => a.Bytes) == 8061046, "the r4 preset adds four optional project mods to the seven required archives");
+        check(catalog.Id == "build25480438-r4" && catalog.Artifacts.Count == 11 && catalog.Artifacts.Sum(a => a.Bytes) == 8062621, "the r4 preset adds four optional project mods to the seven required archives");
         check(catalog.Artifacts.Count(a => a.Url.Contains("/owendavidgoode/clonedivers/")) == 6 && catalog.Artifacts.Count(a => !a.Url.Contains("/owendavidgoode/clonedivers/")) == 5, "the two permitted compatibility packages and four project-owned optional mods use project assets; five dependencies come from authors");
         check(catalog.Artifacts.All(a => FileSafety.IsSha256(a.ContentHash) && FileSafety.IsSha256(a.Sha256)), "every gameplay dependency has independent archive and official content-hash pins");
         var cleanExit = catalog.Artifacts.Single(a => a.Id == HellForgePreset.CleanExit);
@@ -35,9 +35,9 @@ internal static class GameplayInstallTests
             yoda.ContentHash == "2e78173e56b6cc752ac27d810a7a6e7b72352ebe24437edae3a49b7d580f78dc" &&
             yoda.Url == "https://github.com/owendavidgoode/clonedivers/releases/download/forge-mods-2026-11-15/empire-lego-yoda-0.1.2.zip",
             "Empire LEGO Yoda Death is optional with the exact 0.1.2 release pins");
-        check(chaos.Name == "Chaos Invasions" && chaos.Version == "0.2.0" && chaos.Bytes == 27317 &&
-            chaos.Sha256 == "2284d270aeac9610415b3c1fe4f56538a10aba099fd913e612cbd61edd498813" &&
-            chaos.ContentHash == "6dee64f20bdfcce28a5b26dae8ffb86d2472845d3d0be32fa656f0e8d2bf1c82" &&
+        check(chaos.Name == "Chaos Invasions" && chaos.Version == "0.2.0" && chaos.Bytes == 28892 &&
+            chaos.Sha256 == "f9ed86a108be13a125d5b1b31582ba6a56afe56d49c067802495d20e85844244" &&
+            chaos.ContentHash == "2a88669ad0f8e7b885e2fbf0bff5149108572ec9beb27aba761b0e92605eac13" &&
             chaos.Url == "https://github.com/owendavidgoode/clonedivers/releases/download/forge-mods-2026-11-15/chaos-invasions-0.2.0.zip",
             "Chaos Invasions is optional with the exact 0.2.0 release pins");
         using (var stream = typeof(GameplayInstallTests).Assembly.GetManifestResourceStream("Clonedivers.Tests.CleanExit.json")!)

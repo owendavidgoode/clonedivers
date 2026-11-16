@@ -64,10 +64,10 @@
   GPU), and `6,172,775,164` B (`Lighter + Native`). Updating from `r45-v4` Full
   requires `~25 GB` free and `~7.71 GiB` (`8,282,726,720` B) download across `62`
   updated files (`r45-v4` remains the live fallback until `R1`/`R2`).
-- **Gameplay catalog `build25480438-r4` (`11` downloads, `8,061,046` bytes):**
+- **Gameplay catalog `build25480438-r4` (`11` downloads, `8,062,621` bytes):**
   Adds `lego-compact-leaf-writer` `0.0.9` (`199,207` B), `empire-lego-yoda` `0.1.2`
   (`45,907` B, dual Compact LEGO & `r45`/`r47` stilt torso hashes), and
-  `chaos-invasions` `0.2.0` (`27,317` B, `gameplay: true`) alongside `clean-exit`
+  `chaos-invasions` `0.2.0` (`28,892` B, `gameplay: true`) alongside `clean-exit`
   `0.2.0` (`8,192` B) and the `7` required archives (`7,780,423` B). All `4` optional
   mods are enabled by default on fresh `r4` setup and offered once on `r3` -> `r4`
   upgrades while preserving player opt-outs.
