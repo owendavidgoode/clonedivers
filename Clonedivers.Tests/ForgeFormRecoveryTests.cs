@@ -131,13 +131,29 @@ static class ForgeFormRecoveryTests
             Set(form, "launcherRelease", new AppRelease { Version = "999.0.0" }); View(form);
             check(primary.Text == "UPDATE LAUNCHER", "launcher update is offered even when the saved installation has disappeared");
             Set(form, "launcherRelease", null);
-            // A returned empty folder still needs setup; a real installation resumes CLI checks.
+            // An empty folder offers setup; a marker-only folder with missing programs offers repair + Locate without clearing syncRequested.
             if (moved) Directory.Move(root + "-new", root); else Directory.CreateDirectory(root);
+            var locateButton = Field<Button>(form, "locateMissing");
+            locateButton.Parent!.Controls.Remove(locateButton);
+            using var detachedLocate = locateButton;
+            Set(form, "syncRequested", true);
             await Invoke(form, "RefreshAsync");
-            check(Field<bool>(form, "installationMissing") && primary.Text == "SET UP FORGE",
-                "a returned empty or marker-only folder offers setup rather than a Retry loop");
+            if (moved)
+            {
+                check(!HellForgeForm.InstallationMissing(root) && HellForgeForm.ProgramsMissing(root) &&
+                    !Field<bool>(form, "installationMissing") && Field<bool>(form, "syncRequested") &&
+                    primary.Text == "RETRY" && locateButton.Visible &&
+                    Field<Label>(form, "detail").Text == "Repair HellForge with the official installer, or Locate another folder",
+                    "marker-only folder with missing programs offers repair or Locate without offering a fresh setup or dropping syncRequested");
+            }
+            else
+            {
+                check(HellForgeForm.InstallationMissing(root) && Field<bool>(form, "installationMissing") &&
+                    primary.Text == "SET UP FORGE" && locateButton.Visible,
+                    "a returned empty folder offers setup rather than a Retry loop");
+            }
             await Invoke(form, "RequireUpdateIdleAsync");
-            check(true, "an incomplete installation does not block launcher self-update");
+            check(true, "an incomplete or program-missing installation does not block launcher self-update");
         }
         var present = Path.Combine(area, "forge-transient-failure"); Directory.CreateDirectory(present);
         File.WriteAllText(Path.Combine(present, "hellforge-install.json"), "{\"schemaVersion\":1}");
