@@ -756,8 +756,9 @@ static class HellForgeTests
                 JsonSerializer.Serialize(new HellForgePack.Receipt { Selection = variant.selection }, HellForgePack.Json));
             await HellForgePack.VerifyMetadataAsync(variantFolder, variant.selection);
             foreach (var other in r47Variants.Where(o => o.texture != variant.texture || o.droids != variant.droids))
-                check(await Reject(() => HellForgePack.VerifyMetadataAsync(variantFolder, other.selection)),
-                    $"r47 {variant.texture}/droids={variant.droids} receipt rejects {other.texture}/droids={other.droids}");
+                check(await Reject(() => HellForgePack.VerifyMetadataAsync(variantFolder, other.selection)) &&
+                    !variant.selection.Files.Select(f => f.Sha256).SequenceEqual(other.selection.Files.Select(f => f.Sha256)),
+                    $"r47 {variant.texture}/droids={variant.droids} receipt and file hashes reject {other.texture}/droids={other.droids}");
         }
         foreach (var texture in new[] { "full", "lighter" })
         {
@@ -955,7 +956,9 @@ static class HellForgeTests
         var probe = new HellForgeClient(install, new FakeCommands(install));
         var accountKey = probe.AccountFingerprint();
         check(probe.AccountFingerprint() == accountKey, "an unchanged capture and profile reuse the last account review");
-        File.WriteAllText(Path.Combine(snapshot, "progression.json"), "{\"experience\":4000}");
+        var progressionPath = Path.Combine(snapshot, "progression.json");
+        File.WriteAllText(progressionPath, "{\"experience\":40000}");
+        File.SetLastWriteTimeUtc(progressionPath, File.GetLastWriteTimeUtc(progressionPath).AddSeconds(1));
         var recaptured = probe.AccountFingerprint();
         check(recaptured != accountKey, "a new HD2 capture triggers a fresh account review");
         Directory.CreateDirectory(Path.Combine(folder, "backups"));

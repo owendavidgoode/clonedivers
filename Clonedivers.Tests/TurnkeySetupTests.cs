@@ -286,10 +286,11 @@ internal static class TurnkeySetupTests
         var record = client.PackIntentPath + ".gameplay.json";
         var backup = Path.Combine(client.CacheRoot, "backups", "gameplay-test");
         Directory.CreateDirectory(backup);
-        void WriteRecord(string catalogId, string state = "applied", bool? defaultsApplied = null)
+        void WriteRecord(string catalogId, string state = "applied", bool? defaultsApplied = null, string[]? optionalDefaults = null)
         {
             var payload = new Dictionary<string, object?> { ["Root"] = client.Root, ["Catalog"] = catalogId, ["Backup"] = backup, ["SnapshotSha256"] = new string('a', 64), ["State"] = state };
             if (defaultsApplied is { } applied) payload["OptionalDefaultsApplied"] = applied;
+            if (optionalDefaults != null) payload["OptionalDefaults"] = optionalDefaults;
             File.WriteAllText(record, JsonSerializer.Serialize(payload));
         }
         try
@@ -384,6 +385,15 @@ internal static class TurnkeySetupTests
             fake.Calls.Clear(); await restarted.InstallGameplayAsync(restarted.GameplayCache);
             check(fake.Mods.Single(m => m.Id == yoda.Id) is { Enabled: false, Version: "0.1.0" } && fake.Calls.All(c => c[0] != "mod-add"),
                 "r3->r4 setup records r4 defaults while leaving an already disabled Yoda untouched");
+
+            // Upgrading from an earlier r4 record with partial OptionalDefaults offers newly added optionals while preserving prior opt-outs.
+            fake.Mods.RemoveAll(m => HellForgePreset.Optional.Contains(m.Id));
+            WriteRecord(HellForgeGameplayCatalog.Pinned.Id, "applied", true, [cleanExit.Id]);
+            check((await restarted.MissingGameplayAsync()).Select(a => a.Id).SequenceEqual([yoda.Id]),
+                "an applied r4 record with partial OptionalDefaults offers newly added optional defaults while keeping prior opt-outs");
+            fake.Calls.Clear(); await restarted.InstallGameplayAsync(restarted.GameplayCache);
+            check(fake.Mods.Single(m => m.Id == yoda.Id).Enabled && fake.Mods.All(m => m.Id != cleanExit.Id) && fake.Calls.Count(c => c[0] == "mod-add") == 1,
+                "partial-OptionalDefaults r4 upgrade installs and enables newly offered optionals while preserving removed prior optionals");
 
             foreach (var id in HellForgePreset.Optional)
             {
