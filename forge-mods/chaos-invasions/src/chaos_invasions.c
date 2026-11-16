@@ -117,6 +117,7 @@ static int g_preload_count[CHAOS_FACTIONS];
 static int g_preload_requested[CHAOS_FACTIONS][CHAOS_MAX_PRELOAD_PKGS];
 static int g_preload_built[CHAOS_FACTIONS];
 static int g_faction_resident[CHAOS_FACTIONS];
+static int g_preload_ready_logged[CHAOS_FACTIONS];
 static int g_preload_refmap_warned[CHAOS_FACTIONS];
 static int g_bot_smoke_resident = 0;
 
@@ -706,12 +707,16 @@ static void PreloadForeignTick(uintptr_t gbase, uintptr_t ebase, size_t esize, f
             }
         }
 
-        int was = g_faction_resident[f];
-        int res = 0, idle = 0;
-        g_faction_resident[f] = CheckFactionResidency(gbase, ebase, esize, f, &res, &idle);
-        if (!was && g_faction_resident[f]) {
-            hf->log(self, "CHAOS_PRELOAD_READY: faction=%s resident=%d/%d idle=%d",
-                    chaos_faction_names[f], res, g_preload_count[f], idle);
+        if (!g_faction_resident[f]) {
+            int res = 0, idle = 0;
+            if (CheckFactionResidency(gbase, ebase, esize, f, &res, &idle)) {
+                g_faction_resident[f] = 1;
+                if (!g_preload_ready_logged[f]) {
+                    g_preload_ready_logged[f] = 1;
+                    hf->log(self, "CHAOS_PRELOAD_READY: faction=%s resident=%d/%d idle=%d",
+                            chaos_faction_names[f], res, g_preload_count[f], idle);
+                }
+            }
         }
         if (g_faction_resident[f]) ++ready_count;
     }
@@ -1167,32 +1172,12 @@ static void ResetMissionState(void)
     g_native_faction = -1;
     memset(&g_pending, 0, sizeof g_pending);
     memset(g_last_faction_masks, 0, sizeof g_last_faction_masks);
+    memset(g_faction_resident, 0, sizeof g_faction_resident);
+    memset(g_preload_ready_logged, 0, sizeof g_preload_ready_logged);
     memset(g_preload_refmap_warned, 0, sizeof g_preload_refmap_warned);
     g_last_player_mask = 0;
     ChaosReset(&clock_state, &config);
     ChaosTrackerReset(&g_tracker);
-}
-
-static void State(HfMod* mod, const HfEventInfo* info, void* user)
-{
-    (void)mod; (void)user;
-    if (!ReadyPhase() || !info || info->size < sizeof(HfStateEvent)) return;
-    const HfStateEvent* e = (const HfStateEvent*)info;
-    state = e->to;
-    ResetMissionState();
-}
-
-static void Player(HfMod* mod, const HfEventInfo* info, void* user)
-{
-    (void)mod; (void)user;
-    if (!ReadyPhase() || !info || info->size < sizeof(HfPlayerEvent)) return;
-    const HfPlayerEvent* e = (const HfPlayerEvent*)info;
-    if (!e->entity || hf->game_state(self) != HF_STATE_MISSION || !Host()) return;
-    if (!landed) {
-        landed = 1;
-        ChaosReset(&clock_state, &config);
-        hf->log(self, "CHAOS_LANDING: host=1 native_faction=%d grace=%ds", g_native_faction, config.grace);
-    }
 }
 
 static void OnSpawn(HfMod* mod, const HfEventInfo* info, void* user)
@@ -1277,11 +1262,17 @@ static void Tick(HfMod* mod, float dt, void* user)
     ChaosTrackerPrune(&g_tracker, EntityAlive, NULL);
     ServicePendingWave(gbase, director, dt);
 
+    float living_pos[4][3];
+    int living_players = CollectLivingPlayers(gbase, living_pos, NULL);
+    if (!landed && living_players > 0) {
+        landed = 1;
+        ChaosReset(&clock_state, &config);
+        hf->log(self, "CHAOS_LANDING: host=1 native_faction=%d grace=%ds", native, config.grace);
+    }
+
     if (!ChaosDue(&clock_state, &config, dt, landed != 0)) return;
 
     int chosen = ChaosChoose(&config, native, diff, NextRand());
-    float living_pos[4][3];
-    int living_players = CollectLivingPlayers(gbase, living_pos, NULL);
 
     ChaosEvidence ev = {0};
     ev.host = (int)host;
@@ -1362,9 +1353,7 @@ HF_MOD_EXPORT int hellforge_mod_init(const HfApi* api, HfMod* mod)
         InterlockedExchange(&g_phase, PHASE_ENDED);
         return 1;
     }
-    if (!api->subscribe(mod, HF_ON_STATE, State, NULL, 0) ||
-        !api->subscribe(mod, HF_ON_PLAYER_SPAWN, Player, NULL, 0) ||
-        !api->subscribe(mod, HF_ON_SPAWN, OnSpawn, NULL, 0) ||
+    if (!api->subscribe(mod, HF_ON_SPAWN, OnSpawn, NULL, 0) ||
         !api->on_game_thread(mod, Tick, NULL)) {
         InterlockedExchange(&g_phase, PHASE_ENDED);
         return 1;

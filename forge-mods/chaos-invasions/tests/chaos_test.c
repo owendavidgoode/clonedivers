@@ -1,7 +1,7 @@
 #include "../src/chaos_invasions.c"
 #include <stdarg.h>
 
-static unsigned checks, subscriptions, ticks, fail_subscription, skipped_logs, fallback_logs;
+static unsigned checks, subscriptions, ticks, fail_subscription, skipped_logs, fallback_logs, landing_logs, preload_ready_logs;
 static unsigned role = HF_SESSION_SOLO, game_state = HF_STATE_MISSION;
 static char fixture[1800];
 
@@ -38,6 +38,8 @@ static void Log(HfMod* m, const char* format, ...)
     (void)m;
     if (strstr(format, "CHAOS_SKIP")) ++skipped_logs;
     if (strstr(format, "CHAOS_TRANSPORT_FALLBACK")) ++fallback_logs;
+    if (strstr(format, "CHAOS_LANDING")) ++landing_logs;
+    if (strstr(format, "CHAOS_PRELOAD_READY")) ++preload_ready_logs;
 }
 
 static void Status(HfMod* m, const char* s) { (void)m; (void)s; }
@@ -563,13 +565,12 @@ static void ResetMockCountersAndModState(void)
     g_mock_headroom = 1;
     g_mock_alive = 1;
     g_force_anchor_z_bad = 0;
-    skipped_logs = fallback_logs = 0;
+    skipped_logs = fallback_logs = landing_logs = preload_ready_logs = 0;
     stopped = 0;
     ResetMissionState();
 }
 
 static void Seconds(int n) { for (int i = 0; i < n; i++) Tick(self, 1.0f, NULL); }
-static void Landing(void) { HfPlayerEvent e = {0}; e.info.size = sizeof e; e.entity = 42; Player(self, (const HfEventInfo*)&e, NULL); }
 
 /* ---- Pure Policy, Pin, RefMap, Anchor, Tracker, Perception Unit Tests ------------------------------------------ */
 
@@ -682,7 +683,6 @@ static void TestFailClosedPinsAndResidencyGate(void)
     g_arena_game[kChaosCodePins[CPIN_SPAWN_TRANSPORT].rva] ^= 0x01u;
     role = HF_SESSION_HOST;
     game_state = HF_STATE_MISSION;
-    Landing();
     Seconds(60);
     CHECK(!g_pins_ok && !g_transport_calls && !g_roster_calls && !g_fx_calls);
 
@@ -693,18 +693,28 @@ static void TestFailClosedPinsAndResidencyGate(void)
 
     g_mock_idle = 0; /* Packages still streaming */
     PreloadForeignTick((uintptr_t)g_arena_game, (uintptr_t)g_arena_exe, kArenaExeSize, 1.0f);
-    CHECK(!g_faction_resident[CHAOS_BOTS] && !g_faction_resident[CHAOS_SQUIDS]);
+    CHECK(!g_faction_resident[CHAOS_BOTS] && !g_faction_resident[CHAOS_SQUIDS] && preload_ready_logs == 0u);
 
     g_mock_idle = 1;
     PreloadForeignTick((uintptr_t)g_arena_game, (uintptr_t)g_arena_exe, kArenaExeSize, 1.0f);
-    CHECK(g_faction_resident[CHAOS_BOTS] && g_faction_resident[CHAOS_SQUIDS] && !g_preload_built[CHAOS_BUGS]);
+    CHECK(g_faction_resident[CHAOS_BOTS] && g_faction_resident[CHAOS_SQUIDS] && !g_preload_built[CHAOS_BUGS] &&
+          preload_ready_logs == 2u);
 
-    /* Verify parts == 1025 fails residency even when idle=1 */
+    /* Unrelated engine streaming flips idle=0, then recovers idle=1 -> latched residency stays 1 and logs once */
+    g_mock_idle = 0;
+    PreloadForeignTick((uintptr_t)g_arena_game, (uintptr_t)g_arena_exe, kArenaExeSize, 1.0f);
+    CHECK(g_faction_resident[CHAOS_BOTS] && g_faction_resident[CHAOS_SQUIDS] && preload_ready_logs == 2u);
+    g_mock_idle = 1;
+    PreloadForeignTick((uintptr_t)g_arena_game, (uintptr_t)g_arena_exe, kArenaExeSize, 1.0f);
+    CHECK(g_faction_resident[CHAOS_BOTS] && g_faction_resident[CHAOS_SQUIDS] && preload_ready_logs == 2u);
+
+    /* Clear mission state -> verify parts == 1025 and state != 4 fail residency even when idle=1 */
+    ResetMissionState();
     AddExeResidentPkg(kBaseFactionPackages[CHAOS_BOTS][0], 1025u, 4u);
     PreloadForeignTick((uintptr_t)g_arena_game, (uintptr_t)g_arena_exe, kArenaExeSize, 1.0f);
     CHECK(!g_faction_resident[CHAOS_BOTS] && g_faction_resident[CHAOS_SQUIDS]);
 
-    /* Verify part state != 4 fails residency */
+    ResetMissionState();
     AddExeResidentPkg(kBaseFactionPackages[CHAOS_BOTS][0], 4u, 3u);
     PreloadForeignTick((uintptr_t)g_arena_game, (uintptr_t)g_arena_exe, kArenaExeSize, 1.0f);
     CHECK(!g_faction_resident[CHAOS_BOTS]);
@@ -729,17 +739,20 @@ static void TestSpawnersFallbacksAndJoiner(void)
     CHECK(g_faction_resident[CHAOS_BOTS] && g_faction_resident[CHAOS_SQUIDS]); /* peer preloaded */
     CHECK(g_transport_calls == 0 && g_roster_calls == 0 && g_fx_calls == 0); /* never spawns as joiner */
 
-    /* Switch to Host -> resets mission state, waits landing + 15s grace -> dispatches Bot Dropship + G-3 Smoke */
+    /* Switch to Host -> resets mission state, waits for living player -> latches landed on game thread without HF_ON_PLAYER_SPAWN */
     role = HF_SESSION_HOST;
-    Seconds(1);
-    CHECK(!landed);
-    Landing();
+    g_mock_alive = 0;
+    Seconds(2);
+    CHECK(!landed && landing_logs == 0u);
+    g_mock_alive = 1;
     g_fire_sync_transport_onspawn = 1;
     g_force_reject_last_role = 1; /* simulate SelectRosterIndex returning -1 on 4th slot -> Verify repair */
-    Seconds(14);
+    Seconds(1);
+    CHECK(landed == 1u && landing_logs == 1u && g_transport_calls == 0);
+    Seconds(13);
     CHECK(g_transport_calls == 0);
     Seconds(1);
-    CHECK(g_transport_calls == 1 && g_last_ship == CHAOS_ENTITY_DROPSHIP);
+    CHECK(landing_logs == 1u && g_transport_calls == 1 && g_last_ship == CHAOS_ENTITY_DROPSHIP);
     CHECK(g_scoped_director_faction_during_transport == CHAOS_NATIVE_BOTS_BIT);
     CHECK(g_scoped_director_roster_during_transport == (uint64_t)(uintptr_t)(g_arena_game + CHAOS_ROSTER_BOTS_RVA));
     CHECK(ReadU32((uintptr_t)g_director_mem + 0x518BCu, 0u) == CHAOS_NATIVE_BUGS_BIT); /* restored immediately */
@@ -783,8 +796,9 @@ static void TestSpawnersFallbacksAndJoiner(void)
     config.bots_weight = 0; config.squids_weight = 100;
     Publish();
     ChaosReset(&clock_state, &config);
-    role = HF_SESSION_HOST; Landing();
+    role = HF_SESSION_HOST;
     Seconds(15);
+    CHECK(landed == 1u && landing_logs == 1u);
     CHECK(g_transport_calls == 1 && g_last_ship == CHAOS_ENTITY_WARPSHIP);
     CHECK(g_scoped_director_faction_during_transport == CHAOS_NATIVE_SQUIDS_BIT);
     CHECK(g_scoped_director_roster_during_transport == (uint64_t)(uintptr_t)(g_arena_game + CHAOS_ROSTER_SQUIDS_RVA));
@@ -803,6 +817,12 @@ static void TestSpawnersFallbacksAndJoiner(void)
         CHECK(cr <= 15u);
     }
 
+    /* Leaving mission to ship resets landed and latched residency safely on game thread */
+    game_state = HF_STATE_SHIP;
+    Seconds(1);
+    CHECK(!landed && !g_faction_resident[CHAOS_BOTS] && !g_faction_resident[CHAOS_SQUIDS]);
+    game_state = HF_STATE_MISSION;
+
     /* Bug breach on Automaton planet -> TriggerParticleFx(0x7B) + TriggerBreachBurst(0x7B) + SpawnRosterRow(0x24, kind=3, ~3.5s) */
     InitMockGameArenas(CHAOS_NATIVE_BOTS_BIT, 5u);
     ResetMockCountersAndModState();
@@ -810,7 +830,7 @@ static void TestSpawnersFallbacksAndJoiner(void)
     config.squids_weight = 0; config.bugs_weight = 100;
     Publish();
     ChaosReset(&clock_state, &config);
-    role = HF_SESSION_HOST; Landing();
+    role = HF_SESSION_HOST;
     Seconds(15);
     CHECK(g_transport_calls == 0 && g_fx_calls == 1 && g_burst_calls == 1);
     CHECK(g_roster_calls == 4 && g_last_roster_flags == 0x24u && g_last_roster_kind == 3u);
@@ -825,7 +845,7 @@ static void TestSpawnersFallbacksAndJoiner(void)
     ChaosReset(&clock_state, &config);
     uint32_t busy_q = 8u;
     memcpy(g_em_mem + 0x918u, &busy_q, 4);
-    role = HF_SESSION_HOST; Landing();
+    role = HF_SESSION_HOST;
     Seconds(15);
     CHECK(g_transport_calls == 0 && g_roster_calls == 4 && g_last_roster_flags == 0x3Cu);
 }
@@ -936,7 +956,7 @@ int main(int argc, char** argv)
     api.size = offsetof(HfApi, set_status); CHECK(hellforge_mod_init(&api, (HfMod*)1) == 1); api.size = sizeof api;
     fail_subscription = 1; CHECK(hellforge_mod_init(&api, (HfMod*)1) == 1 && !ticks);
     subscriptions = fail_subscription = 0;
-    CHECK(hellforge_mod_init(&api, (HfMod*)1) == 0 && subscriptions == 3 && ticks == 1);
+    CHECK(hellforge_mod_init(&api, (HfMod*)1) == 0 && subscriptions == 1 && ticks == 1);
 
     TestFailClosedPinsAndResidencyGate();
     TestSpawnersFallbacksAndJoiner();

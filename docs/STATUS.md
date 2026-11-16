@@ -50,7 +50,7 @@ and **`build25480438-r4`** with all **4 project-owned optional mods**:
   `r47/25480438/empire/{Texture}/{Droids}/False`) are integrated across Windows,
   Linux, and Bridge (`318` unique `pack-2026.11.09-r47-files` assets =
   `29,169,414,696` bytes + `34` reused `r45-v4` assets = `455,980,288` bytes).
-- **Gameplay catalog `build25480438-r4` & 4 project-owned optional mods (`11` downloads, `8,062,621` bytes):**
+- **Gameplay catalog `build25480438-r4` & 4 project-owned optional mods (`11` downloads, `8,062,566` bytes):**
   - `clonedivers.clean-exit` `0.2.0` (`8,192` bytes, `gameplay: false`, live on
     `forge-mods-2026-11-08`).
   - `clonedivers.lego-compact-leaf-writer` `0.0.9` (`199,207` bytes, SHA-256
@@ -67,13 +67,13 @@ and **`build25480438-r4`** with all **4 project-owned optional mods**:
     `0xBB11C8041C14C747` torso hashes (`yoda_test.exe` `139` checks, `ScanVisuals == 4`
     on both packs; `0.1.1` passed Sub-Run 1A death routing; copyrighted audio excluded
     from git source).
-  - `clonedivers.chaos-invasions` `0.2.0` (`28,892` bytes, SHA-256
-    `f9ed86a108be13a125d5b1b31582ba6a56afe56d49c067802495d20e85844244`, content hash
-    `2a88669ad0f8e7b885e2fbf0bff5149108572ec9beb27aba761b0e92605eac13`, `gameplay: true`):
+  - `clonedivers.chaos-invasions` `0.2.0` (`28,837` bytes, SHA-256
+    `8d314d5b818eaaba27430c1479ba0265f90fd93ef232704c72d0224dd053d6e2`, content hash
+    `400697eaa4d1adf821c248e06f8f2f8382b76ae7ea88d240cb0c2a55f33b6754`, `gameplay: true`):
     playable cross-faction Chaos Mode (13-RVA 32-byte code pins, all-peer `<75%` curated
     foreign preloading, Host/Solo Automaton Dropship / Illuminate Warp Ship / Terminid
     Breach wave spawner, 250ms `BHV_PERCEPTION` mutual-hostility narrowing leaving
-    `BHV_FACTIONS` intact); passed `185` C checks, `52` LuaJIT menu checks, and `15`
+    `BHV_FACTIONS` intact); passed `190` C checks, `52` LuaJIT menu checks, and `15`
     delivery verification checks (`chaos-invasions-0.2.0.zip`). Live 3/4/5-way combat
     and co-op sync remain in `R2`.
   - All 4 optional mods are enabled by default on fresh `r4` setup and newly offered once
@@ -95,7 +95,7 @@ and **`build25480438-r4`** with all **4 project-owned optional mods**:
   `publish-r1-assets.ps1` dry run verified `318` variant assets (`29,169,414,696`
   bytes) + `34/34` reused `r45-v4` assets (`455,980,288` bytes) + `lego-compact-leaf-writer`
   `0.0.9`; `forge-mods-2026-11-15` additionally ships `empire-lego-yoda-0.1.2.zip`
-  (`45,907` bytes) and `chaos-invasions-0.2.0.zip` (`28,892` bytes) upon Wave 3 `R1`
+  (`45,907` bytes) and `chaos-invasions-0.2.0.zip` (`28,837` bytes) upon Wave 3 `R1`
   upload approval and `R2` attended acceptance.
 
 ## November 9–10, 2026: Clonedivers 1.14.1 and Linux Forge 0.8.1 published
