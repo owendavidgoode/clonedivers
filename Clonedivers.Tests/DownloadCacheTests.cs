@@ -25,7 +25,7 @@ internal static class DownloadCacheTests
     }
     static async Task Appearance(string area, Action<bool, string> check)
     {
-        var bytes = Encoding.UTF8.GetBytes(new string('x', 2 * 1024 * 1024));
+        var bytes = Encoding.UTF8.GetBytes(new string('x', 4 * 1024 * 1024));
         var hash = Convert.ToHexString(SHA256.HashData(bytes)).ToLowerInvariant();
         var file = new PackFile { Name = "appearance.patch_0", Size = bytes.Length, Sha256 = hash,
             Url = "https://github.com/owendavidgoode/clonedivers/releases/download/test/appearance" };
@@ -34,10 +34,11 @@ internal static class DownloadCacheTests
         using var server = new HalfAssetServer(bytes);
         using var cancel = new CancellationTokenSource();
         var first = new HellForgePack.Plan(selection, Output(), new()); bool unpublished = false, stopped = false;
-        Task Download(PackFile asset, string path, CancellationToken ct)
+        Task Download(PackFile asset, string path, IProgress<(long Done, long Total)> progress, CancellationToken ct)
         {
             var local = asset.Clone(); local.Url = server.Url;
             return Pack.DownloadAsync(local, path, new SyncProgress(p => {
+                progress.Report(p);
                 if (p.done == bytes.Length / 2 && !cancel.IsCancellationRequested)
                 {
                     unpublished = !File.Exists(Path.Combine(first.Output, file.Name)) && !File.Exists(Path.Combine(first.Output, HellForgePack.ReceiptName));
@@ -45,7 +46,7 @@ internal static class DownloadCacheTests
                 }
             }), ct);
         }
-        try { await HellForgePack.ExportAsync(first, true, null, cancel.Token, _ => long.MaxValue, Download); }
+        try { await HellForgePack.ExportAsync(first, true, null, cancel.Token, _ => long.MaxValue, downloadWithProgress: Download); }
         catch (OperationCanceledException) { stopped = true; }
         var cache = HellForgePack.DownloadCache(first.Output); var partial = Path.Combine(cache, hash + ".partial");
         check(stopped && unpublished && new FileInfo(partial).Length == bytes.Length / 2 && !Directory.Exists(first.Output),
@@ -53,15 +54,16 @@ internal static class DownloadCacheTests
         var old = Path.Combine(cache, new string('a', 64) + ".partial"); File.WriteAllText(old, "obsolete");
         var second = await HellForgePack.PlanAsync(selection, Output(), []);
         var reports = new List<(long done, long total)>();
-        await HellForgePack.ExportAsync(second, true, null, CancellationToken.None, _ => long.MaxValue, Download, new SyncProgress(reports.Add));
+        await HellForgePack.ExportAsync(second, true, null, CancellationToken.None, _ => long.MaxValue, bytes: new SyncProgress(reports.Add), downloadWithProgress: Download);
         await HellForgePack.VerifyAsync(second.Output, selection);
         check(server.Offsets.SequenceEqual(new[] { 0, bytes.Length / 2 }) && File.ReadAllBytes(Path.Combine(second.Output, file.Name)).SequenceEqual(bytes),
             "a new GUID export resumes the retained first asset with HTTP Range for its exact byte count and verifies the completed export");
         check(!File.Exists(partial) && !File.Exists(old) && Path.GetDirectoryName(cache) == area,
             "completed cached bytes and obsolete hash entries are pruned outside completed export folders");
-        check(reports.Contains((bytes.Length / 2, bytes.Length)) && reports.Last() == ((long)bytes.Length, (long)bytes.Length) &&
+        check(reports.Contains((bytes.Length / 2, bytes.Length)) && reports.Any(p => p.done > bytes.Length / 2 && p.done < bytes.Length) &&
+            reports.Last() == ((long)bytes.Length, (long)bytes.Length) &&
             reports.Zip(reports.Skip(1)).All(p => p.First.done <= p.Second.done),
-            "export byte progress includes the resumed partial and reaches the cumulative total without going backwards");
+            "ByteProgress reports resumed offset, intermediate chunk progress, and cumulative total without going backwards");
 
         var bad = file.Clone(); bad.Sha256 = new string('b', 64);
         var failed = new HellForgePack.Plan(selection with { Files = [bad] }, Output(), new());

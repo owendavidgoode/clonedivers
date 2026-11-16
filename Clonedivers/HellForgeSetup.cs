@@ -68,7 +68,8 @@ internal static partial class HellForgeSetup
         return FileSafety.Child(cache, "HellForge-Setup-" + artifact.Sha256 + ".exe");
     }
     internal static async Task ReuseInstallerAsync(string oldCache, string cache, PackFile artifact, CancellationToken ct,
-        Func<string, long?>? availableBytes = null)
+        Func<string, long?>? availableBytes = null, bool? sameVolume = null,
+        Func<string, string, long, CancellationToken, Task>? copyFile = null)
     {
         var source = InstallerPath(oldCache, artifact); var target = InstallerPath(cache, artifact);
         if (Path.GetFullPath(source).Equals(Path.GetFullPath(target), StringComparison.OrdinalIgnoreCase) || !File.Exists(source)) return;
@@ -84,7 +85,7 @@ internal static partial class HellForgeSetup
         ct.ThrowIfCancellationRequested();
         if (retained < 0 || current >= retained) { File.Delete(source); return; }
         Directory.CreateDirectory(cache);
-        if (Path.GetPathRoot(source)!.Equals(Path.GetPathRoot(target), StringComparison.OrdinalIgnoreCase))
+        if (sameVolume ?? Path.GetPathRoot(source)!.Equals(Path.GetPathRoot(target), StringComparison.OrdinalIgnoreCase))
             File.Move(source, target, overwrite: true);
         else
         {
@@ -94,11 +95,46 @@ internal static partial class HellForgeSetup
             try
             {
                 File.Delete(temporary);
-                await HellForgePack.CopyLocalAsync(source, temporary, retained, ct);
+                await (copyFile != null ? copyFile(source, temporary, retained, ct) : HellForgePack.CopyLocalAsync(source, temporary, retained, ct));
                 if (await HellForgePack.HashAsync(source, ct) != await HellForgePack.HashAsync(temporary, ct)) throw new IOException("Retained installer changed while moving its cache. Retry setup.");
                 File.Move(temporary, target, overwrite: true); File.Delete(source);
             }
-            finally { File.Delete(temporary); }
+            finally { if (File.Exists(temporary)) File.Delete(temporary); }
+        }
+    }
+    static string? ReadLastInstallCache(string stateCache)
+    {
+        try
+        {
+            var record = FileSafety.Child(stateCache, "last-install-cache.txt");
+            HellForgeGameplayCatalog.RejectLinks(record);
+            if (!File.Exists(record) || new FileInfo(record).Length > 4096) return null;
+            var path = File.ReadAllText(record).Trim();
+            if (string.IsNullOrWhiteSpace(path) || !Path.IsPathFullyQualified(path)) return null;
+            path = Path.TrimEndingDirectorySeparator(Path.GetFullPath(path));
+            HellForgeGameplayCatalog.RejectLinks(path);
+            return path;
+        }
+        catch (Exception error) when (error is IOException or UnauthorizedAccessException or InvalidDataException or ArgumentException or NotSupportedException)
+        {
+            return null;
+        }
+    }
+    static void SaveLastInstallCache(string stateCache, string cache)
+    {
+        var record = FileSafety.Child(stateCache, "last-install-cache.txt");
+        var temp = record + ".tmp";
+        HellForgeGameplayCatalog.RejectLinks(record); HellForgeGameplayCatalog.RejectLinks(temp);
+        Directory.CreateDirectory(stateCache);
+        try
+        {
+            File.WriteAllText(temp, Path.TrimEndingDirectorySeparator(Path.GetFullPath(cache)));
+            File.Move(temp, record, overwrite: true);
+        }
+        finally
+        {
+            try { if (File.Exists(temp)) File.Delete(temp); }
+            catch (Exception error) when (error is IOException or UnauthorizedAccessException) { }
         }
     }
     internal static async Task RequireCacheSpaceAsync(string cache, IEnumerable<PackFile> artifacts, long backupBytes, CancellationToken ct,
@@ -135,7 +171,7 @@ internal static partial class HellForgeSetup
 
     internal static async Task<string> InstallAsync(string target, IProgress<ForgeSetupProgress>? progress, CancellationToken ct,
         string? cache = null, PackFile? artifact = null, Func<string, string, Task>? unpack = null, Action<string>? spaceCheck = null,
-        Func<string, long?>? cacheAvailableBytes = null, string? legacyCache = null)
+        Func<string, long?>? cacheAvailableBytes = null, string? legacyCache = null, string? defaultRootCache = null)
     {
         target = ValidateTarget(target); RequireNewTarget(target);
         if (Game.IsRunning()) throw new InvalidOperationException("Close HD2 before installing Forge. Your current session has not been changed.");
@@ -144,8 +180,16 @@ internal static partial class HellForgeSetup
         cache ??= InstallCache(target); artifact ??= Installer;
         HellForgeGameplayCatalog.RejectLinks(cache); Directory.CreateDirectory(cache);
         using var setupLock = new FileStream(FileSafety.Child(cache, "forge-setup.lock"), FileMode.OpenOrCreate, FileAccess.ReadWrite, FileShare.None);
-        if (defaultCache) await ReuseInstallerAsync(legacyCache ?? CacheRoot, cache, artifact, ct, cacheAvailableBytes);
+        if (defaultCache)
+        {
+            var stateCache = legacyCache ?? CacheRoot;
+            var candidates = new List<string> { stateCache, defaultRootCache ?? InstallCache(DefaultRoot) };
+            if (ReadLastInstallCache(stateCache) is { } remembered) candidates.Add(remembered);
+            foreach (var previous in candidates.Select(p => Path.TrimEndingDirectorySeparator(Path.GetFullPath(p))).Distinct(StringComparer.OrdinalIgnoreCase))
+                await ReuseInstallerAsync(previous, cache, artifact, ct, cacheAvailableBytes);
+        }
         await RequireCacheSpaceAsync(cache, [artifact], 0, ct, cacheAvailableBytes);
+        if (defaultCache) SaveLastInstallCache(legacyCache ?? CacheRoot, cache);
         var installer = await DownloadAsync(cache, progress, ct, artifact);
         ct.ThrowIfCancellationRequested();
         if (Game.IsRunning()) throw new InvalidOperationException("HD2 started while downloading. Close it, then retry; the verified installer is saved.");
