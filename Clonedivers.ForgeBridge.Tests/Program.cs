@@ -282,15 +282,18 @@ try
         "account gating offers no profile creation, lab or unlock-all fallback");
     var selectionArgs = new[] { "select-mode", "--mode", "regular", "--delta", "yes", "--texture", "full", "--droids", "yes", "--covenant", "no" };
     BridgeSession.Validate(selectionArgs);
-    await player.RunAsync(selectionArgs, CancellationToken.None);
-    foreach (var (texture, droids) in new[] { ("lighter", "yes"), ("full", "no"), ("lighter", "no") })
+    foreach (var texture in new[] { "full", "lighter" })
+    foreach (var droids in new[] { "yes", "no" })
     {
         var callCount = playerOfficial.Calls.Count;
-        bool refused = false;
-        try { await player.RunAsync(["select-mode", "--mode", "empire", "--delta", "yes", "--texture", texture, "--droids", droids, "--covenant", "no"], CancellationToken.None); }
-        catch (InvalidOperationException) { refused = true; }
-        Check(refused && playerOfficial.Calls.Count == callCount, "the actual bridge rejects unavailable Empire selections before official commands");
+        string[] empireArgs = ["select-mode", "--mode", "empire", "--delta", "yes", "--texture", texture, "--droids", droids, "--covenant", "no"];
+        BridgeSession.Validate(empireArgs);
+        var selected = await player.RunAsync(empireArgs, CancellationToken.None);
+        Check(selected.GetProperty("Mode").GetString() == "empire" && selected.GetProperty("Texture").GetString() == texture &&
+            selected.GetProperty("Droids").GetBoolean() == (droids == "yes") && playerOfficial.Calls.Count == callCount,
+            $"the actual bridge accepts Empire {texture}/droids={droids} cleanly without running official commands");
     }
+    await player.RunAsync(selectionArgs, CancellationToken.None);
     var state = await player.RunAsync(["player-status"], CancellationToken.None);
     Check(!state.GetProperty("ready").GetBoolean() && state.GetProperty("detail").GetString()!.Contains("turn OFF automatic gameplay-mod sharing"),
         "the native player dispatcher blocks the official default sharing-ON state before offering the private preset");

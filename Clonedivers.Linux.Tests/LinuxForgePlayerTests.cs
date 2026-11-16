@@ -7,25 +7,24 @@ internal static class LinuxForgePlayerTests
     internal static async Task Run(string root, Action<bool, string> check)
     {
         const string hello = "{\"bridge\":\"clonedivers-forge\",\"format\":1}\n";
-        var publishedEmpire = new LinuxForgePreferences { Mode = "empire" };
-        check(publishedEmpire.PackSelection().Version == "2026.11.08-r45-v4" && publishedEmpire.PackSelection().Files.Count == 96,
-            "Linux shipping Empire retains the 96-row public r45-v4 catalog");
         foreach (var texture in new[] { "full", "lighter" })
-        foreach (var droids in new[] { true, false })
         {
-            if (texture == "full" && droids) continue;
-            var empire = new LinuxForgePreferences { Mode = "empire", Texture = texture, Droids = droids, Covenant = true };
-            var saved = Path.Combine(root, $"empire-unavailable-{texture}-{droids}.json"); empire.Save(saved);
-            var savedText = File.ReadAllText(saved); var restored = LinuxForgePreferences.Load(saved);
-            check(restored.SelectionProblem != null && restored.Texture == texture && restored.Droids == droids && restored.Covenant && File.ReadAllText(saved) == savedText,
-                "Linux preserves unavailable saved Empire preferences without a conversion");
-            var refusedConnection = new Connection(); var refusedPlayer = new LinuxForgePlayer(refusedConnection, restored);
-            bool refused = false;
-            try { await refusedPlayer.LaunchAsync(); } catch (InvalidOperationException) { refused = true; }
-            check(refused && refusedConnection.Calls.Count == 0, "Linux rejects unavailable Empire launch before any bridge command");
+            var empire = new LinuxForgePreferences { Mode = "empire", Texture = texture, Covenant = true };
+            var on = empire.PackSelection();
+            empire.Droids = false;
+            var off = empire.PackSelection();
+            var saved = Path.Combine(root, "empire-droids-" + texture + ".json"); empire.Save(saved);
+            var restored = LinuxForgePreferences.Load(saved);
+            check(on.Version == "2026.11.09-r47" && off.Version == "2026.11.09-r47" && on.Options["droids"] && !off.Options["droids"] && !restored.Droids &&
+                restored.SelectionCommand().Skip(1).Chunk(2).Any(p => p[0] == "--droids" && p[1] == "no") &&
+                restored.SelectionCommand().Skip(1).Chunk(2).Any(p => p[0] == "--texture" && p[1] == texture),
+                "Linux Empire " + texture + " defaults CIS on and persists/transmits all variant choices");
+            check(on.Files.Count == 96 && off.Files.Count == 96 && on.Files.Select(f => f.Name).SequenceEqual(off.Files.Select(f => f.Name)) &&
+                on.Files.Any(f => f.Sha256 != off.Files.Single(g => g.Name == f.Name).Sha256),
+                "Linux Empire " + texture + " exports both enemy variants with stable archive layers");
             restored.Mode = "clonedivers";
-            check(restored.SelectionProblem == null && restored.PackSelection().Texture == texture && restored.PackSelection().Options["droids"] == droids,
-                "returning to Clones preserves its saved texture and droid selection");
+            check(restored.PackSelection().Texture == texture && !restored.PackSelection().Options["droids"] && restored.PackSelection().Options["covenant"],
+                "returning to Clones preserves its saved texture, droid and Covenant selections");
         }
         var protocol = new ForgeProtocol(new StringReader(hello + "{\"id\":7,\"ok\":true,\"result\":{}}\n"), new StringWriter(), _ => { });
         await protocol.ConnectAsync(CancellationToken.None);
