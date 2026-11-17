@@ -111,6 +111,14 @@ internal static class LinuxForgePlayerTests
             fileModsPlan.Output.StartsWith(Path.Combine(Path.GetDirectoryName(fileModsRoot)!, "Clonedivers-HellForge-cache", "exports", "linux-"), StringComparison.Ordinal),
             "appearance planning ignores a regular file at mods instead of failing");
 
+        var v2Prefs = new LinuxForgePreferences { Mode = "clonedivers", Texture = "reduced512", EnemySkin = "mixed-droids", DeltaSquad = true, Covenant = false };
+        var v2Sel = v2Prefs.PackSelection();
+        check(v2Prefs.Droids && v2Prefs.EnemySkin == "mixed-droids" && v2Sel.Texture == "lighter" && v2Sel.Options["droids"],
+            "Linux v2.0 EnemySkin and reduced512 resolve cleanly against r19/r47 pinned manifests");
+        v2Prefs.EnemySkin = "native-automatons";
+        check(!v2Prefs.Droids && !v2Prefs.PackSelection().Options["droids"] && v2Prefs.SelectionCommand().Contains("native-automatons"),
+            "Linux EnemySkin native-automatons updates Droids and propagates to select-mode arguments");
+
         try
         {
             var outsideMods = Path.Combine(root, "outside-mods");

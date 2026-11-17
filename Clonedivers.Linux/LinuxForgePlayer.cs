@@ -10,17 +10,28 @@ internal interface IForgeConnection : IAsyncDisposable
 }
 internal sealed class LinuxForgePreferences
 {
+    string enemySkin = "all-droids";
     public int Format { get; set; } = 1;
     public string? InstallRoot { get; set; }
     public string Mode { get; set; } = "clonedivers";
     public bool DeltaSquad { get; set; } = true;
     public string Texture { get; set; } = "full";
-    public bool Droids { get; set; } = true;
+    public bool Droids
+    {
+        get => enemySkin != "native-automatons";
+        set => enemySkin = value ? (enemySkin == "native-automatons" ? "all-droids" : enemySkin) : "native-automatons";
+    }
+    public string EnemySkin
+    {
+        get => enemySkin;
+        set => enemySkin = value;
+    }
     public bool Covenant { get; set; }
     internal static string PathName => Path.Combine(PlatformPaths.ConfigDirectory, "forge.json");
     internal void Validate()
     {
-        if (Format != 1 || Mode is not ("regular" or "clonedivers" or "empire") || Texture is not ("full" or "lighter"))
+        if (Format != 1 || Mode is not ("regular" or "clonedivers" or "empire") || Texture is not ("full" or "lighter" or "reduced512") ||
+            EnemySkin is not ("all-droids" or "mixed-droids" or "native-automatons"))
             throw new InvalidDataException("Unsupported Forge preferences; restore forge.json from backup.");
     }
     internal static LinuxForgePreferences Load(string? file = null)
@@ -47,9 +58,9 @@ internal sealed class LinuxForgePreferences
         File.Move(file + ".tmp", file, true);
     }
     internal string[] SelectionCommand() => ["select-mode", "--mode", Mode, "--delta", DeltaSquad ? "yes" : "no", "--texture", Texture,
-        "--droids", Droids ? "yes" : "no", "--covenant", Covenant ? "yes" : "no"];
+        "--droids", Droids ? "yes" : "no", "--covenant", Covenant ? "yes" : "no", "--enemy-skin", EnemySkin];
     internal HellForgePack.Selection PackSelection() => HellForgePack.PinnedSelection(Mode == "empire" ? "empire" : DeltaSquad ? "commandos" : "clonedivers", Texture,
-        new Dictionary<string, bool> { ["droids"] = Droids, ["covenant"] = Covenant });
+        new Dictionary<string, bool> { ["droids"] = Droids, ["covenant"] = Covenant, ["mixed-droids"] = EnemySkin == "mixed-droids" });
 }
 internal sealed record ForgeAccountView(bool Captured, bool Imported, string Message)
 {

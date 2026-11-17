@@ -13,7 +13,40 @@ internal static partial class HellForgeSetup
     internal const string InstallerSha256 = "97dbdd07638e5198b98bf2ad74a1ba907c53f569fcdcdcff330e6c74359f04d7";
     internal const long InstallerBytes = 526467508;
     internal static string DefaultRoot => Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.UserProfile), "HellForge");
-    internal static string CacheRoot => Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "Clonedivers", "installers");
+    internal static string SeparateDefaultRoot()
+    {
+        var baseRoot = DefaultRoot;
+        if (!Directory.Exists(baseRoot) && !File.Exists(baseRoot)) return baseRoot;
+        try
+        {
+            if (Directory.Exists(baseRoot) && !Directory.EnumerateFileSystemEntries(baseRoot).Any()) return baseRoot;
+        }
+        catch (Exception e) when (e is IOException or UnauthorizedAccessException) { }
+        var user = Environment.GetFolderPath(Environment.SpecialFolder.UserProfile);
+        var preferred = Path.Combine(user, "HellForge-Clonedivers");
+        if (!Directory.Exists(preferred) && !File.Exists(preferred)) return preferred;
+        for (int i = 2; i < 100; i++)
+        {
+            var candidate = Path.Combine(user, $"HellForge-Clonedivers-{i}");
+            if (!Directory.Exists(candidate) && !File.Exists(candidate)) return candidate;
+        }
+        return preferred;
+    }
+    internal static long? AvailableDriveBytes(string path)
+    {
+        try
+        {
+            var full = Path.GetFullPath(path);
+            var root = Path.GetPathRoot(full);
+            if (string.IsNullOrWhiteSpace(root)) return null;
+            var drive = new DriveInfo(root);
+            return drive.IsReady ? drive.AvailableFreeSpace : null;
+        }
+        catch (Exception e) when (e is IOException or UnauthorizedAccessException or ArgumentException or NotSupportedException or System.Security.SecurityException) { return null; }
+    }
+    internal static string CacheRoot => HellForgePreferences.CustomPreferencesPath() is { } prefs
+        ? Path.Combine(Path.GetDirectoryName(prefs)!, "installers")
+        : Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "Clonedivers", "installers");
     internal static string InstallCache(string target) => Path.Combine(Path.GetDirectoryName(Path.GetFullPath(target))!, "Clonedivers-HellForge-cache", "installers");
     internal static PackFile Installer => new() { Name = "HellForge-Setup.exe", Url = InstallerUrl, Size = InstallerBytes, Sha256 = InstallerSha256 };
     internal static bool SupportsVersion(string version) => HellForgeRelease.Supports(version);

@@ -39,6 +39,8 @@ public sealed class HellForgeForm : Form
         return true;
     }
 
+    internal static bool FocusWindowHandle(IntPtr hwnd) => RestoreAndActivateWindow(hwnd, IsIconic, ShowWindow, SetForegroundWindow);
+
     static void StartOrActivateManager(string root)
     {
         var normalized = Path.TrimEndingDirectorySeparator(Path.GetFullPath(root)) + Path.DirectorySeparatorChar;
@@ -65,6 +67,10 @@ public sealed class HellForgeForm : Form
     }
     static bool SteamReady()
     {
+        if (HellForgePreferences.CustomPreferencesPath() != null &&
+            Environment.GetEnvironmentVariable("CLONEDIVERS_FORGE_TEST_STEAM") is { } testSteam)
+            return string.Equals(testSteam, "1", StringComparison.OrdinalIgnoreCase) ||
+                   string.Equals(testSteam, "true", StringComparison.OrdinalIgnoreCase);
         Process[] clients = [];
         try { clients = Process.GetProcessesByName("steam"); return clients.Length > 0 && Microsoft.Win32.Registry.GetValue(@"HKEY_CURRENT_USER\Software\Valve\Steam\ActiveProcess", "ActiveUser", null) is int id && id != 0; }
         catch (Exception error) when (error is IOException or UnauthorizedAccessException or System.ComponentModel.Win32Exception or System.Security.SecurityException) { return false; }
@@ -82,6 +88,9 @@ public sealed class HellForgeForm : Form
         "When HD2 exits, close HellForge and return here. Leave Apply import and auto-apply off. Clonedivers verifies and merges your sealed capture automatically.";
     const string DeferredWarbondsMessage = "Account imported. Close the HellForge window to unlock your owned Warbonds.";
     const string CloseHellForgeToUnlockWarbondsMessage = "Close the HellForge window before launching to unlock your owned Warbonds.";
+    const string LaunchAcceptedMessage = "HellForge accepted the launch and session status will update here.";
+    const string FirstLaunchFirewallNotice = "Windows may ask for network approval on your first launch. ";
+
     internal static string FailureSummary(string diagnostic)
     {
         if (diagnostic.Contains("Steam ownership was not confirmed", StringComparison.OrdinalIgnoreCase))
@@ -100,7 +109,7 @@ public sealed class HellForgeForm : Form
             return "GitHub didn't respond. Try again in a few minutes.";
         if (diagnostic.Contains("denied", StringComparison.OrdinalIgnoreCase) || diagnostic.Contains("permission", StringComparison.OrdinalIgnoreCase))
             return "Review folder permissions in More > Session details before trying again.";
-        if (System.Text.RegularExpressions.Regex.IsMatch(diagnostic, @"\b(5\d\d|408|429)\b") ||
+        if (System.Text.RegularExpressions.Regex.IsMatch(diagnostic, @"(?i)(?:\b(?:http|status(?:\s+code)?)\D{0,48}\b(5\d\d|408|429)\b|^\s*(5\d\d|408|429)\s*$)") ||
             diagnostic.Contains("connection", StringComparison.OrdinalIgnoreCase) ||
             diagnostic.Contains("responding", StringComparison.OrdinalIgnoreCase))
             return "GitHub didn't respond. Try again in a few minutes.";
@@ -115,18 +124,24 @@ public sealed class HellForgeForm : Form
     readonly ModeButton regular = new() { Mode = LauncherMode.Helldivers, Text = "Regular", Dock = DockStyle.Fill };
     readonly ModeButton clone = new() { Mode = LauncherMode.Clonedivers, Text = "Clones", Dock = DockStyle.Fill };
     readonly ModeButton empire = new() { Mode = LauncherMode.EmpireDivers, Text = "Empire", Dock = DockStyle.Fill };
-    readonly FlowLayoutPanel choices, textureRow;
+    readonly FlowLayoutPanel choices, enemyRow, textureRow;
     readonly ToolStripMenuItem accountSync = new("Sync HD2 account") { AccessibleName = "Sync HD2 account" };
     readonly Label optionsLabel = new() { AutoSize = true, ForeColor = TextDim };
     readonly Label appearanceInfo = new() { AutoSize = true, ForeColor = TextDim };
-    readonly TableLayoutPanel appearance = new() { Height = 108, Dock = DockStyle.Top, ColumnCount = 1, RowCount = 3, Margin = new Padding(0, 0, 0, 12) };
+    readonly Label textureAdvisor = new() { AutoSize = true, UseMnemonic = false, ForeColor = TextDim, Font = new Font("Segoe UI", 8.5F) };
+    readonly TableLayoutPanel appearance = new() { Height = 152, Dock = DockStyle.Top, ColumnCount = 1, RowCount = 5, Margin = new Padding(0, 0, 0, 10) };
     readonly CheckBox delta = new() { Text = "Delta Squad armor", AutoSize = true };
-    readonly CheckBox droids = new() { Text = "CIS droids", AutoSize = true };
     readonly CheckBox covenant = new() { Text = "Covenant squids", AutoSize = true };
-    readonly TableLayoutPanel textures = new() { Width = 240, Height = 36, ColumnCount = 2, RowCount = 1, AccessibleName = "Texture profile", AccessibleRole = AccessibleRole.Grouping,
-        AccessibleDescription = "Switch between full textures and full-detail textures streamed on demand." };
+    readonly TableLayoutPanel enemySkins = new() { Width = 540, Height = 32, ColumnCount = 3, RowCount = 1, AccessibleName = "Enemy skin", AccessibleRole = AccessibleRole.Grouping,
+        AccessibleDescription = "Choose CIS droids for all Automatons, Mixed bots and droids, or Native Automatons." };
+    readonly RadioButton allDroids = new() { Text = "All CIS Droids", AccessibleName = "All CIS Droids", Appearance = Appearance.Button, Dock = DockStyle.Fill, Margin = Padding.Empty, TextAlign = ContentAlignment.MiddleCenter };
+    readonly RadioButton mixedDroids = new() { Text = "Mixed Bots + CIS Droids", AccessibleName = "Mixed Bots + CIS Droids", Appearance = Appearance.Button, Dock = DockStyle.Fill, Margin = Padding.Empty, TextAlign = ContentAlignment.MiddleCenter };
+    readonly RadioButton nativeAutomatons = new() { Text = "Native Automatons", AccessibleName = "Native Automatons", Appearance = Appearance.Button, Dock = DockStyle.Fill, Margin = Padding.Empty, TextAlign = ContentAlignment.MiddleCenter };
+    readonly TableLayoutPanel textures = new() { Width = 600, Height = 32, ColumnCount = 3, RowCount = 1, AccessibleName = "Texture profile", AccessibleRole = AccessibleRole.Grouping,
+        AccessibleDescription = "Switch between Full textures, Lighter streamed textures, and Johnson Ultra-Potato (512px) for low-VRAM GPUs." };
     readonly RadioButton fullTextures = new() { Text = "Full", AccessibleName = "Full textures", Appearance = Appearance.Button, Dock = DockStyle.Fill, Margin = Padding.Empty, TextAlign = ContentAlignment.MiddleCenter };
-    readonly RadioButton lighterTextures = new() { Text = "Lighter", AccessibleName = "Lighter textures", AccessibleDescription = "Full-detail textures streamed on demand.", Appearance = Appearance.Button, Dock = DockStyle.Fill, Margin = Padding.Empty, TextAlign = ContentAlignment.MiddleCenter };
+    readonly RadioButton lighterTextures = new() { Text = "Lighter (Streamed)", AccessibleName = "Lighter textures", AccessibleDescription = "Full-detail textures streamed on demand.", Appearance = Appearance.Button, Dock = DockStyle.Fill, Margin = Padding.Empty, TextAlign = ContentAlignment.MiddleCenter };
+    readonly RadioButton potatoTextures = new() { Text = "Johnson Ultra-Potato (512px)", AccessibleName = "Johnson Ultra-Potato (512px) textures", AccessibleDescription = "512px texture cap for low-VRAM GPUs or slower asset streaming; softer distant textures, same meshes and audio.", Appearance = Appearance.Button, Dock = DockStyle.Fill, Margin = Padding.Empty, TextAlign = ContentAlignment.MiddleCenter };
     readonly Label state = new() { AutoSize = true, ForeColor = TextMain, Font = new Font("Segoe UI", 12, FontStyle.Bold) };
     readonly Label detail = new() { AutoSize = true, ForeColor = TextDim, MaximumSize = new Size(640, 0) };
     readonly ToolStripMenuItem location = new() { Enabled = false };
@@ -186,54 +201,74 @@ public sealed class HellForgeForm : Form
         BackColor = Bg; ForeColor = TextMain; DoubleBuffered = true;
         StartPosition = FormStartPosition.CenterScreen;
         AutoScaleMode = AutoScaleMode.Dpi;
-        ClientSize = new Size(880, 690); MinimumSize = new Size(700, 600);
+        var initialHeight = Math.Min(720, Math.Max(620, (Screen.PrimaryScreen?.WorkingArea.Height ?? 900) - 60));
+        ClientSize = new Size(920, initialHeight); MinimumSize = new Size(760, 600);
         try { Icon = Icon.ExtractAssociatedIcon(Environment.ProcessPath!); } catch (ArgumentException) { }
         var scroll = new Panel { Dock = DockStyle.Fill, AutoScroll = true };
         Controls.Add(scroll);
         var root = new TableLayoutPanel { Dock = DockStyle.Top, AutoSize = true, AutoSizeMode = AutoSizeMode.GrowAndShrink,
-            Padding = new Padding(32, 24, 32, 8), ColumnCount = 1, RowCount = 7 };
+            Padding = new Padding(32, 16, 32, 4), ColumnCount = 1, RowCount = 7 };
         root.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100));
         root.SizeChanged += (_, _) => {
             var wrap = new Size(Math.Max(160, root.ClientSize.Width - root.Padding.Horizontal), 0);
-            foreach (var label in new[] { state, detail, optionsLabel, appearanceInfo, message })
+            foreach (var label in new[] { state, detail, optionsLabel, appearanceInfo, textureAdvisor, message })
                 if (label.MaximumSize != wrap) label.MaximumSize = wrap;
         };
         for (int i = 0; i < root.RowCount; i++) root.RowStyles.Add(new RowStyle(SizeType.AutoSize));
-        root.RowStyles[4] = new RowStyle(SizeType.Absolute, 64);
+        root.RowStyles[4] = new RowStyle(SizeType.Absolute, 62);
         scroll.Controls.Add(root);
 
-        var header = new TableLayoutPanel { Anchor = AnchorStyles.None, AutoSize = true, ColumnCount = 2, Margin = new Padding(0, 0, 0, 16) };
+        var header = new TableLayoutPanel { Anchor = AnchorStyles.None, AutoSize = true, ColumnCount = 2, Margin = new Padding(0, 0, 0, 10) };
         header.ColumnStyles.Add(new ColumnStyle(SizeType.AutoSize)); header.ColumnStyles.Add(new ColumnStyle(SizeType.AutoSize));
         header.Controls.Add(new HelmetMark { Width = 50, Height = 60, Anchor = AnchorStyles.None, Margin = new Padding(0, 0, 16, 0) }, 0, 0);
         var heading = new FlowLayoutPanel { AutoSize = true, FlowDirection = FlowDirection.TopDown, WrapContents = false, Margin = Padding.Empty };
         heading.Controls.Add(new Label { Text = "CLONEDIVERS", Font = new Font("Segoe UI", 26, FontStyle.Bold), AutoSize = true, Margin = Padding.Empty });
         heading.Controls.Add(new Label { Text = "Choose your universe  ·  HellForge edition", ForeColor = TextDim, Font = new Font("Segoe UI", 10.5F), AutoSize = true, Margin = new Padding(2, 0, 0, 0) });
         header.Controls.Add(heading, 1, 0); root.Controls.Add(header, 0, 0);
-        var modes = new TableLayoutPanel { ColumnCount = 3, RowCount = 1, Height = 168, Dock = DockStyle.Top, Margin = new Padding(0, 0, 0, 16) };
+        var modes = new TableLayoutPanel { ColumnCount = 3, RowCount = 1, Height = 148, Dock = DockStyle.Top, Margin = new Padding(0, 0, 0, 10) };
         for (int i = 0; i < 3; i++) modes.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100F / 3));
         regular.Margin = new Padding(0, 0, 8, 0); clone.Margin = new Padding(4, 0, 4, 0); empire.Margin = new Padding(8, 0, 0, 0);
         foreach (var button in new[] { regular, clone, empire }) button.Font = new Font("Segoe UI", 12, FontStyle.Bold);
         modes.Controls.Add(regular, 0, 0); modes.Controls.Add(clone, 1, 0); modes.Controls.Add(empire, 2, 0); root.Controls.Add(modes, 0, 1);
         appearance.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100));
         appearance.RowStyles.Add(new RowStyle(SizeType.Absolute, 22));
-        appearance.RowStyles.Add(new RowStyle(SizeType.Absolute, 32));
+        appearance.RowStyles.Add(new RowStyle(SizeType.Absolute, 36));
+        appearance.RowStyles.Add(new RowStyle(SizeType.Absolute, 30));
+        appearance.RowStyles.Add(new RowStyle(SizeType.Absolute, 36));
         appearance.RowStyles.Add(new RowStyle(SizeType.Percent, 100));
-        choices = new FlowLayoutPanel { AutoSize = true, Dock = DockStyle.Fill, Margin = Padding.Empty, WrapContents = true };
-        foreach (var check in new[] { delta, droids, covenant }) { check.Margin = new Padding(0, 4, 20, 4); choices.Controls.Add(check); }
         optionsLabel.Margin = Padding.Empty; appearance.Controls.Add(optionsLabel, 0, 0);
+        enemyRow = new FlowLayoutPanel { AutoSize = true, Dock = DockStyle.Fill, Margin = Padding.Empty, WrapContents = false };
+        enemyRow.Controls.Add(new Label { Text = "Enemy skin", AutoSize = true, ForeColor = TextDim, Margin = new Padding(0, 6, 10, 0) });
+        enemySkins.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 29));
+        enemySkins.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 39));
+        enemySkins.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 32));
+        foreach (var option in new[] { allDroids, mixedDroids, nativeAutomatons }) {
+            option.FlatStyle = FlatStyle.Flat; option.FlatAppearance.BorderColor = Border; option.FlatAppearance.CheckedBackColor = Color.FromArgb(24, 47, 82);
+            option.FlatAppearance.MouseOverBackColor = SlateHot; option.BackColor = Bg; option.ForeColor = TextMain; option.Font = new Font("Segoe UI", 9.5F);
+        }
+        enemySkins.Controls.Add(allDroids, 0, 0); enemySkins.Controls.Add(mixedDroids, 1, 0); enemySkins.Controls.Add(nativeAutomatons, 2, 0);
+        enemyRow.Controls.Add(enemySkins);
         var appearanceOptions = new Panel { Dock = DockStyle.Fill, Margin = Padding.Empty };
-        appearanceInfo.Location = new Point(0, 4); appearanceOptions.Controls.Add(appearanceInfo); appearanceOptions.Controls.Add(choices);
+        appearanceInfo.Location = new Point(0, 4); appearanceOptions.Controls.Add(appearanceInfo); appearanceOptions.Controls.Add(enemyRow);
         appearance.Controls.Add(appearanceOptions, 0, 1);
-        textureRow = new FlowLayoutPanel { AutoSize = true, Dock = DockStyle.Fill, Margin = Padding.Empty };
-        textureRow.Controls.Add(new Label { Text = "Textures", AutoSize = true, ForeColor = TextDim, Margin = new Padding(0, 5, 12, 0) });
-        textures.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 50)); textures.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 50));
-        foreach (var option in new[] { fullTextures, lighterTextures }) {
+        choices = new FlowLayoutPanel { AutoSize = true, Dock = DockStyle.Fill, Margin = Padding.Empty, WrapContents = true };
+        foreach (var check in new[] { delta, covenant }) { check.Margin = new Padding(0, 3, 20, 3); choices.Controls.Add(check); }
+        appearance.Controls.Add(choices, 0, 2);
+        textureRow = new FlowLayoutPanel { AutoSize = true, Dock = DockStyle.Fill, Margin = Padding.Empty, WrapContents = false };
+        textureRow.Controls.Add(new Label { Text = "Textures", AutoSize = true, ForeColor = TextDim, Margin = new Padding(0, 6, 10, 0) });
+        textures.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 17));
+        textures.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 31));
+        textures.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 52));
+        foreach (var option in new[] { fullTextures, lighterTextures, potatoTextures }) {
             option.FlatStyle = FlatStyle.Flat; option.FlatAppearance.BorderColor = Border; option.FlatAppearance.CheckedBackColor = Color.FromArgb(24, 47, 82);
             option.FlatAppearance.MouseOverBackColor = SlateHot; option.BackColor = Bg; option.ForeColor = TextMain; option.Font = new Font("Segoe UI", 10F);
         }
-        textures.Controls.Add(fullTextures, 0, 0); textures.Controls.Add(lighterTextures, 1, 0);
+        textures.Controls.Add(fullTextures, 0, 0); textures.Controls.Add(lighterTextures, 1, 0); textures.Controls.Add(potatoTextures, 2, 0);
         textureRow.Controls.Add(textures);
-        appearance.Controls.Add(textureRow, 0, 2); root.Controls.Add(appearance, 0, 2);
+        appearance.Controls.Add(textureRow, 0, 3);
+        textureAdvisor.Margin = new Padding(0, 2, 0, 0);
+        appearance.Controls.Add(textureAdvisor, 0, 4);
+        root.Controls.Add(appearance, 0, 2);
         var statusCard = new TableLayoutPanel { AutoSize = true, Dock = DockStyle.Fill, ColumnCount = 1,
             Margin = new Padding(0, 0, 0, 12) };
         statusCard.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100));
@@ -275,11 +310,20 @@ public sealed class HellForgeForm : Form
         Controls.Add(footer);
         regular.Click += (_, _) => ChangeMode("regular"); clone.Click += (_, _) => ChangeMode("clonedivers"); empire.Click += (_, _) => ChangeMode("empire");
         accountSync.Click += async (_, _) => await SyncAccountAsync();
-        delta.Checked = preferences.DeltaSquad; droids.Checked = preferences.Droids; covenant.Checked = preferences.Covenant;
-        fullTextures.Checked = preferences.Texture == "full"; lighterTextures.Checked = preferences.Texture == "lighter";
-        foreach (var check in new[] { delta, droids, covenant }) check.CheckedChanged += (_, _) => ChangeOptions();
+        delta.Checked = preferences.DeltaSquad; covenant.Checked = preferences.Covenant;
+        allDroids.Checked = preferences.EnemySkin == "all-droids";
+        mixedDroids.Checked = preferences.EnemySkin == "mixed-droids";
+        nativeAutomatons.Checked = preferences.EnemySkin == "native-automatons";
+        fullTextures.Checked = preferences.Texture == "full";
+        lighterTextures.Checked = preferences.Texture == "lighter";
+        potatoTextures.Checked = preferences.Texture == "reduced512";
+        foreach (var check in new[] { delta, covenant }) check.CheckedChanged += (_, _) => ChangeOptions();
+        allDroids.CheckedChanged += (_, _) => { if (allDroids.Checked) ChangeEnemySkin("all-droids"); };
+        mixedDroids.CheckedChanged += (_, _) => { if (mixedDroids.Checked) ChangeEnemySkin("mixed-droids"); };
+        nativeAutomatons.CheckedChanged += (_, _) => { if (nativeAutomatons.Checked) ChangeEnemySkin("native-automatons"); };
         fullTextures.CheckedChanged += (_, _) => { if (fullTextures.Checked) ChangeTexture("full"); };
         lighterTextures.CheckedChanged += (_, _) => { if (lighterTextures.Checked) ChangeTexture("lighter"); };
+        potatoTextures.CheckedChanged += (_, _) => { if (potatoTextures.Checked) ChangeTexture("reduced512"); };
         prepare.Click += async (_, _) => await PrepareAsync();
         AcceptButton = launch;
         launch.Click += async (_, _) => {
@@ -312,6 +356,15 @@ public sealed class HellForgeForm : Form
         initializing = false;
     }
 
+    internal void BringToFrontWindow()
+    {
+        if (IsDisposed || Disposing) return;
+        if (WindowState == FormWindowState.Minimized) WindowState = FormWindowState.Normal;
+        if (!Visible) Show();
+        Activate();
+        RestoreAndActivateWindow(Handle, IsIconic, ShowWindow, SetForegroundWindow);
+    }
+
     protected override void OnHandleCreated(EventArgs e) { base.OnHandleCreated(e); Dwm.ApplyDark(Handle, Bg, TextMain, Border); }
     static void Style(Button button, Color back, Color hot, Color text)
     {
@@ -328,11 +381,12 @@ public sealed class HellForgeForm : Form
     }
     void ChangeMode(string mode) { if (working) return; operationFailure = null; preferences.Mode = mode; Save(); UpdateView(); }
     void ChangeTexture(string texture) { if (working || preferences.Texture == texture) return; preferences.Texture = texture; ChangeOptions(); }
+    void ChangeEnemySkin(string enemySkin) { if (working || preferences.EnemySkin == enemySkin) return; preferences.EnemySkin = enemySkin; ChangeOptions(); }
     void ChangeOptions()
     {
         if (initializing || working) return;
         operationFailure = null;
-        preferences.DeltaSquad = delta.Checked; preferences.Droids = droids.Checked; preferences.Covenant = covenant.Checked;
+        preferences.DeltaSquad = delta.Checked; preferences.Covenant = covenant.Checked;
         Save(); message.Text = "Prepare the pack to apply your selection."; UpdateView();
     }
     void Save() { if (!preview) preferences.Save(); }
@@ -462,6 +516,9 @@ public sealed class HellForgeForm : Form
                 }
             }
             if (root != preferences.InstallRoot) return;
+            if ((status.Running != lastStatus?.Running || (!status.Running && (status.LastStatus is "failed" or "cleanup_failed" || status.LastFailure != null))) &&
+                message.Text == LaunchAcceptedMessage)
+                message.Text = "";
             lastStatus = status; lastMods = mods; lastAccount = account; captureBlock = block; captureBlockUnreadable = blockUnreadable; lastError = null;
         }
         catch (OperationCanceledException) when (lifetime.IsCancellationRequested) { }
@@ -505,6 +562,9 @@ public sealed class HellForgeForm : Form
         if (!working)
         {
             if (OfferUpdate) ShowUpdateOffer(launcherRelease!.Version, updateFailed);
+            if ((lastStatus is { LastStatus: "failed" or "cleanup_failed" } || lastStatus?.LastFailure != null) &&
+                message.Text == LaunchAcceptedMessage)
+                message.Text = "";
             var canShowMessage = !initializing && !OfferUpdate && !installationMissing && lastError == null && state.Text != "Checking HellForge…";
             if (headline != null && headline != state.Text) message.Text = "";
             if (startupNotice != null && canShowMessage)
@@ -535,17 +595,27 @@ public sealed class HellForgeForm : Form
         regular.Selected = preferences.IsRegular;
         clone.Selected = preferences.Mode == "clonedivers"; empire.Selected = preferences.Mode == "empire";
         appearance.Visible = !working;
-        choices.Visible = textureRow.Visible = !working && !preferences.IsRegular;
+        choices.Visible = !working && preferences.Mode == "clonedivers";
+        enemyRow.Visible = textureRow.Visible = textureAdvisor.Visible = !working && !preferences.IsRegular;
         optionsLabel.Text = preferences.Mode switch { "empire" => "Empire appearance", "regular" => "Regular appearance", _ => "Clones appearance" };
         appearanceInfo.Visible = preferences.IsRegular;
         appearanceInfo.Text = "Standard Helldivers appearance with your selected gameplay mods.";
         delta.Visible = preferences.Mode == "clonedivers";
         covenant.Visible = preferences.Mode == "clonedivers";
         delta.Enabled = !working && preferences.Mode == "clonedivers";
-        foreach (var control in new Control[] { regular, clone, empire, droids, covenant, textures, actions }) control.Enabled = !working;
+        textureAdvisor.Text = preferences.Texture == "reduced512"
+            ? "Ultra-Potato (512px): lowest VRAM footprint & fastest load; distant surfaces look softer (meshes & audio unchanged)."
+            : "Advisor: Choose Johnson Ultra-Potato (512px) on low-VRAM GPUs or slower drives to prevent crashes & stutter.";
+        foreach (var control in new Control[] { regular, clone, empire, covenant, enemySkins, textures, actions }) control.Enabled = !working;
         actions.Visible = !working;
-        fullTextures.Checked = preferences.Texture == "full"; lighterTextures.Checked = preferences.Texture == "lighter";
-        foreach (var option in new[] { fullTextures, lighterTextures }) option.FlatAppearance.BorderColor = option.Checked ? BlueHot : Border;
+        allDroids.Checked = preferences.EnemySkin == "all-droids";
+        mixedDroids.Checked = preferences.EnemySkin == "mixed-droids";
+        nativeAutomatons.Checked = preferences.EnemySkin == "native-automatons";
+        foreach (var option in new[] { allDroids, mixedDroids, nativeAutomatons }) option.FlatAppearance.BorderColor = option.Checked ? BlueHot : Border;
+        fullTextures.Checked = preferences.Texture == "full";
+        lighterTextures.Checked = preferences.Texture == "lighter";
+        potatoTextures.Checked = preferences.Texture == "reduced512";
+        foreach (var option in new[] { fullTextures, lighterTextures, potatoTextures }) option.FlatAppearance.BorderColor = option.Checked ? BlueHot : Border;
         prepare.Text = "SET UP SELECTED MODE";
         prepare.Enabled = !working && preferences.InstallRoot != null && !preview;
         location.Text = preview ? "D:\\HellForge" : preferences.InstallRoot ?? "No HellForge installation selected";
@@ -555,13 +625,14 @@ public sealed class HellForgeForm : Form
         {
             var busy = previewState is "installing" or "update-downloading";
             prepare.Enabled = accountSync.Enabled = previewState != "running" && !busy;
-            foreach (var control in new Control[] { regular, clone, empire, choices, textures }) control.Enabled = !busy;
+            foreach (var control in new Control[] { regular, clone, empire, choices, enemySkins, textures }) control.Enabled = !busy;
             launch.Enabled = !busy;
             state.Text = "Ready to launch";
             detail.Text = "Choose difficulty 1–11 at the war table.";
             message.Text = ""; later.Visible = false;
             progress.Visible = busy; progress.Style = ProgressBarStyle.Continuous; progress.Value = 42;
-            choices.Visible = textureRow.Visible = !busy && !preferences.IsRegular;
+            choices.Visible = !busy && preferences.Mode == "clonedivers";
+            enemyRow.Visible = textureRow.Visible = textureAdvisor.Visible = !busy && !preferences.IsRegular;
             appearance.Visible = !busy;
             actions.Visible = !busy;
             if (previewState == "setup") { state.Text = "Set up HellForge"; detail.Text = "We'll guide you through installing the separate game copy and your chosen mode."; launch.Text = "SET UP CLONEDIVERS"; }
@@ -588,7 +659,7 @@ public sealed class HellForgeForm : Form
         }
         if (installationMissing) {
             state.Text = "HellForge installation is missing"; detail.Text = "Locate your Forge folder, or set up Forge again.";
-            launch.Text = "SET UP FORGE"; launch.Enabled = true; prepare.Enabled = accountSync.Enabled = false; return;
+            launch.Text = "SET UP AGAIN"; launch.Enabled = true; prepare.Enabled = accountSync.Enabled = false; return;
         }
         if (preferences.InstallRoot is { } upgradeRoot && HellForgeSetup.UpgradeProblem(upgradeRoot) != null) {
             state.Text = "Restore the previous Forge application"; detail.Text = "Restore the previous Forge application before continuing."; launch.Text = "RECOVER FORGE UPGRADE"; launch.Enabled = true;
@@ -604,9 +675,16 @@ public sealed class HellForgeForm : Form
             launch.Text = "FINISH SETUP"; launch.Enabled = true; prepare.Enabled = accountSync.Enabled = false; return;
         }
         if (lastStatus?.CompatibilityProblem != null) {
-            state.Text = "Check HellForge compatibility"; detail.Text = "Review your HellForge installation in More > Session details.";
-            if (HellForgeSetup.SupportsVersion(lastStatus.Version) && lastStatus.Engine == HellForgeRelease.Engine && lastStatus.ModSdk == HellForgeRelease.Sdk) { launch.Text = "CONTINUE GUIDED SETUP"; launch.Enabled = true; }
-            else EnableDetails();
+            if (HellForgeSetup.SupportsVersion(lastStatus.Version) && lastStatus.Engine == HellForgeRelease.Engine && lastStatus.ModSdk == HellForgeRelease.Sdk) {
+                state.Text = "Check HellForge compatibility";
+                detail.Text = "Review your HellForge installation in More > Session details.";
+                launch.Text = "CONTINUE GUIDED SETUP";
+            } else {
+                state.Text = "Unsupported HellForge installation";
+                detail.Text = lastStatus.CompatibilityProblem + " Install a separate Clonedivers Forge folder to keep your existing installation untouched.";
+                launch.Text = "INSTALL SEPARATE FORGE";
+            }
+            launch.Enabled = true;
             prepare.Enabled = accountSync.Enabled = false; return;
         }
         if (lastStatus?.RecoveryProblem is { } recovery) {
@@ -638,7 +716,7 @@ public sealed class HellForgeForm : Form
                 EnableDetails();
                 return;
             }
-            state.Text = "Finish account sync"; detail.Text = "In HellForge, finish sync or choose Profile > Account sync > Clean up. If its window is stuck, close it and retry."; launch.Text = "OPEN HELLFORGE"; launch.Enabled = true; return;
+            state.Text = "Finish account sync"; detail.Text = "In HellForge, finish sync or choose Profile > Account sync > Clean up. If its window is stuck, close it and retry."; launch.Text = "OPEN HELLFORGE TO CLEAN UP"; launch.Enabled = true; return;
         }
         if (!lastStatus.GameCopyReady || !lastStatus.RunnerReady) { state.Text = "Finish HellForge setup"; detail.Text = "Continue guided setup to download or resume the supported game copy."; launch.Text = "FINISH SETUP"; launch.Enabled = true; return; }
         if (lastStatus.Build != HellForgePack.SupportedBuild) { state.Text = "Pack update needed"; detail.Text = "This pack requires a compatible HellForge game build."; EnableDetails(); return; }
@@ -666,7 +744,7 @@ public sealed class HellForgeForm : Form
             launch.Text = lastAccount?.Captured == true ? "FINISH ACCOUNT SYNC" : "SYNC HD2 ACCOUNT"; launch.Enabled = true; return;
         }
         state.Text = "Ready to launch";
-        detail.Text = "Choose difficulty 1–11 at the war table.";
+        detail.Text = (lastStatus.HasRun ? "" : FirstLaunchFirewallNotice) + "Choose difficulty 1–11 at the war table.";
         if (lastStatus.LastStatus is "failed" or "cleanup_failed" || lastStatus.LastFailure != null) {
             state.Text = "Last session needs attention";
             detail.Text = lastStatus.LastFailure is { } failure ? FailureSummary(failure) : "Open Session details and HellForge’s logs before retrying.";
@@ -698,6 +776,9 @@ public sealed class HellForgeForm : Form
     async Task CheckLauncherUpdateAsync(bool interactive)
     {
         if (preview || checkingUpdates || working) return;
+        if (!interactive && HellForgePreferences.CustomPreferencesPath() != null &&
+            Environment.GetEnvironmentVariable("CLONEDIVERS_FORGE_SKIP_UPDATE_CHECK") == "1")
+            return;
         checkingUpdates = true; if (interactive) { message.Text = ""; operationFailure = null; } UpdateView();
         try
         {
@@ -803,6 +884,14 @@ public sealed class HellForgeForm : Form
             (await CreateAccount(client.Root).ReadAsync(WorkToken)).Imported != true)
             await SyncAccountCoreAsync(client);
     }
+    Progress<(long done, long total)> CreateByteProgress(string prefix, Func<bool> active) => new(p => {
+        if (IsDisposed || !working || !active()) return;
+        progress.Style = ProgressBarStyle.Continuous;
+        progress.Value = p.total > 0 ? (int)Math.Clamp(p.done * 100d / p.total, 0, 100) : 0;
+        var summary = Pack.FormatBytes(p.done) + " / " + Pack.FormatBytes(p.total) + " · " + progress.Value + "%";
+        message.Text = string.IsNullOrEmpty(prefix) ? summary : prefix + " · " + summary;
+    });
+
     async Task InstallGameplayCoreAsync(HellForgeClient client)
     {
         var report = new Progress<string>(text => { if (!IsDisposed) message.Text = text; });
@@ -811,12 +900,7 @@ public sealed class HellForgeForm : Form
         Cancellable = true;
         state.Text = "Installing mods"; detail.Text = "Preparing your selected mode for HellForge.";
         var downloading = true;
-        var bytes = new Progress<(long done, long total)>(p => {
-            if (IsDisposed || !working || !downloading) return;
-            progress.Style = ProgressBarStyle.Continuous;
-            progress.Value = p.total > 0 ? (int)Math.Clamp(p.done * 100d / p.total, 0, 100) : 0;
-            message.Text = Pack.FormatBytes(p.done) + " / " + Pack.FormatBytes(p.total) + " · " + progress.Value + "%";
-        });
+        var bytes = CreateByteProgress("", () => downloading);
         try { await HellForgeGameplayCatalog.StageAsync(client.GameplayCache, missing, report, WorkToken, bytes); }
         finally { downloading = false; }
         Cancellable = false;
@@ -891,7 +975,10 @@ public sealed class HellForgeForm : Form
                 "Prepare Star Wars pack", MessageBoxButtons.OKCancel, MessageBoxIcon.Information) != DialogResult.OK)
                 throw new OperationCanceledException();
         }
-        await Task.Run(() => HellForgePack.ExportAsync(plan, true, report, WorkToken), WorkToken);
+        var downloading = plan.Missing.Count > 0;
+        var bytes = downloading ? CreateByteProgress("Downloading Star Wars pack", () => downloading) : null;
+        try { await Task.Run(() => HellForgePack.ExportAsync(plan, true, report, WorkToken, bytes), WorkToken); }
+        finally { downloading = false; progress.Style = ProgressBarStyle.Marquee; }
         return output;
     }
     async Task LaunchAsync() => await OperationAsync(async () => {
@@ -920,11 +1007,23 @@ public sealed class HellForgeForm : Form
                 return;
             }
         }
+        else if (lastAccount?.Imported == true)
+        {
+            await TryOpenWarbondsAction(client, WorkToken);
+        }
         message.Text = "Checking the selected mode and asking HellForge to start…";
         var profile = await EnsureAccountAction(client, WorkToken);
         if (preferences.IsRegular) await Task.Run(() => client.PlayRegularAsync(WorkToken, profile), WorkToken);
-        else await Task.Run(() => client.PlayAsync(preferences.Selection(), WorkToken, profile), WorkToken);
-        message.Text = "HellForge accepted the launch and session status will update here.";
+        else
+        {
+            var verifying = true;
+            Cancellable = true;
+            var status = new Progress<string>(text => { if (!IsDisposed && working) message.Text = text; });
+            var bytes = CreateByteProgress("Verifying Star Wars files", () => verifying);
+            try { await Task.Run(() => client.PlayAsync(preferences.Selection(), WorkToken, profile, status, bytes), WorkToken); }
+            finally { verifying = false; Cancellable = false; progress.Style = ProgressBarStyle.Marquee; }
+        }
+        message.Text = LaunchAcceptedMessage;
     });
     async Task EndSessionAsync() => await OperationAsync(async () => {
         state.Text = "Ending session…";
@@ -991,15 +1090,33 @@ public sealed class HellForgeForm : Form
         catch (Exception e) { MessageBox.Show(this, e.Message, "Locate HellForge", MessageBoxButtons.OK, MessageBoxIcon.Information); }
     }
     async Task SetupAsync() => await OperationAsync(async () => {
-        using var setup = new HellForgeSetupForm(installationMissing ? null : preferences.InstallRoot);
+        var separate = lastStatus?.CompatibilityProblem != null &&
+            (!HellForgeSetup.SupportsVersion(lastStatus.Version) || lastStatus.Engine != HellForgeRelease.Engine || lastStatus.ModSdk != HellForgeRelease.Sdk);
+        using var setup = new HellForgeSetupForm(installationMissing || separate ? null : preferences.InstallRoot, preferences: preferences, savePreferences: Save);
         setup.Connected += root => { preferences.InstallRoot = HellForgeCommands.ValidateRoot(root); syncRequested = false; warbondsPending = false; Save(); };
         var completed = setup.ShowDialog(this) == DialogResult.OK;
         if (setup.InstallationRoot is { } root)
         {
             preferences.InstallRoot = HellForgeCommands.ValidateRoot(root); syncRequested = false; installationMissing = false; warbondsPending = false; Save();
             lastStatus = null; lastMods = null; lastAccount = null; captureBlock = null; captureBlockUnreadable = false;
-            message.Text = "Forge is connected and ready for the gameplay mods.";
-            if (completed) await PrepareSelectedCoreAsync();
+            var client = Client();
+            try
+            {
+                lastStatus = await client.StatusAsync(WorkToken);
+                lastMods = await client.ModsAsync(WorkToken);
+                (lastAccount, var reviewed) = await ReviewAccountAsync(CreateAccount(client.Root), WorkToken);
+                accountReviewFailed = !reviewed;
+                (captureBlock, captureBlockUnreadable) = ReadCaptureBlock();
+            }
+            catch (Exception e) when (e is not OperationCanceledException) { }
+            if (completed)
+                message.Text = lastStatus?.HasRun == false
+                    ? FirstLaunchFirewallNotice + "Forge and your selected mode are ready to launch."
+                    : "Forge and your selected mode are ready to launch.";
+            else
+                message.Text = lastStatus is { GameCopyReady: true, RunnerReady: true }
+                    ? "Forge is connected."
+                    : "Continue guided setup when ready.";
         }
     });
     async void OpenHellForge()
@@ -1007,7 +1124,8 @@ public sealed class HellForgeForm : Form
         if (preview || working) return;
         try
         {
-            if (installationMissing || preferences.InstallRoot == null || lastStatus is { GameCopyReady: false } or { RunnerReady: false })
+            if (installationMissing || preferences.InstallRoot == null || lastStatus is { GameCopyReady: false } or { RunnerReady: false } ||
+                (lastError != null && lastError.Contains("HellForge programs are missing", StringComparison.OrdinalIgnoreCase)))
             {
                 await SetupAsync();
                 return;

@@ -111,7 +111,7 @@ static class ForgeFormRecoveryTests
             Set(form, "lastStatus", new HellForgeStatus(root, "fixture", HellForgePack.SupportedBuild, true, true, true, true, true, "observing", null));
             await Invoke(form, "RefreshAsync");
             var primary = Field<Button>(form, "launch");
-            check(Field<bool>(form, "installationMissing") && primary.Enabled && primary.Text == "SET UP FORGE" &&
+            check(Field<bool>(form, "installationMissing") && primary.Enabled && primary.Text == "SET UP AGAIN" &&
                 Field<Label>(form, "detail").Text.Contains("Locate") && !Field<bool>(form, "retryStatus") &&
                 Field<HellForgeStatus?>(form, "lastStatus") == null,
                 (moved ? "moved" : "deleted") + " saved installation clears stale running/error state and directly offers setup and Locate");
@@ -149,7 +149,7 @@ static class ForgeFormRecoveryTests
             else
             {
                 check(HellForgeForm.InstallationMissing(root) && Field<bool>(form, "installationMissing") &&
-                    primary.Text == "SET UP FORGE" && locateButton.Visible,
+                    primary.Text == "SET UP AGAIN" && locateButton.Visible,
                     "a returned empty folder offers setup rather than a Retry loop");
             }
             await Invoke(form, "RequireUpdateIdleAsync");

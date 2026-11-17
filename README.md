@@ -7,6 +7,19 @@ Play the official online Helldivers 2 game directly through Steam.
 
 [Windows launcher](https://github.com/owendavidgoode/clonedivers/releases/latest/download/Clonedivers.exe) · [Ubuntu/Debian x86-64 package](https://github.com/owendavidgoode/clonedivers/releases/download/linux-v0.8.2/Clonedivers-linux-x64.deb) · [Linux portable](https://github.com/owendavidgoode/clonedivers/releases/download/linux-v0.8.2/Clonedivers-linux-x64.tar.gz)
 
+## Quick Start for Friends (Windows)
+
+1. **Download and run `Clonedivers.exe`** — because the launcher is self-published, Windows Defender SmartScreen may show **"Windows protected your PC"**. Click **More info** -> **Run anyway**.
+2. **Keep Helldivers 2 installed and updated in Steam** — Clonedivers uses your Steam ownership and HD2 install for Forge's game copy and mandatory account sync. Official online HD2 stays untouched in Steam.
+3. **Allow ~70 GB free space** on a local folder outside OneDrive and Steam (for example `D:\HellForge`).
+4. **Pick your mode & visuals first**: choose **Regular**, **Clones**, or **Empire**, your **Enemy skin** (`All CIS Droids`, `Mixed Bots + CIS Droids`, or `Native Automatons`), and **Textures** (`Full`, `Lighter (Streamed)`, or `Johnson Ultra-Potato (512px)` if your GPU has limited VRAM or slow asset streaming).
+5. **Follow the 4-step Setup Wizard**:
+   - **Step 1 · Preflight Check**: confirms Steam is signed in and 70 GB is free.
+   - **Step 2 · Forge & Game Copy**: sign in with the **Steam Mobile App QR scanner**, or click **Official setup (fallback)** if you don't have the phone app. Windows will ask for administrator (UAC) approval two or three times.
+   - **Step 3 · Guided Steam Account Sync (Required)**: required once before your first Forge launch so your real HD2 warbonds, unlocks, and progression copy locally. Leave *Apply import* and *auto-apply* off — Clonedivers imports the sealed capture automatically when HD2 and HellForge close. *(Never share your account capture files with anyone else.)*
+   - **Step 4 · Pack Download & Ready**: downloads the gameplay preset and selected Star Wars pack with byte progress, then returns to **Ready to launch**.
+6. **First launch firewall prompt**: click **Allow access** if Windows asks for network approval on your first launch.
+
 ## Update or Install
 
 The current public versions are Windows **1.14.2** and Linux Forge **0.8.2**

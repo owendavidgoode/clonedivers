@@ -71,7 +71,7 @@ static class HellForgeTests
             Set("lastStatus", new HellForgeStatus(Path.GetTempPath(), "fixture", HellForgePack.SupportedBuild, true, true, false, true, true, null, null,
                 CompatibilityProblem: "Fixture engine/SDK/isolation mismatch."));
             type.GetMethod("UpdateView", members)!.Invoke(form, null);
-            check(end.Enabled && end.Text == "VIEW DETAILS" && !recover.Enabled && !sync.Enabled, "incompatible engine/SDK/isolation offers details while blocking launch, preparation and account import");
+            check(end.Enabled && end.Text == "INSTALL SEPARATE FORGE" && !recover.Enabled && !sync.Enabled, "incompatible engine/SDK/isolation offers separate install while blocking launch, preparation and account import");
             Set("lastStatus", new HellForgeStatus(Path.GetTempPath(), "fixture", HellForgePack.SupportedBuild, false, true, true, true, true, null, null,
                 CompatibilityProblem: "Fixture engine/SDK/isolation mismatch."));
             type.GetMethod("UpdateView", members)!.Invoke(form, null);
@@ -118,7 +118,7 @@ static class HellForgeTests
             Set("captureBlock", "Sync is still forwarding the normal game.");
             Set("launcherRelease", new AppRelease { Version = "999.0.0", Url = "https://github.com/owendavidgoode/clonedivers/releases/download/v999.0.0/Clonedivers.exe", Size = 1, Sha256 = new string('a', 64) });
             type.GetMethod("UpdateView", members)!.Invoke(form, null);
-            check(end.Enabled && end.Text == "OPEN HELLFORGE" && !recover.Enabled && !sync.Enabled, "account capture cleanup opens HellForge while automatic import and setup stay blocked");
+            check(end.Enabled && end.Text == "OPEN HELLFORGE TO CLEAN UP" && !recover.Enabled && !sync.Enabled, "account capture cleanup opens HellForge while automatic import and setup stay blocked");
             Set("captureBlock", null);
             Set("updateFailed", true); Set("failureDetail", "Response status code does not indicate success: 504 (Gateway Time-out).");
             type.GetMethod("UpdateView", members)!.Invoke(form, null);
@@ -214,25 +214,39 @@ static class HellForgeTests
                     if (mode == "Empire")
                     {
                         var delta = (CheckBox)typeof(HellForgeForm).GetField("delta", fields)!.GetValue(form)!;
-                        var droids = (CheckBox)typeof(HellForgeForm).GetField("droids", fields)!.GetValue(form)!;
+                        var allDroids = (RadioButton)typeof(HellForgeForm).GetField("allDroids", fields)!.GetValue(form)!;
+                        var mixedDroids = (RadioButton)typeof(HellForgeForm).GetField("mixedDroids", fields)!.GetValue(form)!;
+                        var nativeAutomatons = (RadioButton)typeof(HellForgeForm).GetField("nativeAutomatons", fields)!.GetValue(form)!;
+                        var potatoTextures = (RadioButton)typeof(HellForgeForm).GetField("potatoTextures", fields)!.GetValue(form)!;
+                        var advisor = (Label)typeof(HellForgeForm).GetField("textureAdvisor", fields)!.GetValue(form)!;
                         var covenant = (CheckBox)typeof(HellForgeForm).GetField("covenant", fields)!.GetValue(form)!;
-                        check(fullTextures.Visible && lighterTextures.Visible && fullTextures.Enabled && lighterTextures.Enabled,
-                            "Empire shows and enables both texture segments");
-                        check(droids.Visible && droids.Enabled && droids.Checked && !delta.Visible && !covenant.Visible,
-                            "Empire shows CIS droids on by default while hiding Clones-only appearance options");
+                        check(fullTextures.Visible && lighterTextures.Visible && potatoTextures.Visible &&
+                            fullTextures.Enabled && lighterTextures.Enabled && potatoTextures.Enabled &&
+                            advisor.Visible && advisor.Text.Contains("512px"),
+                            "Empire shows and enables all three texture tiers and low-VRAM advisor note");
+                        check(allDroids.Visible && mixedDroids.Visible && nativeAutomatons.Visible &&
+                            allDroids.Checked && !delta.Visible && !covenant.Visible,
+                            "Empire shows Enemy skin selector defaulted to All CIS Droids while hiding Clones-only appearance options");
                         var applied = preferences.SelectionKey;
-                        droids.Checked = false; Application.DoEvents();
-                        check(!preferences.Droids && !preferences.Selection().Options["droids"] && preferences.SelectionKey != applied &&
+                        nativeAutomatons.Checked = true; Application.DoEvents();
+                        check(!preferences.Droids && preferences.EnemySkin == "native-automatons" && !preferences.Selection().Options["droids"] && preferences.SelectionKey != applied &&
                             preferences.SelectionKey == $"r47/{HellForgePack.SupportedBuild}/empire/full/False/False" && primaryAction.Enabled,
-                            "Empire CIS droids checkbox reaches native Automaton composition without blocking launch");
-                        lighterTextures.Checked = true; Application.DoEvents();
+                            "Empire Native Automatons option reaches native Automaton composition without blocking launch");
+                        mixedDroids.Checked = true; Application.DoEvents();
+                        check(preferences.Droids && preferences.EnemySkin == "mixed-droids" && preferences.Selection().Options["droids"],
+                            "Empire Mixed Bots + CIS Droids preserves backwards-compatible droids resolution on r47");
+                        potatoTextures.Checked = true; Application.DoEvents();
+                        check(preferences.Texture == "reduced512" && preferences.Selection().Texture == "lighter" && preferences.Selection().Options["droids"] &&
+                            advisor.Text.Contains("Ultra-Potato (512px)"),
+                            "Johnson Ultra-Potato (512px) resolves cleanly via backwards-compatible Lighter tier on r47/r19 and updates advisor text");
+                        lighterTextures.Checked = true; nativeAutomatons.Checked = true; Application.DoEvents();
                         check(preferences.Texture == "lighter" && preferences.Selection().Texture == "lighter" && !preferences.Selection().Options["droids"] &&
                             preferences.SelectionKey == $"r47/{HellForgePack.SupportedBuild}/empire/lighter/False/False",
-                            "Empire Lighter with CIS droids off reaches its pinned streamed Automaton selection");
-                        droids.Checked = true; Application.DoEvents();
+                            "Empire Lighter with Native Automatons reaches its pinned streamed Automaton selection");
+                        allDroids.Checked = true; Application.DoEvents();
                         check(preferences.Selection().Texture == "lighter" && preferences.Selection().Options["droids"] &&
                             preferences.SelectionKey == $"r47/{HellForgePack.SupportedBuild}/empire/lighter/True/False",
-                            "Empire Lighter with CIS droids on reaches its pinned streamed selection");
+                            "Empire Lighter with All CIS Droids reaches its pinned streamed selection");
                         fullTextures.Checked = true; Application.DoEvents();
                         check(preferences.Selection().Texture == "full" && preferences.Selection().Options["droids"] &&
                             preferences.SelectionKey == $"r47/{HellForgePack.SupportedBuild}/empire/full/True/False",
@@ -298,7 +312,7 @@ static class HellForgeTests
                 check(form.IsDisposed, "closing and repeated disposal release launcher resources without a disposed-token exception");
                 using var setup = new HellForgeSetupForm(preview: true);
                 setup.ClientSize = new Size(620, 480); setup.Show(); Application.DoEvents();
-                var setupNext = setup.Controls.Cast<Control>().SelectMany(Children).OfType<Button>().Single(b => b.AccessibleName == "Continue Forge setup");
+                var setupNext = setup.Controls.Cast<Control>().SelectMany(Children).OfType<Button>().Single(b => b.Text == "INSTALL FORGE");
                 check(setupNext.Text == "INSTALL FORGE" && setup.PointToClient(setupNext.PointToScreen(new Point(0, setupNext.Height))).Y <= setup.ClientSize.Height,
                     "small first-run windows keep the install action visible outside the scrolling instructions");
                 setup.ClientSize = new Size(700, 830);
@@ -1209,7 +1223,93 @@ static class HellForgeTests
             check(!independent.HasExited, "post-commit diagnostic cleanup leaves independent descendants running");
         }
         finally { if (!independent.HasExited) { independent.Kill(); await independent.WaitForExitAsync(); } }
+        await SingleWizardAndV2Tests(root, check);
     }
+
+    static async Task SingleWizardAndV2Tests(string area, Action<bool, string> check)
+    {
+        // F2: Detect skips unsupported HellForge versions and picks supported ones; SeparateDefaultRoot avoids overwriting occupied DefaultRoot.
+        var badDir = Path.Combine(area, "detect-bad");
+        var goodDir = Path.Combine(area, "detect-good");
+        foreach (var d in new[] { badDir, goodDir })
+        {
+            Directory.CreateDirectory(Path.Combine(d, "app", "cli"));
+            File.WriteAllText(Path.Combine(d, "hellforge-install.json"), """{"schemaVersion":1,"buildId":"25480438"}""");
+            File.WriteAllText(Path.Combine(d, "HellForge.exe"), "fixture");
+            File.WriteAllText(Path.Combine(d, "app", "cli", "HellForge.Cli.exe"), "fixture");
+        }
+        File.WriteAllText(Path.Combine(badDir, "app", "app-build.json"), """{"version":"0.5.0-alpha","engine":"0.2.0"}""");
+        File.WriteAllText(Path.Combine(goodDir, "app", "app-build.json"), JsonSerializer.Serialize(new { version = HellForgeRelease.Version, engine = HellForgeRelease.Engine }));
+        check(HellForgeClient.Detect([badDir]) == null && HellForgeClient.Detect([badDir, goodDir]) == goodDir,
+            "Detect rejects unsupported HellForge versions while adopting supported installations");
+
+        // F3 / F10 / F11 / F15: 4-step Single Wizard keeps Step 3 sync mandatory, handles F10 cleanup, and caps QR height to WorkingArea.
+        Exception? uiFailure = null;
+        var wizardThread = new Thread(() => {
+            try
+            {
+                const BindingFlags flags = BindingFlags.Instance | BindingFlags.NonPublic;
+                using var wiz = new HellForgeSetupForm(preview: true, preferences: new HellForgePreferences { Mode = "clonedivers", Texture = "reduced512", EnemySkin = "mixed-droids" });
+                wiz.Show(); Application.DoEvents();
+                var pills = (Label[])typeof(HellForgeSetupForm).GetField("stepPills", flags)!.GetValue(wiz)!;
+                var nextBtn = (Button)typeof(HellForgeSetupForm).GetField("next", flags)!.GetValue(wiz)!;
+                check(pills.Select(p => p.Text).SequenceEqual(["1. Preflight Check", "2. Forge & Game Copy", "3. Steam Account Sync", "4. Pack & Ready"]),
+                    "Single Wizard exposes clear 4-step progress pills");
+                var stepEnum = typeof(HellForgeSetupForm).GetNestedType("WizardStep", BindingFlags.NonPublic)!;
+                typeof(HellForgeSetupForm).GetField("step", flags)!.SetValue(wiz, Enum.Parse(stepEnum, "AccountSync"));
+                typeof(HellForgeSetupForm).GetField("captureBlock", flags)!.SetValue(wiz, "Account sync cleanup is pending");
+                typeof(HellForgeSetupForm).GetMethod("UpdateView", flags)!.Invoke(wiz, null); Application.DoEvents();
+                var allButtons = wiz.Controls.Cast<Control>().SelectMany(c => c.Controls.Cast<Control>().SelectMany(x => x.Controls.Cast<Control>().Prepend(x)).Prepend(c)).OfType<Button>().ToList();
+                check(nextBtn.Text == "OPEN HELLFORGE TO CLEAN UP" && !allButtons.Any(b => b.Text.Contains("Skip", StringComparison.OrdinalIgnoreCase) || b.Text.Contains("Fresh", StringComparison.OrdinalIgnoreCase)),
+                    "Single Wizard Step 3 stays mandatory without Skip/Fresh bypass and offers OPEN HELLFORGE TO CLEAN UP");
+                var tallQr = new Bitmap(300, 1200);
+                typeof(HellForgeSetupForm).GetMethod("SetApproval", flags)!.Invoke(wiz, [tallQr]); Application.DoEvents();
+                check(wiz.Height <= (Screen.FromControl(wiz)?.WorkingArea.Height ?? 1080),
+                    "Setup wizard QR approval caps window height to screen WorkingArea");
+                wiz.Close();
+            }
+            catch (Exception e) { uiFailure = e; }
+        });
+        wizardThread.SetApartmentState(ApartmentState.STA); wizardThread.Start(); wizardThread.Join();
+        if (uiFailure != null) throw new InvalidOperationException("Single Wizard UI check failed.", uiFailure);
+
+        // F7 & F8 & v2.0 backwards compat: ExportAsync byte progress + VerifyForLaunchAsync mtime+size skip, invalidation, and symlink rejection.
+        var packArea = Path.Combine(area, "pack-f7-f8");
+        var packOut = Path.Combine(packArea, "export");
+        var srcFile = Path.Combine(packArea, "src.patch_0");
+        Directory.CreateDirectory(packArea);
+        var payload = new byte[4096];
+        Random.Shared.NextBytes(payload);
+        File.WriteAllBytes(srcFile, payload);
+        var sha = Convert.ToHexString(SHA256.HashData(payload)).ToLowerInvariant();
+        var sel = new HellForgePack.Selection("clonedivers", "lighter", "test-v2", HellForgePack.SupportedBuild, new string('b', 64),
+            new() { ["droids"] = true, ["covenant"] = false }, [new PackFile { Name = "aaaa0000bbbb1111.patch_0", Size = payload.Length, Sha256 = sha }]);
+        var plan = new HellForgePack.Plan(sel, packOut, new() { [sha] = srcFile });
+        long lastDone = 0, lastTotal = 0;
+        var byteProgress = new SyncProgress<(long Done, long Total)>(p => { lastDone = p.Done; lastTotal = p.Total; });
+        await HellForgePack.ExportAsync(plan, false, null, default, byteProgress);
+        var verifyCache = Path.Combine(packArea, "verify-cache.json");
+        var installedPatch = Path.Combine(packOut, "aaaa0000bbbb1111.patch_0");
+        File.SetLastWriteTimeUtc(installedPatch, DateTime.UtcNow.AddMinutes(-5));
+        await HellForgePack.VerifyForLaunchAsync(packOut, sel, verifyCache);
+        check(File.Exists(verifyCache), "VerifyForLaunchAsync records a verified mtime+size receipt");
+        long verifyDone = 0;
+        var verifyProgress = new SyncProgress<(long Done, long Total)>(p => verifyDone = p.Done);
+        await HellForgePack.VerifyForLaunchAsync(packOut, sel, verifyCache, verifyProgress);
+        check(verifyDone == payload.Length && lastDone == payload.Length && lastTotal == payload.Length,
+            "ExportAsync reports total bytes and VerifyForLaunchAsync fast-skips unchanged files with byte progress");
+        // Changing file bytes without updating size, while keeping old mtime vs changing mtime should catch tampering when mtime changes.
+        var corrupted = new byte[payload.Length];
+        File.WriteAllBytes(installedPatch, corrupted);
+        bool caughtCorruption = false;
+        try { await HellForgePack.VerifyForLaunchAsync(packOut, sel, verifyCache); } catch (InvalidDataException) { caughtCorruption = true; }
+        check(caughtCorruption, "VerifyForLaunchAsync catches modified file timestamps and rejects corrupted pack bytes");
+        var v2Reduced = HellForgePack.PinnedSelection("clonedivers", "reduced512", new Dictionary<string, bool> { ["droids"] = true, ["covenant"] = false, ["mixed-droids"] = true });
+        check(v2Reduced.Texture == "lighter" && !v2Reduced.Options.ContainsKey("mixed-droids") && v2Reduced.Options["droids"],
+            "reduced512 and mixed-droids resolve cleanly against current r19/r47 pinned manifests");
+    }
+
+    sealed class SyncProgress<T>(Action<T> report) : IProgress<T> { public void Report(T value) => report(value); }
 
     sealed class FakeCommands(string root) : IHellForgeCommands
     {

@@ -234,7 +234,7 @@ static class ForgeClarityTests
         check(state.Text == "Update installed" && message.Text == "" && detail.Text.Contains("Reopen"), "an installed launcher update keeps its restart instruction");
         Set(form, "launcherRelease", null); Set(form, "captureBlock", "Account sync cleanup is pending"); View(form);
         var primary = Field<Button>(form, "launch");
-        check(primary.Text == "OPEN HELLFORGE" && primary.Enabled && !Field<bool>(form, "detailsAction") && detail.Text.Contains("close it"),
+        check(primary.Text == "OPEN HELLFORGE TO CLEAN UP" && primary.Enabled && !Field<bool>(form, "detailsAction") && detail.Text.Contains("close it"),
             "blocked account capture offers HellForge and explains the close-window fallback");
         string? opened = null; int steamOpens = 0;
         HellForgeForm.OpenManager = path => opened = path; HellForgeForm.OpenSteamClient = () => steamOpens++;
@@ -388,8 +388,39 @@ static class ForgeClarityTests
         check(detail.Text == "GitHub didn't respond. Try again in a few minutes.",
             "second RefreshAsync still preserves operationFailure until next user operation");
         await Invoke(form, "OperationAsync", (Func<Task>)(() => Task.CompletedTask));
-        check(OptionalField<string>(form, "operationFailure") == null && detail.Text == "Choose difficulty 1–11 at the war table.",
-            "starting next operation clears operationFailure and restores normal detail");
+        var readyStatus = Field<HellForgeStatus>(form, "lastStatus");
+        check(OptionalField<string>(form, "operationFailure") == null &&
+            detail.Text == "Windows may ask for network approval on your first launch. Choose difficulty 1–11 at the war table.",
+            "starting next operation clears operationFailure and shows first-launch Ready to launch notice before first run");
+        Set(form, "lastStatus", readyStatus with { HasRun = true }); View(form);
+        check(detail.Text == "Choose difficulty 1–11 at the war table.",
+            "once a session has run, Ready to launch hides the first-launch firewall notice");
+
+        // 4b. F6 + F12 regressions: LaunchAcceptedMessage never masks a failure even from Last session needs attention; 512/408 non-HTTP numbers don't become GitHub outages.
+        Set(form, "lastStatus", readyStatus with { LastStatus = "failed", LastFailure = "Process exited 42" }); View(form);
+        Set(form, "message", message);
+        message.Text = "HellForge accepted the launch and session status will update here."; View(form);
+        check(state.Text == "Last session needs attention" && message.Text == "" && detail.Text.Contains("Session details"),
+            "LaunchAcceptedMessage never masks LastFailure even when already displaying Last session needs attention");
+        check(!HellForgeForm.FailureSummary("Copied 512 files in 408 ms").StartsWith("GitHub") &&
+            HellForgeForm.FailureSummary("Response status code does not indicate success: 503 (Service Unavailable)").StartsWith("GitHub"),
+            "non-HTTP 5xx/408 counts stay out of GitHub outages while real HTTP status failures still match");
+        Set(form, "lastStatus", readyStatus with { HasRun = true }); View(form);
+
+        // 4c. F16 CLONEDIVERS_FORGE_PREFS env var isolation seam.
+        var customPrefsPath = Path.Combine(area, "isolated-prefs", "forge.json");
+        var prevPrefsEnv = Environment.GetEnvironmentVariable("CLONEDIVERS_FORGE_PREFS");
+        Environment.SetEnvironmentVariable("CLONEDIVERS_FORGE_PREFS", customPrefsPath);
+        try
+        {
+            var custom = new HellForgePreferences { InstallRoot = root, Mode = "empire", Texture = "reduced512", EnemySkin = "mixed-droids" };
+            custom.Save();
+            var reloaded = HellForgePreferences.Load();
+            check(File.Exists(customPrefsPath) && reloaded.Mode == "empire" && reloaded.Texture == "reduced512" && reloaded.EnemySkin == "mixed-droids" &&
+                HellForgeSetup.DefaultRoot != root && HellForgeSetup.CacheRoot.StartsWith(Path.GetDirectoryName(customPrefsPath)!, StringComparison.OrdinalIgnoreCase),
+                "CLONEDIVERS_FORGE_PREFS isolates preferences and setup cache from real user AppData");
+        }
+        finally { Environment.SetEnvironmentVariable("CLONEDIVERS_FORGE_PREFS", prevPrefsEnv); }
 
         // 5. #12: Unreadable hosts file (IOException / UnauthorizedAccessException) shows Session details rather than OPEN HELLFORGE
         HellForgeForm.CaptureBlockCheck = () => throw new IOException("hosts locked by security software");

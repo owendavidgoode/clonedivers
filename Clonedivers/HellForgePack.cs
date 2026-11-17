@@ -54,10 +54,22 @@ public static class HellForgePack
 
     public static Selection PinnedSelection(string mode, string texture, IReadOnlyDictionary<string, bool>? changes = null)
     {
+        var requested = changes != null ? new Dictionary<string, bool>(changes, StringComparer.OrdinalIgnoreCase) : new Dictionary<string, bool>(StringComparer.OrdinalIgnoreCase);
         if (mode == "empire")
-            changes = new Dictionary<string, bool> { ["droids"] = changes?.GetValueOrDefault("droids", true) ?? true, ["covenant"] = false };
+        {
+            var empireChanges = new Dictionary<string, bool>(StringComparer.OrdinalIgnoreCase)
+            {
+                ["droids"] = requested.GetValueOrDefault("droids", true),
+                ["covenant"] = false
+            };
+            if (requested.TryGetValue("mixed-droids", out var mixedHyphen)) empireChanges["mixed-droids"] = mixedHyphen;
+            if (requested.TryGetValue("mixed_droids", out var mixedUnder)) empireChanges["mixed_droids"] = mixedUnder;
+            requested = empireChanges;
+        }
         var resource = mode == "empire"
-            ? texture == "lighter" ? "Clonedivers.HellForge.Empire.Lighter.Manifest.json" : "Clonedivers.HellForge.Empire.Manifest.json"
+            ? texture == "reduced512" && typeof(HellForgePack).Assembly.GetManifestResourceInfo("Clonedivers.HellForge.Empire.Potato.Manifest.json") != null
+                ? "Clonedivers.HellForge.Empire.Potato.Manifest.json"
+                : texture is "lighter" or "reduced512" ? "Clonedivers.HellForge.Empire.Lighter.Manifest.json" : "Clonedivers.HellForge.Empire.Manifest.json"
             : "Clonedivers.HellForge.Manifest.json";
         using var stream = typeof(HellForgePack).Assembly.GetManifestResourceStream(resource)
             ?? throw new InvalidDataException("This launcher has no pinned HellForge pack catalog.");
@@ -65,15 +77,29 @@ public static class HellForgePack
         stream.CopyTo(memory);
         var bytes = memory.ToArray();
         var feed = Manifest.Parse(System.Text.Encoding.UTF8.GetString(bytes));
+        var pack = feed.Pack!;
+        // Resolve v2.0 texture/enemy-skin selections backwards-compatibly against v1.14.2 r47/r19 manifests
+        // until Wave 2 swaps in r48/r20 manifests carrying explicit reduced512 / mixed-droids entries.
+        var resolvedTexture = texture;
+        if (resolvedTexture == "reduced512" && !PackProfiles.Supported(pack).Any(p => string.Equals(p.Id, "reduced512", StringComparison.OrdinalIgnoreCase)))
+            resolvedTexture = PackProfiles.Supported(pack).Any(p => string.Equals(p.Id, "lighter", StringComparison.OrdinalIgnoreCase)) ? "lighter" : "full";
+        var optionIds = pack.Options.Select(o => o.Id).ToHashSet(StringComparer.OrdinalIgnoreCase);
+        foreach (var futureKey in new[] { "mixed-droids", "mixed_droids" })
+        {
+            if (requested.TryGetValue(futureKey, out var mixedOn) && !optionIds.Contains(futureKey))
+            {
+                requested.Remove(futureKey);
+                if (mixedOn && !requested.ContainsKey("droids")) requested["droids"] = true;
+            }
+        }
         // Prune Empire's conditional rows before selection so its fixed layers stay at 1000+.
         if (mode == "empire")
         {
-            var pack = feed.Pack!;
-            bool Enabled(string id) => PackExtras.AlwaysOn(pack, id) || changes!.GetValueOrDefault(id, pack.Options.FirstOrDefault(o => o.Id == id)?.Default ?? false);
-            pack.Files = pack.Files.Where(f => PackProfiles.Includes(f, mode, texture) &&
+            bool Enabled(string id) => PackExtras.AlwaysOn(pack, id) || requested.GetValueOrDefault(id, pack.Options.FirstOrDefault(o => o.Id == id)?.Default ?? false);
+            pack.Files = pack.Files.Where(f => PackProfiles.Includes(f, mode, resolvedTexture) &&
                 (f.Option == null || Enabled(f.Option)) && (f.UnlessOption == null || !Enabled(f.UnlessOption))).ToList();
         }
-        return Select(feed, Convert.ToHexString(SHA256.HashData(bytes)).ToLowerInvariant(), mode, texture, changes);
+        return Select(feed, Convert.ToHexString(SHA256.HashData(bytes)).ToLowerInvariant(), mode, resolvedTexture, requested);
     }
 
     public static async Task<Plan> PlanAsync(Selection selection, string output, IEnumerable<string> sources,
@@ -479,12 +505,37 @@ public static class HellForgePack
         if (total != expected) throw new InvalidDataException("Pack content is shorter than its catalog size.");
     }
 
-    public static async Task VerifyAsync(string folder, Selection expected, CancellationToken ct = default)
+    sealed record VerifyStamp(string Folder, string Identity, long VerifiedUtcTicks, long ReceiptSize, long ReceiptTicks,
+        long ManifestSize, long ManifestTicks, Dictionary<string, VerifyFileStamp> Files);
+    sealed record VerifyFileStamp(long Size, long LastWriteTicks);
+
+    public static Task VerifyAsync(string folder, Selection expected, CancellationToken ct = default) =>
+        VerifyAsync(folder, expected, null, ct);
+
+    public static async Task VerifyAsync(string folder, Selection expected, IProgress<(long Done, long Total)>? bytes, CancellationToken ct = default)
     {
         await VerifyMetadataAsync(folder, expected, ct);
-        await VerifyContentAsync(folder, expected, ct);
+        await VerifyContentAsync(folder, expected, bytes, ct);
     }
-    // Fast readiness only. Every launch still runs full content verification.
+
+    /// <summary>Verifies pack integrity for Launch, skipping redundant multi-GB hashing when a verified layout stamp matches size and mtime.</summary>
+    public static async Task<bool> VerifyForLaunchAsync(string folder, Selection expected, string? verifyCachePath,
+        IProgress<(long Done, long Total)>? bytes = null, CancellationToken ct = default)
+    {
+        await VerifyMetadataAsync(folder, expected, ct);
+        var total = expected.Files.Sum(f => f.Size);
+        if (verifyCachePath != null && TryMatchVerifiedLayout(folder, expected, verifyCachePath))
+        {
+            await VerifyFolderMetadataAsync(folder, expected, ct);
+            bytes?.Report((total, total));
+            return true;
+        }
+        await VerifyContentAsync(folder, expected, bytes, ct);
+        if (verifyCachePath != null) SaveVerifiedLayout(folder, expected, verifyCachePath);
+        return false;
+    }
+
+    // Fast readiness only. Every launch runs VerifyForLaunchAsync.
     public static async Task VerifyMetadataAsync(string folder, Selection expected, CancellationToken ct = default)
     {
         FileSafety.RejectLink(folder);
@@ -497,24 +548,109 @@ public static class HellForgePack
             actual.Options.Count != expected.Options.Count || expected.Options.Any(pair => !actual.Options.TryGetValue(pair.Key, out var value) || value != pair.Value))
             throw new InvalidDataException("This pack does not match the selected mode/options; prepare it again.");
     }
-    static async Task VerifyContentAsync(string folder, Selection expected, CancellationToken ct)
+    static async Task VerifyContentAsync(string folder, Selection expected, IProgress<(long Done, long Total)>? bytes, CancellationToken ct)
     {
         // Compare to the trusted catalog, not only the mutable receipt.
+        long total = expected.Files.Sum(f => f.Size);
+        long completed = 0;
+        bytes?.Report((0, total));
         foreach (var file in expected.Files)
         {
             var path = FileSafety.Child(folder, file.Name);
-            if (!File.Exists(path) || new FileInfo(path).Length != file.Size || !string.Equals(await HashAsync(path, ct), file.Sha256, StringComparison.OrdinalIgnoreCase))
+            FileSafety.RejectLink(path);
+            if (!File.Exists(path) || new FileInfo(path).Length != file.Size)
                 throw new InvalidDataException($"Pack file changed: {file.Name}. Prepare the pack again.");
+            long baseDone = completed;
+            var actual = bytes != null
+                ? await Pack.Sha256Async(path, new SyncProgress<long>(done => bytes.Report((baseDone + Math.Clamp(done, 0, file.Size), total))), ct)
+                : await HashAsync(path, ct);
+            if (!string.Equals(actual, file.Sha256, StringComparison.OrdinalIgnoreCase))
+                throw new InvalidDataException($"Pack file changed: {file.Name}. Prepare the pack again.");
+            completed += file.Size;
+            bytes?.Report((completed, total));
         }
+        await VerifyFolderMetadataAsync(folder, expected, ct);
+    }
+
+    static async Task VerifyFolderMetadataAsync(string folder, Selection expected, CancellationToken ct)
+    {
         var present = Directory.EnumerateFiles(folder).Select(p => Path.GetFileName(p)).ToHashSet(StringComparer.OrdinalIgnoreCase);
         var allowed = expected.Files.Select(f => f.Name).Append("manifest.json").Append(ReceiptName);
         if (!present.SetEquals(allowed)) throw new InvalidDataException("The pack contains unexpected files; prepare it again.");
         var manifestPath = FileSafety.Child(folder, "manifest.json");
+        FileSafety.RejectLink(manifestPath);
         using var manifest = JsonDocument.Parse(await File.ReadAllTextAsync(manifestPath, ct));
         if (manifest.RootElement.GetProperty("Guid").GetString() != GuidFor(expected.Mode) ||
             manifest.RootElement.GetProperty("Options").GetArrayLength() != 0 || manifest.RootElement.TryGetProperty("Include", out _))
             throw new InvalidDataException("The cosmetic pack manifest changed; prepare it again.");
         if (Directory.EnumerateDirectories(folder).Any()) throw new InvalidDataException("Unexpected folders in the Star Wars pack.");
+    }
+
+    static bool TryMatchVerifiedLayout(string folder, Selection expected, string verifyCachePath)
+    {
+        try
+        {
+            for (var parent = new DirectoryInfo(Path.GetFullPath(verifyCachePath)); parent != null; parent = parent.Parent)
+                FileSafety.RejectLink(parent.FullName);
+            if (!File.Exists(verifyCachePath) || new FileInfo(verifyCachePath).Length > 4 * 1024 * 1024) return false;
+            var stamp = JsonSerializer.Deserialize<VerifyStamp>(File.ReadAllText(verifyCachePath), Json);
+            if (stamp?.Files == null) return false;
+            var normalizedFolder = Path.TrimEndingDirectorySeparator(Path.GetFullPath(folder));
+            if (!string.Equals(stamp.Folder, normalizedFolder, PlatformPaths.Comparison) ||
+                !string.Equals(stamp.Identity, SelectionIdentity(expected), StringComparison.Ordinal) ||
+                stamp.Files.Count != expected.Files.Count) return false;
+            var receiptInfo = new FileInfo(FileSafety.Child(folder, ReceiptName));
+            var manifestInfo = new FileInfo(FileSafety.Child(folder, "manifest.json"));
+            if (!receiptInfo.Exists || !manifestInfo.Exists ||
+                receiptInfo.Length != stamp.ReceiptSize || receiptInfo.LastWriteTimeUtc.Ticks != stamp.ReceiptTicks ||
+                manifestInfo.Length != stamp.ManifestSize || manifestInfo.LastWriteTimeUtc.Ticks != stamp.ManifestTicks)
+                return false;
+            // Racy-clean guard: files modified within 2 seconds of the cached verification are always re-hashed.
+            var racyCutoffTicks = stamp.VerifiedUtcTicks - TimeSpan.FromSeconds(2).Ticks;
+            foreach (var file in expected.Files)
+            {
+                var path = FileSafety.Child(folder, file.Name);
+                FileSafety.RejectLink(path);
+                var info = new FileInfo(path);
+                if (!info.Exists || info.Length != file.Size || info.LastWriteTimeUtc.Ticks > racyCutoffTicks ||
+                    !stamp.Files.TryGetValue(file.Name, out var cached) ||
+                    cached.Size != file.Size || cached.LastWriteTicks != info.LastWriteTimeUtc.Ticks)
+                    return false;
+            }
+            return true;
+        }
+        catch (Exception error) when (error is IOException or UnauthorizedAccessException or JsonException or InvalidDataException or ArgumentException or NotSupportedException)
+        {
+            return false;
+        }
+    }
+
+    static void SaveVerifiedLayout(string folder, Selection expected, string verifyCachePath)
+    {
+        try
+        {
+            for (var parent = new DirectoryInfo(Path.GetFullPath(verifyCachePath)); parent != null; parent = parent.Parent)
+                FileSafety.RejectLink(parent.FullName);
+            var receiptInfo = new FileInfo(FileSafety.Child(folder, ReceiptName));
+            var manifestInfo = new FileInfo(FileSafety.Child(folder, "manifest.json"));
+            if (!receiptInfo.Exists || !manifestInfo.Exists) return;
+            var files = new Dictionary<string, VerifyFileStamp>(StringComparer.OrdinalIgnoreCase);
+            foreach (var file in expected.Files)
+            {
+                var info = new FileInfo(FileSafety.Child(folder, file.Name));
+                if (!info.Exists) return;
+                files[file.Name] = new(info.Length, info.LastWriteTimeUtc.Ticks);
+            }
+            var stamp = new VerifyStamp(Path.TrimEndingDirectorySeparator(Path.GetFullPath(folder)), SelectionIdentity(expected),
+                DateTime.UtcNow.Ticks, receiptInfo.Length, receiptInfo.LastWriteTimeUtc.Ticks, manifestInfo.Length, manifestInfo.LastWriteTimeUtc.Ticks, files);
+            var directory = Path.GetDirectoryName(Path.GetFullPath(verifyCachePath))!;
+            Directory.CreateDirectory(directory);
+            var temp = verifyCachePath + ".tmp";
+            FileSafety.RejectLink(temp);
+            File.WriteAllText(temp, JsonSerializer.Serialize(stamp, Json));
+            File.Move(temp, verifyCachePath, overwrite: true);
+        }
+        catch (Exception error) when (error is IOException or UnauthorizedAccessException or InvalidDataException or ArgumentException or NotSupportedException) { }
     }
 
     static bool SameFiles(List<PackFile> a, List<PackFile> b) => a.Count == b.Count &&
