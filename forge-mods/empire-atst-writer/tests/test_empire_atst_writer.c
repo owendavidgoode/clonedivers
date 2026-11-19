@@ -91,7 +91,8 @@ typedef struct {
 static sim_render_sys *g_render_sys = NULL;
 static uint8_t *g_fake_engine = NULL;
 static at_writer_state *g_hook_state = NULL;
-static __thread const void *g_last_leaf_graphs[6];
+static __thread uintptr_t g_last_leaf_addrs[6];
+static __thread at_render48 g_last_leaf_snapshots[6][AT_S2C_NODES];
 static __thread uint32_t g_last_leaf_count = 0;
 static int g_tamper_leaf_palette = 0;
 static int g_retire_before_leaf = 0;
@@ -257,7 +258,13 @@ static uint32_t sim_leaf_next(
     (void)map;
     (void)count;
     if (g_last_leaf_count < 6u) {
-        g_last_leaf_graphs[g_last_leaf_count++] = graph;
+        uint32_t idx = g_last_leaf_count++;
+        g_last_leaf_addrs[idx] = (uintptr_t)graph;
+        if (graph) {
+            memcpy(g_last_leaf_snapshots[idx], graph, sizeof(g_last_leaf_snapshots[idx]));
+        } else {
+            memset(g_last_leaf_snapshots[idx], 0, sizeof(g_last_leaf_snapshots[idx]));
+        }
     }
     return 0u;
 }
@@ -620,9 +627,10 @@ static void test_clip_pose_and_pipeline_accuracy(at_writer_state *ws, sim_unit_m
             TEST_ASSERT(rec.seen == 6u && rec.replaced == 6u && rec.failure == 0u, "all 6 leaf calls replaced");
             TEST_ASSERT(rec.allocation_ok == 1u && rec.environment_ok == 1u, "alloc & csr ok");
             TEST_ASSERT(g_last_leaf_count == 6u, "6 leaf hooks observed");
-            const at_render48 *sub_cur = (const at_render48 *)g_last_leaf_graphs[0];
-            const at_render48 *sub_prev = (const at_render48 *)g_last_leaf_graphs[1];
-            TEST_ASSERT(sub_cur != w0.graph.cur && sub_prev != w0.graph.prev, "substituted private S2c graph used");
+            TEST_ASSERT(g_last_leaf_addrs[0] != (uintptr_t)w0.graph.cur &&
+                        g_last_leaf_addrs[1] != (uintptr_t)w0.graph.prev,
+                        "substituted private S2c graph used");
+            const at_render48 *sub_cur = g_last_leaf_snapshots[0];
 
             if (pass == 0u) {
                 /* All 98 protected non-weighted sockets stay identical to native RenderGraph */
@@ -702,7 +710,7 @@ static void test_four_coop_walkers_and_slot_recycling(at_writer_state *ws, sim_u
     at_writer_dispatch_512B80(
         ws, &w5_extra.mesh, (void *)(rs->world + 0x318u), &w5_extra.graph,
         (uintptr_t)g_fake_engine + AT_RVA_CALLER_NORMAL, &rec5);
-    TEST_ASSERT(rec5.replaced == 0u && g_last_leaf_graphs[0] == w5_extra.graph.cur, "5th live fails closed");
+    TEST_ASSERT(rec5.replaced == 0u && g_last_leaf_addrs[0] == (uintptr_t)w5_extra.graph.cur, "5th live fails closed");
     TEST_ASSERT(ws->reg.capacity_refusals >= 1u, "capacity refusal recorded");
 
     /* Cross-world 1E7CD0 isolation: retiring wrong world leaves slot 1 intact */
@@ -773,7 +781,7 @@ static void test_fail_closed_and_env_preservation(at_writer_state *ws, sim_unit_
     at_writer_dispatch_512B80(
         ws, &w.mesh, (void *)(rs->world + 0x318u), &w.graph,
         (uintptr_t)g_fake_engine + AT_RVA_CALLER_NORMAL, &rec);
-    TEST_ASSERT(rec.replaced == 0u && g_last_leaf_graphs[0] == w.graph.cur, "foreign resource untouched");
+    TEST_ASSERT(rec.replaced == 0u && g_last_leaf_addrs[0] == (uintptr_t)w.graph.cur, "foreign resource untouched");
     w.unit.resource_id = AT_UNIT_RESOURCE_ID;
 
     /* 3. Mid-leaf palette tamper -> 5B2990 fails closed and passes native graph through */
@@ -785,7 +793,7 @@ static void test_fail_closed_and_env_preservation(at_writer_state *ws, sim_unit_
     g_tamper_leaf_palette = 0;
     TEST_ASSERT(GetLastError() == 0xCAFE0001u, "LastError preserved across active substitution");
     TEST_ASSERT(_mm_getcsr() == saved_csr, "MXCSR preserved across active substitution");
-    TEST_ASSERT(rec.failure != 0u && rec.replaced == 0u && g_last_leaf_graphs[0] == w.graph.cur,
+    TEST_ASSERT(rec.failure != 0u && rec.replaced == 0u && g_last_leaf_addrs[0] == (uintptr_t)w.graph.cur,
                 "tampered leaf palette fails closed");
 
     /* 4. Mutated bind matrix -> capture_rejects passthrough */
@@ -921,7 +929,7 @@ static void test_peer_hook_chaining_and_lazy_lookup(at_writer_state *ws, sim_uni
     at_writer_dispatch_512B80(
         ws, &w.mesh, (void *)(rs->world + 0x318u), &w.graph,
         peer_base + 0x3140u, &rec);
-    TEST_ASSERT(rec.failure == 1u && rec.replaced == 0u && g_last_leaf_graphs[0] == w.graph.cur,
+    TEST_ASSERT(rec.failure == 1u && rec.replaced == 0u && g_last_leaf_addrs[0] == (uintptr_t)w.graph.cur,
                 "unknown external 5B2990 leaf caller fails closed");
 
     /* Lazy peer lookup triggered first inside 5B2990 (when 512B80 came from engine RVA) */
@@ -968,18 +976,18 @@ static DWORD WINAPI mt_pass_worker_proc(LPVOID param) {
             arg->ok = 0;
             return 1u;
         }
-        const void *cur_p = g_last_leaf_graphs[0];
-        const void *prev_p = g_last_leaf_graphs[1];
-        if (((uintptr_t)cur_p % 16u) != 0u || ((uintptr_t)prev_p % 16u) != 0u) {
+        uintptr_t cur_addr = g_last_leaf_addrs[0];
+        uintptr_t prev_addr = g_last_leaf_addrs[1];
+        if ((cur_addr % 16u) != 0u || (prev_addr % 16u) != 0u) {
             arg->ok = 0;
             return 1u;
         }
-        if (memcmp(cur_p, arg->expected->graph[0], AT_S2C_NODES * sizeof(at_render48)) != 0 ||
-            memcmp(prev_p, arg->expected->graph[1], AT_S2C_NODES * sizeof(at_render48)) != 0) {
+        if (memcmp(g_last_leaf_snapshots[0], arg->expected->graph[0], AT_S2C_NODES * sizeof(at_render48)) != 0 ||
+            memcmp(g_last_leaf_snapshots[1], arg->expected->graph[1], AT_S2C_NODES * sizeof(at_render48)) != 0) {
             arg->ok = 0;
             return 1u;
         }
-        if (i == 0u) arg->observed_cur_ptr = (uintptr_t)cur_p;
+        if (i == 0u) arg->observed_cur_ptr = cur_addr;
     }
     arg->ok = 1;
     return 0u;
@@ -1041,7 +1049,7 @@ static void test_concurrent_multi_pass_and_mid_leaf_retire(at_writer_state *ws, 
         ws, &w.mesh, (void *)(rs->world + 0x318u), &w.graph,
         (uintptr_t)g_fake_engine + AT_RVA_CALLER_NORMAL, &rec);
     g_retire_before_leaf = 0;
-    TEST_ASSERT(rec.failure == 1u && rec.replaced == 0u && g_last_leaf_graphs[0] == w.graph.cur,
+    TEST_ASSERT(rec.failure == 1u && rec.replaced == 0u && g_last_leaf_addrs[0] == (uintptr_t)w.graph.cur,
                 "mid-dispatch 1E7CD0 retirement before leaf fails closed under SRWLockShared");
     printf("[PASS] test_concurrent_multi_pass_and_mid_leaf_retire\n");
 }
