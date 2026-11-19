@@ -71,6 +71,36 @@ class GeometryProviderScanTests(unittest.TestCase):
         self.assertFalse(result['passed'])
         self.assertEqual(len(result['findings']), 1)
 
+    def test_lod_count_zero_unit_with_overlapping_offset20_needle_fails_closed(self) -> None:
+        gg_id = 0x0101010101010101
+        unit_id = 0x1C8764D62E12925A
+        index = {f'{gg_id:016x}.{GEOMETRY_GROUP:016x}': [{'archive': '0123456789abcdef'}]}
+        resources = {(unit_id, P.UNIT): _make_unit_with_external_gg(gg_id, lod_count=0, extra_needle_offset=20)}
+
+        result = geometry_provider_scan(resources, index)
+
+        self.assertFalse(result['passed'])
+        self.assertEqual(len(result['findings']), 1)
+
+    def test_lod_count_zero_unit_still_validates_in_pack_geometry_group_owner(self) -> None:
+        gg_id = 0xC6A69260CC389BCD
+        unit_id = 0x1C8764D62E12925A
+        index = {f'{gg_id:016x}.{GEOMETRY_GROUP:016x}': [{'archive': '0123456789abcdef'}]}
+        # GeometryGroup present in pack with count=1 but wrong owner (0xDEAD != unit_id)
+        gg_raw = bytearray(64)
+        struct.pack_into('<I', gg_raw, 8, 1)
+        struct.pack_into('<Q', gg_raw, 24, 0xDEADBEEFCAFEBABE)
+        resources = {
+            (unit_id, P.UNIT): _make_unit_with_external_gg(gg_id, lod_count=0),
+            (gg_id, GEOMETRY_GROUP): P.Generated((bytes(gg_raw), b'', b'')),
+        }
+
+        result = geometry_provider_scan(resources, index)
+
+        self.assertFalse(result['passed'])
+        self.assertEqual(len(result['findings']), 1)
+        self.assertIn('GeometryGroup does not uniquely provide owner UNIT', result['findings'][0]['reason'])
+
     def test_non_unit_reference_at_offset16_still_fails_closed(self) -> None:
         gg_id = 0xC6A69260CC389BCD
         other_type = 0xEAC0B497876ADEDF

@@ -57,8 +57,9 @@ def geometry_provider_scan(resources: dict, index: dict) -> dict:
                 names = struct.unpack_from(f'<{len(meshes)}I', raw, at + 4 + 4 * len(meshes)) if meshes else ()
                 record['meshNames'] = [f'{name:08x}' for name in names]
                 needle = needles.get(group) or struct.pack('<Q', group)
-                other_hit = raw.find(needle) not in (-1, 16) or raw.find(needle, 24) != -1
-                if not pointers(raw, 48) and not other_hit:
+                first_hit = raw.find(needle)
+                other_hit = first_hit not in (-1, 16) or (first_hit == 16 and raw.find(needle, 17) != -1)
+                if provider_key not in resources and not pointers(raw, 48) and not other_hit:
                     record['lodCount'] = 0
                     references.append(record)
                     continue

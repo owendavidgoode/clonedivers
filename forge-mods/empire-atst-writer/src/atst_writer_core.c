@@ -269,7 +269,8 @@ uint32_t at_writer_dispatch_512B80(
     at_lp_plan plan;
     at_render48 raw_cur[AT_S2C_NODES];
     at_render48 raw_prev[AT_S2C_NODES];
-    at_private_graph evaluated;
+    at_tls_frame frame;
+    memset(&frame, 0, sizeof(frame));
 
     AcquireSRWLockExclusive(&s->lock);
     int slot_idx = at_registry_resolve_render(
@@ -295,9 +296,9 @@ uint32_t at_writer_dispatch_512B80(
     }
     ReleaseSRWLockExclusive(&s->lock);
 
-    /* Perform S2c joint-aware evaluation into stack buffer outside lock (preserve FE_TONEAREST). */
+    /* Perform S2c joint-aware evaluation into thread-private TLS stack frame outside lock (preserve FE_TONEAREST). */
     _mm_setcsr((entry_csr & ~0x6000u)); /* Ensure round-to-nearest during math without leaking to caller */
-    at_status eval_st = at_evaluate_s2c_pair(&s->rig, raw_cur, raw_prev, AT_S2C_NODES, &evaluated);
+    at_status eval_st = at_evaluate_s2c_pair(&s->rig, raw_cur, raw_prev, AT_S2C_NODES, &frame.priv);
     _mm_setcsr(entry_csr);
     if (eval_st != AT_OK) {
         InterlockedIncrement((LONG *)&s->math_failures);
@@ -307,7 +308,7 @@ uint32_t at_writer_dispatch_512B80(
 
     /* Re-acquire lock to verify slot wasn't retired by 1E7CD0 or mutated during capture/eval! */
     AcquireSRWLockExclusive(&s->lock);
-    at_walker_slot *slot = &s->reg.slots[slot_idx];
+    const at_walker_slot *slot = &s->reg.slots[slot_idx];
     if (!slot->occupied || slot->epoch != captured_epoch || slot->normal_graph != rgraph.object) {
         ReleaseSRWLockExclusive(&s->lock);
         InterlockedIncrement((LONG *)&s->retired_mid_call);
@@ -320,11 +321,8 @@ uint32_t at_writer_dispatch_512B80(
         InterlockedIncrement((LONG *)&s->passthroughs);
         return call_skin_passthrough(s, mesh, pool, opt_graph, entry_err, entry_csr);
     }
-    slot->priv = evaluated;
     ReleaseSRWLockExclusive(&s->lock);
 
-    at_tls_frame frame;
-    memset(&frame, 0, sizeof(frame));
     frame.active = 1;
     frame.state = s;
     frame.slot_index = slot_idx;
@@ -391,12 +389,17 @@ uint32_t at_writer_leaf_5B2990(
         uint32_t at = r->seen++;
         uint32_t group = at / 2u;
         uint32_t t = at % 2u;
-        at_walker_slot *slot = &s->reg.slots[f->slot_index];
+        int slot_alive = 0;
+        AcquireSRWLockShared(&s->lock);
+        if (f->slot_index >= 0 && (unsigned)f->slot_index < AT_MAX_WALKERS) {
+            const at_walker_slot *slot = &s->reg.slots[f->slot_index];
+            slot_alive = (slot->occupied && slot->epoch == f->slot_epoch) ? 1 : 0;
+        }
+        ReleaseSRWLockShared(&s->lock);
 
         int ok = !r->failure &&
                  f->owner_tid == GetCurrentThreadId() &&
-                 slot->occupied &&
-                 slot->epoch == f->slot_epoch &&
+                 slot_alive &&
                  at < r->expected &&
                  group < p->groups &&
                  (caller == s->engine_base + (t ? AT_RVA_LEAF_PREV_RET : AT_RVA_LEAF_CUR_RET) ||
@@ -422,7 +425,7 @@ uint32_t at_writer_leaf_5B2990(
         if ((void *)next != (void *)s->approved_leaf_next) ok = 0;
 
         if (ok) {
-            chosen = (const void *)slot->priv.graph[t];
+            chosen = (const void *)f->priv.graph[t];
             replace = 1;
         } else {
             r->failure = 1u;

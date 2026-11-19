@@ -18,10 +18,13 @@ static int AssetError(const char* why, const Asset* a, const wchar_t* path)
 {
     if (a)
     {
-        char expected[300]; size_t pos = 0; expected[0] = 0;
-        for (size_t i = 0; i < 4 && a->hashes[i]; i++)
+        char expected[240]; size_t pos = 0; expected[0] = 0;
+        for (size_t i = 0; i < 3 && a->hashes[i]; i++)
         {
-            int n = snprintf(expected + pos, sizeof expected - pos, "%s%s", i ? "|" : "", a->hashes[i]);
+            int dup = 0;
+            for (size_t j = 0; j < i; j++) if (a->hashes[j] && !strcmp(a->hashes[i], a->hashes[j])) dup = 1;
+            if (dup) continue;
+            int n = snprintf(expected + pos, sizeof expected - pos, "%s%s", pos ? "|" : "", a->hashes[i]);
             if (n < 0 || (size_t)n >= sizeof expected - pos) break;
             pos += (size_t)n;
         }
@@ -36,17 +39,17 @@ static NTSTATUS (WINAPI *openHash)(BCRYPT_ALG_HANDLE*, LPCWSTR, LPCWSTR, ULONG);
 static NTSTATUS (WINAPI *hashBytes)(BCRYPT_ALG_HANDLE, PUCHAR, ULONG, PUCHAR, ULONG, PUCHAR, ULONG);
 static BCRYPT_ALG_HANDLE sha;
 
-static int Hash(const void* bytes, uint32_t size, const char* const* wanted)
+static uint8_t Hash(const void* bytes, uint32_t size, const char* const hashes[3])
 {
-    unsigned char digest[32]; char hex[65];
+    unsigned char digest[32]; char hex[65]; uint8_t mask = 0;
     static const unsigned char empty = 0;
     const unsigned char* input = size ? (const unsigned char*)bytes : &empty;
-    if (!sha || !wanted || !wanted[0] || !input) return 0;
+    if (!sha || !hashes || !hashes[0] || !hashes[1] || !hashes[2] || !input) return 0;
     if (hashBytes(sha, NULL, 0, (PUCHAR)input, size, digest, sizeof digest) < 0) return 0;
     for (int i = 0; i < 32; i++) snprintf(hex + i*2, 3, "%02x", digest[i]);
-    for (size_t i = 0; i < 4 && wanted[i]; i++)
-        if (!strcmp(hex, wanted[i])) return 1;
-    return 0;
+    for (unsigned t = 0; t < 3u; t++)
+        if (!strcmp(hex, hashes[t])) mask |= (uint8_t)(1u << t);
+    return mask;
 }
 static HANDLE OpenRead(const wchar_t* path)
 { return CreateFileW(path, GENERIC_READ, FILE_SHARE_READ, NULL, OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, NULL); }
@@ -61,7 +64,7 @@ static int SameInfo(const BY_HANDLE_FILE_INFORMATION* a, const BY_HANDLE_FILE_IN
         a->nFileIndexLow == b->nFileIndexLow && a->nFileSizeHigh == b->nFileSizeHigh && a->nFileSizeLow == b->nFileSizeLow &&
         !memcmp(&a->ftLastWriteTime, &b->ftLastWriteTime, sizeof(FILETIME));
 }
-static int Part(Proof* p, const Asset* a)
+static int Part(Proof* p, const Asset* a, uint8_t* ioTierMask)
 {
     const wchar_t* suffixes[] = {L"", L".stream", L".gpu_resources"}; wchar_t path[1100];
     if (swprintf(path, 1100, L"%ls%ls", p->path, suffixes[a->part]) < 0) return AssetError("payload path too long", a, p->path);
@@ -72,13 +75,18 @@ static int Part(Proof* p, const Asset* a)
     int ok = GetFileInformationByHandle(file, &before) && GetFileSizeEx(file, &length) && size <= 128u*1024*1024 &&
         offset <= (uint64_t)length.QuadPart && size <= (uint64_t)length.QuadPart-offset;
     void* bytes = (ok && size > 0) ? malloc(size) : NULL;
-    ok = ok && (size == 0 || (bytes && ReadAt(file, offset, bytes, size))) &&
-        Hash(bytes, size, a->hashes) &&
-        GetFileInformationByHandle(file, &after) && SameInfo(&before, &after);
+    uint8_t partMask = (ok && (size == 0 || (bytes && ReadAt(file, offset, bytes, size))))
+        ? Hash(bytes, size, a->hashes) : 0u;
+    int sameOk = (partMask != 0u) && GetFileInformationByHandle(file, &after) && SameInfo(&before, &after);
     free(bytes); CloseHandle(file);
-    if (ok) p->info = after;
-    else AssetError("payload bounds/read/hash mismatch or file changed", a, path);
-    return ok;
+    if (!sameOk) return AssetError("payload bounds/read/hash mismatch or file changed", a, path);
+    if (ioTierMask)
+    {
+        *ioTierMask &= partMask;
+        if (!*ioTierMask) return AssetError("inconsistent texture tier across staged closure", a, path);
+    }
+    p->info = after;
+    return 1;
 }
 static int AssetsUnchanged(void)
 {
@@ -144,10 +152,11 @@ static int ScanAssets(const wchar_t* directory)
     } while (ok && FindNextFileW(scan, &entry));
     if (ok && GetLastError() != ERROR_NO_MORE_FILES) ok = AssetError("archive enumeration failed", NULL, directory);
     FindClose(scan);
+    uint8_t tierMask = 0x7u;
     if (ok) for (size_t i = 0; i < ASSET_COUNT; i++)
     {
         if (!proofs[i].found) { ok = AssetError("missing staged resource", &assets[i], NULL); break; }
-        if (!Part(&proofs[i], &assets[i])) { ok = 0; break; }
+        if (!Part(&proofs[i], &assets[i], &tierMask)) { ok = 0; break; }
     }
     return ok;
 }

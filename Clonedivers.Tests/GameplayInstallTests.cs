@@ -12,7 +12,7 @@ internal static class GameplayInstallTests
     {
         var catalog = HellForgeGameplayCatalog.Pinned;
         catalog.Validate();
-        check(catalog.Id == "build25480438-r5" && catalog.Artifacts.Count == 14 && catalog.Artifacts.Sum(a => a.Bytes) == 8293752,
+        check(catalog.Id == "build25480438-r5" && catalog.Artifacts.Count == 14 && catalog.Artifacts.Sum(a => a.Bytes) == 8294267,
             "the r5 preset pairs six optional project SDK-16 mods with eight required gameplay and author archives");
         check(catalog.Artifacts.Count(a => a.Url.Contains("/owendavidgoode/clonedivers/")) == 11 && catalog.Artifacts.Count(a => !a.Url.Contains("/owendavidgoode/clonedivers/")) == 3 &&
             catalog.Artifacts.All(a => !a.Url.Contains("hf-mod.com", StringComparison.OrdinalIgnoreCase)) &&
@@ -41,14 +41,14 @@ internal static class GameplayInstallTests
             yoda.ContentHash == "e16e40febdabdd4fa4fb43d3ce12528a76c2cca418c931e568d96bfea2958bbf" &&
             yoda.Url == "https://github.com/owendavidgoode/clonedivers/releases/download/forge-mods-2026-11-19/empire-lego-yoda-0.2.0.zip",
             "Empire LEGO Yoda Death is optional with the exact 0.2.0 co-op release pins");
-        check(atst.Name == "Empire AT-ST Film-Scale Leaf Writer" && atst.Version == "0.1.0" && atst.Bytes == 33881 &&
-            atst.Sha256 == "d35dcb37f6ecb560d6b6b8a65e63ebef1b9fb4ec02095244d0f7cd85c1f833ec" &&
-            atst.ContentHash == "ae3b1f794210af939cf86a3746f6f8a3911219c87d3b86f188bcb0fb965a54bb" &&
+        check(atst.Name == "Empire AT-ST Film-Scale Leaf Writer" && atst.Version == "0.1.0" && atst.Bytes == 34001 &&
+            atst.Sha256 == "ce246e9a625d9d8de0f4e6cfdce722f084fc1a449d0eee63e03d7a568dec2f9e" &&
+            atst.ContentHash == "cc312a608ca9d3c5b64c232c20b330b814394572a924f24bf3ccefd67ee3051c" &&
             atst.Url == "https://github.com/owendavidgoode/clonedivers/releases/download/forge-mods-2026-11-19/empire-atst-writer-0.1.0.zip",
             "Empire AT-ST Film-Scale Leaf Writer is optional with the exact 0.1.0 release pins");
-        check(tieSwitch.Name == "Empire per-attack TIE (lab candidate)" && tieSwitch.Version == "0.3.0" && tieSwitch.Bytes == 22249 &&
-            tieSwitch.Sha256 == "542a150cdd72e691c9b686f55504cc7ac33cbbeb74fd00a024ec851f56ebaeb0" &&
-            tieSwitch.ContentHash == "28d403754591add1f15383929f83553abe6cda28b6c8bc24ee8b522447891370" &&
+        check(tieSwitch.Name == "Empire per-attack TIE (lab candidate)" && tieSwitch.Version == "0.3.0" && tieSwitch.Bytes == 22644 &&
+            tieSwitch.Sha256 == "491f437bbed022aaf6899b259784156341e6acec80bf1ff5a6116f106da06f5b" &&
+            tieSwitch.ContentHash == "fe2c081780faecf75bc6f4d4a4e07df7ca9ddc332f32e4a148af4e460d2fbe7b" &&
             tieSwitch.Url == "https://github.com/owendavidgoode/clonedivers/releases/download/forge-mods-2026-11-19/empire-tie-switch-0.3.0.zip",
             "Empire per-attack TIE switch is optional with the exact 0.3.0 release pins");
         check(chaos.Name == "Chaos Invasions" && chaos.Version == "0.3.0" && chaos.Bytes == 33855 &&

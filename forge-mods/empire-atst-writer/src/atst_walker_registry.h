@@ -76,7 +76,6 @@ typedef struct {
     uintptr_t world;
     uint32_t graph_handle;
     uintptr_t normal_graph;
-    at_private_graph priv;
 } at_walker_slot;
 
 typedef struct {

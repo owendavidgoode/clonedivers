@@ -93,6 +93,7 @@ typedef struct {
     uintptr_t reservation;
     at_lp_plan plan;
     at_receipt receipt;
+    at_private_graph priv __attribute__((aligned(16)));
 } at_tls_frame;
 
 int at_writer_init(

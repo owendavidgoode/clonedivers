@@ -613,9 +613,84 @@ static void VerifySingleByteMutationFailsAllParts(const wchar_t* compactDir)
     CHECK(ScanAssets(compactDir));
 }
 
+static void VerifyMixedTierPartFailsClosed(const wchar_t* fullDir, const wchar_t* reducedDir, const wchar_t* mixedDir)
+{
+    /* Capture reduced512 part=2 (.gpu_resources) for 0x047636f1b28544e4, splice it onto a full bundle,
+     * and verify ScanAssets fails closed on cross-part tier incoherence (part=0 is full, part=2 is reduced512). */
+    const uint64_t targetName = 0x047636f1b28544e4ull;
+    const uint64_t targetType = 0xcd4238c6a0c69e32ull;
+
+    CHECK(ScanAssets(reducedDir));
+    int gpuIdx = -1;
+    for (size_t i = 0; i < ASSET_COUNT; i++)
+    {
+        if (assets[i].name == targetName && assets[i].type == targetType && assets[i].part == 2u)
+        {
+            gpuIdx = (int)i;
+            break;
+        }
+    }
+    CHECK(gpuIdx >= 0);
+    uint32_t redSz = proofs[gpuIdx].row.d[2];
+    uint64_t redOff = proofs[gpuIdx].row.q[4];
+    CHECK(redSz > 0);
+
+    wchar_t redGpuPath[1200];
+    CHECK(swprintf(redGpuPath, 1200, L"%ls.gpu_resources", proofs[gpuIdx].path) > 0);
+    HANDLE rf = OpenRead(redGpuPath);
+    CHECK(rf != INVALID_HANDLE_VALUE);
+    void* redBuf = malloc(redSz);
+    CHECK(redBuf != NULL && ReadAt(rf, redOff, redBuf, redSz));
+    CloseHandle(rf);
+
+    BuildCompactClosureBundle(fullDir, mixedDir);
+
+    wchar_t mixMain[1200], mixGpu[1200];
+    CHECK(swprintf(mixMain, 1200, L"%ls\\9ba626afa44a3aa3.patch_0", mixedDir) > 0);
+    CHECK(swprintf(mixGpu, 1200, L"%ls\\9ba626afa44a3aa3.patch_0.gpu_resources", mixedDir) > 0);
+
+    HANDLE gf = CreateFileW(mixGpu, GENERIC_READ | GENERIC_WRITE, 0, NULL, OPEN_EXISTING, 0, NULL);
+    CHECK(gf != INVALID_HANDLE_VALUE);
+    LARGE_INTEGER gpuEnd;
+    CHECK(GetFileSizeEx(gf, &gpuEnd));
+    CHECK(SetFilePointerEx(gf, gpuEnd, NULL, FILE_BEGIN));
+    WriteAllChecked(gf, redBuf, redSz);
+    CloseHandle(gf);
+    free(redBuf);
+
+    HANDLE mf = CreateFileW(mixMain, GENERIC_READ | GENERIC_WRITE, 0, NULL, OPEN_EXISTING, 0, NULL);
+    CHECK(mf != INVALID_HANDLE_VALUE);
+    uint32_t head[3];
+    CHECK(ReadAt(mf, 0, head, sizeof head));
+    int patchedRow = 0;
+    for (uint32_t r = 0; r < head[2]; r++)
+    {
+        uint64_t ro = 72ull + 32ull * head[1] + 80ull * r;
+        ArchiveRow row;
+        CHECK(ReadAt(mf, ro, &row, sizeof row));
+        if (row.q[0] == targetName && row.q[1] == targetType)
+        {
+            row.q[4] = (uint64_t)gpuEnd.QuadPart;
+            row.d[2] = redSz;
+            LARGE_INTEGER rPos;
+            rPos.QuadPart = (LONGLONG)ro;
+            CHECK(SetFilePointerEx(mf, rPos, NULL, FILE_BEGIN));
+            WriteAllChecked(mf, &row, sizeof row);
+            patchedRow = 1;
+            break;
+        }
+    }
+    CloseHandle(mf);
+    CHECK(patchedRow == 1);
+
+    CHECK(!ScanAssets(mixedDir));
+    CHECK(strstr(assetError, "inconsistent texture tier across staged closure") != NULL);
+    CHECK(strstr(assetError, "resource=047636f1b28544e4 type=cd4238c6a0c69e32 part=2") != NULL);
+}
+
 static void TestMultiTierClosureAndSingleByteMutations(const wchar_t* stagedData, const wchar_t* fixtureRoot)
 {
-    /* 1. Multi-tier Hash() contract: accepts exact full, lighter, and reduced512 hashes, rejects 1-byte mutation. */
+    /* 1. Multi-tier HashMask()/Hash() contract: [0]=full, [1]=lighter, [2]=reduced512. */
     unsigned char bFull[16] = "full-tier-bytes";
     unsigned char bLighter[19] = "lighter-tier-bytes";
     unsigned char bReduced[22] = "reduced512-tier-bytes";
@@ -625,15 +700,16 @@ static void TestMultiTierClosureAndSingleByteMutations(const wchar_t* stagedData
     HexDigest(bReduced, sizeof bReduced, hReduced);
     HexDigest(NULL, 0, hEmpty);
 
-    const char* tieredList[4] = {hFull, hLighter, hReduced, NULL};
-    const char* invariantList[4] = {hFull, NULL, NULL, NULL};
-    const char* emptyAllowedList[4] = {hFull, hEmpty, NULL, NULL};
+    const char* tieredList[3] = {hFull, hLighter, hReduced};
+    const char* invariantList[3] = {hFull, hFull, hFull};
+    const char* emptyAllowedList[3] = {hFull, hLighter, hEmpty};
 
-    CHECK(Hash(bFull, sizeof bFull, tieredList));
-    CHECK(Hash(bLighter, sizeof bLighter, tieredList));
-    CHECK(Hash(bReduced, sizeof bReduced, tieredList));
+    CHECK(Hash(bFull, sizeof bFull, tieredList) == 0x1u);
+    CHECK(Hash(bLighter, sizeof bLighter, tieredList) == 0x2u);
+    CHECK(Hash(bReduced, sizeof bReduced, tieredList) == 0x4u);
+    CHECK(Hash(bFull, sizeof bFull, invariantList) == 0x7u);
     CHECK(!Hash(NULL, 0, tieredList));
-    CHECK(Hash(NULL, 0, emptyAllowedList));
+    CHECK(Hash(NULL, 0, emptyAllowedList) == 0x4u);
 
     bFull[0] ^= 0x01u;
     bLighter[5] ^= 0x01u;
@@ -651,7 +727,7 @@ static void TestMultiTierClosureAndSingleByteMutations(const wchar_t* stagedData
     BuildCompactClosureBundle(stagedData, compactFull);
     VerifySingleByteMutationFailsAllParts(compactFull);
 
-    /* 3. Real EmpireDivers r48 full / lighter / reduced512 selection verification + tiered 1-byte mutation checks. */
+    /* 3. Real EmpireDivers r48 full / lighter / reduced512 selection verification + mixed-tier rejection + tiered 1-byte mutation checks. */
     const wchar_t* r48Tiers[3] = {
         L"D:\\ClaudeWork\\workstreams-20261116-v2\\variants-potato\\selections\\empire-r48\\full__all-droids__cov-off",
         L"D:\\ClaudeWork\\workstreams-20261116-v2\\variants-potato\\selections\\empire-r48\\lighter__all-droids__cov-off",
@@ -680,6 +756,10 @@ static void TestMultiTierClosureAndSingleByteMutations(const wchar_t* stagedData
                 VerifySingleByteMutationFailsAllParts(compactTier);
             }
         }
+        wchar_t mixedTierDir[1200];
+        CHECK(swprintf(mixedTierDir, 1200, L"%ls\\mixed_full_and_512", fixtureRoot) > 0);
+        VerifyMixedTierPartFailsClosed(r48Tiers[0], r48Tiers[2], mixedTierDir);
+
         DWORD clonesAttr = GetFileAttributesW(r20ClonesNonTie);
         if (clonesAttr != INVALID_FILE_ATTRIBUTES && (clonesAttr & FILE_ATTRIBUTE_DIRECTORY))
         {

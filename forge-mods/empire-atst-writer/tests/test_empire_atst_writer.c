@@ -91,9 +91,12 @@ typedef struct {
 static sim_render_sys *g_render_sys = NULL;
 static uint8_t *g_fake_engine = NULL;
 static at_writer_state *g_hook_state = NULL;
-static const void *g_last_leaf_graphs[6];
-static uint32_t g_last_leaf_count = 0;
+static __thread const void *g_last_leaf_graphs[6];
+static __thread uint32_t g_last_leaf_count = 0;
 static int g_tamper_leaf_palette = 0;
+static int g_retire_before_leaf = 0;
+static uintptr_t g_retire_world = 0u;
+static uint32_t g_retire_handle = 0u;
 static uintptr_t g_custom_leaf_rets[2] = {0u, 0u};
 
 static void w_u32(void *base, size_t off, uint32_t val) {
@@ -277,6 +280,11 @@ static uint32_t sim_skin_next(void *mesh_p, void *pool_p, void *opt_graph) {
     const sim_render_graph *rg = (const sim_render_graph *)graph_ptr;
 
     g_last_leaf_count = 0u;
+    if (g_retire_before_leaf) {
+        unsigned char pkt[8] = {0};
+        w_u32(pkt, 4u, g_retire_handle);
+        at_writer_retire_1E7CD0(g_hook_state, g_retire_world, pkt, 0u);
+    }
     uint32_t res_off = 0u; /* matches frame reservation == pool_base */
     for (unsigned g = 0; g < AT_SKIN_GROUPS_COUNT; g++) {
         uint32_t q = 0, enc0 = 0, enc1 = 0;
@@ -936,6 +944,108 @@ static void test_peer_hook_chaining_and_lazy_lookup(at_writer_state *ws, sim_uni
     printf("[PASS] test_peer_hook_chaining_and_lazy_lookup\n");
 }
 
+typedef struct {
+    at_writer_state *ws;
+    sim_walker *w;
+    void *pool_ptr;
+    uintptr_t caller;
+    const at_private_graph *expected;
+    volatile LONG *start_gate;
+    uintptr_t observed_cur_ptr;
+    uint32_t iterations;
+    int ok;
+} mt_pass_worker_arg;
+
+static DWORD WINAPI mt_pass_worker_proc(LPVOID param) {
+    mt_pass_worker_arg *arg = (mt_pass_worker_arg *)param;
+    while (InterlockedCompareExchange(arg->start_gate, 0, 0) == 0) {
+        YieldProcessor();
+    }
+    for (uint32_t i = 0; i < arg->iterations; i++) {
+        at_receipt rec;
+        at_writer_dispatch_512B80(arg->ws, &arg->w->mesh, arg->pool_ptr, &arg->w->graph, arg->caller, &rec);
+        if (rec.seen != 6u || rec.replaced != 6u || rec.failure != 0u || g_last_leaf_count != 6u) {
+            arg->ok = 0;
+            return 1u;
+        }
+        const void *cur_p = g_last_leaf_graphs[0];
+        const void *prev_p = g_last_leaf_graphs[1];
+        if (((uintptr_t)cur_p % 16u) != 0u || ((uintptr_t)prev_p % 16u) != 0u) {
+            arg->ok = 0;
+            return 1u;
+        }
+        if (memcmp(cur_p, arg->expected->graph[0], AT_S2C_NODES * sizeof(at_render48)) != 0 ||
+            memcmp(prev_p, arg->expected->graph[1], AT_S2C_NODES * sizeof(at_render48)) != 0) {
+            arg->ok = 0;
+            return 1u;
+        }
+        if (i == 0u) arg->observed_cur_ptr = (uintptr_t)cur_p;
+    }
+    arg->ok = 1;
+    return 0u;
+}
+
+static void test_concurrent_multi_pass_and_mid_leaf_retire(at_writer_state *ws, sim_unit_mgr *um, sim_render_sys *rs) {
+    at_writer_shutdown(ws);
+    memset(um->slots, 0, sizeof(um->slots));
+    at_writer_set_peer_lookup(ws, NULL, NULL);
+    g_custom_leaf_rets[0] = 0u;
+    g_custom_leaf_rets[1] = 0u;
+    g_retire_before_leaf = 0;
+    InterlockedExchange(&ws->ready, 1);
+
+    sim_walker w;
+    bind_walker(&w, um, rs, (uintptr_t)g_fake_engine, 0u, 1u, 1u, 0u);
+    at_mat4 mw = {{1,0,0,15.0, 0,1,0,-9.5, 0,0,1,3.25, 0,0,0,1}};
+    build_s2c_graph_from_clip(&ws->rig, AT_CLIP_POSES[4].native_local, &mw, w.graph.cur);
+    build_s2c_graph_from_clip(&ws->rig, AT_CLIP_POSES[3].native_local, &mw, w.graph.prev);
+
+    at_private_graph expected_priv;
+    memset(&expected_priv, 0, sizeof(expected_priv));
+    TEST_ASSERT(at_evaluate_s2c_pair(&ws->rig, w.graph.cur, w.graph.prev, AT_S2C_NODES, &expected_priv) == AT_OK,
+                "reference s2c pair evaluation");
+
+    /* 1. 4 concurrent render worker threads dispatching 200 passes each on the same walker slot */
+    volatile LONG start_gate = 0;
+    mt_pass_worker_arg args[4];
+    HANDLE threads[4];
+    for (unsigned t = 0; t < 4u; t++) {
+        memset(&args[t], 0, sizeof(args[t]));
+        args[t].ws = ws;
+        args[t].w = &w;
+        args[t].pool_ptr = (void *)(rs->world + 0x318u);
+        args[t].caller = (uintptr_t)g_fake_engine + AT_RVA_CALLER_NORMAL;
+        args[t].expected = &expected_priv;
+        args[t].start_gate = &start_gate;
+        args[t].iterations = 200u;
+        threads[t] = CreateThread(NULL, 0, mt_pass_worker_proc, &args[t], 0, NULL);
+        TEST_ASSERT(threads[t] != NULL, "spawn mt worker thread");
+    }
+    InterlockedExchange(&start_gate, 1);
+    WaitForMultipleObjects(4u, threads, TRUE, INFINITE);
+    for (unsigned t = 0; t < 4u; t++) {
+        CloseHandle(threads[t]);
+        TEST_ASSERT(args[t].ok == 1, "concurrent worker thread passes clean & uncorrupted");
+        for (unsigned u = t + 1u; u < 4u; u++) {
+            TEST_ASSERT(args[t].observed_cur_ptr != args[u].observed_cur_ptr,
+                        "each worker thread uses distinct thread-private TLS stack graph");
+        }
+    }
+
+    /* 2. Mid-dispatch 1E7CD0 retirement before 5B2990 leaf call -> SRWLockShared observes retirement & fails closed */
+    g_retire_before_leaf = 1;
+    g_retire_world = (uintptr_t)rs->world;
+    g_retire_handle = w.handle;
+    at_receipt rec;
+    at_writer_dispatch_512B80(
+        ws, &w.mesh, (void *)(rs->world + 0x318u), &w.graph,
+        (uintptr_t)g_fake_engine + AT_RVA_CALLER_NORMAL, &rec);
+    g_retire_before_leaf = 0;
+    TEST_ASSERT(rec.failure == 1u && rec.replaced == 0u && g_last_leaf_graphs[0] == w.graph.cur,
+                "mid-dispatch 1E7CD0 retirement before leaf fails closed under SRWLockShared");
+    printf("[PASS] test_concurrent_multi_pass_and_mid_leaf_retire\n");
+}
+
 int main(void) {
     g_fake_engine = (uint8_t *)VirtualAlloc(NULL, 0x02000000u, MEM_COMMIT | MEM_RESERVE, PAGE_READWRITE);
     g_render_sys = (sim_render_sys *)calloc(1, sizeof(sim_render_sys));
@@ -962,6 +1072,7 @@ int main(void) {
     test_four_coop_walkers_and_slot_recycling(ws, um, g_render_sys);
     test_fail_closed_and_env_preservation(ws, um, g_render_sys);
     test_peer_hook_chaining_and_lazy_lookup(ws, um, g_render_sys);
+    test_concurrent_multi_pass_and_mid_leaf_retire(ws, um, g_render_sys);
 
     printf("ALL C TESTS PASSED (0 failures)\n");
     free(ws);
