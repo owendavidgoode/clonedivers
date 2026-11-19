@@ -413,17 +413,32 @@ internal static class TurnkeySetupTests
                 fake.Calls.Count(c => c[0] == "mod-add") == expectedR4Upgrade.Count,
                 "r4->r5 retry after RecoverGameplayAsync imports 0.1.0/0.3.0 upgrades and new AT-ST/TIE Switch defaults while leaving disabled Yoda 0.1.2 and removed Clean Exit untouched");
 
-            // Upgrading from an earlier r5 record with partial OptionalDefaults offers newly added optionals while preserving prior opt-outs.
+            // Upgrading from an earlier r5 record with partial OptionalDefaults offers newly added optionals while preserving prior opt-outs and player-kept versions across rollback.
             fake.Mods.RemoveAll(m => HellForgePreset.Optional.Contains(m.Id));
+            fake.Mods.Add(new(yoda.Id, yoda.Name, true, MakeOldDir(yoda, "0.1.2"), ["code"], "0.1.2"));
             WriteRecord(HellForgeGameplayCatalog.Pinned.Id, "applied", true, [cleanExit.Id, yoda.Id, atst.Id, tieSwitch.Id]);
             var partialNew = new[] { leafWriter.Id, chaos.Id };
             check((await restarted.MissingGameplayAsync()).Select(a => a.Id).ToHashSet(StringComparer.Ordinal).SetEquals(partialNew),
-                "an applied r5 record with partial OptionalDefaults offers newly added optional defaults while keeping prior opt-outs");
+                "an applied r5 record with partial OptionalDefaults offers newly added optional defaults while keeping prior opt-outs and kept Yoda 0.1.2");
+            fake.FailPackOnce = true;
+            try { await restarted.InstallGameplayAsync(restarted.GameplayCache); check(false, "failed partial-OptionalDefaults r5 upgrade must roll back"); }
+            catch (IOException error) { check(error.Message.Contains("previous mod selection was restored"), "failed partial-OptionalDefaults r5 upgrade rolls back cleanly"); }
+            check(fake.Mods.Single(m => m.Id == yoda.Id) is { Enabled: true, Version: "0.1.2" } &&
+                (await restarted.MissingGameplayAsync()).Select(a => a.Id).ToHashSet(StringComparer.Ordinal).SetEquals(partialNew),
+                "same-catalog r5 rollback with partial OptionalDefaults keeps already-offered enabled Yoda 0.1.2 skipped");
             fake.Calls.Clear(); await restarted.InstallGameplayAsync(restarted.GameplayCache);
             check(partialNew.All(id => fake.Mods.Single(m => m.Id == id).Enabled) &&
-                fake.Mods.All(m => m.Id != cleanExit.Id && m.Id != yoda.Id && m.Id != atst.Id && m.Id != tieSwitch.Id) &&
+                fake.Mods.Single(m => m.Id == yoda.Id) is { Enabled: true, Version: "0.1.2" } &&
+                fake.Mods.All(m => m.Id != cleanExit.Id && m.Id != atst.Id && m.Id != tieSwitch.Id) &&
                 fake.Calls.Count(c => c[0] == "mod-add") == partialNew.Length,
-                "partial-OptionalDefaults r5 upgrade installs and enables newly offered optionals while preserving removed prior optionals");
+                "partial-OptionalDefaults r5 retry installs and enables newly offered optionals while preserving kept Yoda 0.1.2 and removed prior optionals");
+
+            fake.Mods.RemoveAll(m => HellForgePreset.Optional.Contains(m.Id));
+            File.Delete(record); fake.FailPackOnce = true;
+            try { await restarted.InstallGameplayAsync(restarted.GameplayCache); check(false, "failed clean no-intent r5 install must roll back"); }
+            catch (IOException error) { check(error.Message.Contains("previous mod selection was restored"), "failed clean no-intent r5 install rolls back cleanly"); }
+            check((await restarted.MissingGameplayAsync()).Select(a => a.Id).ToHashSet(StringComparer.Ordinal).SetEquals(HellForgePreset.Optional),
+                "clean no-intent r5 rollback leaves appliedDefaults empty so all six optional defaults remain offered on retry");
 
             foreach (var id in HellForgePreset.Optional)
             {
@@ -464,16 +479,22 @@ internal static class TurnkeySetupTests
         var backup = Path.Combine(client.CacheRoot, "backups", "gameplay-step4");
         Directory.CreateDirectory(backup);
         Directory.CreateDirectory(Path.GetDirectoryName(client.PackIntentPath)!);
-        File.WriteAllText(client.PackIntentPath + ".gameplay.json", JsonSerializer.Serialize(new
+        var heldBackOptional = fake.Mods.Single(m => m.Id == HellForgePreset.EmpireTieSwitch);
+        fake.Mods.Remove(heldBackOptional);
+        void MarkGameplayApplied()
         {
-            Root = client.Root,
-            Catalog = HellForgeGameplayCatalog.Pinned.Id,
-            Backup = backup,
-            SnapshotSha256 = new string('a', 64),
-            State = "applied",
-            OptionalDefaultsApplied = true,
-            OptionalDefaults = HellForgePreset.Optional
-        }));
+            if (fake.Mods.All(m => m.Id != heldBackOptional.Id)) fake.Mods.Add(heldBackOptional);
+            File.WriteAllText(client.PackIntentPath + ".gameplay.json", JsonSerializer.Serialize(new
+            {
+                Root = client.Root,
+                Catalog = HellForgeGameplayCatalog.Pinned.Id,
+                Backup = backup,
+                SnapshotSha256 = new string('a', 64),
+                State = "applied",
+                OptionalDefaultsApplied = true,
+                OptionalDefaults = HellForgePreset.Optional
+            }));
+        }
 
         var bytes0 = Encoding.UTF8.GetBytes("step4-verified-blob-0");
         var bytes1 = Encoding.UTF8.GetBytes("step4-verified-blob-1");
@@ -493,8 +514,10 @@ internal static class TurnkeySetupTests
         {
             const System.Reflection.BindingFlags fields = System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic;
             var prefs = new HellForgePreferences { InstallRoot = wizRoot, Mode = "clonedivers", DeltaSquad = false, Texture = "reduced512" };
+            int stageCalls = 0;
             int exportCalls = 0;
             bool pauseFirstExport = true;
+            bool sawPauseEnabledDuringGameplayStage = false;
             bool sawPauseEnabledDuringDownload = false;
             bool sawWorkingDisabledDuringImport = false;
             HellForgePack.Plan? observedSecondPlan = null;
@@ -510,6 +533,21 @@ internal static class TurnkeySetupTests
             wiz = new HellForgeSetupForm(wizRoot, preview: false, preferences: prefs)
             {
                 SelectionOverride = () => fixtureSelection,
+                StageGameplayOverride = (_, missing, _, ct, _) =>
+                {
+                    stageCalls++;
+                    var cancelBtn = (Button)typeof(HellForgeSetupForm).GetField("cancel", fields)!.GetValue(wiz!)!;
+                    sawPauseEnabledDuringGameplayStage = missing.Count == 1 && cancelBtn.Enabled && cancelBtn.Text == "Pause download" && cancelBtn.AccessibleName == "Pause download";
+                    if (stageCalls == 1)
+                    {
+                        if (cancelBtn.Enabled)
+                            typeof(Control).GetMethod("OnClick", System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic)!.Invoke(cancelBtn, [EventArgs.Empty]);
+                        ct.ThrowIfCancellationRequested();
+                    }
+                    if (stageCalls == 2) throw new IOException("Simulated gameplay mirror error");
+                    MarkGameplayApplied();
+                    return Task.CompletedTask;
+                },
                 ExportPackOverride = async (plan, _, _, ct, _) =>
                 {
                     exportCalls++;
@@ -546,9 +584,21 @@ internal static class TurnkeySetupTests
                 var cancelBtn = (Button)typeof(HellForgeSetupForm).GetField("cancel", fields)!.GetValue(wiz)!;
                 var detailLbl = (Label)typeof(HellForgeSetupForm).GetField("detail", fields)!.GetValue(wiz)!;
 
+                await wiz.PollAsync();
+                await wiz.PollAsync();
+                check(stageCalls == 1 && sawPauseEnabledDuringGameplayStage &&
+                    detailLbl.Text.Contains("Download paused. Click INSTALL PACK & FINISH", StringComparison.Ordinal) &&
+                    nextBtn.Text == "INSTALL PACK & FINISH" && cancelBtn.Enabled && cancelBtn.Text == "Close",
+                    "Step 4 gameplay-stage pause sets INSTALL PACK & FINISH pause notice and halts PollAsync auto-restart");
+
+                await wiz.RunStep4PackAsync(allowDownload: false);
+                await wiz.PollAsync();
+                check(stageCalls == 2 && detailLbl.Text == "Simulated gameplay mirror error" && nextBtn.Text == "INSTALL PACK & FINISH",
+                    "Step 4 gameplay-stage failure preserves error notice and halts PollAsync auto-restart");
+
                 await wiz.RunStep4PackAsync(allowDownload: false);
                 var firstPlan = (HellForgePack.Plan)typeof(HellForgeSetupForm).GetField("pendingPackPlan", fields)!.GetValue(wiz)!;
-                check(firstPlan.Missing.Count == 2 && nextBtn.Text.StartsWith("DOWNLOAD PACK", StringComparison.Ordinal) &&
+                check(stageCalls == 3 && firstPlan.Missing.Count == 2 && nextBtn.Text.StartsWith("DOWNLOAD PACK", StringComparison.Ordinal) &&
                     cancelBtn.Enabled && cancelBtn.Text == "Close" && cancelBtn.AccessibleName == "Close",
                     "Step 4 pre-check plans missing appearance files without starting unapproved downloads");
 

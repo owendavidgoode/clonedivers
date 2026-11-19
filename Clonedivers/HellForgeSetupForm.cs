@@ -37,6 +37,7 @@ internal sealed class HellForgeSetupForm : Form
     Process? manager;
     internal string? InstallationRoot { get; private set; }
     internal Func<HellForgePack.Selection>? SelectionOverride { get; init; }
+    internal Func<string, IReadOnlyList<GameplayArtifact>, IProgress<string>?, CancellationToken, IProgress<(long Done, long Total)>?, Task>? StageGameplayOverride { get; init; }
     internal Func<HellForgePack.Plan, bool, IProgress<string>?, CancellationToken, IProgress<(long Done, long Total)>?, Task>? ExportPackOverride { get; init; }
     internal event Action<string>? Connected;
 
@@ -657,7 +658,10 @@ internal sealed class HellForgeSetupForm : Form
                     progress.Value = p.total > 0 ? (int)Math.Clamp(p.done * 100d / p.total, 0, 100) : 0;
                     detail.Text = $"Downloading gameplay mods · {Pack.FormatBytes(p.done)} / {Pack.FormatBytes(p.total)} · {progress.Value}%";
                 });
-                await HellForgeGameplayCatalog.StageAsync(client.GameplayCache, missingGameplay, gpText, ct, gpBytes);
+                if (StageGameplayOverride != null)
+                    await StageGameplayOverride(client.GameplayCache, missingGameplay, gpText, ct, gpBytes);
+                else
+                    await HellForgeGameplayCatalog.StageAsync(client.GameplayCache, missingGameplay, gpText, ct, gpBytes);
             }
             SetCanPause(false);
             progress.Visible = true;
@@ -719,9 +723,16 @@ internal sealed class HellForgeSetupForm : Form
         }
         catch (OperationCanceledException)
         {
-            step4Notice = detail.Text = "Pack download paused. Click DOWNLOAD PACK to resume your verified files.";
+            step4Checked = true;
+            step4Notice = detail.Text = pendingPackPlan is { Missing.Count: > 0 }
+                ? "Pack download paused. Click DOWNLOAD PACK to resume your verified files."
+                : "Download paused. Click INSTALL PACK & FINISH to resume your verified files.";
         }
-        catch (Exception e) { step4Notice = detail.Text = e.Message; }
+        catch (Exception e)
+        {
+            step4Checked = true;
+            step4Notice = detail.Text = e.Message;
+        }
         finally
         {
             workCts?.Dispose(); workCts = null; canPause = false; busy = false;
@@ -825,7 +836,7 @@ internal sealed class HellForgeSetupForm : Form
         detail.Text = "In the Forge window, click Start setup and approve its Windows prompt. If Steam needs the supported build, follow Forge’s download instructions. Keep this launcher open; it will detect completion.";
     }
 
-    async Task PollAsync()
+    internal async Task PollAsync()
     {
         if (preview || busy || polling || InstallationRoot == null) { if (!busy) UpdateView(); return; }
         polling = true;
