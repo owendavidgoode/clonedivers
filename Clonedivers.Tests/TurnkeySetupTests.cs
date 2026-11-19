@@ -591,33 +591,33 @@ internal static class TurnkeySetupTests
                     nextBtn.Text == "INSTALL PACK & FINISH" && cancelBtn.Enabled && cancelBtn.Text == "Close",
                     "Step 4 gameplay-stage pause sets INSTALL PACK & FINISH pause notice and halts PollAsync auto-restart");
 
-                await wiz.RunStep4PackAsync(allowDownload: false);
+                await wiz.ContinueAsync();
                 await wiz.PollAsync();
                 check(stageCalls == 2 && detailLbl.Text == "Simulated gameplay mirror error" && nextBtn.Text == "INSTALL PACK & FINISH",
                     "Step 4 gameplay-stage failure preserves error notice and halts PollAsync auto-restart");
 
-                await wiz.RunStep4PackAsync(allowDownload: false);
+                await wiz.ContinueAsync();
                 var firstPlan = (HellForgePack.Plan)typeof(HellForgeSetupForm).GetField("pendingPackPlan", fields)!.GetValue(wiz)!;
-                check(stageCalls == 3 && firstPlan.Missing.Count == 2 && nextBtn.Text.StartsWith("DOWNLOAD PACK", StringComparison.Ordinal) &&
+                check(stageCalls == 3 && exportCalls == 0 && firstPlan.Missing.Count == 2 && nextBtn.Text.StartsWith("DOWNLOAD PACK", StringComparison.Ordinal) &&
                     cancelBtn.Enabled && cancelBtn.Text == "Close" && cancelBtn.AccessibleName == "Close",
-                    "Step 4 pre-check plans missing appearance files without starting unapproved downloads");
+                    "Step 4 primary button after gameplay-stage pause/failure plans missing appearance files and stops at DOWNLOAD PACK without starting unapproved downloads");
 
-                await wiz.RunStep4PackAsync(allowDownload: true);
-                check(sawPauseEnabledDuringDownload && Directory.Exists(firstPlan.Output) &&
+                await wiz.ContinueAsync();
+                check(exportCalls == 1 && sawPauseEnabledDuringDownload && Directory.Exists(firstPlan.Output) &&
                     detailLbl.Text.Contains("Pack download paused", StringComparison.Ordinal) &&
                     nextBtn.Text.StartsWith("DOWNLOAD PACK", StringComparison.Ordinal) &&
                     cancelBtn.Enabled && cancelBtn.Text == "Close",
                     "Step 4 enables Pause download with matching AccessibleName during export and preserves pause notice + partial export folder");
 
                 // Second attempt: replans into a fresh output folder reusing verified patch_0, finishes export, then hits simulated InstallPackAsync failure.
-                await wiz.RunStep4PackAsync(allowDownload: true);
+                await wiz.ContinueAsync();
                 check(exportCalls == 2 && observedSecondPlan != null && observedSecondPlan.Output != firstPlan.Output &&
                     observedSecondPlan.Local.Count == 1 && observedSecondPlan.Missing.Count == 1 &&
                     sawWorkingDisabledDuringImport && detailLbl.Text.Contains("appearance change did not finish", StringComparison.Ordinal),
                     "Step 4 retry after pause replans into a fresh output folder reusing partial verified bytes and disables cancel (Working…) during import");
 
                 // Third attempt: FindPreparedAsync reuses the completed export from attempt 2 without calling ExportPackOverride again!
-                await wiz.RunStep4PackAsync(allowDownload: true);
+                await wiz.ContinueAsync();
                 check(exportCalls == 2 && nextBtn.Text == "FINISH & RETURN TO LAUNCHER" &&
                     fake.Mods.Any(m => m.Id == HellForgePack.PackId("clonedivers") && m.Enabled),
                     "Step 4 retry after post-export import failure reuses the verified export via FindPreparedAsync and finishes setup");

@@ -367,7 +367,7 @@ internal sealed class HellForgeSetupForm : Form
         if (!string.IsNullOrEmpty(next.Text)) next.AccessibleName = next.Text;
     }
 
-    async Task ContinueAsync()
+    internal async Task ContinueAsync()
     {
         if (preview || busy) return;
         if (pollCompletion is { } pendingPoll)
@@ -434,7 +434,7 @@ internal sealed class HellForgeSetupForm : Form
                 Close();
                 return;
             }
-            await RunStep4PackAsync(allowDownload: true);
+            await RunStep4PackAsync(allowDownload: pendingPackPlan is { Missing.Count: > 0 });
         }
     }
 
