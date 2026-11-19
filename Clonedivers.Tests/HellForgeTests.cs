@@ -755,7 +755,7 @@ static class HellForgeTests
         var pinned = HellForgePack.PinnedSelection("commandos", "lighter");
         var pinnedClonesNoDelta = HellForgePack.PinnedSelection("clonedivers", "lighter");
         check(pinned.GameBuild == HellForgePack.SupportedBuild && pinned.Version == "2026.11.19-r20" &&
-            pinned.ManifestSha256 == "b6950dc87570ecc2eed8bedab049984b525c1af78b2286372068acef9a6107ea" && pinned.Files.Count == 114,
+            pinned.ManifestSha256 == "295ab0090cbe5aa5527e990ec00edea20954826035a16b05e0b8e46c8d2d604d" && pinned.Files.Count == 114,
             "the shipped launcher carries pinned Clones r20 catalog independent of the live Steam feed");
         check(pinned.Options["commandos"] && !pinnedClonesNoDelta.Options["commandos"] &&
             pinned.Files.Single(f => f.Name == "9ba626afa44a3aa3.patch_32").Sha256 == "68e82beabd6b8795984143b25bd2a85e46de9959d2fbac1ca277d62129b3f53e" &&
@@ -770,9 +770,9 @@ static class HellForgeTests
         var newEmpire = oldEmpire.Selection();
         check(oldEmpire.SelectionKey == $"r48/{HellForgePack.SupportedBuild}/empire/lighter/False/True" &&
             oldEmpire.AppliedSelection != oldEmpire.SelectionKey && newEmpire.Version == "2026.11.19-r48" &&
-            newEmpire.ManifestSha256 == "e662f975e7eaa30fa17ab6648e3888b941add005ce06aa39d8e4af7a81449904" &&
+            newEmpire.ManifestSha256 == "c4a161f409fdb70cc62072dbc7c6f5893230e4da337f9803269840ee2b977e1e" &&
             newEmpire.Texture == "lighter" && !newEmpire.Options["droids"] && newEmpire.Options["covenant"] && newEmpire.Files.Count == 99 &&
-            newEmpire.Files.Sum(f => f.Size) == 9358167234L,
+            newEmpire.Files.Sum(f => f.Size) == 9673909246L,
             "Empire honors saved texture, droid and Covenant choices while requiring preparation of the r48 catalog");
         var empireFull = HellForgePack.PinnedSelection("empire", "full");
         var empireLighter = HellForgePack.PinnedSelection("empire", "lighter");
@@ -876,23 +876,23 @@ static class HellForgeTests
         }
         check(empireFull.Files.Select(f => f.Name).SequenceEqual(empireLighter.Files.Select(f => f.Name)) &&
             empireFull.Files.Select(f => f.Name).SequenceEqual(empirePotato.Files.Select(f => f.Name)) &&
-            empireFull.Files.Sum(f => f.Size) == 11459469088L && empireLighter.Files.Sum(f => f.Size) == 11822362626L && empirePotato.Files.Sum(f => f.Size) == 5350112992L &&
-            HellForgePack.PinnedSelection("empire", "full", new Dictionary<string, bool> { ["droids"] = true, ["mixed-droids"] = true }).Files.Sum(f => f.Size) == 9821481376L &&
-            HellForgePack.PinnedSelection("empire", "reduced512", new Dictionary<string, bool> { ["droids"] = true, ["mixed-droids"] = true }).Files.Sum(f => f.Size) == 5029067802L &&
-            HellForgePack.PinnedSelection("empire", "full", new Dictionary<string, bool> { ["droids"] = false }).Files.Sum(f => f.Size) == 8734380752L &&
-            HellForgePack.PinnedSelection("empire", "lighter", new Dictionary<string, bool> { ["droids"] = false }).Files.Sum(f => f.Size) == 9033655612L &&
-            HellForgePack.PinnedSelection("empire", "reduced512", new Dictionary<string, bool> { ["droids"] = false }).Files.Sum(f => f.Size) == 4701238106L &&
+            empireFull.Files.Sum(f => f.Size) == 11769966096L && empireLighter.Files.Sum(f => f.Size) == 12138103134L && empirePotato.Files.Sum(f => f.Size) == 5444224572L &&
+            HellForgePack.PinnedSelection("empire", "full", new Dictionary<string, bool> { ["droids"] = true, ["mixed-droids"] = true }).Files.Sum(f => f.Size) == 10131978544L &&
+            HellForgePack.PinnedSelection("empire", "reduced512", new Dictionary<string, bool> { ["droids"] = true, ["mixed-droids"] = true }).Files.Sum(f => f.Size) == 5123179542L &&
+            HellForgePack.PinnedSelection("empire", "full", new Dictionary<string, bool> { ["droids"] = false }).Files.Sum(f => f.Size) == 9044879264L &&
+            HellForgePack.PinnedSelection("empire", "lighter", new Dictionary<string, bool> { ["droids"] = false }).Files.Sum(f => f.Size) == 9349397624L &&
+            HellForgePack.PinnedSelection("empire", "reduced512", new Dictionary<string, bool> { ["droids"] = false }).Files.Sum(f => f.Size) == 4795351190L &&
             empireLighter.Files.Any(f => f.Sha256 != empireFull.Files.Single(g => g.Name == f.Name).Sha256) &&
             empirePotato.Files.Any(f => f.Sha256 != empireLighter.Files.Single(g => g.Name == f.Name).Sha256),
             "Empire r48 catalogs pin exact archive sizes across Full, Lighter, and Johnson Ultra-Potato 512px tiers");
-        check(empireFull.Files.Where(f => f.Name.EndsWith(".gpu_resources")).Sum(f => f.Size) == 9664057792L &&
-            empireLighter.Files.Where(f => f.Name.EndsWith(".gpu_resources")).Sum(f => f.Size) == 3589575906L &&
-            empirePotato.Files.Where(f => f.Name.EndsWith(".gpu_resources")).Sum(f => f.Size) == 2808470532L &&
+        check(empireFull.Files.Where(f => f.Name.EndsWith(".gpu_resources")).Sum(f => f.Size) == 9973354112L &&
+            empireLighter.Files.Where(f => f.Name.EndsWith(".gpu_resources")).Sum(f => f.Size) == 3681816974L &&
+            empirePotato.Files.Where(f => f.Name.EndsWith(".gpu_resources")).Sum(f => f.Size) == 2895263920L &&
             empireLighter.Files.Where(f => f.Name.EndsWith(".gpu_resources")).Sum(f => f.Size) <
             empireFull.Files.Where(f => f.Name.EndsWith(".gpu_resources")).Sum(f => f.Size) / 2 &&
             empirePotato.Files.Where(f => f.Name.EndsWith(".gpu_resources")).Sum(f => f.Size) <
             empireLighter.Files.Where(f => f.Name.EndsWith(".gpu_resources")).Sum(f => f.Size),
-            "Empire r48 Lighter and Potato 512px progressively lower resident GPU bytes (-62.9% and -70.9%)");
+            "Empire r48 Lighter and Potato 512px progressively lower resident GPU bytes (-63.1% and -71.0%)");
         oldEmpire.AppliedSelection = oldEmpire.SelectionKey;
         oldEmpire.Texture = "full";
         check(oldEmpire.AppliedSelection != oldEmpire.SelectionKey && oldEmpire.Selection().Texture == "full",
@@ -900,7 +900,7 @@ static class HellForgeTests
         oldEmpire.Texture = "lighter";
         oldEmpire.Mode = "clonedivers";
         check(oldEmpire.SelectionKey == $"r20/{HellForgePack.SupportedBuild}/commandos/lighter/False/True" &&
-            oldEmpire.Selection().Version == pinned.Version && oldEmpire.Selection().Files.Count == 102 && oldEmpire.Selection().Files.Sum(f => f.Size) == 7156027718L,
+            oldEmpire.Selection().Version == pinned.Version && oldEmpire.Selection().Files.Count == 102 && oldEmpire.Selection().Files.Sum(f => f.Size) == 7150100694L,
             "switching back to Clones selects r20 with saved textures and optional skins");
         using (var catalog = typeof(HellForgePack).Assembly.GetManifestResourceStream("Clonedivers.HellForge.Manifest.json")!)
         using (var reader = new StreamReader(catalog))

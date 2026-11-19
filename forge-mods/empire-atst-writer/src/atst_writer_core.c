@@ -45,12 +45,51 @@ int at_writer_init(
     return 1;
 }
 
+_Static_assert(sizeof(uintptr_t) == sizeof(PVOID) && sizeof(size_t) == sizeof(PVOID), "64-bit pointer width");
+
 void at_writer_shutdown(at_writer_state *s) {
     if (!s) return;
     InterlockedExchange(&s->ready, 0);
     AcquireSRWLockExclusive(&s->lock);
     at_registry_reset(&s->reg);
     ReleaseSRWLockExclusive(&s->lock);
+}
+
+void at_writer_set_peer_lookup(
+    at_writer_state *s,
+    at_peer_lookup_fn lookup_fn,
+    void *lookup_user) {
+    if (!s) return;
+    s->peer_lookup_fn = lookup_fn;
+    s->peer_lookup_user = lookup_user;
+    InterlockedExchangePointer((PVOID *)&s->peer_leaf_base, NULL);
+    InterlockedExchangePointer((PVOID *)&s->peer_leaf_size, NULL);
+    if (lookup_fn) {
+        size_t sz = 0;
+        uintptr_t base = lookup_fn(AT_PEER_LEAF_DLL, &sz, lookup_user);
+        if (base && sz && sz <= UINTPTR_MAX - base) {
+            InterlockedExchangePointer((PVOID *)&s->peer_leaf_size, (PVOID)sz);
+            InterlockedExchangePointer((PVOID *)&s->peer_leaf_base, (PVOID)base);
+        }
+    }
+}
+
+int at_is_peer_caller(at_writer_state *s, uintptr_t caller) {
+    if (!s || !caller) return 0;
+    uintptr_t base = (uintptr_t)InterlockedCompareExchangePointer((PVOID *)&s->peer_leaf_base, NULL, NULL);
+    size_t size = (size_t)InterlockedCompareExchangePointer((PVOID *)&s->peer_leaf_size, NULL, NULL);
+    if ((!base || !size) && s->peer_lookup_fn) {
+        size_t looked_up_size = 0;
+        uintptr_t looked_up_base = s->peer_lookup_fn(AT_PEER_LEAF_DLL, &looked_up_size, s->peer_lookup_user);
+        if (looked_up_base && looked_up_size && looked_up_size <= UINTPTR_MAX - looked_up_base) {
+            InterlockedExchangePointer((PVOID *)&s->peer_leaf_size, (PVOID)looked_up_size);
+            InterlockedExchangePointer((PVOID *)&s->peer_leaf_base, (PVOID)looked_up_base);
+            base = looked_up_base;
+            size = looked_up_size;
+        }
+    }
+    if (!base || !size || size > UINTPTR_MAX - base) return 0;
+    return (caller >= base && caller - base < size) ? 1 : 0;
 }
 
 int at_lp_capture(
@@ -213,8 +252,12 @@ uint32_t at_writer_dispatch_512B80(
         return call_skin_passthrough(s, mesh, pool, opt_graph, entry_err, entry_csr);
     }
 
-    int is_normal = (caller == s->engine_base + AT_RVA_CALLER_NORMAL) && (opt_graph != NULL);
-    int is_rest = (caller == s->engine_base + AT_RVA_CALLER_REST) && (opt_graph == NULL);
+    int from_peer = (caller != s->engine_base + AT_RVA_CALLER_NORMAL &&
+                     caller != s->engine_base + AT_RVA_CALLER_REST)
+                        ? at_is_peer_caller(s, caller)
+                        : 0;
+    int is_normal = ((caller == s->engine_base + AT_RVA_CALLER_NORMAL) || from_peer) && (opt_graph != NULL);
+    int is_rest = ((caller == s->engine_base + AT_RVA_CALLER_REST) || from_peer) && (opt_graph == NULL);
     if (!is_normal && !is_rest) {
         InterlockedIncrement((LONG *)&s->caller_rejects);
         InterlockedIncrement((LONG *)&s->passthroughs);
@@ -356,7 +399,8 @@ uint32_t at_writer_leaf_5B2990(
                  slot->epoch == f->slot_epoch &&
                  at < r->expected &&
                  group < p->groups &&
-                 caller == s->engine_base + (t ? AT_RVA_LEAF_PREV_RET : AT_RVA_LEAF_CUR_RET) &&
+                 (caller == s->engine_base + (t ? AT_RVA_LEAF_PREV_RET : AT_RVA_LEAF_CUR_RET) ||
+                  at_is_peer_caller(s, caller)) &&
                  (uintptr_t)graph == p->arrays[t] &&
                  (uintptr_t)bind == p->bind &&
                  (uintptr_t)map == p->map &&

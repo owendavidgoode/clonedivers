@@ -7,7 +7,7 @@
 - **3×3×2 Appearance Controls Across Clones (`r20`) & Empire (`r48`):**
   - `ForgeWindow`, `LinuxForgePreferences`, and `HellForge.Launcher.ClonediversBridge` support all **3 Enemy Skins** (`All CIS Droids`, `Mixed Bots + CIS Droids`, `Native Automatons`), **3 Texture Tiers** (`Full`, `Lighter (Streamed)`, `Johnson Ultra-Potato (512px)` `reduced512`), and opt-in **Covenant** (`1670`) across both **Clones (`2026.11.19-r20`)** and **Empire (`2026.11.19-r48`)**, plus **Delta Squad** in Clones.
   - `PlayerCommands` (`select-mode`) accepts `--enemy-skin` and `reduced512` while preserving 5-argument backwards compatibility (`--droids no -> native-automatons`).
-- **Gameplay Catalog `build25480438-r5` (`14` Downloads, `8,290,382` Bytes):**
+- **Gameplay Catalog `build25480438-r5` (`14` Downloads, `8,293,752` Bytes):**
   - Eliminates all `hf-mod.com` URLs ahead of the `2026-11-19` shutdown via permissive `0BSD`/`MIT` mirrors (`Vanilla Plus Megapack 0.2.1`, `Operation Reroller 0.1.6`, `Shared Callback Manager 0.1.0`), owner-permitted MP-hardened SEAF packages (`Heavy SEAF 1.2.0-clonedivers.4`, `SEAF Squad 0.1.4-clonedivers.3`), direct author GitHub releases (`Smarter SEAF 1.0.4`, `Smarter Guard Dogs & Sentries 5.2.0`, `Bingus Shared Loader v20`), and **6 project-owned SDK-16 optional defaults** (`clean-exit 0.2.0`, `lego-compact-leaf-writer 0.1.0`, `empire-lego-yoda 0.2.0`, `empire-atst-writer 0.1.0`, `empire-tie-switch 0.3.0`, `chaos-invasions 0.3.0`).
   - Upgrades enabled `r4` optional defaults automatically while preserving disabled/removed choices and disabling superseded `chef.smarter-seaf` and standalone `Mod Options Menu`.
 - **Package & Upgrade Verification:**

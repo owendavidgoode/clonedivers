@@ -403,6 +403,291 @@ static void TestInitAndLazyBridgeRegistration(const wchar_t* stagedData, const w
 
     testExePath[0] = 0;
 }
+
+static void HexDigest(const void* data, uint32_t size, char out[65])
+{
+    unsigned char digest[32];
+    static const unsigned char empty = 0;
+    const unsigned char* input = size ? (const unsigned char*)data : &empty;
+    CHECK(hashBytes(sha, NULL, 0, (PUCHAR)input, size, digest, sizeof digest) >= 0);
+    for (int i = 0; i < 32; i++) snprintf(out + i * 2, 3, "%02x", digest[i]);
+}
+
+static void WriteAllChecked(HANDLE h, const void* buf, DWORD sz)
+{
+    DWORD wrote = 0;
+    if (sz == 0) return;
+    CHECK(WriteFile(h, buf, sz, &wrote, NULL) && wrote == sz);
+}
+
+/* Build a standalone single-archive Stingray bundle (patch_0 + .stream + .gpu_resources) containing
+ * the exact resolved 75 resources (135 parts) from sourceDir so every part can be mutated 1 byte in isolation. */
+static void BuildCompactClosureBundle(const wchar_t* sourceDir, const wchar_t* outDir)
+{
+    const wchar_t* suffixes[] = {L"", L".stream", L".gpu_resources"};
+    CHECK(ScanAssets(sourceDir));
+    CreateDirectoryW(outDir, NULL);
+
+    typedef struct UniqueRes {
+        uint64_t name, type;
+        int assetIdx[3];
+    } UniqueRes;
+    UniqueRes uniq[ASSET_COUNT];
+    size_t uniqCount = 0;
+
+    for (size_t i = 0; i < ASSET_COUNT; i++)
+    {
+        size_t found = uniqCount;
+        for (size_t u = 0; u < uniqCount; u++)
+        {
+            if (uniq[u].name == assets[i].name && uniq[u].type == assets[i].type) { found = u; break; }
+        }
+        if (found == uniqCount)
+        {
+            uniq[uniqCount].name = assets[i].name;
+            uniq[uniqCount].type = assets[i].type;
+            uniq[uniqCount].assetIdx[0] = uniq[uniqCount].assetIdx[1] = uniq[uniqCount].assetIdx[2] = -1;
+            uniqCount++;
+        }
+        CHECK(assets[i].part < 3u);
+        uniq[found].assetIdx[assets[i].part] = (int)i;
+    }
+
+    wchar_t outPaths[3][1200];
+    HANDLE outFiles[3];
+    for (int p = 0; p < 3; p++)
+    {
+        CHECK(swprintf(outPaths[p], 1200, L"%ls\\9ba626afa44a3aa3.patch_0%ls", outDir, suffixes[p]) > 0);
+        outFiles[p] = CreateFileW(outPaths[p], GENERIC_READ | GENERIC_WRITE, 0, NULL, CREATE_ALWAYS, FILE_ATTRIBUTE_NORMAL, NULL);
+        CHECK(outFiles[p] != INVALID_HANDLE_VALUE);
+    }
+
+    unsigned char hdr[72];
+    memset(hdr, 0, sizeof hdr);
+    Put32Mem(hdr, 0, 0xF0000011u);
+    Put32Mem(hdr, 4, 0u);
+    Put32Mem(hdr, 8, (uint32_t)uniqCount);
+    WriteAllChecked(outFiles[0], hdr, sizeof hdr);
+
+    ArchiveRow* rows = (ArchiveRow*)calloc(uniqCount, sizeof(ArchiveRow));
+    CHECK(rows != NULL);
+    /* Reserve directory table space in patch_0 */
+    WriteAllChecked(outFiles[0], rows, (DWORD)(uniqCount * sizeof(ArchiveRow)));
+
+    uint64_t cursors[3] = {72ull + 80ull * uniqCount, 0ull, 0ull};
+    for (size_t u = 0; u < uniqCount; u++)
+    {
+        rows[u].q[0] = uniq[u].name;
+        rows[u].q[1] = uniq[u].type;
+        for (int p = 0; p < 3; p++)
+        {
+            int ai = uniq[u].assetIdx[p];
+            if (ai < 0) continue;
+            uint32_t sz = proofs[ai].row.d[p];
+            uint64_t off = proofs[ai].row.q[2 + p];
+            rows[u].q[2 + p] = cursors[p];
+            rows[u].d[p] = sz;
+            if (sz > 0)
+            {
+                wchar_t srcPath[1200];
+                CHECK(swprintf(srcPath, 1200, L"%ls%ls", proofs[ai].path, suffixes[p]) > 0);
+                HANDLE sf = OpenRead(srcPath);
+                CHECK(sf != INVALID_HANDLE_VALUE);
+                void* buf = malloc(sz);
+                CHECK(buf != NULL && ReadAt(sf, off, buf, sz));
+                CloseHandle(sf);
+                WriteAllChecked(outFiles[p], buf, sz);
+                free(buf);
+                cursors[p] += sz;
+            }
+        }
+    }
+
+    LARGE_INTEGER dirPos;
+    dirPos.QuadPart = 72;
+    CHECK(SetFilePointerEx(outFiles[0], dirPos, NULL, FILE_BEGIN));
+    WriteAllChecked(outFiles[0], rows, (DWORD)(uniqCount * sizeof(ArchiveRow)));
+    free(rows);
+
+    for (int p = 0; p < 3; p++) CloseHandle(outFiles[p]);
+    CHECK(ScanAssets(outDir));
+}
+
+static void VerifySingleByteMutationFailsAllParts(const wchar_t* compactDir)
+{
+    const wchar_t* suffixes[] = {L"", L".stream", L".gpu_resources"};
+    CHECK(ScanAssets(compactDir));
+
+    for (size_t i = 0; i < ASSET_COUNT; i++)
+    {
+        unsigned part = assets[i].part;
+        uint32_t sz = proofs[i].row.d[part];
+        uint64_t off = proofs[i].row.q[2 + part];
+        wchar_t partPath[1200], mainPath[1200];
+        CHECK(swprintf(partPath, 1200, L"%ls\\9ba626afa44a3aa3.patch_0%ls", compactDir, suffixes[part]) > 0);
+        CHECK(swprintf(mainPath, 1200, L"%ls\\9ba626afa44a3aa3.patch_0", compactDir) > 0);
+
+        char expectTag[64];
+        snprintf(expectTag, sizeof expectTag, "resource=%016llx type=%016llx part=%u",
+            (unsigned long long)assets[i].name, (unsigned long long)assets[i].type, part);
+
+        if (sz > 0)
+        {
+            HANDLE f = CreateFileW(partPath, GENERIC_READ | GENERIC_WRITE, 0, NULL, OPEN_EXISTING, 0, NULL);
+            CHECK(f != INVALID_HANDLE_VALUE);
+            unsigned char orig = 0, flipped = 0;
+            CHECK(ReadAt(f, off, &orig, 1));
+            flipped = (unsigned char)(orig ^ 0x01u);
+            LARGE_INTEGER pos;
+            pos.QuadPart = (LONGLONG)off;
+            CHECK(SetFilePointerEx(f, pos, NULL, FILE_BEGIN));
+            WriteAllChecked(f, &flipped, 1);
+            CloseHandle(f);
+
+            CHECK(!ScanAssets(compactDir));
+            CHECK(strstr(assetError, "hash mismatch") != NULL && strstr(assetError, expectTag) != NULL);
+
+            f = CreateFileW(partPath, GENERIC_READ | GENERIC_WRITE, 0, NULL, OPEN_EXISTING, 0, NULL);
+            CHECK(f != INVALID_HANDLE_VALUE);
+            CHECK(SetFilePointerEx(f, pos, NULL, FILE_BEGIN));
+            WriteAllChecked(f, &orig, 1);
+            CloseHandle(f);
+        }
+        else
+        {
+            /* Empty (0-byte) part: append 1 byte and bump row size to 1, verify fail-closed, then restore. */
+            HANDLE mf = CreateFileW(mainPath, GENERIC_READ | GENERIC_WRITE, 0, NULL, OPEN_EXISTING, 0, NULL);
+            CHECK(mf != INVALID_HANDLE_VALUE);
+            uint32_t head[3];
+            CHECK(ReadAt(mf, 0, head, sizeof head));
+            uint64_t rowOff = 0;
+            ArchiveRow origRow;
+            int foundRow = 0;
+            for (uint32_t r = 0; r < head[2]; r++)
+            {
+                uint64_t ro = 72ull + 32ull * head[1] + 80ull * r;
+                CHECK(ReadAt(mf, ro, &origRow, sizeof origRow));
+                if (origRow.q[0] == assets[i].name && origRow.q[1] == assets[i].type)
+                {
+                    rowOff = ro;
+                    foundRow = 1;
+                    break;
+                }
+            }
+            CHECK(foundRow);
+
+            HANDLE pf = CreateFileW(partPath, GENERIC_READ | GENERIC_WRITE, 0, NULL, OPEN_EXISTING, 0, NULL);
+            CHECK(pf != INVALID_HANDLE_VALUE);
+            LARGE_INTEGER endPos;
+            CHECK(GetFileSizeEx(pf, &endPos));
+            CHECK(SetFilePointerEx(pf, endPos, NULL, FILE_BEGIN));
+            unsigned char badByte = 0x5Au;
+            WriteAllChecked(pf, &badByte, 1);
+            CloseHandle(pf);
+
+            ArchiveRow mutRow = origRow;
+            mutRow.q[2 + part] = (uint64_t)endPos.QuadPart;
+            mutRow.d[part] = 1u;
+            LARGE_INTEGER rPos;
+            rPos.QuadPart = (LONGLONG)rowOff;
+            CHECK(SetFilePointerEx(mf, rPos, NULL, FILE_BEGIN));
+            WriteAllChecked(mf, &mutRow, sizeof mutRow);
+            CloseHandle(mf);
+
+            CHECK(!ScanAssets(compactDir));
+            CHECK(strstr(assetError, "hash mismatch") != NULL && strstr(assetError, expectTag) != NULL);
+
+            mf = CreateFileW(mainPath, GENERIC_READ | GENERIC_WRITE, 0, NULL, OPEN_EXISTING, 0, NULL);
+            CHECK(mf != INVALID_HANDLE_VALUE);
+            CHECK(SetFilePointerEx(mf, rPos, NULL, FILE_BEGIN));
+            WriteAllChecked(mf, &origRow, sizeof origRow);
+            CloseHandle(mf);
+
+            pf = CreateFileW(partPath, GENERIC_READ | GENERIC_WRITE, 0, NULL, OPEN_EXISTING, 0, NULL);
+            CHECK(pf != INVALID_HANDLE_VALUE);
+            CHECK(SetFilePointerEx(pf, endPos, NULL, FILE_BEGIN));
+            CHECK(SetEndOfFile(pf));
+            CloseHandle(pf);
+        }
+    }
+    CHECK(ScanAssets(compactDir));
+}
+
+static void TestMultiTierClosureAndSingleByteMutations(const wchar_t* stagedData, const wchar_t* fixtureRoot)
+{
+    /* 1. Multi-tier Hash() contract: accepts exact full, lighter, and reduced512 hashes, rejects 1-byte mutation. */
+    unsigned char bFull[16] = "full-tier-bytes";
+    unsigned char bLighter[19] = "lighter-tier-bytes";
+    unsigned char bReduced[22] = "reduced512-tier-bytes";
+    char hFull[65], hLighter[65], hReduced[65], hEmpty[65];
+    HexDigest(bFull, sizeof bFull, hFull);
+    HexDigest(bLighter, sizeof bLighter, hLighter);
+    HexDigest(bReduced, sizeof bReduced, hReduced);
+    HexDigest(NULL, 0, hEmpty);
+
+    const char* tieredList[4] = {hFull, hLighter, hReduced, NULL};
+    const char* invariantList[4] = {hFull, NULL, NULL, NULL};
+    const char* emptyAllowedList[4] = {hFull, hEmpty, NULL, NULL};
+
+    CHECK(Hash(bFull, sizeof bFull, tieredList));
+    CHECK(Hash(bLighter, sizeof bLighter, tieredList));
+    CHECK(Hash(bReduced, sizeof bReduced, tieredList));
+    CHECK(!Hash(NULL, 0, tieredList));
+    CHECK(Hash(NULL, 0, emptyAllowedList));
+
+    bFull[0] ^= 0x01u;
+    bLighter[5] ^= 0x01u;
+    bReduced[9] ^= 0x01u;
+    CHECK(!Hash(bFull, sizeof bFull, tieredList));
+    CHECK(!Hash(bLighter, sizeof bLighter, tieredList));
+    CHECK(!Hash(bReduced, sizeof bReduced, tieredList));
+    bFull[0] ^= 0x01u;
+    CHECK(Hash(bFull, sizeof bFull, invariantList));
+    CHECK(!Hash(bLighter, sizeof bLighter, invariantList));
+
+    /* 2. Exhaustive 1-byte mutation fail-closed proof across all 135/135 parts in compact full bundle. */
+    wchar_t compactFull[1200];
+    CHECK(swprintf(compactFull, 1200, L"%ls\\compact_full", fixtureRoot) > 0);
+    BuildCompactClosureBundle(stagedData, compactFull);
+    VerifySingleByteMutationFailsAllParts(compactFull);
+
+    /* 3. Real EmpireDivers r48 full / lighter / reduced512 selection verification + tiered 1-byte mutation checks. */
+    const wchar_t* r48Tiers[3] = {
+        L"D:\\ClaudeWork\\workstreams-20261116-v2\\variants-potato\\selections\\empire-r48\\full__all-droids__cov-off",
+        L"D:\\ClaudeWork\\workstreams-20261116-v2\\variants-potato\\selections\\empire-r48\\lighter__all-droids__cov-off",
+        L"D:\\ClaudeWork\\workstreams-20261116-v2\\variants-potato\\selections\\empire-r48\\reduced512__all-droids__cov-off"
+    };
+    const wchar_t* r20ClonesNonTie =
+        L"D:\\ClaudeWork\\workstreams-20261116-v2\\variants-potato\\selections\\clones-r20\\clonedivers__full__all-droids__cov-off";
+    const wchar_t* r48TierNames[3] = {L"full", L"lighter", L"reduced512"};
+    int allThreeTiersPresent = 1;
+    for (int t = 0; t < 3; t++)
+    {
+        DWORD attr = GetFileAttributesW(r48Tiers[t]);
+        if (attr == INVALID_FILE_ATTRIBUTES || !(attr & FILE_ATTRIBUTE_DIRECTORY)) allThreeTiersPresent = 0;
+    }
+    if (allThreeTiersPresent)
+    {
+        for (int t = 0; t < 3; t++)
+        {
+            CHECK(ScanAssets(r48Tiers[t]));
+            CHECK(AssetsUnchanged());
+            if (t > 0)
+            {
+                wchar_t compactTier[1200];
+                CHECK(swprintf(compactTier, 1200, L"%ls\\compact_%ls", fixtureRoot, r48TierNames[t]) > 0);
+                BuildCompactClosureBundle(r48Tiers[t], compactTier);
+                VerifySingleByteMutationFailsAllParts(compactTier);
+            }
+        }
+        DWORD clonesAttr = GetFileAttributesW(r20ClonesNonTie);
+        if (clonesAttr != INVALID_FILE_ATTRIBUTES && (clonesAttr & FILE_ATTRIBUTE_DIRECTORY))
+        {
+            CHECK(!ScanAssets(r20ClonesNonTie));
+        }
+    }
+    CHECK(ScanAssets(stagedData));
+}
 int wmain(int argc, wchar_t** argv)
 {
     if (argc == 3 && !wcscmp(argv[1], L"--scan"))
@@ -463,6 +748,7 @@ int wmain(int argc, wchar_t** argv)
 
     CHECK(CreateDirectoryW(argv[2], NULL));
     TestInitAndLazyBridgeRegistration(argv[1], argv[2]);
+    TestMultiTierClosureAndSingleByteMutations(argv[1], argv[2]);
     Reset(); entitiesReady = 1; packageState = HF_PACKAGE_RESIDENT;
     Tick((HfMod*)&mod, 0, NULL); CHECK(armed);
     SeedFixture(argv[1], argv[2]);

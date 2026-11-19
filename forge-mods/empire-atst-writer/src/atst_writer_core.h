@@ -10,7 +10,11 @@
 #include <stddef.h>
 #include <stdint.h>
 
+#define AT_PEER_LEAF_DLL "lego_compact_leaf_writer.dll"
+#define AT_HOOK_PRIORITY (-10)
+
 typedef uint32_t (*at_skin_job_fn)(void *mesh, void *pool, void *graph);
+typedef uintptr_t (*at_peer_lookup_fn)(const char *module_name, size_t *out_size, void *user);
 typedef uint32_t (*at_leaf_skin_fn)(
     void *dst,
     const void *factor,
@@ -56,6 +60,10 @@ typedef struct at_writer_state {
     at_walker_registry reg;
     at_safe_read_fn read_fn;
     void *read_user;
+    uintptr_t peer_leaf_base;
+    size_t peer_leaf_size;
+    at_peer_lookup_fn peer_lookup_fn;
+    void *peer_lookup_user;
 
     at_skin_job_fn skin_next;
     at_skin_job_fn approved_skin_next;
@@ -94,6 +102,17 @@ int at_writer_init(
     void *read_user);
 
 void at_writer_shutdown(at_writer_state *s);
+
+/** Configure optional peer leaf-writer module lookup and populate peer_leaf_base/size if loaded. */
+void at_writer_set_peer_lookup(
+    at_writer_state *s,
+    at_peer_lookup_fn lookup_fn,
+    void *lookup_user);
+
+/** Return 1 when caller falls inside lego_compact_leaf_writer.dll (lazily refreshing if needed). */
+int at_is_peer_caller(
+    at_writer_state *s,
+    uintptr_t caller);
 
 /** Capture and validate S2c mesh/skin/palette/bind/group offsets against pinned asset. */
 int at_lp_capture(

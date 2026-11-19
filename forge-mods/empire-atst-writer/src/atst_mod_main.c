@@ -20,6 +20,12 @@ static int sdk_safe_read(uintptr_t addr, void *buf, size_t sz, void *user) {
     return api->read(addr, buf, sz);
 }
 
+static uintptr_t sdk_peer_module_lookup(const char *module_name, size_t *out_size, void *user) {
+    const HfApi *api = (const HfApi *)user;
+    if (!api || !api->module_base || !module_name) return 0u;
+    return api->module_base(module_name, out_size);
+}
+
 static uint32_t Hook512B80(void *mesh, void *pool, void *graph) {
     uintptr_t caller = (uintptr_t)__builtin_return_address(0);
     return at_writer_dispatch_512B80(&g_writer, mesh, pool, graph, caller, NULL);
@@ -87,8 +93,9 @@ static void OnGameLoaded(HfMod *mod, HfEvent event, void *user) {
         hf->log(mod, "ATST_WRITER refused: writer_init_failed");
         return;
     }
+    at_writer_set_peer_lookup(&g_writer, sdk_peer_module_lookup, (void *)hf);
 
-    if (hf->hook_ex(mod, engine + AT_RVA_LEAF_SKIN, (void *)Hook5B2990, (void **)&g_writer.leaf_next, 0) != 0 ||
+    if (hf->hook_ex(mod, engine + AT_RVA_LEAF_SKIN, (void *)Hook5B2990, (void **)&g_writer.leaf_next, AT_HOOK_PRIORITY) != 0 ||
         !g_writer.leaf_next) {
         hf->log(mod, "ATST_WRITER refused: hook_5B2990_failed");
         return;
@@ -96,7 +103,7 @@ static void OnGameLoaded(HfMod *mod, HfEvent event, void *user) {
     g_writer.approved_leaf_next = (at_leaf_skin_fn)InterlockedCompareExchangePointer(
         (PVOID *)&g_writer.leaf_next, NULL, NULL);
 
-    if (hf->hook_ex(mod, engine + AT_RVA_SKIN_JOB, (void *)Hook512B80, (void **)&g_writer.skin_next, 0) != 0 ||
+    if (hf->hook_ex(mod, engine + AT_RVA_SKIN_JOB, (void *)Hook512B80, (void **)&g_writer.skin_next, AT_HOOK_PRIORITY) != 0 ||
         !g_writer.skin_next) {
         hf->log(mod, "ATST_WRITER refused: hook_512B80_failed");
         return;
@@ -104,7 +111,7 @@ static void OnGameLoaded(HfMod *mod, HfEvent event, void *user) {
     g_writer.approved_skin_next = (at_skin_job_fn)InterlockedCompareExchangePointer(
         (PVOID *)&g_writer.skin_next, NULL, NULL);
 
-    if (hf->hook_ex(mod, engine + AT_RVA_RENDER_REMOVE, (void *)Hook1E7CD0, (void **)&g_writer.remove_next, 0) != 0 ||
+    if (hf->hook_ex(mod, engine + AT_RVA_RENDER_REMOVE, (void *)Hook1E7CD0, (void **)&g_writer.remove_next, AT_HOOK_PRIORITY) != 0 ||
         !g_writer.remove_next) {
         hf->log(mod, "ATST_WRITER refused: hook_1E7CD0_failed");
         return;
@@ -118,8 +125,12 @@ static void OnGameLoaded(HfMod *mod, HfEvent event, void *user) {
     }
 
     InterlockedExchange(&g_writer.ready, 1);
-    hf->log(mod, "ATST_WRITER ready build=%s s2c_nodes=%u max_walkers=%u unit=79E4B3D2DA5E45E3 engine=0x%llX",
-            AT_EXPECTED_BUILD, AT_S2C_NODES, AT_MAX_WALKERS, (unsigned long long)engine);
+    hf->log(mod, "ATST_WRITER ready build=%s s2c_nodes=%u max_walkers=%u unit=79E4B3D2DA5E45E3 engine=0x%llX peer_leaf=0x%llX peer_size=0x%llX hook_priority=%d",
+            AT_EXPECTED_BUILD, AT_S2C_NODES, AT_MAX_WALKERS,
+            (unsigned long long)engine,
+            (unsigned long long)g_writer.peer_leaf_base,
+            (unsigned long long)g_writer.peer_leaf_size,
+            (int)AT_HOOK_PRIORITY);
 }
 
 HF_MOD_EXPORT int hellforge_mod_init(const HfApi *api, HfMod *mod) {

@@ -122,7 +122,7 @@ internal static class LinuxForgePlayerTests
         var v2Prefs = new LinuxForgePreferences { Mode = "clonedivers", Texture = "reduced512", EnemySkin = "mixed-droids", DeltaSquad = true, Covenant = false };
         var v2Sel = v2Prefs.PackSelection();
         check(v2Prefs.Droids && v2Prefs.EnemySkin == "mixed-droids" && v2Sel.Version == "2026.11.19-r20" && v2Sel.Texture == "reduced512" &&
-            v2Sel.Options["commandos"] && v2Sel.Options["droids"] && v2Sel.Options["mixed-droids"] && v2Sel.Files.Count == 114 && v2Sel.Files.Sum(f => f.Size) == 4456641164L &&
+            v2Sel.Options["commandos"] && v2Sel.Options["droids"] && v2Sel.Options["mixed-droids"] && v2Sel.Files.Count == 114 && v2Sel.Files.Sum(f => f.Size) == 4450712796L &&
             v2Sel.Files.Single(f => f.Name == "9ba626afa44a3aa3.patch_32").Sha256 == "68e82beabd6b8795984143b25bd2a85e46de9959d2fbac1ca277d62129b3f53e",
             "Linux v2.0 EnemySkin and reduced512 resolve natively against Clones r20 Delta Squad");
         v2Prefs.DeltaSquad = false;

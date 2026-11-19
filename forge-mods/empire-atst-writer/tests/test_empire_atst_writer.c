@@ -94,6 +94,7 @@ static at_writer_state *g_hook_state = NULL;
 static const void *g_last_leaf_graphs[6];
 static uint32_t g_last_leaf_count = 0;
 static int g_tamper_leaf_palette = 0;
+static uintptr_t g_custom_leaf_rets[2] = {0u, 0u};
 
 static void w_u32(void *base, size_t off, uint32_t val) {
     memcpy((unsigned char *)base + off, &val, sizeof(val));
@@ -287,8 +288,8 @@ static uint32_t sim_skin_next(void *mesh_p, void *pool_p, void *opt_graph) {
         uint32_t offs[2] = {(enc0 / 3u) * 48u, (enc1 / 3u) * 48u};
         const void *arrs[2] = {rg->cur, rg->prev};
         uintptr_t rets[2] = {
-            (uintptr_t)g_fake_engine + AT_RVA_LEAF_CUR_RET,
-            (uintptr_t)g_fake_engine + AT_RVA_LEAF_PREV_RET,
+            g_custom_leaf_rets[0] ? g_custom_leaf_rets[0] : ((uintptr_t)g_fake_engine + AT_RVA_LEAF_CUR_RET),
+            g_custom_leaf_rets[1] ? g_custom_leaf_rets[1] : ((uintptr_t)g_fake_engine + AT_RVA_LEAF_PREV_RET),
         };
         for (unsigned t = 0; t < 2u; t++) {
             const void *call_pal = (g_tamper_leaf_palette && g == 0 && t == 0) ? (const void *)m->pal1 : pal;
@@ -389,6 +390,67 @@ static void build_s2c_graph_from_clip(
     }
 }
 
+static HfEventCallback g_dll_game_loaded_cb = NULL;
+static HfEventCallback g_dll_session_end_cb = NULL;
+static uintptr_t g_dll_hook_targets[4];
+static int32_t g_dll_hook_priorities[4];
+static uint32_t g_dll_hook_count = 0;
+static uint32_t g_dll_peer_module_queries = 0;
+static uintptr_t g_dll_fake_peer_base = 0;
+static size_t g_dll_fake_peer_size = 0;
+
+static void mock_hf_log(HfMod *mod, const char *fmt, ...) {
+    (void)mod;
+    (void)fmt;
+}
+static const char *mock_hf_build_id(void) { return AT_EXPECTED_BUILD; }
+static const char *mock_hf_mod_id(HfMod *mod) {
+    (void)mod;
+    return "clonedivers.empire-atst-writer";
+}
+static uint32_t mock_hf_load_phase(HfMod *mod) {
+    (void)mod;
+    return HF_LOAD_BOOT;
+}
+static int mock_hf_read(uintptr_t address, void *buffer, size_t size) {
+    return sim_read(address, buffer, size, NULL);
+}
+static uintptr_t mock_hf_module_base(const char *module, size_t *size) {
+    if (!module) return 0u;
+    if (strcmp(module, "helldivers2.exe") == 0) {
+        if (size) *size = 0x02000000u;
+        return (uintptr_t)g_fake_engine;
+    }
+    if (strcmp(module, AT_PEER_LEAF_DLL) == 0) {
+        g_dll_peer_module_queries++;
+        if (size) *size = g_dll_fake_peer_size;
+        return g_dll_fake_peer_base;
+    }
+    return 0u;
+}
+static int mock_hf_on(HfMod *mod, HfEvent event, HfEventCallback cb, void *user) {
+    (void)mod;
+    (void)user;
+    if (event == HF_EVENT_GAME_LOADED) g_dll_game_loaded_cb = cb;
+    if (event == HF_EVENT_SESSION_END) g_dll_session_end_cb = cb;
+    return 0;
+}
+static int mock_hf_on_game_thread(HfMod *mod, HfTickCallback cb, void *user) {
+    (void)mod;
+    (void)cb;
+    (void)user;
+    return 1;
+}
+static int mock_hf_hook_ex(HfMod *mod, uintptr_t target, void *detour, void **original, int32_t priority) {
+    (void)mod;
+    if (!detour || !original || g_dll_hook_count >= 4u) return 1;
+    g_dll_hook_targets[g_dll_hook_count] = target;
+    g_dll_hook_priorities[g_dll_hook_count] = priority;
+    g_dll_hook_count++;
+    *original = (void *)(uintptr_t)(0x7FF000001000ULL + g_dll_hook_count * 0x100ULL);
+    return 0;
+}
+
 static void test_code_pins_and_dll_handshake(uint8_t *eng) {
     uint32_t failed_rva = 0;
     TEST_ASSERT(atst_verify_code_pins(sim_read_code_ok, (uintptr_t)eng, &failed_rva) == 1, "pins valid");
@@ -399,7 +461,7 @@ static void test_code_pins_and_dll_handshake(uint8_t *eng) {
     TEST_ASSERT(failed_rva == AT_RVA_LEAF_SKIN, "reports mutated leaf RVA");
     eng[AT_RVA_LEAF_SKIN + 5u] ^= 0xFFu;
 
-    /* Load actual built DLL and verify hellforge_mod_init refuses mismatched build/mod_id/phase */
+    /* Load actual built DLL and verify hellforge_mod_init + OnGameLoaded hook priorities (-10) & peer lookup */
     HMODULE mod_dll = LoadLibraryA("..\\build\\empire_atst_writer.dll");
     if (!mod_dll) {
         mod_dll = LoadLibraryA("forge-mods\\empire-atst-writer\\build\\empire_atst_writer.dll");
@@ -415,6 +477,43 @@ static void test_code_pins_and_dll_handshake(uint8_t *eng) {
     init_fn_t init_fn = (init_fn_t)GetProcAddress(mod_dll, "hellforge_mod_init");
     TEST_ASSERT(init_fn != NULL, "hellforge_mod_init exported");
     TEST_ASSERT(init_fn(NULL, NULL) != 0, "NULL api refused");
+
+    HfApi api;
+    memset(&api, 0, sizeof(api));
+    api.version = HF_MOD_SDK_VERSION;
+    api.size = sizeof(api);
+    api.log = mock_hf_log;
+    api.build_id = mock_hf_build_id;
+    api.mod_id = mock_hf_mod_id;
+    api.load_phase = mock_hf_load_phase;
+    api.read = mock_hf_read;
+    api.read_code = sim_read_code_ok;
+    api.module_base = mock_hf_module_base;
+    api.on = mock_hf_on;
+    api.on_game_thread = mock_hf_on_game_thread;
+    api.hook_ex = mock_hf_hook_ex;
+    const HfApi *fake_mod_slot = &api;
+
+    g_dll_game_loaded_cb = NULL;
+    g_dll_session_end_cb = NULL;
+    g_dll_hook_count = 0;
+    g_dll_peer_module_queries = 0;
+    g_dll_fake_peer_base = 0x7FFE12340000ULL;
+    g_dll_fake_peer_size = 0x28000u;
+
+    TEST_ASSERT(init_fn(&api, (HfMod *)&fake_mod_slot) == 0, "hellforge_mod_init valid SDK-16 handshake");
+    TEST_ASSERT(g_dll_game_loaded_cb != NULL && g_dll_session_end_cb != NULL, "registered load & session callbacks");
+    g_dll_game_loaded_cb((HfMod *)&fake_mod_slot, HF_EVENT_GAME_LOADED, NULL);
+    TEST_ASSERT(g_dll_hook_count == 3u, "OnGameLoaded registered all 3 hooks");
+    TEST_ASSERT(g_dll_hook_targets[0] == (uintptr_t)eng + AT_RVA_LEAF_SKIN && g_dll_hook_priorities[0] == -10,
+                "5B2990 hooked at priority -10");
+    TEST_ASSERT(g_dll_hook_targets[1] == (uintptr_t)eng + AT_RVA_SKIN_JOB && g_dll_hook_priorities[1] == -10,
+                "512B80 hooked at priority -10");
+    TEST_ASSERT(g_dll_hook_targets[2] == (uintptr_t)eng + AT_RVA_RENDER_REMOVE && g_dll_hook_priorities[2] == -10,
+                "1E7CD0 hooked at priority -10");
+    TEST_ASSERT(g_dll_peer_module_queries == 1u, "OnGameLoaded queried lego_compact_leaf_writer.dll module_base");
+    g_dll_session_end_cb((HfMod *)&fake_mod_slot, HF_EVENT_SESSION_END, NULL);
+
     FreeLibrary(mod_dll);
     printf("[PASS] test_code_pins_and_dll_handshake\n");
 }
@@ -691,6 +790,152 @@ static void test_fail_closed_and_env_preservation(at_writer_state *ws, sim_unit_
     printf("[PASS] test_fail_closed_and_env_preservation\n");
 }
 
+typedef struct {
+    uintptr_t base;
+    size_t size;
+    int available;
+    uint32_t calls;
+} sim_peer_ctx;
+
+static uintptr_t sim_peer_lookup_cb(const char *module_name, size_t *out_size, void *user) {
+    sim_peer_ctx *ctx = (sim_peer_ctx *)user;
+    if (!ctx || !module_name || strcmp(module_name, AT_PEER_LEAF_DLL) != 0) return 0u;
+    ctx->calls++;
+    if (!ctx->available) return 0u;
+    if (out_size) *out_size = ctx->size;
+    return ctx->base;
+}
+
+static void test_peer_hook_chaining_and_lazy_lookup(at_writer_state *ws, sim_unit_mgr *um, sim_render_sys *rs) {
+    at_writer_shutdown(ws);
+    memset(um->slots, 0, sizeof(um->slots));
+    at_writer_set_peer_lookup(ws, NULL, NULL);
+    g_custom_leaf_rets[0] = 0u;
+    g_custom_leaf_rets[1] = 0u;
+    InterlockedExchange(&ws->ready, 1);
+
+    sim_walker w;
+    bind_walker(&w, um, rs, (uintptr_t)g_fake_engine, 0u, 1u, 1u, 0u);
+    at_mat4 id = {{1,0,0,0, 0,1,0,0, 0,0,1,0, 0,0,0,1}};
+    build_s2c_graph_from_clip(&ws->rig, AT_CLIP_POSES[2].native_local, &id, w.graph.cur);
+    build_s2c_graph_from_clip(&ws->rig, AT_CLIP_POSES[1].native_local, &id, w.graph.prev);
+
+    /* 1. Solo caller RVAs: normal (opt_graph != NULL) and rest (opt_graph == NULL) both succeed */
+    at_receipt rec;
+    at_writer_dispatch_512B80(
+        ws, &w.mesh, (void *)(rs->world + 0x318u), &w.graph,
+        (uintptr_t)g_fake_engine + AT_RVA_CALLER_NORMAL, &rec);
+    TEST_ASSERT(rec.seen == 6u && rec.replaced == 6u && rec.failure == 0u, "solo normal caller RVA accepted");
+
+    at_writer_dispatch_512B80(
+        ws, &w.mesh, (void *)(rs->world + 0x318u), NULL,
+        (uintptr_t)g_fake_engine + AT_RVA_CALLER_REST, &rec);
+    TEST_ASSERT(rec.seen == 6u && rec.replaced == 6u && rec.failure == 0u, "solo rest caller RVA accepted");
+
+    /* Mismatched solo RVA vs opt_graph must reject */
+    uint32_t rej_before = ws->caller_rejects;
+    at_writer_dispatch_512B80(
+        ws, &w.mesh, (void *)(rs->world + 0x318u), NULL,
+        (uintptr_t)g_fake_engine + AT_RVA_CALLER_NORMAL, &rec);
+    TEST_ASSERT(ws->caller_rejects == rej_before + 1u && rec.replaced == 0u,
+                "solo normal RVA with NULL opt_graph rejected");
+    at_writer_dispatch_512B80(
+        ws, &w.mesh, (void *)(rs->world + 0x318u), &w.graph,
+        (uintptr_t)g_fake_engine + AT_RVA_CALLER_REST, &rec);
+    TEST_ASSERT(ws->caller_rejects == rej_before + 2u && rec.replaced == 0u,
+                "solo rest RVA with non-NULL opt_graph rejected");
+
+    /* 2. Lazy peer lookup: peer unavailable at OnGameLoaded, then available on first chained dispatch */
+    uint8_t *fake_peer_mod = (uint8_t *)VirtualAlloc(NULL, 0x24000u, MEM_COMMIT | MEM_RESERVE, PAGE_READWRITE);
+    TEST_ASSERT(fake_peer_mod != NULL, "alloc fake peer module");
+    uintptr_t peer_base = (uintptr_t)fake_peer_mod;
+    size_t peer_size = 0x24000u;
+
+    sim_peer_ctx pctx = {peer_base, peer_size, 0, 0u};
+    at_writer_set_peer_lookup(ws, sim_peer_lookup_cb, &pctx);
+    TEST_ASSERT(pctx.calls == 1u && ws->peer_leaf_base == 0u && ws->peer_leaf_size == 0u,
+                "initial lookup sees peer unloaded");
+
+    /* While peer is still unloaded, peer-range address is rejected cleanly */
+    rej_before = ws->caller_rejects;
+    at_writer_dispatch_512B80(
+        ws, &w.mesh, (void *)(rs->world + 0x318u), &w.graph,
+        peer_base + 0x3140u, &rec);
+    TEST_ASSERT(pctx.calls == 2u && ws->caller_rejects == rej_before + 1u && rec.replaced == 0u,
+                "unloaded peer range still rejected");
+
+    /* Now peer DLL loads -> next chained 512B80 normal & 5B2990 cur/prev lazily refresh and succeed! */
+    pctx.available = 1;
+    g_custom_leaf_rets[0] = peer_base + 0x4810u; /* cur leaf return inside lego_compact_leaf_writer.dll */
+    g_custom_leaf_rets[1] = peer_base + 0x4898u; /* prev leaf return inside lego_compact_leaf_writer.dll */
+    at_writer_dispatch_512B80(
+        ws, &w.mesh, (void *)(rs->world + 0x318u), &w.graph,
+        peer_base + 0x3140u, &rec);
+    TEST_ASSERT(ws->peer_leaf_base == peer_base && ws->peer_leaf_size == peer_size,
+                "lazy peer lookup populated base & size");
+    TEST_ASSERT(pctx.calls == 3u, "single lazy refresh performed");
+    TEST_ASSERT(rec.seen == 6u && rec.replaced == 6u && rec.failure == 0u,
+                "chained peer 512B80 normal + 5B2990 cur/prev succeeded");
+
+    /* 3. Chained peer 512B80 rest (opt_graph == NULL) + inclusive boundary callers [base, base + size - 1] */
+    g_custom_leaf_rets[0] = peer_base;                   /* exact start of peer DLL */
+    g_custom_leaf_rets[1] = peer_base + peer_size - 1u;  /* exact last byte of peer DLL */
+    at_writer_dispatch_512B80(
+        ws, &w.mesh, (void *)(rs->world + 0x318u), NULL,
+        peer_base + 0x31F0u, &rec);
+    TEST_ASSERT(rec.seen == 6u && rec.replaced == 6u && rec.failure == 0u,
+                "chained peer 512B80 rest + boundary 5B2990 callers succeeded");
+    TEST_ASSERT(pctx.calls == 3u, "cached peer module bounds reused without extra lookups");
+
+    /* 4. Unknown external caller addresses outside [peer_base, peer_base + peer_size) must be rejected! */
+    rej_before = ws->caller_rejects;
+    at_writer_dispatch_512B80(
+        ws, &w.mesh, (void *)(rs->world + 0x318u), &w.graph,
+        peer_base - 1u, &rec);
+    TEST_ASSERT(ws->caller_rejects == rej_before + 1u && rec.replaced == 0u,
+                "caller 1 byte below peer_base rejected");
+
+    at_writer_dispatch_512B80(
+        ws, &w.mesh, (void *)(rs->world + 0x318u), &w.graph,
+        peer_base + peer_size, &rec);
+    TEST_ASSERT(ws->caller_rejects == rej_before + 2u && rec.replaced == 0u,
+                "caller at peer_base + peer_size upper bound rejected");
+
+    at_writer_dispatch_512B80(
+        ws, &w.mesh, (void *)(rs->world + 0x318u), NULL,
+        peer_base + peer_size + 0x50000u, &rec);
+    TEST_ASSERT(ws->caller_rejects == rej_before + 3u && rec.replaced == 0u,
+                "unknown external rest caller rejected");
+
+    /* Valid 512B80 peer caller, but unknown external 5B2990 leaf caller -> fails closed inside leaf */
+    g_custom_leaf_rets[0] = peer_base + peer_size; /* 1 byte outside peer module */
+    g_custom_leaf_rets[1] = peer_base + 0x4898u;
+    at_writer_dispatch_512B80(
+        ws, &w.mesh, (void *)(rs->world + 0x318u), &w.graph,
+        peer_base + 0x3140u, &rec);
+    TEST_ASSERT(rec.failure == 1u && rec.replaced == 0u && g_last_leaf_graphs[0] == w.graph.cur,
+                "unknown external 5B2990 leaf caller fails closed");
+
+    /* Lazy peer lookup triggered first inside 5B2990 (when 512B80 came from engine RVA) */
+    pctx.calls = 0u;
+    at_writer_set_peer_lookup(ws, NULL, NULL);
+    ws->peer_lookup_fn = sim_peer_lookup_cb;
+    ws->peer_lookup_user = &pctx;
+    g_custom_leaf_rets[0] = peer_base + 0x4810u;
+    g_custom_leaf_rets[1] = peer_base + 0x4898u;
+    at_writer_dispatch_512B80(
+        ws, &w.mesh, (void *)(rs->world + 0x318u), &w.graph,
+        (uintptr_t)g_fake_engine + AT_RVA_CALLER_NORMAL, &rec);
+    TEST_ASSERT(pctx.calls == 1u && rec.seen == 6u && rec.replaced == 6u && rec.failure == 0u,
+                "lazy peer lookup inside 5B2990 succeeded");
+
+    g_custom_leaf_rets[0] = 0u;
+    g_custom_leaf_rets[1] = 0u;
+    at_writer_set_peer_lookup(ws, NULL, NULL);
+    VirtualFree(fake_peer_mod, 0, MEM_RELEASE);
+    printf("[PASS] test_peer_hook_chaining_and_lazy_lookup\n");
+}
+
 int main(void) {
     g_fake_engine = (uint8_t *)VirtualAlloc(NULL, 0x02000000u, MEM_COMMIT | MEM_RESERVE, PAGE_READWRITE);
     g_render_sys = (sim_render_sys *)calloc(1, sizeof(sim_render_sys));
@@ -716,6 +961,7 @@ int main(void) {
     test_clip_pose_and_pipeline_accuracy(ws, um, g_render_sys);
     test_four_coop_walkers_and_slot_recycling(ws, um, g_render_sys);
     test_fail_closed_and_env_preservation(ws, um, g_render_sys);
+    test_peer_hook_chaining_and_lazy_lookup(ws, um, g_render_sys);
 
     printf("ALL C TESTS PASSED (0 failures)\n");
     free(ws);

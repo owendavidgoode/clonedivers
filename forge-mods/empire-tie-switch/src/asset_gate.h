@@ -16,9 +16,19 @@ static Proof proofs[ASSET_COUNT];
 static char assetError[2400];
 static int AssetError(const char* why, const Asset* a, const wchar_t* path)
 {
-    if (a) snprintf(assetError, sizeof assetError,
-        "%s resource=%016llx type=%016llx part=%u expected_sha256=%s file=%ls",
-        why, (unsigned long long)a->name, (unsigned long long)a->type, a->part, a->hash, path ? path : L"(no provider)");
+    if (a)
+    {
+        char expected[300]; size_t pos = 0; expected[0] = 0;
+        for (size_t i = 0; i < 4 && a->hashes[i]; i++)
+        {
+            int n = snprintf(expected + pos, sizeof expected - pos, "%s%s", i ? "|" : "", a->hashes[i]);
+            if (n < 0 || (size_t)n >= sizeof expected - pos) break;
+            pos += (size_t)n;
+        }
+        snprintf(assetError, sizeof assetError,
+            "%s resource=%016llx type=%016llx part=%u expected_sha256=%s file=%ls",
+            why, (unsigned long long)a->name, (unsigned long long)a->type, a->part, expected, path ? path : L"(no provider)");
+    }
     else snprintf(assetError, sizeof assetError, "%s file=%ls", why, path ? path : L"(unknown)");
     return 0;
 }
@@ -26,12 +36,17 @@ static NTSTATUS (WINAPI *openHash)(BCRYPT_ALG_HANDLE*, LPCWSTR, LPCWSTR, ULONG);
 static NTSTATUS (WINAPI *hashBytes)(BCRYPT_ALG_HANDLE, PUCHAR, ULONG, PUCHAR, ULONG, PUCHAR, ULONG);
 static BCRYPT_ALG_HANDLE sha;
 
-static int Hash(const void* bytes, uint32_t size, const char* wanted)
+static int Hash(const void* bytes, uint32_t size, const char* const* wanted)
 {
     unsigned char digest[32]; char hex[65];
-    if (!sha || hashBytes(sha, NULL, 0, (PUCHAR)bytes, size, digest, sizeof digest) < 0) return 0;
+    static const unsigned char empty = 0;
+    const unsigned char* input = size ? (const unsigned char*)bytes : &empty;
+    if (!sha || !wanted || !wanted[0] || !input) return 0;
+    if (hashBytes(sha, NULL, 0, (PUCHAR)input, size, digest, sizeof digest) < 0) return 0;
     for (int i = 0; i < 32; i++) snprintf(hex + i*2, 3, "%02x", digest[i]);
-    return !strcmp(hex, wanted);
+    for (size_t i = 0; i < 4 && wanted[i]; i++)
+        if (!strcmp(hex, wanted[i])) return 1;
+    return 0;
 }
 static HANDLE OpenRead(const wchar_t* path)
 { return CreateFileW(path, GENERIC_READ, FILE_SHARE_READ, NULL, OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, NULL); }
@@ -54,10 +69,11 @@ static int Part(Proof* p, const Asset* a)
     if (file == INVALID_HANDLE_VALUE) return AssetError("payload file missing or unreadable", a, path);
     BY_HANDLE_FILE_INFORMATION before, after; LARGE_INTEGER length;
     uint32_t size = p->row.d[a->part]; uint64_t offset = p->row.q[2+a->part];
-    int ok = GetFileInformationByHandle(file, &before) && GetFileSizeEx(file, &length) && size > 0 && size <= 128u*1024*1024 &&
+    int ok = GetFileInformationByHandle(file, &before) && GetFileSizeEx(file, &length) && size <= 128u*1024*1024 &&
         offset <= (uint64_t)length.QuadPart && size <= (uint64_t)length.QuadPart-offset;
-    void* bytes = ok ? malloc(size) : NULL;
-    ok = bytes && ReadAt(file, offset, bytes, size) && Hash(bytes, size, a->hash) &&
+    void* bytes = (ok && size > 0) ? malloc(size) : NULL;
+    ok = ok && (size == 0 || (bytes && ReadAt(file, offset, bytes, size))) &&
+        Hash(bytes, size, a->hashes) &&
         GetFileInformationByHandle(file, &after) && SameInfo(&before, &after);
     free(bytes); CloseHandle(file);
     if (ok) p->info = after;
