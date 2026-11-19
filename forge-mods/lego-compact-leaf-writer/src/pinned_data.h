@@ -4,4 +4,5 @@
 extern const cm_mat4 cm_source_rest[65], cm_native_rest[107];
 extern const int cm_parents[65], cm_anchors[65], cm_helpers[65];
 extern const cm_garment cm_garments[7];
+const cm_garment *cm_dynamic_garment_at(uint32_t index);
 #endif

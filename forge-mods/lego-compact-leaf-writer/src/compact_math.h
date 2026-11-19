@@ -10,6 +10,8 @@
 #define CM_SOURCE 65
 #define CM_NATIVE 107
 #define CM_GRAPH_CAP 512
+#define CM_MAX_GARMENTS 256u
+#define CM_MAX_ALIASES 64u
 typedef enum {
  CM_OK=0, CM_ARGUMENT, CM_COUNT, CM_INDEX, CM_MAPPING, CM_BASIS_UNKNOWN,
  CM_BASIS, CM_NONFINITE, CM_SINGULAR, CM_SCALE, CM_SHEAR, CM_REFLECTION,
@@ -71,4 +73,10 @@ CM_API cm_status cm_evaluate(const cm_rig *rig, const cm_frame *frame,
    Finite normal/zero arithmetic; required MXCSR nearest-even, masks on, DAZ/FTZ off. */
 CM_API cm_status cm_compose(const cm_render48 *left, const cm_render48 *right, cm_render48 *out);
 CM_API const cm_garment *cm_garment_at(uint32_t index);
+CM_API uint32_t cm_garment_count(void);
+CM_API int cm_garment_find(uint64_t resource, uint32_t *out_index);
+CM_API uint32_t cm_mesh_node_for(uint32_t garment_index, uint32_t ordinal);
+CM_API int cm_register_dynamic_garment(uint64_t resource, uint32_t node_count, uint32_t alias_count,
+                                       const cm_alias *aliases, const uint32_t mesh_nodes[4]);
+CM_API void cm_reset_dynamic_garments(void);
 #endif

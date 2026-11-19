@@ -6,8 +6,14 @@
 #define LP_BONES 64u
 #define LP_BLOCKS 32u
 #define LP_BYTES 8192u
+#define LP_MAX_DYN_ASSETS 512u
+#define LP_PIN_MAP     1u
+#define LP_PIN_BIND    2u
+#define LP_PIN_PALETTE 4u
+#define LP_PIN_ALL     7u
 typedef int (*lp_read_fn)(uintptr_t,void *,size_t,void *);
 typedef struct {uint64_t resource;uint32_t ordinal,bones,groups,map[LP_BONES],bind[LP_BONES*12],counts[LP_GROUPS],palette[LP_GROUPS][LP_BONES];} lp_asset;
+typedef struct {lp_asset asset;uint32_t pin_mask;} lp_ext_asset;
 typedef struct {uintptr_t at;uint32_t offset,bytes;} lp_block;
 typedef struct {
  uint32_t phase,stage,error,read_outcome,mismatch_index;
@@ -22,6 +28,9 @@ typedef struct {
  lp_trace trace;
 } lp_plan;
 const lp_asset *lp_asset_find(uint64_t,unsigned);
+const lp_ext_asset *lp_asset_find_ext(uint64_t,unsigned);
+int lp_register_asset(const lp_asset *,uint32_t);
+void lp_reset_dynamic_assets(void);
 int lp_capture(lp_plan *,const unsigned char *,uintptr_t,uintptr_t,uint64_t,unsigned,lp_read_fn,void *);
 int lp_recheck(lp_plan *,lp_read_fn,void *);
 #endif

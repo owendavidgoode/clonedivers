@@ -25,11 +25,18 @@ public sealed partial class HellForgeClient
             if (intent.Catalog == HellForgeGameplayCatalog.Pinned.Id)
                 foreach (var artifact in HellForgeGameplayCatalog.Pinned.Artifacts.Where(a => a.Optional))
                     applied.Add(artifact.Id);
+            else if (intent.Catalog == "build25480438-r4")
+                foreach (var id in new[] { HellForgePreset.CleanExit, HellForgePreset.LegoCompactLeafWriter, HellForgePreset.EmpireLegoYoda, HellForgePreset.ChaosInvasions })
+                    applied.Add(id);
             else if (intent.Catalog == "build25480438-r3")
                 applied.Add(HellForgePreset.CleanExit);
         }
         return applied;
     }
+    static bool IsRetiredOptionalDefault(string id, string version) => (id, version) is
+        (HellForgePreset.LegoCompactLeafWriter, "0.0.9") or
+        (HellForgePreset.EmpireLegoYoda, "0.1.0" or "0.1.2") or
+        (HellForgePreset.ChaosInvasions, "0.2.0");
     bool GameplayDefaultsApplied
     {
         get
@@ -87,13 +94,16 @@ public sealed partial class HellForgeClient
         var catalog = await ModsAsync(ct);
         if (catalog.Problems.Length != 0) throw new InvalidDataException("Resolve the mod catalog errors first: " + string.Join("; ", catalog.Problems));
         var missing = new List<GameplayArtifact>();
+        var intent = ReadGameplayIntent();
         var appliedDefaults = AppliedOptionalDefaults();
         foreach (var artifact in HellForgeGameplayCatalog.Pinned.Artifacts)
         {
             var found = catalog.Mods.SingleOrDefault(m => m.Id == artifact.Id);
             // Offer each optional default once. Later removal, disabling or replacement
-            // belongs to the player, including while required mods or newer optionals are applied.
-            if (artifact.Optional && (appliedDefaults.Contains(artifact.Id) || found is { Enabled: false })) continue;
+            // belongs to the player, while enabled prior-catalog defaults upgrade cleanly.
+            var upgradingEnabledPriorDefault = artifact.Optional && intent != null && intent.Catalog != HellForgeGameplayCatalog.Pinned.Id &&
+                found is { Enabled: true } && IsRetiredOptionalDefault(artifact.Id, found.Version);
+            if (artifact.Optional && !upgradingEnabledPriorDefault && (appliedDefaults.Contains(artifact.Id) || found is { Enabled: false })) continue;
             if (found == null || artifact.Version.Length > 0 && found.Version != artifact.Version || artifact.Version.Length == 0 && found.Name != artifact.Name)
             { missing.Add(artifact); continue; }
             ValidateModFolder(found.Folder);
@@ -235,7 +245,7 @@ public sealed partial class HellForgeClient
             await RequireGameplayIdleAsync(ct);
             await commands.RunAsync(["mod-switch", "--id", mod.Id, "--on", on ? "yes" : "no"], ct);
         }
-        foreach (var id in new[] { "pack.612eaf70-d682-43c7-9efd-16dcc695f977", "pack.95ef276a-6287-465f-ac5b-8512d2227b74" })
+        foreach (var id in new[] { HellForgePreset.BingusSharedLoader, HellForgePreset.SmarterSeaf })
         {
             await RequireGameplayIdleAsync(ct); await commands.RunAsync(["mod-pack", "--id", id, "--all", "yes"], ct);
         }

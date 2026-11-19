@@ -107,7 +107,7 @@ internal sealed class ForgeWindow : Window
         AutomationProperties.SetName(potatoTextures, "Johnson Ultra-Potato (512px) textures");
         foreach (var segment in new[] { fullTextures, lighterTextures, potatoTextures }) { segment.Padding = new Thickness(10, 4); segment.BorderThickness = new Thickness(1); segment.BorderBrush = Brush.Parse("#263047"); segment.CornerRadius = new CornerRadius(0); }
         ToolTip.SetTip(lighterTextures, "Full-detail textures streamed on demand.");
-        ToolTip.SetTip(potatoTextures, "512 px max / 128 px resident tail for low-VRAM GPUs (uses Lighter Streamed on r47/r19).");
+        ToolTip.SetTip(potatoTextures, "512 px max / 128 px resident tail for low-VRAM GPUs.");
         var textureRow = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 12, Children = { Text("Textures", 13, Dim), textures } };
         packChoices.Children.Add(choices); packChoices.Children.Add(enemyRow); packChoices.Children.Add(textureRow); packChoices.Children.Add(textureAdvisor);
         appearance.Children.Add(appearanceLabel); appearance.Children.Add(packChoices); appearance.Children.Add(appearanceInfo); panel.Children.Add(appearance);
@@ -355,10 +355,10 @@ internal sealed class ForgeWindow : Window
         foreach (var control in new Control[] { delta, covenant, allDroids, mixedDroids, nativeAutomatons, fullTextures, lighterTextures, potatoTextures }) control.IsEnabled = !working && !active && !checking;
         foreach (var segment in new[] { allDroids, mixedDroids, nativeAutomatons, fullTextures, lighterTextures, potatoTextures }) segment.Background = segment.IsChecked == true ? Brush.Parse("#1D3457") : Navy;
         packChoices.IsVisible = preferences.Mode != "regular"; appearanceInfo.IsVisible = !packChoices.IsVisible;
-        delta.IsVisible = covenant.IsVisible = preferences.Mode == "clonedivers";
+        delta.IsVisible = preferences.Mode == "clonedivers"; covenant.IsVisible = preferences.Mode != "regular";
         textureAdvisor.Text = preferences.Texture switch
         {
-            "reduced512" => "Johnson Ultra-Potato (512px / 128px resident): softer textures for low-VRAM GPUs; meshes & draw calls unchanged (resolves to Streamed on r47/r19 until r48/r20).",
+            "reduced512" => "Johnson Ultra-Potato (512px / 128px resident): softer textures for low-VRAM GPUs; meshes & draw calls unchanged.",
             "lighter" => "Lighter (Streamed): full-resolution textures streamed on demand, lowering resident GPU payload.",
             _ => "Full: keeps resident textures loaded for high-VRAM GPUs; switch to Streamed or Johnson Ultra-Potato on tighter GPUs."
         };
@@ -372,7 +372,7 @@ internal sealed class ForgeWindow : Window
         Import.IsEnabled = !busy && !active && !lost && player?.State?.Status is { GameCopyReady: true, RunnerReady: true, RecoveryProblem: null, CompatibilityProblem: null } && !preview;
         Import.Content = player?.State?.Account is { Captured: true, Imported: false } ? "Finish account sync" : "Sync HD2 account";
         var version = !updateDeferred ? launcherUpdate?.Available?.Version : null;
-        if (preview && previewState is "update-available" or "update-failed") version = "0.9.0";
+        if (preview && previewState is "update-available" or "update-failed") version = "1.0.0";
         var viewState = player?.State;
         if (preview && previewState is "sync" or "recovery") viewState = new(new("/home/player/forge/pfx/drive_c/HellForge", "0.4.0-beta", "25480438", true, true, false, true, true, null, null,
             RecoveryProblem: previewState == "recovery" ? "Gameplay installation interrupted" : null), false, "", new(false, false, ""), null);

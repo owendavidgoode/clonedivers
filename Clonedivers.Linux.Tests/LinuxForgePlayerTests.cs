@@ -7,27 +7,35 @@ internal static class LinuxForgePlayerTests
     internal static async Task Run(string root, Action<bool, string> check)
     {
         const string hello = "{\"bridge\":\"clonedivers-forge\",\"format\":1}\n";
-        check(HellForgeGameplayCatalog.Pinned.Id == "build25480438-r4" && HellForgeGameplayCatalog.Pinned.Artifacts.Count == 11 &&
+        check(HellForgeGameplayCatalog.Pinned.Id == "build25480438-r5" && HellForgeGameplayCatalog.Pinned.Artifacts.Count == 14 &&
             HellForgeGameplayCatalog.Pinned.Artifacts.Where(a => a.Optional).Select(a => a.Id).ToHashSet(StringComparer.Ordinal).SetEquals(HellForgePreset.Optional),
-            "Linux embeds and validates the r4 gameplay catalog with all four optional mods");
-        foreach (var texture in new[] { "full", "lighter" })
+            "Linux embeds and validates the r5 gameplay catalog with all six optional mods");
+        foreach (var texture in new[] { "full", "lighter", "reduced512" })
         {
             var empire = new LinuxForgePreferences { Mode = "empire", Texture = texture, Covenant = true };
             var on = empire.PackSelection();
+            empire.EnemySkin = "mixed-droids";
+            var mixed = empire.PackSelection();
             empire.Droids = false;
             var off = empire.PackSelection();
             var saved = Path.Combine(root, "empire-droids-" + texture + ".json"); empire.Save(saved);
             var restored = LinuxForgePreferences.Load(saved);
-            check(on.Version == "2026.11.09-r47" && off.Version == "2026.11.09-r47" && on.Options["droids"] && !off.Options["droids"] && !restored.Droids &&
+            check(on.Version == "2026.11.19-r48" && mixed.Version == "2026.11.19-r48" && off.Version == "2026.11.19-r48" &&
+                on.Texture == texture && mixed.Texture == texture && off.Texture == texture &&
+                on.Options["droids"] && !on.Options["mixed-droids"] && mixed.Options["droids"] && mixed.Options["mixed-droids"] && !off.Options["droids"] &&
+                on.Options["covenant"] && off.Options["covenant"] && !restored.Droids &&
                 restored.SelectionCommand().Skip(1).Chunk(2).Any(p => p[0] == "--droids" && p[1] == "no") &&
                 restored.SelectionCommand().Skip(1).Chunk(2).Any(p => p[0] == "--texture" && p[1] == texture),
-                "Linux Empire " + texture + " defaults CIS on and persists/transmits all variant choices");
-            check(on.Files.Count == 96 && off.Files.Count == 96 && on.Files.Select(f => f.Name).SequenceEqual(off.Files.Select(f => f.Name)) &&
-                on.Files.Any(f => f.Sha256 != off.Files.Single(g => g.Name == f.Name).Sha256),
-                "Linux Empire " + texture + " exports both enemy variants with stable archive layers");
+                "Linux Empire " + texture + " defaults CIS on, supports Mixed and Covenant, and persists/transmits all variant choices");
+            check(on.Files.Count == 111 && mixed.Files.Count == 111 && off.Files.Count == 99 &&
+                on.Files.Select(f => f.Name).SequenceEqual(mixed.Files.Select(f => f.Name)) &&
+                on.Files.Any(f => f.Sha256 != mixed.Files.Single(g => g.Name == f.Name).Sha256) &&
+                off.Files[0].Name == "9ba626afa44a3aa3.patch_1000",
+                "Linux Empire " + texture + " exports all three enemy variants with fixed 1000+ archive layers");
             restored.Mode = "clonedivers";
-            check(restored.PackSelection().Texture == texture && !restored.PackSelection().Options["droids"] && restored.PackSelection().Options["covenant"],
-                "returning to Clones preserves its saved texture, droid and Covenant selections");
+            check(restored.PackSelection().Version == "2026.11.19-r20" && restored.PackSelection().Texture == texture &&
+                !restored.PackSelection().Options["droids"] && restored.PackSelection().Options["covenant"] && restored.PackSelection().Files.Count == 102,
+                "returning to Clones r20 preserves its saved texture, droid and Covenant selections");
         }
         var protocol = new ForgeProtocol(new StringReader(hello + "{\"id\":7,\"ok\":true,\"result\":{}}\n"), new StringWriter(), _ => { });
         await protocol.ConnectAsync(CancellationToken.None);
@@ -113,11 +121,12 @@ internal static class LinuxForgePlayerTests
 
         var v2Prefs = new LinuxForgePreferences { Mode = "clonedivers", Texture = "reduced512", EnemySkin = "mixed-droids", DeltaSquad = true, Covenant = false };
         var v2Sel = v2Prefs.PackSelection();
-        check(v2Prefs.Droids && v2Prefs.EnemySkin == "mixed-droids" && v2Sel.Texture == "lighter" && v2Sel.Options["droids"],
-            "Linux v2.0 EnemySkin and reduced512 resolve cleanly against r19/r47 pinned manifests");
+        check(v2Prefs.Droids && v2Prefs.EnemySkin == "mixed-droids" && v2Sel.Version == "2026.11.19-r20" && v2Sel.Texture == "reduced512" &&
+            v2Sel.Options["droids"] && v2Sel.Options["mixed-droids"] && v2Sel.Files.Count == 114 && v2Sel.Files.Sum(f => f.Size) == 4456641164L,
+            "Linux v2.0 EnemySkin and reduced512 resolve natively against Clones r20");
         v2Prefs.EnemySkin = "native-automatons";
-        check(!v2Prefs.Droids && !v2Prefs.PackSelection().Options["droids"] && v2Prefs.SelectionCommand().Contains("native-automatons"),
-            "Linux EnemySkin native-automatons updates Droids and propagates to select-mode arguments");
+        check(!v2Prefs.Droids && !v2Prefs.PackSelection().Options["droids"] && v2Prefs.PackSelection().Files.Count == 102 && v2Prefs.SelectionCommand().Contains("native-automatons"),
+            "Linux EnemySkin native-automatons updates Droids, selects 102 files, and propagates to select-mode arguments");
 
         try
         {

@@ -39,7 +39,7 @@ static void InvocationObserve(const se_observe_context *ctx,se_observation_resul
     Record record;RenderMeta meta;Owner owner;uint64_t matches=0;
     int ok=0;
     if(coopDynamicMode) {
-        ok=token<56 && t<7 && ordinal>=1 && ordinal<=4 && CoopCaptureTarget(&writer,ctx,&record,&meta,&owner);
+        ok=token<(uint64_t)CM_MAX_GARMENTS*8ull && t<cm_garment_count() && ordinal>=1 && ordinal<=4 && CoopCaptureTarget(&writer,ctx,&record,&meta,&owner);
         if(!ok)budget.status=(uint32_t)IV_RETIRED;
     } else {
         ok=token<56 && t<7 && ordinal<targets[t].render.meshes &&
@@ -149,7 +149,8 @@ static int InvocationDirectoryInit(const wchar_t *directory)
 }
 static int InvocationWrite(const se_record *r,char name[64])
 {
-    if(r->sequence<1||r->sequence>IV_ATTEMPTS||r->payload_used!=IV_PAYLOAD_BYTES||r->target.token>=56)return 0;
+    uint64_t maxToken=coopDynamicMode?(uint64_t)CM_MAX_GARMENTS*8ull:56ull;
+    if(r->sequence<1||r->sequence>IV_ATTEMPTS||r->payload_used!=IV_PAYLOAD_BYTES||r->target.token>=maxToken)return 0;
     wchar_t basename[64],path[1200],expected[1200],actual[1200],directoryNow[1100];
     int count=snprintf(name,64,"skin-invocation-%06u.bin",(unsigned)r->sequence);
     if(count<=0||count>=64||swprintf(basename,64,L"skin-invocation-%06u.bin",(unsigned)r->sequence)<=0)return 0;
@@ -184,7 +185,7 @@ static int InvocationDrainOne(HfMod *mod)
     unsigned t=(unsigned)(r->target.token/8),ordinal=(unsigned)(r->target.token%8);
     int accepted=r->capture_status==IV_OK && r->result!=UINT32_MAX && !r->abandoned &&
         U32(r->payload+4)==IV_VALID_COMPLETE && U32(r->payload+12)==IV_FLAGS_COMPLETE;
-    invocationFiles++;if(accepted){invocationAccepted++;invocationMask|=1u<<t;}else invocationRefused++;
+    invocationFiles++;if(accepted){invocationAccepted++;if(t<32u)invocationMask|=1u<<t;}else invocationRefused++;
     if(r->abandoned)invocationAbandoned++;
     RLog(mod,"LEGO_COMPACT_LEAF_WRITER record seq=%llu file=%s bytes=%u status=%d target=%u ordinal=%u resource=%016llX mesh=%llX pool=%llX optional_graph=%llX caller=%llX result=%08X entry_mxcsr=%08X return_mxcsr=%08X abandoned=%u accepted=%u non_atomic=1 sample=pre_delegation",
         (unsigned long long)r->sequence,name,IV_FILE_BYTES,r->capture_status,t,ordinal,(unsigned long long)U64(r->target.identity+8),
@@ -204,7 +205,7 @@ static int InvocationDrainOne(HfMod *mod)
     int leafSuccess=mathOk && !leaf->failure && leaf->expected && leaf->seen==leaf->expected && leaf->replaced==leaf->expected &&
         leaf->outer_args_unchanged && leaf->environment_ok && leaf->recheck_ok && leaf->allocation_ok &&
         leaf->route==(r->call.optional_graph?2u:1u);
-    if(leafSuccess){leafOk++;if(leaf->route==1)leafNormalMask|=1u<<t;else leafGroupedMask|=1u<<t;}else leafFail++;
+    if(leafSuccess){leafOk++;if(t<32u){if(leaf->route==1)leafNormalMask|=1u<<t;else leafGroupedMask|=1u<<t;}}else leafFail++;
     RLog(mod,"LEGO_COMPACT_LEAF_WRITER leaf seq=%llu target=%u ordinal=%u route=%u expected=%u seen=%u replaced=%u failure=%u original_outer_args=%u environment_ok=%u plan_blocks=%u plan_bytes=%u recheck_ok=%u allocation_ok=%u leaf_ok=%u",
         (unsigned long long)r->sequence,t,ordinal,leaf->route,leaf->expected,leaf->seen,leaf->replaced,leaf->failure,
         leaf->outer_args_unchanged,leaf->environment_ok,leaf->plan_blocks,leaf->plan_bytes,leaf->recheck_ok,leaf->allocation_ok,leafSuccess);

@@ -1,72 +1,77 @@
 # Clonedivers Forge Mod Coverage and Pinned Preset
 
-The `build25480438-r4` preset (`Clonedivers/Resources/forge-gameplay-build25480438-r4.json`,
-integrated in `1.14.2` / `0.8.2`, awaiting `R1` asset upload for `forge-mods-2026-11-15`
-and `pack-2026.11.09-r47-files`) consists of three official bundled mods, **7 required
-gameplay downloads** (`7,780,423` bytes / `~7.42 MiB`), **4 optional** project-owned
-downloads (**3 client-only** `gameplay: false` + **1 host-driven gameplay** `gameplay: true`,
-totaling `282,832` bytes), and one selected appearance pack (`Clones r19` or one of the
-4 Compact-LEGO-baked `Empire r47` variants; Regular has none), for **15 mods** with all
-defaults enabled. The launcher obtains all **11 downloads** (`8,063,255` bytes /
-`~7.69 MiB` total before appearance assets) automatically on first setup with
-archive/content verification and official imports.
+The `build25480438-r5` preset (`Clonedivers/Resources/forge-gameplay-build25480438-r5.json`,
+integrated in Windows `2.0.0` / Linux Forge `0.9.0`, awaiting `R1` GitHub release
+asset upload and `R2` attended acceptance) consists of three official bundled mods,
+**8 required gameplay downloads** (`7,905,326` bytes / `~7.54 MiB`), **6 optional**
+project-owned SDK-16 downloads (**5 client-only** `gameplay: false` `coop: per-player`
++ **1 host-authoritative gameplay** `gameplay: true`, totaling `385,056` bytes), and
+one selected appearance pack (`Clones 2026.11.19-r20` or `Empire 2026.11.19-r48`;
+Regular has none), for **18 mods** with all defaults enabled. The launcher obtains all
+**14 downloads** (`8,290,382` bytes / `~7.91 MiB` total before appearance assets)
+automatically on first setup with archive/content SHA-256 verification and official
+`HellForge.Cli` imports.
 
-Five required packages come directly from authors. The Heavy/Squad compatibility
-archives use the owner's confirmed written author permission; all 4 optional project-owned
-mods (`clean-exit` `0.2.0`, `lego-compact-leaf-writer` `0.0.9`, `empire-lego-yoda` `0.1.2`,
-and `chaos-invasions` `0.2.0`) have SDK-16 source under `forge-mods/`, and the retired
-mine fix (`0.1.1`) is project-owned MIT source. See [SEAF compatibility permission](SEAF-COMPATIBILITY-PERMISSION.md)
-and `Clonedivers/Resources/forge-gameplay-build25480438-r4.json` for exact sources,
-hashes, versions, order and options.
+Because `hf-mod.com` ended public mod hosting on **19 November 2026**, `build25480438-r5`
+contains **zero `hf-mod.com` URLs**:
+- **3 permissive (`0BSD` / `MIT`) runtime mods** (`Vanilla Plus Megapack 0.2.1`,
+  `Operation Reroller 0.1.6`, `Shared Callback Manager 0.1.0`) and **2 owner-permitted
+  MP-hardened SEAF compatibility packages** (`Heavy SEAF Presence Everywhere 1.2.0-clonedivers.4`,
+  `SEAF Squad Stratagems 0.1.4-clonedivers.3`) target `forge-gameplay-build25480438-r5`
+  on GitHub Releases.
+- **3 required data/loader archives** (`Bingus Shared Loader - v20`, `Smarter SEAF 1.0.4`,
+  `Smarter Guard Dogs & Sentries 5.2.0`) download directly from their authors' official
+  GitHub Releases (`All rights reserved` Th3chef archives are never mirrored or reuploaded).
+- **6 project-owned SDK-16 mods** (`clean-exit 0.2.0` on `forge-mods-2026-11-08`, plus
+  `lego-compact-leaf-writer 0.1.0`, `empire-lego-yoda 0.2.0`, `empire-atst-writer 0.1.0`,
+  `empire-tie-switch 0.3.0`, and `chaos-invasions 0.3.0` targeting `forge-mods-2026-11-19`)
+  have full C11 source under `forge-mods/`.
 
-All 4 optional defaults are enabled once on fresh `r4` setup, and the 3 new `r4`
-optionals (`lego-compact-leaf-writer`, `empire-lego-yoda`, `chaos-invasions`) are
-offered once during an `r3` -> `r4` upgrade while preserving prior `clean-exit` choices.
-Disabling, replacing or removing any optional mod afterwards is respected across
-restarts, required-mod repair, order repair, and rollback; already disabled copies
-are respected on first setup too. Clean Exit `0.2.0` is live on `forge-mods-2026-11-08`;
-`lego-compact-leaf-writer-0.0.9.zip`, `empire-lego-yoda-0.1.2.zip`, and
-`chaos-invasions-0.2.0.zip` target `forge-mods-2026-11-15` (pending `R1` upload and
-attended `R2` verification).
+See [SEAF compatibility permission](SEAF-COMPATIBILITY-PERMISSION.md) and
+`Clonedivers/Resources/forge-gameplay-build25480438-r5.json` for exact sources, hashes,
+versions, order and options.
 
-## Gameplay and Client Mod Inventory
+All 6 optional defaults are enabled once on fresh `r5` setup. When upgrading from `r4`,
+enabled prior-catalog defaults (`lego-compact-leaf-writer 0.0.9`, `empire-lego-yoda 0.1.2`,
+`chaos-invasions 0.2.0`) upgrade automatically to `0.1.0` / `0.2.0` / `0.3.0` and the
+2 newly added `r5` optionals (`empire-atst-writer 0.1.0`, `empire-tie-switch 0.3.0`)
+are offered once while preserving any disabled, replaced, or removed optional choices.
+Superseded `r4` required IDs (`chef.smarter-seaf` `1.1.0` and standalone
+`Mod Options Menu v1.2.1` `pack.95ef276a-6287-465f-ac5b-8512d2227b74`) are disabled
+automatically during `r5` setup.
+
+## Gameplay and Client Mod Inventory (`build25480438-r5`)
 
 | Candidate | Owner state and decision | Dependencies / acquisition / redistribution |
 | --- | --- | --- |
-| HellForge Editor 0.4.2, Hell Forge Difficulty 0.16.1, Vanilla Plus 0.2.0 | Enabled, initialized; bundled pinned baseline | Obtain through official HellForge `0.4.0-beta`; launcher package excludes engine and bundled mods. VP is exclusive with Reinforcement Beacons Fixed. |
-| Native Smarter SEAF 1.1.0 | Enabled, initialized | Author portal `https://hf-mod.com/Mods/Details/79`, file `144`, SDK `12`. Original SHA in preset. Native alternative to Lua Smarter; never enable both. Portal restrictions/source inclusion do not grant redistribution permission. |
-| Heavy SEAF Presence Everywhere 1.2.0 | Original failed initialization; `1.2.0-clonedivers.3` repaired and owner behavior-tested | Author NontoxicKappa: `https://hf-mod.com/Mods/Details/82`. Requires repaired Squad. Compatibility archive is available to setup under the owner's written-permission confirmation (`forge-gameplay-build25480438-r1`); original credits/source retained. |
-| SEAF Squad Stratagems 0.1.4 (portal label 1.0) | `0.1.4-clonedivers.2` enabled; owner call-ins worked in D11 | Author JohnnyGrease: `https://hf-mod.com/Mods/Details/59`. Repaired Heavy supplies compatible delivery. Compatibility archive is available to setup under the owner's written-permission confirmation (`forge-gameplay-build25480438-r1`); no broader license is inferred. |
-| Bingus Shared Loader - v20 | Enabled, initialized | `https://github.com/CowboyBingus/BingusSharedLoader/releases/tag/v20`. LuaJIT dependency of Lua data mods. Exact v20 source LICENSE is 0BSD; `THIRD_PARTY.md` notes original game Wwise resources in generated releases, so obtain the author archive directly. No loader archive bundled here. |
-| Mod Options Menu v1.2.1 | Enabled, initialized | `https://github.com/CowboyBingus/ModOptionsMenu/releases/tag/v1.2.1`. Original asset digest matches preset; exact-tag LICENSE is 0BSD. Requires Bingus 18+. Author-only acquisition remains the rollout policy. |
-| Smarter Guard Dogs & Sentries 5.2.0 | Enabled; initialization passed; owner observed yellow markers before OFF fix | `https://github.com/Th3chef/Smarter-Guard-Dogs-and-Sentries/releases/tag/v5.2.0`; loader 19+, installed 20; options menu optional. All rights reserved/private use, no redistribution. Marker-OFF combat is unqualified. |
-| Operation Reroller 0.1.2 | Enabled, initialized; actual reroll behavior unqualified | `https://hf-mod.com/Mods/Details/12`, file `138`. SDK `6+`. MIT plus SDK notices; retain attribution. No author digest available; local receipt hash recorded. |
-| Clonedivers Clean Exit 0.2.0 | Live optional default in `r3`/`r4`; clean quits across reported 20-cycle D11 soak (note Nov 15 pre-fix `r47` mini A/B cycle 3 still dumped `+0x626296` ending inside a mission) | Project-owned client-only code mod, source in `forge-mods/clean-exit`. SDK `16`, build `25480438`. `gameplay: false` excludes it from peer matching. Published on `forge-mods-2026-11-08` (`8,192` bytes, SHA-256 `6835354fff8264c6f29c33dfac71a0b6e4c4da7a401920bb76e1b604d2435932`, content hash `0006a02101583cf05e3bd9fa4e431409c18ff4ac72f59ae1ece8c7d9831a888a`). |
-| LEGO Compact Leaf Writer 0.0.9 | Optional default in `r4`; passed `15,332` C checks, `9/9` suites, `290`-pose parity, and Sub-Run 1E (`r47-lego-compact`); multi-actor co-op awaits `R2` | Project-owned client-only code mod (`gameplay: false`, `coop: per-player`), source in `forge-mods/lego-compact-leaf-writer`. SDK `16`, build `25480438`. Targets `forge-mods-2026-11-15` (`199,207` bytes, SHA-256 `34e683e503d525ea5d419bb3477cb0f44e9b9f6cb3eed3c0ae4daebbf55b3dfa`, content hash `71d0bbb0d550b6c312f7d660941c3b620821279c51be47d71d205eb67bedbee3`). |
-| Empire LEGO Yoda Death 0.1.2 | Optional default in `r4`; `0.1.2` passed `139` C checks (`ScanVisuals == 4` on both `r47-lego-compact` and `r47-shuttles`); `0.1.1` passed Sub-Run 1A live check; Compact LEGO live audio awaits `R2` | Project-owned client-only code mod (`gameplay: false`, `coop: per-player`), source in `forge-mods/empire-lego-yoda` (copyrighted audio excluded from git). SDK `16`, build `25480438`. Targets `forge-mods-2026-11-15` (`45,907` bytes, SHA-256 `3d41fe4b6c4f49c52df786a8f83e1e9a1ff501aa3c14edfe742126069aaf9b18`, content hash `2e78173e56b6cc752ac27d810a7a6e7b72352ebe24437edae3a49b7d580f78dc`). |
-| Chaos Invasions 0.2.0 | Optional default in `r4`; passed `195` C checks, `52` LuaJIT menu checks, and `15` delivery checks; live 3/4/5-way gameplay and co-op sync await `R2` | Project-owned gameplay code mod (`gameplay: true`), source in `forge-mods/chaos-invasions`. SDK `16`, build `25480438`. Spawns Dropships/Warp Ships/Breaches with 13-RVA pins, `<75%` preloader, and `BHV_PERCEPTION` narrowing. Targets `forge-mods-2026-11-15` (`29,526` bytes, SHA-256 `42498666f228ea433d4ee63fc0447b7f2ec3033893f2012a9b1349106c7d4d41`, content hash `4c941838b63ce54291a7b8571f21e61817cce66e3548cd413705dfd9101d570b`). |
-| D11 Mine Boundary Fix 0.1.1 | Retired/disabled on engine `0.1.47` | The author integrated the bounds/loading fix. Keep the old file for recovery; do not layer its hooks onto engine `0.1.47`. |
-| `chaos-probe` 0.1.0 | Completed Wave 2 Sub-Run 3 (`3x` D5) cleanly; lab-only diagnostic (superseded by `chaos-invasions` `0.2.0`) | Never included in player preset; passed `6/6 CP_GUARD`, `6 x CP_UNHOOK`, `0` dumps, `lifecycle_dropped=0` (`automaton` `2/2 op=air`, `terminid` `2/2 op=breach`, `illuminate` saturated at `10,000` lines / `0` natural `op=air`). |
-| Armored Overhaul 3.7.12 | Original rejected with Clones Bastion model conflict; handling-only private trial initialized, OFF | `https://hf-mod.com/Mods/Details/15`, file `299`. SDK `7+`; all rights reserved, private adaptation not redistributable. Actual driving/handling not tested; optional isolated trial only. |
-| Reinforcement Beacons Fixed 4.6.1 | Imported, initialized, OFF because VP supplies overlapping behavior | `https://github.com/CowboyBingus/ReinforcementBeaconsFixed/releases/tag/v4.6.1`; loader 18+. Zero-Clause BSD. Each peer must install. Never enable beside VP. |
-| Gameplay Reforged Enemy Balance / Gameplay Systems HF profiles | Imported/trialed, OFF; conflicting alternative profiles | Author portal files `177`/`178`. Systems requires Bingus 20/LuaJIT and overlaps SEAF spawners/rosters/stat editors. Portal rights reserved; not an additive default. |
-| Pick Your Bots/Bugs/Squids HF port 2.0.1 | Imported, OFF; excluded from squad preset | Author portal file `24` documents single-player limitation. Do not describe this as squad-qualified. |
-| SEAF Call-In Stratagem Replacer | Considered; superseded by four native Squad call-ins | Default FRV replacement conflicts with D11 free FRV. Not installed in current squad preset. |
-| SEAF Commander 1.3.3 / SEAF Drop | Commander staged; not integrated | Exact Drop dependency remains Ayaka-gated; author account/access required. No bypass, substitute port or fabricated dependency. Also resolve native Smarter ping/targeting overlap before any isolated test. |
-| XS1 Goliath 1.0 | Imported/staged, OFF; optional later trial | Actual mech behavior/load/MP unqualified. Core scale-up takes priority. |
-| Single-player SEAF Companion | Excluded | Explicit single-player scope conflicts with the intended squad build. |
-| Supreme Command | Rejected by owner | Do not add. |
+| HellForge Editor 0.4.2, Hell Forge Difficulty 0.16.1, Vanilla Plus 0.2.0 | Enabled, initialized; bundled pinned baseline | Obtain through official HellForge `0.4.0-beta`; launcher package excludes engine and bundled mods. VP coexists cleanly with `Vanilla Plus Megapack 0.2.1` (which auto-defers overlapping modules when `skyeshade.vanilla-plus` is enabled). |
+| Shared Callback Manager 0.1.0 (`local.hf-shared-dispatcher`) | Required in `r5`; verified offline + `mp_sim_test.py` (`gameplay: true`) | Author `enochlophobianumerophobia`; permissive `MIT` mirror on `forge-gameplay-build25480438-r5` (`105,845` B, SHA-256 `543c4f205cde3d4bc7846277c43365f6bd956c62f492effb9b219ecf2e0b5529`, content hash `46adab6cef76bb338aac609ac70bce3b458a4ed010ee633f4a40c772c8127f60`). |
+| Operation Reroller 0.1.6 (`local.operation-reroller`) | Required in `r5`; upgrades `0.1.2`; host-gated (`HF_SESSION_JOINER` blocked + demotion cleanup) | Author `enochlophobianumerophobia`; permissive `MIT` mirror on `forge-gameplay-build25480438-r5` (`1,792,536` B, SHA-256 `c085587ab32fe27970884dac03df1898496ecd0b633e201830a1c038616d9ebd`, content hash `71c1ea6214fb45c7f390d3d566103754f8d2b6224d84e5473945690a4d455842`). |
+| Vanilla Plus Megapack 0.2.1 (`cowboybingus.vanilla-plus-megapack`) | Required in `r5`; fixes HF `0.4.0` startup crash; includes native Mod Options Menu 1.2.1 & Mod Bindings Menu 2.3 + 23 guarded QoL modules (`0` hook collisions) | Author `CowboyBingus`; permissive `0BSD` mirror on `forge-gameplay-build25480438-r5` (`794,057` B, SHA-256 `5fbbd10e5bca3fe7e1ac226dbb5a2501833eb4adc81c924d1d5dccace49322a8`, content hash `7c470455f012d80b77111ce3ba89fd7e9be3adaeed4d7ecfaf49222bf774ab8f`). Supersedes standalone Mod Options Menu v1.2.1 and Reinforcement Beacons Fixed 4.6.1. |
+| Heavy SEAF Presence Everywhere 1.2.0-clonedivers.4 (`local.heavy-seaf-presence`) | Required in `r5`; MP-hardened from `1.2.0-clonedivers.3` (`HF_SESSION_SOLO \|\| HF_SESSION_HOST` gates, 4-slot `LocalUser` lookup, demotion cleanup) | Author `NontoxicKappa`; compatibility archive permitted under owner's written-permission confirmation on `forge-gameplay-build25480438-r5` (`95,313` B, SHA-256 `c35d2ebdba0041caa42372a2c3acaa129eb5f74c23ff5b8bc81074c40fce2397`, content hash `2d7e4f5fb591253b432a43ee580d43a2babb25578d3957a0906469e4b90f114e`). |
+| SEAF Squad Stratagems 0.1.4-clonedivers.3 (`local.mod-9fd7880666f6`) | Required in `r5`; MP-hardened from `0.1.4-clonedivers.2` (standalone `host()` gates + host-loss state purge) | Author `JohnnyGrease`; compatibility archive permitted under owner's written-permission confirmation on `forge-gameplay-build25480438-r5` (`330,828` B, SHA-256 `22b4ceffb155c540ce1d0124fb74cf00f737432fb97ad643ff29b7908b14310d`, content hash `d14f424ec4cb0b4c4459fe2cdb2408fd1fcb7167b8c39337348a6c7ff1fb8bdb`). |
+| Bingus Shared Loader - v20 (`pack.612eaf70-d682-43c7-9efd-16dcc695f977`) | Required in `r5`; LuaJIT dependency of Lua data mods | Direct author GitHub release (`2,604,118` B, SHA-256 `a42e43e7afe520d0ccd23fe25f9ac5d818c00419d9401de51e59553c87866742`, content hash `666a6247b6c9cd47c14fa2a13f9a80e021058fc085a1704049a5853f3c5c6954`). `0BSD` source plus upstream resource notices. |
+| Smarter SEAF 1.0.4 (`pack.f7c3abbe-902c-41a7-8183-057a6ab15768`) | Required in `r5`; post-`hf-mod.com` shutdown contingency replacing `chef.smarter-seaf` `1.1.0` (`File/144`) | Direct author GitHub release `https://github.com/Th3chef/Smarter-SEAF/releases/tag/v1.0.4` (`915,566` B, SHA-256 `f393a03543642b5360c39dcfeb1c48ef34555126c9109a7ab06841d07feebb3a`, content hash `c7d181a91097a219b97e290d23b15280c84a4f8daedde9d4225ff826913f24f9`). All rights reserved — never mirrored or reuploaded (`UPSTREAM-CONTINGENCY.json`). |
+| Smarter Guard Dogs & Sentries 5.2.0 (`pack.6f1d2c8e-5a47-4b93-9e0a-3c7b1f4d8a21`) | Required in `r5`; `Targeting Marker` configured `OFF` | Direct author GitHub release `https://github.com/Th3chef/Smarter-Guard-Dogs-and-Sentries/releases/tag/v5.2.0` (`1,267,063` B, SHA-256 `2ca28c425cffdef1d3e2bc6e7db44ab693ed3670d07e23fe6f332d6274d82cb3`, content hash `a79918ad021806ce2653984002e5f163911a224c3b23225b623c0d338f4bf018`). All rights reserved — never mirrored. |
+| Clonedivers Clean Exit 0.2.0 (`clonedivers.clean-exit`) | Optional default (`gameplay: false`); clean quits across reported 20-cycle D11 soak | Project-owned SDK-16 C mod (`forge-mods/clean-exit`), published on `forge-mods-2026-11-08` (`8,192` B, SHA-256 `6835354fff8264c6f29c33dfac71a0b6e4c4da7a401920bb76e1b604d2435932`, content hash `0006a02101583cf05e3bd9fa4e431409c18ff4ac72f59ae1ece8c7d9831a888a`). |
+| LEGO Compact Leaf Writer 0.1.0 (`clonedivers.lego-compact-leaf-writer`) | Optional default (`gameplay: false`, `coop: per-player`); `61` compact garments (`244` descriptors across Empire + `54` Clone garments); `35,631` `coop_writer_test` checks PASS | Project-owned SDK-16 C mod (`forge-mods/lego-compact-leaf-writer`), targets `forge-mods-2026-11-19` (`237,169` B, SHA-256 `3e56bb219cf2bbb6e5225dd0ffdd715db848bd0ea815723af38b76801fc36cb9`, content hash `8e62f7c7d7d801322aad33b89747479b652f220d7eaa8141be2d333d704caf12`). |
+| Empire LEGO Yoda Death 0.2.0 (`clonedivers.empire-lego-yoda`) | Optional default (`gameplay: false`, `coop: per-player`); Empire + `12` Clone torso visuals (`227` `yoda_test` checks + `ScanVisuals == 12/12` PASS) | Project-owned SDK-16 C mod (`forge-mods/empire-lego-yoda`; copyrighted audio excluded from git), targets `forge-mods-2026-11-19` (`53,080` B, SHA-256 `4129a74fe069e7ca951174af603875cb0cf019c8c22c9ddfe4088127a4542004`, content hash `e16e40febdabdd4fa4fb43d3ce12528a76c2cca418c931e568d96bfea2958bbf`). |
+| Empire AT-ST Film-Scale Leaf Writer 0.1.0 (`clonedivers.empire-atst-writer`) | Optional default (`gameplay: false`, `coop: per-player`); S2c film-scale `EXO-45/49` leaf writer for up to `4` co-op walkers (`< 1.05e-6 m` yawed pose error, fail-closed) | Project-owned SDK-16 C mod (`forge-mods/empire-atst-writer`), targets `forge-mods-2026-11-19` (`33,111` B, SHA-256 `9321cec6d266d115281581f177ad19bc8eb0a2de0e0e8f0159714336c33f63fa`, content hash `4738f726cee1c5ab189b57b66e1ec62d1c3c3e0eaf96f05baaaaf1bde5762315`). |
+| Empire per-attack TIE (lab candidate) 0.3.0 (`clonedivers.empire-tie-switch`) | Optional default (`gameplay: false`, `coop: per-player`); build `25480438` `RefcountedPackageSystem` `eagle_base` fallback + 4-player sortie tracking (`1,160` C checks PASS, fail-closed on non-TIE packs) | Project-owned SDK-16 C mod (`forge-mods/empire-tie-switch`), targets `forge-mods-2026-11-19` (`19,649` B, SHA-256 `a80e9f8745ae99d5751b69878dadb0ac95e21d70f3185ef93ebbb4cd7028d747`, content hash `2daff0d6486766f07700b7c9389f4388a7accaa6431c132170f98afaddc79d16`). |
+| Chaos Invasions 0.3.0 (`clonedivers.chaos-invasions`) | Optional default (`gameplay: true`); host-authoritative Dropships/Warp Ships/Breaches on `patch_910`, all-peer preload barrier, host-migration continuity (`225` C + `52` LuaJIT checks PASS) | Project-owned SDK-16 C mod (`forge-mods/chaos-invasions`), targets `forge-mods-2026-11-19` (`33,855` B, SHA-256 `1f5f8a746c7b063e067fb3d9e9e15c4822cfab66dd1366f25578d12943b1b00f`, content hash `cd45f2b705a73e33bbe01d862d3e17b31791661e72014185eb5f1e8014a466d4`). |
+| Clear Skies 0.5.4 | Excluded from public distribution & `r5` | `MIT` C source, but bundled `ee6b1ba7e22d71ed.patch_0` is marked not cleared for public redistribution (`hf-mirrors/AUDIT-REPORT.md`). |
+| Faster Corpse Cleanup 1.0.6 | Excluded from default co-op preset | `MIT`; lacks `hf->session()` host gate before `native_remove_entity` on co-op joiners and allows per-client `DelaySeconds` slider drift (`hf-mirrors/AUDIT-REPORT.md`). |
+| Simple Armor Passive Picker 1.4.2 | Excluded from default co-op preset | `MIT` Lua addon; `read_cache()` gates on `locals == 1` and reads slot `0` (`players + 0xe8`) only (`hf-mirrors/AUDIT-REPORT.md`). |
+| Mod Options Menu v1.2.1 & Reinforcement Beacons Fixed 4.6.1 | Retired / automatically disabled by `r5` | Integrated natively inside `Vanilla Plus Megapack 0.2.1`; standalone copies are flagged by `HellForgePreset.IsConflictingAlternative`. |
+| Native Smarter SEAF 1.1.0 (`chef.smarter-seaf`) | Retired / automatically disabled by `r5` | `hf-mod.com` `File/144` offline after `2026-11-19` (`All rights reserved`); replaced by official GitHub `Smarter SEAF 1.0.4` (`pack.f7c3abbe-902c-41a7-8183-057a6ab15768`). |
+| D11 Mine Boundary Fix 0.1.1 (`local.clonedivers-mine-boundary`) | Retired/disabled on engine `0.1.47` | Engine `0.1.47` supplies the bounds/loading fix natively. |
+| Scope Framing 0.3.5, Captain of the S.E.A.F. 4.5.1, Chaos Divers 1.1.0, Cyberstan Rising 1.0.6, Gameplay Reforged, Pick Your Bots/Bugs/Squids, Armored Overhaul, SEAF Companion, Supreme Command | Conflicting / incompatible — blocked before launch | Detected by `HellForgePreset.IsConflictingAlternative` (`SEAF Squad` conflict, `0.3.0`-only, hostile SEAF, friendly Automatons, single-player only, or vehicle/director collisions). |
 
-## Appearance and Non-Shipping Boundaries (`1.14.2` / `0.8.2`)
+## Appearance and Qualification Boundaries (`2.0.0` / `0.9.0`)
 
-- **Live baseline vs `1.14.2` / `0.8.2` candidates:** Live feeds remain `Clones` (`2026.09.27-r19`) and `Empire` (`2026.11.08-r45-v4` Full) until `R1`/`R2`. In `1.14.2` / `0.8.2`, `Empire` ships all **4 Compact-LEGO-baked `2026.11.09-r47`** variants (`Full` / `Lighter` × `CIS droids` ON / OFF, with `lambda-fix` `+0.20 m` SEAF personnel Lambda clearance, Stormtrooper lower legs, `crew66`, three Phase II sets, restored Foesmasher, and red Spear trails): `8,738,707,008` B (`Full + Droids`), `6,013,620,208` B (`Full + Native`), `8,961,480,892` B (`Lighter + Droids`, `2,542,440,456` B GPU), and `6,172,775,164` B (`Lighter + Native`). All 4 passed offline `verify_candidate.py` (`0` findings), and `W4` A/B passed on `r47-shuttles` (`14` cycles, `0` events vs Arm A `r45-v4` `12` cycles / `1` crash event).
-- **Non-shipping / held tracks:**
-  - *Per-attack TIE switching (`empire-tie-switch` `0.2.1`):* `0.2.1` (`1,005` C checks + `135` closure parts) passed Sub-Run 1D Part 1 co-loaded with `clean-exit` `0.2.0` on patched `tie-held-root`, and `upstream-pr-eagle-base.patch` is prepared for `>=0.4.1-beta`; stock `0.4.0-beta` lacks `eagle_base`, so TIE switching remains excluded from `build25480438-r4`.
-  - *Lab-only capture & diagnostic mods:* `empire-lego-camera` `0.0.2` (Sub-Run 1A capture helper) and `chaos-probe` `0.1.0` (Sub-Run 3 diagnostic) stay outside player presets.
-  - *Shelved non-shipping tracks:* `at-st` Hulk rig bone-merging (`88` palettes / `198` nodes exceed native `<=64` / `<=128` limits), `empire-weapons` (`E-11`/`DLT-19` lack `.unit` art), and per-instance `mixed-appearances` recipe remain shelved offline and are NOT shipped in `1.14.2` / `0.8.2`.
-
-The owner completed a D11 drop with Heavy/Squad and died; no extraction or
-multiplayer result was reported. Subsequent initialization/ship tests do not
-extend that qualification. Archives listed as downloaded/imported can still be
-disabled. Installing every discussed alternative simultaneously would add known
-conflicts; the pinned baseline is the intended combination.
+- **Feeds-last staging:** Root public feeds (`manifest.json`, `manifest-v3.json`, `manifest-v3-current.json`) remain at live `1.14.2` / `r45-v4` until `R1` asset uploads and `R2` attended acceptance complete.
+- **Clonedivers `2026.11.19-r20` & EmpireDivers `2026.11.19-r48` (`3` enemy skins × `3` texture tiers × `2` Covenant states):**
+  - Both packs support `All CIS Droids`, `Mixed Bots + CIS Droids` (`32` CIS + `45` native Automaton `UNIT`s), and `Native Automatons` across `Full`, `Lighter (Streamed)`, and `Johnson Ultra-Potato (512px)` (`reduced512`), plus opt-in `Covenant` (`1670`, using `patch_1032` mutual exclusion in `r48` against Empire Viper Probe Watcher audio).
+  - `r48` adds `100%` build `25480438` Imperial wardrobe coverage (`135/135` armors, `158/158` helmets, `1,939/1,939` `UNIT`s), S2c film-scale AT-ST (`106` nodes `<= 128`, `[8,1,1]` palettes `<= 64`, paired with `empire-atst-writer 0.1.0`), E-Web UV repair, `18` green orbital turbolaser `PFX`s, Brawny+Lean K-2SO (`B-27`), LEGO mid-back prop tuck, and `5,266/5,266` Imperial VO sound slots across `18` banks.
+  - `r20` adds `6` Compact LEGO Clone kits (`54` 3P `UNIT`s + `94` hiders, paired with `lego-compact-leaf-writer 0.1.0` and `empire-lego-yoda 0.2.0`), LEGO mid-back prop tuck, and Forge `25480438` `3,246`-key US localization (`18` Clone kit labels).
+- **Open live `R2` gates (`runtimeTested: false`):** Offline `verify_candidate.py`, strict C11/LuaJIT/Wwise checks, 5-suite `run-suites.ps1`, isolated `uia-wizard-smoke.ps1`, and 65-check `mp_sim_test.py` pass; attended live desktop `R2` gameplay, multi-PC co-op, AT-ST/TIE/Chaos/Compact-LEGO in-mission checks, weak-PC `512px` telemetry, and Linux Proton sessions remain open.

@@ -1,0 +1,4651 @@
+{
+  "format": 3,
+  "pack": {
+    "version": "2026.11.19-r48",
+    "name": "EmpireDivers Forge",
+    "notes": "Empire r48: repaired AT-ST Scout Strider, Imperial FRV/Pelican/Drop Pod/Flag/Star Destroyer visuals, 24-kit Imperial armor roster with 344 US text strings, 4,624 Imperial trooper voice lines across 18 banks, selectable All CIS / Mixed Bots + CIS / Native Automatons, Wwise-deconflicted Covenant 1670, and Full / Lighter / Johnson Ultra-Potato (512px) texture tiers.",
+    "gameBuild": "25480438",
+    "gameDepots": [
+      "1883032874832282552",
+      "2566883558412717494",
+      "9065746766815828060",
+      "1417949467559619757",
+      "3382210389809902281"
+    ],
+    "status": "ok",
+    "statusNotes": "All 18 variants (3 texture tiers x 3 enemy skins x Covenant on/off) passed verify_candidate.py (0 missing dependencies, 0 geometry errors, 0 codec mismatches across 437 banks).",
+    "combinedRoster": true,
+    "textureProfiles": [
+      {
+        "id": "full",
+        "name": "Full textures",
+        "description": "Original texture detail."
+      },
+      {
+        "id": "lighter",
+        "name": "Lighter textures",
+        "description": "Full texture detail, streamed as needed."
+      },
+      {
+        "id": "reduced512",
+        "name": "Johnson Ultra-Potato (512px)",
+        "description": "512px texture cap for low-VRAM GPUs or slower asset streaming; softer distant textures, same meshes and audio."
+      }
+    ],
+    "options": [
+      {
+        "id": "commandos",
+        "name": "Delta Squad",
+        "description": "Delta Squad is elite.",
+        "default": false
+      },
+      {
+        "id": "droids",
+        "name": "Droid skins",
+        "description": "Use CIS enemies, vehicles and structures. Enemy audio stays unchanged.",
+        "default": true
+      },
+      {
+        "id": "mixed-droids",
+        "name": "Mixed Bots + CIS Droids",
+        "description": "Mix curated CIS battle droids with native Automaton heavy units and vehicles.",
+        "default": false
+      },
+      {
+        "id": "aimpoints",
+        "name": "Walker weapons",
+        "description": "Show original MTT cannons and spider-droid weapons. Does not add eye/vent markers or change hitboxes.",
+        "default": true
+      },
+      {
+        "id": "covenant",
+        "name": "Covenant squids",
+        "description": "Covenant models and voices for core Illuminate units. Newer units remain vanilla.",
+        "default": false
+      },
+      {
+        "id": "empire",
+        "name": "EmpireDivers",
+        "description": "Imperial armor, Star Destroyers, gray LAAT, AT-STs and battle intro with the shared Clonedivers weapon and vehicle setup.",
+        "default": true
+      }
+    ],
+    "files": [
+      {
+        "name": "9ba626afa44a3aa3.patch_1000",
+        "url": "https://github.com/owendavidgoode/clonedivers/releases/download/pack-2026.11.19-r48-files/d2530adaf13c7d6c45c9d17868512f0267add50a3289c260e870deb5fe708a3d",
+        "size": 11406112,
+        "sha256": "d2530adaf13c7d6c45c9d17868512f0267add50a3289c260e870deb5fe708a3d",
+        "modes": [
+          "empire"
+        ],
+        "textureProfiles": [
+          "full"
+        ]
+      },
+      {
+        "name": "9ba626afa44a3aa3.patch_1000",
+        "url": "https://github.com/owendavidgoode/clonedivers/releases/download/pack-2026.11.19-r48-files/17bba86b85a8f0e634681253ab8133d25ccdc345e0c39526e9290d7164d4a5f7",
+        "size": 11406112,
+        "sha256": "17bba86b85a8f0e634681253ab8133d25ccdc345e0c39526e9290d7164d4a5f7",
+        "modes": [
+          "empire"
+        ],
+        "textureProfiles": [
+          "lighter"
+        ]
+      },
+      {
+        "name": "9ba626afa44a3aa3.patch_1000",
+        "url": "https://github.com/owendavidgoode/clonedivers/releases/download/pack-2026.11.19-r48-files/b9168a4e063480485440979ae884c53648f30726d21ef44bd739ac9e13a333b5",
+        "size": 11406112,
+        "sha256": "b9168a4e063480485440979ae884c53648f30726d21ef44bd739ac9e13a333b5",
+        "modes": [
+          "empire"
+        ],
+        "textureProfiles": [
+          "reduced512"
+        ]
+      },
+      {
+        "name": "9ba626afa44a3aa3.patch_1000.gpu_resources",
+        "url": "https://github.com/owendavidgoode/clonedivers/releases/download/pack-2026.11.19-r48-files/3e4afa597194080baba5d9713aec7f3f473a6a54b2de9559efb6964ea93ea7c6",
+        "size": 320079360,
+        "sha256": "3e4afa597194080baba5d9713aec7f3f473a6a54b2de9559efb6964ea93ea7c6",
+        "modes": [
+          "empire"
+        ],
+        "textureProfiles": [
+          "full"
+        ]
+      },
+      {
+        "name": "9ba626afa44a3aa3.patch_1000.gpu_resources",
+        "url": "https://github.com/owendavidgoode/clonedivers/releases/download/pack-2026.11.19-r48-files/686abde9ca89cceb4217bd5cb44a5701d0a3ce4236a48877a2c771a3f213a6a8",
+        "size": 137938372,
+        "sha256": "686abde9ca89cceb4217bd5cb44a5701d0a3ce4236a48877a2c771a3f213a6a8",
+        "modes": [
+          "empire"
+        ],
+        "textureProfiles": [
+          "lighter"
+        ]
+      },
+      {
+        "name": "9ba626afa44a3aa3.patch_1000.gpu_resources",
+        "url": "https://github.com/owendavidgoode/clonedivers/releases/download/pack-2026.11.19-r48-files/ec757395da3298b5e7569c759936e950a9270a316d94ac9cf68e13aac5fc2ce3",
+        "size": 119493060,
+        "sha256": "ec757395da3298b5e7569c759936e950a9270a316d94ac9cf68e13aac5fc2ce3",
+        "modes": [
+          "empire"
+        ],
+        "textureProfiles": [
+          "reduced512"
+        ]
+      },
+      {
+        "name": "9ba626afa44a3aa3.patch_1000.stream",
+        "url": "https://github.com/owendavidgoode/clonedivers/releases/download/pack-2026.11.19-r48-files/a3b96d918994c85060f5e9f426fa0dd6eb1726dd944ecfa6961b3b0ea22e0648",
+        "size": 38152832,
+        "sha256": "a3b96d918994c85060f5e9f426fa0dd6eb1726dd944ecfa6961b3b0ea22e0648",
+        "modes": [
+          "empire"
+        ],
+        "textureProfiles": [
+          "full"
+        ]
+      },
+      {
+        "name": "9ba626afa44a3aa3.patch_1000.stream",
+        "url": "https://github.com/owendavidgoode/clonedivers/releases/download/pack-2026.11.19-r48-files/b5305d03156d1ee260413d7de0a230a4e8aa764e57572718d6f37a88abef40da",
+        "size": 228994672,
+        "sha256": "b5305d03156d1ee260413d7de0a230a4e8aa764e57572718d6f37a88abef40da",
+        "modes": [
+          "empire"
+        ],
+        "textureProfiles": [
+          "lighter"
+        ]
+      },
+      {
+        "name": "9ba626afa44a3aa3.patch_1000.stream",
+        "url": "https://github.com/owendavidgoode/clonedivers/releases/download/pack-2026.11.19-r48-files/1e4b12fcc0b2065092e227ceac71677fe518088ca303b83b4e383d70ed57ec4d",
+        "size": 57165368,
+        "sha256": "1e4b12fcc0b2065092e227ceac71677fe518088ca303b83b4e383d70ed57ec4d",
+        "modes": [
+          "empire"
+        ],
+        "textureProfiles": [
+          "reduced512"
+        ]
+      },
+      {
+        "name": "9ba626afa44a3aa3.patch_1001",
+        "url": "https://github.com/owendavidgoode/clonedivers/releases/download/pack-2026.11.19-r48-files/10608ab1952084254607c2603f0bd404b7c137a8064bc8927f9a851b97c325a9",
+        "size": 12771552,
+        "sha256": "10608ab1952084254607c2603f0bd404b7c137a8064bc8927f9a851b97c325a9",
+        "modes": [
+          "empire"
+        ],
+        "textureProfiles": [
+          "full"
+        ]
+      },
+      {
+        "name": "9ba626afa44a3aa3.patch_1001",
+        "url": "https://github.com/owendavidgoode/clonedivers/releases/download/pack-2026.11.19-r48-files/6851a6a8ca04d76cc9a9b90c3aa7549dc1d8616f79781e054b56d89f2c36df51",
+        "size": 12771552,
+        "sha256": "6851a6a8ca04d76cc9a9b90c3aa7549dc1d8616f79781e054b56d89f2c36df51",
+        "modes": [
+          "empire"
+        ],
+        "textureProfiles": [
+          "lighter"
+        ]
+      },
+      {
+        "name": "9ba626afa44a3aa3.patch_1001",
+        "url": "https://github.com/owendavidgoode/clonedivers/releases/download/pack-2026.11.19-r48-files/39921d5a2ec297bbc4505374b6c934e63dcb86c9cc6fc48fa75a5787742e89e5",
+        "size": 12771552,
+        "sha256": "39921d5a2ec297bbc4505374b6c934e63dcb86c9cc6fc48fa75a5787742e89e5",
+        "modes": [
+          "empire"
+        ],
+        "textureProfiles": [
+          "reduced512"
+        ]
+      },
+      {
+        "name": "9ba626afa44a3aa3.patch_1001.gpu_resources",
+        "url": "https://github.com/owendavidgoode/clonedivers/releases/download/pack-2026.11.19-r48-files/539d06f33cd05ceabafe26cc7c28f242d5cd00833fe4e36432cf3e593c48b5bf",
+        "size": 236851648,
+        "sha256": "539d06f33cd05ceabafe26cc7c28f242d5cd00833fe4e36432cf3e593c48b5bf",
+        "modes": [
+          "empire"
+        ],
+        "textureProfiles": [
+          "full"
+        ]
+      },
+      {
+        "name": "9ba626afa44a3aa3.patch_1001.gpu_resources",
+        "url": "https://github.com/owendavidgoode/clonedivers/releases/download/pack-2026.11.19-r48-files/47c3b4f70cc09e306756f9e238be7635e8b400bd8c18588bff612cc9b25610a2",
+        "size": 83235264,
+        "sha256": "47c3b4f70cc09e306756f9e238be7635e8b400bd8c18588bff612cc9b25610a2",
+        "modes": [
+          "empire"
+        ],
+        "textureProfiles": [
+          "lighter"
+        ]
+      },
+      {
+        "name": "9ba626afa44a3aa3.patch_1001.gpu_resources",
+        "url": "https://github.com/owendavidgoode/clonedivers/releases/download/pack-2026.11.19-r48-files/78f491494f44580ae71510132554ef1119d8095773a73597eff2dd528982d7d8",
+        "size": 60350912,
+        "sha256": "78f491494f44580ae71510132554ef1119d8095773a73597eff2dd528982d7d8",
+        "modes": [
+          "empire"
+        ],
+        "textureProfiles": [
+          "reduced512"
+        ]
+      },
+      {
+        "name": "9ba626afa44a3aa3.patch_1001.stream",
+        "url": "https://github.com/owendavidgoode/clonedivers/releases/download/pack-2026.11.19-r48-files/e8f7c85f51c525f1235b97611041751fc2fca7053b5d37df707c2ae95b7ddc2a",
+        "size": 40474560,
+        "sha256": "e8f7c85f51c525f1235b97611041751fc2fca7053b5d37df707c2ae95b7ddc2a",
+        "modes": [
+          "empire"
+        ],
+        "textureProfiles": [
+          "full"
+        ]
+      },
+      {
+        "name": "9ba626afa44a3aa3.patch_1001.stream",
+        "url": "https://github.com/owendavidgoode/clonedivers/releases/download/pack-2026.11.19-r48-files/afd1c2ddf577a95aa53041a697b5719eabb416a07007a19375ec9a9d6eb131fd",
+        "size": 204752752,
+        "sha256": "afd1c2ddf577a95aa53041a697b5719eabb416a07007a19375ec9a9d6eb131fd",
+        "modes": [
+          "empire"
+        ],
+        "textureProfiles": [
+          "lighter"
+        ]
+      },
+      {
+        "name": "9ba626afa44a3aa3.patch_1001.stream",
+        "url": "https://github.com/owendavidgoode/clonedivers/releases/download/pack-2026.11.19-r48-files/bc4ef7bdc02199c3ade5dc4c030973c7cdaf3daadce9d4533121b1e073c19caf",
+        "size": 65030776,
+        "sha256": "bc4ef7bdc02199c3ade5dc4c030973c7cdaf3daadce9d4533121b1e073c19caf",
+        "modes": [
+          "empire"
+        ],
+        "textureProfiles": [
+          "reduced512"
+        ]
+      },
+      {
+        "name": "9ba626afa44a3aa3.patch_1002",
+        "url": "https://github.com/owendavidgoode/clonedivers/releases/download/pack-2026.11.19-r48-files/ea743c62f332f64ffe5999af680ed6966e52e4a4732704018d10992498fa6196",
+        "size": 1628560,
+        "sha256": "ea743c62f332f64ffe5999af680ed6966e52e4a4732704018d10992498fa6196",
+        "modes": [
+          "empire"
+        ],
+        "textureProfiles": [
+          "full"
+        ]
+      },
+      {
+        "name": "9ba626afa44a3aa3.patch_1002",
+        "url": "https://github.com/owendavidgoode/clonedivers/releases/download/pack-2026.11.19-r48-files/66c0e68de080aad889b7894f9d0bbd3caa5e5c21adf520cbcbec57e7f96c0849",
+        "size": 1628560,
+        "sha256": "66c0e68de080aad889b7894f9d0bbd3caa5e5c21adf520cbcbec57e7f96c0849",
+        "modes": [
+          "empire"
+        ],
+        "textureProfiles": [
+          "lighter"
+        ]
+      },
+      {
+        "name": "9ba626afa44a3aa3.patch_1002",
+        "url": "https://github.com/owendavidgoode/clonedivers/releases/download/pack-2026.11.19-r48-files/e93ed52a2aa12184011717a6a91e4b86b029bfebe9d50fddbb7a5548867df948",
+        "size": 1628560,
+        "sha256": "e93ed52a2aa12184011717a6a91e4b86b029bfebe9d50fddbb7a5548867df948",
+        "modes": [
+          "empire"
+        ],
+        "textureProfiles": [
+          "reduced512"
+        ]
+      },
+      {
+        "name": "9ba626afa44a3aa3.patch_1002.gpu_resources",
+        "url": "https://github.com/owendavidgoode/clonedivers/releases/download/pack-2026.11.19-r48-files/533bf284227c2388359330ae755aeb402d33265389588e74bddd13404200c194",
+        "size": 176991552,
+        "sha256": "533bf284227c2388359330ae755aeb402d33265389588e74bddd13404200c194",
+        "modes": [
+          "empire"
+        ],
+        "textureProfiles": [
+          "full"
+        ]
+      },
+      {
+        "name": "9ba626afa44a3aa3.patch_1002.gpu_resources",
+        "url": "https://github.com/owendavidgoode/clonedivers/releases/download/pack-2026.11.19-r48-files/60fe3116b232cb23b71ed03390c2645a21b220afe9cf370dc8855b74d1084018",
+        "size": 82619680,
+        "sha256": "60fe3116b232cb23b71ed03390c2645a21b220afe9cf370dc8855b74d1084018",
+        "modes": [
+          "empire"
+        ],
+        "textureProfiles": [
+          "lighter"
+        ]
+      },
+      {
+        "name": "9ba626afa44a3aa3.patch_1002.gpu_resources",
+        "url": "https://github.com/owendavidgoode/clonedivers/releases/download/pack-2026.11.19-r48-files/62144a31693c5dbf0cb28e7d0f0997041512bc2d516ff7f0490c4c12eaf4fb4a",
+        "size": 62811424,
+        "sha256": "62144a31693c5dbf0cb28e7d0f0997041512bc2d516ff7f0490c4c12eaf4fb4a",
+        "modes": [
+          "empire"
+        ],
+        "textureProfiles": [
+          "reduced512"
+        ]
+      },
+      {
+        "name": "9ba626afa44a3aa3.patch_1002.stream",
+        "url": "https://github.com/owendavidgoode/clonedivers/releases/download/pack-2026.11.19-r48-files/2a3092410114334288272d4fb5f5160b85a9d6326c9e6f4c7b59578b9fda340f",
+        "size": 32444352,
+        "sha256": "2a3092410114334288272d4fb5f5160b85a9d6326c9e6f4c7b59578b9fda340f",
+        "modes": [
+          "empire"
+        ],
+        "textureProfiles": [
+          "full"
+        ]
+      },
+      {
+        "name": "9ba626afa44a3aa3.patch_1002.stream",
+        "url": "https://github.com/owendavidgoode/clonedivers/releases/download/pack-2026.11.19-r48-files/b542ac1fee64dcb403b3cc3886f0a8ed6a036d19b01378f2f35483dc2c143fcd",
+        "size": 131710136,
+        "sha256": "b542ac1fee64dcb403b3cc3886f0a8ed6a036d19b01378f2f35483dc2c143fcd",
+        "modes": [
+          "empire"
+        ],
+        "textureProfiles": [
+          "lighter"
+        ]
+      },
+      {
+        "name": "9ba626afa44a3aa3.patch_1002.stream",
+        "url": "https://github.com/owendavidgoode/clonedivers/releases/download/pack-2026.11.19-r48-files/ee305f80e90af2b5dab545d5c50a0bc9252b1d67c98552471e497ad65d98ec20",
+        "size": 52915184,
+        "sha256": "ee305f80e90af2b5dab545d5c50a0bc9252b1d67c98552471e497ad65d98ec20",
+        "modes": [
+          "empire"
+        ],
+        "textureProfiles": [
+          "reduced512"
+        ]
+      },
+      {
+        "name": "9ba626afa44a3aa3.patch_1003",
+        "url": "https://github.com/owendavidgoode/clonedivers/releases/download/pack-2026.11.19-r48-files/73f95c45da9a4fc44ad45d2f6f9f7f0186d85c53e35fb430b6454a829979ee7f",
+        "size": 9007328,
+        "sha256": "73f95c45da9a4fc44ad45d2f6f9f7f0186d85c53e35fb430b6454a829979ee7f",
+        "modes": [
+          "empire"
+        ],
+        "textureProfiles": [
+          "full"
+        ]
+      },
+      {
+        "name": "9ba626afa44a3aa3.patch_1003",
+        "url": "https://github.com/owendavidgoode/clonedivers/releases/download/pack-2026.11.19-r48-files/bcde9f80975865f030036ef3ef3b35926577e73e1ef0071297d6216eae16553c",
+        "size": 9007328,
+        "sha256": "bcde9f80975865f030036ef3ef3b35926577e73e1ef0071297d6216eae16553c",
+        "modes": [
+          "empire"
+        ],
+        "textureProfiles": [
+          "lighter"
+        ]
+      },
+      {
+        "name": "9ba626afa44a3aa3.patch_1003",
+        "url": "https://github.com/owendavidgoode/clonedivers/releases/download/pack-2026.11.19-r48-files/2ae2aaab2216fca299ad3af2cc329c1bdc91492d5a1fb5f82b328c8f76971020",
+        "size": 9007328,
+        "sha256": "2ae2aaab2216fca299ad3af2cc329c1bdc91492d5a1fb5f82b328c8f76971020",
+        "modes": [
+          "empire"
+        ],
+        "textureProfiles": [
+          "reduced512"
+        ]
+      },
+      {
+        "name": "9ba626afa44a3aa3.patch_1003.gpu_resources",
+        "url": "https://github.com/owendavidgoode/clonedivers/releases/download/pack-2026.11.19-r48-files/ae2aad035b262ed599206e2407da0da822d3399872a5fff741077bd4b2466352",
+        "size": 216644928,
+        "sha256": "ae2aad035b262ed599206e2407da0da822d3399872a5fff741077bd4b2466352",
+        "modes": [
+          "empire"
+        ],
+        "textureProfiles": [
+          "full"
+        ]
+      },
+      {
+        "name": "9ba626afa44a3aa3.patch_1003.gpu_resources",
+        "url": "https://github.com/owendavidgoode/clonedivers/releases/download/pack-2026.11.19-r48-files/c345df1f8475bfaffaa8712dacc6417960b195aa7caf408a7cdf32ab4f1d5dfc",
+        "size": 137477384,
+        "sha256": "c345df1f8475bfaffaa8712dacc6417960b195aa7caf408a7cdf32ab4f1d5dfc",
+        "modes": [
+          "empire"
+        ],
+        "textureProfiles": [
+          "lighter"
+        ]
+      },
+      {
+        "name": "9ba626afa44a3aa3.patch_1003.gpu_resources",
+        "url": "https://github.com/owendavidgoode/clonedivers/releases/download/pack-2026.11.19-r48-files/cb13a5a519884484dfbd3482958a36eecaab31fa84bc1c4710d088bba3f539eb",
+        "size": 116538632,
+        "sha256": "cb13a5a519884484dfbd3482958a36eecaab31fa84bc1c4710d088bba3f539eb",
+        "modes": [
+          "empire"
+        ],
+        "textureProfiles": [
+          "reduced512"
+        ]
+      },
+      {
+        "name": "9ba626afa44a3aa3.patch_1003.stream",
+        "url": "https://github.com/owendavidgoode/clonedivers/releases/download/pack-2026.11.19-r48-files/0fafaee102ea6d0e6e560917536161489f81acd6515f1228b00c19dcf7cf5fde",
+        "size": 37531456,
+        "sha256": "0fafaee102ea6d0e6e560917536161489f81acd6515f1228b00c19dcf7cf5fde",
+        "modes": [
+          "empire"
+        ],
+        "textureProfiles": [
+          "full"
+        ]
+      },
+      {
+        "name": "9ba626afa44a3aa3.patch_1003.stream",
+        "url": "https://github.com/owendavidgoode/clonedivers/releases/download/pack-2026.11.19-r48-files/c5194773cad776f7d4808f9ed958d044469cba0eef3f56d616cdee5e57bde30a",
+        "size": 124214640,
+        "sha256": "c5194773cad776f7d4808f9ed958d044469cba0eef3f56d616cdee5e57bde30a",
+        "modes": [
+          "empire"
+        ],
+        "textureProfiles": [
+          "lighter"
+        ]
+      },
+      {
+        "name": "9ba626afa44a3aa3.patch_1003.stream",
+        "url": "https://github.com/owendavidgoode/clonedivers/releases/download/pack-2026.11.19-r48-files/7748d733348d70e59ad92e6b1e6638c085c77d80ac974bb9d7a929a305072af7",
+        "size": 55293488,
+        "sha256": "7748d733348d70e59ad92e6b1e6638c085c77d80ac974bb9d7a929a305072af7",
+        "modes": [
+          "empire"
+        ],
+        "textureProfiles": [
+          "reduced512"
+        ]
+      },
+      {
+        "name": "9ba626afa44a3aa3.patch_1004",
+        "url": "https://github.com/owendavidgoode/clonedivers/releases/download/pack-2026.11.19-r48-files/ec400c4d3f98a67d52ce7d7695b18a8789ff7e1808142091dccd7498726520ed",
+        "size": 20405472,
+        "sha256": "ec400c4d3f98a67d52ce7d7695b18a8789ff7e1808142091dccd7498726520ed",
+        "modes": [
+          "empire"
+        ],
+        "textureProfiles": [
+          "full"
+        ]
+      },
+      {
+        "name": "9ba626afa44a3aa3.patch_1004",
+        "url": "https://github.com/owendavidgoode/clonedivers/releases/download/pack-2026.11.19-r48-files/ffcc0f17d2e49f9b479267ff41d3cf60e79d63a9d8be533377cde391fa1216e1",
+        "size": 20405472,
+        "sha256": "ffcc0f17d2e49f9b479267ff41d3cf60e79d63a9d8be533377cde391fa1216e1",
+        "modes": [
+          "empire"
+        ],
+        "textureProfiles": [
+          "lighter"
+        ]
+      },
+      {
+        "name": "9ba626afa44a3aa3.patch_1004",
+        "url": "https://github.com/owendavidgoode/clonedivers/releases/download/pack-2026.11.19-r48-files/74be3c183ce1884a1bb6a8c7d4e684c90fc30aa42d99da03b3497428dbf9e86e",
+        "size": 20405472,
+        "sha256": "74be3c183ce1884a1bb6a8c7d4e684c90fc30aa42d99da03b3497428dbf9e86e",
+        "modes": [
+          "empire"
+        ],
+        "textureProfiles": [
+          "reduced512"
+        ]
+      },
+      {
+        "name": "9ba626afa44a3aa3.patch_1004.gpu_resources",
+        "url": "https://github.com/owendavidgoode/clonedivers/releases/download/pack-2026.11.19-r48-files/23641b2efaee9f07b6dbff3e6bbd4e6711a8ddb000190893bfdf8dc772497a26",
+        "size": 282342080,
+        "sha256": "23641b2efaee9f07b6dbff3e6bbd4e6711a8ddb000190893bfdf8dc772497a26",
+        "modes": [
+          "empire"
+        ],
+        "textureProfiles": [
+          "full"
+        ]
+      },
+      {
+        "name": "9ba626afa44a3aa3.patch_1004.gpu_resources",
+        "url": "https://github.com/owendavidgoode/clonedivers/releases/download/pack-2026.11.19-r48-files/85d01730ebe9df9e292543af2b718438216160acd6ee72169ff4d29c94b76a3d",
+        "size": 158610072,
+        "sha256": "85d01730ebe9df9e292543af2b718438216160acd6ee72169ff4d29c94b76a3d",
+        "modes": [
+          "empire"
+        ],
+        "textureProfiles": [
+          "lighter"
+        ]
+      },
+      {
+        "name": "9ba626afa44a3aa3.patch_1004.gpu_resources",
+        "url": "https://github.com/owendavidgoode/clonedivers/releases/download/pack-2026.11.19-r48-files/c207d923767d0485f14b7154f1bc8ae40171333faefc717427bad626fd45cf5b",
+        "size": 135344792,
+        "sha256": "c207d923767d0485f14b7154f1bc8ae40171333faefc717427bad626fd45cf5b",
+        "modes": [
+          "empire"
+        ],
+        "textureProfiles": [
+          "reduced512"
+        ]
+      },
+      {
+        "name": "9ba626afa44a3aa3.patch_1004.stream",
+        "url": "https://github.com/owendavidgoode/clonedivers/releases/download/pack-2026.11.19-r48-files/17a2d3024cd8d71e420f93b0b648261684ee429df43c3d5e89775d66c19999f8",
+        "size": 32369984,
+        "sha256": "17a2d3024cd8d71e420f93b0b648261684ee429df43c3d5e89775d66c19999f8",
+        "modes": [
+          "empire"
+        ],
+        "textureProfiles": [
+          "full"
+        ]
+      },
+      {
+        "name": "9ba626afa44a3aa3.patch_1004.stream",
+        "url": "https://github.com/owendavidgoode/clonedivers/releases/download/pack-2026.11.19-r48-files/e21f61d62fe8559dd1e1fa9fd7389e19249c6193cbe8c64de856f12bce710e45",
+        "size": 167288080,
+        "sha256": "e21f61d62fe8559dd1e1fa9fd7389e19249c6193cbe8c64de856f12bce710e45",
+        "modes": [
+          "empire"
+        ],
+        "textureProfiles": [
+          "lighter"
+        ]
+      },
+      {
+        "name": "9ba626afa44a3aa3.patch_1004.stream",
+        "url": "https://github.com/owendavidgoode/clonedivers/releases/download/pack-2026.11.19-r48-files/71f0db4cc54dcf356bd6b1fc37f08083db0680aa1ce11fd35d65ff03d43858a5",
+        "size": 57188368,
+        "sha256": "71f0db4cc54dcf356bd6b1fc37f08083db0680aa1ce11fd35d65ff03d43858a5",
+        "modes": [
+          "empire"
+        ],
+        "textureProfiles": [
+          "reduced512"
+        ]
+      },
+      {
+        "name": "9ba626afa44a3aa3.patch_1005",
+        "url": "https://github.com/owendavidgoode/clonedivers/releases/download/pack-2026.11.19-r48-files/caf62b6691cb08bb95043add5ef66c74f629796a03038d3d3f2bf8cee5f039a7",
+        "size": 13847072,
+        "sha256": "caf62b6691cb08bb95043add5ef66c74f629796a03038d3d3f2bf8cee5f039a7",
+        "modes": [
+          "empire"
+        ],
+        "textureProfiles": [
+          "full"
+        ]
+      },
+      {
+        "name": "9ba626afa44a3aa3.patch_1005",
+        "url": "https://github.com/owendavidgoode/clonedivers/releases/download/pack-2026.11.19-r48-files/bc18af8d4935aefc2bea99532b8669fae43ffbacd36fdbaec77f2ab544d4affd",
+        "size": 13847072,
+        "sha256": "bc18af8d4935aefc2bea99532b8669fae43ffbacd36fdbaec77f2ab544d4affd",
+        "modes": [
+          "empire"
+        ],
+        "textureProfiles": [
+          "lighter"
+        ]
+      },
+      {
+        "name": "9ba626afa44a3aa3.patch_1005",
+        "url": "https://github.com/owendavidgoode/clonedivers/releases/download/pack-2026.11.19-r48-files/f5e91d1f578b433bb18dcfe2ffbaf0302948d6efc4f8392f08e6f7844bf0d6a4",
+        "size": 13847072,
+        "sha256": "f5e91d1f578b433bb18dcfe2ffbaf0302948d6efc4f8392f08e6f7844bf0d6a4",
+        "modes": [
+          "empire"
+        ],
+        "textureProfiles": [
+          "reduced512"
+        ]
+      },
+      {
+        "name": "9ba626afa44a3aa3.patch_1005.gpu_resources",
+        "url": "https://github.com/owendavidgoode/clonedivers/releases/download/pack-2026.11.19-r48-files/00ab914d2e4afb4afc213e2d4bc3e31a5b35c9c8ea0de8f5bfbe3756e849e654",
+        "size": 184794624,
+        "sha256": "00ab914d2e4afb4afc213e2d4bc3e31a5b35c9c8ea0de8f5bfbe3756e849e654",
+        "modes": [
+          "empire"
+        ],
+        "textureProfiles": [
+          "full"
+        ]
+      },
+      {
+        "name": "9ba626afa44a3aa3.patch_1005.gpu_resources",
+        "url": "https://github.com/owendavidgoode/clonedivers/releases/download/pack-2026.11.19-r48-files/7922855c3597086595a99b03d6fecf6f7f72523c2977ea1932caa30f7096cc0a",
+        "size": 87997894,
+        "sha256": "7922855c3597086595a99b03d6fecf6f7f72523c2977ea1932caa30f7096cc0a",
+        "modes": [
+          "empire"
+        ],
+        "textureProfiles": [
+          "lighter"
+        ]
+      },
+      {
+        "name": "9ba626afa44a3aa3.patch_1005.gpu_resources",
+        "url": "https://github.com/owendavidgoode/clonedivers/releases/download/pack-2026.11.19-r48-files/ae3f4b00306c197ad710b237efde692b096a99142a2df54b187f0dfeef386c4c",
+        "size": 61844934,
+        "sha256": "ae3f4b00306c197ad710b237efde692b096a99142a2df54b187f0dfeef386c4c",
+        "modes": [
+          "empire"
+        ],
+        "textureProfiles": [
+          "reduced512"
+        ]
+      },
+      {
+        "name": "9ba626afa44a3aa3.patch_1005.stream",
+        "url": "https://github.com/owendavidgoode/clonedivers/releases/download/pack-2026.11.19-r48-files/cb5db27bc59c3c0062c20dcf8c97a65a797eefa24d6a961b3bfa7334e1c0463d",
+        "size": 30956672,
+        "sha256": "cb5db27bc59c3c0062c20dcf8c97a65a797eefa24d6a961b3bfa7334e1c0463d",
+        "modes": [
+          "empire"
+        ],
+        "textureProfiles": [
+          "full"
+        ]
+      },
+      {
+        "name": "9ba626afa44a3aa3.patch_1005.stream",
+        "url": "https://github.com/owendavidgoode/clonedivers/releases/download/pack-2026.11.19-r48-files/1219b235d4f941b4d2adde257cb69ccaefdc33e59bb912b3830e639a1f1434d4",
+        "size": 137912688,
+        "sha256": "1219b235d4f941b4d2adde257cb69ccaefdc33e59bb912b3830e639a1f1434d4",
+        "modes": [
+          "empire"
+        ],
+        "textureProfiles": [
+          "lighter"
+        ]
+      },
+      {
+        "name": "9ba626afa44a3aa3.patch_1005.stream",
+        "url": "https://github.com/owendavidgoode/clonedivers/releases/download/pack-2026.11.19-r48-files/e1fda757c0dfe23f0b540fac31bfd07ee7040110733096013a81789716054ed3",
+        "size": 58942768,
+        "sha256": "e1fda757c0dfe23f0b540fac31bfd07ee7040110733096013a81789716054ed3",
+        "modes": [
+          "empire"
+        ],
+        "textureProfiles": [
+          "reduced512"
+        ]
+      },
+      {
+        "name": "9ba626afa44a3aa3.patch_1006",
+        "url": "https://github.com/owendavidgoode/clonedivers/releases/download/pack-2026.11.19-r48-files/ac507b4a6b78323c497fc894ed4bae5011904802bbcafeb8c217c629a0c82a88",
+        "size": 6115776,
+        "sha256": "ac507b4a6b78323c497fc894ed4bae5011904802bbcafeb8c217c629a0c82a88",
+        "modes": [
+          "empire"
+        ],
+        "textureProfiles": [
+          "full"
+        ]
+      },
+      {
+        "name": "9ba626afa44a3aa3.patch_1006",
+        "url": "https://github.com/owendavidgoode/clonedivers/releases/download/pack-2026.11.19-r48-files/0d9aee4834118667cd730cde0685d7a6bac5fbd86d323696a2771ee7bef8ec24",
+        "size": 6115776,
+        "sha256": "0d9aee4834118667cd730cde0685d7a6bac5fbd86d323696a2771ee7bef8ec24",
+        "modes": [
+          "empire"
+        ],
+        "textureProfiles": [
+          "lighter"
+        ]
+      },
+      {
+        "name": "9ba626afa44a3aa3.patch_1006",
+        "url": "https://github.com/owendavidgoode/clonedivers/releases/download/pack-2026.11.19-r48-files/329133b03cdbb60cb4e3a52b12b423747d3d8bb2847616d1a424d6362273ad3e",
+        "size": 6115776,
+        "sha256": "329133b03cdbb60cb4e3a52b12b423747d3d8bb2847616d1a424d6362273ad3e",
+        "modes": [
+          "empire"
+        ],
+        "textureProfiles": [
+          "reduced512"
+        ]
+      },
+      {
+        "name": "9ba626afa44a3aa3.patch_1006.gpu_resources",
+        "url": "https://github.com/owendavidgoode/clonedivers/releases/download/pack-2026.11.19-r48-files/96c3dc38f597a54fc9e41474138a268cb61be3279d2952d4efdffd62760b61f9",
+        "size": 166042944,
+        "sha256": "96c3dc38f597a54fc9e41474138a268cb61be3279d2952d4efdffd62760b61f9",
+        "modes": [
+          "empire"
+        ],
+        "textureProfiles": [
+          "full"
+        ]
+      },
+      {
+        "name": "9ba626afa44a3aa3.patch_1006.gpu_resources",
+        "url": "https://github.com/owendavidgoode/clonedivers/releases/download/pack-2026.11.19-r48-files/07e531c604a7aaf85b176ff208b4407bd3e437c9abd2de4d9976255e672dec65",
+        "size": 93166890,
+        "sha256": "07e531c604a7aaf85b176ff208b4407bd3e437c9abd2de4d9976255e672dec65",
+        "modes": [
+          "empire"
+        ],
+        "textureProfiles": [
+          "lighter"
+        ]
+      },
+      {
+        "name": "9ba626afa44a3aa3.patch_1006.gpu_resources",
+        "url": "https://github.com/owendavidgoode/clonedivers/releases/download/pack-2026.11.19-r48-files/8bb96eb4353a45b3c74f93133bc6820e2b3c0216ecb37b6216536e0d61e274e8",
+        "size": 75029802,
+        "sha256": "8bb96eb4353a45b3c74f93133bc6820e2b3c0216ecb37b6216536e0d61e274e8",
+        "modes": [
+          "empire"
+        ],
+        "textureProfiles": [
+          "reduced512"
+        ]
+      },
+      {
+        "name": "9ba626afa44a3aa3.patch_1006.stream",
+        "url": "https://github.com/owendavidgoode/clonedivers/releases/download/pack-2026.11.19-r48-files/3563c6753d93c4bdc0cba4d7be2885a75cf26a7ddff163d9cb41954b21c2b07d",
+        "size": 40981568,
+        "sha256": "3563c6753d93c4bdc0cba4d7be2885a75cf26a7ddff163d9cb41954b21c2b07d",
+        "modes": [
+          "empire"
+        ],
+        "textureProfiles": [
+          "full"
+        ]
+      },
+      {
+        "name": "9ba626afa44a3aa3.patch_1006.stream",
+        "url": "https://github.com/owendavidgoode/clonedivers/releases/download/pack-2026.11.19-r48-files/34b24fa75450f77f5143689f29e4a00ba76b67eeb9cd770554a1e129a12397cc",
+        "size": 122771632,
+        "sha256": "34b24fa75450f77f5143689f29e4a00ba76b67eeb9cd770554a1e129a12397cc",
+        "modes": [
+          "empire"
+        ],
+        "textureProfiles": [
+          "lighter"
+        ]
+      },
+      {
+        "name": "9ba626afa44a3aa3.patch_1006.stream",
+        "url": "https://github.com/owendavidgoode/clonedivers/releases/download/pack-2026.11.19-r48-files/10170b1ba9480d0d5680c0d943032a6d0b01b004e2784f98f8e3749dd687c770",
+        "size": 60360304,
+        "sha256": "10170b1ba9480d0d5680c0d943032a6d0b01b004e2784f98f8e3749dd687c770",
+        "modes": [
+          "empire"
+        ],
+        "textureProfiles": [
+          "reduced512"
+        ]
+      },
+      {
+        "name": "9ba626afa44a3aa3.patch_1007",
+        "url": "https://github.com/owendavidgoode/clonedivers/releases/download/pack-2026.11.19-r48-files/5b8395cbbbf6d307345f7871cd436c61e64b11196388dbfdc007b0624abc269e",
+        "size": 6472000,
+        "sha256": "5b8395cbbbf6d307345f7871cd436c61e64b11196388dbfdc007b0624abc269e",
+        "modes": [
+          "empire"
+        ],
+        "textureProfiles": [
+          "full"
+        ]
+      },
+      {
+        "name": "9ba626afa44a3aa3.patch_1007",
+        "url": "https://github.com/owendavidgoode/clonedivers/releases/download/pack-2026.11.19-r48-files/9c6fb4232f2f1d5662db4d7c78573b9d47568524350f0092908a5d73d260feb2",
+        "size": 6472000,
+        "sha256": "9c6fb4232f2f1d5662db4d7c78573b9d47568524350f0092908a5d73d260feb2",
+        "modes": [
+          "empire"
+        ],
+        "textureProfiles": [
+          "lighter"
+        ]
+      },
+      {
+        "name": "9ba626afa44a3aa3.patch_1007",
+        "url": "https://github.com/owendavidgoode/clonedivers/releases/download/pack-2026.11.19-r48-files/3f37127a87773e810f064b242b94a1f6e7a4c16225cc6468b85c7cabca5745c1",
+        "size": 6472000,
+        "sha256": "3f37127a87773e810f064b242b94a1f6e7a4c16225cc6468b85c7cabca5745c1",
+        "modes": [
+          "empire"
+        ],
+        "textureProfiles": [
+          "reduced512"
+        ]
+      },
+      {
+        "name": "9ba626afa44a3aa3.patch_1007.gpu_resources",
+        "url": "https://github.com/owendavidgoode/clonedivers/releases/download/pack-2026.11.19-r48-files/9fcf4bdb15714a91152139a63b258b5fe121cd51d32a9bb98c73a2e1f5090c4f",
+        "size": 244713408,
+        "sha256": "9fcf4bdb15714a91152139a63b258b5fe121cd51d32a9bb98c73a2e1f5090c4f",
+        "modes": [
+          "empire"
+        ],
+        "textureProfiles": [
+          "full"
+        ]
+      },
+      {
+        "name": "9ba626afa44a3aa3.patch_1007.gpu_resources",
+        "url": "https://github.com/owendavidgoode/clonedivers/releases/download/pack-2026.11.19-r48-files/2cb9148d5072caeb8c269739e4aa0c4f39144be452b40281d0c5070393dd80bd",
+        "size": 72484796,
+        "sha256": "2cb9148d5072caeb8c269739e4aa0c4f39144be452b40281d0c5070393dd80bd",
+        "modes": [
+          "empire"
+        ],
+        "textureProfiles": [
+          "lighter"
+        ]
+      },
+      {
+        "name": "9ba626afa44a3aa3.patch_1007.gpu_resources",
+        "url": "https://github.com/owendavidgoode/clonedivers/releases/download/pack-2026.11.19-r48-files/0810ab3fccb2572cb5ff0425812cfdb4340d6c3040cf73183ccb9fd2e473d296",
+        "size": 48056252,
+        "sha256": "0810ab3fccb2572cb5ff0425812cfdb4340d6c3040cf73183ccb9fd2e473d296",
+        "modes": [
+          "empire"
+        ],
+        "textureProfiles": [
+          "reduced512"
+        ]
+      },
+      {
+        "name": "9ba626afa44a3aa3.patch_1007.stream",
+        "url": "https://github.com/owendavidgoode/clonedivers/releases/download/pack-2026.11.19-r48-files/7d1c59905560f74668227cc7cca8549fd12ba48c16f0dd7df553100e90068f53",
+        "size": 40148096,
+        "sha256": "7d1c59905560f74668227cc7cca8549fd12ba48c16f0dd7df553100e90068f53",
+        "modes": [
+          "empire"
+        ],
+        "textureProfiles": [
+          "full"
+        ]
+      },
+      {
+        "name": "9ba626afa44a3aa3.patch_1007.stream",
+        "url": "https://github.com/owendavidgoode/clonedivers/releases/download/pack-2026.11.19-r48-files/029e7c283261aee1180d0572547e95484ff469101916a5c1ec481efff5500752",
+        "size": 226096880,
+        "sha256": "029e7c283261aee1180d0572547e95484ff469101916a5c1ec481efff5500752",
+        "modes": [
+          "empire"
+        ],
+        "textureProfiles": [
+          "lighter"
+        ]
+      },
+      {
+        "name": "9ba626afa44a3aa3.patch_1007.stream",
+        "url": "https://github.com/owendavidgoode/clonedivers/releases/download/pack-2026.11.19-r48-files/b4178bb9c8b680e0e5822c5d9f8df689b78d34c89ec313690ebe77d7e77e09e1",
+        "size": 66233492,
+        "sha256": "b4178bb9c8b680e0e5822c5d9f8df689b78d34c89ec313690ebe77d7e77e09e1",
+        "modes": [
+          "empire"
+        ],
+        "textureProfiles": [
+          "reduced512"
+        ]
+      },
+      {
+        "name": "9ba626afa44a3aa3.patch_1008",
+        "url": "https://github.com/owendavidgoode/clonedivers/releases/download/pack-2026.11.19-r48-files/2cffd70cbfdfc8636ccdd17ea8f9ebc8eb8ab6b2d5ed48d140721913819fb782",
+        "size": 5340864,
+        "sha256": "2cffd70cbfdfc8636ccdd17ea8f9ebc8eb8ab6b2d5ed48d140721913819fb782",
+        "modes": [
+          "empire"
+        ],
+        "textureProfiles": [
+          "full"
+        ]
+      },
+      {
+        "name": "9ba626afa44a3aa3.patch_1008",
+        "url": "https://github.com/owendavidgoode/clonedivers/releases/download/pack-2026.11.19-r48-files/1c9129b80dd5bad70cbe86b5d5dca4da18709b2a9ea496b966bb5a08e95a3fd3",
+        "size": 5340864,
+        "sha256": "1c9129b80dd5bad70cbe86b5d5dca4da18709b2a9ea496b966bb5a08e95a3fd3",
+        "modes": [
+          "empire"
+        ],
+        "textureProfiles": [
+          "lighter"
+        ]
+      },
+      {
+        "name": "9ba626afa44a3aa3.patch_1008",
+        "url": "https://github.com/owendavidgoode/clonedivers/releases/download/pack-2026.11.19-r48-files/8f9f3187f5397be8530d6b99bb44ba0dcfe619c41cece99d41ca808c78ef9aa8",
+        "size": 5340864,
+        "sha256": "8f9f3187f5397be8530d6b99bb44ba0dcfe619c41cece99d41ca808c78ef9aa8",
+        "modes": [
+          "empire"
+        ],
+        "textureProfiles": [
+          "reduced512"
+        ]
+      },
+      {
+        "name": "9ba626afa44a3aa3.patch_1008.gpu_resources",
+        "url": "https://github.com/owendavidgoode/clonedivers/releases/download/pack-2026.11.19-r48-files/7e6a899aac01c70f9678b4f0742aef93086efb66012b3a8caac2950531adf332",
+        "size": 210280512,
+        "sha256": "7e6a899aac01c70f9678b4f0742aef93086efb66012b3a8caac2950531adf332",
+        "modes": [
+          "empire"
+        ],
+        "textureProfiles": [
+          "full"
+        ]
+      },
+      {
+        "name": "9ba626afa44a3aa3.patch_1008.gpu_resources",
+        "url": "https://github.com/owendavidgoode/clonedivers/releases/download/pack-2026.11.19-r48-files/15d564da6ba828119d6bd6386513d970444cb71fbd185811b0ca6640cf20a404",
+        "size": 88317982,
+        "sha256": "15d564da6ba828119d6bd6386513d970444cb71fbd185811b0ca6640cf20a404",
+        "modes": [
+          "empire"
+        ],
+        "textureProfiles": [
+          "lighter"
+        ]
+      },
+      {
+        "name": "9ba626afa44a3aa3.patch_1008.gpu_resources",
+        "url": "https://github.com/owendavidgoode/clonedivers/releases/download/pack-2026.11.19-r48-files/5d7ce920a68180279903ba60ee0a1f4f28fc2c85c09cff61083c97f2a0a57a49",
+        "size": 68324894,
+        "sha256": "5d7ce920a68180279903ba60ee0a1f4f28fc2c85c09cff61083c97f2a0a57a49",
+        "modes": [
+          "empire"
+        ],
+        "textureProfiles": [
+          "reduced512"
+        ]
+      },
+      {
+        "name": "9ba626afa44a3aa3.patch_1008.stream",
+        "url": "https://github.com/owendavidgoode/clonedivers/releases/download/pack-2026.11.19-r48-files/f939eb64d73c2532b860d2bae04bce6d793070e67ea7342d0139b9310f1c813c",
+        "size": 34633920,
+        "sha256": "f939eb64d73c2532b860d2bae04bce6d793070e67ea7342d0139b9310f1c813c",
+        "modes": [
+          "empire"
+        ],
+        "textureProfiles": [
+          "full"
+        ]
+      },
+      {
+        "name": "9ba626afa44a3aa3.patch_1008.stream",
+        "url": "https://github.com/owendavidgoode/clonedivers/releases/download/pack-2026.11.19-r48-files/3985a9262bcbd73c4fae7d3a78ab26c1d252228644a9ee9a1e07597972ac511e",
+        "size": 166056688,
+        "sha256": "3985a9262bcbd73c4fae7d3a78ab26c1d252228644a9ee9a1e07597972ac511e",
+        "modes": [
+          "empire"
+        ],
+        "textureProfiles": [
+          "lighter"
+        ]
+      },
+      {
+        "name": "9ba626afa44a3aa3.patch_1008.stream",
+        "url": "https://github.com/owendavidgoode/clonedivers/releases/download/pack-2026.11.19-r48-files/56bfd2bc6a78a4bed9401af102774fe3690d85d2f7b38e9261c577c96c8aefbe",
+        "size": 56045652,
+        "sha256": "56bfd2bc6a78a4bed9401af102774fe3690d85d2f7b38e9261c577c96c8aefbe",
+        "modes": [
+          "empire"
+        ],
+        "textureProfiles": [
+          "reduced512"
+        ]
+      },
+      {
+        "name": "9ba626afa44a3aa3.patch_1009",
+        "url": "https://github.com/owendavidgoode/clonedivers/releases/download/pack-2026.11.19-r48-files/3f4a3f16eecaeee56b991f312f654661809ec5d83c1b48ab67642c4f38fb68e3",
+        "size": 22291616,
+        "sha256": "3f4a3f16eecaeee56b991f312f654661809ec5d83c1b48ab67642c4f38fb68e3",
+        "modes": [
+          "empire"
+        ],
+        "textureProfiles": [
+          "full"
+        ]
+      },
+      {
+        "name": "9ba626afa44a3aa3.patch_1009",
+        "url": "https://github.com/owendavidgoode/clonedivers/releases/download/pack-2026.11.19-r48-files/2e4a3bf6863dbd2041b076d7d57d4692715bd2b47c824d738e643ac33e5e2177",
+        "size": 22291616,
+        "sha256": "2e4a3bf6863dbd2041b076d7d57d4692715bd2b47c824d738e643ac33e5e2177",
+        "modes": [
+          "empire"
+        ],
+        "textureProfiles": [
+          "lighter"
+        ]
+      },
+      {
+        "name": "9ba626afa44a3aa3.patch_1009",
+        "url": "https://github.com/owendavidgoode/clonedivers/releases/download/pack-2026.11.19-r48-files/9eddcd06d769dba5399424c3255932ae78637842d6d37a904208a607a3929698",
+        "size": 22291616,
+        "sha256": "9eddcd06d769dba5399424c3255932ae78637842d6d37a904208a607a3929698",
+        "modes": [
+          "empire"
+        ],
+        "textureProfiles": [
+          "reduced512"
+        ]
+      },
+      {
+        "name": "9ba626afa44a3aa3.patch_1009.gpu_resources",
+        "url": "https://github.com/owendavidgoode/clonedivers/releases/download/pack-2026.11.19-r48-files/91b19de6b614d1c86c2781f7fc45c1536a9ed7f220ee3a847305b12d015731f4",
+        "size": 144875904,
+        "sha256": "91b19de6b614d1c86c2781f7fc45c1536a9ed7f220ee3a847305b12d015731f4",
+        "modes": [
+          "empire"
+        ],
+        "textureProfiles": [
+          "full"
+        ]
+      },
+      {
+        "name": "9ba626afa44a3aa3.patch_1009.gpu_resources",
+        "url": "https://github.com/owendavidgoode/clonedivers/releases/download/pack-2026.11.19-r48-files/3ad19c817ff24582e26abaef587e49c274b201848cf0aefea093f0b9bbd4bb66",
+        "size": 56525184,
+        "sha256": "3ad19c817ff24582e26abaef587e49c274b201848cf0aefea093f0b9bbd4bb66",
+        "modes": [
+          "empire"
+        ],
+        "textureProfiles": [
+          "lighter"
+        ]
+      },
+      {
+        "name": "9ba626afa44a3aa3.patch_1009.gpu_resources",
+        "url": "https://github.com/owendavidgoode/clonedivers/releases/download/pack-2026.11.19-r48-files/5f813d14fa368ae8d140494976bf7f932aace6bf436abbb8910589e7013c195f",
+        "size": 39912784,
+        "sha256": "5f813d14fa368ae8d140494976bf7f932aace6bf436abbb8910589e7013c195f",
+        "modes": [
+          "empire"
+        ],
+        "textureProfiles": [
+          "reduced512"
+        ]
+      },
+      {
+        "name": "9ba626afa44a3aa3.patch_1009.stream",
+        "url": "https://github.com/owendavidgoode/clonedivers/releases/download/pack-2026.11.19-r48-files/cfe2f4950f3366d1629880ebada4664ccbbe7ca21ecf33d6987a38de20a4da31",
+        "size": 34653184,
+        "sha256": "cfe2f4950f3366d1629880ebada4664ccbbe7ca21ecf33d6987a38de20a4da31",
+        "modes": [
+          "empire"
+        ],
+        "textureProfiles": [
+          "full"
+        ]
+      },
+      {
+        "name": "9ba626afa44a3aa3.patch_1009.stream",
+        "url": "https://github.com/owendavidgoode/clonedivers/releases/download/pack-2026.11.19-r48-files/5d7b3cda4544f354d7bd2ee76692582ac166e962e38c3667c360bbf79a712717",
+        "size": 130435456,
+        "sha256": "5d7b3cda4544f354d7bd2ee76692582ac166e962e38c3667c360bbf79a712717",
+        "modes": [
+          "empire"
+        ],
+        "textureProfiles": [
+          "lighter"
+        ]
+      },
+      {
+        "name": "9ba626afa44a3aa3.patch_1009.stream",
+        "url": "https://github.com/owendavidgoode/clonedivers/releases/download/pack-2026.11.19-r48-files/aae0fd4b8ea77ed63c91a5f4226a4c50b419c3d7bdbc001d4e86656e1a1b92cc",
+        "size": 52484968,
+        "sha256": "aae0fd4b8ea77ed63c91a5f4226a4c50b419c3d7bdbc001d4e86656e1a1b92cc",
+        "modes": [
+          "empire"
+        ],
+        "textureProfiles": [
+          "reduced512"
+        ]
+      },
+      {
+        "name": "9ba626afa44a3aa3.patch_1010",
+        "url": "https://github.com/owendavidgoode/clonedivers/releases/download/pack-2026.11.19-r48-files/33eacddc734f7e31ac79d10269464df786635355f52dd4d9c8416ea6063e8555",
+        "size": 12568864,
+        "sha256": "33eacddc734f7e31ac79d10269464df786635355f52dd4d9c8416ea6063e8555",
+        "modes": [
+          "empire"
+        ],
+        "textureProfiles": [
+          "full"
+        ]
+      },
+      {
+        "name": "9ba626afa44a3aa3.patch_1010",
+        "url": "https://github.com/owendavidgoode/clonedivers/releases/download/pack-2026.11.19-r48-files/83890196f46ae380bb1d828dd39b2e0bc74dea8062afcfc3adb70038067f9762",
+        "size": 12568864,
+        "sha256": "83890196f46ae380bb1d828dd39b2e0bc74dea8062afcfc3adb70038067f9762",
+        "modes": [
+          "empire"
+        ],
+        "textureProfiles": [
+          "lighter"
+        ]
+      },
+      {
+        "name": "9ba626afa44a3aa3.patch_1010",
+        "url": "https://github.com/owendavidgoode/clonedivers/releases/download/pack-2026.11.19-r48-files/d3f85fdfe8fe1029104e64e14edca541545370635df48b64f6ed8490fcf543fb",
+        "size": 12568864,
+        "sha256": "d3f85fdfe8fe1029104e64e14edca541545370635df48b64f6ed8490fcf543fb",
+        "modes": [
+          "empire"
+        ],
+        "textureProfiles": [
+          "reduced512"
+        ]
+      },
+      {
+        "name": "9ba626afa44a3aa3.patch_1010.gpu_resources",
+        "url": "https://github.com/owendavidgoode/clonedivers/releases/download/pack-2026.11.19-r48-files/c9b84db2559920969adde7c9240edd338b3220357aefe8fee7f492947f4fc274",
+        "size": 131597248,
+        "sha256": "c9b84db2559920969adde7c9240edd338b3220357aefe8fee7f492947f4fc274",
+        "modes": [
+          "empire"
+        ],
+        "textureProfiles": [
+          "full"
+        ]
+      },
+      {
+        "name": "9ba626afa44a3aa3.patch_1010.gpu_resources",
+        "url": "https://github.com/owendavidgoode/clonedivers/releases/download/pack-2026.11.19-r48-files/0e99a618ad1c7a503b694c883bb3333d5a82a3340aeaa31812e9957047299973",
+        "size": 71820208,
+        "sha256": "0e99a618ad1c7a503b694c883bb3333d5a82a3340aeaa31812e9957047299973",
+        "modes": [
+          "empire"
+        ],
+        "textureProfiles": [
+          "lighter"
+        ]
+      },
+      {
+        "name": "9ba626afa44a3aa3.patch_1010.gpu_resources",
+        "url": "https://github.com/owendavidgoode/clonedivers/releases/download/pack-2026.11.19-r48-files/07978aa6eb6579289ad11c232821acb08a94f41a68985844eefc9dbad7c9787c",
+        "size": 36936112,
+        "sha256": "07978aa6eb6579289ad11c232821acb08a94f41a68985844eefc9dbad7c9787c",
+        "modes": [
+          "empire"
+        ],
+        "textureProfiles": [
+          "reduced512"
+        ]
+      },
+      {
+        "name": "9ba626afa44a3aa3.patch_1010.stream",
+        "url": "https://github.com/owendavidgoode/clonedivers/releases/download/pack-2026.11.19-r48-files/1a27cf3054d7dff228f9329187a3ba80ad8ddd95cf2ff666b54a4519932094a5",
+        "size": 41194048,
+        "sha256": "1a27cf3054d7dff228f9329187a3ba80ad8ddd95cf2ff666b54a4519932094a5",
+        "modes": [
+          "empire"
+        ],
+        "textureProfiles": [
+          "full"
+        ]
+      },
+      {
+        "name": "9ba626afa44a3aa3.patch_1010.stream",
+        "url": "https://github.com/owendavidgoode/clonedivers/releases/download/pack-2026.11.19-r48-files/423ff93860e91f700fdee1240c9bcef8053f551097034c706cba9c6512b75e70",
+        "size": 111111536,
+        "sha256": "423ff93860e91f700fdee1240c9bcef8053f551097034c706cba9c6512b75e70",
+        "modes": [
+          "empire"
+        ],
+        "textureProfiles": [
+          "lighter"
+        ]
+      },
+      {
+        "name": "9ba626afa44a3aa3.patch_1010.stream",
+        "url": "https://github.com/owendavidgoode/clonedivers/releases/download/pack-2026.11.19-r48-files/739e9549a49565c8dcdb1ce8b2da09f448d29c1fe85e33907ecf700d6d8268a4",
+        "size": 60859760,
+        "sha256": "739e9549a49565c8dcdb1ce8b2da09f448d29c1fe85e33907ecf700d6d8268a4",
+        "modes": [
+          "empire"
+        ],
+        "textureProfiles": [
+          "reduced512"
+        ]
+      },
+      {
+        "name": "9ba626afa44a3aa3.patch_1011",
+        "url": "https://github.com/owendavidgoode/clonedivers/releases/download/pack-2026.11.19-r48-files/27771f4fdb6c1e29fca51256ddfa39872262a618852542e5077b3992a095e594",
+        "size": 100368624,
+        "sha256": "27771f4fdb6c1e29fca51256ddfa39872262a618852542e5077b3992a095e594",
+        "modes": [
+          "empire"
+        ],
+        "textureProfiles": [
+          "full"
+        ]
+      },
+      {
+        "name": "9ba626afa44a3aa3.patch_1011",
+        "url": "https://github.com/owendavidgoode/clonedivers/releases/download/pack-2026.11.19-r48-files/26e301596e5253c093f6801fa6680893c06c955d8339255350875f94bd4a1e12",
+        "size": 100368624,
+        "sha256": "26e301596e5253c093f6801fa6680893c06c955d8339255350875f94bd4a1e12",
+        "modes": [
+          "empire"
+        ],
+        "textureProfiles": [
+          "lighter"
+        ]
+      },
+      {
+        "name": "9ba626afa44a3aa3.patch_1011",
+        "url": "https://github.com/owendavidgoode/clonedivers/releases/download/pack-2026.11.19-r48-files/edc3856e274b3da9f0b22fd3417f40e8bfd8ac5eda1f23c2e018c44eafef8086",
+        "size": 100368624,
+        "sha256": "edc3856e274b3da9f0b22fd3417f40e8bfd8ac5eda1f23c2e018c44eafef8086",
+        "modes": [
+          "empire"
+        ],
+        "textureProfiles": [
+          "reduced512"
+        ]
+      },
+      {
+        "name": "9ba626afa44a3aa3.patch_1011.gpu_resources",
+        "url": "https://github.com/owendavidgoode/clonedivers/releases/download/pack-2026.11.19-r48-files/276cfadf517ca7c8ee23a262c201c920621597253b59de8effe58999cb52ed0f",
+        "size": 268055296,
+        "sha256": "276cfadf517ca7c8ee23a262c201c920621597253b59de8effe58999cb52ed0f",
+        "modes": [
+          "empire"
+        ],
+        "textureProfiles": [
+          "full"
+        ]
+      },
+      {
+        "name": "9ba626afa44a3aa3.patch_1011.gpu_resources",
+        "url": "https://github.com/owendavidgoode/clonedivers/releases/download/pack-2026.11.19-r48-files/5aba5e70038c7d8f4d3296edc8c84d86b32eb0bf704edd4d078f14d06812f683",
+        "size": 125235968,
+        "sha256": "5aba5e70038c7d8f4d3296edc8c84d86b32eb0bf704edd4d078f14d06812f683",
+        "modes": [
+          "empire"
+        ],
+        "textureProfiles": [
+          "lighter"
+        ]
+      },
+      {
+        "name": "9ba626afa44a3aa3.patch_1011.gpu_resources",
+        "url": "https://github.com/owendavidgoode/clonedivers/releases/download/pack-2026.11.19-r48-files/28892c42e35b23391d65534fb62823ee8f5ceaef24944840855c6471ea0a0903",
+        "size": 104124152,
+        "sha256": "28892c42e35b23391d65534fb62823ee8f5ceaef24944840855c6471ea0a0903",
+        "modes": [
+          "empire"
+        ],
+        "textureProfiles": [
+          "reduced512"
+        ]
+      },
+      {
+        "name": "9ba626afa44a3aa3.patch_1011.stream",
+        "url": "https://github.com/owendavidgoode/clonedivers/releases/download/pack-2026.11.19-r48-files/3aa1eb2dc0f422e3b5218f7bbe589dd65fbadf1ca5c86d195254c92254a73878",
+        "size": 68977472,
+        "sha256": "3aa1eb2dc0f422e3b5218f7bbe589dd65fbadf1ca5c86d195254c92254a73878",
+        "modes": [
+          "empire"
+        ],
+        "textureProfiles": [
+          "full"
+        ]
+      },
+      {
+        "name": "9ba626afa44a3aa3.patch_1011.stream",
+        "url": "https://github.com/owendavidgoode/clonedivers/releases/download/pack-2026.11.19-r48-files/2f7de2e57345720aa6b1037bd363683e05c7fcb08669ddda7f1631beae33ff0b",
+        "size": 222770176,
+        "sha256": "2f7de2e57345720aa6b1037bd363683e05c7fcb08669ddda7f1631beae33ff0b",
+        "modes": [
+          "empire"
+        ],
+        "textureProfiles": [
+          "lighter"
+        ]
+      },
+      {
+        "name": "9ba626afa44a3aa3.patch_1011.stream",
+        "url": "https://github.com/owendavidgoode/clonedivers/releases/download/pack-2026.11.19-r48-files/34ff037331aae52058042599371e6ea6406b47bbf6603d8597c0263f7dd9c11c",
+        "size": 89519792,
+        "sha256": "34ff037331aae52058042599371e6ea6406b47bbf6603d8597c0263f7dd9c11c",
+        "modes": [
+          "empire"
+        ],
+        "textureProfiles": [
+          "reduced512"
+        ]
+      },
+      {
+        "name": "9ba626afa44a3aa3.patch_1012",
+        "url": "https://github.com/owendavidgoode/clonedivers/releases/download/pack-2026.11.19-r48-files/09729008569315ffb45e800cb3fe72cb39c5cf1647be65a900a9814b9b0b34a4",
+        "size": 25702624,
+        "sha256": "09729008569315ffb45e800cb3fe72cb39c5cf1647be65a900a9814b9b0b34a4",
+        "modes": [
+          "empire"
+        ],
+        "textureProfiles": [
+          "full"
+        ]
+      },
+      {
+        "name": "9ba626afa44a3aa3.patch_1012",
+        "url": "https://github.com/owendavidgoode/clonedivers/releases/download/pack-2026.11.19-r48-files/c16271f9252008c53e97279a74da0e4c41d01186c5376d12970a36b5c8d30e61",
+        "size": 25702624,
+        "sha256": "c16271f9252008c53e97279a74da0e4c41d01186c5376d12970a36b5c8d30e61",
+        "modes": [
+          "empire"
+        ],
+        "textureProfiles": [
+          "lighter"
+        ]
+      },
+      {
+        "name": "9ba626afa44a3aa3.patch_1012",
+        "url": "https://github.com/owendavidgoode/clonedivers/releases/download/pack-2026.11.19-r48-files/698fef1baa68398a0bf2593a9e45c6bdb6ff46ecae889009e1d8b7f92889768a",
+        "size": 25702624,
+        "sha256": "698fef1baa68398a0bf2593a9e45c6bdb6ff46ecae889009e1d8b7f92889768a",
+        "modes": [
+          "empire"
+        ],
+        "textureProfiles": [
+          "reduced512"
+        ]
+      },
+      {
+        "name": "9ba626afa44a3aa3.patch_1012.gpu_resources",
+        "url": "https://github.com/owendavidgoode/clonedivers/releases/download/pack-2026.11.19-r48-files/c4a406a6736f0f1f9dc4a362d1ab51dd33416ea631cdc9ce6474995efae806d4",
+        "size": 318571776,
+        "sha256": "c4a406a6736f0f1f9dc4a362d1ab51dd33416ea631cdc9ce6474995efae806d4",
+        "modes": [
+          "empire"
+        ],
+        "textureProfiles": [
+          "full"
+        ]
+      },
+      {
+        "name": "9ba626afa44a3aa3.patch_1012.gpu_resources",
+        "url": "https://github.com/owendavidgoode/clonedivers/releases/download/pack-2026.11.19-r48-files/d3733c5df764892939edf9bbf2ae5e4eec318cd483a9a9db57ce916e3d003163",
+        "size": 124978422,
+        "sha256": "d3733c5df764892939edf9bbf2ae5e4eec318cd483a9a9db57ce916e3d003163",
+        "modes": [
+          "empire"
+        ],
+        "textureProfiles": [
+          "lighter"
+        ]
+      },
+      {
+        "name": "9ba626afa44a3aa3.patch_1012.gpu_resources",
+        "url": "https://github.com/owendavidgoode/clonedivers/releases/download/pack-2026.11.19-r48-files/fd19a82b39abb0da3e80f9df62b6459d339f77a3362ca4ca78290fc43fa2c8e6",
+        "size": 103150838,
+        "sha256": "fd19a82b39abb0da3e80f9df62b6459d339f77a3362ca4ca78290fc43fa2c8e6",
+        "modes": [
+          "empire"
+        ],
+        "textureProfiles": [
+          "reduced512"
+        ]
+      },
+      {
+        "name": "9ba626afa44a3aa3.patch_1012.stream",
+        "url": "https://github.com/owendavidgoode/clonedivers/releases/download/pack-2026.11.19-r48-files/bc738615769ba982e278450232a147fdfcd2f70c8806c13b216563820522c661",
+        "size": 40372672,
+        "sha256": "bc738615769ba982e278450232a147fdfcd2f70c8806c13b216563820522c661",
+        "modes": [
+          "empire"
+        ],
+        "textureProfiles": [
+          "full"
+        ]
+      },
+      {
+        "name": "9ba626afa44a3aa3.patch_1012.stream",
+        "url": "https://github.com/owendavidgoode/clonedivers/releases/download/pack-2026.11.19-r48-files/ca5859d8977ace099c87681e21e0650b9d5c901e7cc026920799dfbdff5a6d1f",
+        "size": 246069744,
+        "sha256": "ca5859d8977ace099c87681e21e0650b9d5c901e7cc026920799dfbdff5a6d1f",
+        "modes": [
+          "empire"
+        ],
+        "textureProfiles": [
+          "lighter"
+        ]
+      },
+      {
+        "name": "9ba626afa44a3aa3.patch_1012.stream",
+        "url": "https://github.com/owendavidgoode/clonedivers/releases/download/pack-2026.11.19-r48-files/dd1a7fc2ea5ba9a2e276b427c10380399db6a7e951598364249e11ca1a26146a",
+        "size": 63683824,
+        "sha256": "dd1a7fc2ea5ba9a2e276b427c10380399db6a7e951598364249e11ca1a26146a",
+        "modes": [
+          "empire"
+        ],
+        "textureProfiles": [
+          "reduced512"
+        ]
+      },
+      {
+        "name": "9ba626afa44a3aa3.patch_1013",
+        "url": "https://github.com/owendavidgoode/clonedivers/releases/download/pack-2026.11.19-r48-files/bd64b6d6484c73ab58ad1a4da53a301cdb1f3e98a8dfca8fdb6e5c539605c6eb",
+        "size": 6872288,
+        "sha256": "bd64b6d6484c73ab58ad1a4da53a301cdb1f3e98a8dfca8fdb6e5c539605c6eb",
+        "modes": [
+          "empire"
+        ],
+        "textureProfiles": [
+          "full"
+        ]
+      },
+      {
+        "name": "9ba626afa44a3aa3.patch_1013",
+        "url": "https://github.com/owendavidgoode/clonedivers/releases/download/pack-2026.11.19-r48-files/ec83d8fc1cb0674aafd7fc5d7dbd41595325e78d81b1e3839e699bd798aa8b89",
+        "size": 6872288,
+        "sha256": "ec83d8fc1cb0674aafd7fc5d7dbd41595325e78d81b1e3839e699bd798aa8b89",
+        "modes": [
+          "empire"
+        ],
+        "textureProfiles": [
+          "lighter"
+        ]
+      },
+      {
+        "name": "9ba626afa44a3aa3.patch_1013",
+        "url": "https://github.com/owendavidgoode/clonedivers/releases/download/pack-2026.11.19-r48-files/847a94af8ff11d0429d0d999595f5c0bc18987d7279bac04923101ec046c3611",
+        "size": 6872288,
+        "sha256": "847a94af8ff11d0429d0d999595f5c0bc18987d7279bac04923101ec046c3611",
+        "modes": [
+          "empire"
+        ],
+        "textureProfiles": [
+          "reduced512"
+        ]
+      },
+      {
+        "name": "9ba626afa44a3aa3.patch_1013.gpu_resources",
+        "url": "https://github.com/owendavidgoode/clonedivers/releases/download/pack-2026.11.19-r48-files/ff6e3813a74fe1b752fc5190de117807fbfa499cd174172f908a9bcda0856bbb",
+        "size": 163632576,
+        "sha256": "ff6e3813a74fe1b752fc5190de117807fbfa499cd174172f908a9bcda0856bbb",
+        "modes": [
+          "empire"
+        ],
+        "textureProfiles": [
+          "full"
+        ]
+      },
+      {
+        "name": "9ba626afa44a3aa3.patch_1013.gpu_resources",
+        "url": "https://github.com/owendavidgoode/clonedivers/releases/download/pack-2026.11.19-r48-files/5c7b759d5bf2831de1fc2065e32c2cf7ecf3dd199e1a1b8c52def060defb9e60",
+        "size": 78697888,
+        "sha256": "5c7b759d5bf2831de1fc2065e32c2cf7ecf3dd199e1a1b8c52def060defb9e60",
+        "modes": [
+          "empire"
+        ],
+        "textureProfiles": [
+          "lighter"
+        ]
+      },
+      {
+        "name": "9ba626afa44a3aa3.patch_1013.gpu_resources",
+        "url": "https://github.com/owendavidgoode/clonedivers/releases/download/pack-2026.11.19-r48-files/fac5a27d538388d6bf52d1d018d0cafc699227c3d4de9dabee14f40944007a35",
+        "size": 60495264,
+        "sha256": "fac5a27d538388d6bf52d1d018d0cafc699227c3d4de9dabee14f40944007a35",
+        "modes": [
+          "empire"
+        ],
+        "textureProfiles": [
+          "reduced512"
+        ]
+      },
+      {
+        "name": "9ba626afa44a3aa3.patch_1013.stream",
+        "url": "https://github.com/owendavidgoode/clonedivers/releases/download/pack-2026.11.19-r48-files/e8230a9783d0832ab0c791f9e1ebde40fd5b36207e5c22b654a4454758a13feb",
+        "size": 36405184,
+        "sha256": "e8230a9783d0832ab0c791f9e1ebde40fd5b36207e5c22b654a4454758a13feb",
+        "modes": [
+          "empire"
+        ],
+        "textureProfiles": [
+          "full"
+        ]
+      },
+      {
+        "name": "9ba626afa44a3aa3.patch_1013.stream",
+        "url": "https://github.com/owendavidgoode/clonedivers/releases/download/pack-2026.11.19-r48-files/0729ce074e8fca2fbbcfd6b8e2ec4a1754f727dc7a79682d3080ede1ecaebf87",
+        "size": 130778040,
+        "sha256": "0729ce074e8fca2fbbcfd6b8e2ec4a1754f727dc7a79682d3080ede1ecaebf87",
+        "modes": [
+          "empire"
+        ],
+        "textureProfiles": [
+          "lighter"
+        ]
+      },
+      {
+        "name": "9ba626afa44a3aa3.patch_1013.stream",
+        "url": "https://github.com/owendavidgoode/clonedivers/releases/download/pack-2026.11.19-r48-files/6c8a26394f0304b98f2329ad3e7ef5f5ddceb27ad0b0ae67179eba643a82cbc5",
+        "size": 55980152,
+        "sha256": "6c8a26394f0304b98f2329ad3e7ef5f5ddceb27ad0b0ae67179eba643a82cbc5",
+        "modes": [
+          "empire"
+        ],
+        "textureProfiles": [
+          "reduced512"
+        ]
+      },
+      {
+        "name": "9ba626afa44a3aa3.patch_1014",
+        "url": "https://github.com/owendavidgoode/clonedivers/releases/download/pack-2026.11.19-r48-files/642310b6e8c09f62bba3d52fe1b7385e6d16d5621082cb6962f11b7ff19f38ea",
+        "size": 14023264,
+        "sha256": "642310b6e8c09f62bba3d52fe1b7385e6d16d5621082cb6962f11b7ff19f38ea",
+        "modes": [
+          "empire"
+        ],
+        "textureProfiles": [
+          "full"
+        ]
+      },
+      {
+        "name": "9ba626afa44a3aa3.patch_1014",
+        "url": "https://github.com/owendavidgoode/clonedivers/releases/download/pack-2026.11.19-r48-files/f0abfddd6f8d44853b9b29961c94167f8a00c9a29d58be3d7f028ac24988348c",
+        "size": 14023264,
+        "sha256": "f0abfddd6f8d44853b9b29961c94167f8a00c9a29d58be3d7f028ac24988348c",
+        "modes": [
+          "empire"
+        ],
+        "textureProfiles": [
+          "lighter"
+        ]
+      },
+      {
+        "name": "9ba626afa44a3aa3.patch_1014",
+        "url": "https://github.com/owendavidgoode/clonedivers/releases/download/pack-2026.11.19-r48-files/84d99f749cae0ef0b03f1d80c0606c6c098c6ad5efc9cf32498fee5c956c7f19",
+        "size": 14023264,
+        "sha256": "84d99f749cae0ef0b03f1d80c0606c6c098c6ad5efc9cf32498fee5c956c7f19",
+        "modes": [
+          "empire"
+        ],
+        "textureProfiles": [
+          "reduced512"
+        ]
+      },
+      {
+        "name": "9ba626afa44a3aa3.patch_1014.gpu_resources",
+        "url": "https://github.com/owendavidgoode/clonedivers/releases/download/pack-2026.11.19-r48-files/ed6f191042642d3c852843eaa7557d8149f3e2a7657f1f0075c1ea091138d342",
+        "size": 248567360,
+        "sha256": "ed6f191042642d3c852843eaa7557d8149f3e2a7657f1f0075c1ea091138d342",
+        "modes": [
+          "empire"
+        ],
+        "textureProfiles": [
+          "full"
+        ]
+      },
+      {
+        "name": "9ba626afa44a3aa3.patch_1014.gpu_resources",
+        "url": "https://github.com/owendavidgoode/clonedivers/releases/download/pack-2026.11.19-r48-files/ad375635fa1fb5c04fb444f95e106b88ea2643584ce7161f823e9a6d068f740e",
+        "size": 140564032,
+        "sha256": "ad375635fa1fb5c04fb444f95e106b88ea2643584ce7161f823e9a6d068f740e",
+        "modes": [
+          "empire"
+        ],
+        "textureProfiles": [
+          "lighter"
+        ]
+      },
+      {
+        "name": "9ba626afa44a3aa3.patch_1014.gpu_resources",
+        "url": "https://github.com/owendavidgoode/clonedivers/releases/download/pack-2026.11.19-r48-files/2aaca48f1b9f04e5170730d91b8c76db50f0748694a398900217fec9d1023b03",
+        "size": 122385968,
+        "sha256": "2aaca48f1b9f04e5170730d91b8c76db50f0748694a398900217fec9d1023b03",
+        "modes": [
+          "empire"
+        ],
+        "textureProfiles": [
+          "reduced512"
+        ]
+      },
+      {
+        "name": "9ba626afa44a3aa3.patch_1014.stream",
+        "url": "https://github.com/owendavidgoode/clonedivers/releases/download/pack-2026.11.19-r48-files/f1340edf7c83f928e8449e10cffc4d5e9bf283c3b8222f10239d8de969ea9a40",
+        "size": 39855616,
+        "sha256": "f1340edf7c83f928e8449e10cffc4d5e9bf283c3b8222f10239d8de969ea9a40",
+        "modes": [
+          "empire"
+        ],
+        "textureProfiles": [
+          "full"
+        ]
+      },
+      {
+        "name": "9ba626afa44a3aa3.patch_1014.stream",
+        "url": "https://github.com/owendavidgoode/clonedivers/releases/download/pack-2026.11.19-r48-files/19fca8e6904c6bff3d560e0867a869fac1ba2b1ea5139f660ea6ddab69e10484",
+        "size": 155199872,
+        "sha256": "19fca8e6904c6bff3d560e0867a869fac1ba2b1ea5139f660ea6ddab69e10484",
+        "modes": [
+          "empire"
+        ],
+        "textureProfiles": [
+          "lighter"
+        ]
+      },
+      {
+        "name": "9ba626afa44a3aa3.patch_1014.stream",
+        "url": "https://github.com/owendavidgoode/clonedivers/releases/download/pack-2026.11.19-r48-files/cae7aa89f2f37ce91358a2f41b82f0771e4f0783868fdec24127288ad60a7146",
+        "size": 54100400,
+        "sha256": "cae7aa89f2f37ce91358a2f41b82f0771e4f0783868fdec24127288ad60a7146",
+        "modes": [
+          "empire"
+        ],
+        "textureProfiles": [
+          "reduced512"
+        ]
+      },
+      {
+        "name": "9ba626afa44a3aa3.patch_1015",
+        "url": "https://github.com/owendavidgoode/clonedivers/releases/download/pack-2026.11.19-r48-files/a4b52aac4c7c48fb24419a02f907799db56908a86031bcab51ca0a381722538d",
+        "size": 17699264,
+        "sha256": "a4b52aac4c7c48fb24419a02f907799db56908a86031bcab51ca0a381722538d",
+        "modes": [
+          "empire"
+        ],
+        "textureProfiles": [
+          "full"
+        ]
+      },
+      {
+        "name": "9ba626afa44a3aa3.patch_1015",
+        "url": "https://github.com/owendavidgoode/clonedivers/releases/download/pack-2026.11.19-r48-files/250c0bc3181b86d167676d5caed12692cf3312c2685e00ec103ee9b6b4c4d3ae",
+        "size": 17699264,
+        "sha256": "250c0bc3181b86d167676d5caed12692cf3312c2685e00ec103ee9b6b4c4d3ae",
+        "modes": [
+          "empire"
+        ],
+        "textureProfiles": [
+          "lighter"
+        ]
+      },
+      {
+        "name": "9ba626afa44a3aa3.patch_1015",
+        "url": "https://github.com/owendavidgoode/clonedivers/releases/download/pack-2026.11.19-r48-files/62ff30c9be830a77fa568c3984708b866a48244b0f32c8162fc8ae9c1f1a9bde",
+        "size": 17699264,
+        "sha256": "62ff30c9be830a77fa568c3984708b866a48244b0f32c8162fc8ae9c1f1a9bde",
+        "modes": [
+          "empire"
+        ],
+        "textureProfiles": [
+          "reduced512"
+        ]
+      },
+      {
+        "name": "9ba626afa44a3aa3.patch_1015.gpu_resources",
+        "url": "https://github.com/owendavidgoode/clonedivers/releases/download/pack-2026.11.19-r48-files/a0804bc2ecba96ea63046f8dd4962089ebca305dc2db7c2ea9b53fef951fc1a9",
+        "size": 214920768,
+        "sha256": "a0804bc2ecba96ea63046f8dd4962089ebca305dc2db7c2ea9b53fef951fc1a9",
+        "modes": [
+          "empire"
+        ],
+        "textureProfiles": [
+          "full"
+        ]
+      },
+      {
+        "name": "9ba626afa44a3aa3.patch_1015.gpu_resources",
+        "url": "https://github.com/owendavidgoode/clonedivers/releases/download/pack-2026.11.19-r48-files/8e902d8e13413aaf61e9c7a6edd61b39d16f8714cc4e737471e33c71d222388e",
+        "size": 75460132,
+        "sha256": "8e902d8e13413aaf61e9c7a6edd61b39d16f8714cc4e737471e33c71d222388e",
+        "modes": [
+          "empire"
+        ],
+        "textureProfiles": [
+          "lighter"
+        ]
+      },
+      {
+        "name": "9ba626afa44a3aa3.patch_1015.gpu_resources",
+        "url": "https://github.com/owendavidgoode/clonedivers/releases/download/pack-2026.11.19-r48-files/a57d2c0cd024ae085708866aa03be2c2f67bb05ef9e7513903c89f948636416d",
+        "size": 53386276,
+        "sha256": "a57d2c0cd024ae085708866aa03be2c2f67bb05ef9e7513903c89f948636416d",
+        "modes": [
+          "empire"
+        ],
+        "textureProfiles": [
+          "reduced512"
+        ]
+      },
+      {
+        "name": "9ba626afa44a3aa3.patch_1015.stream",
+        "url": "https://github.com/owendavidgoode/clonedivers/releases/download/pack-2026.11.19-r48-files/8fdef4eb60a28887b0424d4b0315b357611013b54342fe1a40505e0872685e8a",
+        "size": 37224768,
+        "sha256": "8fdef4eb60a28887b0424d4b0315b357611013b54342fe1a40505e0872685e8a",
+        "modes": [
+          "empire"
+        ],
+        "textureProfiles": [
+          "full"
+        ]
+      },
+      {
+        "name": "9ba626afa44a3aa3.patch_1015.stream",
+        "url": "https://github.com/owendavidgoode/clonedivers/releases/download/pack-2026.11.19-r48-files/d81ea2692fe4508a34d9e9ea7428a49a47581dccd44129e8f5f4c822f5ee0301",
+        "size": 185424624,
+        "sha256": "d81ea2692fe4508a34d9e9ea7428a49a47581dccd44129e8f5f4c822f5ee0301",
+        "modes": [
+          "empire"
+        ],
+        "textureProfiles": [
+          "lighter"
+        ]
+      },
+      {
+        "name": "9ba626afa44a3aa3.patch_1015.stream",
+        "url": "https://github.com/owendavidgoode/clonedivers/releases/download/pack-2026.11.19-r48-files/22589cf6cef46d4a9b24290ac49ae4dc7e44b4e5af1b55958b8e30d83fe359f0",
+        "size": 60842800,
+        "sha256": "22589cf6cef46d4a9b24290ac49ae4dc7e44b4e5af1b55958b8e30d83fe359f0",
+        "modes": [
+          "empire"
+        ],
+        "textureProfiles": [
+          "reduced512"
+        ]
+      },
+      {
+        "name": "9ba626afa44a3aa3.patch_1016",
+        "url": "https://github.com/owendavidgoode/clonedivers/releases/download/pack-2026.11.19-r48-files/c242c9687fbe5feb0e309a071d5fa5aaa3e8c3e1d7eb91f62f0f059f7378d48a",
+        "size": 23296880,
+        "sha256": "c242c9687fbe5feb0e309a071d5fa5aaa3e8c3e1d7eb91f62f0f059f7378d48a",
+        "modes": [
+          "empire"
+        ],
+        "textureProfiles": [
+          "full"
+        ]
+      },
+      {
+        "name": "9ba626afa44a3aa3.patch_1016",
+        "url": "https://github.com/owendavidgoode/clonedivers/releases/download/pack-2026.11.19-r48-files/eed1e12b1e17f911d9fad02dd9448628e68d767d1d36ed03ff01fe31f2698f30",
+        "size": 23296880,
+        "sha256": "eed1e12b1e17f911d9fad02dd9448628e68d767d1d36ed03ff01fe31f2698f30",
+        "modes": [
+          "empire"
+        ],
+        "textureProfiles": [
+          "lighter"
+        ]
+      },
+      {
+        "name": "9ba626afa44a3aa3.patch_1016",
+        "url": "https://github.com/owendavidgoode/clonedivers/releases/download/pack-2026.11.19-r48-files/bdaaaf7cb9a50d9b80fb0ff418069826691fc092cd8744011b665d0d7bcab90c",
+        "size": 23296880,
+        "sha256": "bdaaaf7cb9a50d9b80fb0ff418069826691fc092cd8744011b665d0d7bcab90c",
+        "modes": [
+          "empire"
+        ],
+        "textureProfiles": [
+          "reduced512"
+        ]
+      },
+      {
+        "name": "9ba626afa44a3aa3.patch_1016.gpu_resources",
+        "url": "https://github.com/owendavidgoode/clonedivers/releases/download/pack-2026.11.19-r48-files/d8e705792445cfc506102d55c9be2facfa98a16baa83ce9ea39deaf11cc9903b",
+        "size": 183384320,
+        "sha256": "d8e705792445cfc506102d55c9be2facfa98a16baa83ce9ea39deaf11cc9903b",
+        "modes": [
+          "empire"
+        ],
+        "textureProfiles": [
+          "full"
+        ]
+      },
+      {
+        "name": "9ba626afa44a3aa3.patch_1016.gpu_resources",
+        "url": "https://github.com/owendavidgoode/clonedivers/releases/download/pack-2026.11.19-r48-files/4294a03870d385ba3cf36de26da4437964ce5768c205a8951f6e74b877edbb31",
+        "size": 63191296,
+        "sha256": "4294a03870d385ba3cf36de26da4437964ce5768c205a8951f6e74b877edbb31",
+        "modes": [
+          "empire"
+        ],
+        "textureProfiles": [
+          "lighter"
+        ]
+      },
+      {
+        "name": "9ba626afa44a3aa3.patch_1016.gpu_resources",
+        "url": "https://github.com/owendavidgoode/clonedivers/releases/download/pack-2026.11.19-r48-files/6e1d766c5b14d0e646aa727fb814de293d032dca5102fc3a5f46d816e9570f60",
+        "size": 50882808,
+        "sha256": "6e1d766c5b14d0e646aa727fb814de293d032dca5102fc3a5f46d816e9570f60",
+        "modes": [
+          "empire"
+        ],
+        "textureProfiles": [
+          "reduced512"
+        ]
+      },
+      {
+        "name": "9ba626afa44a3aa3.patch_1016.stream",
+        "url": "https://github.com/owendavidgoode/clonedivers/releases/download/pack-2026.11.19-r48-files/d5e2b43ddbe23580f7134ec438a29126f802ec08c37caf76a5baf42d6e39d18e",
+        "size": 30117888,
+        "sha256": "d5e2b43ddbe23580f7134ec438a29126f802ec08c37caf76a5baf42d6e39d18e",
+        "modes": [
+          "empire"
+        ],
+        "textureProfiles": [
+          "full"
+        ]
+      },
+      {
+        "name": "9ba626afa44a3aa3.patch_1016.stream",
+        "url": "https://github.com/owendavidgoode/clonedivers/releases/download/pack-2026.11.19-r48-files/e808a82efcb1ed54d3e7fc4a9e6bbb27bbfc959df5e2cf58e254098978ac7a9f",
+        "size": 158918784,
+        "sha256": "e808a82efcb1ed54d3e7fc4a9e6bbb27bbfc959df5e2cf58e254098978ac7a9f",
+        "modes": [
+          "empire"
+        ],
+        "textureProfiles": [
+          "lighter"
+        ]
+      },
+      {
+        "name": "9ba626afa44a3aa3.patch_1016.stream",
+        "url": "https://github.com/owendavidgoode/clonedivers/releases/download/pack-2026.11.19-r48-files/e216cdf673be7b3cc927befe220a71e7d9c44fc5e197ce7e9969dcde92fd9f37",
+        "size": 43270064,
+        "sha256": "e216cdf673be7b3cc927befe220a71e7d9c44fc5e197ce7e9969dcde92fd9f37",
+        "modes": [
+          "empire"
+        ],
+        "textureProfiles": [
+          "reduced512"
+        ]
+      },
+      {
+        "name": "9ba626afa44a3aa3.patch_1017",
+        "url": "https://github.com/owendavidgoode/clonedivers/releases/download/pack-2026.11.19-r48-files/c11dfa6be00e161eed7184fe2c2b325204b8a453ca6b4b5aaa51a51c6af6e0a7",
+        "size": 4622880,
+        "sha256": "c11dfa6be00e161eed7184fe2c2b325204b8a453ca6b4b5aaa51a51c6af6e0a7",
+        "modes": [
+          "empire"
+        ],
+        "textureProfiles": [
+          "full"
+        ]
+      },
+      {
+        "name": "9ba626afa44a3aa3.patch_1017",
+        "url": "https://github.com/owendavidgoode/clonedivers/releases/download/pack-2026.11.19-r48-files/c8582d06e98927ac6542870822f3db0cf46599be22a19a9c67fd9eeaa37b8ee9",
+        "size": 4622880,
+        "sha256": "c8582d06e98927ac6542870822f3db0cf46599be22a19a9c67fd9eeaa37b8ee9",
+        "modes": [
+          "empire"
+        ],
+        "textureProfiles": [
+          "lighter"
+        ]
+      },
+      {
+        "name": "9ba626afa44a3aa3.patch_1017",
+        "url": "https://github.com/owendavidgoode/clonedivers/releases/download/pack-2026.11.19-r48-files/1000fe1f63113636dc407238ee3be89791fcfbaebcc56cca354b4037f5b34dd2",
+        "size": 4622880,
+        "sha256": "1000fe1f63113636dc407238ee3be89791fcfbaebcc56cca354b4037f5b34dd2",
+        "modes": [
+          "empire"
+        ],
+        "textureProfiles": [
+          "reduced512"
+        ]
+      },
+      {
+        "name": "9ba626afa44a3aa3.patch_1017.gpu_resources",
+        "url": "https://github.com/owendavidgoode/clonedivers/releases/download/pack-2026.11.19-r48-files/d4db843b3443cd4e71953162f4a10ebb5e0b4bd736534a25a731cefdbc666e4c",
+        "size": 158449728,
+        "sha256": "d4db843b3443cd4e71953162f4a10ebb5e0b4bd736534a25a731cefdbc666e4c",
+        "modes": [
+          "empire"
+        ],
+        "textureProfiles": [
+          "full"
+        ]
+      },
+      {
+        "name": "9ba626afa44a3aa3.patch_1017.gpu_resources",
+        "url": "https://github.com/owendavidgoode/clonedivers/releases/download/pack-2026.11.19-r48-files/b190fe0fd5ad3c9ad1556c7183839eada7621bfb915f1d402c4f93ca12955594",
+        "size": 99205184,
+        "sha256": "b190fe0fd5ad3c9ad1556c7183839eada7621bfb915f1d402c4f93ca12955594",
+        "modes": [
+          "empire"
+        ],
+        "textureProfiles": [
+          "lighter"
+        ]
+      },
+      {
+        "name": "9ba626afa44a3aa3.patch_1017.gpu_resources",
+        "url": "https://github.com/owendavidgoode/clonedivers/releases/download/pack-2026.11.19-r48-files/5f6a2e66cb516429a778bd9f4405c9c5afdbee4dc124bb9ee6e828663019198c",
+        "size": 79958066,
+        "sha256": "5f6a2e66cb516429a778bd9f4405c9c5afdbee4dc124bb9ee6e828663019198c",
+        "modes": [
+          "empire"
+        ],
+        "textureProfiles": [
+          "reduced512"
+        ]
+      },
+      {
+        "name": "9ba626afa44a3aa3.patch_1017.stream",
+        "url": "https://github.com/owendavidgoode/clonedivers/releases/download/pack-2026.11.19-r48-files/000d4c8d1bb74f2c95bcde1ea174651a7011b8bcfb475af81d72ff3bd7efa9f2",
+        "size": 36332928,
+        "sha256": "000d4c8d1bb74f2c95bcde1ea174651a7011b8bcfb475af81d72ff3bd7efa9f2",
+        "modes": [
+          "empire"
+        ],
+        "textureProfiles": [
+          "full"
+        ]
+      },
+      {
+        "name": "9ba626afa44a3aa3.patch_1017.stream",
+        "url": "https://github.com/owendavidgoode/clonedivers/releases/download/pack-2026.11.19-r48-files/6321828ea4d8ea24315bb53a10bd7be5b1eb73ca7e41ae29fc37d1933203fdc5",
+        "size": 101345344,
+        "sha256": "6321828ea4d8ea24315bb53a10bd7be5b1eb73ca7e41ae29fc37d1933203fdc5",
+        "modes": [
+          "empire"
+        ],
+        "textureProfiles": [
+          "lighter"
+        ]
+      },
+      {
+        "name": "9ba626afa44a3aa3.patch_1017.stream",
+        "url": "https://github.com/owendavidgoode/clonedivers/releases/download/pack-2026.11.19-r48-files/46a38147c30e03f7dcb39d797f5379585fe4661e74daa9e654ed3f2a33df3f8d",
+        "size": 56912816,
+        "sha256": "46a38147c30e03f7dcb39d797f5379585fe4661e74daa9e654ed3f2a33df3f8d",
+        "modes": [
+          "empire"
+        ],
+        "textureProfiles": [
+          "reduced512"
+        ]
+      },
+      {
+        "name": "9ba626afa44a3aa3.patch_1018",
+        "url": "https://github.com/owendavidgoode/clonedivers/releases/download/pack-2026.11.19-r48-files/2dd84fd679ee2f0bd8bdcaeb9b00f6f3a1ba2be421bf5ef30eb4f9a90803cce4",
+        "size": 18574304,
+        "sha256": "2dd84fd679ee2f0bd8bdcaeb9b00f6f3a1ba2be421bf5ef30eb4f9a90803cce4",
+        "modes": [
+          "empire"
+        ],
+        "textureProfiles": [
+          "full"
+        ]
+      },
+      {
+        "name": "9ba626afa44a3aa3.patch_1018",
+        "url": "https://github.com/owendavidgoode/clonedivers/releases/download/pack-2026.11.19-r48-files/5d90a03f5dad59d3516dfa9f5eae7d3c5af793a583ac1e4788236c601da48b3f",
+        "size": 18574304,
+        "sha256": "5d90a03f5dad59d3516dfa9f5eae7d3c5af793a583ac1e4788236c601da48b3f",
+        "modes": [
+          "empire"
+        ],
+        "textureProfiles": [
+          "lighter"
+        ]
+      },
+      {
+        "name": "9ba626afa44a3aa3.patch_1018",
+        "url": "https://github.com/owendavidgoode/clonedivers/releases/download/pack-2026.11.19-r48-files/f917a2c84a96d87813dca31c3eea30bff49ad09db9e03a9b487b34abe1f782c9",
+        "size": 18574304,
+        "sha256": "f917a2c84a96d87813dca31c3eea30bff49ad09db9e03a9b487b34abe1f782c9",
+        "modes": [
+          "empire"
+        ],
+        "textureProfiles": [
+          "reduced512"
+        ]
+      },
+      {
+        "name": "9ba626afa44a3aa3.patch_1018.gpu_resources",
+        "url": "https://github.com/owendavidgoode/clonedivers/releases/download/pack-2026.11.19-r48-files/b7fac3ed3e40d96087290cc099c954bbd3efe53d238728df496c60ede1fad366",
+        "size": 97101376,
+        "sha256": "b7fac3ed3e40d96087290cc099c954bbd3efe53d238728df496c60ede1fad366",
+        "modes": [
+          "empire"
+        ],
+        "textureProfiles": [
+          "full"
+        ]
+      },
+      {
+        "name": "9ba626afa44a3aa3.patch_1018.gpu_resources",
+        "url": "https://github.com/owendavidgoode/clonedivers/releases/download/pack-2026.11.19-r48-files/b90988981e2c111aeb01d123112d9a6c8f8fa8dc26796d90a45084df07d0f62d",
+        "size": 54634022,
+        "sha256": "b90988981e2c111aeb01d123112d9a6c8f8fa8dc26796d90a45084df07d0f62d",
+        "modes": [
+          "empire"
+        ],
+        "textureProfiles": [
+          "lighter"
+        ]
+      },
+      {
+        "name": "9ba626afa44a3aa3.patch_1018.gpu_resources",
+        "url": "https://github.com/owendavidgoode/clonedivers/releases/download/pack-2026.11.19-r48-files/8e6da51eff20f7d1d3ef22d0c71c3eab73791b8d3df72750633ad3da859bbece",
+        "size": 37495846,
+        "sha256": "8e6da51eff20f7d1d3ef22d0c71c3eab73791b8d3df72750633ad3da859bbece",
+        "modes": [
+          "empire"
+        ],
+        "textureProfiles": [
+          "reduced512"
+        ]
+      },
+      {
+        "name": "9ba626afa44a3aa3.patch_1018.stream",
+        "url": "https://github.com/owendavidgoode/clonedivers/releases/download/pack-2026.11.19-r48-files/c1a593ed114722adc7ee5e7b92006753697f88b2757393c607e41592f3828790",
+        "size": 45630912,
+        "sha256": "c1a593ed114722adc7ee5e7b92006753697f88b2757393c607e41592f3828790",
+        "modes": [
+          "empire"
+        ],
+        "textureProfiles": [
+          "full"
+        ]
+      },
+      {
+        "name": "9ba626afa44a3aa3.patch_1018.stream",
+        "url": "https://github.com/owendavidgoode/clonedivers/releases/download/pack-2026.11.19-r48-files/746fcc886ad6562420e61448e093a892d1d71c183b4f4f9ec7e69c00bdf817a0",
+        "size": 94565240,
+        "sha256": "746fcc886ad6562420e61448e093a892d1d71c183b4f4f9ec7e69c00bdf817a0",
+        "modes": [
+          "empire"
+        ],
+        "textureProfiles": [
+          "lighter"
+        ]
+      },
+      {
+        "name": "9ba626afa44a3aa3.patch_1018.stream",
+        "url": "https://github.com/owendavidgoode/clonedivers/releases/download/pack-2026.11.19-r48-files/6d74021fbdf3822ccfa3af539784e59354f7093273c115bd53d4333cd2d16b56",
+        "size": 63983544,
+        "sha256": "6d74021fbdf3822ccfa3af539784e59354f7093273c115bd53d4333cd2d16b56",
+        "modes": [
+          "empire"
+        ],
+        "textureProfiles": [
+          "reduced512"
+        ]
+      },
+      {
+        "name": "9ba626afa44a3aa3.patch_1019",
+        "url": "https://github.com/owendavidgoode/clonedivers/releases/download/pack-2026.11.19-r48-files/27f238fac903c5411bd4b984d237ed5cced03a679ebf81b224672f858c041edb",
+        "size": 27869632,
+        "sha256": "27f238fac903c5411bd4b984d237ed5cced03a679ebf81b224672f858c041edb",
+        "modes": [
+          "empire"
+        ],
+        "textureProfiles": [
+          "full"
+        ]
+      },
+      {
+        "name": "9ba626afa44a3aa3.patch_1019",
+        "url": "https://github.com/owendavidgoode/clonedivers/releases/download/pack-2026.11.19-r48-files/878b36ef28bc655fd3bb125aed840577e30805cc52127f8940419a37969e15d1",
+        "size": 27869632,
+        "sha256": "878b36ef28bc655fd3bb125aed840577e30805cc52127f8940419a37969e15d1",
+        "modes": [
+          "empire"
+        ],
+        "textureProfiles": [
+          "lighter"
+        ]
+      },
+      {
+        "name": "9ba626afa44a3aa3.patch_1019",
+        "url": "https://github.com/owendavidgoode/clonedivers/releases/download/pack-2026.11.19-r48-files/cdced48fdc36363913a5ddf212a9d0b58a6dafc95ab160b4a31bf055e8ec8dc7",
+        "size": 27869632,
+        "sha256": "cdced48fdc36363913a5ddf212a9d0b58a6dafc95ab160b4a31bf055e8ec8dc7",
+        "modes": [
+          "empire"
+        ],
+        "textureProfiles": [
+          "reduced512"
+        ]
+      },
+      {
+        "name": "9ba626afa44a3aa3.patch_1019.gpu_resources",
+        "url": "https://github.com/owendavidgoode/clonedivers/releases/download/pack-2026.11.19-r48-files/798ed2772d70c60dbff9e09b913e7284e44ef6cd15e719358c6b99c792e209df",
+        "size": 240090048,
+        "sha256": "798ed2772d70c60dbff9e09b913e7284e44ef6cd15e719358c6b99c792e209df",
+        "modes": [
+          "empire"
+        ],
+        "textureProfiles": [
+          "full"
+        ]
+      },
+      {
+        "name": "9ba626afa44a3aa3.patch_1019.gpu_resources",
+        "url": "https://github.com/owendavidgoode/clonedivers/releases/download/pack-2026.11.19-r48-files/91fc0823923a1114ccc77445462eabeb247e13d6ef322b8b57596c7a7f035c4a",
+        "size": 78412112,
+        "sha256": "91fc0823923a1114ccc77445462eabeb247e13d6ef322b8b57596c7a7f035c4a",
+        "modes": [
+          "empire"
+        ],
+        "textureProfiles": [
+          "lighter"
+        ]
+      },
+      {
+        "name": "9ba626afa44a3aa3.patch_1019.gpu_resources",
+        "url": "https://github.com/owendavidgoode/clonedivers/releases/download/pack-2026.11.19-r48-files/e383b10fd324ae423308dd8b755caadced9e4ce03d52d2b0e669929142f935e5",
+        "size": 60951760,
+        "sha256": "e383b10fd324ae423308dd8b755caadced9e4ce03d52d2b0e669929142f935e5",
+        "modes": [
+          "empire"
+        ],
+        "textureProfiles": [
+          "reduced512"
+        ]
+      },
+      {
+        "name": "9ba626afa44a3aa3.patch_1019.stream",
+        "url": "https://github.com/owendavidgoode/clonedivers/releases/download/pack-2026.11.19-r48-files/dea70cae8bb37a5b7ecb79597a636163012252f76e086de7c249efb50aeba846",
+        "size": 32062784,
+        "sha256": "dea70cae8bb37a5b7ecb79597a636163012252f76e086de7c249efb50aeba846",
+        "modes": [
+          "empire"
+        ],
+        "textureProfiles": [
+          "full"
+        ]
+      },
+      {
+        "name": "9ba626afa44a3aa3.patch_1019.stream",
+        "url": "https://github.com/owendavidgoode/clonedivers/releases/download/pack-2026.11.19-r48-files/cd399b1edf4b8eb32415ac7179cccf6ea55fdb1f8e852934b132bd0b4654caaa",
+        "size": 202755768,
+        "sha256": "cd399b1edf4b8eb32415ac7179cccf6ea55fdb1f8e852934b132bd0b4654caaa",
+        "modes": [
+          "empire"
+        ],
+        "textureProfiles": [
+          "lighter"
+        ]
+      },
+      {
+        "name": "9ba626afa44a3aa3.patch_1019.stream",
+        "url": "https://github.com/owendavidgoode/clonedivers/releases/download/pack-2026.11.19-r48-files/d1b249162e02a4729e98b654148854a89f3f6d744774dee9c8be03875c9749c1",
+        "size": 50778040,
+        "sha256": "d1b249162e02a4729e98b654148854a89f3f6d744774dee9c8be03875c9749c1",
+        "modes": [
+          "empire"
+        ],
+        "textureProfiles": [
+          "reduced512"
+        ]
+      },
+      {
+        "name": "9ba626afa44a3aa3.patch_1020",
+        "url": "https://github.com/owendavidgoode/clonedivers/releases/download/pack-2026.11.19-r48-files/44690c73abb21de8814b90a6ce9b24ed3a298d2ed3beb7169ccf62e3b52e1931",
+        "size": 10841232,
+        "sha256": "44690c73abb21de8814b90a6ce9b24ed3a298d2ed3beb7169ccf62e3b52e1931",
+        "modes": [
+          "empire"
+        ],
+        "textureProfiles": [
+          "full"
+        ]
+      },
+      {
+        "name": "9ba626afa44a3aa3.patch_1020",
+        "url": "https://github.com/owendavidgoode/clonedivers/releases/download/pack-2026.11.19-r48-files/9a0482d13916cad189d5ad6b341345eb4b13fe397b22b87bbf8db251a50e0daf",
+        "size": 10841232,
+        "sha256": "9a0482d13916cad189d5ad6b341345eb4b13fe397b22b87bbf8db251a50e0daf",
+        "modes": [
+          "empire"
+        ],
+        "textureProfiles": [
+          "lighter"
+        ]
+      },
+      {
+        "name": "9ba626afa44a3aa3.patch_1020",
+        "url": "https://github.com/owendavidgoode/clonedivers/releases/download/pack-2026.11.19-r48-files/98330acc0a4832788b02281b0f02811c97cc980c7a25964cf296c66f94138cac",
+        "size": 10841232,
+        "sha256": "98330acc0a4832788b02281b0f02811c97cc980c7a25964cf296c66f94138cac",
+        "modes": [
+          "empire"
+        ],
+        "textureProfiles": [
+          "reduced512"
+        ]
+      },
+      {
+        "name": "9ba626afa44a3aa3.patch_1020.gpu_resources",
+        "url": "https://github.com/owendavidgoode/clonedivers/releases/download/pack-2026.11.19-r48-files/f70f2981742a4784df092f5faa80e3f567b76d100f3c5204f9a36c670bd02e83",
+        "size": 139796928,
+        "sha256": "f70f2981742a4784df092f5faa80e3f567b76d100f3c5204f9a36c670bd02e83",
+        "modes": [
+          "empire"
+        ],
+        "textureProfiles": [
+          "full"
+        ]
+      },
+      {
+        "name": "9ba626afa44a3aa3.patch_1020.gpu_resources",
+        "url": "https://github.com/owendavidgoode/clonedivers/releases/download/pack-2026.11.19-r48-files/4f6ccfeea332f2451fad001c2de1a7a2403150028c245c0a7eeba3dbf58abd93",
+        "size": 62202242,
+        "sha256": "4f6ccfeea332f2451fad001c2de1a7a2403150028c245c0a7eeba3dbf58abd93",
+        "modes": [
+          "empire"
+        ],
+        "textureProfiles": [
+          "lighter"
+        ]
+      },
+      {
+        "name": "9ba626afa44a3aa3.patch_1020.gpu_resources",
+        "url": "https://github.com/owendavidgoode/clonedivers/releases/download/pack-2026.11.19-r48-files/18686a40e6c62fdffd244743801451653f2115f7b98e81d3ea3559aae1e5c27a",
+        "size": 43622786,
+        "sha256": "18686a40e6c62fdffd244743801451653f2115f7b98e81d3ea3559aae1e5c27a",
+        "modes": [
+          "empire"
+        ],
+        "textureProfiles": [
+          "reduced512"
+        ]
+      },
+      {
+        "name": "9ba626afa44a3aa3.patch_1020.stream",
+        "url": "https://github.com/owendavidgoode/clonedivers/releases/download/pack-2026.11.19-r48-files/26698794159baf5be8f4792d40cbd21d80080df3eb8d1ff4ec0dd92a77082359",
+        "size": 39075136,
+        "sha256": "26698794159baf5be8f4792d40cbd21d80080df3eb8d1ff4ec0dd92a77082359",
+        "modes": [
+          "empire"
+        ],
+        "textureProfiles": [
+          "full"
+        ]
+      },
+      {
+        "name": "9ba626afa44a3aa3.patch_1020.stream",
+        "url": "https://github.com/owendavidgoode/clonedivers/releases/download/pack-2026.11.19-r48-files/1943fdaf0e5b7c54dbe980b8079ab4b0bb56dc99bafb51fef97848cb33e0b952",
+        "size": 122961968,
+        "sha256": "1943fdaf0e5b7c54dbe980b8079ab4b0bb56dc99bafb51fef97848cb33e0b952",
+        "modes": [
+          "empire"
+        ],
+        "textureProfiles": [
+          "lighter"
+        ]
+      },
+      {
+        "name": "9ba626afa44a3aa3.patch_1020.stream",
+        "url": "https://github.com/owendavidgoode/clonedivers/releases/download/pack-2026.11.19-r48-files/d4b1febbecb21eba53a64a2178c90f2ced9ec2fb48fbf0054bd2928f97c18c5f",
+        "size": 56858800,
+        "sha256": "d4b1febbecb21eba53a64a2178c90f2ced9ec2fb48fbf0054bd2928f97c18c5f",
+        "modes": [
+          "empire"
+        ],
+        "textureProfiles": [
+          "reduced512"
+        ]
+      },
+      {
+        "name": "9ba626afa44a3aa3.patch_1021",
+        "url": "https://github.com/owendavidgoode/clonedivers/releases/download/pack-2026.11.19-r48-files/45cd699fdc051904d15164802476de785e0d00da3cf962f178afe69947674a8f",
+        "size": 9490624,
+        "sha256": "45cd699fdc051904d15164802476de785e0d00da3cf962f178afe69947674a8f",
+        "modes": [
+          "empire"
+        ],
+        "textureProfiles": [
+          "full"
+        ]
+      },
+      {
+        "name": "9ba626afa44a3aa3.patch_1021",
+        "url": "https://github.com/owendavidgoode/clonedivers/releases/download/pack-2026.11.19-r48-files/f91f83c0a5f03ea32ae879f990c0d384b41633ededa1dfe6b7aa04a3086f73c0",
+        "size": 9490624,
+        "sha256": "f91f83c0a5f03ea32ae879f990c0d384b41633ededa1dfe6b7aa04a3086f73c0",
+        "modes": [
+          "empire"
+        ],
+        "textureProfiles": [
+          "lighter"
+        ]
+      },
+      {
+        "name": "9ba626afa44a3aa3.patch_1021",
+        "url": "https://github.com/owendavidgoode/clonedivers/releases/download/pack-2026.11.19-r48-files/1f3ce3765caddd96698f8c55ed62adc7aba4ae900fb7da5c20214fd00735480a",
+        "size": 9490624,
+        "sha256": "1f3ce3765caddd96698f8c55ed62adc7aba4ae900fb7da5c20214fd00735480a",
+        "modes": [
+          "empire"
+        ],
+        "textureProfiles": [
+          "reduced512"
+        ]
+      },
+      {
+        "name": "9ba626afa44a3aa3.patch_1021.gpu_resources",
+        "url": "https://github.com/owendavidgoode/clonedivers/releases/download/pack-2026.11.19-r48-files/cc7bf615bf0421511170355936ca7418a46be5b99e725a054b52d9e3e5e8baf3",
+        "size": 182845888,
+        "sha256": "cc7bf615bf0421511170355936ca7418a46be5b99e725a054b52d9e3e5e8baf3",
+        "modes": [
+          "empire"
+        ],
+        "textureProfiles": [
+          "full"
+        ]
+      },
+      {
+        "name": "9ba626afa44a3aa3.patch_1021.gpu_resources",
+        "url": "https://github.com/owendavidgoode/clonedivers/releases/download/pack-2026.11.19-r48-files/83d885b2a7b0aa709e60697b0392ceeb7c2200aaab01e1ce599ca16d0566fd64",
+        "size": 62259586,
+        "sha256": "83d885b2a7b0aa709e60697b0392ceeb7c2200aaab01e1ce599ca16d0566fd64",
+        "modes": [
+          "empire"
+        ],
+        "textureProfiles": [
+          "lighter"
+        ]
+      },
+      {
+        "name": "9ba626afa44a3aa3.patch_1021.gpu_resources",
+        "url": "https://github.com/owendavidgoode/clonedivers/releases/download/pack-2026.11.19-r48-files/656f0021a59d17433ac617afd8ae25fdf40e9b40a425082d45892d2fb8e19060",
+        "size": 43360642,
+        "sha256": "656f0021a59d17433ac617afd8ae25fdf40e9b40a425082d45892d2fb8e19060",
+        "modes": [
+          "empire"
+        ],
+        "textureProfiles": [
+          "reduced512"
+        ]
+      },
+      {
+        "name": "9ba626afa44a3aa3.patch_1021.stream",
+        "url": "https://github.com/owendavidgoode/clonedivers/releases/download/pack-2026.11.19-r48-files/6ba4033c61f9031713cb7e73d4eee1a320db311ad31f9487c1e74e767f88ba87",
+        "size": 49116544,
+        "sha256": "6ba4033c61f9031713cb7e73d4eee1a320db311ad31f9487c1e74e767f88ba87",
+        "modes": [
+          "empire"
+        ],
+        "textureProfiles": [
+          "full"
+        ]
+      },
+      {
+        "name": "9ba626afa44a3aa3.patch_1021.stream",
+        "url": "https://github.com/owendavidgoode/clonedivers/releases/download/pack-2026.11.19-r48-files/7ddc4b9b8de32a82ae575e5aea4bfdcc7e5ae24edf61bb604b499b51a0500350",
+        "size": 179141112,
+        "sha256": "7ddc4b9b8de32a82ae575e5aea4bfdcc7e5ae24edf61bb604b499b51a0500350",
+        "modes": [
+          "empire"
+        ],
+        "textureProfiles": [
+          "lighter"
+        ]
+      },
+      {
+        "name": "9ba626afa44a3aa3.patch_1021.stream",
+        "url": "https://github.com/owendavidgoode/clonedivers/releases/download/pack-2026.11.19-r48-files/3dfdb9d33031fe8924d9cc8a4d844715e27caece244dbfc95e009f0d27eb3dde",
+        "size": 58905016,
+        "sha256": "3dfdb9d33031fe8924d9cc8a4d844715e27caece244dbfc95e009f0d27eb3dde",
+        "modes": [
+          "empire"
+        ],
+        "textureProfiles": [
+          "reduced512"
+        ]
+      },
+      {
+        "name": "9ba626afa44a3aa3.patch_1022",
+        "url": "https://github.com/owendavidgoode/clonedivers/releases/download/pack-2026.11.19-r48-files/6b9951592d6f891e8e18b1a75d70c44c30a13b0170432e36b1c6aa324d0c2b14",
+        "size": 16428880,
+        "sha256": "6b9951592d6f891e8e18b1a75d70c44c30a13b0170432e36b1c6aa324d0c2b14",
+        "modes": [
+          "empire"
+        ],
+        "textureProfiles": [
+          "full"
+        ]
+      },
+      {
+        "name": "9ba626afa44a3aa3.patch_1022",
+        "url": "https://github.com/owendavidgoode/clonedivers/releases/download/pack-2026.11.19-r48-files/9f6d1ae04b375188c281bb67988799d3b08e43064be1bb697877317d6d980062",
+        "size": 16428880,
+        "sha256": "9f6d1ae04b375188c281bb67988799d3b08e43064be1bb697877317d6d980062",
+        "modes": [
+          "empire"
+        ],
+        "textureProfiles": [
+          "lighter"
+        ]
+      },
+      {
+        "name": "9ba626afa44a3aa3.patch_1022",
+        "url": "https://github.com/owendavidgoode/clonedivers/releases/download/pack-2026.11.19-r48-files/0f3f730b67923898450e18adab24b2de14fc3a1f70d1c5582305806e963b747a",
+        "size": 16428880,
+        "sha256": "0f3f730b67923898450e18adab24b2de14fc3a1f70d1c5582305806e963b747a",
+        "modes": [
+          "empire"
+        ],
+        "textureProfiles": [
+          "reduced512"
+        ]
+      },
+      {
+        "name": "9ba626afa44a3aa3.patch_1022.gpu_resources",
+        "url": "https://github.com/owendavidgoode/clonedivers/releases/download/pack-2026.11.19-r48-files/612d97b7217c752cc36c9c4ce682857fa5f795d3e232f0f6fd9e34d0663f1b7f",
+        "size": 244901568,
+        "sha256": "612d97b7217c752cc36c9c4ce682857fa5f795d3e232f0f6fd9e34d0663f1b7f",
+        "modes": [
+          "empire"
+        ],
+        "textureProfiles": [
+          "full"
+        ]
+      },
+      {
+        "name": "9ba626afa44a3aa3.patch_1022.gpu_resources",
+        "url": "https://github.com/owendavidgoode/clonedivers/releases/download/pack-2026.11.19-r48-files/aeab3a9fd5633c166cb96b413ab65403ca7629cab9daabc5b75cfe205fb9d3e3",
+        "size": 86042304,
+        "sha256": "aeab3a9fd5633c166cb96b413ab65403ca7629cab9daabc5b75cfe205fb9d3e3",
+        "modes": [
+          "empire"
+        ],
+        "textureProfiles": [
+          "lighter"
+        ]
+      },
+      {
+        "name": "9ba626afa44a3aa3.patch_1022.gpu_resources",
+        "url": "https://github.com/owendavidgoode/clonedivers/releases/download/pack-2026.11.19-r48-files/a54ba5c392983fe9501486d3948b0712ecbec3df595ca71c014ee64110592d49",
+        "size": 65004736,
+        "sha256": "a54ba5c392983fe9501486d3948b0712ecbec3df595ca71c014ee64110592d49",
+        "modes": [
+          "empire"
+        ],
+        "textureProfiles": [
+          "reduced512"
+        ]
+      },
+      {
+        "name": "9ba626afa44a3aa3.patch_1022.stream",
+        "url": "https://github.com/owendavidgoode/clonedivers/releases/download/pack-2026.11.19-r48-files/aa17812375ead960ed016bab23ab17c5ece17733ad6a66c1a1bd532d25f940e7",
+        "size": 31141760,
+        "sha256": "aa17812375ead960ed016bab23ab17c5ece17733ad6a66c1a1bd532d25f940e7",
+        "modes": [
+          "empire"
+        ],
+        "textureProfiles": [
+          "full"
+        ]
+      },
+      {
+        "name": "9ba626afa44a3aa3.patch_1022.stream",
+        "url": "https://github.com/owendavidgoode/clonedivers/releases/download/pack-2026.11.19-r48-files/9a2795a0eb36afde2ed598d36b95a66d3224af4aab631fcfb498a98f329b851c",
+        "size": 202410416,
+        "sha256": "9a2795a0eb36afde2ed598d36b95a66d3224af4aab631fcfb498a98f329b851c",
+        "modes": [
+          "empire"
+        ],
+        "textureProfiles": [
+          "lighter"
+        ]
+      },
+      {
+        "name": "9ba626afa44a3aa3.patch_1022.stream",
+        "url": "https://github.com/owendavidgoode/clonedivers/releases/download/pack-2026.11.19-r48-files/a60bbc338363ec6f88992424cdc3b58bd9d2a327e5e961c5637c4154455bebaa",
+        "size": 53689136,
+        "sha256": "a60bbc338363ec6f88992424cdc3b58bd9d2a327e5e961c5637c4154455bebaa",
+        "modes": [
+          "empire"
+        ],
+        "textureProfiles": [
+          "reduced512"
+        ]
+      },
+      {
+        "name": "9ba626afa44a3aa3.patch_1023",
+        "url": "https://github.com/owendavidgoode/clonedivers/releases/download/pack-2026.11.19-r48-files/b7c631cee1a92142dcc89aa1a89fb0b86abaca3b24011f8ae930e941dea2853d",
+        "size": 8759344,
+        "sha256": "b7c631cee1a92142dcc89aa1a89fb0b86abaca3b24011f8ae930e941dea2853d",
+        "modes": [
+          "empire"
+        ],
+        "textureProfiles": [
+          "full"
+        ]
+      },
+      {
+        "name": "9ba626afa44a3aa3.patch_1023",
+        "url": "https://github.com/owendavidgoode/clonedivers/releases/download/pack-2026.11.19-r48-files/52b389fc7b73c027cf161ea6b60cb96ff99c7ec2317df1c4864903b3a325fc2c",
+        "size": 8759344,
+        "sha256": "52b389fc7b73c027cf161ea6b60cb96ff99c7ec2317df1c4864903b3a325fc2c",
+        "modes": [
+          "empire"
+        ],
+        "textureProfiles": [
+          "lighter"
+        ]
+      },
+      {
+        "name": "9ba626afa44a3aa3.patch_1023",
+        "url": "https://github.com/owendavidgoode/clonedivers/releases/download/pack-2026.11.19-r48-files/4ba17f5a3a4613b96df916e544903c5a8228581c01f40cbfccf92af5329e6c51",
+        "size": 8759344,
+        "sha256": "4ba17f5a3a4613b96df916e544903c5a8228581c01f40cbfccf92af5329e6c51",
+        "modes": [
+          "empire"
+        ],
+        "textureProfiles": [
+          "reduced512"
+        ]
+      },
+      {
+        "name": "9ba626afa44a3aa3.patch_1023.gpu_resources",
+        "url": "https://github.com/owendavidgoode/clonedivers/releases/download/pack-2026.11.19-r48-files/063fd72f6293c87be2145a01b205e32affc547bfbd44781b23f194f46a5812c2",
+        "size": 240920192,
+        "sha256": "063fd72f6293c87be2145a01b205e32affc547bfbd44781b23f194f46a5812c2",
+        "modes": [
+          "empire"
+        ],
+        "textureProfiles": [
+          "full"
+        ]
+      },
+      {
+        "name": "9ba626afa44a3aa3.patch_1023.gpu_resources",
+        "url": "https://github.com/owendavidgoode/clonedivers/releases/download/pack-2026.11.19-r48-files/b47fd4d9855ed981f876f34ed312664b1710c229da380cdf821d15e0edf8a222",
+        "size": 60400680,
+        "sha256": "b47fd4d9855ed981f876f34ed312664b1710c229da380cdf821d15e0edf8a222",
+        "modes": [
+          "empire"
+        ],
+        "textureProfiles": [
+          "lighter"
+        ]
+      },
+      {
+        "name": "9ba626afa44a3aa3.patch_1023.gpu_resources",
+        "url": "https://github.com/owendavidgoode/clonedivers/releases/download/pack-2026.11.19-r48-files/392777b315b2dcc32c65b6f71cecf446af8dd5ce45b62fbec9ca49775ba63072",
+        "size": 41739176,
+        "sha256": "392777b315b2dcc32c65b6f71cecf446af8dd5ce45b62fbec9ca49775ba63072",
+        "modes": [
+          "empire"
+        ],
+        "textureProfiles": [
+          "reduced512"
+        ]
+      },
+      {
+        "name": "9ba626afa44a3aa3.patch_1023.stream",
+        "url": "https://github.com/owendavidgoode/clonedivers/releases/download/pack-2026.11.19-r48-files/8c28af6bf0d5e41de83fc418f4eabac72de60478af2f4d452d240b128a0c9361",
+        "size": 30497024,
+        "sha256": "8c28af6bf0d5e41de83fc418f4eabac72de60478af2f4d452d240b128a0c9361",
+        "modes": [
+          "empire"
+        ],
+        "textureProfiles": [
+          "full"
+        ]
+      },
+      {
+        "name": "9ba626afa44a3aa3.patch_1023.stream",
+        "url": "https://github.com/owendavidgoode/clonedivers/releases/download/pack-2026.11.19-r48-files/90614e67ce80fa0228e6a113787ba2dae34949ac44eb18913a55950dbf98cccf",
+        "size": 220577216,
+        "sha256": "90614e67ce80fa0228e6a113787ba2dae34949ac44eb18913a55950dbf98cccf",
+        "modes": [
+          "empire"
+        ],
+        "textureProfiles": [
+          "lighter"
+        ]
+      },
+      {
+        "name": "9ba626afa44a3aa3.patch_1023.stream",
+        "url": "https://github.com/owendavidgoode/clonedivers/releases/download/pack-2026.11.19-r48-files/1a15c76ab65ff435baa07a5ac5de6f1aa37885a19271b1235d9fcb29e3267dee",
+        "size": 50415480,
+        "sha256": "1a15c76ab65ff435baa07a5ac5de6f1aa37885a19271b1235d9fcb29e3267dee",
+        "modes": [
+          "empire"
+        ],
+        "textureProfiles": [
+          "reduced512"
+        ]
+      },
+      {
+        "name": "9ba626afa44a3aa3.patch_1024",
+        "url": "https://github.com/owendavidgoode/clonedivers/releases/download/pack-2026.11.19-r48-files/e39a08fa74f3dbe066a81fb82e9421eaab960889f25afc1cfbb6d954eb106013",
+        "size": 17705280,
+        "sha256": "e39a08fa74f3dbe066a81fb82e9421eaab960889f25afc1cfbb6d954eb106013",
+        "modes": [
+          "empire"
+        ],
+        "textureProfiles": [
+          "full"
+        ]
+      },
+      {
+        "name": "9ba626afa44a3aa3.patch_1024",
+        "url": "https://github.com/owendavidgoode/clonedivers/releases/download/pack-2026.11.19-r48-files/ba5e5a066fc926d4891be1f453ff3e2ddb6433ea82f730c505e3a58f23b0a811",
+        "size": 17705280,
+        "sha256": "ba5e5a066fc926d4891be1f453ff3e2ddb6433ea82f730c505e3a58f23b0a811",
+        "modes": [
+          "empire"
+        ],
+        "textureProfiles": [
+          "lighter"
+        ]
+      },
+      {
+        "name": "9ba626afa44a3aa3.patch_1024",
+        "url": "https://github.com/owendavidgoode/clonedivers/releases/download/pack-2026.11.19-r48-files/0a6f62087943c44f4a9f7bdbfffbba23b91fafe163e117005d3431e9fa0ad94c",
+        "size": 17705280,
+        "sha256": "0a6f62087943c44f4a9f7bdbfffbba23b91fafe163e117005d3431e9fa0ad94c",
+        "modes": [
+          "empire"
+        ],
+        "textureProfiles": [
+          "reduced512"
+        ]
+      },
+      {
+        "name": "9ba626afa44a3aa3.patch_1024.gpu_resources",
+        "url": "https://github.com/owendavidgoode/clonedivers/releases/download/pack-2026.11.19-r48-files/db5ac7fe48978b42490484f0c45147bd3e4fd4c698db1666e3162d7c45561eee",
+        "size": 211725632,
+        "sha256": "db5ac7fe48978b42490484f0c45147bd3e4fd4c698db1666e3162d7c45561eee",
+        "modes": [
+          "empire"
+        ],
+        "textureProfiles": [
+          "full"
+        ]
+      },
+      {
+        "name": "9ba626afa44a3aa3.patch_1024.gpu_resources",
+        "url": "https://github.com/owendavidgoode/clonedivers/releases/download/pack-2026.11.19-r48-files/dd972ed0a4f1e15fc13ba39365057306f72b382a403a48ef70c73bc0e888a231",
+        "size": 87993644,
+        "sha256": "dd972ed0a4f1e15fc13ba39365057306f72b382a403a48ef70c73bc0e888a231",
+        "modes": [
+          "empire"
+        ],
+        "textureProfiles": [
+          "lighter"
+        ]
+      },
+      {
+        "name": "9ba626afa44a3aa3.patch_1024.gpu_resources",
+        "url": "https://github.com/owendavidgoode/clonedivers/releases/download/pack-2026.11.19-r48-files/1c616cdc25ae84186a83cab20dc550e8464e40cf77c388e7eef8b5945ceadcd8",
+        "size": 63483180,
+        "sha256": "1c616cdc25ae84186a83cab20dc550e8464e40cf77c388e7eef8b5945ceadcd8",
+        "modes": [
+          "empire"
+        ],
+        "textureProfiles": [
+          "reduced512"
+        ]
+      },
+      {
+        "name": "9ba626afa44a3aa3.patch_1024.stream",
+        "url": "https://github.com/owendavidgoode/clonedivers/releases/download/pack-2026.11.19-r48-files/a04cba572fe958fde9f31e0bd76f9e4eafa9674b798de7ba2ae5c00cafffa670",
+        "size": 37714560,
+        "sha256": "a04cba572fe958fde9f31e0bd76f9e4eafa9674b798de7ba2ae5c00cafffa670",
+        "modes": [
+          "empire"
+        ],
+        "textureProfiles": [
+          "full"
+        ]
+      },
+      {
+        "name": "9ba626afa44a3aa3.patch_1024.stream",
+        "url": "https://github.com/owendavidgoode/clonedivers/releases/download/pack-2026.11.19-r48-files/8e13f14d39e2dfc6f7fe5f46447031e9d7bf53afa1d707b02a241a0e4f3aada7",
+        "size": 174729840,
+        "sha256": "8e13f14d39e2dfc6f7fe5f46447031e9d7bf53afa1d707b02a241a0e4f3aada7",
+        "modes": [
+          "empire"
+        ],
+        "textureProfiles": [
+          "lighter"
+        ]
+      },
+      {
+        "name": "9ba626afa44a3aa3.patch_1024.stream",
+        "url": "https://github.com/owendavidgoode/clonedivers/releases/download/pack-2026.11.19-r48-files/c12e4306950162b2503be44da539571b7d789dc28e78aeedf63d8ecc361fad1e",
+        "size": 63974704,
+        "sha256": "c12e4306950162b2503be44da539571b7d789dc28e78aeedf63d8ecc361fad1e",
+        "modes": [
+          "empire"
+        ],
+        "textureProfiles": [
+          "reduced512"
+        ]
+      },
+      {
+        "name": "9ba626afa44a3aa3.patch_1025",
+        "url": "https://github.com/owendavidgoode/clonedivers/releases/download/pack-2026.11.19-r48-files/7e526bcac32ec801a5a0fe5d31261258d97b7662381d5a985ee6bfec58b99c5b",
+        "size": 16995840,
+        "sha256": "7e526bcac32ec801a5a0fe5d31261258d97b7662381d5a985ee6bfec58b99c5b",
+        "modes": [
+          "empire"
+        ],
+        "textureProfiles": [
+          "full"
+        ]
+      },
+      {
+        "name": "9ba626afa44a3aa3.patch_1025",
+        "url": "https://github.com/owendavidgoode/clonedivers/releases/download/pack-2026.11.19-r48-files/c9624def6f07aa3f96ca9c5b721bf9a44bfe03526b170102c12fa784b7fd9af0",
+        "size": 16995840,
+        "sha256": "c9624def6f07aa3f96ca9c5b721bf9a44bfe03526b170102c12fa784b7fd9af0",
+        "modes": [
+          "empire"
+        ],
+        "textureProfiles": [
+          "lighter"
+        ]
+      },
+      {
+        "name": "9ba626afa44a3aa3.patch_1025",
+        "url": "https://github.com/owendavidgoode/clonedivers/releases/download/pack-2026.11.19-r48-files/73d587e304ed1d0e98e64e566222c7de8cd05f9f0f6bb8e9296176c4417a4646",
+        "size": 16995840,
+        "sha256": "73d587e304ed1d0e98e64e566222c7de8cd05f9f0f6bb8e9296176c4417a4646",
+        "modes": [
+          "empire"
+        ],
+        "textureProfiles": [
+          "reduced512"
+        ]
+      },
+      {
+        "name": "9ba626afa44a3aa3.patch_1025.gpu_resources",
+        "url": "https://github.com/owendavidgoode/clonedivers/releases/download/pack-2026.11.19-r48-files/3f5b06b9932d319c81d9a0792a8827c3ea3228d01c3058982005e74aa1f8f8e0",
+        "size": 289140288,
+        "sha256": "3f5b06b9932d319c81d9a0792a8827c3ea3228d01c3058982005e74aa1f8f8e0",
+        "modes": [
+          "empire"
+        ],
+        "textureProfiles": [
+          "full"
+        ]
+      },
+      {
+        "name": "9ba626afa44a3aa3.patch_1025.gpu_resources",
+        "url": "https://github.com/owendavidgoode/clonedivers/releases/download/pack-2026.11.19-r48-files/a818ecdceb0ce1b3f98a9fe8f4c0d9a014005f7bd54428fbd55b901a0971d7c6",
+        "size": 122940976,
+        "sha256": "a818ecdceb0ce1b3f98a9fe8f4c0d9a014005f7bd54428fbd55b901a0971d7c6",
+        "modes": [
+          "empire"
+        ],
+        "textureProfiles": [
+          "lighter"
+        ]
+      },
+      {
+        "name": "9ba626afa44a3aa3.patch_1025.gpu_resources",
+        "url": "https://github.com/owendavidgoode/clonedivers/releases/download/pack-2026.11.19-r48-files/1f8f8a8abbb74961f0ccc7273aad867c1ef2d1a8037a9f32b7d8b5c927ea7b20",
+        "size": 100724272,
+        "sha256": "1f8f8a8abbb74961f0ccc7273aad867c1ef2d1a8037a9f32b7d8b5c927ea7b20",
+        "modes": [
+          "empire"
+        ],
+        "textureProfiles": [
+          "reduced512"
+        ]
+      },
+      {
+        "name": "9ba626afa44a3aa3.patch_1025.stream",
+        "url": "https://github.com/owendavidgoode/clonedivers/releases/download/pack-2026.11.19-r48-files/226b9d0d01d7c4d47d8da3beaf5e35afdbf979ee1d71d5b3465360baa543d720",
+        "size": 38610304,
+        "sha256": "226b9d0d01d7c4d47d8da3beaf5e35afdbf979ee1d71d5b3465360baa543d720",
+        "modes": [
+          "empire"
+        ],
+        "textureProfiles": [
+          "full"
+        ]
+      },
+      {
+        "name": "9ba626afa44a3aa3.patch_1025.stream",
+        "url": "https://github.com/owendavidgoode/clonedivers/releases/download/pack-2026.11.19-r48-files/7505f296a747cd4178855547b6f51b68d2b31e78bb4716a54516a32e566aefe3",
+        "size": 214073016,
+        "sha256": "7505f296a747cd4178855547b6f51b68d2b31e78bb4716a54516a32e566aefe3",
+        "modes": [
+          "empire"
+        ],
+        "textureProfiles": [
+          "lighter"
+        ]
+      },
+      {
+        "name": "9ba626afa44a3aa3.patch_1025.stream",
+        "url": "https://github.com/owendavidgoode/clonedivers/releases/download/pack-2026.11.19-r48-files/d0b171ee4b5d50a3c21825c91b9b4074808e564494d55bdab28f16d1ae1bf2bf",
+        "size": 62336212,
+        "sha256": "d0b171ee4b5d50a3c21825c91b9b4074808e564494d55bdab28f16d1ae1bf2bf",
+        "modes": [
+          "empire"
+        ],
+        "textureProfiles": [
+          "reduced512"
+        ]
+      },
+      {
+        "name": "9ba626afa44a3aa3.patch_1026",
+        "url": "https://github.com/owendavidgoode/clonedivers/releases/download/pack-2026.11.19-r48-files/93bc97eb3f59aa272555bc26e51e767d5131445e6695ac0e08ba275a02398b35",
+        "size": 25548480,
+        "sha256": "93bc97eb3f59aa272555bc26e51e767d5131445e6695ac0e08ba275a02398b35",
+        "modes": [
+          "empire"
+        ],
+        "textureProfiles": [
+          "full"
+        ]
+      },
+      {
+        "name": "9ba626afa44a3aa3.patch_1026",
+        "url": "https://github.com/owendavidgoode/clonedivers/releases/download/pack-2026.11.19-r48-files/486181a98ee50472ea6d30555134257324762288d361a320bb304d595d4eca2f",
+        "size": 25548480,
+        "sha256": "486181a98ee50472ea6d30555134257324762288d361a320bb304d595d4eca2f",
+        "modes": [
+          "empire"
+        ],
+        "textureProfiles": [
+          "lighter"
+        ]
+      },
+      {
+        "name": "9ba626afa44a3aa3.patch_1026",
+        "url": "https://github.com/owendavidgoode/clonedivers/releases/download/pack-2026.11.19-r48-files/7753d5065f86e8b59f5e94512aafdb06f9bc8e6a63505331eedfde1aff89cb2e",
+        "size": 25548480,
+        "sha256": "7753d5065f86e8b59f5e94512aafdb06f9bc8e6a63505331eedfde1aff89cb2e",
+        "modes": [
+          "empire"
+        ],
+        "textureProfiles": [
+          "reduced512"
+        ]
+      },
+      {
+        "name": "9ba626afa44a3aa3.patch_1026.gpu_resources",
+        "url": "https://github.com/owendavidgoode/clonedivers/releases/download/pack-2026.11.19-r48-files/92103d8652c824299792f6b9734363dcba9ca56c7926ef289211480795077f44",
+        "size": 293939136,
+        "sha256": "92103d8652c824299792f6b9734363dcba9ca56c7926ef289211480795077f44",
+        "modes": [
+          "empire"
+        ],
+        "textureProfiles": [
+          "full"
+        ]
+      },
+      {
+        "name": "9ba626afa44a3aa3.patch_1026.gpu_resources",
+        "url": "https://github.com/owendavidgoode/clonedivers/releases/download/pack-2026.11.19-r48-files/512183bef8115a8d8bc68fb9ab17601afb93c7fc0062a04278669a10c8ec9c02",
+        "size": 122759054,
+        "sha256": "512183bef8115a8d8bc68fb9ab17601afb93c7fc0062a04278669a10c8ec9c02",
+        "modes": [
+          "empire"
+        ],
+        "textureProfiles": [
+          "lighter"
+        ]
+      },
+      {
+        "name": "9ba626afa44a3aa3.patch_1026.gpu_resources",
+        "url": "https://github.com/owendavidgoode/clonedivers/releases/download/pack-2026.11.19-r48-files/435b4008b304fc1d6b93c10865be98e6bd1469b5a5a13573e71226b2e002aaa8",
+        "size": 79553422,
+        "sha256": "435b4008b304fc1d6b93c10865be98e6bd1469b5a5a13573e71226b2e002aaa8",
+        "modes": [
+          "empire"
+        ],
+        "textureProfiles": [
+          "reduced512"
+        ]
+      },
+      {
+        "name": "9ba626afa44a3aa3.patch_1026.stream",
+        "url": "https://github.com/owendavidgoode/clonedivers/releases/download/pack-2026.11.19-r48-files/7c43a10acdbff38e3c4e3aea2fba346b0c371ef891bc35b1146d9d1e755c696f",
+        "size": 36877632,
+        "sha256": "7c43a10acdbff38e3c4e3aea2fba346b0c371ef891bc35b1146d9d1e755c696f",
+        "modes": [
+          "empire"
+        ],
+        "textureProfiles": [
+          "full"
+        ]
+      },
+      {
+        "name": "9ba626afa44a3aa3.patch_1026.stream",
+        "url": "https://github.com/owendavidgoode/clonedivers/releases/download/pack-2026.11.19-r48-files/840abf0cfaf86b339948b605e7e68dd26c65349731e15b59520df13969dd3473",
+        "size": 219680752,
+        "sha256": "840abf0cfaf86b339948b605e7e68dd26c65349731e15b59520df13969dd3473",
+        "modes": [
+          "empire"
+        ],
+        "textureProfiles": [
+          "lighter"
+        ]
+      },
+      {
+        "name": "9ba626afa44a3aa3.patch_1026.stream",
+        "url": "https://github.com/owendavidgoode/clonedivers/releases/download/pack-2026.11.19-r48-files/275a0613bd71128b512ef23cdd2cdd24bc579edfe62ffaf89929343ee1dff370",
+        "size": 65412144,
+        "sha256": "275a0613bd71128b512ef23cdd2cdd24bc579edfe62ffaf89929343ee1dff370",
+        "modes": [
+          "empire"
+        ],
+        "textureProfiles": [
+          "reduced512"
+        ]
+      },
+      {
+        "name": "9ba626afa44a3aa3.patch_1027",
+        "url": "https://github.com/owendavidgoode/clonedivers/releases/download/pack-2026.11.19-r48-files/cfe5e68c70eb29b045632fe5648633935e7cdc5241ecaa20b2d2c6f9171cd7eb",
+        "size": 15147888,
+        "sha256": "cfe5e68c70eb29b045632fe5648633935e7cdc5241ecaa20b2d2c6f9171cd7eb",
+        "modes": [
+          "empire"
+        ],
+        "textureProfiles": [
+          "full"
+        ]
+      },
+      {
+        "name": "9ba626afa44a3aa3.patch_1027",
+        "url": "https://github.com/owendavidgoode/clonedivers/releases/download/pack-2026.11.19-r48-files/813b3506998109cfa800e60938b1283bf2aff7c28ed881d0466cb244e56ac59a",
+        "size": 15147888,
+        "sha256": "813b3506998109cfa800e60938b1283bf2aff7c28ed881d0466cb244e56ac59a",
+        "modes": [
+          "empire"
+        ],
+        "textureProfiles": [
+          "lighter"
+        ]
+      },
+      {
+        "name": "9ba626afa44a3aa3.patch_1027",
+        "url": "https://github.com/owendavidgoode/clonedivers/releases/download/pack-2026.11.19-r48-files/421ed52f8b307a0246e7fa8891ad321b4264265bebe1f9b9387b0b5ede881007",
+        "size": 15147888,
+        "sha256": "421ed52f8b307a0246e7fa8891ad321b4264265bebe1f9b9387b0b5ede881007",
+        "modes": [
+          "empire"
+        ],
+        "textureProfiles": [
+          "reduced512"
+        ]
+      },
+      {
+        "name": "9ba626afa44a3aa3.patch_1027.gpu_resources",
+        "url": "https://github.com/owendavidgoode/clonedivers/releases/download/pack-2026.11.19-r48-files/93deb64469d01f7268a6803fbf1496cd27fb96343aead8267df6a3480a9fef9c",
+        "size": 183776512,
+        "sha256": "93deb64469d01f7268a6803fbf1496cd27fb96343aead8267df6a3480a9fef9c",
+        "modes": [
+          "empire"
+        ],
+        "textureProfiles": [
+          "full"
+        ]
+      },
+      {
+        "name": "9ba626afa44a3aa3.patch_1027.gpu_resources",
+        "url": "https://github.com/owendavidgoode/clonedivers/releases/download/pack-2026.11.19-r48-files/2a07ac68a461251c84960d7c2cfe1f93d7d0163b44db57d30835cf0dce86711c",
+        "size": 82064640,
+        "sha256": "2a07ac68a461251c84960d7c2cfe1f93d7d0163b44db57d30835cf0dce86711c",
+        "modes": [
+          "empire"
+        ],
+        "textureProfiles": [
+          "lighter"
+        ]
+      },
+      {
+        "name": "9ba626afa44a3aa3.patch_1027.gpu_resources",
+        "url": "https://github.com/owendavidgoode/clonedivers/releases/download/pack-2026.11.19-r48-files/8d6aa331a956c3a18d96c358a3bbe59b5adfa06786d25d75619e4c88b24d98dc",
+        "size": 48792832,
+        "sha256": "8d6aa331a956c3a18d96c358a3bbe59b5adfa06786d25d75619e4c88b24d98dc",
+        "modes": [
+          "empire"
+        ],
+        "textureProfiles": [
+          "reduced512"
+        ]
+      },
+      {
+        "name": "9ba626afa44a3aa3.patch_1027.stream",
+        "url": "https://github.com/owendavidgoode/clonedivers/releases/download/pack-2026.11.19-r48-files/2a219330e65a6f634c5372e7477798a2e31df62b534b42a3846239ccd5a92ac0",
+        "size": 45467328,
+        "sha256": "2a219330e65a6f634c5372e7477798a2e31df62b534b42a3846239ccd5a92ac0",
+        "modes": [
+          "empire"
+        ],
+        "textureProfiles": [
+          "full"
+        ]
+      },
+      {
+        "name": "9ba626afa44a3aa3.patch_1027.stream",
+        "url": "https://github.com/owendavidgoode/clonedivers/releases/download/pack-2026.11.19-r48-files/3c58f6b7a5a73a409db16131c29ad00cea4c16a2c5083721e10f419ada5364ce",
+        "size": 155219312,
+        "sha256": "3c58f6b7a5a73a409db16131c29ad00cea4c16a2c5083721e10f419ada5364ce",
+        "modes": [
+          "empire"
+        ],
+        "textureProfiles": [
+          "lighter"
+        ]
+      },
+      {
+        "name": "9ba626afa44a3aa3.patch_1027.stream",
+        "url": "https://github.com/owendavidgoode/clonedivers/releases/download/pack-2026.11.19-r48-files/34ea4f0c2c7f72bf03f436fd05cf625b3076c5a780dc37bd901068380cc3358d",
+        "size": 61416048,
+        "sha256": "34ea4f0c2c7f72bf03f436fd05cf625b3076c5a780dc37bd901068380cc3358d",
+        "modes": [
+          "empire"
+        ],
+        "textureProfiles": [
+          "reduced512"
+        ]
+      },
+      {
+        "name": "9ba626afa44a3aa3.patch_1028",
+        "url": "https://github.com/owendavidgoode/clonedivers/releases/download/pack-2026.11.19-r48-files/eeb0f89d3117b266be1e5c78a46b09408c6f7e7f0144547f63feb69b25ea810b",
+        "size": 16181056,
+        "sha256": "eeb0f89d3117b266be1e5c78a46b09408c6f7e7f0144547f63feb69b25ea810b",
+        "modes": [
+          "empire"
+        ],
+        "textureProfiles": [
+          "full"
+        ]
+      },
+      {
+        "name": "9ba626afa44a3aa3.patch_1028",
+        "url": "https://github.com/owendavidgoode/clonedivers/releases/download/pack-2026.11.19-r48-files/d707ba2ef13f4f2f66f4b89a994e13d5370b1612bf4eea441e27f25d8626947c",
+        "size": 16181056,
+        "sha256": "d707ba2ef13f4f2f66f4b89a994e13d5370b1612bf4eea441e27f25d8626947c",
+        "modes": [
+          "empire"
+        ],
+        "textureProfiles": [
+          "lighter"
+        ]
+      },
+      {
+        "name": "9ba626afa44a3aa3.patch_1028",
+        "url": "https://github.com/owendavidgoode/clonedivers/releases/download/pack-2026.11.19-r48-files/11ae2db0941235fd1bf2d34ebeacb5e0b52b56def59114be5b5fdf3b3d172cff",
+        "size": 16181056,
+        "sha256": "11ae2db0941235fd1bf2d34ebeacb5e0b52b56def59114be5b5fdf3b3d172cff",
+        "modes": [
+          "empire"
+        ],
+        "textureProfiles": [
+          "reduced512"
+        ]
+      },
+      {
+        "name": "9ba626afa44a3aa3.patch_1028.gpu_resources",
+        "url": "https://github.com/owendavidgoode/clonedivers/releases/download/pack-2026.11.19-r48-files/10f2089fa7629d8e7668ab45514c15dbf5d333e34ffdaacf62f193e8bfaaca4c",
+        "size": 238298048,
+        "sha256": "10f2089fa7629d8e7668ab45514c15dbf5d333e34ffdaacf62f193e8bfaaca4c",
+        "modes": [
+          "empire"
+        ],
+        "textureProfiles": [
+          "full"
+        ]
+      },
+      {
+        "name": "9ba626afa44a3aa3.patch_1028.gpu_resources",
+        "url": "https://github.com/owendavidgoode/clonedivers/releases/download/pack-2026.11.19-r48-files/a4025a817d4a0272d9a03e2caf898554453f18830e0df33c3c1fdd8784c63721",
+        "size": 91497408,
+        "sha256": "a4025a817d4a0272d9a03e2caf898554453f18830e0df33c3c1fdd8784c63721",
+        "modes": [
+          "empire"
+        ],
+        "textureProfiles": [
+          "lighter"
+        ]
+      },
+      {
+        "name": "9ba626afa44a3aa3.patch_1028.gpu_resources",
+        "url": "https://github.com/owendavidgoode/clonedivers/releases/download/pack-2026.11.19-r48-files/49a01f19b62079477b4a2841ffa16d4be0beadc89bf1111bb55384554dbd8eec",
+        "size": 74298304,
+        "sha256": "49a01f19b62079477b4a2841ffa16d4be0beadc89bf1111bb55384554dbd8eec",
+        "modes": [
+          "empire"
+        ],
+        "textureProfiles": [
+          "reduced512"
+        ]
+      },
+      {
+        "name": "9ba626afa44a3aa3.patch_1028.stream",
+        "url": "https://github.com/owendavidgoode/clonedivers/releases/download/pack-2026.11.19-r48-files/3806a1a6cc186ed42afa3cf50ad1cb823d61b5007bdc3d24151f1d54f2ce0fd5",
+        "size": 44337536,
+        "sha256": "3806a1a6cc186ed42afa3cf50ad1cb823d61b5007bdc3d24151f1d54f2ce0fd5",
+        "modes": [
+          "empire"
+        ],
+        "textureProfiles": [
+          "full"
+        ]
+      },
+      {
+        "name": "9ba626afa44a3aa3.patch_1028.stream",
+        "url": "https://github.com/owendavidgoode/clonedivers/releases/download/pack-2026.11.19-r48-files/78e70f233ca7b6b89242999202620604c2251b087933412576175ae32f697ecf",
+        "size": 201625008,
+        "sha256": "78e70f233ca7b6b89242999202620604c2251b087933412576175ae32f697ecf",
+        "modes": [
+          "empire"
+        ],
+        "textureProfiles": [
+          "lighter"
+        ]
+      },
+      {
+        "name": "9ba626afa44a3aa3.patch_1028.stream",
+        "url": "https://github.com/owendavidgoode/clonedivers/releases/download/pack-2026.11.19-r48-files/749bc6dd1e8056e4cd9590b23ba23f259cab7b8048f9128c9c35017f2a48fb5c",
+        "size": 57621224,
+        "sha256": "749bc6dd1e8056e4cd9590b23ba23f259cab7b8048f9128c9c35017f2a48fb5c",
+        "modes": [
+          "empire"
+        ],
+        "textureProfiles": [
+          "reduced512"
+        ]
+      },
+      {
+        "name": "9ba626afa44a3aa3.patch_1029",
+        "url": "https://github.com/owendavidgoode/clonedivers/releases/download/pack-2026.11.19-r48-files/60ddc0b6eb136c9ebd9aa4b0cbcf052b8693c8a376156489510c87322dd6e76f",
+        "size": 24299664,
+        "sha256": "60ddc0b6eb136c9ebd9aa4b0cbcf052b8693c8a376156489510c87322dd6e76f",
+        "modes": [
+          "empire"
+        ],
+        "textureProfiles": [
+          "full"
+        ]
+      },
+      {
+        "name": "9ba626afa44a3aa3.patch_1029",
+        "url": "https://github.com/owendavidgoode/clonedivers/releases/download/pack-2026.11.19-r48-files/b7bffb46d9cee8ac475f480159d747d07c01a81f85106909d8edbba3323af9ac",
+        "size": 24299664,
+        "sha256": "b7bffb46d9cee8ac475f480159d747d07c01a81f85106909d8edbba3323af9ac",
+        "modes": [
+          "empire"
+        ],
+        "textureProfiles": [
+          "lighter"
+        ]
+      },
+      {
+        "name": "9ba626afa44a3aa3.patch_1029",
+        "url": "https://github.com/owendavidgoode/clonedivers/releases/download/pack-2026.11.19-r48-files/8c5b7a7c9abd95caf84b13cb7c9c53e4f41c68c83acdc26c4e41b6a3fbc13316",
+        "size": 24299664,
+        "sha256": "8c5b7a7c9abd95caf84b13cb7c9c53e4f41c68c83acdc26c4e41b6a3fbc13316",
+        "modes": [
+          "empire"
+        ],
+        "textureProfiles": [
+          "reduced512"
+        ]
+      },
+      {
+        "name": "9ba626afa44a3aa3.patch_1029.gpu_resources",
+        "url": "https://github.com/owendavidgoode/clonedivers/releases/download/pack-2026.11.19-r48-files/68550b603b94d78a24be05842c538e7b1c8500b7d585ff4e388bb0206fb85106",
+        "size": 247936832,
+        "sha256": "68550b603b94d78a24be05842c538e7b1c8500b7d585ff4e388bb0206fb85106",
+        "modes": [
+          "empire"
+        ],
+        "textureProfiles": [
+          "full"
+        ]
+      },
+      {
+        "name": "9ba626afa44a3aa3.patch_1029.gpu_resources",
+        "url": "https://github.com/owendavidgoode/clonedivers/releases/download/pack-2026.11.19-r48-files/c67614a97799756df8e86e06fbc5226917af53954ab2aba71b1dd9e700e65e1d",
+        "size": 87766800,
+        "sha256": "c67614a97799756df8e86e06fbc5226917af53954ab2aba71b1dd9e700e65e1d",
+        "modes": [
+          "empire"
+        ],
+        "textureProfiles": [
+          "lighter"
+        ]
+      },
+      {
+        "name": "9ba626afa44a3aa3.patch_1029.gpu_resources",
+        "url": "https://github.com/owendavidgoode/clonedivers/releases/download/pack-2026.11.19-r48-files/3f08aaf6be11f5adef588a6ca41eecce17ea0f337f319504aee824613c3dfec7",
+        "size": 68450064,
+        "sha256": "3f08aaf6be11f5adef588a6ca41eecce17ea0f337f319504aee824613c3dfec7",
+        "modes": [
+          "empire"
+        ],
+        "textureProfiles": [
+          "reduced512"
+        ]
+      },
+      {
+        "name": "9ba626afa44a3aa3.patch_1029.stream",
+        "url": "https://github.com/owendavidgoode/clonedivers/releases/download/pack-2026.11.19-r48-files/5e579308b749b08b523ee6ed8ae125a8794e9e715576872fe507fdb941ff42d8",
+        "size": 34166784,
+        "sha256": "5e579308b749b08b523ee6ed8ae125a8794e9e715576872fe507fdb941ff42d8",
+        "modes": [
+          "empire"
+        ],
+        "textureProfiles": [
+          "full"
+        ]
+      },
+      {
+        "name": "9ba626afa44a3aa3.patch_1029.stream",
+        "url": "https://github.com/owendavidgoode/clonedivers/releases/download/pack-2026.11.19-r48-files/7c950574e5c39a0692c73bb1948b0a4c1c6a388e2ab8bf0ac54ab82fcbd4ed7d",
+        "size": 204037232,
+        "sha256": "7c950574e5c39a0692c73bb1948b0a4c1c6a388e2ab8bf0ac54ab82fcbd4ed7d",
+        "modes": [
+          "empire"
+        ],
+        "textureProfiles": [
+          "lighter"
+        ]
+      },
+      {
+        "name": "9ba626afa44a3aa3.patch_1029.stream",
+        "url": "https://github.com/owendavidgoode/clonedivers/releases/download/pack-2026.11.19-r48-files/fba3957ba752baa56899b1d44d3bb98713126c9817c630d9e2970f867aa0e91f",
+        "size": 52693360,
+        "sha256": "fba3957ba752baa56899b1d44d3bb98713126c9817c630d9e2970f867aa0e91f",
+        "modes": [
+          "empire"
+        ],
+        "textureProfiles": [
+          "reduced512"
+        ]
+      },
+      {
+        "name": "9ba626afa44a3aa3.patch_1030",
+        "url": "https://github.com/owendavidgoode/clonedivers/releases/download/pack-2026.11.19-r48-files/a19f353ef0f03cbe5c5f21ed877947b78c8c4874fe8a23eb875b688b4e8045b0",
+        "size": 4073344,
+        "sha256": "a19f353ef0f03cbe5c5f21ed877947b78c8c4874fe8a23eb875b688b4e8045b0",
+        "modes": [
+          "empire"
+        ],
+        "textureProfiles": [
+          "full"
+        ]
+      },
+      {
+        "name": "9ba626afa44a3aa3.patch_1030",
+        "url": "https://github.com/owendavidgoode/clonedivers/releases/download/pack-2026.11.19-r48-files/e2a2aa283963a43eff7e84c09b45fc93cbd663063b62c55be9516957c1ca04f3",
+        "size": 4073344,
+        "sha256": "e2a2aa283963a43eff7e84c09b45fc93cbd663063b62c55be9516957c1ca04f3",
+        "modes": [
+          "empire"
+        ],
+        "textureProfiles": [
+          "lighter"
+        ]
+      },
+      {
+        "name": "9ba626afa44a3aa3.patch_1030",
+        "url": "https://github.com/owendavidgoode/clonedivers/releases/download/pack-2026.11.19-r48-files/c9ef49d30165ab61e92416b7570300e1843c39c4cfd607371cce1319f62655c9",
+        "size": 4073344,
+        "sha256": "c9ef49d30165ab61e92416b7570300e1843c39c4cfd607371cce1319f62655c9",
+        "modes": [
+          "empire"
+        ],
+        "textureProfiles": [
+          "reduced512"
+        ]
+      },
+      {
+        "name": "9ba626afa44a3aa3.patch_1030.gpu_resources",
+        "url": "https://github.com/owendavidgoode/clonedivers/releases/download/pack-2026.11.19-r48-files/ab511b0703ae8258b73c4d8f052f2769102ac5555ff0c76445ee5aee0a0cad87",
+        "size": 277645312,
+        "sha256": "ab511b0703ae8258b73c4d8f052f2769102ac5555ff0c76445ee5aee0a0cad87",
+        "modes": [
+          "empire"
+        ],
+        "textureProfiles": [
+          "full"
+        ]
+      },
+      {
+        "name": "9ba626afa44a3aa3.patch_1030.gpu_resources",
+        "url": "https://github.com/owendavidgoode/clonedivers/releases/download/pack-2026.11.19-r48-files/9b0b90052853997534ca3f66ccbf7c6ded9e6915d84cfc965bfa01f2fa671b80",
+        "size": 103581684,
+        "sha256": "9b0b90052853997534ca3f66ccbf7c6ded9e6915d84cfc965bfa01f2fa671b80",
+        "modes": [
+          "empire"
+        ],
+        "textureProfiles": [
+          "lighter"
+        ]
+      },
+      {
+        "name": "9ba626afa44a3aa3.patch_1030.gpu_resources",
+        "url": "https://github.com/owendavidgoode/clonedivers/releases/download/pack-2026.11.19-r48-files/b822739c496939b77a2f272188bbdeb88a1aceda6dd6bc1bea42419667249ee5",
+        "size": 75236852,
+        "sha256": "b822739c496939b77a2f272188bbdeb88a1aceda6dd6bc1bea42419667249ee5",
+        "modes": [
+          "empire"
+        ],
+        "textureProfiles": [
+          "reduced512"
+        ]
+      },
+      {
+        "name": "9ba626afa44a3aa3.patch_1030.stream",
+        "url": "https://github.com/owendavidgoode/clonedivers/releases/download/pack-2026.11.19-r48-files/b1605dd5df59dbd62523de1e33c87c90b6b1714d9d3993cc98a00c9430e9a1e1",
+        "size": 41558912,
+        "sha256": "b1605dd5df59dbd62523de1e33c87c90b6b1714d9d3993cc98a00c9430e9a1e1",
+        "modes": [
+          "empire"
+        ],
+        "textureProfiles": [
+          "full"
+        ]
+      },
+      {
+        "name": "9ba626afa44a3aa3.patch_1030.stream",
+        "url": "https://github.com/owendavidgoode/clonedivers/releases/download/pack-2026.11.19-r48-files/db96e938a1bf6559ca88ce1ce6497755e255c9dbfe849de4187701f3af73e6ed",
+        "size": 224012024,
+        "sha256": "db96e938a1bf6559ca88ce1ce6497755e255c9dbfe849de4187701f3af73e6ed",
+        "modes": [
+          "empire"
+        ],
+        "textureProfiles": [
+          "lighter"
+        ]
+      },
+      {
+        "name": "9ba626afa44a3aa3.patch_1030.stream",
+        "url": "https://github.com/owendavidgoode/clonedivers/releases/download/pack-2026.11.19-r48-files/ab6d5936301bd6faa75480c08d212e2b6971018d59769a4913fdc20eb557c4ec",
+        "size": 71795952,
+        "sha256": "ab6d5936301bd6faa75480c08d212e2b6971018d59769a4913fdc20eb557c4ec",
+        "modes": [
+          "empire"
+        ],
+        "textureProfiles": [
+          "reduced512"
+        ]
+      },
+      {
+        "name": "9ba626afa44a3aa3.patch_1031",
+        "url": "https://github.com/owendavidgoode/clonedivers/releases/download/pack-2026.11.19-r48-files/e9dd17acbe2905a2c27acfd3a0b8d41b779ea088ff73d05dcaa663bd801f4f93",
+        "size": 8706976,
+        "sha256": "e9dd17acbe2905a2c27acfd3a0b8d41b779ea088ff73d05dcaa663bd801f4f93",
+        "modes": [
+          "empire"
+        ],
+        "textureProfiles": [
+          "full"
+        ]
+      },
+      {
+        "name": "9ba626afa44a3aa3.patch_1031",
+        "url": "https://github.com/owendavidgoode/clonedivers/releases/download/pack-2026.11.19-r48-files/64e9c2e758d0646eab6a7028a4afbf6b2353e74cbe6d6c40560a849fe83bdcc3",
+        "size": 8706976,
+        "sha256": "64e9c2e758d0646eab6a7028a4afbf6b2353e74cbe6d6c40560a849fe83bdcc3",
+        "modes": [
+          "empire"
+        ],
+        "textureProfiles": [
+          "lighter"
+        ]
+      },
+      {
+        "name": "9ba626afa44a3aa3.patch_1031",
+        "url": "https://github.com/owendavidgoode/clonedivers/releases/download/pack-2026.11.19-r48-files/e12b223ea8956fa14c04c22519f071ba3a24ad96d176c98231daefa35008eab4",
+        "size": 8706976,
+        "sha256": "e12b223ea8956fa14c04c22519f071ba3a24ad96d176c98231daefa35008eab4",
+        "modes": [
+          "empire"
+        ],
+        "textureProfiles": [
+          "reduced512"
+        ]
+      },
+      {
+        "name": "9ba626afa44a3aa3.patch_1031.gpu_resources",
+        "url": "https://github.com/owendavidgoode/clonedivers/releases/download/pack-2026.11.19-r48-files/233360919c78245a4fc52aefc8eab0048dd6917b34d16d1e967183bef0c5ffd2",
+        "size": 188545088,
+        "sha256": "233360919c78245a4fc52aefc8eab0048dd6917b34d16d1e967183bef0c5ffd2",
+        "modes": [
+          "empire"
+        ],
+        "textureProfiles": [
+          "full"
+        ]
+      },
+      {
+        "name": "9ba626afa44a3aa3.patch_1031.gpu_resources",
+        "url": "https://github.com/owendavidgoode/clonedivers/releases/download/pack-2026.11.19-r48-files/01fef302ae6e916f0184ba0b31ad8e9b37e8a4dc2b20a1c09322de7ed2d05e3c",
+        "size": 75749412,
+        "sha256": "01fef302ae6e916f0184ba0b31ad8e9b37e8a4dc2b20a1c09322de7ed2d05e3c",
+        "modes": [
+          "empire"
+        ],
+        "textureProfiles": [
+          "lighter"
+        ]
+      },
+      {
+        "name": "9ba626afa44a3aa3.patch_1031.gpu_resources",
+        "url": "https://github.com/owendavidgoode/clonedivers/releases/download/pack-2026.11.19-r48-files/2263f616d43764a17dc9b1128ee53388171debdeda857487914facd35b002658",
+        "size": 56835620,
+        "sha256": "2263f616d43764a17dc9b1128ee53388171debdeda857487914facd35b002658",
+        "modes": [
+          "empire"
+        ],
+        "textureProfiles": [
+          "reduced512"
+        ]
+      },
+      {
+        "name": "9ba626afa44a3aa3.patch_1031.stream",
+        "url": "https://github.com/owendavidgoode/clonedivers/releases/download/pack-2026.11.19-r48-files/472780dd6806727f5be24aefc2391a188d5e7599e18a6fdd3b910d993cd419e2",
+        "size": 33809536,
+        "sha256": "472780dd6806727f5be24aefc2391a188d5e7599e18a6fdd3b910d993cd419e2",
+        "modes": [
+          "empire"
+        ],
+        "textureProfiles": [
+          "full"
+        ]
+      },
+      {
+        "name": "9ba626afa44a3aa3.patch_1031.stream",
+        "url": "https://github.com/owendavidgoode/clonedivers/releases/download/pack-2026.11.19-r48-files/79f21ca3aa4987a8f1dc08a8bbdc6f615674fc2f1bc1dc5c4a789b06f54ee3e1",
+        "size": 156155832,
+        "sha256": "79f21ca3aa4987a8f1dc08a8bbdc6f615674fc2f1bc1dc5c4a789b06f54ee3e1",
+        "modes": [
+          "empire"
+        ],
+        "textureProfiles": [
+          "lighter"
+        ]
+      },
+      {
+        "name": "9ba626afa44a3aa3.patch_1031.stream",
+        "url": "https://github.com/owendavidgoode/clonedivers/releases/download/pack-2026.11.19-r48-files/7a5574718fdb84daa27d76e7689fc3941aed66e684655953cda44d81e0268b94",
+        "size": 51924088,
+        "sha256": "7a5574718fdb84daa27d76e7689fc3941aed66e684655953cda44d81e0268b94",
+        "modes": [
+          "empire"
+        ],
+        "textureProfiles": [
+          "reduced512"
+        ]
+      },
+      {
+        "name": "9ba626afa44a3aa3.patch_1032",
+        "url": "https://github.com/owendavidgoode/clonedivers/releases/download/pack-2026.09.24-r10-files/36e5b36ff9dbb702aa5cc017149741353f92c9d9b5d252a87d96978caca80830",
+        "size": 18964336,
+        "sha256": "36e5b36ff9dbb702aa5cc017149741353f92c9d9b5d252a87d96978caca80830",
+        "modes": [
+          "empire"
+        ],
+        "unlessOption": "covenant"
+      },
+      {
+        "name": "9ba626afa44a3aa3.patch_1032.gpu_resources",
+        "url": "",
+        "size": 0,
+        "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "modes": [
+          "empire"
+        ],
+        "unlessOption": "covenant"
+      },
+      {
+        "name": "9ba626afa44a3aa3.patch_1032.stream",
+        "url": "",
+        "size": 0,
+        "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "modes": [
+          "empire"
+        ],
+        "unlessOption": "covenant"
+      },
+      {
+        "name": "9ba626afa44a3aa3.patch_1032",
+        "url": "https://github.com/owendavidgoode/clonedivers/releases/download/pack-2026.11.19-r48-files/2a1af97a11087ae973c1ef143adc992172d085a8ea5090e3b1d0e34d4a14667b",
+        "size": 35554560,
+        "sha256": "2a1af97a11087ae973c1ef143adc992172d085a8ea5090e3b1d0e34d4a14667b",
+        "modes": [
+          "empire"
+        ],
+        "textureProfiles": [
+          "full"
+        ],
+        "option": "covenant"
+      },
+      {
+        "name": "9ba626afa44a3aa3.patch_1032",
+        "url": "https://github.com/owendavidgoode/clonedivers/releases/download/pack-2026.11.19-r48-files/7e1b75687ca3af4ea8343d9adaa55b786f517c42ba838e3ad999ee09ab6eec75",
+        "size": 35554560,
+        "sha256": "7e1b75687ca3af4ea8343d9adaa55b786f517c42ba838e3ad999ee09ab6eec75",
+        "modes": [
+          "empire"
+        ],
+        "textureProfiles": [
+          "lighter"
+        ],
+        "option": "covenant"
+      },
+      {
+        "name": "9ba626afa44a3aa3.patch_1032",
+        "url": "https://github.com/owendavidgoode/clonedivers/releases/download/pack-2026.11.19-r48-files/4e316a3193a06cccf0a475c0f52137c7ed81392015c820f93ffe98389af46f6b",
+        "size": 35554560,
+        "sha256": "4e316a3193a06cccf0a475c0f52137c7ed81392015c820f93ffe98389af46f6b",
+        "modes": [
+          "empire"
+        ],
+        "textureProfiles": [
+          "reduced512"
+        ],
+        "option": "covenant"
+      },
+      {
+        "name": "9ba626afa44a3aa3.patch_1032.gpu_resources",
+        "url": "https://github.com/owendavidgoode/clonedivers/releases/download/pack-2026.11.19-r48-files/48d9d60fc4f5b517dd7aa477fdf23b9156b5154b430bb4e241b859da24db559b",
+        "size": 300398336,
+        "sha256": "48d9d60fc4f5b517dd7aa477fdf23b9156b5154b430bb4e241b859da24db559b",
+        "modes": [
+          "empire"
+        ],
+        "textureProfiles": [
+          "full"
+        ],
+        "option": "covenant"
+      },
+      {
+        "name": "9ba626afa44a3aa3.patch_1032.gpu_resources",
+        "url": "https://github.com/owendavidgoode/clonedivers/releases/download/pack-2026.11.19-r48-files/6a6c43714e7377888ebd8b60fa1186dcdd5e13babba550a784df289bd169c6f9",
+        "size": 124679894,
+        "sha256": "6a6c43714e7377888ebd8b60fa1186dcdd5e13babba550a784df289bd169c6f9",
+        "modes": [
+          "empire"
+        ],
+        "textureProfiles": [
+          "lighter"
+        ],
+        "option": "covenant"
+      },
+      {
+        "name": "9ba626afa44a3aa3.patch_1032.gpu_resources",
+        "url": "https://github.com/owendavidgoode/clonedivers/releases/download/pack-2026.11.19-r48-files/81587c2ee3b069c316585278fa2ad14b723d658f8a33f1aed586442db27ce154",
+        "size": 101769942,
+        "sha256": "81587c2ee3b069c316585278fa2ad14b723d658f8a33f1aed586442db27ce154",
+        "modes": [
+          "empire"
+        ],
+        "textureProfiles": [
+          "reduced512"
+        ],
+        "option": "covenant"
+      },
+      {
+        "name": "9ba626afa44a3aa3.patch_1032.stream",
+        "url": "",
+        "size": 0,
+        "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "modes": [
+          "empire"
+        ],
+        "textureProfiles": [
+          "full"
+        ],
+        "option": "covenant"
+      },
+      {
+        "name": "9ba626afa44a3aa3.patch_1032.stream",
+        "url": "https://github.com/owendavidgoode/clonedivers/releases/download/pack-2026.11.19-r48-files/857a25508c831a19b38d60d9bd6ca4b7efdc80dcb7d10406cf54b8b6eff728cc",
+        "size": 183241504,
+        "sha256": "857a25508c831a19b38d60d9bd6ca4b7efdc80dcb7d10406cf54b8b6eff728cc",
+        "modes": [
+          "empire"
+        ],
+        "textureProfiles": [
+          "lighter"
+        ],
+        "option": "covenant"
+      },
+      {
+        "name": "9ba626afa44a3aa3.patch_1032.stream",
+        "url": "https://github.com/owendavidgoode/clonedivers/releases/download/pack-2026.11.19-r48-files/90690cb03712a51b3edd59e7f73757b8ec038d17c6502b181c0073f742d8dae5",
+        "size": 26401312,
+        "sha256": "90690cb03712a51b3edd59e7f73757b8ec038d17c6502b181c0073f742d8dae5",
+        "modes": [
+          "empire"
+        ],
+        "textureProfiles": [
+          "reduced512"
+        ],
+        "option": "covenant"
+      },
+      {
+        "name": "9ba626afa44a3aa3.patch_1033",
+        "url": "https://github.com/owendavidgoode/clonedivers/releases/download/pack-2026.11.19-r48-files/68bc0112f3a2dbee3da7b3b00e111421b078af53c64c4e4f83fcc53ac85b5fd3",
+        "size": 1840480,
+        "sha256": "68bc0112f3a2dbee3da7b3b00e111421b078af53c64c4e4f83fcc53ac85b5fd3",
+        "modes": [
+          "empire"
+        ],
+        "textureProfiles": [
+          "full"
+        ],
+        "option": "droids",
+        "unlessOption": "mixed-droids"
+      },
+      {
+        "name": "9ba626afa44a3aa3.patch_1033",
+        "url": "https://github.com/owendavidgoode/clonedivers/releases/download/pack-2026.11.19-r48-files/355c65665f40336a4abbff45dee17ac44f19c6f838ff2f3eb3666ba5a3370a16",
+        "size": 1840480,
+        "sha256": "355c65665f40336a4abbff45dee17ac44f19c6f838ff2f3eb3666ba5a3370a16",
+        "modes": [
+          "empire"
+        ],
+        "textureProfiles": [
+          "lighter"
+        ],
+        "option": "droids",
+        "unlessOption": "mixed-droids"
+      },
+      {
+        "name": "9ba626afa44a3aa3.patch_1033",
+        "url": "https://github.com/owendavidgoode/clonedivers/releases/download/pack-2026.11.19-r48-files/b1e82276ef474a3034105eae3465f39a8573a9294b9ec149708f59fce4654692",
+        "size": 1840480,
+        "sha256": "b1e82276ef474a3034105eae3465f39a8573a9294b9ec149708f59fce4654692",
+        "modes": [
+          "empire"
+        ],
+        "textureProfiles": [
+          "reduced512"
+        ],
+        "option": "droids",
+        "unlessOption": "mixed-droids"
+      },
+      {
+        "name": "9ba626afa44a3aa3.patch_1033.gpu_resources",
+        "url": "https://github.com/owendavidgoode/clonedivers/releases/download/pack-2026.11.19-r48-files/0f35f81432c486a5409cddc1cbb91fcd41791428d885806c7ed828b98bcefe88",
+        "size": 624421888,
+        "sha256": "0f35f81432c486a5409cddc1cbb91fcd41791428d885806c7ed828b98bcefe88",
+        "modes": [
+          "empire"
+        ],
+        "textureProfiles": [
+          "full"
+        ],
+        "option": "droids",
+        "unlessOption": "mixed-droids"
+      },
+      {
+        "name": "9ba626afa44a3aa3.patch_1033.gpu_resources",
+        "url": "https://github.com/owendavidgoode/clonedivers/releases/download/pack-2026.11.19-r48-files/061a213a9df5ad79d2bc9616809ed78e45d46514b31a7e8a903e4a9d63d2c378",
+        "size": 89998080,
+        "sha256": "061a213a9df5ad79d2bc9616809ed78e45d46514b31a7e8a903e4a9d63d2c378",
+        "modes": [
+          "empire"
+        ],
+        "textureProfiles": [
+          "lighter"
+        ],
+        "option": "droids",
+        "unlessOption": "mixed-droids"
+      },
+      {
+        "name": "9ba626afa44a3aa3.patch_1033.gpu_resources",
+        "url": "https://github.com/owendavidgoode/clonedivers/releases/download/pack-2026.11.19-r48-files/913def42f9321690542501bd865a19b55d4904a11342527f7427f8fe690fb34c",
+        "size": 66974528,
+        "sha256": "913def42f9321690542501bd865a19b55d4904a11342527f7427f8fe690fb34c",
+        "modes": [
+          "empire"
+        ],
+        "textureProfiles": [
+          "reduced512"
+        ],
+        "option": "droids",
+        "unlessOption": "mixed-droids"
+      },
+      {
+        "name": "9ba626afa44a3aa3.patch_1033.stream",
+        "url": "",
+        "size": 0,
+        "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "modes": [
+          "empire"
+        ],
+        "textureProfiles": [
+          "full"
+        ],
+        "option": "droids",
+        "unlessOption": "mixed-droids"
+      },
+      {
+        "name": "9ba626afa44a3aa3.patch_1033.stream",
+        "url": "https://github.com/owendavidgoode/clonedivers/releases/download/pack-2026.11.19-r48-files/eb2194bfe0f694a2be8d435abfaf66ff247340e3d339749ea7a18a4be496872f",
+        "size": 552133936,
+        "sha256": "eb2194bfe0f694a2be8d435abfaf66ff247340e3d339749ea7a18a4be496872f",
+        "modes": [
+          "empire"
+        ],
+        "textureProfiles": [
+          "lighter"
+        ],
+        "option": "droids",
+        "unlessOption": "mixed-droids"
+      },
+      {
+        "name": "9ba626afa44a3aa3.patch_1033.stream",
+        "url": "https://github.com/owendavidgoode/clonedivers/releases/download/pack-2026.11.19-r48-files/4688d74a9072c5dd4ae5e62d8fdb35c6dce3dff4a43b4720cd17484c6437f95d",
+        "size": 25007280,
+        "sha256": "4688d74a9072c5dd4ae5e62d8fdb35c6dce3dff4a43b4720cd17484c6437f95d",
+        "modes": [
+          "empire"
+        ],
+        "textureProfiles": [
+          "reduced512"
+        ],
+        "option": "droids",
+        "unlessOption": "mixed-droids"
+      },
+      {
+        "name": "9ba626afa44a3aa3.patch_1033",
+        "url": "https://github.com/owendavidgoode/clonedivers/releases/download/pack-2026.11.19-r48-files/ddaaeee1440f15ce7d188434cabe062f945858d1982c83ab9a02b4f327ae18ca",
+        "size": 346784,
+        "sha256": "ddaaeee1440f15ce7d188434cabe062f945858d1982c83ab9a02b4f327ae18ca",
+        "modes": [
+          "empire"
+        ],
+        "textureProfiles": [
+          "full"
+        ],
+        "option": "mixed-droids"
+      },
+      {
+        "name": "9ba626afa44a3aa3.patch_1033",
+        "url": "https://github.com/owendavidgoode/clonedivers/releases/download/pack-2026.11.19-r48-files/14322faf464e86416ab34c3ab2c9dc6313b20897497ae25a16f2e8e2e6700882",
+        "size": 346784,
+        "sha256": "14322faf464e86416ab34c3ab2c9dc6313b20897497ae25a16f2e8e2e6700882",
+        "modes": [
+          "empire"
+        ],
+        "textureProfiles": [
+          "lighter"
+        ],
+        "option": "mixed-droids"
+      },
+      {
+        "name": "9ba626afa44a3aa3.patch_1033",
+        "url": "https://github.com/owendavidgoode/clonedivers/releases/download/pack-2026.11.19-r48-files/3e7ccbadd87dc0d391c80b12ddecc055283411d2e3947eddbf4f087a85e738e7",
+        "size": 346784,
+        "sha256": "3e7ccbadd87dc0d391c80b12ddecc055283411d2e3947eddbf4f087a85e738e7",
+        "modes": [
+          "empire"
+        ],
+        "textureProfiles": [
+          "reduced512"
+        ],
+        "option": "mixed-droids"
+      },
+      {
+        "name": "9ba626afa44a3aa3.patch_1033.gpu_resources",
+        "url": "https://github.com/owendavidgoode/clonedivers/releases/download/pack-2026.11.19-r48-files/1026a3098e8ceeb9cfb0f57858030df60f360bc5048cee9e995eed6d080d12b1",
+        "size": 284027776,
+        "sha256": "1026a3098e8ceeb9cfb0f57858030df60f360bc5048cee9e995eed6d080d12b1",
+        "modes": [
+          "empire"
+        ],
+        "textureProfiles": [
+          "full"
+        ],
+        "option": "mixed-droids"
+      },
+      {
+        "name": "9ba626afa44a3aa3.patch_1033.gpu_resources",
+        "url": "https://github.com/owendavidgoode/clonedivers/releases/download/pack-2026.11.19-r48-files/c8546127365d43f6a4cb1830904a4d3a9d77431a67862e9f30453eb54587ff05",
+        "size": 27902592,
+        "sha256": "c8546127365d43f6a4cb1830904a4d3a9d77431a67862e9f30453eb54587ff05",
+        "modes": [
+          "empire"
+        ],
+        "textureProfiles": [
+          "lighter"
+        ],
+        "option": "mixed-droids"
+      },
+      {
+        "name": "9ba626afa44a3aa3.patch_1033.gpu_resources",
+        "url": "https://github.com/owendavidgoode/clonedivers/releases/download/pack-2026.11.19-r48-files/c5a62177632e0c3eea191f71a225fef8f7e4aaab91d206b76f38220bb3f90fb9",
+        "size": 20273856,
+        "sha256": "c5a62177632e0c3eea191f71a225fef8f7e4aaab91d206b76f38220bb3f90fb9",
+        "modes": [
+          "empire"
+        ],
+        "textureProfiles": [
+          "reduced512"
+        ],
+        "option": "mixed-droids"
+      },
+      {
+        "name": "9ba626afa44a3aa3.patch_1033.stream",
+        "url": "",
+        "size": 0,
+        "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "modes": [
+          "empire"
+        ],
+        "textureProfiles": [
+          "full"
+        ],
+        "option": "mixed-droids"
+      },
+      {
+        "name": "9ba626afa44a3aa3.patch_1033.stream",
+        "url": "https://github.com/owendavidgoode/clonedivers/releases/download/pack-2026.11.19-r48-files/8a77bb4a82625710867c18af80f37a3c97a550a42ac4afb24c2e53ffe7abfdc4",
+        "size": 262026288,
+        "sha256": "8a77bb4a82625710867c18af80f37a3c97a550a42ac4afb24c2e53ffe7abfdc4",
+        "modes": [
+          "empire"
+        ],
+        "textureProfiles": [
+          "lighter"
+        ],
+        "option": "mixed-droids"
+      },
+      {
+        "name": "9ba626afa44a3aa3.patch_1033.stream",
+        "url": "https://github.com/owendavidgoode/clonedivers/releases/download/pack-2026.11.19-r48-files/6918d2bd83b34b6060af79a51a459fcbf14bc305769aba320733efb99bb12868",
+        "size": 8173232,
+        "sha256": "6918d2bd83b34b6060af79a51a459fcbf14bc305769aba320733efb99bb12868",
+        "modes": [
+          "empire"
+        ],
+        "textureProfiles": [
+          "reduced512"
+        ],
+        "option": "mixed-droids"
+      },
+      {
+        "name": "9ba626afa44a3aa3.patch_1034",
+        "url": "https://github.com/owendavidgoode/clonedivers/releases/download/pack-2026.11.19-r48-files/2c6882bb0fdd1fafc3624c73a832a676d67ba39d7cb4ace7fb98cffba251ef54",
+        "size": 2396896,
+        "sha256": "2c6882bb0fdd1fafc3624c73a832a676d67ba39d7cb4ace7fb98cffba251ef54",
+        "modes": [
+          "empire"
+        ],
+        "textureProfiles": [
+          "full"
+        ],
+        "option": "droids",
+        "unlessOption": "mixed-droids"
+      },
+      {
+        "name": "9ba626afa44a3aa3.patch_1034",
+        "url": "https://github.com/owendavidgoode/clonedivers/releases/download/pack-2026.11.19-r48-files/5b5eed13fb0947e20c8fe09e5e885784a8a47c20a3748000027340246f62a2f6",
+        "size": 2396896,
+        "sha256": "5b5eed13fb0947e20c8fe09e5e885784a8a47c20a3748000027340246f62a2f6",
+        "modes": [
+          "empire"
+        ],
+        "textureProfiles": [
+          "lighter"
+        ],
+        "option": "droids",
+        "unlessOption": "mixed-droids"
+      },
+      {
+        "name": "9ba626afa44a3aa3.patch_1034",
+        "url": "https://github.com/owendavidgoode/clonedivers/releases/download/pack-2026.11.19-r48-files/459b952ec0dd65c083670c19f5a460b682fb8e4bfc87a6cff3a12a6c56bb1331",
+        "size": 2396896,
+        "sha256": "459b952ec0dd65c083670c19f5a460b682fb8e4bfc87a6cff3a12a6c56bb1331",
+        "modes": [
+          "empire"
+        ],
+        "textureProfiles": [
+          "reduced512"
+        ],
+        "option": "droids",
+        "unlessOption": "mixed-droids"
+      },
+      {
+        "name": "9ba626afa44a3aa3.patch_1034.gpu_resources",
+        "url": "https://github.com/owendavidgoode/clonedivers/releases/download/pack-2026.11.19-r48-files/8a6f681451678c6adc1356dd1f78dc2349fd0b2d2c7eed9722a6b531f004e396",
+        "size": 820110784,
+        "sha256": "8a6f681451678c6adc1356dd1f78dc2349fd0b2d2c7eed9722a6b531f004e396",
+        "modes": [
+          "empire"
+        ],
+        "textureProfiles": [
+          "full"
+        ],
+        "option": "droids",
+        "unlessOption": "mixed-droids"
+      },
+      {
+        "name": "9ba626afa44a3aa3.patch_1034.gpu_resources",
+        "url": "https://github.com/owendavidgoode/clonedivers/releases/download/pack-2026.11.19-r48-files/f4c8e6a0e8ba23eafd47e75f0c6a5a5014443dba4e40c78fb38755272b419dac",
+        "size": 337425664,
+        "sha256": "f4c8e6a0e8ba23eafd47e75f0c6a5a5014443dba4e40c78fb38755272b419dac",
+        "modes": [
+          "empire"
+        ],
+        "textureProfiles": [
+          "lighter"
+        ],
+        "option": "droids",
+        "unlessOption": "mixed-droids"
+      },
+      {
+        "name": "9ba626afa44a3aa3.patch_1034.gpu_resources",
+        "url": "https://github.com/owendavidgoode/clonedivers/releases/download/pack-2026.11.19-r48-files/5dea6bcf38e8b15ef79c61785da05ade6007d2ff79c34e88235a3aedbfc7b690",
+        "size": 317152896,
+        "sha256": "5dea6bcf38e8b15ef79c61785da05ade6007d2ff79c34e88235a3aedbfc7b690",
+        "modes": [
+          "empire"
+        ],
+        "textureProfiles": [
+          "reduced512"
+        ],
+        "option": "droids",
+        "unlessOption": "mixed-droids"
+      },
+      {
+        "name": "9ba626afa44a3aa3.patch_1034.stream",
+        "url": "",
+        "size": 0,
+        "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "modes": [
+          "empire"
+        ],
+        "textureProfiles": [
+          "full"
+        ],
+        "option": "droids",
+        "unlessOption": "mixed-droids"
+      },
+      {
+        "name": "9ba626afa44a3aa3.patch_1034.stream",
+        "url": "https://github.com/owendavidgoode/clonedivers/releases/download/pack-2026.11.19-r48-files/6ffc455fe705b85934deb3ddc4af16a21d8fc14d0ab6796aedac9b23d0f1f6f8",
+        "size": 497880112,
+        "sha256": "6ffc455fe705b85934deb3ddc4af16a21d8fc14d0ab6796aedac9b23d0f1f6f8",
+        "modes": [
+          "empire"
+        ],
+        "textureProfiles": [
+          "lighter"
+        ],
+        "option": "droids",
+        "unlessOption": "mixed-droids"
+      },
+      {
+        "name": "9ba626afa44a3aa3.patch_1034.stream",
+        "url": "https://github.com/owendavidgoode/clonedivers/releases/download/pack-2026.11.19-r48-files/ebe5392d69b1fa292052b5fbaa54413fbd6c9a49f7946b382bfd5a0e972c26a7",
+        "size": 21836656,
+        "sha256": "ebe5392d69b1fa292052b5fbaa54413fbd6c9a49f7946b382bfd5a0e972c26a7",
+        "modes": [
+          "empire"
+        ],
+        "textureProfiles": [
+          "reduced512"
+        ],
+        "option": "droids",
+        "unlessOption": "mixed-droids"
+      },
+      {
+        "name": "9ba626afa44a3aa3.patch_1034",
+        "url": "https://github.com/owendavidgoode/clonedivers/releases/download/pack-2026.11.19-r48-files/562babd43493140b45746384cdd1d0c816b21509ea724c219e2a7c847bddac46",
+        "size": 305136,
+        "sha256": "562babd43493140b45746384cdd1d0c816b21509ea724c219e2a7c847bddac46",
+        "modes": [
+          "empire"
+        ],
+        "textureProfiles": [
+          "full"
+        ],
+        "option": "mixed-droids"
+      },
+      {
+        "name": "9ba626afa44a3aa3.patch_1034",
+        "url": "https://github.com/owendavidgoode/clonedivers/releases/download/pack-2026.11.19-r48-files/21141d6167c5dbf873f0a6984f8fac8cccd4ccde9f0f3d98df130dc69dea04c1",
+        "size": 305136,
+        "sha256": "21141d6167c5dbf873f0a6984f8fac8cccd4ccde9f0f3d98df130dc69dea04c1",
+        "modes": [
+          "empire"
+        ],
+        "textureProfiles": [
+          "lighter"
+        ],
+        "option": "mixed-droids"
+      },
+      {
+        "name": "9ba626afa44a3aa3.patch_1034",
+        "url": "https://github.com/owendavidgoode/clonedivers/releases/download/pack-2026.11.19-r48-files/c1fc1cf2ca59b8eeff8b5855a47fc23a8c9cfa6c157d977e656a41abdb0a3684",
+        "size": 305136,
+        "sha256": "c1fc1cf2ca59b8eeff8b5855a47fc23a8c9cfa6c157d977e656a41abdb0a3684",
+        "modes": [
+          "empire"
+        ],
+        "textureProfiles": [
+          "reduced512"
+        ],
+        "option": "mixed-droids"
+      },
+      {
+        "name": "9ba626afa44a3aa3.patch_1034.gpu_resources",
+        "url": "https://github.com/owendavidgoode/clonedivers/releases/download/pack-2026.11.19-r48-files/2c503302275935e8ef041d3f5fad2ef6608b281e590ca4c9c20e57f844e1b9af",
+        "size": 382572800,
+        "sha256": "2c503302275935e8ef041d3f5fad2ef6608b281e590ca4c9c20e57f844e1b9af",
+        "modes": [
+          "empire"
+        ],
+        "textureProfiles": [
+          "full"
+        ],
+        "option": "mixed-droids"
+      },
+      {
+        "name": "9ba626afa44a3aa3.patch_1034.gpu_resources",
+        "url": "https://github.com/owendavidgoode/clonedivers/releases/download/pack-2026.11.19-r48-files/26ec8bd9ff4c20e28350c59e2f3f6b4f59b5394c385e21ae8d7787aa799b7e05",
+        "size": 212625416,
+        "sha256": "26ec8bd9ff4c20e28350c59e2f3f6b4f59b5394c385e21ae8d7787aa799b7e05",
+        "modes": [
+          "empire"
+        ],
+        "textureProfiles": [
+          "lighter"
+        ],
+        "option": "mixed-droids"
+      },
+      {
+        "name": "9ba626afa44a3aa3.patch_1034.gpu_resources",
+        "url": "https://github.com/owendavidgoode/clonedivers/releases/download/pack-2026.11.19-r48-files/afe01ea34694c96da443bb0d8591792e5fa0cc434e9cd31ba1385459ea7fadf4",
+        "size": 206721416,
+        "sha256": "afe01ea34694c96da443bb0d8591792e5fa0cc434e9cd31ba1385459ea7fadf4",
+        "modes": [
+          "empire"
+        ],
+        "textureProfiles": [
+          "reduced512"
+        ],
+        "option": "mixed-droids"
+      },
+      {
+        "name": "9ba626afa44a3aa3.patch_1034.stream",
+        "url": "",
+        "size": 0,
+        "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "modes": [
+          "empire"
+        ],
+        "textureProfiles": [
+          "full"
+        ],
+        "option": "mixed-droids"
+      },
+      {
+        "name": "9ba626afa44a3aa3.patch_1034.stream",
+        "url": "https://github.com/owendavidgoode/clonedivers/releases/download/pack-2026.11.19-r48-files/593b00726740500f804777d6d5b3610f15984c8cfbaac45b031925274f5dba14",
+        "size": 175616496,
+        "sha256": "593b00726740500f804777d6d5b3610f15984c8cfbaac45b031925274f5dba14",
+        "modes": [
+          "empire"
+        ],
+        "textureProfiles": [
+          "lighter"
+        ],
+        "option": "mixed-droids"
+      },
+      {
+        "name": "9ba626afa44a3aa3.patch_1034.stream",
+        "url": "https://github.com/owendavidgoode/clonedivers/releases/download/pack-2026.11.19-r48-files/56c4f11ebf4a084d58363a0b25c8a559f9971f62c97679cda9bc219b65653a60",
+        "size": 6368304,
+        "sha256": "56c4f11ebf4a084d58363a0b25c8a559f9971f62c97679cda9bc219b65653a60",
+        "modes": [
+          "empire"
+        ],
+        "textureProfiles": [
+          "reduced512"
+        ],
+        "option": "mixed-droids"
+      },
+      {
+        "name": "9ba626afa44a3aa3.patch_1035",
+        "url": "https://github.com/owendavidgoode/clonedivers/releases/download/pack-2026.11.19-r48-files/ca2527a923fae206e32fee087cde315e1b1805c2df5bc2445796ee0fe0fd782c",
+        "size": 2205632,
+        "sha256": "ca2527a923fae206e32fee087cde315e1b1805c2df5bc2445796ee0fe0fd782c",
+        "modes": [
+          "empire"
+        ],
+        "textureProfiles": [
+          "full"
+        ],
+        "option": "droids",
+        "unlessOption": "mixed-droids"
+      },
+      {
+        "name": "9ba626afa44a3aa3.patch_1035",
+        "url": "https://github.com/owendavidgoode/clonedivers/releases/download/pack-2026.11.19-r48-files/5309c70dbdb65d5dabbf9455c096a6cb7279e4bcfcdbf77e1231c6eea24dc737",
+        "size": 2205632,
+        "sha256": "5309c70dbdb65d5dabbf9455c096a6cb7279e4bcfcdbf77e1231c6eea24dc737",
+        "modes": [
+          "empire"
+        ],
+        "textureProfiles": [
+          "lighter"
+        ],
+        "option": "droids",
+        "unlessOption": "mixed-droids"
+      },
+      {
+        "name": "9ba626afa44a3aa3.patch_1035",
+        "url": "https://github.com/owendavidgoode/clonedivers/releases/download/pack-2026.11.19-r48-files/de6c169657bf029195b0f0364914363c70dde0e470a2fd08bbc7f30dd8c54fc8",
+        "size": 2205632,
+        "sha256": "de6c169657bf029195b0f0364914363c70dde0e470a2fd08bbc7f30dd8c54fc8",
+        "modes": [
+          "empire"
+        ],
+        "textureProfiles": [
+          "reduced512"
+        ],
+        "option": "droids",
+        "unlessOption": "mixed-droids"
+      },
+      {
+        "name": "9ba626afa44a3aa3.patch_1035.gpu_resources",
+        "url": "https://github.com/owendavidgoode/clonedivers/releases/download/pack-2026.11.19-r48-files/458c8f37e7f169f509560f4461edefeba3ffd5d44b9b5db348d2684b987859ef",
+        "size": 681438656,
+        "sha256": "458c8f37e7f169f509560f4461edefeba3ffd5d44b9b5db348d2684b987859ef",
+        "modes": [
+          "empire"
+        ],
+        "textureProfiles": [
+          "full"
+        ],
+        "option": "droids",
+        "unlessOption": "mixed-droids"
+      },
+      {
+        "name": "9ba626afa44a3aa3.patch_1035.gpu_resources",
+        "url": "https://github.com/owendavidgoode/clonedivers/releases/download/pack-2026.11.19-r48-files/2f883719f40bc71b0278964e8cb7942a27b662b25c68e1316a74422ae8a21c63",
+        "size": 92390542,
+        "sha256": "2f883719f40bc71b0278964e8cb7942a27b662b25c68e1316a74422ae8a21c63",
+        "modes": [
+          "empire"
+        ],
+        "textureProfiles": [
+          "lighter"
+        ],
+        "option": "droids",
+        "unlessOption": "mixed-droids"
+      },
+      {
+        "name": "9ba626afa44a3aa3.patch_1035.gpu_resources",
+        "url": "https://github.com/owendavidgoode/clonedivers/releases/download/pack-2026.11.19-r48-files/68d5df0c4ba952096260c690a95e8798e723a6d95449f4d942d41cb21766740c",
+        "size": 72539342,
+        "sha256": "68d5df0c4ba952096260c690a95e8798e723a6d95449f4d942d41cb21766740c",
+        "modes": [
+          "empire"
+        ],
+        "textureProfiles": [
+          "reduced512"
+        ],
+        "option": "droids",
+        "unlessOption": "mixed-droids"
+      },
+      {
+        "name": "9ba626afa44a3aa3.patch_1035.stream",
+        "url": "",
+        "size": 0,
+        "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "modes": [
+          "empire"
+        ],
+        "textureProfiles": [
+          "full"
+        ],
+        "option": "droids",
+        "unlessOption": "mixed-droids"
+      },
+      {
+        "name": "9ba626afa44a3aa3.patch_1035.stream",
+        "url": "https://github.com/owendavidgoode/clonedivers/releases/download/pack-2026.11.19-r48-files/2623d1f86a13198369ec9aeddb5514fac006b49b8ee872d08764e9e53011abc9",
+        "size": 605960560,
+        "sha256": "2623d1f86a13198369ec9aeddb5514fac006b49b8ee872d08764e9e53011abc9",
+        "modes": [
+          "empire"
+        ],
+        "textureProfiles": [
+          "lighter"
+        ],
+        "option": "droids",
+        "unlessOption": "mixed-droids"
+      },
+      {
+        "name": "9ba626afa44a3aa3.patch_1035.stream",
+        "url": "https://github.com/owendavidgoode/clonedivers/releases/download/pack-2026.11.19-r48-files/d3f6d752309d01b41e9f59bc1f9c16cf90c3b54ed4369a937136cab547f36622",
+        "size": 21369584,
+        "sha256": "d3f6d752309d01b41e9f59bc1f9c16cf90c3b54ed4369a937136cab547f36622",
+        "modes": [
+          "empire"
+        ],
+        "textureProfiles": [
+          "reduced512"
+        ],
+        "option": "droids",
+        "unlessOption": "mixed-droids"
+      },
+      {
+        "name": "9ba626afa44a3aa3.patch_1035",
+        "url": "https://github.com/owendavidgoode/clonedivers/releases/download/pack-2026.11.19-r48-files/6ce06ea6de68cc54b57bad30a67bbc43722a8f9b437ab3b0ee190c4b7bcb9c6f",
+        "size": 513040,
+        "sha256": "6ce06ea6de68cc54b57bad30a67bbc43722a8f9b437ab3b0ee190c4b7bcb9c6f",
+        "modes": [
+          "empire"
+        ],
+        "textureProfiles": [
+          "full"
+        ],
+        "option": "mixed-droids"
+      },
+      {
+        "name": "9ba626afa44a3aa3.patch_1035",
+        "url": "https://github.com/owendavidgoode/clonedivers/releases/download/pack-2026.11.19-r48-files/b3ba070568dab8dbebe91adfa477d6b7e835019da821881a327ce69e20a614d8",
+        "size": 513040,
+        "sha256": "b3ba070568dab8dbebe91adfa477d6b7e835019da821881a327ce69e20a614d8",
+        "modes": [
+          "empire"
+        ],
+        "textureProfiles": [
+          "lighter"
+        ],
+        "option": "mixed-droids"
+      },
+      {
+        "name": "9ba626afa44a3aa3.patch_1035",
+        "url": "https://github.com/owendavidgoode/clonedivers/releases/download/pack-2026.11.19-r48-files/6ddbd10f42986641978a78046ea33de270ab9bfe4334e62685a21e02fc4dbbfc",
+        "size": 513040,
+        "sha256": "6ddbd10f42986641978a78046ea33de270ab9bfe4334e62685a21e02fc4dbbfc",
+        "modes": [
+          "empire"
+        ],
+        "textureProfiles": [
+          "reduced512"
+        ],
+        "option": "mixed-droids"
+      },
+      {
+        "name": "9ba626afa44a3aa3.patch_1035.gpu_resources",
+        "url": "https://github.com/owendavidgoode/clonedivers/releases/download/pack-2026.11.19-r48-files/2ff6930a2b4e70834ff8070321a54c04820cb4298653723848a30a2055147c66",
+        "size": 195125696,
+        "sha256": "2ff6930a2b4e70834ff8070321a54c04820cb4298653723848a30a2055147c66",
+        "modes": [
+          "empire"
+        ],
+        "textureProfiles": [
+          "full"
+        ],
+        "option": "mixed-droids"
+      },
+      {
+        "name": "9ba626afa44a3aa3.patch_1035.gpu_resources",
+        "url": "https://github.com/owendavidgoode/clonedivers/releases/download/pack-2026.11.19-r48-files/86c8c79a64546694d85b400d16e6c7f347b0437fbee27ef149763bd479bc4179",
+        "size": 56500672,
+        "sha256": "86c8c79a64546694d85b400d16e6c7f347b0437fbee27ef149763bd479bc4179",
+        "modes": [
+          "empire"
+        ],
+        "textureProfiles": [
+          "lighter"
+        ],
+        "option": "mixed-droids"
+      },
+      {
+        "name": "9ba626afa44a3aa3.patch_1035.gpu_resources",
+        "url": "https://github.com/owendavidgoode/clonedivers/releases/download/pack-2026.11.19-r48-files/e8371902cf62763e24788cdce4d27c32276eec3526a6d1572b7a15586ecd155c",
+        "size": 50998720,
+        "sha256": "e8371902cf62763e24788cdce4d27c32276eec3526a6d1572b7a15586ecd155c",
+        "modes": [
+          "empire"
+        ],
+        "textureProfiles": [
+          "reduced512"
+        ],
+        "option": "mixed-droids"
+      },
+      {
+        "name": "9ba626afa44a3aa3.patch_1035.stream",
+        "url": "",
+        "size": 0,
+        "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "modes": [
+          "empire"
+        ],
+        "textureProfiles": [
+          "full"
+        ],
+        "option": "mixed-droids"
+      },
+      {
+        "name": "9ba626afa44a3aa3.patch_1035.stream",
+        "url": "https://github.com/owendavidgoode/clonedivers/releases/download/pack-2026.11.19-r48-files/5edf08ca4c6d13c46aeed3c84e3fea15a35a9eefd1997a13260f951304a506cc",
+        "size": 144005168,
+        "sha256": "5edf08ca4c6d13c46aeed3c84e3fea15a35a9eefd1997a13260f951304a506cc",
+        "modes": [
+          "empire"
+        ],
+        "textureProfiles": [
+          "lighter"
+        ],
+        "option": "mixed-droids"
+      },
+      {
+        "name": "9ba626afa44a3aa3.patch_1035.stream",
+        "url": "https://github.com/owendavidgoode/clonedivers/releases/download/pack-2026.11.19-r48-files/572f221855a6ceab335a445cc4b1652ed0ddae9484157b87a15628580ab3199d",
+        "size": 5991984,
+        "sha256": "572f221855a6ceab335a445cc4b1652ed0ddae9484157b87a15628580ab3199d",
+        "modes": [
+          "empire"
+        ],
+        "textureProfiles": [
+          "reduced512"
+        ],
+        "option": "mixed-droids"
+      },
+      {
+        "name": "9ba626afa44a3aa3.patch_1036",
+        "url": "https://github.com/owendavidgoode/clonedivers/releases/download/pack-2026.11.19-r48-files/0846ec94835d0afc6909cb85fd1252cd24bbedd31d17628d6d0ca24a889d8512",
+        "size": 2046416,
+        "sha256": "0846ec94835d0afc6909cb85fd1252cd24bbedd31d17628d6d0ca24a889d8512",
+        "modes": [
+          "empire"
+        ],
+        "textureProfiles": [
+          "full"
+        ],
+        "option": "droids",
+        "unlessOption": "mixed-droids"
+      },
+      {
+        "name": "9ba626afa44a3aa3.patch_1036",
+        "url": "https://github.com/owendavidgoode/clonedivers/releases/download/pack-2026.11.19-r48-files/5ac2403a1e2af280f38dd8733620baec4b68e8338364a7ce269db8fdc2f176f7",
+        "size": 2046416,
+        "sha256": "5ac2403a1e2af280f38dd8733620baec4b68e8338364a7ce269db8fdc2f176f7",
+        "modes": [
+          "empire"
+        ],
+        "textureProfiles": [
+          "lighter"
+        ],
+        "option": "droids",
+        "unlessOption": "mixed-droids"
+      },
+      {
+        "name": "9ba626afa44a3aa3.patch_1036",
+        "url": "https://github.com/owendavidgoode/clonedivers/releases/download/pack-2026.11.19-r48-files/6a2a2542d5f372d689f1824e7d404dc48e4c14ac60a353d8fc9fe36a76647c1b",
+        "size": 2046416,
+        "sha256": "6a2a2542d5f372d689f1824e7d404dc48e4c14ac60a353d8fc9fe36a76647c1b",
+        "modes": [
+          "empire"
+        ],
+        "textureProfiles": [
+          "reduced512"
+        ],
+        "option": "droids",
+        "unlessOption": "mixed-droids"
+      },
+      {
+        "name": "9ba626afa44a3aa3.patch_1036.gpu_resources",
+        "url": "https://github.com/owendavidgoode/clonedivers/releases/download/pack-2026.11.19-r48-files/2bf457e863d865b663c07d5ab47cbf9888fedbf9c4084622029f94ee3dff94d7",
+        "size": 590627584,
+        "sha256": "2bf457e863d865b663c07d5ab47cbf9888fedbf9c4084622029f94ee3dff94d7",
+        "modes": [
+          "empire"
+        ],
+        "textureProfiles": [
+          "full"
+        ],
+        "option": "droids",
+        "unlessOption": "mixed-droids"
+      },
+      {
+        "name": "9ba626afa44a3aa3.patch_1036.gpu_resources",
+        "url": "https://github.com/owendavidgoode/clonedivers/releases/download/pack-2026.11.19-r48-files/d5075d6dc81ef9d43fc648541d5676beccfb95b74beb4b4676b4bd2b336bc40e",
+        "size": 113930408,
+        "sha256": "d5075d6dc81ef9d43fc648541d5676beccfb95b74beb4b4676b4bd2b336bc40e",
+        "modes": [
+          "empire"
+        ],
+        "textureProfiles": [
+          "lighter"
+        ],
+        "option": "droids",
+        "unlessOption": "mixed-droids"
+      },
+      {
+        "name": "9ba626afa44a3aa3.patch_1036.gpu_resources",
+        "url": "https://github.com/owendavidgoode/clonedivers/releases/download/pack-2026.11.19-r48-files/e51e4c0f72c2c60fdb523e5c030daef17e35b1d0b4dc94e779c627540c02cd50",
+        "size": 93227304,
+        "sha256": "e51e4c0f72c2c60fdb523e5c030daef17e35b1d0b4dc94e779c627540c02cd50",
+        "modes": [
+          "empire"
+        ],
+        "textureProfiles": [
+          "reduced512"
+        ],
+        "option": "droids",
+        "unlessOption": "mixed-droids"
+      },
+      {
+        "name": "9ba626afa44a3aa3.patch_1036.stream",
+        "url": "",
+        "size": 0,
+        "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "modes": [
+          "empire"
+        ],
+        "textureProfiles": [
+          "full"
+        ],
+        "option": "droids",
+        "unlessOption": "mixed-droids"
+      },
+      {
+        "name": "9ba626afa44a3aa3.patch_1036.stream",
+        "url": "https://github.com/owendavidgoode/clonedivers/releases/download/pack-2026.11.19-r48-files/c24ef76a42522274853ada325a4b97461ca4bcce8d1f30f7d6aab18ce8f3df10",
+        "size": 490498288,
+        "sha256": "c24ef76a42522274853ada325a4b97461ca4bcce8d1f30f7d6aab18ce8f3df10",
+        "modes": [
+          "empire"
+        ],
+        "textureProfiles": [
+          "lighter"
+        ],
+        "option": "droids",
+        "unlessOption": "mixed-droids"
+      },
+      {
+        "name": "9ba626afa44a3aa3.patch_1036.stream",
+        "url": "https://github.com/owendavidgoode/clonedivers/releases/download/pack-2026.11.19-r48-files/8cea90d1c1cfe53a6203e09a08f002154bb4237ca5d21b4b43e08bd60b652fef",
+        "size": 22277872,
+        "sha256": "8cea90d1c1cfe53a6203e09a08f002154bb4237ca5d21b4b43e08bd60b652fef",
+        "modes": [
+          "empire"
+        ],
+        "textureProfiles": [
+          "reduced512"
+        ],
+        "option": "droids",
+        "unlessOption": "mixed-droids"
+      },
+      {
+        "name": "9ba626afa44a3aa3.patch_1036",
+        "url": "https://github.com/owendavidgoode/clonedivers/releases/download/pack-2026.11.19-r48-files/b7effe2248863c3e32055401df086b2e2be636d5416ef820df41bdcd5eb6331a",
+        "size": 312240,
+        "sha256": "b7effe2248863c3e32055401df086b2e2be636d5416ef820df41bdcd5eb6331a",
+        "modes": [
+          "empire"
+        ],
+        "textureProfiles": [
+          "full"
+        ],
+        "option": "mixed-droids"
+      },
+      {
+        "name": "9ba626afa44a3aa3.patch_1036",
+        "url": "https://github.com/owendavidgoode/clonedivers/releases/download/pack-2026.11.19-r48-files/61743c33971cc535fe7f420662949e748c2d96f566b94b3ee20c2fba87179e4e",
+        "size": 312240,
+        "sha256": "61743c33971cc535fe7f420662949e748c2d96f566b94b3ee20c2fba87179e4e",
+        "modes": [
+          "empire"
+        ],
+        "textureProfiles": [
+          "lighter"
+        ],
+        "option": "mixed-droids"
+      },
+      {
+        "name": "9ba626afa44a3aa3.patch_1036",
+        "url": "https://github.com/owendavidgoode/clonedivers/releases/download/pack-2026.11.19-r48-files/e6eccba1f0e77c295216349f1376ad8fe9e69299e488e079a0d476512becb48c",
+        "size": 312240,
+        "sha256": "e6eccba1f0e77c295216349f1376ad8fe9e69299e488e079a0d476512becb48c",
+        "modes": [
+          "empire"
+        ],
+        "textureProfiles": [
+          "reduced512"
+        ],
+        "option": "mixed-droids"
+      },
+      {
+        "name": "9ba626afa44a3aa3.patch_1036.gpu_resources",
+        "url": "https://github.com/owendavidgoode/clonedivers/releases/download/pack-2026.11.19-r48-files/43a29e5b323fe83a7b63f91b9093e78c79ff26ac1f9ab81869b698b38a3adabb",
+        "size": 223897152,
+        "sha256": "43a29e5b323fe83a7b63f91b9093e78c79ff26ac1f9ab81869b698b38a3adabb",
+        "modes": [
+          "empire"
+        ],
+        "textureProfiles": [
+          "full"
+        ],
+        "option": "mixed-droids"
+      },
+      {
+        "name": "9ba626afa44a3aa3.patch_1036.gpu_resources",
+        "url": "https://github.com/owendavidgoode/clonedivers/releases/download/pack-2026.11.19-r48-files/8c849c53f587a77fc8832ad3696123115041a8905b868214fba6a5adced020fe",
+        "size": 27559080,
+        "sha256": "8c849c53f587a77fc8832ad3696123115041a8905b868214fba6a5adced020fe",
+        "modes": [
+          "empire"
+        ],
+        "textureProfiles": [
+          "lighter"
+        ],
+        "option": "mixed-droids"
+      },
+      {
+        "name": "9ba626afa44a3aa3.patch_1036.gpu_resources",
+        "url": "https://github.com/owendavidgoode/clonedivers/releases/download/pack-2026.11.19-r48-files/2a0386a959732aa53f7c61ba5d5e03cb241098819f3134fd1cdad0aa060d4452",
+        "size": 23838632,
+        "sha256": "2a0386a959732aa53f7c61ba5d5e03cb241098819f3134fd1cdad0aa060d4452",
+        "modes": [
+          "empire"
+        ],
+        "textureProfiles": [
+          "reduced512"
+        ],
+        "option": "mixed-droids"
+      },
+      {
+        "name": "9ba626afa44a3aa3.patch_1036.stream",
+        "url": "",
+        "size": 0,
+        "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "modes": [
+          "empire"
+        ],
+        "textureProfiles": [
+          "full"
+        ],
+        "option": "mixed-droids"
+      },
+      {
+        "name": "9ba626afa44a3aa3.patch_1036.stream",
+        "url": "https://github.com/owendavidgoode/clonedivers/releases/download/pack-2026.11.19-r48-files/b4d4f8ed7182180cd7fc2b224f84c6bf5b5fca09a3c0e76d05055167e80659f9",
+        "size": 200236976,
+        "sha256": "b4d4f8ed7182180cd7fc2b224f84c6bf5b5fca09a3c0e76d05055167e80659f9",
+        "modes": [
+          "empire"
+        ],
+        "textureProfiles": [
+          "lighter"
+        ],
+        "option": "mixed-droids"
+      },
+      {
+        "name": "9ba626afa44a3aa3.patch_1036.stream",
+        "url": "https://github.com/owendavidgoode/clonedivers/releases/download/pack-2026.11.19-r48-files/ca388626074d1157841cfef6a0a19e0b6045f8b69e5639a96def52e639da251a",
+        "size": 3986352,
+        "sha256": "ca388626074d1157841cfef6a0a19e0b6045f8b69e5639a96def52e639da251a",
+        "modes": [
+          "empire"
+        ],
+        "textureProfiles": [
+          "reduced512"
+        ],
+        "option": "mixed-droids"
+      }
+    ]
+  }
+}

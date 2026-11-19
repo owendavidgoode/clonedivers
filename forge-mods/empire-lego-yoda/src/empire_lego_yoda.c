@@ -12,6 +12,9 @@
 #include "visual_gate.h"
 #include "passive_pins.h"
 
+#define YODA_SLOTS 4u
+#define YODA_CONSUMED_RING 8u
+
 typedef struct Snapshot
 {
     uint64_t peer, observed;
@@ -19,12 +22,33 @@ typedef struct Snapshot
     uintptr_t record;
     unsigned char applied[68];
     int visual;
+    uint32_t slot;
 } Snapshot;
+
+typedef struct SlotTracker
+{
+    int active;
+    Snapshot saved;
+    uint64_t consumedPeer;
+    uint32_t consumedAvatar, consumedNetwork;
+    int reportedPollRejection;
+} SlotTracker;
+
+typedef struct ConsumedTuple
+{
+    uint64_t peer;
+    uint32_t avatar, network;
+} ConsumedTuple;
+
 static const HfApi* hf;
 static uintptr_t game;
 static int proven, ready;
 static volatile LONG gameLoaded;
 static Snapshot saved;
+static SlotTracker slotStates[YODA_SLOTS];
+static ConsumedTuple consumedRing[YODA_CONSUMED_RING];
+static unsigned consumedRingCursor;
+static int activeSlot = -1;
 static uint64_t lastSample, sampleEvery = 100;
 static uint32_t consumedAvatar, consumedNetwork;
 static uint64_t consumedPeer;
@@ -55,13 +79,13 @@ static int Prove(HfMod* mod)
     return 1;
 }
 
-/* Match one local slot by peer, not by slot number. Player entity is not the Helldiver avatar. */
-static int Local(HfMod* mod, Snapshot* out, uint32_t* lifecycle)
+/* Match local slot across 0..count-1 by peer (supports 1-4 co-op players, slot 0..3 compaction-safe). */
+static int LocalSlot(HfMod* mod, Snapshot* out, uint32_t* lifecycle, int* slotOut)
 {
     uintptr_t players = (uintptr_t)hf_global_PlayerManager(mod), user = (uintptr_t)hf_global_LocalUser(mod);
     uint32_t count; uint64_t peer;
-    if (!Read(players + 0x84, &count, 4) || count > 4 || !Read(user + 0xB398, &peer, 8) || !peer) return 0;
-    int found = 0;
+    if (!Read(players + 0x84, &count, 4) || count > YODA_SLOTS || !Read(user + 0xB398, &peer, 8) || !peer) return 0;
+    int found = 0, matchedSlot = -1;
     for (uint32_t i = 0; i < count; i++)
     {
         uint64_t candidate; uintptr_t descriptor;
@@ -69,9 +93,12 @@ static int Local(HfMod* mod, Snapshot* out, uint32_t* lifecycle)
         if (candidate != peer) continue;
         if (found++ || !Pointer(players + 0xE8 + 8 * i, &descriptor) || !Read(descriptor + 8, &out->player, 4) ||
             !Read(players + 0x2E0 + 0x38 * i, lifecycle, 4) || !Read(players + 0x3A8 + 0x20 * i, &out->network, 4)) return 0;
+        matchedSlot = (int)i;
     }
     out->peer = peer;
-    return found == 1 && out->player && out->player != UINT32_MAX;
+    out->slot = matchedSlot >= 0 ? (uint32_t)matchedSlot : 0u;
+    if (slotOut) *slotOut = matchedSlot;
+    return found == 1 && matchedSlot >= 0 && out->player && out->player != UINT32_MAX;
 }
 
 static int Armor(Snapshot* out)
@@ -94,8 +121,10 @@ static int Armor(Snapshot* out)
     if (!Read(out->record, out->applied, sizeof out->applied)) return 0;
     memcpy(&out->body, out->applied, 4); memcpy(&out->kit, out->applied + 12, 4);
     out->visual = -1;
-    for (int v = 0; v < 4; v++) if (out->kit == visuals[v].kit && out->body == visuals[v].body) out->visual = v;
-    if (out->visual < 0 || !proofs[out->visual].valid || !Pointer(manager, &kits) || !Read(manager + 8, &kitCount, 4) || !kitCount || kitCount > 2048) return 0;
+    for (size_t v = 0; v < visualCount; v++)
+        if (out->kit == visuals[v].kit && out->body == visuals[v].body && proofs[v].valid)
+        { out->visual = (int)v; break; }
+    if (out->visual < 0 || !Pointer(manager, &kits) || !Read(manager + 8, &kitCount, 4) || !kitCount || kitCount > 2048) return 0;
     int matches = 0;
     for (uint32_t i = 0; i < kitCount; i++)
     {
@@ -134,6 +163,45 @@ static int Life(HfMod* mod, uint32_t avatar, uint32_t* life)
     return found == 1;
 }
 
+static void SyncActiveSlotState(int sidx, const Snapshot* now)
+{
+    if (sidx < 0 || (unsigned)sidx >= YODA_SLOTS) return;
+    if (!slotStates[sidx].active || slotStates[sidx].saved.peer != now->peer ||
+        slotStates[sidx].saved.player != now->player || slotStates[sidx].saved.network != now->network)
+    {
+        for (int k = 0; k < (int)YODA_SLOTS; k++)
+        {
+            if (k == sidx || !slotStates[k].active) continue;
+            if (slotStates[k].saved.peer == now->peer &&
+                slotStates[k].saved.player == now->player &&
+                slotStates[k].saved.network == now->network)
+            {
+                slotStates[sidx] = slotStates[k];
+                slotStates[sidx].saved.slot = (uint32_t)sidx;
+                memset(&slotStates[k], 0, sizeof slotStates[k]);
+                saved = slotStates[sidx].saved;
+                consumedPeer = slotStates[sidx].consumedPeer;
+                consumedAvatar = slotStates[sidx].consumedAvatar;
+                consumedNetwork = slotStates[sidx].consumedNetwork;
+                break;
+            }
+        }
+    }
+    for (int k = 0; k < (int)YODA_SLOTS; k++)
+        if (k != sidx) memset(&slotStates[k], 0, sizeof slotStates[k]);
+    activeSlot = sidx;
+}
+
+static void ClearSavedState(void)
+{
+    memset(&saved, 0, sizeof saved);
+    if (activeSlot >= 0 && (unsigned)activeSlot < YODA_SLOTS)
+    {
+        slotStates[activeSlot].active = 0;
+        memset(&slotStates[activeSlot].saved, 0, sizeof slotStates[activeSlot].saved);
+    }
+}
+
 static int SameSlot(const Snapshot* now)
 {
     return now->peer == saved.peer && now->player == saved.player && now->network == saved.network;
@@ -141,7 +209,27 @@ static int SameSlot(const Snapshot* now)
 
 static int Consumed(void)
 {
-    return consumedPeer == saved.peer && consumedAvatar == saved.avatar && consumedNetwork == saved.network;
+    if (consumedPeer == saved.peer && consumedAvatar == saved.avatar && consumedNetwork == saved.network) return 1;
+    for (unsigned i = 0; i < YODA_CONSUMED_RING; i++)
+    {
+        if (consumedRing[i].peer && consumedRing[i].peer == saved.peer &&
+            consumedRing[i].avatar == saved.avatar && consumedRing[i].network == saved.network)
+            return 1;
+    }
+    return 0;
+}
+
+static void RecordConsumed(uint64_t peer, uint32_t avatar, uint32_t network)
+{
+    consumedPeer = peer; consumedAvatar = avatar; consumedNetwork = network;
+    if (activeSlot >= 0 && (unsigned)activeSlot < YODA_SLOTS)
+    {
+        slotStates[activeSlot].consumedPeer = peer;
+        slotStates[activeSlot].consumedAvatar = avatar;
+        slotStates[activeSlot].consumedNetwork = network;
+    }
+    consumedRing[consumedRingCursor % YODA_CONSUMED_RING] = (ConsumedTuple){peer, avatar, network};
+    consumedRingCursor++;
 }
 
 /* Both routes must identify the same dead local avatar. Resolve its ID and read the manager's
@@ -157,10 +245,11 @@ static const char* ConfirmDeath(HfMod* mod, Snapshot* now, uint32_t lifecycle, u
     if (life < 2) return "native health has not confirmed death";
     if (!Armor(now) || now->record != saved.record || memcmp(now->applied, saved.applied, sizeof now->applied)) return "applied outfit changed/unavailable";
     if (!Unchanged(&proofs[saved.visual])) return "staged visuals changed/unavailable";
-    consumedPeer = saved.peer; consumedAvatar = saved.avatar; consumedNetwork = saved.network;
+    RecordConsumed(saved.peer, saved.avatar, saved.network);
     /* Keep the buffer for the whole session. A refused playback is consumed too: no retries. */
     int played = play((LPCWSTR)audio, NULL, SND_MEMORY | SND_ASYNC | SND_NODEFAULT | SND_NOSTOP);
-    hf->log(mod, "yoda attempt avatar=%u kit=%08X body=%u result=%s route=%s", saved.avatar, saved.kit, saved.body, played ? "started" : "refused", route);
+    hf->log(mod, "yoda attempt slot=%u avatar=%u kit=%08X body=%u result=%s route=%s",
+            saved.slot, saved.avatar, saved.kit, saved.body, played ? "started" : "refused", route);
     return NULL;
 }
 
@@ -168,36 +257,42 @@ static void Tick(HfMod* mod, float dt, void* user)
 {
     (void)dt; (void)user;
     if (!ready || !InterlockedCompareExchange(&gameLoaded, 0, 0) || !Prove(mod) || hf->game_state(mod) != HF_STATE_MISSION)
-    { memset(&saved, 0, sizeof saved); return; }
+    { ClearSavedState(); return; }
     uint64_t clock = GetTickCount64();
     if (clock - lastSample < sampleEvery) return;
     lastSample = clock;
-    Snapshot now = {0}; uint32_t lifecycle, life;
-    if (!Local(mod, &now, &lifecycle)) { memset(&saved, 0, sizeof saved); return; }
+    Snapshot now = {0}; uint32_t lifecycle, life; int slotIdx = -1;
+    if (!LocalSlot(mod, &now, &lifecycle, &slotIdx)) { ClearSavedState(); return; }
+    SyncActiveSlotState(slotIdx, &now);
     /* The SDK only emits Down on consecutive 3 -> 2 samples. Check the same local life
      * independently while its eligible observation is still fresh. Never infer death from disappearance. */
-    if (saved.avatar && !SameSlot(&now)) memset(&saved, 0, sizeof saved);
+    if (saved.avatar && !SameSlot(&now)) ClearSavedState();
     if (lifecycle == 2 && saved.avatar && !Consumed())
     {
         uint64_t age = clock - saved.observed;
         const char* why = ConfirmDeath(mod, &now, lifecycle, age, "local-poll");
         if (why && !reportedPollRejection)
         {
-            hf->log(mod, "skip death: route=local-poll avatar=%u network=%u age_ms=%llu %s", saved.avatar, saved.network, (unsigned long long)age, why);
+            hf->log(mod, "skip death: route=local-poll slot=%u avatar=%u network=%u age_ms=%llu %s",
+                    now.slot, saved.avatar, saved.network, (unsigned long long)age, why);
             reportedPollRejection = 1;
         }
-        if (age > 500) memset(&saved, 0, sizeof saved);
+        if (age > 500) ClearSavedState();
         return;
     }
     if (lifecycle != 3) return;
     now.avatar = hf->entity_of_network(mod, now.network);
-    if (!now.avatar || now.avatar == UINT32_MAX || !Life(mod, now.avatar, &life)) { memset(&saved, 0, sizeof saved); return; }
+    if (!now.avatar || now.avatar == UINT32_MAX || !Life(mod, now.avatar, &life)) { ClearSavedState(); return; }
     if (life >= 2) return;
-    if (!Armor(&now)) { memset(&saved, 0, sizeof saved); return; }
+    if (!Armor(&now)) { ClearSavedState(); return; }
     now.observed = GetTickCount64();
     if (saved.avatar != now.avatar || saved.network != now.network || saved.kit != now.kit || saved.body != now.body)
-        hf->log(mod, "eligible local avatar=%u network=%u kit=%08X body=%u", now.avatar, now.network, now.kit, now.body);
+        hf->log(mod, "eligible local slot=%u avatar=%u network=%u kit=%08X body=%u visual=%d",
+                now.slot, now.avatar, now.network, now.kit, now.body, now.visual);
     saved = now;
+    slotStates[slotIdx].active = 1;
+    slotStates[slotIdx].saved = now;
+    slotStates[slotIdx].reportedPollRejection = 0;
     reportedPollRejection = 0;
 }
 
@@ -207,17 +302,26 @@ static void Down(HfMod* mod, const HfPlayerEvent* event, void* user)
     if (!event->local) { hf->log(mod, "skip remote death"); return; }
     if (!ready || !saved.avatar || hf->game_state(mod) != HF_STATE_MISSION || event->peer != saved.peer || event->entity != saved.player)
     { hf->log(mod, "skip death: route=sdk-down update=%llu no matching local LEGO observation", (unsigned long long)event->info.update); return; }
-    Snapshot now = {0}; uint32_t lifecycle;
+    Snapshot now = {0}; uint32_t lifecycle; int slotIdx = -1;
     uint64_t age = GetTickCount64() - saved.observed;
-    const char* why = Local(mod, &now, &lifecycle) ? ConfirmDeath(mod, &now, lifecycle, age, "sdk-down") : "local slot unavailable";
-    if (why) hf->log(mod, "skip death: route=sdk-down update=%llu avatar=%u age_ms=%llu %s", (unsigned long long)event->info.update, saved.avatar, (unsigned long long)age, why);
+    const char* why = LocalSlot(mod, &now, &lifecycle, &slotIdx)
+        ? (SyncActiveSlotState(slotIdx, &now), ConfirmDeath(mod, &now, lifecycle, age, "sdk-down"))
+        : "local slot unavailable";
+    if (why) hf->log(mod, "skip death: route=sdk-down update=%llu slot=%u avatar=%u age_ms=%llu %s",
+                     (unsigned long long)event->info.update, saved.slot, saved.avatar, (unsigned long long)age, why);
 }
 
 static void State(HfMod* mod, const HfStateEvent* event, void* user)
 {
     (void)user;
     if (event->to != HF_STATE_MISSION)
-    { memset(&saved, 0, sizeof saved); consumedPeer = 0; consumedAvatar = consumedNetwork = 0; }
+    {
+        memset(&saved, 0, sizeof saved);
+        memset(slotStates, 0, sizeof slotStates);
+        memset(consumedRing, 0, sizeof consumedRing);
+        consumedRingCursor = 0; activeSlot = -1;
+        consumedPeer = 0; consumedAvatar = consumedNetwork = 0;
+    }
 }
 
 static void Loaded(HfMod* mod, HfEvent event, void* user)
@@ -243,17 +347,18 @@ HF_MOD_EXPORT int hellforge_mod_init(const HfApi* api, HfMod* mod)
     if (swprintf(directory, 1100, L"%ls\\..\\data", executable) < 0 ||
         !MultiByteToWideChar(CP_UTF8, MB_ERR_INVALID_CHARS, api->mod_folder(mod), -1, folder, 1024) ||
         swprintf(wave, 1100, L"%ls\\audio\\classic-lego-yoda-death.wav", folder) < 0) return 1;
+    LoadExtraTorsos(folder);
     HANDLE file = OpenRead(wave); LARGE_INTEGER size;
     int audioOk = file != INVALID_HANDLE_VALUE && GetFileSizeEx(file, &size) && size.QuadPart == sizeof audio &&
         ReadAt(file, 0, audio, sizeof audio) && Hash(audio, sizeof audio, YODA_WAV_SHA256);
     if (file != INVALID_HANDLE_VALUE) CloseHandle(file);
     int qualified = ScanVisuals(directory);
     if (!audioOk || !qualified)
-    { hf->log(mod, "off: WAV qualified=%d LEGO torso variants=%d/4", audioOk, qualified); hf->set_status(mod, "off: exact Compact LEGO or r45/r47 torso assets or WAV absent"); return 0; }
+    { hf->log(mod, "off: WAV qualified=%d LEGO torso variants=%d/%zu", audioOk, qualified, visualCount); hf->set_status(mod, "off: exact Empire/Clonedivers LEGO torso assets or WAV absent"); return 0; }
     if (hf_on_game_loaded(mod, Loaded, NULL) || hf_on_player_down(mod, Down, NULL, 0) ||
         hf_on_state(mod, State, NULL, 0) || hf_on_game_thread(mod, Tick, NULL)) return 1;
     ready = 1;
-    hf->log(mod, "armed: LEGO torso variants=%d/4; local mission death only; WAV via Windows PlaySound (non-positional)", qualified);
-    hf->set_status(mod, "waiting for a confirmed local LEGO death (Compact LEGO / r45 assets)");
+    hf->log(mod, "armed: version=0.2.0 LEGO torso variants=%d/%zu; 4-player co-op per-slot local death only", qualified, visualCount);
+    hf->set_status(mod, "waiting for a confirmed local LEGO death (Empire / Clonedivers)");
     return 0;
 }

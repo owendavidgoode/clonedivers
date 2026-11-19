@@ -5,11 +5,6 @@
 #include <xmmintrin.h>
 static uint32_t sm_u32(const unsigned char *p){uint32_t x;memcpy(&x,p,4);return x;}
 static uint64_t sm_u64(const unsigned char *p){uint64_t x;memcpy(&x,p,8);return x;}
-static const uint64_t resources[7]={0x2BB094EDBC756963ull,0x7305FDF48136C05Cull,0xDD25333BDF5F0143ull,
- 0x1E25DAEB99B1A917ull,0x512399E005614901ull,0x4D2F00B6C4929F00ull,0xBB11C8041C14C747ull};
-/* Exact descriptor1 mesh nodes; descriptors1..4 are contiguous protected rows.
-   Candidate rest matrices at all28 of these nodes and native100 are identity. */
-static const uint32_t mesh_bases[7]={14,12,15,12,15,12,17};
 static void sm_mat(cm_mat4 *m,const cm_render48 *r){memset(m,0,sizeof *m);for(unsigned i=0;i<12;i++)m->v[i]=r->v[i];m->v[15]=1.;}
 static cm_status sm_inverse(const cm_render48 *r,cm_mat4 *out) {
  double a=r->v[0],b=r->v[1],c=r->v[2],d=r->v[4],e=r->v[5],f=r->v[6],g=r->v[8],h=r->v[9],i=r->v[10];
@@ -39,17 +34,17 @@ void sm_evaluate(const cm_rig *rig,const sm_call *call,const unsigned char *p,si
     sampler Win32 calls may have changed the current CSR before this callback. */
  uint32_t restore=call?call->entry_mxcsr:before;
  if(!call||!p||bytes!=SM_RAW_BYTES||!rig||!work)goto done;
- unsigned gi=7;for(unsigned n=0;n<7;n++)if(resources[n]==call->resource){gi=n;break;}
- if(gi==7||call->ordinal<1||call->ordinal>4||call->engine>UINTPTR_MAX-0x258aab||
+ uint32_t gi=0;
+ if(!cm_garment_find(call->resource,&gi)||call->ordinal<1||call->ordinal>4||call->engine>UINTPTR_MAX-0x258aab||
     !((call->caller==call->engine+0x258aab && call->graph && call->graph==sm_u64(p+120)) ||
       (call->caller==call->engine+0x258e19 && !call->graph))||
     sm_u64(p+120)!=sm_u64(p+152)||!sm_u64(p+120)||
     sm_u64(p+144)>UINTPTR_MAX-0x318||call->pool!=sm_u64(p+144)+0x318||
     sm_u64(p+88)!=call->resource||sm_u32(p+4)!=0x007fff7fu||sm_u32(p+12)!=0x7fu)goto done;
  const cm_garment *garment=cm_garment_at(gi);uint32_t count=sm_u32(p+184),previous=sm_u32(p+188);
- uint32_t node=sm_u32(p+112);
+ uint32_t node=sm_u32(p+112);uint32_t expected_node=cm_mesh_node_for(gi,call->ordinal);
  if(!garment||!count||count>SM_CAP||count!=garment->count||previous!=count||
-    sm_u32(p+192)!=107||sm_u32(p+196)!=107||node!=mesh_bases[gi]+call->ordinal-1||node>=count)goto done;
+    sm_u32(p+192)!=107||sm_u32(p+196)!=107||expected_node==UINT32_MAX||node!=expected_node||node>=count)goto done;
  out->route_ok=1;_mm_setcsr(0x1f80);out->math_mxcsr=_mm_getcsr();
  out->scope_verified=(out->math_mxcsr&0xffc0u)==0x1f80u;
  const cm_render48 *parents[2]={(const cm_render48*)(p+13312),(const cm_render48*)(p+18448)};

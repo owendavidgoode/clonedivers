@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Exercise the shipped Chaos 0.2.0 Lua bridge with the installed standalone LuaJIT DLL."""
+"""Exercise the shipped Chaos 0.3.0 Lua bridge with the installed standalone LuaJIT DLL."""
 from __future__ import annotations
 
 import ctypes
@@ -114,7 +114,7 @@ return checks
     proof = {
         'passed': True,
         'checks': count,
-        'version': '0.2.0',
+        'version': '0.3.0',
         'runtime': str(DLL),
         'runtime_sha256': hashlib.sha256(DLL.read_bytes()).hexdigest(),
         'source_sha256': hashlib.sha256(source.encode()).hexdigest(),
@@ -122,7 +122,7 @@ return checks
         'game_launched': False,
     }
     (ROOT / 'build/menu-tests.json').write_text(json.dumps(proof, indent=2) + '\n', encoding='utf-8')
-    print(f'PASS {count} LuaJIT menu checks (0.2.0); mocked IO; no game launch')
+    print(f'PASS {count} LuaJIT menu checks (0.3.0); mocked IO; no game launch')
     return 0
 
 

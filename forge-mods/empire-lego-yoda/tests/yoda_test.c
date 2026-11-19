@@ -61,7 +61,9 @@ static void Die(void)
 }
 static void Reset(void)
 {
-    memset(&saved, 0, sizeof saved); consumedPeer = consumedAvatar = consumedNetwork = 0;
+    memset(&saved, 0, sizeof saved); memset(slotStates, 0, sizeof slotStates);
+    memset(consumedRing, 0, sizeof consumedRing); consumedRingCursor = 0; activeSlot = -1;
+    consumedPeer = consumedAvatar = consumedNetwork = 0; reportedPollRejection = 0;
     clockMs = 1000; lastSample = 0; missingMapping = 0;
     memset(players, 0, sizeof players); memset(user, 0, sizeof user); memset(manager, 0, sizeof manager);
     memset(health, 0, sizeof health); memset(kit, 0, sizeof kit); memset(healthRecord, 0, sizeof healthRecord);
@@ -126,7 +128,7 @@ int wmain(int argc, wchar_t** argv)
     CHECK(openHash && hashBytes && openHash(&sha, BCRYPT_SHA256_ALGORITHM, NULL, 0) >= 0);
     CHECK(Hash("abc", 3, "ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad"));
     CHECK(ScanVisuals(argv[1]) == 4);
-    Proof candidate[4]; memcpy(candidate, proofs, sizeof candidate);
+    static Proof candidate[YODA_MAX_VISUALS]; memcpy(candidate, proofs, sizeof proofs);
     Proof source = proofs[0]; CHECK(Unchanged(&source));
     CHECK(visuals[0].altMainHash && visuals[0].altGpuHash && strcmp(visuals[0].mainHash, visuals[0].altMainHash) && strcmp(visuals[0].gpuHash, visuals[0].altGpuHash));
     {
@@ -220,7 +222,156 @@ int wmain(int argc, wchar_t** argv)
     Reset(); proofs[0].valid = 0; Observe(); Die(); CHECK(calls == 0); proofs[0] = good;
     Reset(); Observe(); HANDLE edit = CreateFileW(gpu, FILE_APPEND_DATA, 0, NULL, OPEN_EXISTING, 0, NULL); CHECK(edit != INVALID_HANDLE_VALUE);
     DWORD wrote; CHECK(WriteFile(edit, "x", 1, &wrote, NULL)); CloseHandle(edit); CHECK(!Unchanged(&proofs[0])); Die(); Observe(); CHECK(calls == 0);
+
+    /* 0.2.0 Co-op per-slot tests: verify local death in every slot 0..3 and silent remote slots. */
+    static unsigned char slotDesc[4][24];
+    for (uint32_t s = 0; s < 4; s++)
+    {
+        memcpy(proofs, candidate, sizeof proofs);
+        Reset();
+        Put32(players, 0x84, 4);
+        for (uint32_t k = 0; k < 4; k++)
+        {
+            uint64_t p = (k == s) ? 42ull : (1000ull + k);
+            uint32_t pl = 100u + k;
+            Put64(players, 0x2C8 + 0x38 * k, p);
+            Put64(players, 0xE8 + 8 * k, (uintptr_t)slotDesc[k]);
+            Put32(slotDesc[k], 8, pl);
+            Put32(players, 0x2E0 + 0x38 * k, 3);
+            Put32(players, 0x3A8 + 0x20 * k, 200u + k);
+        }
+        Put64(manager, 0x948, (uintptr_t)slotDesc[s]);
+        for (int mi = 0; mi < 8; mi++) mapEntries[mi] = UINT32_MAX;
+        mapEntries[((100u + s) % 4u) * 2u] = 100u + s;
+        mapEntries[((100u + s) % 4u) * 2u + 1u] = 0;
+        Put32(healthDesc, 8, 210u + s);
+        Observe();
+        CHECK(saved.avatar == 210u + s && saved.slot == s && activeSlot == (int)s && calls == 0);
+        /* Remote peer dying must stay silent. */
+        uint32_t remoteSlot = (s + 1u) % 4u;
+        Put32(players, 0x2E0 + 0x38 * remoteSlot, 2);
+        HfPlayerEvent remoteEv = {{sizeof remoteEv, HF_ON_PLAYER_DOWN, 1}, 1000ull + remoteSlot, 100u + remoteSlot, 0};
+        Down((HfMod*)&mod, &remoteEv, NULL);
+        CHECK(calls == 0);
+        /* Local peer in slot s dying triggers exactly once. */
+        Put32(players, 0x2E0 + 0x38 * s, 2);
+        Put32(healthRecord, 0x19C, 2);
+        HfPlayerEvent localEv = {{sizeof localEv, HF_ON_PLAYER_DOWN, 1}, 42ull, 100u + s, 1};
+        Down((HfMod*)&mod, &localEv, NULL);
+        CHECK(calls == 1);
+        Down((HfMod*)&mod, &localEv, NULL);
+        clockMs += 100; Observe();
+        CHECK(calls == 1);
+    }
+
+    /* Slot compaction survival: local peer shifts from slot 3 to slot 1 when other peers leave. */
+    memcpy(proofs, candidate, sizeof proofs);
+    Reset();
+    Put32(players, 0x84, 4);
+    for (uint32_t k = 0; k < 4; k++)
+    {
+        Put64(players, 0x2C8 + 0x38 * k, (k == 3) ? 42ull : (2000ull + k));
+        Put64(players, 0xE8 + 8 * k, (uintptr_t)slotDesc[k]);
+        Put32(slotDesc[k], 8, 300u + k);
+        Put32(players, 0x2E0 + 0x38 * k, 3);
+        Put32(players, 0x3A8 + 0x20 * k, 400u + k);
+    }
+    Put64(manager, 0x948, (uintptr_t)slotDesc[3]);
+    for (int mi = 0; mi < 8; mi++) mapEntries[mi] = UINT32_MAX;
+    mapEntries[(303u % 4u) * 2u] = 303u;
+    mapEntries[(303u % 4u) * 2u + 1u] = 0;
+    Put32(healthDesc, 8, 413u);
+    Observe();
+    CHECK(saved.avatar == 413u && saved.slot == 3 && activeSlot == 3);
+    /* Compact: slots 0 and 2 leave; local peer moves to slot 1 keeping player=303, network=403. */
+    Put32(players, 0x84, 2);
+    Put64(players, 0x2C8 + 0x38 * 0, 2001ull); Put32(slotDesc[0], 8, 301u); Put32(players, 0x3A8 + 0x20 * 0, 401u);
+    Put64(players, 0x2C8 + 0x38 * 1, 42ull);   Put32(slotDesc[1], 8, 303u); Put32(players, 0x3A8 + 0x20 * 1, 403u);
+    Put32(players, 0x2E0 + 0x38 * 1, 2);
+    Put32(healthRecord, 0x19C, 2);
+    clockMs += 50;
+    {
+        HfPlayerEvent compEv = {{sizeof compEv, HF_ON_PLAYER_DOWN, 1}, 42ull, 303u, 1};
+        Down((HfMod*)&mod, &compEv, NULL);
+        CHECK(calls == 1 && activeSlot == 1 && saved.slot == 1);
+    }
+
+    /* Extensible yoda-torsos.json test + Clonedivers real staged check if present on disk. */
+    {
+        wchar_t jsonPath[1100];
+        swprintf(jsonPath, 1100, L"%ls\\yoda-torsos.json", argv[2]);
+        HANDLE jf = CreateFileW(jsonPath, GENERIC_WRITE, 0, NULL, CREATE_ALWAYS, FILE_ATTRIBUTE_NORMAL, NULL);
+        CHECK(jf != INVALID_HANDLE_VALUE);
+        const char* sampleJson =
+            "{\"torsos\":["
+            "{\"kit\":\"0xABCDEF01\",\"body\":0,\"unit\":\"0x1122334455667788\","
+            "\"main_sha256\":\"" "4b4a641bb83575eaeb452db5ecbccefaf8e868957f994a98f0e7aa6198517bde" "\","
+            "\"gpu_sha256\":\""  "e04b9b14658300e743f5377c35637cdd16578f8303616c66883ca44ca4ea58f7" "\"},"
+            "{\"kit\":123,\"body\":1,\"unit\":999,\"main_sha256\":\"bad\",\"gpu_sha256\":\"bad\"}"
+            "]}";
+        DWORD jw = 0; CHECK(WriteFile(jf, sampleJson, (DWORD)strlen(sampleJson), &jw, NULL) && jw == strlen(sampleJson));
+        CloseHandle(jf);
+        LoadExtraTorsos(argv[2]);
+        CHECK(visualCount == YODA_BUILTIN_VISUALS + 1);
+        CHECK(visuals[visualCount - 1].kit == 0xABCDEF01u && visuals[visualCount - 1].body == 0u && visuals[visualCount - 1].unit == 0x1122334455667788ull);
+        CHECK(DeleteFileW(jsonPath));
+
+        /* Verify YODA_MAX_VISUALS == 256 capacity ceiling (8 built-ins + 248 dynamic entries, 249th rejected) */
+        CHECK(YODA_MAX_VISUALS == 256);
+        FILE* capf = _wfopen(jsonPath, L"wb");
+        CHECK(capf != NULL);
+        fprintf(capf, "{\"schema_version\":1,\"torsos\":[\n");
+        for (unsigned vi = 0; vi < 250u; vi++) {
+            fprintf(capf, "%s{\"kit\":\"0x%08X\",\"body\":%u,\"unit\":\"0x%016llX\","
+                    "\"main_sha256\":\"4b4a641bb83575eaeb452db5ecbccefaf8e868957f994a98f0e7aa6198517bde\","
+                    "\"gpu_sha256\":\"e04b9b14658300e743f5377c35637cdd16578f8303616c66883ca44ca4ea58f7\"}",
+                    vi ? ",\n" : "", 0x70000000u + vi, vi & 1u, 0xD000000000000000ull + vi + 1ull);
+        }
+        fprintf(capf, "\n]}\n");
+        fclose(capf);
+        LoadExtraTorsos(argv[2]);
+        CHECK(visualCount == 256u);
+        CHECK(visuals[255].kit == 0x70000000u + 247u);
+        CHECK(DeleteFileW(jsonPath));
+
+        /* Validate production yoda-torsos.json (12 Wave 2A Clone torsos -> 20 total visuals) + real delta archives if present */
+        {
+            const wchar_t* prodModDir = (GetFileAttributesW(L".\\yoda-torsos.json") != INVALID_FILE_ATTRIBUTES) ? L"." : L"..";
+            LoadExtraTorsos(prodModDir);
+            CHECK(visualCount == YODA_BUILTIN_VISUALS + 12u);
+            const wchar_t* cloneDelta = L"D:\\ClaudeWork\\workstreams-20261116-v2\\clonedivers-r20\\delta\\lego-clones";
+            if (GetFileAttributesW(cloneDelta) != INVALID_FILE_ATTRIBUTES) {
+                CHECK(ScanVisuals(cloneDelta) == 12);
+                static Proof cloneProofs[YODA_MAX_VISUALS];
+                memcpy(cloneProofs, proofs, sizeof proofs);
+                for (size_t cv = YODA_BUILTIN_VISUALS; cv < visualCount; cv++) {
+                    CHECK(cloneProofs[cv].valid && cloneProofs[cv].row.d[1] == 0 && Unchanged(&cloneProofs[cv]));
+                    memcpy(proofs, cloneProofs, sizeof proofs);
+                    Reset();
+                    Put32(manager, 0x96C, visuals[cv].body);
+                    Put32(manager, 0x96C + 12, visuals[cv].kit);
+                    Put32(kit, 0, visuals[cv].kit);
+                    Observe();
+                    CHECK(saved.visual == (int)cv && saved.avatar == 210);
+                    Die();
+                    CHECK(calls == 1);
+                }
+            }
+        }
+
+        LoadExtraTorsos(NULL);
+        CHECK(visualCount == YODA_BUILTIN_VISUALS);
+    }
+    if (GetFileAttributesW(L"D:\\HellForge\\mods\\clonedivers-r19-full") != INVALID_FILE_ATTRIBUTES)
+    {
+        CHECK(ScanVisuals(L"D:\\HellForge\\mods\\clonedivers-r19-full") == 4);
+        Reset();
+        Put32(manager, 0x96C, visuals[4].body); Put32(manager, 0x96C + 12, visuals[4].kit); Put32(kit, 0, visuals[4].kit);
+        Observe(); CHECK(saved.visual >= 4 && saved.visual < 8 && saved.avatar == 210);
+        Die(); CHECK(calls == 1);
+    }
+
     free((void*)game);
-    printf("PASS: %d checks; real 4/4 LEGO torso hashes (Compact/r45); offline SDK/poll death sequences and overrides; audio stub only\n", checks);
+    printf("PASS: %d checks; 0.2.0 co-op slots 0..3, compaction, Empire + Clonedivers LEGO hashes, yoda-torsos.json, offline SDK/poll verified\n", checks);
     return 0;
 }

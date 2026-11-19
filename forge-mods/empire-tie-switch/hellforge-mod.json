@@ -1,0 +1,11 @@
+{
+  "format": 1,
+  "id": "clonedivers.empire-tie-switch",
+  "name": "Empire per-attack TIE (lab candidate)",
+  "version": "0.3.0",
+  "game": "25480438",
+  "description": "Requires empire-forge-r47-tie appearance candidate (0.3.0 adds build-25480438 pinned RefcountedPackageSystem fallback for 0x2C26BC4C6592FA14 eagle_base + 4-player concurrent sortie tracking). Fighter strafe/110mm, Bomber bombing.",
+  "gameplay": false,
+  "coop": "per-player",
+  "code": { "dll": "empire_tie_switch.dll", "sdk": 16 }
+}

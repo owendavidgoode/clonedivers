@@ -248,7 +248,7 @@ internal sealed class HellForgeSetupForm : Form
         var universe = preferences.Mode == "empire" ? "EmpireDivers" : preferences.DeltaSquad ? "Clonedivers (Delta Squad)" : "Clonedivers";
         var enemy = preferences.EnemySkin switch { "mixed-droids" => "Mixed Bots + CIS Droids", "native-automatons" => "Native Automatons", _ => "All CIS Droids" };
         var tex = preferences.Texture switch { "reduced512" => "Johnson Ultra-Potato (512px)", "lighter" => "Lighter (Streamed)", _ => "Full" };
-        var cov = preferences.Mode == "clonedivers" && preferences.Covenant ? " · Covenant ON" : "";
+        var cov = preferences.Covenant ? " · Covenant ON" : "";
         return $"Selected mode: {universe} · Enemies: {enemy}{cov} · Textures: {tex}";
     }
 

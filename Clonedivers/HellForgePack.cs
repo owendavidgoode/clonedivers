@@ -47,6 +47,8 @@ public static class HellForgePack
         }
         options["empire"] = mode == "empire";
         options["commandos"] = mode == "commandos";
+        if (options.GetValueOrDefault("mixed-droids") || options.GetValueOrDefault("mixed_droids"))
+            options["droids"] = true;
         var files = Pack.EffectiveFiles(pack, id => options.GetValueOrDefault(id), texture);
         FileSafety.ValidateTargets(files);
         return new(mode, texture, pack.Version, SupportedBuild, manifestSha, options, files);
@@ -54,48 +56,74 @@ public static class HellForgePack
 
     public static Selection PinnedSelection(string mode, string texture, IReadOnlyDictionary<string, bool>? changes = null)
     {
+        static byte[] ReadEmbeddedBytes(string name)
+        {
+            using var stream = typeof(HellForgePack).Assembly.GetManifestResourceStream(name)
+                ?? throw new InvalidDataException("This launcher has no pinned HellForge pack catalog.");
+            using var memory = new MemoryStream();
+            stream.CopyTo(memory);
+            return memory.ToArray();
+        }
+        var resource = mode == "empire" ? "Clonedivers.HellForge.Empire.Manifest.json" : "Clonedivers.HellForge.Manifest.json";
+        var primary = ReadEmbeddedBytes(resource);
+        byte[]? fallback = null;
+        if (mode == "empire" && texture is "lighter" or "reduced512")
+        {
+            var alt = texture == "reduced512" && typeof(HellForgePack).Assembly.GetManifestResourceInfo("Clonedivers.HellForge.Empire.Potato.Manifest.json") != null
+                ? "Clonedivers.HellForge.Empire.Potato.Manifest.json"
+                : typeof(HellForgePack).Assembly.GetManifestResourceInfo("Clonedivers.HellForge.Empire.Lighter.Manifest.json") != null
+                    ? "Clonedivers.HellForge.Empire.Lighter.Manifest.json" : null;
+            if (alt != null) fallback = ReadEmbeddedBytes(alt);
+        }
+        return ResolveSelection(primary, fallback, mode, texture, changes);
+    }
+
+    public static Selection ResolveSelection(byte[] bytes, byte[]? lighterFallbackBytes, string mode, string texture, IReadOnlyDictionary<string, bool>? changes = null)
+    {
         var requested = changes != null ? new Dictionary<string, bool>(changes, StringComparer.OrdinalIgnoreCase) : new Dictionary<string, bool>(StringComparer.OrdinalIgnoreCase);
         if (mode == "empire")
         {
             var empireChanges = new Dictionary<string, bool>(StringComparer.OrdinalIgnoreCase)
             {
                 ["droids"] = requested.GetValueOrDefault("droids", true),
-                ["covenant"] = false
+                ["covenant"] = requested.GetValueOrDefault("covenant", false)
             };
             if (requested.TryGetValue("mixed-droids", out var mixedHyphen)) empireChanges["mixed-droids"] = mixedHyphen;
             if (requested.TryGetValue("mixed_droids", out var mixedUnder)) empireChanges["mixed_droids"] = mixedUnder;
             requested = empireChanges;
         }
-        var resource = mode == "empire"
-            ? texture == "reduced512" && typeof(HellForgePack).Assembly.GetManifestResourceInfo("Clonedivers.HellForge.Empire.Potato.Manifest.json") != null
-                ? "Clonedivers.HellForge.Empire.Potato.Manifest.json"
-                : texture is "lighter" or "reduced512" ? "Clonedivers.HellForge.Empire.Lighter.Manifest.json" : "Clonedivers.HellForge.Empire.Manifest.json"
-            : "Clonedivers.HellForge.Manifest.json";
-        using var stream = typeof(HellForgePack).Assembly.GetManifestResourceStream(resource)
-            ?? throw new InvalidDataException("This launcher has no pinned HellForge pack catalog.");
-        using var memory = new MemoryStream();
-        stream.CopyTo(memory);
-        var bytes = memory.ToArray();
         var feed = Manifest.Parse(System.Text.Encoding.UTF8.GetString(bytes));
+        if (mode == "empire" && texture is "lighter" or "reduced512" && lighterFallbackBytes != null &&
+            !PackProfiles.Supported(feed.Pack!).Any(p => string.Equals(p.Id, texture, StringComparison.OrdinalIgnoreCase)))
+        {
+            bytes = lighterFallbackBytes;
+            feed = Manifest.Parse(System.Text.Encoding.UTF8.GetString(bytes));
+        }
         var pack = feed.Pack!;
-        // Resolve v2.0 texture/enemy-skin selections backwards-compatibly against v1.14.2 r47/r19 manifests
-        // until Wave 2 swaps in r48/r20 manifests carrying explicit reduced512 / mixed-droids entries.
+        // Resolve v2.0 texture/enemy-skin/covenant selections backwards-compatibly against r47/r19 manifests
+        // as well as r48/r20 manifests carrying explicit reduced512 / mixed-droids / Empire covenant entries.
         var resolvedTexture = texture;
         if (resolvedTexture == "reduced512" && !PackProfiles.Supported(pack).Any(p => string.Equals(p.Id, "reduced512", StringComparison.OrdinalIgnoreCase)))
             resolvedTexture = PackProfiles.Supported(pack).Any(p => string.Equals(p.Id, "lighter", StringComparison.OrdinalIgnoreCase)) ? "lighter" : "full";
         var optionIds = pack.Options.Select(o => o.Id).ToHashSet(StringComparer.OrdinalIgnoreCase);
         foreach (var futureKey in new[] { "mixed-droids", "mixed_droids" })
         {
-            if (requested.TryGetValue(futureKey, out var mixedOn) && !optionIds.Contains(futureKey))
+            if (requested.TryGetValue(futureKey, out var mixedOn))
             {
-                requested.Remove(futureKey);
-                if (mixedOn && !requested.ContainsKey("droids")) requested["droids"] = true;
+                if (mixedOn) requested["droids"] = true;
+                if (!optionIds.Contains(futureKey)) requested.Remove(futureKey);
             }
+        }
+        if (mode == "empire" && !pack.Files.Any(f => PackProfiles.Includes(f, "empire", resolvedTexture) &&
+            (string.Equals(f.Option, "covenant", StringComparison.OrdinalIgnoreCase) || string.Equals(f.UnlessOption, "covenant", StringComparison.OrdinalIgnoreCase))))
+        {
+            requested["covenant"] = false;
         }
         // Prune Empire's conditional rows before selection so its fixed layers stay at 1000+.
         if (mode == "empire")
         {
-            bool Enabled(string id) => PackExtras.AlwaysOn(pack, id) || requested.GetValueOrDefault(id, pack.Options.FirstOrDefault(o => o.Id == id)?.Default ?? false);
+            bool RawEnabled(string id) => PackExtras.AlwaysOn(pack, id) || requested.GetValueOrDefault(id, pack.Options.FirstOrDefault(o => o.Id == id)?.Default ?? false);
+            bool Enabled(string id) => RawEnabled(id) || (string.Equals(id, "droids", StringComparison.OrdinalIgnoreCase) && (RawEnabled("mixed-droids") || RawEnabled("mixed_droids")));
             pack.Files = pack.Files.Where(f => PackProfiles.Includes(f, mode, resolvedTexture) &&
                 (f.Option == null || Enabled(f.Option)) && (f.UnlessOption == null || !Enabled(f.UnlessOption))).ToList();
         }

@@ -30,8 +30,8 @@ public sealed class HellForgePreferences
     public string PackMode => IsRegular ? "regular" : Mode == "empire" ? "empire" : DeltaSquad ? "commandos" : "clonedivers";
     string EnemyKeySegment => enemySkin == "mixed-droids" ? "mixed-droids" : Droids.ToString();
     public string SelectionKey => IsRegular ? $"regular/{HellForgePack.SupportedBuild}" :
-        Mode == "empire" ? $"r47/{HellForgePack.SupportedBuild}/empire/{Texture}/{EnemyKeySegment}/False" :
-        $"r19/{HellForgePack.SupportedBuild}/{PackMode}/{Texture}/{EnemyKeySegment}/{Covenant}";
+        Mode == "empire" ? $"r48/{HellForgePack.SupportedBuild}/empire/{Texture}/{EnemyKeySegment}/{Covenant}" :
+        $"r20/{HellForgePack.SupportedBuild}/{PackMode}/{Texture}/{EnemyKeySegment}/{Covenant}";
     internal static string? CustomPreferencesPath()
     {
         var custom = Environment.GetEnvironmentVariable("CLONEDIVERS_FORGE_PREFS");

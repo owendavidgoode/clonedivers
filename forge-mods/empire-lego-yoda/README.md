@@ -1,12 +1,16 @@
-Offline native mod for HellForge 0.4.0-beta / SDK 16 / build 25480438.
+Offline native mod (v0.2.0) for HellForge 0.4.0-beta / SDK 16 / build 25480438.
 Client only (`gameplay: false`, `coop: per-player`); no Lua loader or HD2Runtime dependency.
 
-Reads applied category-0 armor, never menu selection or helmet. DP-40 B513FD54 and AF-02 E9ADD047
-qualify only for the corresponding Brawny/Lean torso whose staged MAIN and GPU payloads match either
-Compact LEGO (`r47-lego-compact`) or stilt (`r45`/`r47-shuttles`).
-Scans staged patch directories at startup, respecting numeric patch order within a family; ambiguous
+Reads applied category-0 armor, never menu selection or helmet. Built-in torso pairs cover both
+Empire Stormtrooper LEGO packs (`r47-lego-compact`, `r45`/`r47-shuttles`) and Clonedivers LEGO
+Clone packs (`clonedivers-r19-full`), plus optional extensible pairs from `<mod_folder>\yoda-torsos.json`.
+Scans staged patch directories at startup respecting numeric patch order within a family; ambiguous
 cross-family providers refuse the gate. Never changes game memory, patches, banks, statistics or network state.
-Use one appearance pack; this gate is a version-specific torso proof, not a general pack conflict resolver.
+
+Supports 1-4 player co-op by resolving the local peer across `PlayerManager` slots `0..3`, surviving
+mid-mission slot compaction on peer disconnects, caching a fresh local avatar with native health `life < 2`
+and the exact applied record, and sharing an 8-slot consumed `(peer, avatar, network)` deduplication ring
+across `HF_ON_PLAYER_DOWN` and the 100 ms poll route. Remote player deaths remain silent.
 
 During a mission, caches a fresh local avatar with native health life < 2 and the exact applied record.
 Either HF_ON_PLAYER_DOWN or a 100 ms local poll can route death confirmation. Both require the same local

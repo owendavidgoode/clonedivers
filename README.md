@@ -22,49 +22,54 @@ Play the official online Helldivers 2 game directly through Steam.
 
 ## Update or Install
 
-The current public versions are Windows **1.14.2** and Linux Forge **0.8.2**
-(`pack-2026.11.09-r47-files` and `forge-mods-2026-11-15` published prerelease
-stores; attended `R2` acceptance checks remain pending). Update Windows through
-the launcher. On Linux, install the complete `.deb` or extract the full portable
-archive.
+The current live public releases on `main` are Windows **1.14.2** and Linux Forge
+**0.8.2**. On **`feat/v2.0-turnkey`**, **Windows 2.0.0** and **Linux Forge 0.9.0**
+stage the turnkey v2.0 overhaul (**EmpireDivers `2026.11.19-r48`**, **Clonedivers
+`2026.11.19-r20`**, and **`build25480438-r5`** with `0` `hf-mod.com` URLs; root
+`manifest*.json` feeds stay at `1.14.2` / `r45-v4` until `R1` asset upload and
+attended `R2` acceptance complete). Update Windows through the launcher. On Linux,
+install the complete `.deb` or extract the full portable archive.
 
 New players press **Set up Clonedivers** on Windows or **Set up / update Forge**
 on Linux. Windows checks for at least **70 GB** (`70 GiB`) free on the Forge
 drive before installing or upgrading the verified Forge application, copies build
-`25480438` from Steam or downloads it via Steam Guard QR approval, and installs
-the gameplay preset and selected appearance. Linux downloads and opens the
-official native installer and offers Ubuntu/Debian tool installation (`passt` /
-`pasta` required). Steam sign-in and system approval remain player actions.
-Existing Windows Forge `0.3.0-beta` installations offer **Update HellForge** with
-protected-state checks and verified application rollback.
+`25480438` from Steam or downloads it via Steam Guard QR approval, guides mandatory
+one-way Steam account sync, and installs the gameplay preset and selected appearance.
+Linux downloads and opens the official native installer and offers Ubuntu/Debian tool
+installation (`passt` / `pasta` required). Steam sign-in and system approval remain
+player actions. Existing Windows Forge `0.3.0-beta` installations offer **Update
+HellForge** with protected-state checks and verified application rollback.
 
 Read [the migration and first-setup guide](docs/FORGE-MIGRATION.md). The launcher
 update preserves settings and account data and keeps a verified previous Windows
 executable for rollback. It does not edit live Steam game files or close a running
-game. **Set up selected mode** obtains **11 gameplay downloads**
-automatically in the `build25480438-r4` catalog (**7 required** gameplay
-archives totaling `7,780,423` bytes / `~7.42 MiB` plus **4 optional**
-project-owned defaults: client-only `Clonedivers Clean Exit` `0.2.0` at `8,192`
-bytes `gameplay: false`, client-only `LEGO Compact Leaf Writer (CO-OP v0.0.9)`
-at `199,207` bytes `gameplay: false` `coop: per-player`, client-only
-`Empire LEGO Yoda Death` `0.1.2` at `45,907` bytes `gameplay: false`
-`coop: per-player`, and host-driven `Chaos Invasions` `0.2.0` at `29,526` bytes
-`gameplay: true`), totaling **`8,063,255` bytes (`~7.69 MiB`)** before appearance
-assets. It verifies their archives and content, imports them through Forge, applies
-preset order/options and then prepares the appearance.
+game. **Set up selected mode** obtains **14 gameplay downloads** automatically in
+the `build25480438-r5` catalog (**8 required** gameplay and author archives totaling
+`7,905,326` bytes / `~7.54 MiB` plus **6 optional** project-owned SDK-16 defaults:
+`Clonedivers Clean Exit` `0.2.0` at `8,192` B, `LEGO Compact Leaf Writer` `0.1.0` at
+`237,169` B, `Empire LEGO Yoda Death` `0.2.0` at `53,080` B, `Empire AT-ST Film-Scale
+Leaf Writer` `0.1.0` at `33,111` B, `Empire per-attack TIE` `0.3.0` at `19,649` B,
+and host-authoritative `Chaos Invasions` `0.3.0` at `33,855` B), totaling
+**`8,290,382` bytes (`~7.91 MiB`)** before appearance assets. It verifies their
+archives and content, imports them through Forge, applies preset order/options and
+then prepares the appearance.
 
-The three official bundled mods plus those 11 downloads (7 required + 4 optional
-defaults enabled on first `r4` setup, and new `r4` optionals offered once on
-`r3` -> `r4` upgrades while preserving prior opt-outs) and one selected appearance
-pack form the complete 15-mod Clones or Empire setup; Regular omits appearance
-packs. Five required packages come directly from authors; the permission-cleared
-Heavy/Squad fixes use pinned project assets (`forge-gameplay-build25480438-r1`),
-Clean Exit `0.2.0` uses `forge-mods-2026-11-08`, and `lego-compact-leaf-writer`
-`0.0.9`, `empire-lego-yoda` `0.1.2`, and `chaos-invasions` `0.2.0` target
-`forge-mods-2026-11-15` (pending `R1` asset upload). The old mine-boundary fix
-(`0.1.1`) is disabled because engine `0.1.47` includes its bounds fix. See
-[sources and permission scope](docs/SEAF-COMPATIBILITY-PERMISSION.md). Setup
-turns automatic host mod sharing OFF and guides your own HD2 account import.
+The three official bundled mods plus those 14 downloads (8 required + 6 optional
+defaults enabled on fresh `r5` setup, with enabled `r4` defaults upgraded to `0.1.0`
+/ `0.2.0` / `0.3.0` and newly added `r5` optionals offered once while preserving
+disabled/removed choices) and one selected appearance pack form the complete 18-mod
+Clones or Empire setup; Regular omits appearance packs. Ahead of the **19 November
+2026** `hf-mod.com` shutdown, `r5` uses **zero `hf-mod.com` URLs**: permissive `0BSD`
+/ `MIT` mirrors (`Vanilla Plus Megapack 0.2.1`, `Operation Reroller 0.1.6`, `Shared
+Callback Manager 0.1.0`) and owner-permitted MP-hardened SEAF packages (`Heavy SEAF
+1.2.0-clonedivers.4`, `SEAF Squad 0.1.4-clonedivers.3`) target
+`forge-gameplay-build25480438-r5`, while `Bingus Shared Loader v20`, `Smarter SEAF
+1.0.4`, and `Smarter Guard Dogs & Sentries 5.2.0` download directly from their
+authors' GitHub Releases (`All rights reserved` Th3chef archives are never mirrored).
+The old mine-boundary fix (`0.1.1`), `chef.smarter-seaf` (`1.1.0`), and standalone
+`Mod Options Menu v1.2.1` (now integrated in `Vanilla Plus Megapack 0.2.1`) are
+disabled automatically. See [sources and permission scope](docs/SEAF-COMPATIBILITY-PERMISSION.md).
+Setup turns automatic host mod sharing OFF and guides your own HD2 account import.
 A fresh import of every dependency is tested separately from real mission and
 multiplayer acceptance.
 
@@ -72,33 +77,47 @@ Every player needs their own Steam-owned HD2, official separate **HellForge
 0.4.0-beta / engine 0.1.47 / SDK 16 / game 25480438**, and permitted matching mods.
 Keep supported isolation and sandbox enabled. Linux requires a dedicated Proton
 prefix and the official namespace setup (`pasta` from `passt` on Ubuntu 24.04+ /
-Debian 13+ or equivalent). Complete Linux packages include the native UI and
-controller (`0.4.0`); no separate .NET install is needed. ARM64, Steam Deck, and
+Debian 13+ or equivalent). Complete Linux packages include the native UI (`0.9.0`)
+and controller (`0.4.0`); no separate .NET install is needed. ARM64, Steam Deck, and
 Flatpak/Snap Forge are not qualified.
 
 ## Modes, Account, and Gameplay
 
-Regular, Clones and Empire are Forge appearance choices. Clones retains Delta armor,
-CIS droids, Covenant squids and texture options (`2026.09.27-r19`). In **1.14.2** /
-**0.8.2**, **Empire** ships the four-way Compact-LEGO-baked **`2026.11.09-r47`**
-catalogs (`Full` or `Lighter` streamed textures × `CIS droids` ON or OFF, with
-SEAF Lambda `+0.20 m` ground clearance `lambda-fix`): `8,738,707,008` bytes
-(`Full + Droids`), `6,013,620,208` bytes (`Full + Native`), `8,961,480,892` bytes
-(`Lighter + Droids`, lowering resident `.gpu_resources` from `7,934,299,136` to
-`2,542,440,456` bytes), and `6,172,775,164` bytes (`Lighter + Native`). Updating
-an existing `r45-v4` Full Empire installation to `r47` Full reuses `34` files
-(`455,980,288` bytes) and requires `~25 GB` free. Non-shipping experimental/shelved
-items (`at-st` Hulk rig exceeding 64 palettes/128 nodes, `empire-weapons`,
-per-instance `mixed-appearances`, and `empire-tie-switch` `0.2.1` pending
-HellForge `>=0.4.1-beta` `eagle_base` support) remain outside `1.14.2` / `0.8.2`.
-See [release notes](docs/releases/v1.14.2.md) and
-[r47 Full notes](docs/releases/pack-2026.11.09-r47-full.md). Every mode uses
+Regular, Clones and Empire are Forge appearance choices. In **2.0.0** / **0.9.0**,
+both **Clones (`2026.11.19-r20`)** and **Empire (`2026.11.19-r48`)** offer the full
+**3×3×2 variant matrix**: **Enemy skin** (`All CIS Droids`, `Mixed Bots + CIS Droids`
+keeping `32` Battlefront CIS `UNIT`s alongside `45` native Automaton Hulks/Devastators/
+Berserkers/Factory Striders/7.0+ units, or `Native Automatons`), **Textures** (`Full`,
+`Lighter (Streamed)`, or `Johnson Ultra-Potato (512px)` `reduced512` at `512 px` max /
+`128 px` resident tail for low-VRAM GPUs), and opt-in **Covenant** (`1670`) squids
+(plus **Delta Squad** armor/voices in Clones).
+- **EmpireDivers `2026.11.19-r48`** (`111` files `patch_1000..1036` for CIS/Mixed,
+  `99` files `patch_1000..1032` for Native; `5.35 GB` `reduced512` vs `11.46 GB`
+  `Full` on `All CIS`) delivers **`100%` build `25480438` Imperial wardrobe coverage**
+  (`135/135` armors, `158/158` helmets, `1,939/1,939` `UNIT`s, `344` US text keys), the **S2c film-scale
+  AT-ST** (`106` nodes `<= 128`, `[8,1,1]` palettes `<= 64`, `9` native `PHYSICS`
+  restored, `8` child weapons, paired with `empire-atst-writer 0.1.0`), E-Web UV
+  repair, `18` green Imperial orbital turbolaser `PFX`s, Brawny+Lean **K-2SO** (`B-27`),
+  global LEGO mid-back prop tuck, and **`5,266/5,266` Imperial VO sound slots** across
+  all `18` VO banks (`4,624` 48 kHz PCM streams + `620` Fallen Order/Vader/PA Vorbis
+  streams).
+- **Clonedivers `2026.11.19-r20`** (`114` files `patch_0..37` for CIS/Mixed, `102`
+  files `patch_0..33` for Native; `4.78 GB` `reduced512` vs `9.39 GB` `Full` on
+  `Delta Squad + All CIS`) adds `6` isolated **Compact LEGO Clone** kits
+  (`54` 3P `UNIT`s + `94` hiders across Phase I Shiny, 501st, 212th, Coruscant Guard,
+  Captain Rex, and Commander Cody, paired with `lego-compact-leaf-writer 0.1.0` and
+  `empire-lego-yoda 0.2.0`), global LEGO mid-back prop tuck, and Forge `25480438`
+  `3,246`-key US localization (`18` Clone strings) while preserving all 4 Delta Squad
+  sets.
+See [v2.0.0 release notes](docs/releases/v2.0.0.md), [linux-0.9.0 notes](docs/releases/linux-0.9.0.md),
+and [JohnsonMode 512px notes](docs/JOHNSONMODE.md). Every mode uses
 the player's own verified **one-way HD2 → Forge account import**. Forge progression
 saves locally and does not count back in official HD2. Never share captures, profiles,
 receipts or keys or replay stale captures to test persistence.
 
-The scale-up baseline combines D11, Heavy SEAF + Squad Stratagems, native Smarter
-SEAF, smarter dogs/sentries, reroller and supporting mods. [Coverage, dependencies
+The scale-up baseline combines D11, MP-hardened Heavy SEAF + Squad Stratagems, Smarter
+SEAF `1.0.4`, smarter dogs/sentries, host-gated Operation Reroller `0.1.6`, Shared
+Callback Manager `0.1.0`, and Vanilla Plus Megapack `0.2.1`. [Coverage, dependencies
 and author sources](docs/FORGE-MOD-COVERAGE.md) distinguish installed, optional,
 conflicting and gated candidates. The download contains **no third-party mod
 archives**; setup obtains the complete pinned preset automatically, including
@@ -110,25 +129,25 @@ matching artifacts; automatic host sharing stays OFF.
 
 The owner has played solo D11 with working SEAF drops on the live `r45-v4` stack,
 and Clean Exit `0.2.0` produced clean quits across the reported 20-cycle D11 soak.
-On PR `#25` (`c90673f`), Windows `run-suites.ps1` (`0` failures) and `11/11` CI
-jobs pass (including `xvfb` Linux package/GUI smoke across Ubuntu `22.04`, `24.04`,
-and `26.04`). Wave 2 live testing also passed on `r47-shuttles` (`W4` `12+12` D11
-Automaton A/B gate: `14` cycles with `0` crash events vs `r45-v4` `12` cycles /
-`1` `+0x1e6b3e` event), `empire-lego-yoda` `0.1.1` + `empire-lego-camera` `0.0.2`
-(Sub-Run 1A), `lego-compact-leaf-writer` `0.0.9` on `r47-lego-compact` (Sub-Run 1E),
-and `empire-tie-switch` `0.2.1` co-loaded with `clean-exit` `0.2.0` on patched
-`tie-held-root` (Sub-Run 1D Part 1). Offline integration on `1.14.2` / `0.8.2` also
-verified all four Compact-LEGO-baked `r47` variants (`verify_candidate.py` exit `0`),
-`empire-lego-yoda` `0.1.2` (`139` C checks, `ScanVisuals == 4` on both `r47-lego-compact`
-and `r47-shuttles`), `chaos-invasions` `0.2.0` (`195` C checks, `52` LuaJIT checks,
-`15` delivery checks), and `run-suites.ps1` (`0` failures / `0` warnings). See
-[Forge setup and status](docs/FORGE.md).
-Attended `R2` landed Lambda clearance, Compact LEGO multi-actor co-op, `chaos-invasions`
-live 3/4/5-way combat/co-op, `empire-lego-yoda` `0.1.2` live Compact LEGO audio, Linux
-Proton gameplay, account capture, mission reward persistence, and multiplayer remain open. Use the
-[separate-PC squad checklist](docs/HELLFORGE-SQUAD-ACCEPTANCE.md) for joins, drops,
-extraction and reconnect tests. Native Quit hanging/teardown crashes (`+0x626296`)
-and ship distortion remain open; use **End session** for official cleanup.
+Wave 2 live testing passed on `r47-shuttles` (`W4` `12+12` D11 Automaton A/B gate:
+`14` cycles with `0` crash events), `empire-lego-yoda` `0.1.1`, `lego-compact-leaf-writer`
+`0.0.9`, and `empire-tie-switch` `0.2.1` (Sub-Run 1D Part 1). For **v2.0 (`2.0.0` /
+`0.9.0`)**, offline gatekeeper verification (`WAVE2A-VERIFIED-REPORT.md` + Wave 2B)
+passed across all `r48` and `r20` overlays (`verify_candidate.py` exit `0`: `0`
+geometry findings, `0` missing dependencies, `0` audio codec mismatches across `437`
+banks / `5,266` VO slots), all `6` SDK-16 C11 mods (`zig cc -Wall -Werror` `0`
+warnings, `163,000+` C unit/integration checks + LuaJIT `lua51.dll` bytecode checks),
+`mp_sim_test.py` (`65` 4-peer mixed co-op, ModSync, late-join, and host-migration
+checks), all `5` offline launcher/bridge/Linux/forge-lab test suites (`0` failures,
+`0` warnings), and isolated `tools/uia-wizard-smoke.ps1` (`ALL UIA SINGLE-WIZARD SMOKE
+CHECKS PASSED`). See [Forge setup and status](docs/FORGE.md) and [STATUS.md](docs/STATUS.md).
+Attended live `R2` desktop verification (`runtimeTested: false` until `R2` completes)
+remains open for S2c AT-ST walkers, `empire-tie-switch 0.3.0` sorties, `chaos-invasions
+0.3.0` 4-peer co-op & host migration, Compact LEGO Clones, Imperial 5090 voices,
+`reduced512` weak-PC VRAM/frame-time, Linux Proton gameplay, and separate-PC squad
+sessions ([squad checklist](docs/HELLFORGE-SQUAD-ACCEPTANCE.md)). Native Quit
+hanging/teardown crashes (`+0x626296`) and ship distortion remain open; use **End
+session** for official cleanup.
 
 ## Steam Cleanup and Recovery
 

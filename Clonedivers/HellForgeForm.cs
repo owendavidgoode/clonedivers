@@ -595,13 +595,13 @@ public sealed class HellForgeForm : Form
         regular.Selected = preferences.IsRegular;
         clone.Selected = preferences.Mode == "clonedivers"; empire.Selected = preferences.Mode == "empire";
         appearance.Visible = !working;
-        choices.Visible = !working && preferences.Mode == "clonedivers";
+        choices.Visible = !working && !preferences.IsRegular;
         enemyRow.Visible = textureRow.Visible = textureAdvisor.Visible = !working && !preferences.IsRegular;
         optionsLabel.Text = preferences.Mode switch { "empire" => "Empire appearance", "regular" => "Regular appearance", _ => "Clones appearance" };
         appearanceInfo.Visible = preferences.IsRegular;
         appearanceInfo.Text = "Standard Helldivers appearance with your selected gameplay mods.";
         delta.Visible = preferences.Mode == "clonedivers";
-        covenant.Visible = preferences.Mode == "clonedivers";
+        covenant.Visible = !preferences.IsRegular;
         delta.Enabled = !working && preferences.Mode == "clonedivers";
         textureAdvisor.Text = preferences.Texture == "reduced512"
             ? "Ultra-Potato (512px): lowest VRAM footprint & fastest load; distant surfaces look softer (meshes & audio unchanged)."
@@ -631,7 +631,7 @@ public sealed class HellForgeForm : Form
             detail.Text = "Choose difficulty 1–11 at the war table.";
             message.Text = ""; later.Visible = false;
             progress.Visible = busy; progress.Style = ProgressBarStyle.Continuous; progress.Value = 42;
-            choices.Visible = !busy && preferences.Mode == "clonedivers";
+            choices.Visible = !busy && !preferences.IsRegular;
             enemyRow.Visible = textureRow.Visible = textureAdvisor.Visible = !busy && !preferences.IsRegular;
             appearance.Visible = !busy;
             actions.Visible = !busy;
@@ -640,8 +640,8 @@ public sealed class HellForgeForm : Form
             if (previewState == "installing") { state.Text = "Installing mods"; detail.Text = "Preparing your selected mode for HellForge."; message.Text = "Downloading gameplay mods · 42%"; }
             if (previewState == "running") { state.Text = "Session running"; detail.Text = "End the session to close the game and finish cleanup."; launch.Text = "END SESSION"; }
             if (previewState == "error") { state.Text = "Needs attention"; detail.Text = FailureSummary("Fixture failure"); launch.Text = "RETRY"; }
-            if (previewState is "update-available" or "update-failed") ShowUpdateOffer("1.15.0", previewState == "update-failed");
-            if (previewState == "update-downloading") { state.Text = "Downloading update · v1.15.0"; detail.Text = "Temporary connection problems retry automatically until you cancel."; launch.Text = "DOWNLOADING…"; message.Text = "28 MB / 66 MB · 42%"; }
+            if (previewState is "update-available" or "update-failed") ShowUpdateOffer("2.1.0", previewState == "update-failed");
+            if (previewState == "update-downloading") { state.Text = "Downloading update · v2.1.0"; detail.Text = "Temporary connection problems retry automatically until you cancel."; launch.Text = "DOWNLOADING…"; message.Text = "28 MB / 66 MB · 42%"; }
             if (previewState == "update-ready") { state.Text = "Update verified"; detail.Text = "The launcher is restarting with the new version."; launch.Text = "RESTARTING…"; launch.Enabled = false; }
             if (busy) { launch.Text = "CANCEL"; launch.Enabled = true; }
             activity.Visible = busy;

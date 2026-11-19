@@ -415,7 +415,8 @@ static int RenderRead(const UnitMeta *child,RenderMeta *r)
 static int AttachBegin(const Owner *owner,uint32_t index,Record *r)
 {
     memset(r,0,sizeof *r);
-    if(!MetaRead(&owner->manager,index,&r->child,NODE_LIMIT)||!Target(r->child.id.resource)||
+    if(!MetaRead(&owner->manager,index,&r->child,NODE_LIMIT)||
+       !(coopDynamicMode?cm_garment_find(r->child.id.resource,NULL):(Target(r->child.id.resource)!=0u))||
        !MetaRead(&owner->manager,owner->unit.index,&r->parent,PARENT_NODE_LIMIT)||
        memcmp(&r->parent.id,&owner->unit,sizeof owner->unit)||r->child.parent!=owner->unit.unit)return RF("target_owner_parent");
     r->parentPresent=1;r->worldEqual=r->child.externalWorld==r->parent.world;
@@ -500,9 +501,11 @@ static int CaptureQueueScope(uint32_t index,const SavedTarget *saved,const Group
 {
     if(!writerCaptureActive || group || !saved || !invocationBudget || !invocationBudget->call)return 0;
     const se_observe_context *ctx=invocationBudget->call;
-    if(!ctx->target || !ctx->call || ctx->target->token>=56)return 0;
+    uint64_t maxToken=coopDynamicMode?(uint64_t)CM_MAX_GARMENTS*8ull:56ull;
+    uint32_t maxKinds=coopDynamicMode?cm_garment_count():7u;
+    if(!ctx->target || !ctx->call || ctx->target->token>=maxToken)return 0;
     unsigned t=(unsigned)(ctx->target->token/8),ordinal=(unsigned)(ctx->target->token%8);
-    if(t>=7 || (!coopDynamicMode && saved!=&targets[t]) || index!=saved->child.id.index || ordinal>=MESH_LIMIT || ordinal>=saved->render.meshes)return 0;
+    if(t>=maxKinds || (!coopDynamicMode && saved!=&targets[t]) || index!=saved->child.id.index || ordinal>=MESH_LIMIT || ordinal>=saved->render.meshes)return 0;
     const MeshMeta *mesh=&saved->render.mesh[ordinal];
     return mesh->registered && ctx->call->mesh==ctx->target->mesh && ctx->target->mesh==mesh->resolved.object &&
         U64(ctx->target->identity)==saved->child.id.unit && U64(ctx->target->identity+8)==saved->child.id.resource &&
@@ -530,7 +533,10 @@ static int Capture(uint32_t index,const SavedTarget *saved,Record *out,RenderMet
     if(!OwnerRead(owner))return RF(ownerFailure);
     if(saved && !SameWriterOwner(owner,&saved->owner))return RF("writer_owner_identity_changed");
     if(!AttachBegin(owner,index,out)||!RenderRead(&out->child,meta))return 0;
-    uint32_t t=0,bit=Target(out->child.id.resource);while(t<7 && (1u<<t)!=bit)t++;
+    uint32_t t=0;
+    if(!cm_garment_find(out->child.id.resource,&t)) {
+        uint32_t bit=Target(out->child.id.resource);while(t<7 && (1u<<t)!=bit)t++;
+    }
     if(saved && !SameSaved(saved,out,meta))return SavedFail(saved,out,meta,t);
     if(invocationBudget && !InvocationPayload(out,meta,owner))return 0;
     if(group) {
