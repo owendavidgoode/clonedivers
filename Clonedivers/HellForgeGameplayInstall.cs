@@ -10,7 +10,7 @@ public sealed partial class HellForgeClient
     sealed record GameplayBackup(string Id, string Archive, long Bytes, string Sha256, string ContentHash);
     sealed record GameplaySnapshot(string Root, HellForgeMods Mods, List<GameplayBackup> Backups, bool HadShare = false, bool Share = true);
     sealed record GameplayIntent(string Root, string Catalog, string Backup, string SnapshotSha256, string State,
-        bool OptionalDefaultsApplied = false, string[]? OptionalDefaults = null);
+        bool OptionalDefaultsApplied = false, string[]? OptionalDefaults = null, string? PriorCatalog = null);
     public string GameplayCache => Path.Combine(CacheRoot, "gameplay", HellForgeGameplayCatalog.Pinned.Id);
     string GameplayIntentPath => PackIntentPath + ".gameplay.json";
     HashSet<string> AppliedOptionalDefaults()
@@ -101,7 +101,8 @@ public sealed partial class HellForgeClient
             var found = catalog.Mods.SingleOrDefault(m => m.Id == artifact.Id);
             // Offer each optional default once. Later removal, disabling or replacement
             // belongs to the player, while enabled prior-catalog defaults upgrade cleanly.
-            var upgradingEnabledPriorDefault = artifact.Optional && intent != null && intent.Catalog != HellForgeGameplayCatalog.Pinned.Id &&
+            var upgradingEnabledPriorDefault = artifact.Optional && intent != null &&
+                (intent.Catalog != HellForgeGameplayCatalog.Pinned.Id || (intent.State == "restored" && !intent.OptionalDefaultsApplied)) &&
                 found is { Enabled: true } && IsRetiredOptionalDefault(artifact.Id, found.Version);
             if (artifact.Optional && !upgradingEnabledPriorDefault && (appliedDefaults.Contains(artifact.Id) || found is { Enabled: false })) continue;
             if (found == null || artifact.Version.Length > 0 && found.Version != artifact.Version || artifact.Version.Length == 0 && found.Name != artifact.Name)
@@ -193,9 +194,11 @@ public sealed partial class HellForgeClient
         var snapshotPath = FileSafety.Child(backup, "before.json");
         using (var file = new FileStream(snapshotPath, FileMode.CreateNew, FileAccess.Write, FileShare.None))
         { await JsonSerializer.SerializeAsync(file, snapshot, HellForgePack.Json, ct); file.Flush(flushToDisk: true); }
+        var priorIntent = ReadGameplayIntent();
         var priorDefaults = AppliedOptionalDefaults();
         var intent = new GameplayIntent(Root, HellForgeGameplayCatalog.Pinned.Id, backup, await HellForgePack.HashAsync(snapshotPath, ct), "pending",
-            GameplayDefaultsApplied, priorDefaults.Count == 0 ? null : priorDefaults.OrderBy(id => id, StringComparer.Ordinal).ToArray());
+            GameplayDefaultsApplied, priorDefaults.Count == 0 ? null : priorDefaults.OrderBy(id => id, StringComparer.Ordinal).ToArray(),
+            priorIntent?.Catalog);
         await RequireGameplayIdleAsync(ct); ct.ThrowIfCancellationRequested(); WriteGameplayIntent(intent);
         try
         {
@@ -391,6 +394,6 @@ public sealed partial class HellForgeClient
             if (await GameplayHashAsync(restoredPath, ct) != copy.ContentHash)
                 throw new InvalidDataException("Previous gameplay content could not be confirmed restored: " + actual.Name);
         }
-        WriteGameplayIntent(intent with { State = "restored" });
+        WriteGameplayIntent(intent with { State = "restored", Catalog = intent.PriorCatalog ?? intent.Catalog });
     }
 }

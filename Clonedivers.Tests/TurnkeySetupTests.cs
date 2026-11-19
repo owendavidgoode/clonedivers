@@ -104,6 +104,7 @@ internal static class TurnkeySetupTests
         QrTests(check);
         await ProcessTests(check);
         await RepairTests(root, fake, Client(), check);
+        await Step4WizardTests(area, check);
     }
 
     static async Task LinkTests(string root, Commands fake, HellForgeClient client, Action<bool, string> check)
@@ -391,14 +392,26 @@ internal static class TurnkeySetupTests
             var expectedR4Upgrade = new[] { leafWriter.Id, chaos.Id, atst.Id, tieSwitch.Id }.ToHashSet(StringComparer.Ordinal);
             check((await restarted.MissingGameplayAsync()).Select(a => a.Id).ToHashSet(StringComparer.Ordinal).SetEquals(expectedR4Upgrade),
                 "an r4 installation upgrades enabled 0.0.9/0.2.0 optionals and offers AT-ST + TIE Switch while keeping disabled Yoda 0.1.2 and removed Clean Exit opted out");
-            fake.Calls.Clear(); await restarted.InstallGameplayAsync(restarted.GameplayCache);
+            // Simulate an interrupted r4->r5 upgrade (lost import acknowledgement) followed by RecoverGameplayAsync() and a fresh r5 retry.
+            fake.LoseFirstModAdd = true;
+            try { await restarted.InstallGameplayAsync(restarted.GameplayCache); check(false, "lost r4->r5 acknowledgement must throw"); }
+            catch (HellForgeCommandOutcomeUnknownException) { }
+            check(restarted.InterruptedGameplayProblem() != null, "interrupted r4->r5 upgrade leaves recovery pending");
+            await new HellForgeClient(root, fake) { RequireCliQuiescent = () => { } }.RecoverGameplayAsync();
+            var postRecovery = new HellForgeClient(root, fake) { RequireCliQuiescent = () => { } };
+            check(postRecovery.InterruptedGameplayProblem() == null &&
+                fake.Mods.Single(m => m.Id == leafWriter.Id) is { Enabled: true, Version: "0.0.9" } &&
+                fake.Mods.Single(m => m.Id == chaos.Id) is { Enabled: true, Version: "0.2.0" } &&
+                (await postRecovery.MissingGameplayAsync()).Select(a => a.Id).ToHashSet(StringComparer.Ordinal).SetEquals(expectedR4Upgrade),
+                "RecoverGameplayAsync after an interrupted r4->r5 upgrade restores 0.0.9/0.2.0 and still offers the enabled retired-default upgrades on retry");
+            fake.Calls.Clear(); await postRecovery.InstallGameplayAsync(postRecovery.GameplayCache);
             check(fake.Mods.Single(m => m.Id == leafWriter.Id) is { Enabled: true, Version: "0.1.0" } &&
                 fake.Mods.Single(m => m.Id == chaos.Id) is { Enabled: true, Version: "0.3.0" } &&
                 newInR5.All(id => fake.Mods.Single(m => m.Id == id).Enabled) &&
                 fake.Mods.Single(m => m.Id == yoda.Id) is { Enabled: false, Version: "0.1.2" } &&
                 fake.Mods.All(m => m.Id != cleanExit.Id) &&
                 fake.Calls.Count(c => c[0] == "mod-add") == expectedR4Upgrade.Count,
-                "r4->r5 upgrade imports 0.1.0/0.3.0 upgrades and new AT-ST/TIE Switch defaults while leaving disabled Yoda 0.1.2 and removed Clean Exit untouched");
+                "r4->r5 retry after RecoverGameplayAsync imports 0.1.0/0.3.0 upgrades and new AT-ST/TIE Switch defaults while leaving disabled Yoda 0.1.2 and removed Clean Exit untouched");
 
             // Upgrading from an earlier r5 record with partial OptionalDefaults offers newly added optionals while preserving prior opt-outs.
             fake.Mods.RemoveAll(m => HellForgePreset.Optional.Contains(m.Id));
@@ -425,12 +438,151 @@ internal static class TurnkeySetupTests
         finally { foreach (var (pinned, index) in optionalSpecs) catalog.Artifacts[index] = pinned; }
     }
 
+    static async Task Step4WizardTests(string area, Action<bool, string> check)
+    {
+        var wizRoot = Path.Combine(area, "step4-wizard", "Forge");
+        Directory.CreateDirectory(Path.Combine(wizRoot, "app", "cli"));
+        Directory.CreateDirectory(Path.Combine(wizRoot, "mods"));
+        File.WriteAllText(Path.Combine(wizRoot, "hellforge-install.json"), """{"schemaVersion":1,"buildId":"25480438"}""");
+        File.WriteAllText(Path.Combine(wizRoot, "HellForge.exe"), "fixture");
+        File.WriteAllText(Path.Combine(wizRoot, "app", "cli", "HellForge.Cli.exe"), "fixture");
+        File.WriteAllText(Path.Combine(wizRoot, "mods", "hellforge-mods.json"), """{"format":1,"share":false}""");
+
+        var fake = new Commands(wizRoot) { Ready = true };
+        foreach (var id in HellForgeGameplayCatalog.Pinned.Order)
+        {
+            var required = HellForgePreset.Required.FirstOrDefault(r => r.Id == id);
+            var artifact = HellForgeGameplayCatalog.Pinned.Artifacts.FirstOrDefault(a => a.Id == id);
+            var folder = Path.Combine(wizRoot, "mods", id);
+            Directory.CreateDirectory(folder);
+            var mod = new HellForgeMod(id, required.Name ?? artifact?.Name ?? "Vanilla Plus", true, folder, ["gameplay"], required.Version ?? artifact?.Version ?? "");
+            if (id == HellForgePreset.GuardDogs)
+                mod = mod with { Options = [new("Smarter Guard Dogs and Sentries", true), new("Guard Dogs", true), new("Sentries", true), new("Intelligence", true), new("Safety", true), new("Sentry Safety", true), new("SEAF Safety", true), new("Targeting Marker", false)] };
+            fake.Mods.Add(mod);
+        }
+        var client = new HellForgeClient(wizRoot, fake) { RequireCliQuiescent = () => { } };
+        var backup = Path.Combine(client.CacheRoot, "backups", "gameplay-step4");
+        Directory.CreateDirectory(backup);
+        Directory.CreateDirectory(Path.GetDirectoryName(client.PackIntentPath)!);
+        File.WriteAllText(client.PackIntentPath + ".gameplay.json", JsonSerializer.Serialize(new
+        {
+            Root = client.Root,
+            Catalog = HellForgeGameplayCatalog.Pinned.Id,
+            Backup = backup,
+            SnapshotSha256 = new string('a', 64),
+            State = "applied",
+            OptionalDefaultsApplied = true,
+            OptionalDefaults = HellForgePreset.Optional
+        }));
+
+        var bytes0 = Encoding.UTF8.GetBytes("step4-verified-blob-0");
+        var bytes1 = Encoding.UTF8.GetBytes("step4-verified-blob-1");
+        var sha0 = Convert.ToHexString(SHA256.HashData(bytes0)).ToLowerInvariant();
+        var sha1 = Convert.ToHexString(SHA256.HashData(bytes1)).ToLowerInvariant();
+        var fixtureSelection = new HellForgePack.Selection("clonedivers", "reduced512", "2026.11.19-r20-fixture", HellForgePack.SupportedBuild,
+            new string('c', 64), new() { ["commandos"] = false, ["droids"] = true, ["covenant"] = false },
+            [
+                new PackFile { Name = "9ba626afa44a3aa3.patch_0", Size = bytes0.Length, Sha256 = sha0, Url = "https://example.invalid/0" },
+                new PackFile { Name = "9ba626afa44a3aa3.patch_1", Size = bytes1.Length, Sha256 = sha1, Url = "https://example.invalid/1" }
+            ]);
+
+        var prevCreate = HellForgeForm.CreateCommands;
+        var prevSync = SynchronizationContext.Current;
+        HellForgeForm.CreateCommands = _ => fake;
+        try
+        {
+            const System.Reflection.BindingFlags fields = System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic;
+            var prefs = new HellForgePreferences { InstallRoot = wizRoot, Mode = "clonedivers", DeltaSquad = false, Texture = "reduced512" };
+            int exportCalls = 0;
+            bool pauseFirstExport = true;
+            bool sawPauseEnabledDuringDownload = false;
+            bool sawWorkingDisabledDuringImport = false;
+            HellForgePack.Plan? observedSecondPlan = null;
+            HellForgeSetupForm? wiz = null;
+
+            fake.FailAppearanceImportOnce = true;
+            fake.OnAppearanceAdd = () =>
+            {
+                var cancelBtn = (Button)typeof(HellForgeSetupForm).GetField("cancel", fields)!.GetValue(wiz!)!;
+                sawWorkingDisabledDuringImport = !cancelBtn.Enabled && cancelBtn.Text == "Working…" && cancelBtn.AccessibleName == "Working…";
+            };
+
+            wiz = new HellForgeSetupForm(wizRoot, preview: false, preferences: prefs)
+            {
+                SelectionOverride = () => fixtureSelection,
+                ExportPackOverride = async (plan, _, _, ct, _) =>
+                {
+                    exportCalls++;
+                    var cancelBtn = (Button)typeof(HellForgeSetupForm).GetField("cancel", fields)!.GetValue(wiz!)!;
+                    sawPauseEnabledDuringDownload = cancelBtn.Enabled && cancelBtn.Text == "Pause download" && cancelBtn.AccessibleName == "Pause download";
+                    Directory.CreateDirectory(plan.Output);
+                    foreach (var (sha, src) in plan.Local)
+                    {
+                        var targetName = plan.Selection.Files.Single(f => f.Sha256 == sha).Name;
+                        File.Copy(src, Path.Combine(plan.Output, targetName), overwrite: true);
+                    }
+                    if (pauseFirstExport)
+                    {
+                        pauseFirstExport = false;
+                        // Write first missing file cleanly, then invoke cancel's Click handler (PerformClick is a no-op on hidden unshown forms) so plan.Output stays on disk as a partial export.
+                        await File.WriteAllBytesAsync(Path.Combine(plan.Output, "9ba626afa44a3aa3.patch_0"), bytes0, ct);
+                        if (cancelBtn.Enabled)
+                            typeof(Control).GetMethod("OnClick", System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic)!.Invoke(cancelBtn, [EventArgs.Empty]);
+                        ct.ThrowIfCancellationRequested();
+                    }
+                    observedSecondPlan = plan;
+                    await File.WriteAllBytesAsync(Path.Combine(plan.Output, "9ba626afa44a3aa3.patch_1"), bytes1, ct);
+                    await File.WriteAllTextAsync(Path.Combine(plan.Output, "manifest.json"),
+                        JsonSerializer.Serialize(new { ManifestVersion = 2, Name = "Clonedivers", Guid = "e9f12495-c8e7-49f8-89d3-53538a9e9939", Options = Array.Empty<object>() }), ct);
+                    await File.WriteAllTextAsync(Path.Combine(plan.Output, HellForgePack.ReceiptName),
+                        JsonSerializer.Serialize(new HellForgePack.Receipt { Selection = plan.Selection }, HellForgePack.Json), ct);
+                }
+            };
+            SynchronizationContext.SetSynchronizationContext(null); // no message pump in this isolated fixture
+            using (wiz)
+            {
+                typeof(HellForgeSetupForm).GetField("step", fields)!.SetValue(wiz, Enum.ToObject(typeof(HellForgeSetupForm).GetNestedType("WizardStep", System.Reflection.BindingFlags.NonPublic)!, 4));
+                var nextBtn = (Button)typeof(HellForgeSetupForm).GetField("next", fields)!.GetValue(wiz)!;
+                var cancelBtn = (Button)typeof(HellForgeSetupForm).GetField("cancel", fields)!.GetValue(wiz)!;
+                var detailLbl = (Label)typeof(HellForgeSetupForm).GetField("detail", fields)!.GetValue(wiz)!;
+
+                await wiz.RunStep4PackAsync(allowDownload: false);
+                var firstPlan = (HellForgePack.Plan)typeof(HellForgeSetupForm).GetField("pendingPackPlan", fields)!.GetValue(wiz)!;
+                check(firstPlan.Missing.Count == 2 && nextBtn.Text.StartsWith("DOWNLOAD PACK", StringComparison.Ordinal) &&
+                    cancelBtn.Enabled && cancelBtn.Text == "Close" && cancelBtn.AccessibleName == "Close",
+                    "Step 4 pre-check plans missing appearance files without starting unapproved downloads");
+
+                await wiz.RunStep4PackAsync(allowDownload: true);
+                check(sawPauseEnabledDuringDownload && Directory.Exists(firstPlan.Output) &&
+                    detailLbl.Text.Contains("Pack download paused", StringComparison.Ordinal) &&
+                    nextBtn.Text.StartsWith("DOWNLOAD PACK", StringComparison.Ordinal) &&
+                    cancelBtn.Enabled && cancelBtn.Text == "Close",
+                    "Step 4 enables Pause download with matching AccessibleName during export and preserves pause notice + partial export folder");
+
+                // Second attempt: replans into a fresh output folder reusing verified patch_0, finishes export, then hits simulated InstallPackAsync failure.
+                await wiz.RunStep4PackAsync(allowDownload: true);
+                check(exportCalls == 2 && observedSecondPlan != null && observedSecondPlan.Output != firstPlan.Output &&
+                    observedSecondPlan.Local.Count == 1 && observedSecondPlan.Missing.Count == 1 &&
+                    sawWorkingDisabledDuringImport && detailLbl.Text.Contains("appearance change did not finish", StringComparison.Ordinal),
+                    "Step 4 retry after pause replans into a fresh output folder reusing partial verified bytes and disables cancel (Working…) during import");
+
+                // Third attempt: FindPreparedAsync reuses the completed export from attempt 2 without calling ExportPackOverride again!
+                await wiz.RunStep4PackAsync(allowDownload: true);
+                check(exportCalls == 2 && nextBtn.Text == "FINISH & RETURN TO LAUNCHER" &&
+                    fake.Mods.Any(m => m.Id == HellForgePack.PackId("clonedivers") && m.Enabled),
+                    "Step 4 retry after post-export import failure reuses the verified export via FindPreparedAsync and finishes setup");
+            }
+        }
+        finally { HellForgeForm.CreateCommands = prevCreate; SynchronizationContext.SetSynchronizationContext(prevSync); }
+    }
+
     sealed class Reports(Action<ForgeSetupProgress> report) : IProgress<ForgeSetupProgress> { public void Report(ForgeSetupProgress value) => report(value); }
     sealed class Commands(string root) : IHellForgeCommands
     {
         public bool Ready, Running, Sandbox = true, Runner = true;
         public string Engine = HellForgeRelease.Engine;
-        public bool FailPackOnce;
+        public bool FailPackOnce, LoseFirstModAdd, FailAppearanceImportOnce;
+        public Action? OnAppearanceAdd;
         public List<HellForgeMod> Mods = [];
         public List<string[]> Calls = [];
         static (string Id, string Version)? ReadModManifest(string path)
@@ -469,11 +621,33 @@ internal static class TurnkeySetupTests
                         result = new { hash = HellForgeGameplayCatalog.Pinned.Artifacts.Single(a => Mods.Any(m => m.Id == a.Id && m.Folder == args[2])).ContentHash };
                     break;
                 case "mod-add":
+                    if (Path.GetFileName(args[2]).Equals("manifest.json", StringComparison.OrdinalIgnoreCase))
+                    {
+                        OnAppearanceAdd?.Invoke();
+                        if (FailAppearanceImportOnce) { FailAppearanceImportOnce = false; throw new IOException("fixture pack import failure"); }
+                        var packSrc = Path.GetDirectoryName(args[2])!;
+                        using var packDoc = JsonDocument.Parse(File.ReadAllText(args[2]));
+                        var packId = "pack." + packDoc.RootElement.GetProperty("Guid").GetString();
+                        var packFolder = Path.Combine(root, "mods", "selected");
+                        Directory.CreateDirectory(packFolder);
+                        foreach (var p in Directory.EnumerateFiles(packSrc)) File.Copy(p, Path.Combine(packFolder, Path.GetFileName(p)), true);
+                        Mods.RemoveAll(m => m.Id == packId);
+                        Mods.Add(new(packId, "Selected pack", true, packFolder, ["pack"]));
+                        result = new { id = packId, installed = packFolder };
+                        break;
+                    }
                     var added = ReadModManifest(args[2]) ?? throw new InvalidDataException("Fixture archive lacks hellforge-mod.json");
                     var optional = HellForgeGameplayCatalog.Pinned.Artifacts.Single(a => a.Id == added.Id);
+                    var modFolder = Path.Combine(root, "mods", optional.Id);
+                    Directory.CreateDirectory(modFolder);
+                    File.WriteAllText(Path.Combine(modFolder, "hellforge-mod.json"),
+                        JsonSerializer.Serialize(new { id = optional.Id, name = optional.Name, version = added.Version, gameplay = optional.Id == HellForgePreset.ChaosInvasions, coop = "per-player" }));
                     Mods.RemoveAll(m => m.Id == optional.Id);
-                    Mods.Add(new(optional.Id, optional.Name, false, Path.Combine(root, "mods", optional.Id), ["code"], added.Version)); break;
+                    Mods.Add(new(optional.Id, optional.Name, false, modFolder, ["code"], added.Version));
+                    if (LoseFirstModAdd) { LoseFirstModAdd = false; throw new HellForgeCommandOutcomeUnknownException("Fixture lost the r4->r5 import acknowledgement."); }
+                    break;
                 case "mod-remove": Mods.RemoveAll(m => m.Id == args[2]); break;
+                case "settings": break;
                 case "play": result = new { @event = "started" }; break;
                 case "mod-switch": { var index = Mods.FindIndex(m => m.Id == args[2]); Mods[index] = Mods[index] with { Enabled = args[4] == "yes" }; break; }
                 case "mod-order": { var order = args[2].Split(','); Mods = order.Select(id => Mods.Single(m => m.Id == id)).ToList(); break; }

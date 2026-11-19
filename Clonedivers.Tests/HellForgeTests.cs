@@ -753,9 +753,16 @@ static class HellForgeTests
         check(await Reject(() => { HellForgePreferences.Load(prefsPath); return Task.CompletedTask; }) && File.ReadAllText(prefsPath).Contains("99"),
             "unknown preferences fail without silently overwriting recoverable state");
         var pinned = HellForgePack.PinnedSelection("commandos", "lighter");
+        var pinnedClonesNoDelta = HellForgePack.PinnedSelection("clonedivers", "lighter");
         check(pinned.GameBuild == HellForgePack.SupportedBuild && pinned.Version == "2026.11.19-r20" &&
             pinned.ManifestSha256 == "b6950dc87570ecc2eed8bedab049984b525c1af78b2286372068acef9a6107ea" && pinned.Files.Count == 114,
             "the shipped launcher carries pinned Clones r20 catalog independent of the live Steam feed");
+        check(pinned.Options["commandos"] && !pinnedClonesNoDelta.Options["commandos"] &&
+            pinned.Files.Single(f => f.Name == "9ba626afa44a3aa3.patch_32").Sha256 == "68e82beabd6b8795984143b25bd2a85e46de9959d2fbac1ca277d62129b3f53e" &&
+            pinnedClonesNoDelta.Files.Single(f => f.Name == "9ba626afa44a3aa3.patch_32").Sha256 == "4254b1f322004651c3710f5d7b8c35c710d271d34a1f28c399ea097b07cdc746" &&
+            new[] { "full", "lighter", "reduced512" }.All(t =>
+                HellForgePack.PinnedSelection("clonedivers", t).Files.Sum(f => f.Size) - HellForgePack.PinnedSelection("commandos", t).Files.Sum(f => f.Size) == 48579596L),
+            "turning off Delta Squad in Clones r20 selects clones-r20-delta-off on patch_32 across all texture tiers despite combinedRoster=true");
         var oldEmpire = new HellForgePreferences { Mode = "empire", Texture = "lighter", Droids = false, Covenant = true,
             AppliedSelection = $"r47/{HellForgePack.SupportedBuild}/empire/lighter/False/False" };
         var savedEmpire = Path.Combine(area, "empire-options.json"); oldEmpire.Save(savedEmpire);
@@ -1339,12 +1346,26 @@ static class HellForgeTests
         await HellForgePack.VerifyForLaunchAsync(packOut, sel, verifyCache, verifyProgress);
         check(verifyDone == payload.Length && lastDone == payload.Length && lastTotal == payload.Length,
             "ExportAsync reports total bytes and VerifyForLaunchAsync fast-skips unchanged files with byte progress");
-        // Changing file bytes without updating size, while keeping old mtime vs changing mtime should catch tampering when mtime changes.
+        // Changing file bytes without updating size, while keeping old mtime vs changing mtime should catch tampering when mtime or ctime changes.
         var corrupted = new byte[payload.Length];
         File.WriteAllBytes(installedPatch, corrupted);
         bool caughtCorruption = false;
         try { await HellForgePack.VerifyForLaunchAsync(packOut, sel, verifyCache); } catch (InvalidDataException) { caughtCorruption = true; }
         check(caughtCorruption, "VerifyForLaunchAsync catches modified file timestamps and rejects corrupted pack bytes");
+        // Restore valid bytes and refresh verify-cache, then replace the file while forging LastWriteTimeUtc back to the cached value (CreationTimeUtc differs).
+        File.WriteAllBytes(installedPatch, payload);
+        var settledTime = DateTime.UtcNow.AddMinutes(-10);
+        File.SetCreationTimeUtc(installedPatch, settledTime);
+        File.SetLastWriteTimeUtc(installedPatch, settledTime);
+        await HellForgePack.VerifyForLaunchAsync(packOut, sel, verifyCache);
+        check(await HellForgePack.VerifyForLaunchAsync(packOut, sel, verifyCache), "VerifyForLaunchAsync fast-skips when size, LastWriteTimeUtc, and CreationTimeUtc match");
+        File.Delete(installedPatch);
+        File.WriteAllBytes(installedPatch, corrupted);
+        File.SetCreationTimeUtc(installedPatch, settledTime.AddSeconds(5));
+        File.SetLastWriteTimeUtc(installedPatch, settledTime);
+        bool caughtForgedMtime = false;
+        try { await HellForgePack.VerifyForLaunchAsync(packOut, sel, verifyCache); } catch (InvalidDataException) { caughtForgedMtime = true; }
+        check(caughtForgedMtime, "VerifyForLaunchAsync detects CreationTimeUtc change even when LastWriteTimeUtc and size are preserved");
         var v2Reduced = HellForgePack.PinnedSelection("clonedivers", "reduced512", new Dictionary<string, bool> { ["droids"] = true, ["covenant"] = false, ["mixed-droids"] = true });
         check(v2Reduced.Version == "2026.11.19-r20" && v2Reduced.Texture == "reduced512" && v2Reduced.Options["mixed-droids"] && v2Reduced.Options["droids"] && v2Reduced.Files.Count == 114,
             "reduced512 and mixed-droids resolve natively against Clones r20");

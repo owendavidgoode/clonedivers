@@ -49,7 +49,7 @@ public static class HellForgePack
         options["commandos"] = mode == "commandos";
         if (options.GetValueOrDefault("mixed-droids") || options.GetValueOrDefault("mixed_droids"))
             options["droids"] = true;
-        var files = Pack.EffectiveFiles(pack, id => options.GetValueOrDefault(id), texture);
+        var files = Pack.EffectiveFiles(pack, id => options.GetValueOrDefault(id), texture, explicitMode: mode);
         FileSafety.ValidateTargets(files);
         return new(mode, texture, pack.Version, SupportedBuild, manifestSha, options, files);
     }
@@ -533,9 +533,9 @@ public static class HellForgePack
         if (total != expected) throw new InvalidDataException("Pack content is shorter than its catalog size.");
     }
 
-    sealed record VerifyStamp(string Folder, string Identity, long VerifiedUtcTicks, long ReceiptSize, long ReceiptTicks,
-        long ManifestSize, long ManifestTicks, Dictionary<string, VerifyFileStamp> Files);
-    sealed record VerifyFileStamp(long Size, long LastWriteTicks);
+    sealed record VerifyStamp(string Folder, string Identity, long VerifiedUtcTicks, long ReceiptSize, long ReceiptTicks, long ReceiptCreationTicks,
+        long ManifestSize, long ManifestTicks, long ManifestCreationTicks, Dictionary<string, VerifyFileStamp> Files);
+    sealed record VerifyFileStamp(long Size, long LastWriteTicks, long CreationTicks);
 
     public static Task VerifyAsync(string folder, Selection expected, CancellationToken ct = default) =>
         VerifyAsync(folder, expected, null, ct);
@@ -630,19 +630,19 @@ public static class HellForgePack
             var receiptInfo = new FileInfo(FileSafety.Child(folder, ReceiptName));
             var manifestInfo = new FileInfo(FileSafety.Child(folder, "manifest.json"));
             if (!receiptInfo.Exists || !manifestInfo.Exists ||
-                receiptInfo.Length != stamp.ReceiptSize || receiptInfo.LastWriteTimeUtc.Ticks != stamp.ReceiptTicks ||
-                manifestInfo.Length != stamp.ManifestSize || manifestInfo.LastWriteTimeUtc.Ticks != stamp.ManifestTicks)
+                receiptInfo.Length != stamp.ReceiptSize || receiptInfo.LastWriteTimeUtc.Ticks != stamp.ReceiptTicks || receiptInfo.CreationTimeUtc.Ticks != stamp.ReceiptCreationTicks ||
+                manifestInfo.Length != stamp.ManifestSize || manifestInfo.LastWriteTimeUtc.Ticks != stamp.ManifestTicks || manifestInfo.CreationTimeUtc.Ticks != stamp.ManifestCreationTicks)
                 return false;
-            // Racy-clean guard: files modified within 2 seconds of the cached verification are always re-hashed.
+            // Racy-clean guard: files modified or recreated within 2 seconds of the cached verification are always re-hashed.
             var racyCutoffTicks = stamp.VerifiedUtcTicks - TimeSpan.FromSeconds(2).Ticks;
             foreach (var file in expected.Files)
             {
                 var path = FileSafety.Child(folder, file.Name);
                 FileSafety.RejectLink(path);
                 var info = new FileInfo(path);
-                if (!info.Exists || info.Length != file.Size || info.LastWriteTimeUtc.Ticks > racyCutoffTicks ||
+                if (!info.Exists || info.Length != file.Size || info.LastWriteTimeUtc.Ticks > racyCutoffTicks || info.CreationTimeUtc.Ticks > racyCutoffTicks ||
                     !stamp.Files.TryGetValue(file.Name, out var cached) ||
-                    cached.Size != file.Size || cached.LastWriteTicks != info.LastWriteTimeUtc.Ticks)
+                    cached.Size != file.Size || cached.LastWriteTicks != info.LastWriteTimeUtc.Ticks || cached.CreationTicks != info.CreationTimeUtc.Ticks)
                     return false;
             }
             return true;
@@ -667,10 +667,11 @@ public static class HellForgePack
             {
                 var info = new FileInfo(FileSafety.Child(folder, file.Name));
                 if (!info.Exists) return;
-                files[file.Name] = new(info.Length, info.LastWriteTimeUtc.Ticks);
+                files[file.Name] = new(info.Length, info.LastWriteTimeUtc.Ticks, info.CreationTimeUtc.Ticks);
             }
             var stamp = new VerifyStamp(Path.TrimEndingDirectorySeparator(Path.GetFullPath(folder)), SelectionIdentity(expected),
-                DateTime.UtcNow.Ticks, receiptInfo.Length, receiptInfo.LastWriteTimeUtc.Ticks, manifestInfo.Length, manifestInfo.LastWriteTimeUtc.Ticks, files);
+                DateTime.UtcNow.Ticks, receiptInfo.Length, receiptInfo.LastWriteTimeUtc.Ticks, receiptInfo.CreationTimeUtc.Ticks,
+                manifestInfo.Length, manifestInfo.LastWriteTimeUtc.Ticks, manifestInfo.CreationTimeUtc.Ticks, files);
             var directory = Path.GetDirectoryName(Path.GetFullPath(verifyCachePath))!;
             Directory.CreateDirectory(directory);
             var temp = verifyCachePath + ".tmp";

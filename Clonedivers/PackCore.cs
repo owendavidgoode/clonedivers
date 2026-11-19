@@ -979,13 +979,16 @@ public static class Pack
 
     /// <summary>The manifest's files after the friend's option choices, renumbered so the enabled set is gap-free.
     /// With every option on, names are exactly the manifest's.</summary>
-    public static List<PackFile> EffectiveFiles(PackManifest pack, Func<string, bool> optionEnabled, string? textureProfile = null)
+    public static List<PackFile> EffectiveFiles(PackManifest pack, Func<string, bool> optionEnabled, string? textureProfile = null, string? explicitMode = null)
     {
         var profile = PackProfiles.Resolve(pack, optionEnabled, textureProfile);
-        bool RawEnabled(string id) => PackExtras.AlwaysOn(pack, id) || (string.Equals(id, "skinny", StringComparison.OrdinalIgnoreCase) ? profile != "full" : optionEnabled(id));
+        bool RawEnabled(string id) =>
+            explicitMode != null && string.Equals(id, "commandos", StringComparison.OrdinalIgnoreCase)
+                ? string.Equals(explicitMode, "commandos", StringComparison.OrdinalIgnoreCase)
+                : PackExtras.AlwaysOn(pack, id) || (string.Equals(id, "skinny", StringComparison.OrdinalIgnoreCase) ? profile != "full" : optionEnabled(id));
         bool Enabled(string id) => RawEnabled(id) || (string.Equals(id, "droids", StringComparison.OrdinalIgnoreCase) && (RawEnabled("mixed-droids") || RawEnabled("mixed_droids")));
-        var mode = LauncherModes.SupportsEmpire(pack) && Enabled(LauncherModes.EmpireOption) ? "empire" :
-            (pack.TextureProfiles.Count > 0 || pack.Options.Any(o => string.Equals(o.Id, "commandos", StringComparison.OrdinalIgnoreCase))) && Enabled("commandos") ? "commandos" : "clonedivers";
+        var mode = explicitMode ?? (LauncherModes.SupportsEmpire(pack) && Enabled(LauncherModes.EmpireOption) ? "empire" :
+            (pack.TextureProfiles.Count > 0 || pack.Options.Any(o => string.Equals(o.Id, "commandos", StringComparison.OrdinalIgnoreCase))) && Enabled("commandos") ? "commandos" : "clonedivers");
         var kept = pack.Files.Where(f => PackProfiles.Includes(f, mode, profile) && (f.Option is null || Enabled(f.Option)) && (f.UnlessOption is null || !Enabled(f.UnlessOption))).Select(f => f.Clone()).ToList();
         var dup = kept.GroupBy(f => f.Name, StringComparer.OrdinalIgnoreCase).FirstOrDefault(g => g.Count() > 1);
         if (dup is not null) throw new InvalidDataException($"manifest.json: {dup.Key} is listed twice for the same option choice");

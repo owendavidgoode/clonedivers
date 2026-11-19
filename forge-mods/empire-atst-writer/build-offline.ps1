@@ -11,16 +11,16 @@ $BuildDir = Join-Path $ModRoot 'build'
 $DistDir = Join-Path $ModRoot 'dist'
 New-Item -ItemType Directory -Force $BuildDir, $DistDir | Out-Null
 
-# Prepare isolated offline stage (never writes into D:\HellForge\)
+# Prepare isolated child offline stage inside $WorkStage (never writes into D:\HellForge\ or deletes $WorkStage itself)
 # ModSdk.Find expects <root>\app\sdk\hellforge_mod.h and <root>\tools\zig\zig.exe
-$StageMod = Join-Path $WorkStage 'mods\empire-atst-writer'
-$StageSdk = Join-Path $WorkStage 'app\sdk'
-$StageTools = Join-Path $WorkStage 'tools'
+$StageRoot = Join-Path $WorkStage 'empire-atst-writer-stage'
+$StageMod = Join-Path $StageRoot 'mods\empire-atst-writer'
+$StageSdk = Join-Path $StageRoot 'app\sdk'
+$StageTools = Join-Path $StageRoot 'tools'
 $StageZig = Join-Path $StageTools 'zig'
-if (Test-Path -LiteralPath $WorkStage) {
-    $oldZ = Join-Path $WorkStage 'tools\zig'
-    if (Test-Path -LiteralPath $oldZ) { cmd /c rmdir "`"$oldZ`"" 2>$null }
-    Remove-Item -LiteralPath $WorkStage -Recurse -Force
+if (Test-Path -LiteralPath $StageRoot) {
+    if (Test-Path -LiteralPath $StageZig) { cmd /c rmdir "`"$StageZig`"" 2>$null }
+    Remove-Item -LiteralPath $StageRoot -Recurse -Force
 }
 New-Item -ItemType Directory -Force $StageMod, $StageSdk, $StageTools | Out-Null
 New-Item -ItemType Junction -Path $StageZig -Target $Zig | Out-Null
@@ -32,7 +32,7 @@ Copy-Item -LiteralPath (Join-Path $ModRoot 'hellforge-mod.json') -Destination $S
 
 $oldGlobal = $env:ZIG_GLOBAL_CACHE_DIR
 $oldLocal = $env:ZIG_LOCAL_CACHE_DIR
-$ZigCache = 'D:\ClaudeWork\cache\tmp\atst-zig-cache'
+$ZigCache = Join-Path $WorkStage 'atst-zig-cache'
 New-Item -ItemType Directory -Force $ZigCache | Out-Null
 
 try {
@@ -74,8 +74,8 @@ try {
 } finally {
     $env:ZIG_GLOBAL_CACHE_DIR = $oldGlobal
     $env:ZIG_LOCAL_CACHE_DIR = $oldLocal
-    if (Test-Path -LiteralPath $WorkStage) {
-        if (Test-Path -LiteralPath $StageZig) { cmd /c rmdir "`"$StageZig`"" }
-        Remove-Item -LiteralPath $WorkStage -Recurse -Force -ErrorAction SilentlyContinue
+    if (Test-Path -LiteralPath $StageRoot) {
+        if (Test-Path -LiteralPath $StageZig) { cmd /c rmdir "`"$StageZig`"" 2>$null }
+        Remove-Item -LiteralPath $StageRoot -Recurse -Force -ErrorAction SilentlyContinue
     }
 }

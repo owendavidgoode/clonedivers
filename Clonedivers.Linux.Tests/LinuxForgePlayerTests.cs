@@ -122,8 +122,16 @@ internal static class LinuxForgePlayerTests
         var v2Prefs = new LinuxForgePreferences { Mode = "clonedivers", Texture = "reduced512", EnemySkin = "mixed-droids", DeltaSquad = true, Covenant = false };
         var v2Sel = v2Prefs.PackSelection();
         check(v2Prefs.Droids && v2Prefs.EnemySkin == "mixed-droids" && v2Sel.Version == "2026.11.19-r20" && v2Sel.Texture == "reduced512" &&
-            v2Sel.Options["droids"] && v2Sel.Options["mixed-droids"] && v2Sel.Files.Count == 114 && v2Sel.Files.Sum(f => f.Size) == 4456641164L,
-            "Linux v2.0 EnemySkin and reduced512 resolve natively against Clones r20");
+            v2Sel.Options["commandos"] && v2Sel.Options["droids"] && v2Sel.Options["mixed-droids"] && v2Sel.Files.Count == 114 && v2Sel.Files.Sum(f => f.Size) == 4456641164L &&
+            v2Sel.Files.Single(f => f.Name == "9ba626afa44a3aa3.patch_32").Sha256 == "68e82beabd6b8795984143b25bd2a85e46de9959d2fbac1ca277d62129b3f53e",
+            "Linux v2.0 EnemySkin and reduced512 resolve natively against Clones r20 Delta Squad");
+        v2Prefs.DeltaSquad = false;
+        var v2NoDelta = v2Prefs.PackSelection();
+        check(v2NoDelta.Mode == "clonedivers" && !v2NoDelta.Options["commandos"] && v2NoDelta.Files.Count == 114 &&
+            v2NoDelta.Files.Single(f => f.Name == "9ba626afa44a3aa3.patch_32").Sha256 == "4254b1f322004651c3710f5d7b8c35c710d271d34a1f28c399ea097b07cdc746" &&
+            v2NoDelta.Files.Sum(f => f.Size) - v2Sel.Files.Sum(f => f.Size) == 48579596L,
+            "Linux DeltaSquad=false selects clones-r20-delta-off on patch_32 despite combinedRoster=true");
+        v2Prefs.DeltaSquad = true;
         v2Prefs.EnemySkin = "native-automatons";
         check(!v2Prefs.Droids && !v2Prefs.PackSelection().Options["droids"] && v2Prefs.PackSelection().Files.Count == 102 && v2Prefs.SelectionCommand().Contains("native-automatons"),
             "Linux EnemySkin native-automatons updates Droids, selects 102 files, and propagates to select-mode arguments");

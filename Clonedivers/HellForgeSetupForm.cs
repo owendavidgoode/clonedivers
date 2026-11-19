@@ -30,11 +30,14 @@ internal sealed class HellForgeSetupForm : Form
     string? captureBlock;
     bool captureBlockUnreadable;
     HellForgePack.Plan? pendingPackPlan;
+    string? step4Notice;
     WizardStep step = WizardStep.Preflight;
     bool busy, polling, managerOpened, gameReady, packReady, disposed, canPause, step4Checked;
     TaskCompletionSource? pollCompletion;
     Process? manager;
     internal string? InstallationRoot { get; private set; }
+    internal Func<HellForgePack.Selection>? SelectionOverride { get; init; }
+    internal Func<HellForgePack.Plan, bool, IProgress<string>?, CancellationToken, IProgress<(long Done, long Total)>?, Task>? ExportPackOverride { get; init; }
     internal event Action<string>? Connected;
 
     internal HellForgeSetupForm(string? root = null, bool preview = false, HellForgePreferences? preferences = null, Action? savePreferences = null)
@@ -283,6 +286,7 @@ internal sealed class HellForgeSetupForm : Form
         official.Enabled = !busy && !polling && InstallationRoot != null && status?.Running != true;
         cancel.Enabled = !busy || canPause;
         cancel.Text = busy ? canPause ? "Pause download" : "Working…" : "Close";
+        cancel.AccessibleName = cancel.Text;
 
         if (status?.Running == true || (!preview && Game.IsRunning()))
         {
@@ -347,13 +351,16 @@ internal sealed class HellForgeSetupForm : Form
             else if (pendingPackPlan is { Missing.Count: > 0 } plan)
             {
                 next.Text = $"DOWNLOAD PACK ({Pack.FormatBytes(plan.Missing.Sum(f => f.Size))})";
-                detail.Text = $"Ready to download {Pack.FormatBytes(plan.Missing.Sum(f => f.Size))} of verified Star Wars assets ({plan.Local.Count} local files reused).";
+                if (!busy) detail.Text = step4Notice ?? $"Ready to download {Pack.FormatBytes(plan.Missing.Sum(f => f.Size))} of verified Star Wars assets ({plan.Local.Count} local files reused).";
             }
             else
             {
                 next.Text = "INSTALL PACK & FINISH";
-                if (!busy && string.IsNullOrWhiteSpace(detail.Text))
-                    detail.Text = "Preparing gameplay mods and your selected pack…";
+                if (!busy)
+                {
+                    if (step4Notice != null) detail.Text = step4Notice;
+                    else if (string.IsNullOrWhiteSpace(detail.Text)) detail.Text = "Preparing gameplay mods and your selected pack…";
+                }
             }
         }
         if (!string.IsNullOrEmpty(next.Text)) next.AccessibleName = next.Text;
@@ -440,7 +447,7 @@ internal sealed class HellForgeSetupForm : Form
             var updates = new Progress<ForgeSetupProgress>(p =>
             {
                 if (IsDisposed) return;
-                canPause = p.CanCancel;
+                SetCanPause(p.CanCancel);
                 progress.Visible = true;
                 progress.Style = p.Total > 0 ? ProgressBarStyle.Continuous : ProgressBarStyle.Marquee;
                 if (p.Total > 0) progress.Value = (int)Math.Clamp(p.Done * 100 / p.Total, 0, 100);
@@ -456,7 +463,7 @@ internal sealed class HellForgeSetupForm : Form
             });
             if (InstallationRoot == null)
             {
-                canPause = true;
+                SetCanPause(true);
                 InstallationRoot = await HellForgeSetup.InstallAsync(folder.Text, updates, workCts.Token);
                 preferences.InstallRoot = InstallationRoot;
                 SavePrefs();
@@ -464,7 +471,7 @@ internal sealed class HellForgeSetupForm : Form
             }
             else if (status != null && HellForgeSetup.IsPrevious(status.Version))
             {
-                canPause = true;
+                SetCanPause(true);
                 await HellForgeSetup.UpdateAsync(InstallationRoot, updates, workCts.Token);
             }
             if (ManagerRunning(InstallationRoot!))
@@ -601,9 +608,19 @@ internal sealed class HellForgeSetupForm : Form
         }
     }
 
-    async Task RunStep4PackAsync(bool allowDownload)
+    void SetCanPause(bool value)
+    {
+        canPause = value;
+        if (IsDisposed) return;
+        cancel.Enabled = !busy || canPause;
+        cancel.Text = busy ? canPause ? "Pause download" : "Working…" : "Close";
+        cancel.AccessibleName = cancel.Text;
+    }
+
+    internal async Task RunStep4PackAsync(bool allowDownload)
     {
         if (InstallationRoot == null || busy || IsDisposed) return;
+        step4Notice = null;
         busy = true;
         UpdateView();
         try
@@ -629,7 +646,7 @@ internal sealed class HellForgeSetupForm : Form
             var missingGameplay = await client.MissingGameplayAsync(ct);
             if (missingGameplay.Count > 0)
             {
-                canPause = true;
+                SetCanPause(true);
                 progress.Visible = true;
                 progress.Style = ProgressBarStyle.Continuous;
                 progress.Value = 0;
@@ -642,7 +659,7 @@ internal sealed class HellForgeSetupForm : Form
                 });
                 await HellForgeGameplayCatalog.StageAsync(client.GameplayCache, missingGameplay, gpText, ct, gpBytes);
             }
-            canPause = false;
+            SetCanPause(false);
             progress.Visible = true;
             progress.Style = ProgressBarStyle.Marquee;
             var installReport = new Progress<string>(msg => { if (!IsDisposed) detail.Text = msg; });
@@ -659,12 +676,14 @@ internal sealed class HellForgeSetupForm : Form
                 return;
             }
 
-            var selection = preferences.Selection();
-            if (pendingPackPlan == null || !SameSelection(pendingPackPlan.Selection, selection))
+            var selection = SelectionOverride != null ? SelectionOverride() : preferences.Selection();
+            if (pendingPackPlan == null || !SameSelection(pendingPackPlan.Selection, selection) ||
+                Directory.Exists(pendingPackPlan.Output) || File.Exists(pendingPackPlan.Output))
             {
                 var reused = await FindPreparedAsync(client, selection, installReport, ct);
                 if (reused != null)
                 {
+                    pendingPackPlan = null;
                     await InstallPreparedPackAsync(client, reused, selection, ct);
                     return;
                 }
@@ -679,7 +698,7 @@ internal sealed class HellForgeSetupForm : Form
                 return;
             }
 
-            canPause = true;
+            SetCanPause(true);
             progress.Visible = true;
             progress.Style = ProgressBarStyle.Continuous;
             progress.Value = 0;
@@ -690,16 +709,19 @@ internal sealed class HellForgeSetupForm : Form
                 detail.Text = $"Preparing Star Wars pack · {Pack.FormatBytes(p.Done)} / {Pack.FormatBytes(p.Total)} · {progress.Value}%";
             });
             var plan = pendingPackPlan;
-            await Task.Run(() => HellForgePack.ExportAsync(plan, true, installReport, ct, packBytes), ct);
-            canPause = false;
+            if (ExportPackOverride != null)
+                await ExportPackOverride(plan, true, installReport, ct, packBytes);
+            else
+                await Task.Run(() => HellForgePack.ExportAsync(plan, true, installReport, ct, packBytes), ct);
+            SetCanPause(false);
             await InstallPreparedPackAsync(client, plan.Output, selection, ct);
             pendingPackPlan = null;
         }
         catch (OperationCanceledException)
         {
-            detail.Text = "Pack download paused. Click DOWNLOAD PACK to resume your verified files.";
+            step4Notice = detail.Text = "Pack download paused. Click DOWNLOAD PACK to resume your verified files.";
         }
-        catch (Exception e) { detail.Text = e.Message; }
+        catch (Exception e) { step4Notice = detail.Text = e.Message; }
         finally
         {
             workCts?.Dispose(); workCts = null; canPause = false; busy = false;
