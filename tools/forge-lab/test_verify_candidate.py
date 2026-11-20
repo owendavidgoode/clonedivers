@@ -1,4 +1,5 @@
-"""Regression checks for verify_candidate.geometry_provider_scan passive LODData count=0 UNITs."""
+"""Regression checks for verify_candidate passive LODData count=0 and @48 LODData validation."""
+import inspect
 from pathlib import Path
 import struct
 import sys
@@ -9,7 +10,7 @@ if str(EMPIRE_FORGE) not in sys.path:
     sys.path.insert(0, str(EMPIRE_FORGE))
 
 import empire_port as P  # noqa: E402
-from verify_candidate import GEOMETRY_GROUP, geometry_provider_scan  # noqa: E402
+from verify_candidate import GEOMETRY_GROUP, geometry_provider_scan, lod_descriptors, verify  # noqa: E402
 
 
 def _make_unit_with_external_gg(gg_id: int, lod_count: int, extra_needle_offset: int | None = None) -> P.Generated:
@@ -113,6 +114,85 @@ class GeometryProviderScanTests(unittest.TestCase):
 
         self.assertFalse(result['passed'])
         self.assertEqual(len(result['findings']), 1)
+
+
+def _make_unit_with_meshes_and_lod(mesh_count: int, lod_records: list[bytes] | None) -> bytes:
+    raw = bytearray(160)
+    if mesh_count > 0:
+        mesh_table_at = len(raw)
+        struct.pack_into('<I', raw, 100, mesh_table_at)
+        header_size = 4 + 8 * mesh_count
+        offsets = [header_size + 128 * i for i in range(mesh_count)]
+        names = [0x1000 + i for i in range(mesh_count)]
+        raw.extend(struct.pack(f'<I{mesh_count}I{mesh_count}I', mesh_count, *offsets, *names))
+        raw.extend(bytes(128 * mesh_count))
+    if lod_records is not None:
+        lod_table_at = len(raw)
+        struct.pack_into('<I', raw, 48, lod_table_at)
+        if not lod_records:
+            raw.extend(struct.pack('<4I', 0, 0, 0, 0))
+        else:
+            count = len(lod_records)
+            cur = 4 + 4 * count
+            offsets = []
+            body = bytearray()
+            for rec in lod_records:
+                offsets.append(cur)
+                body.extend(rec)
+                cur += len(rec)
+            raw.extend(struct.pack(f'<I{count}I', count, *offsets))
+            raw.extend(body)
+    return bytes(raw)
+
+
+def _make_valid_lod_record(bone_hash: int, steps: list[list[int]]) -> bytes:
+    levels = len(steps)
+    cur = 20 + 4 * levels
+    step_offsets = []
+    body = bytearray()
+    for indices in steps:
+        step_offsets.append(cur)
+        # Step header: 2 float thresholds (8 bytes) + count (u32) + mesh indices
+        body.extend(struct.pack('<2fI', 1.0, 0.0, len(indices)))
+        if indices:
+            body.extend(struct.pack(f'<{len(indices)}I', *indices))
+        cur = 20 + 4 * levels + len(body)
+    return struct.pack(f'<5I{levels}I', 1, bone_hash, 0, 1, levels, *step_offsets) + bytes(body)
+
+
+class LodDescriptorsValidationTests(unittest.TestCase):
+    def test_clobbered_6f_lod_record_fails_closed(self) -> None:
+        rec = bytearray(_make_valid_lod_record(0xDEADBEEF, [[1, 2, 3, 4]]))
+        # Simulate `<6f` bounding-box overwrite into bytes 0..24 of LODData record
+        struct.pack_into('<6f', rec, 0, -0.45, -0.25, 0.0, 0.45, 1.82, 0.35)
+        raw = _make_unit_with_meshes_and_lod(5, [bytes(rec)])
+
+        with self.assertRaisesRegex(ValueError, 'Invalid LOD table'):
+            lod_descriptors(raw)
+
+    def test_valid_non_empty_lod_data_passes_cleanly(self) -> None:
+        rec = _make_valid_lod_record(0x9FB14138, [[1, 2, 3, 4], [1, 2]])
+        raw = _make_unit_with_meshes_and_lod(5, [rec])
+
+        self.assertEqual(lod_descriptors(raw), [[1, 2, 3, 4], [1, 2]])
+
+    def test_lod_count_zero_and_null_pointer_pass_cleanly(self) -> None:
+        raw_zero = _make_unit_with_meshes_and_lod(5, [])
+        raw_null = _make_unit_with_meshes_and_lod(5, None)
+
+        self.assertEqual(lod_descriptors(raw_zero), [])
+        self.assertEqual(lod_descriptors(raw_null), [])
+
+    def test_out_of_range_mesh_index_in_lod_descriptor_fails_closed(self) -> None:
+        rec = _make_valid_lod_record(0x9FB14138, [[1, 5]])
+        raw = _make_unit_with_meshes_and_lod(5, [rec])
+
+        with self.assertRaisesRegex(ValueError, 'Invalid LOD descriptor'):
+            lod_descriptors(raw)
+
+    def test_verify_calls_lod_descriptors_unconditionally_in_unit_loop(self) -> None:
+        src = inspect.getsource(verify)
+        self.assertIn('lod_descriptors(raw)', src)
 
 
 if __name__ == '__main__':

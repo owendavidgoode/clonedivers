@@ -22,14 +22,14 @@
     ],
     "CovenantOption": true,
     "Catalog": "2026.11.19-r48",
-    "CatalogSha256": "e662f975e7eaa30fa17ab6648e3888b941add005ce06aa39d8e4af7a81449904",
+    "CatalogSha256": "c4a161f409fdb70cc62072dbc7c6f5893230e4da337f9803269840ee2b977e1e",
     "ClonesCatalog": {
       "Modes": ["clonedivers", "commandos"],
       "TextureProfiles": ["full", "lighter", "reduced512"],
       "EnemySkins": ["all-droids", "mixed-droids", "native-automatons"],
       "CovenantOption": true,
       "Catalog": "2026.11.19-r20",
-      "CatalogSha256": "b6950dc87570ecc2eed8bedab049984b525c1af78b2286372068acef9a6107ea"
+      "CatalogSha256": "265b44115e73aac6d87bb1840adb82bc14fb35dc9cc5e6b9e8aa2f46531704dc"
     }
   },
   "Order": [
@@ -106,10 +106,10 @@
       "Id": "clonedivers.empire-lego-yoda",
       "Name": "Empire LEGO Yoda Death",
       "Version": "0.2.0",
-      "ArchiveSha256": "4129a74fe069e7ca951174af603875cb0cf019c8c22c9ddfe4088127a4542004",
+      "ArchiveSha256": "5056da2cb9e7a62eb988bb31fec094843a4769a67de5a49b1c14c9157fca5bd1",
       "Source": "https://github.com/owendavidgoode/clonedivers/releases/download/forge-mods-2026-11-19/empire-lego-yoda-0.2.0.zip",
       "License": "Project-owned client-only SDK-16 code mod (gameplay: false, coop: per-player, optional default; audio excluded from git source)",
-      "NativeContentHash": "e16e40febdabdd4fa4fb43d3ce12528a76c2cca418c931e568d96bfea2958bbf",
+      "NativeContentHash": "7983eb4c4a0c87f19c8f5e02f55bb8accd7ee4a8007e5c98d65c22cb3586d098",
       "Optional": true,
       "Options": []
     },

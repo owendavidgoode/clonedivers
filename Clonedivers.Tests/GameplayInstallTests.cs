@@ -12,7 +12,7 @@ internal static class GameplayInstallTests
     {
         var catalog = HellForgeGameplayCatalog.Pinned;
         catalog.Validate();
-        check(catalog.Id == "build25480438-r5" && catalog.Artifacts.Count == 14 && catalog.Artifacts.Sum(a => a.Bytes) == 8294267,
+        check(catalog.Id == "build25480438-r5" && catalog.Artifacts.Count == 14 && catalog.Artifacts.Sum(a => a.Bytes) == 8294261,
             "the r5 preset pairs six optional project SDK-16 mods with eight required gameplay and author archives");
         check(catalog.Artifacts.Count(a => a.Url.Contains("/owendavidgoode/clonedivers/")) == 11 && catalog.Artifacts.Count(a => !a.Url.Contains("/owendavidgoode/clonedivers/")) == 3 &&
             catalog.Artifacts.All(a => !a.Url.Contains("hf-mod.com", StringComparison.OrdinalIgnoreCase)) &&
@@ -36,9 +36,9 @@ internal static class GameplayInstallTests
             leafWriter.ContentHash == "8e62f7c7d7d801322aad33b89747479b652f220d7eaa8141be2d333d704caf12" &&
             leafWriter.Url == "https://github.com/owendavidgoode/clonedivers/releases/download/forge-mods-2026-11-19/lego-compact-leaf-writer-0.1.0.zip",
             "LEGO Compact Leaf Writer is optional with the exact 0.1.0 multi-actor co-op release pins");
-        check(yoda.Name == "Empire LEGO Yoda Death" && yoda.Version == "0.2.0" && yoda.Bytes == 53080 &&
-            yoda.Sha256 == "4129a74fe069e7ca951174af603875cb0cf019c8c22c9ddfe4088127a4542004" &&
-            yoda.ContentHash == "e16e40febdabdd4fa4fb43d3ce12528a76c2cca418c931e568d96bfea2958bbf" &&
+        check(yoda.Name == "Empire LEGO Yoda Death" && yoda.Version == "0.2.0" && yoda.Bytes == 53074 &&
+            yoda.Sha256 == "5056da2cb9e7a62eb988bb31fec094843a4769a67de5a49b1c14c9157fca5bd1" &&
+            yoda.ContentHash == "7983eb4c4a0c87f19c8f5e02f55bb8accd7ee4a8007e5c98d65c22cb3586d098" &&
             yoda.Url == "https://github.com/owendavidgoode/clonedivers/releases/download/forge-mods-2026-11-19/empire-lego-yoda-0.2.0.zip",
             "Empire LEGO Yoda Death is optional with the exact 0.2.0 co-op release pins");
         check(atst.Name == "Empire AT-ST Film-Scale Leaf Writer" && atst.Version == "0.1.0" && atst.Bytes == 34001 &&

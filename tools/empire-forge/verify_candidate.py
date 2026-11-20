@@ -352,6 +352,7 @@ def verify(candidate: Path) -> int:
         if key[1] != P.UNIT:
             continue
         raw = main_part(key)
+        lod_descriptors(raw)
         for field, kind, role in ((8, 0x18dead01056b72e9, 'bones'), (32, 0xa486d4045106165c, 'state-machine'), (16, 0xc4f0f4be7fb0c8d6, 'geometry-group')):
             value = struct.unpack_from('<Q', raw, field)[0]
             if value:

@@ -755,7 +755,7 @@ static class HellForgeTests
         var pinned = HellForgePack.PinnedSelection("commandos", "lighter");
         var pinnedClonesNoDelta = HellForgePack.PinnedSelection("clonedivers", "lighter");
         check(pinned.GameBuild == HellForgePack.SupportedBuild && pinned.Version == "2026.11.19-r20" &&
-            pinned.ManifestSha256 == "295ab0090cbe5aa5527e990ec00edea20954826035a16b05e0b8e46c8d2d604d" && pinned.Files.Count == 114,
+            pinned.ManifestSha256 == "265b44115e73aac6d87bb1840adb82bc14fb35dc9cc5e6b9e8aa2f46531704dc" && pinned.Files.Count == 114,
             "the shipped launcher carries pinned Clones r20 catalog independent of the live Steam feed");
         check(pinned.Options["commandos"] && !pinnedClonesNoDelta.Options["commandos"] &&
             pinned.Files.Single(f => f.Name == "9ba626afa44a3aa3.patch_32").Sha256 == "68e82beabd6b8795984143b25bd2a85e46de9959d2fbac1ca277d62129b3f53e" &&

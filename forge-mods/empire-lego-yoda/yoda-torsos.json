@@ -6,84 +6,84 @@
       "kit": "0xAE5978B1",
       "body": 0,
       "unit": "0xDAB5777BFBBD1A83",
-      "main_sha256": "b57a0b036d0a3e2e28f9d4177bb1a43c20a6c350e2a94fff9e077afcbddeaeca",
+      "main_sha256": "e6f27562689748f80e12e6324f0d9bb50a00ed9271ab974d42351bf472bb29b9",
       "gpu_sha256": "49b9e8febde23c931cb6b941aa8d14ae3be4f58b91378358d6f3ed77deb3bde6"
     },
     {
       "kit": "0xAE5978B1",
       "body": 1,
       "unit": "0xD184172E9096A6C2",
-      "main_sha256": "b5ceb385eccd69bc66ccff0564ea51a7571e54486a83a0998540e1234b9c3c2f",
+      "main_sha256": "91dae37518d1ea59350e1a7f4048b0c466f6914b1fd16cf0418425f9429bafdb",
       "gpu_sha256": "6af04d453aff13e4c0bb716f5042ba39db5cd053c3b2f72cf35cd8550ff6e78c"
     },
     {
       "kit": "0x1B8329AB",
       "body": 0,
       "unit": "0x37D0A8598D125564",
-      "main_sha256": "81e0235177536898b27e12676144606de4a487953a27f192d8d9c39e449786de",
+      "main_sha256": "5e035789ec5ceb9f334bf1575e471e5926e5314bbbfa90c1481a61e90e117ef2",
       "gpu_sha256": "a6d09cd69564fe0721caed0cc3c502e2bf994fd0387e94d4e62d8a38ab3e9cf7"
     },
     {
       "kit": "0x1B8329AB",
       "body": 1,
       "unit": "0xF2EEF185355BAE5E",
-      "main_sha256": "81b27b1334ad41d70bac3a7cb4819e308a78de65ec2ac7cab5c7eb324884af1a",
+      "main_sha256": "bc898c38ec7cb65cb5f2274f75cb651863885ce15422c27b4f1ebd07e52c05e2",
       "gpu_sha256": "c3bbcb1b19f89e825a8e0c1c7ac3bc2a0b6e1db6f414d2a9d7e63c7329d9bd17"
     },
     {
       "kit": "0x2E706DB8",
       "body": 0,
       "unit": "0x9E291E101E16DC4F",
-      "main_sha256": "a036bc0bfe18e464e9ab7932e907b663345776af07d5d86392dd4155d08ea1b6",
+      "main_sha256": "d634b623f5823cdcd42f9a04969db27eecf46253221176b8da6025563441e620",
       "gpu_sha256": "9481bbc0a78ec9c88887ee4d6f7e4e665d3ebf7bb1bd1f27d52fd61e668b0bd5"
     },
     {
       "kit": "0x2E706DB8",
       "body": 1,
       "unit": "0x95EC84B1EFA977B3",
-      "main_sha256": "09a7c3316d0e46d73aba1117574b8f8305ea898635de13af495d5b1f94b5e4ff",
+      "main_sha256": "9eb72e3fa827e4a53cabe57e64703de358e7a087c6595c2810014c437f2bd020",
       "gpu_sha256": "8ac69ea88db318b700d3a0092c6b09e8ef612d57ac7a93e0397d92bf3a7a0c88"
     },
     {
       "kit": "0xA45385CD",
       "body": 0,
       "unit": "0x6B826D06AB7AF07C",
-      "main_sha256": "0a5b710145937d1bcbee0c1c7aa9bee03e40f0105ce6ae78869e908da49fc568",
+      "main_sha256": "fb5b54ae7e4de9f22140c391cd89ac70325f737d5c6746b2da3e88294a0dfa7c",
       "gpu_sha256": "5f76b4dafaee4631df19d17c7d8942272e3676c59406844f604198baf2d596f2"
     },
     {
       "kit": "0xA45385CD",
       "body": 1,
       "unit": "0x4249A344A5268033",
-      "main_sha256": "f840cb4bc835ded056361a246d12cc2a2d2e27883bff4d7a402f1a677c69d163",
+      "main_sha256": "8bf10194fd5e2090cd1ed407b34f843cee318782601b5be8f6c066ce00e65d3f",
       "gpu_sha256": "69c5f4f80811866112a11fd5552ba06bb11680614dbbb4ce8e98bd673ee1e582"
     },
     {
       "kit": "0xDBC21A99",
       "body": 0,
       "unit": "0xDDCAF179A5CF81B4",
-      "main_sha256": "426d9c5233eabfb7f217a7d65a8e8b8abb5686d6c0f6ddaf938e879cb90135bd",
+      "main_sha256": "558b8b5fefd71d1bf1531f3257edc689491b475c6bb2a73ef17249fe650e4fe9",
       "gpu_sha256": "7136158c42dcfc02abd5add5c3895a72950126c7e7fc1276c2ce0e8b16a5d798"
     },
     {
       "kit": "0xDBC21A99",
       "body": 1,
       "unit": "0xD3D41E93EC4C7842",
-      "main_sha256": "26479607f71125507a3f5f39f267890fb2f46d87e1d65ecfbd98c15fda02730b",
+      "main_sha256": "a76274edbff3e2e66a5573278a3f2f426a4d63e283e3454b98596d51d1d02781",
       "gpu_sha256": "f790d794ced0b8d80590c8edf941f29e615c2347093b5057c8238837c94ed95f"
     },
     {
       "kit": "0x5D0D8002",
       "body": 0,
       "unit": "0x2B7598966411556F",
-      "main_sha256": "d680272ad7f3cb76967a9f81b47a6f7e910469316b7f90c08c41f758b7d3d838",
+      "main_sha256": "401cd2626e4a78903137b97cfd410d7a7cda02e3cbed0720a9dce81bbbc5b3e8",
       "gpu_sha256": "6ba7523317d5cfa0237ede13c5dd54b76503536c688e74b9c2f3bc83f27d3461"
     },
     {
       "kit": "0x5D0D8002",
       "body": 1,
       "unit": "0xC86087DDDF60D9DE",
-      "main_sha256": "8794a456fba79b489871ab9a159a2eaa30f1b00106bbcb2be609bf4e72ebc6f4",
+      "main_sha256": "9f74b68fb7c77cc1b7710677355963663d78f2fa7440b791b9208a1dc9518319",
       "gpu_sha256": "7526e9466514c331357666543259da260c1e9c421361206886de41aed9c0a1fc"
     }
   ]
