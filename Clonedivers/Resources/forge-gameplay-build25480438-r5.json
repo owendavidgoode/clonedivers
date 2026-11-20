@@ -30,9 +30,9 @@
       "Name": "Empire LEGO Yoda Death",
       "Version": "0.2.0",
       "Url": "https://github.com/owendavidgoode/clonedivers/releases/download/forge-mods-2026-11-19/empire-lego-yoda-0.2.0.zip",
-      "Bytes": 53074,
-      "Sha256": "5056da2cb9e7a62eb988bb31fec094843a4769a67de5a49b1c14c9157fca5bd1",
-      "ContentHash": "7983eb4c4a0c87f19c8f5e02f55bb8accd7ee4a8007e5c98d65c22cb3586d098",
+      "Bytes": 53078,
+      "Sha256": "7ecf857d719e190574fc9fe13cfe7e6c0f11126f4465c8bb2796167d4b60056c",
+      "ContentHash": "d896384245eae48b4a883a8cb561daae75cd61a739c9ac20f85ea54be474b043",
       "Source": "Project-owned client-only code mod (0.2.0 co-op Compact LEGO Empire + 12 Clone torso visuals + local death routing); gameplay false, coop per-player",
       "Optional": true
     },

@@ -165,9 +165,17 @@ def _make_unit_with_meshes_and_lod(mesh_count: int, lod_records: list[bytes] | N
     return bytes(raw)
 
 
-def _make_valid_lod_record(bone_hash: int, steps: list[list[int]]) -> bytes:
+def _make_valid_lod_record(
+    bone_hash: int,
+    steps: list[list[int]],
+    *,
+    lod_scale: float = 1.0,
+    bounds7: tuple[float, ...] = (-0.5, -0.5, 0.0, 0.5, 0.5, 1.8, 1.1),
+) -> bytes:
     levels = len(steps)
-    cur = 20 + 4 * levels
+    footers = 1
+    hdr_sz = 20 + 4 * levels + 4 * footers
+    cur = hdr_sz
     step_offsets = []
     body = bytearray()
     for indices in steps:
@@ -176,8 +184,10 @@ def _make_valid_lod_record(bone_hash: int, steps: list[list[int]]) -> bytes:
         body.extend(struct.pack('<2fI', 1.0, 0.0, len(indices)))
         if indices:
             body.extend(struct.pack(f'<{len(indices)}I', *indices))
-        cur = 20 + 4 * levels + len(body)
-    return struct.pack(f'<5I{levels}I', 1, bone_hash, 0, 1, levels, *step_offsets) + bytes(body)
+        cur = hdr_sz + len(body)
+    footer_off = cur
+    body.extend(struct.pack('<7fIfI', *bounds7, 8, lod_scale, 0))
+    return struct.pack(f'<5I{levels}I{footers}I', 1, bone_hash, 0, footers, levels, *step_offsets, footer_off) + bytes(body)
 
 
 class LodDescriptorsValidationTests(unittest.TestCase):
@@ -196,6 +206,52 @@ class LodDescriptorsValidationTests(unittest.TestCase):
 
         self.assertEqual(lod_descriptors(raw), [[1, 2, 3, 4], [1, 2]])
 
+    def test_valid_124b_lod_record_with_40b_footer_passes_cleanly(self) -> None:
+        rec = _make_valid_lod_record(0x9FB14138, [[1], [2], [3]])
+        self.assertEqual(len(rec), 124)
+        raw = bytearray(_make_unit_with_meshes_and_lod(5, [rec]))
+        # Place @88 skin section immediately after 16-byte aligned 124B LODData record
+        at48 = struct.unpack_from('<I', raw, 48)[0]
+        at_rec = at48 + struct.unpack_from('<I', raw, at48 + 4)[0]
+        self.assertEqual(len(raw), at_rec + 124)
+        raw.extend(b'\x00' * 4)
+        struct.pack_into('<I', raw, 88, at_rec + 128)
+        raw.extend(struct.pack('<4I', 0, 0, 0, 0))
+
+        self.assertEqual(lod_descriptors(bytes(raw)), [[1], [2], [3]])
+
+    def test_truncated_84b_lod_record_followed_by_section_88_fails_closed(self) -> None:
+        full_rec = _make_valid_lod_record(0x9FB14138, [[1], [2], [3]])
+        self.assertEqual(len(full_rec), 124)
+        trunc_rec = full_rec[:84]
+        self.assertEqual(len(trunc_rec), 84)
+        raw = bytearray(_make_unit_with_meshes_and_lod(5, [trunc_rec]))
+        at48 = struct.unpack_from('<I', raw, 48)[0]
+        at_rec = at48 + struct.unpack_from('<I', raw, at48 + 4)[0]
+        self.assertEqual(len(raw), at_rec + 84)
+        # Pad 4 bytes to at_rec + 88 and place @88 there, even with valid-looking floats after @88
+        raw.extend(b'\x00' * 4)
+        struct.pack_into('<I', raw, 88, at_rec + 88)
+        raw.extend(full_rec[84:] + bytes(64))
+
+        with self.assertRaisesRegex(ValueError, 'Invalid LOD footer'):
+            lod_descriptors(bytes(raw))
+
+    def test_lod_footer_nonpositive_scale_and_nan_fail_closed(self) -> None:
+        for bad_scale in (0.0, -1.0, float('nan'), float('inf')):
+            rec = _make_valid_lod_record(0x9FB14138, [[1], [2], [3]], lod_scale=bad_scale)
+            raw = _make_unit_with_meshes_and_lod(5, [rec])
+            with self.assertRaisesRegex(ValueError, 'Invalid LOD footer'):
+                lod_descriptors(raw)
+
+        for k in range(7):
+            b7 = [-0.5, -0.5, 0.0, 0.5, 0.5, 1.8, 1.1]
+            b7[k] = float('nan') if k % 2 == 0 else float('-inf')
+            rec = _make_valid_lod_record(0x9FB14138, [[1], [2], [3]], bounds7=tuple(b7))
+            raw = _make_unit_with_meshes_and_lod(5, [rec])
+            with self.assertRaisesRegex(ValueError, 'Invalid LOD footer'):
+                lod_descriptors(raw)
+
     def test_lod_count_zero_and_null_pointer_pass_cleanly(self) -> None:
         raw_zero = _make_unit_with_meshes_and_lod(5, [])
         raw_null = _make_unit_with_meshes_and_lod(5, None)
@@ -211,9 +267,9 @@ class LodDescriptorsValidationTests(unittest.TestCase):
             lod_descriptors(raw)
 
     def test_header_overlapping_step_offset_fails_closed(self) -> None:
-        for bad_rel in (0, 23):
+        for bad_rel in (0, 27):
             rec = bytearray(_make_valid_lod_record(0x9FB14138, [[1, 2]]))
-            # Header + 1 step_offset occupies bytes 0..24; rel < 24 overlaps header/offset table
+            # Header + 1 step_offset + 1 footer_offset occupies bytes 0..28; rel < 28 overlaps header/offset table
             struct.pack_into('<I', rec, 20, bad_rel)
             raw = _make_unit_with_meshes_and_lod(5, [bytes(rec)])
 
@@ -222,10 +278,17 @@ class LodDescriptorsValidationTests(unittest.TestCase):
 
     def test_repeated_step_offsets_exceeding_index_budget_fails_closed(self) -> None:
         levels = 25
+        footers = 1
         step_count = 5000  # 25 * 5000 = 125,000 > 100,000 budget
-        step_rel = 20 + 4 * levels
+        step_rel = 20 + 4 * levels + 4 * footers
         step_blob = struct.pack('<2fI', 1.0, 0.0, step_count) + struct.pack(f'<{step_count}I', *([0] * step_count))
-        rec = struct.pack(f'<5I{levels}I', 1, 0x9FB14138, 0, 1, levels, *([step_rel] * levels)) + step_blob
+        footer_rel = step_rel + len(step_blob)
+        footer_blob = struct.pack('<7fIfI', -0.5, -0.5, 0.0, 0.5, 0.5, 1.8, 1.1, 8, 1.0, 0)
+        rec = (
+            struct.pack(f'<5I{levels}II', 1, 0x9FB14138, 0, footers, levels, *([step_rel] * levels), footer_rel)
+            + step_blob
+            + footer_blob
+        )
         raw = _make_unit_with_meshes_and_lod(5, [rec])
 
         with self.assertRaisesRegex(ValueError, 'Invalid LOD descriptor'):

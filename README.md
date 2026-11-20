@@ -47,10 +47,10 @@ game. **Set up selected mode** obtains **14 gameplay downloads** automatically i
 the `build25480438-r5` catalog (**8 required** gameplay and author archives totaling
 `7,905,326` bytes / `~7.54 MiB` plus **6 optional** project-owned SDK-16 defaults:
 `Clonedivers Clean Exit` `0.2.0` at `8,192` B, `LEGO Compact Leaf Writer` `0.1.0` at
-`237,169` B, `Empire LEGO Yoda Death` `0.2.0` at `53,074` B, `Empire AT-ST Film-Scale
+`237,169` B, `Empire LEGO Yoda Death` `0.2.0` at `53,078` B, `Empire AT-ST Film-Scale
 Leaf Writer` `0.1.0` at `34,001` B, `Empire per-attack TIE` `0.3.0` at `22,644` B,
 and host-authoritative `Chaos Invasions` `0.3.0` at `33,855` B), totaling
-**`8,294,261` bytes (`~7.91 MiB`)** before appearance assets. It verifies their
+**`8,294,265` bytes (`~7.91 MiB`)** before appearance assets. It verifies their
 archives and content, imports them through Forge, applies preset order/options and
 then prepares the appearance.
 

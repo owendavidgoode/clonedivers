@@ -33,11 +33,11 @@ Clonedivers `2026.11.19-r20`**:
     (`2,604,118` B), `Smarter SEAF 1.0.4` (`915,566` B, official `Th3chef/Smarter-SEAF`
     `v1.0.4` contingency), and `Smarter Guard Dogs & Sentries 5.2.0` (`1,267,063` B)
     directly to author GitHub Releases (`All rights reserved` never mirrored).
-  - Ships **6 project-owned SDK-16 optional defaults** (`388,935` B, full source in
+  - Ships **6 project-owned SDK-16 optional defaults** (`388,939` B, full source in
     `forge-mods/`): `clonedivers.clean-exit` `0.2.0` (`8,192` B),
     `clonedivers.lego-compact-leaf-writer` `0.1.0` (`237,169` B, `61` Empire + Clone
     garments, `35,631` `coop_writer_test` checks PASS), `clonedivers.empire-lego-yoda`
-    `0.2.0` (`53,074` B, Empire + `12` Clone torsos, `227` `yoda_test` checks PASS),
+    `0.2.0` (`53,078` B, Empire + `12` Clone torsos, `227` `yoda_test` checks PASS),
     `clonedivers.empire-atst-writer` `0.1.0` (`34,001` B, S2c film-scale `EXO-45/49`
     leaf writer for up to 4 co-op walkers), `clonedivers.empire-tie-switch` `0.3.0`
     (`22,644` B, build `25480438` `RefcountedPackageSystem` `eagle_base` fallback +
@@ -51,7 +51,7 @@ Clonedivers `2026.11.19-r20`**:
     `read_cache()`). Upgrades enabled `r4` defaults automatically while preserving
     disabled/removed choices and disabling superseded `chef.smarter-seaf` and
     standalone `Mod Options Menu`.
-- **EmpireDivers `2026.11.19-r48` (`patch_1000..1036` `111` files / `patch_1000..1032` `99` files across `18` combinations, SHA-256 `c4a161f409fdb70cc62072dbc7c6f5893230e4da337f9803269840ee2b977e1e`) & Clonedivers `2026.11.19-r20` (`patch_0..37` `114` files / `patch_0..33` `102` files across `36` combinations, SHA-256 `265b44115e73aac6d87bb1840adb82bc14fb35dc9cc5e6b9e8aa2f46531704dc`):**
+- **EmpireDivers `2026.11.19-r48` (`patch_1000..1036` `111` files / `patch_1000..1032` `99` files across `18` combinations, SHA-256 `c4a161f409fdb70cc62072dbc7c6f5893230e4da337f9803269840ee2b977e1e`) & Clonedivers `2026.11.19-r20` (`patch_0..37` `114` files / `patch_0..33` `102` files across `36` combinations, SHA-256 `c3b195f4a025f33e5b7d86f4ac9ab34c73927dd939cbe697eb4ffc65304d61bd`):**
   - `r48` integrates `100%` build `25480438` Imperial wardrobe coverage (`135/135`
     armors, `158/158` helmets, `1,939/1,939` `UNIT`s, `344` US text keys), S2c
     film-scale AT-ST (`106` nodes `<= 128`, `[8,1,1]` palettes `<= 64`, `9` native
@@ -63,9 +63,9 @@ Clonedivers `2026.11.19-r20`**:
     `Covenant` (`patch_1032` mutual exclusion + shadow `m_shadow` repair).
   - `r20` integrates `6` isolated Compact LEGO Clone kits (`54` 3P `UNIT`s + `94`
     hiders), LEGO mid-back prop tuck, Forge `25480438` `3,246`-key US text table (`18`
-    Clone strings), `mixed-droids`, `reduced512` (`4,771,757,826` B vs `9,384,252,044` B
+    Clone strings), `mixed-droids`, `reduced512` (`4,771,760,418` B vs `9,384,254,636` B
     Full on `commandos + all-droids`), and `Covenant`. Vault deduplication across all
-    `54/54` verified scenarios produces `653` unique blobs (`50,143,273,214` B).
+    `54/54` verified scenarios produces `653` unique blobs (`50,143,280,990` B).
 - **Verification level reached (`runtimeTested: false`):** Official `verify_candidate.py`
   passed across all **`54/54`** `r48` & `r20` matrix combinations (`VERIFIER_EXIT=0`),
   `run-suites.ps1` (`0` failures, `0` warnings across `windows`, `bridge`, `linux-steam`,
