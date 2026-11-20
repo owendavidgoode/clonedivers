@@ -295,14 +295,45 @@ class LodDescriptorsValidationTests(unittest.TestCase):
                 lod_descriptors(raw)
 
     def test_lod_footer_overlapping_step_span_fails_closed(self) -> None:
-        # Craft 3-level record (hdr_sz=36, steps at 36..84) where footer_off=36 aliases step data with valid-looking floats
-        rec = bytearray(_make_valid_lod_record(0x9FB14138, [[1], [2], [3]]))
-        self.assertEqual(len(rec), 124)
-        # Point frel (at offset 20 + 4*3 = 32) to 36 (start of step 0, overlapping 36..76)
-        struct.pack_into('<I', rec, 32, 36)
-        raw = _make_unit_with_meshes_and_lod(5, [bytes(rec)])
+        # 1-level, 1-footer record (hdr_sz=28): step 0 occupies [28, 44) ending with mesh index 0 (0x00000000 == 0.0f).
+        # Placing the remaining 36B of a valid footer at [44, 80) and setting frel=40 makes [40, 80) decode to
+        # valid ordered finite floats (mnx=0.0, mny=-0.5, mnz=0.0, mxx=0.5, mxy=0.5, mxz=1.75, rad=1.25, lod_scale=1.0),
+        # so ONLY the step-overlap guard rejects it.
+        step_blob = struct.pack('<2f2I', 1.0, 0.0, 1, 0)  # 16 bytes -> [28, 44)
+        footer_tail_36 = struct.pack('<6fIfI', -0.5, 0.0, 0.5, 0.5, 1.75, 1.25, 8, 1.0, 0)
+        rec_overlap = struct.pack('<5I2I', 1, 0x9FB14138, 0, 1, 1, 28, 40) + step_blob + footer_tail_36
+        self.assertEqual(len(rec_overlap), 80)
+
+        # Confirm the 40 bytes at frel=40 pass all numeric AABB/radius/lod_scale invariants on their own
+        vals7 = struct.unpack_from('<7f', rec_overlap, 40)
+        mnx, mny, mnz, mxx, mxy, mxz, rad = vals7
+        lod_scale = struct.unpack_from('<f', rec_overlap, 40 + 32)[0]
+        self.assertEqual(vals7, (0.0, -0.5, 0.0, 0.5, 0.5, 1.75, 1.25))
+        self.assertTrue(mnx <= mxx and mny <= mxy and mnz <= mxz and rad >= 0.0 and lod_scale > 0.0)
+
+        # Disjoint control (prepend mnx=0.0f at offset 44 and set frel=44 -> [44, 84)) passes cleanly
+        rec_disjoint = struct.pack('<5I2I', 1, 0x9FB14138, 0, 1, 1, 28, 44) + step_blob + struct.pack('<f', 0.0) + footer_tail_36
+        self.assertEqual(lod_descriptors(_make_unit_with_meshes_and_lod(5, [rec_disjoint])), [[0]])
+
+        # Overlapping frel=40 ([40, 80) intersects step [28, 44)) must fail closed
+        raw = _make_unit_with_meshes_and_lod(5, [rec_overlap])
         with self.assertRaisesRegex(ValueError, 'Invalid LOD footer'):
             lod_descriptors(raw)
+
+        # Also check upper <= len(raw) clamping when another header field (@88) exceeds len(raw):
+        # 1. Truncated 84B record at EOF with @88 > len(raw) clamps upper=len(raw) and fails closed as Invalid LOD footer
+        trunc84 = _make_valid_lod_record(0x9FB14138, [[1], [2], [3]])[:84]
+        raw_trunc_clamped = bytearray(_make_unit_with_meshes_and_lod(5, [trunc84]))
+        struct.pack_into('<I', raw_trunc_clamped, 88, len(raw_trunc_clamped) + 4096)
+        with self.assertRaisesRegex(ValueError, 'Invalid LOD footer'):
+            lod_descriptors(bytes(raw_trunc_clamped))
+
+        # 2. Truncated @48 table header (at48 + 4 > len(raw)) with @88 > len(raw) fails closed as ValueError
+        raw_clamped = bytearray(_make_unit_with_meshes_and_lod(5, []))
+        struct.pack_into('<I', raw_clamped, 48, len(raw_clamped) - 2)
+        struct.pack_into('<I', raw_clamped, 88, len(raw_clamped) + 4096)
+        with self.assertRaisesRegex(ValueError, 'Invalid bounded pointer table'):
+            lod_descriptors(bytes(raw_clamped))
 
     def test_lod_count_zero_and_null_pointer_pass_cleanly(self) -> None:
         raw_zero = _make_unit_with_meshes_and_lod(5, [])

@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import argparse
+import bisect
 from collections import Counter, defaultdict
 import csv
 import functools
@@ -100,6 +101,8 @@ def pointers(raw: bytes, field: int) -> list[int]:
     at = struct.unpack_from('<I', raw, field)[0]
     if not at:
         return []
+    if at + 4 > len(raw):
+        raise ValueError('Invalid bounded pointer table')
     count = struct.unpack_from('<I', raw, at)[0]
     if count > 10000 or at + 4 + 4 * count > len(raw):
         raise ValueError('Invalid bounded pointer table')
@@ -124,7 +127,7 @@ def lod_descriptors(raw: bytes) -> list[list[int]]:
     if not at48:
         return []
     hdr_offs = [struct.unpack_from('<I', raw, f)[0] for f in (48, 52, 88, 92, 96, 100, 104, 108, 112)]
-    upper = min([o for o in hdr_offs if o > at48] or [len(raw)])
+    upper = min([o for o in hdr_offs if o > at48] + [len(raw)])
     entries = []
     total_indices = 0
     meshes = pointers(raw, 100)
@@ -161,11 +164,21 @@ def lod_descriptors(raw: bytes) -> list[list[int]]:
             if any(v >= len(meshes) for v in indices):
                 raise ValueError('Invalid LOD descriptor')
             entries.append(indices)
+        merged_starts: list[int] = []
+        merged_ends: list[int] = []
+        for s0, s1 in sorted(step_spans):
+            if merged_ends and s0 <= merged_ends[-1]:
+                if s1 > merged_ends[-1]:
+                    merged_ends[-1] = s1
+            else:
+                merged_starts.append(s0)
+                merged_ends.append(s1)
         for i in range(footers):
             frel = struct.unpack_from('<I', raw, at + 20 + 4 * levels + 4 * i)[0]
             if frel < hdr_sz or at + frel + 40 > rec_end:
                 raise ValueError('Invalid LOD footer')
-            if any(not (frel + 40 <= s0 or frel >= s1) for s0, s1 in step_spans):
+            pos = bisect.bisect_left(merged_starts, frel + 40)
+            if pos > 0 and merged_ends[pos - 1] > frel:
                 raise ValueError('Invalid LOD footer')
             # 40B Stingray LODData footer: <7f (AABB min3, max3, radius) @ +0..28, u32 flags @ +28..32, f32 lod_scale @ +32..36, u32 tail @ +36..40
             vals7 = struct.unpack_from('<7f', raw, at + frel)
