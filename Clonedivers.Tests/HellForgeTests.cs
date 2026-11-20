@@ -308,6 +308,13 @@ static class HellForgeTests
                     check(bar.Visible == (preview is "installing" or "update-downloading"), preview + " exposes progress only while working");
                     check(!((ScrollableControl)form.Controls[0]).VerticalScroll.Visible, preview + " fits the tightened default window without scrolling");
                 }
+                form.ClientSize = new Size(920, 690); Application.DoEvents();
+                foreach (var preview in HellForgeForm.PreviewStates)
+                {
+                    form.SetPreviewState(preview); Application.DoEvents();
+                    check(!((ScrollableControl)form.Controls[0]).VerticalScroll.Visible, preview + " fits the 690px compact floor without scrolling");
+                }
+                form.ClientSize = defaultClientSize; Application.DoEvents();
                 form.SetPreviewState("update-failed");
                 check(policyDetail.Text.Contains("Nothing was changed") && !policyDetail.Text.Contains("504"), "failed updates explain recovery without exposing the raw gateway exception");
                 var menu = (ContextMenuStrip)typeof(HellForgeForm).GetField("moreMenu", fields)!.GetValue(form)!;

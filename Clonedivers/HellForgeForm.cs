@@ -201,7 +201,7 @@ public sealed class HellForgeForm : Form
         BackColor = Bg; ForeColor = TextMain; DoubleBuffered = true;
         StartPosition = FormStartPosition.CenterScreen;
         AutoScaleMode = AutoScaleMode.Dpi;
-        var initialHeight = Math.Min(720, Math.Max(620, (Screen.PrimaryScreen?.WorkingArea.Height ?? 900) - 60));
+        var initialHeight = Math.Min(720, Math.Max(690, (Screen.PrimaryScreen?.WorkingArea.Height ?? 900) - 60));
         ClientSize = new Size(920, initialHeight); MinimumSize = new Size(760, 600);
         try { Icon = Icon.ExtractAssociatedIcon(Environment.ProcessPath!); } catch (ArgumentException) { }
         var scroll = new Panel { Dock = DockStyle.Fill, AutoScroll = true };
@@ -225,7 +225,7 @@ public sealed class HellForgeForm : Form
         heading.Controls.Add(new Label { Text = "CLONEDIVERS", Font = new Font("Segoe UI", 26, FontStyle.Bold), AutoSize = true, Margin = Padding.Empty });
         heading.Controls.Add(new Label { Text = "Choose your universe  ·  HellForge edition", ForeColor = TextDim, Font = new Font("Segoe UI", 10.5F), AutoSize = true, Margin = new Padding(2, 0, 0, 0) });
         header.Controls.Add(heading, 1, 0); root.Controls.Add(header, 0, 0);
-        var modes = new TableLayoutPanel { ColumnCount = 3, RowCount = 1, Height = 148, Dock = DockStyle.Top, Margin = new Padding(0, 0, 0, 10) };
+        var modes = new TableLayoutPanel { ColumnCount = 3, RowCount = 1, Height = 140, Dock = DockStyle.Top, Margin = new Padding(0, 0, 0, 10) };
         for (int i = 0; i < 3; i++) modes.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100F / 3));
         regular.Margin = new Padding(0, 0, 8, 0); clone.Margin = new Padding(4, 0, 4, 0); empire.Margin = new Padding(8, 0, 0, 0);
         foreach (var button in new[] { regular, clone, empire }) button.Font = new Font("Segoe UI", 12, FontStyle.Bold);
@@ -302,7 +302,7 @@ public sealed class HellForgeForm : Form
         // Keep the Steam fallback and version visible even when Windows clamps
         // the initial window to a short screen. Only the main content scrolls.
         var footer = new TableLayoutPanel { AutoSize = true, Dock = DockStyle.Bottom, ColumnCount = 1,
-            Padding = new Padding(32, 4, 32, 18), Margin = Padding.Empty };
+            Padding = new Padding(32, 4, 32, 14), Margin = Padding.Empty };
         footer.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100));
         var steam = new LinkLabel { Text = "Official online game: open Helldivers 2 in Steam", AutoSize = true, LinkColor = TextDim, ActiveLinkColor = TextMain, VisitedLinkColor = TextDim, Margin = new Padding(0, 3, 0, 8) };
         steam.Anchor = AnchorStyles.None; steam.LinkClicked += (_, _) => OpenSteamLibrary(); footer.Controls.Add(steam);
