@@ -252,6 +252,58 @@ class LodDescriptorsValidationTests(unittest.TestCase):
             with self.assertRaisesRegex(ValueError, 'Invalid LOD footer'):
                 lod_descriptors(raw)
 
+    def test_lod_pointer_table_overlap_and_non_monotonic_offsets_fail_closed(self) -> None:
+        rec = _make_valid_lod_record(0x9FB14138, [[1], [2], [3]])
+        # 1. Record offset overlapping @48 pointer table (rel=4 when header+1 offset is 8 bytes)
+        raw_overlap = bytearray(_make_unit_with_meshes_and_lod(5, [rec]))
+        at48 = struct.unpack_from('<I', raw_overlap, 48)[0]
+        struct.pack_into('<I', raw_overlap, at48 + 4, 4)
+        with self.assertRaisesRegex(ValueError, 'Invalid LOD table'):
+            lod_descriptors(bytes(raw_overlap))
+
+        # 2. Non-monotonic multi-record pointer offsets (ptrs[0] >= ptrs[1])
+        raw_non_mono = bytearray(_make_unit_with_meshes_and_lod(5, [rec, rec]))
+        at48_two = struct.unpack_from('<I', raw_non_mono, 48)[0]
+        r0 = struct.unpack_from('<I', raw_non_mono, at48_two + 4)[0]
+        r1 = struct.unpack_from('<I', raw_non_mono, at48_two + 8)[0]
+        struct.pack_into('<II', raw_non_mono, at48_two + 4, r1, r0)
+        with self.assertRaisesRegex(ValueError, 'Invalid LOD table'):
+            lod_descriptors(bytes(raw_non_mono))
+
+    def test_lod_levels_with_zero_footers_fails_closed(self) -> None:
+        # 80B header+steps record with levels=3 and footers=0 must fail closed (cannot bypass footer check)
+        levels = 3
+        hdr_sz = 20 + 4 * levels
+        step_offs = [hdr_sz + 16 * i for i in range(levels)]
+        steps_blob = b''.join(struct.pack('<2f2I', 1.0, 0.0, 1, i + 1) for i in range(levels))
+        rec_no_footer = struct.pack(f'<5I{levels}I', 1, 0x9FB14138, 0, 0, levels, *step_offs) + steps_blob
+        raw = _make_unit_with_meshes_and_lod(5, [rec_no_footer])
+        with self.assertRaisesRegex(ValueError, 'Invalid LOD footer'):
+            lod_descriptors(raw)
+
+    def test_lod_footer_inverted_aabb_and_negative_radius_fail_closed(self) -> None:
+        bad_bounds = (
+            (0.6, -0.5, 0.0, 0.5, 0.5, 1.8, 1.1),   # mnx > mxx
+            (-0.5, 0.6, 0.0, 0.5, 0.5, 1.8, 1.1),   # mny > mxy
+            (-0.5, -0.5, 1.9, 0.5, 0.5, 1.8, 1.1),  # mnz > mxz
+            (-0.5, -0.5, 0.0, 0.5, 0.5, 1.8, -0.01),  # rad < 0
+        )
+        for b7 in bad_bounds:
+            rec = _make_valid_lod_record(0x9FB14138, [[1], [2], [3]], bounds7=b7)
+            raw = _make_unit_with_meshes_and_lod(5, [rec])
+            with self.assertRaisesRegex(ValueError, 'Invalid LOD footer'):
+                lod_descriptors(raw)
+
+    def test_lod_footer_overlapping_step_span_fails_closed(self) -> None:
+        # Craft 3-level record (hdr_sz=36, steps at 36..84) where footer_off=36 aliases step data with valid-looking floats
+        rec = bytearray(_make_valid_lod_record(0x9FB14138, [[1], [2], [3]]))
+        self.assertEqual(len(rec), 124)
+        # Point frel (at offset 20 + 4*3 = 32) to 36 (start of step 0, overlapping 36..76)
+        struct.pack_into('<I', rec, 32, 36)
+        raw = _make_unit_with_meshes_and_lod(5, [bytes(rec)])
+        with self.assertRaisesRegex(ValueError, 'Invalid LOD footer'):
+            lod_descriptors(raw)
+
     def test_lod_count_zero_and_null_pointer_pass_cleanly(self) -> None:
         raw_zero = _make_unit_with_meshes_and_lod(5, [])
         raw_null = _make_unit_with_meshes_and_lod(5, None)

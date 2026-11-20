@@ -118,6 +118,8 @@ def material_map(raw: bytes) -> dict[int, int]:
 
 
 def lod_descriptors(raw: bytes) -> list[list[int]]:
+    if len(raw) < 116:
+        raise ValueError('Invalid LOD table')
     at48 = struct.unpack_from('<I', raw, 48)[0]
     if not at48:
         return []
@@ -127,14 +129,20 @@ def lod_descriptors(raw: bytes) -> list[list[int]]:
     total_indices = 0
     meshes = pointers(raw, 100)
     ptrs = pointers(raw, 48)
+    tbl_end = at48 + 4 + 4 * len(ptrs)
+    if tbl_end > upper or (ptrs and ptrs[0] < tbl_end):
+        raise ValueError('Invalid LOD table')
     for idx, at in enumerate(ptrs):
         rec_end = ptrs[idx + 1] if idx + 1 < len(ptrs) else upper
-        if rec_end > upper or rec_end > len(raw) or at + 20 > rec_end:
+        if at >= rec_end or rec_end > upper or rec_end > len(raw) or at + 20 > rec_end:
             raise ValueError('Invalid LOD table')
         footers, levels = struct.unpack_from('<II', raw, at + 12)
         hdr_sz = 20 + 4 * levels + 4 * footers
         if levels > 10000 or footers > 1000 or at + hdr_sz > rec_end:
             raise ValueError('Invalid LOD table')
+        if levels > 0 and footers == 0:
+            raise ValueError('Invalid LOD footer')
+        step_spans = []
         for i in range(levels):
             rel = struct.unpack_from('<I', raw, at + 20 + 4 * i)[0]
             if rel < hdr_sz:
@@ -145,6 +153,7 @@ def lod_descriptors(raw: bytes) -> list[list[int]]:
             count = struct.unpack_from('<I', raw, entry + 8)[0]
             if count > 10000 or entry + 12 + 4 * count > rec_end:
                 raise ValueError('Invalid LOD entry')
+            step_spans.append((rel, rel + 12 + 4 * count))
             total_indices += count
             if total_indices > 100000:
                 raise ValueError('Invalid LOD descriptor')
@@ -156,10 +165,20 @@ def lod_descriptors(raw: bytes) -> list[list[int]]:
             frel = struct.unpack_from('<I', raw, at + 20 + 4 * levels + 4 * i)[0]
             if frel < hdr_sz or at + frel + 40 > rec_end:
                 raise ValueError('Invalid LOD footer')
+            if any(not (frel + 40 <= s0 or frel >= s1) for s0, s1 in step_spans):
+                raise ValueError('Invalid LOD footer')
             # 40B Stingray LODData footer: <7f (AABB min3, max3, radius) @ +0..28, u32 flags @ +28..32, f32 lod_scale @ +32..36, u32 tail @ +36..40
             vals7 = struct.unpack_from('<7f', raw, at + frel)
+            mnx, mny, mnz, mxx, mxy, mxz, rad = vals7
             lod_scale = struct.unpack_from('<f', raw, at + frel + 32)[0]
-            if not (all(math.isfinite(x) for x in (*vals7, lod_scale)) and lod_scale > 0.0):
+            if not (
+                all(math.isfinite(x) for x in (*vals7, lod_scale))
+                and mnx <= mxx
+                and mny <= mxy
+                and mnz <= mxz
+                and rad >= 0.0
+                and lod_scale > 0.0
+            ):
                 raise ValueError('Invalid LOD footer')
     return entries
 
