@@ -53,22 +53,31 @@ Clonedivers `2026.11.19-r20`**:
     `read_cache()`). Upgrades enabled `r4` defaults automatically while preserving
     disabled/removed choices and disabling superseded `chef.smarter-seaf` and
     standalone `Mod Options Menu`.
-- **EmpireDivers `2026.11.19-r48` (`patch_1000..1036` `111` files / `patch_1000..1032` `99` files across `18` combinations, SHA-256 `c4a161f409fdb70cc62072dbc7c6f5893230e4da337f9803269840ee2b977e1e`) & Clonedivers `2026.11.19-r20` (`patch_0..37` `114` files / `patch_0..33` `102` files across `36` combinations, SHA-256 `c3b195f4a025f33e5b7d86f4ac9ab34c73927dd939cbe697eb4ffc65304d61bd`):**
+- **EmpireDivers `2026.11.19-r48` (`patch_1000..1036` `111` files / `patch_1000..1032` `99` files across `18` combinations, SHA-256 `fea705bb80b4d76f328df2e5b37038665b03c074bcc938f8fb8cc8751e0cda73`) & Clonedivers `2026.11.19-r20` (`patch_0..37` `114` files / `patch_0..33` `102` files across `36` combinations, SHA-256 `8f6fbffe3392e37e5d07f44d4101740ae766ad4cb098e7c505562b5aee4a96be`):**
   - `r48` integrates `100%` build `25480438` Imperial wardrobe coverage (`135/135`
-    armors, `158/158` helmets, `1,939/1,939` `UNIT`s, `344` US text keys), S2c
+    armors, `158/158` helmets, `1,939/1,939` `UNIT`s, `0` empty body slots across
+    all `270` Brawny+Lean armor configs and `158` helmets, `344` US text keys), S2c
     film-scale AT-ST (`106` nodes `<= 128`, `[8,1,1]` palettes `<= 64`, `9` native
     `PHYSICS` restored, `8` child weapons), E-Web UV repair, `18` green orbital
     turbolaser `PFX`s, Brawny+Lean K-2SO (`B-27`), LEGO mid-back prop tuck, `5,266/5,266`
     Imperial VO sound slots across `18` banks (`99.68%` Whisper `large-v3` ASR `>= 0.85`),
-    co-op-safe `mixed-droids`, `reduced512` (`5,444,224,572` B / `2,895,263,920` B
-    resident GPU vs `11,769,966,096` B / `9,973,354,112` B Full on `all-droids`), and
-    `Covenant` (`patch_1032` mutual exclusion + shadow `m_shadow` repair).
+    co-op-safe `mixed-droids`, `reduced512` (`5,457,581,826` B / `2,911,650,998` B
+    resident GPU vs `11,778,299,344` B / `9,981,221,504` B Full on `all-droids`), and
+    `Covenant` (`patch_1032` mutual exclusion + shadow `m_shadow` repair). Visual QA
+    pass fixed emissive visor RGB tinting, dark albedos/tangent-frame normals, `pt=1`
+    clipping vs partial `r47` underlayers, Delta Commando skinning/normals/waist, BF2
+    helmet orientation, Royal Guard pike/arm trim, AT-AT Driver/TIE Pilot spine
+    alignment, Jumptrooper back-pack placement, Lord Vader (`UF-50`) helmet/torso/limbs,
+    `O-44` Compact LEGO helmet, `TR-62`/`FS-23` helmet AABB culling, `CW-22`/`CW-36`
+    legacy giant-LEGO removal, and `RS-20` leg coverage.
   - `r20` integrates `6` isolated Compact LEGO Clone kits (`54` 3P `UNIT`s + `94`
-    hiders), LEGO mid-back prop tuck, Forge `25480438` `3,246`-key US text table (`18`
-    Clone strings), `mixed-droids`, `reduced512` (`4,771,760,418` B vs `9,384,254,636` B
-    Full on `commandos + all-droids`), and `Covenant`. Vault deduplication across all
-    `54/54` verified scenarios produces `653` unique blobs (`50,143,280,990` B).
-- **Verification level reached (`runtimeTested: false` until attended `R2` passes):** Official `verify_candidate.py` passed across all **`54/54`** `r48` & `r20` matrix combinations (`VERIFIER_EXIT=0`), `run-suites.ps1` (`0` failures, `0` warnings across `windows`, `bridge`, `linux-steam`, `linux-forge`, `forge-lab`), isolated `tools/uia-wizard-smoke.ps1` (`ALL UIA SINGLE-WIZARD SMOKE CHECKS PASSED`), and `mp_sim_test.py` (`65` 4-peer simulation checks PASS). Automated Wave 3 live verification passed **`10/10`** serialized `helldivers2.exe` runs (`exitCode=0`, `0` crashes/dumps/writer failures/Chaos fallbacks, `118/118` screenshots verified across `Empire r48` Compact LEGO + K-2SO + Bad Batch + unfolded E-Web, `Clones r20` 4 sampled Compact LEGO kits — Cody, Coruscant Guard, Rex, 501st — plus `Mixed Bots + CIS` + `Covenant 1670`, `chaos-invasions 0.3.0` foreign waves, `Heavy SEAF`, and live `empire-lego-yoda 0.2.0` firing), plus a 6-run `PresentMon 2.5.1` benchmark on a single high-VRAM test PC (`1280x720`) proving `Johnson Ultra-Potato 512px` cuts Peak Dedicated VRAM `-40.6%` (`18,154.53 -> 10,784.25 MiB`), Shared GPU spillover `-96.0%`, WorkingSet RAM `-44.5%`, and Boot-to-Ship `-27.7%` (background average FPS did not improve in this test). Attended live desktop `R2` checks (EXO-45/49 walker pod call-in, live Eagle TIE beacon throws, speaker voice mix, Empire Covenant (`patch_1032`) coexistence, Phase I Shiny and 212th Clone kits, weak-PC (low-VRAM) `512px` frame-time, 4-peer human co-op & host migration, clean-PC wizard run, and Linux Proton gameplay) remain required before feed promotion.
+    hiders; helmet decal UV channel `uv1 -> uv0` and Phase I Shiny right-leg print
+    alignment fixed and proved live across all `6/6` kits), LEGO mid-back prop tuck,
+    Forge `25480438` `3,246`-key US text table (`18` Clone strings), `mixed-droids`,
+    `reduced512` (`4,770,274,498` B vs `9,382,856,140` B Full on `commandos + all-droids`),
+    and `Covenant`. Vault deduplication across all `54/54` verified scenarios produces
+    `653` unique blobs (`50,167,273,994` B).
+- **Verification level reached (`runtimeTested: false` until attended `R2` passes):** Official `verify_candidate.py` passed across all **`54/54`** `r48` & `r20` matrix combinations (`VERIFIER_EXIT=0`), `run-suites.ps1` (`0` failures, `0` warnings across `windows`, `bridge`, `linux-steam`, `linux-forge`, `forge-lab`), isolated `tools/uia-wizard-smoke.ps1` (`ALL UIA SINGLE-WIZARD SMOKE CHECKS PASSED`), and `mp_sim_test.py` (`65` 4-peer simulation checks PASS). Automated live `helldivers2.exe` verification passed Wave 3 (`10/10` runs) plus a 4-sweep visual audit (`0` crashes, dumps, or `writer` `failed` counts; `fatal=0` on final-catalog sweeps; `sweep1`/`sweep2` hit the diagnostic log-budget cap after cycling multiple LEGO kits with `math_fail=0`/`leaf_fail=0`): `20` Clonedivers `r20` kits (all `6/6` Compact LEGO Clone kits + `14` realistic Clone kits on the final `8f6fbffe...` catalog, plus `3` kits on `reduced512`), `48` EmpireDivers `r48` kits on pass-1 `Full` followed by `18` pass-2/legacy kits on the final `fea705bb...` `Full` catalog and `5` kits on final `reduced512`, unfolded E-Web, `Mixed Bots + CIS`, `Covenant 1670`, `chaos-invasions 0.3.0`, `Heavy SEAF`, `empire-tie-switch 0.3.0` (`135` runtime closure parts verified, `eagle_resident=true`, `8/8` deliveries on `Full` and `reduced512`), and live `empire-lego-yoda 0.2.0` firing, plus a 6-run `PresentMon 2.5.1` benchmark on a single high-VRAM test PC (`1280x720`) proving `Johnson Ultra-Potato 512px` cuts Peak Dedicated VRAM `-40.6%` (`18,154.53 -> 10,784.25 MiB`), Shared GPU spillover `-96.0%`, WorkingSet RAM `-44.5%`, and Boot-to-Ship `-27.7%` (background average FPS did not improve in this test). Attended live desktop `R2` checks (EXO-45/49 walker pod call-in, live Eagle TIE beacon throws, speaker voice mix, Empire Covenant (`patch_1032`) coexistence, Phase I Shiny and 212th Clone kits, weak-PC (low-VRAM) `512px` frame-time, 4-peer human co-op & host migration, clean-PC wizard run, and Linux Proton gameplay) remain required before feed promotion.
 
 ## November 16, 2026 (`v1.14.2` / `linux-v0.8.2` live; `R1` published, `R2` pending): 4-way Compact LEGO Empire r47 + `build25480438-r4`
 

@@ -22,14 +22,14 @@
     ],
     "CovenantOption": true,
     "Catalog": "2026.11.19-r48",
-    "CatalogSha256": "c4a161f409fdb70cc62072dbc7c6f5893230e4da337f9803269840ee2b977e1e",
+    "CatalogSha256": "fea705bb80b4d76f328df2e5b37038665b03c074bcc938f8fb8cc8751e0cda73",
     "ClonesCatalog": {
       "Modes": ["clonedivers", "commandos"],
       "TextureProfiles": ["full", "lighter", "reduced512"],
       "EnemySkins": ["all-droids", "mixed-droids", "native-automatons"],
       "CovenantOption": true,
       "Catalog": "2026.11.19-r20",
-      "CatalogSha256": "c3b195f4a025f33e5b7d86f4ac9ab34c73927dd939cbe697eb4ffc65304d61bd"
+      "CatalogSha256": "8f6fbffe3392e37e5d07f44d4101740ae766ad4cb098e7c505562b5aee4a96be"
     }
   },
   "Order": [
