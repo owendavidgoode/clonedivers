@@ -9,6 +9,8 @@ Play the official online Helldivers 2 game directly through Steam.
 
 ## Quick Start for Friends (Windows)
 
+> Note: The default download link above points to live **1.14.2** (`releases/latest`). The 4-step wizard and 3×3×2 options below apply to the [v2.0.0 prerelease](https://github.com/owendavidgoode/clonedivers/releases/tag/v2.0.0) while attended `R2` acceptance completes.
+
 1. **Download and run `Clonedivers.exe`** — because the launcher is self-published, Windows Defender SmartScreen may show **"Windows protected your PC"**. Click **More info** -> **Run anyway**.
 2. **Keep Helldivers 2 installed and updated in Steam** — Clonedivers uses your Steam ownership and HD2 install for Forge's game copy and mandatory account sync. Official online HD2 stays untouched in Steam.
 3. **Allow ~70 GB free space** on a local folder outside OneDrive and Steam (for example `D:\HellForge`).
@@ -22,13 +24,14 @@ Play the official online Helldivers 2 game directly through Steam.
 
 ## Update or Install
 
-The current live public releases on `main` are Windows **1.14.2** and Linux Forge
-**0.8.2**. On **`feat/v2.0-turnkey`**, **Windows 2.0.0** and **Linux Forge 0.9.0**
-stage the turnkey v2.0 overhaul (**EmpireDivers `2026.11.19-r48`**, **Clonedivers
-`2026.11.19-r20`**, and **`build25480438-r5`** with `0` `hf-mod.com` URLs; root
-`manifest*.json` feeds stay at `1.14.2` / `r45-v4` until `R1` asset upload and
-attended `R2` acceptance complete). Update Windows through the launcher. On Linux,
-install the complete `.deb` or extract the full portable archive.
+The current live public releases are Windows **1.14.2** and Linux Forge **0.8.2**.
+**Windows 2.0.0** is published as a prerelease (with Linux Forge **0.9.0** staged as a
+candidate), backed by verified `R1` prerelease asset stores (**EmpireDivers
+`2026.11.19-r48`**, **Clonedivers `2026.11.19-r20`**, and **`build25480438-r5`** with
+`0` `hf-mod.com` URLs); `releases/latest` and root `manifest*.json` feeds stay at
+`1.14.2` / `r45-v4` until attended `R2` acceptance completes. Update Windows through
+the launcher. On Linux, install the complete `.deb` or extract the full portable
+archive.
 
 New players press **Set up Clonedivers** on Windows or **Set up / update Forge**
 on Linux. Windows checks for at least **70 GB** (`70 GiB`) free on the Forge
@@ -140,14 +143,24 @@ warnings, `163,000+` C unit/integration checks + LuaJIT `lua51.dll` bytecode che
 `mp_sim_test.py` (`65` 4-peer mixed co-op, ModSync, late-join, and host-migration
 checks), all `5` offline launcher/bridge/Linux/forge-lab test suites (`0` failures,
 `0` warnings), and isolated `tools/uia-wizard-smoke.ps1` (`ALL UIA SINGLE-WIZARD SMOKE
-CHECKS PASSED`). See [Forge setup and status](docs/FORGE.md) and [STATUS.md](docs/STATUS.md).
-Attended live `R2` desktop verification (`runtimeTested: false` until `R2` completes)
-remains open for S2c AT-ST walkers, `empire-tie-switch 0.3.0` sorties, `chaos-invasions
-0.3.0` 4-peer co-op & host migration, Compact LEGO Clones, Imperial 5090 voices,
-`reduced512` weak-PC VRAM/frame-time, Linux Proton gameplay, and separate-PC squad
-sessions ([squad checklist](docs/HELLFORGE-SQUAD-ACCEPTANCE.md)). Native Quit
-hanging/teardown crashes (`+0x626296`) and ship distortion remain open; use **End
-session** for official cleanup.
+CHECKS PASSED`). Automated Wave 3 live verification additionally passed **`10/10`**
+serialized `helldivers2.exe` runs (`exitCode=0`, `0` crashes/dumps/writer failures/Chaos
+fallbacks, `118/118` screenshots verified across `Empire r48` Compact LEGO, K-2SO, Bad
+Batch, and unfolded E-Web; `Clones r20` 4 sampled Compact LEGO kits — Cody, Coruscant
+Guard, Rex, and 501st — plus `Mixed Bots + CIS` and `Covenant 1670`; `chaos-invasions
+0.3.0`; `Heavy SEAF`; and live `empire-lego-yoda 0.2.0`), plus a 6-run `PresentMon
+2.5.1` benchmark on a single high-VRAM test PC (`1280x720`) proving `Johnson
+Ultra-Potato 512px` cuts Peak Dedicated VRAM `-40.6%` (`18,154.53 -> 10,784.25 MiB`),
+Shared GPU spillover `-96.0%`, WorkingSet RAM `-44.5%`, and Boot-to-Ship `-27.7%`
+(background average FPS did not improve in this test). See [Forge setup and
+status](docs/FORGE.md) and [STATUS.md](docs/STATUS.md). Attended live `R2` desktop
+verification (`runtimeTested: false` until attended `R2` passes) remains open for
+EXO-45/49 walker pod call-in, live Eagle TIE beacon throws, speaker voice mix, Empire
+Covenant (`patch_1032`) coexistence, Phase I Shiny and 212th Compact LEGO Clone kits,
+weak-PC (low-VRAM) `512px` frame-time, 4-peer human co-op & host migration, clean-PC
+wizard run, Linux Proton gameplay, and separate-PC squad sessions ([squad
+checklist](docs/HELLFORGE-SQUAD-ACCEPTANCE.md)). Native Quit hanging/teardown crashes
+(`+0x626296`) and ship distortion remain open; use **End session** for official cleanup.
 
 ## Steam Cleanup and Recovery
 

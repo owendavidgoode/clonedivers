@@ -1,11 +1,13 @@
 # Clonedivers Release and Project Status
 
-## November 19, 2026 (`v2.0.0` / `linux-v0.9.0` staged on `feat/v2.0-turnkey`; feeds-last pending `R1` + `R2`): Turnkey 4-Step Wizard, `r48` Empire, `r20` Clones & `build25480438-r5`
+## November 19–20, 2026 (`v2.0.0` prerelease; `R1` published, `R2` pending; feeds-last): Turnkey 4-Step Wizard, `r48` Empire, `r20` Clones & `build25480438-r5`
 
 Live public feeds (`manifest.json`, `manifest-v3.json`, `manifest-v3-current.json`)
-remain untouched at **Windows `1.14.2` / Linux `0.8.2` / `r45-v4`** until `R1` GitHub
-Release uploads and attended `R2` desktop verification complete. On **`feat/v2.0-turnkey`**,
-**Windows `2.0.0`** and **Linux Forge `0.9.0`** integrate the full v2.0 turnkey UX,
+and `releases/latest` remain untouched at **Windows `1.14.2` / Linux `0.8.2` /
+`r45-v4`** until attended `R2` desktop verification completes (`R1` prerelease asset
+stores are uploaded and verified at HTTP 200 across all 653 pack/manifest and 14
+gameplay URLs). As the **Windows `v2.0.0` prerelease** (with **Linux Forge `0.9.0`**
+staged as a candidate), this release integrates the full v2.0 turnkey UX,
 post-`hf-mod.com` **`build25480438-r5`** gameplay preset, **6 project-owned SDK-16
 runtime mods**, **18-combination EmpireDivers `2026.11.19-r48`**, and **36-combination
 Clonedivers `2026.11.19-r20`**:
@@ -20,7 +22,7 @@ Clonedivers `2026.11.19-r20`**:
   `Johnson Ultra-Potato (512px)` `reduced512`) × **Covenant** (`1670`) controls across
   Windows, Linux (`ForgeWindow`), and `HellForge.Launcher.ClonediversBridge`. See
   [v2.0.0](releases/v2.0.0.md) and [linux-0.9.0](releases/linux-0.9.0.md).
-- **Gameplay catalog `build25480438-r5` (`14` downloads, `8,290,382` bytes, `0` `hf-mod.com` URLs):**
+- **Gameplay catalog `build25480438-r5` (`14` downloads, `8,294,265` bytes, `0` `hf-mod.com` URLs):**
   - Eliminates `hf-mod.com` URLs on its `2026-11-19` public-download shutdown:
     mirrors permissive `0BSD`/`MIT` runtime mods (`cowboybingus.vanilla-plus-megapack`
     `0.2.1` `794,057` B fixing HF `0.4.0` startup crash and integrating `Mod Options
@@ -66,12 +68,7 @@ Clonedivers `2026.11.19-r20`**:
     Clone strings), `mixed-droids`, `reduced512` (`4,771,760,418` B vs `9,384,254,636` B
     Full on `commandos + all-droids`), and `Covenant`. Vault deduplication across all
     `54/54` verified scenarios produces `653` unique blobs (`50,143,280,990` B).
-- **Verification level reached (`runtimeTested: false`):** Official `verify_candidate.py`
-  passed across all **`54/54`** `r48` & `r20` matrix combinations (`VERIFIER_EXIT=0`),
-  `run-suites.ps1` (`0` failures, `0` warnings across `windows`, `bridge`, `linux-steam`,
-  `linux-forge`, `forge-lab`), isolated `tools/uia-wizard-smoke.ps1` (`ALL UIA
-  SINGLE-WIZARD SMOKE CHECKS PASSED`), and `mp_sim_test.py` (`65` 4-peer simulation
-  checks PASS). Live desktop `R2` sessions remain required before feed promotion.
+- **Verification level reached (`runtimeTested: false` until attended `R2` passes):** Official `verify_candidate.py` passed across all **`54/54`** `r48` & `r20` matrix combinations (`VERIFIER_EXIT=0`), `run-suites.ps1` (`0` failures, `0` warnings across `windows`, `bridge`, `linux-steam`, `linux-forge`, `forge-lab`), isolated `tools/uia-wizard-smoke.ps1` (`ALL UIA SINGLE-WIZARD SMOKE CHECKS PASSED`), and `mp_sim_test.py` (`65` 4-peer simulation checks PASS). Automated Wave 3 live verification passed **`10/10`** serialized `helldivers2.exe` runs (`exitCode=0`, `0` crashes/dumps/writer failures/Chaos fallbacks, `118/118` screenshots verified across `Empire r48` Compact LEGO + K-2SO + Bad Batch + unfolded E-Web, `Clones r20` 4 sampled Compact LEGO kits — Cody, Coruscant Guard, Rex, 501st — plus `Mixed Bots + CIS` + `Covenant 1670`, `chaos-invasions 0.3.0` foreign waves, `Heavy SEAF`, and live `empire-lego-yoda 0.2.0` firing), plus a 6-run `PresentMon 2.5.1` benchmark on a single high-VRAM test PC (`1280x720`) proving `Johnson Ultra-Potato 512px` cuts Peak Dedicated VRAM `-40.6%` (`18,154.53 -> 10,784.25 MiB`), Shared GPU spillover `-96.0%`, WorkingSet RAM `-44.5%`, and Boot-to-Ship `-27.7%` (background average FPS did not improve in this test). Attended live desktop `R2` checks (EXO-45/49 walker pod call-in, live Eagle TIE beacon throws, speaker voice mix, Empire Covenant (`patch_1032`) coexistence, Phase I Shiny and 212th Clone kits, weak-PC (low-VRAM) `512px` frame-time, 4-peer human co-op & host migration, clean-PC wizard run, and Linux Proton gameplay) remain required before feed promotion.
 
 ## November 16, 2026 (`v1.14.2` / `linux-v0.8.2` live; `R1` published, `R2` pending): 4-way Compact LEGO Empire r47 + `build25480438-r4`
 
