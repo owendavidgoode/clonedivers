@@ -33,7 +33,7 @@ try {
     if($LASTEXITCODE -ne 0) { throw 'Package failed' }
     & 'C:\Users\goode\AppData\Local\Programs\Python\Python313\python.exe' "$mod\tools\delivery.py" verify | Tee-Object "$mod\build\verify.log"
     if($LASTEXITCODE -ne 0) { throw 'Delivery verification failed' }
-    $zipPath=Join-Path $out 'chaos-invasions-0.2.0.zip'
+    $zipPath=Join-Path $out 'chaos-invasions-0.3.0.zip'
     $zipItem=Get-Item -LiteralPath $zipPath
     $zipSha=(Get-FileHash -LiteralPath $zipPath -Algorithm SHA256).Hash.ToLowerInvariant()
     $folderHashJson=& $CliPath mod-hash --mod $stage

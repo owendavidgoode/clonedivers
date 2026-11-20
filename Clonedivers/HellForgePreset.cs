@@ -3,24 +3,30 @@ namespace Clonedivers;
 /// <summary>Player preset presence checks. These do not certify artifact hashes or multiplayer.</summary>
 public static class HellForgePreset
 {
-    public static bool IsConflictingAlternative(HellForgeMod mod) => mod.Id is "local.clonedivers-mine-boundary" or "pack.80a03e3b-a671-4e54-a2ce-52c35bb64c91" ||
-        System.Text.RegularExpressions.Regex.IsMatch(mod.Name, @"(?i)SEAF[ -]?Companion|Pick\s*Your\s*(Bots|Bugs|Squids|Enemies)|Gameplay Reforged|Supreme Command|SEAF Commander|Armored Overhaul") ||
-        mod.Name.Contains("Smarter SEAF", StringComparison.OrdinalIgnoreCase) && mod.Id != "chef.smarter-seaf";
+    public static bool IsConflictingAlternative(HellForgeMod mod) =>
+        mod.Id is "local.clonedivers-mine-boundary" or "pack.80a03e3b-a671-4e54-a2ce-52c35bb64c91" or "pack.95ef276a-6287-465f-ac5b-8512d2227b74" or "chef.smarter-seaf" ||
+        System.Text.RegularExpressions.Regex.IsMatch(mod.Name, @"(?i)SEAF[ -]?Companion|Pick\s*Your\s*(Bots|Bugs|Squids|Enemies)|Gameplay Reforged|Supreme Command|SEAF Commander|Armored Overhaul|Scope Framing|Captain of the S\.E\.A\.F\.|Chaos Divers|Cyberstan Rising") ||
+        mod.Name.Contains("Smarter SEAF", StringComparison.OrdinalIgnoreCase) && mod.Id != SmarterSeaf;
+    public const string BingusSharedLoader = "pack.612eaf70-d682-43c7-9efd-16dcc695f977";
+    public const string SmarterSeaf = "pack.f7c3abbe-902c-41a7-8183-057a6ab15768";
     public const string GuardDogs = "pack.6f1d2c8e-5a47-4b93-9e0a-3c7b1f4d8a21";
     public const string CleanExit = "clonedivers.clean-exit";
     public const string LegoCompactLeafWriter = "clonedivers.lego-compact-leaf-writer";
     public const string EmpireLegoYoda = "clonedivers.empire-lego-yoda";
+    public const string EmpireAtstWriter = "clonedivers.empire-atst-writer";
+    public const string EmpireTieSwitch = "clonedivers.empire-tie-switch";
     public const string ChaosInvasions = "clonedivers.chaos-invasions";
-    public static readonly string[] Optional = [CleanExit, LegoCompactLeafWriter, EmpireLegoYoda, ChaosInvasions];
+    public static readonly string[] Optional = [CleanExit, LegoCompactLeafWriter, EmpireLegoYoda, EmpireAtstWriter, EmpireTieSwitch, ChaosInvasions];
     public static readonly (string Id, string Name, string Version)[] Required = [
         ("hellforge.editor", "HellForge Editor", "0.4.2"),
         ("skyeshade.hell-forge", "Hell Forge Difficulty", "0.16.1"),
-        ("chef.smarter-seaf", "Smarter SEAF", "1.1.0"),
-        ("local.heavy-seaf-presence", "Heavy SEAF Presence Everywhere", "1.2.0-clonedivers.3"),
-        ("local.mod-9fd7880666f6", "SEAF Squad Stratagems", "0.1.4-clonedivers.2"),
-        ("local.operation-reroller", "Operation Reroller", "0.1.2"),
-        ("pack.612eaf70-d682-43c7-9efd-16dcc695f977", "Bingus Shared Loader - v20", ""),
-        ("pack.95ef276a-6287-465f-ac5b-8512d2227b74", "Mod Options Menu v1.2.1", ""),
+        ("local.hf-shared-dispatcher", "Shared Callback Manager", "0.1.0"),
+        ("local.operation-reroller", "Operation Reroller", "0.1.6"),
+        ("cowboybingus.vanilla-plus-megapack", "Vanilla Plus Megapack", "0.2.1"),
+        ("local.heavy-seaf-presence", "Heavy SEAF Presence Everywhere", "1.2.0-clonedivers.4"),
+        ("local.mod-9fd7880666f6", "SEAF Squad Stratagems", "0.1.4-clonedivers.3"),
+        (BingusSharedLoader, "Bingus Shared Loader - v20", ""),
+        (SmarterSeaf, "Smarter SEAF 1.0.4", ""),
         (GuardDogs, "Smarter Guard Dogs & Sentries 5.2.0", "")
     ];
 
@@ -40,8 +46,8 @@ public static class HellForgePreset
                 issues.Add("Check the author artifact/version for " + required.Name);
         }
         bool Enabled(string id) => catalog.Mods.Any(m => m.Enabled && m.Id == id);
-        if (!Enabled("skyeshade.vanilla-plus") && !Enabled("pack.80a03e3b-a671-4e54-a2ce-52c35bb64c91"))
-            issues.Add("Enable Vanilla Plus or Reinforcement Beacons Fixed");
+        if (!Enabled("skyeshade.vanilla-plus") && !Enabled("cowboybingus.vanilla-plus-megapack") && !Enabled("pack.80a03e3b-a671-4e54-a2ce-52c35bb64c91"))
+            issues.Add("Enable Vanilla Plus or Vanilla Plus Megapack");
         // HellForge lists client-only mods after every gameplay mod whatever order it stores, and
         // optional mods may be disabled or reordered by the player, so optional artifacts have no checkable position.
         var order = HellForgeGameplayCatalog.Pinned.Order.Where(id => catalog.Mods.Any(m => m.Id == id) &&

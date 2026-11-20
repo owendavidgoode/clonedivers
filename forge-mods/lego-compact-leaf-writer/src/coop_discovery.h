@@ -439,8 +439,8 @@ static int coop_find_slot_ptr(const Manager *m, uintptr_t unit_ptr, uint32_t *ou
 }
 
 static int coop_topology_valid(uint32_t target_kind, const UnitMeta *child, Topology topo[NODE_LIMIT]) {
-    static const uint32_t expectedNodeCounts[7] = {21, 21, 43, 21, 43, 17, 29};
-    if (target_kind >= 7u || child->nodes != expectedNodeCounts[target_kind]) return 0;
+    const cm_garment *g = cm_garment_at(target_kind);
+    if (!g || child->nodes != g->count) return 0;
     if (!Read(child->topology, topo, (size_t)child->nodes * 4u)) return 0;
     for (uint32_t i = 0; i < child->nodes; i++) {
         if (topo[i].type == 2u) { if (topo[i].node >= 107u) return 0; }
@@ -844,7 +844,7 @@ static int CoopCaptureTarget(gw_state *s, const se_observe_context *ctx, Record 
     if (slot->child_index >= openMgr.capacity || slot->parent_index >= openMgr.capacity ||
         !MetaRead(&openMgr, slot->child_index, &out->child, NODE_LIMIT) ||
         out->child.id.unit != slot->child_unit || out->child.id.generation != slot->child_gen ||
-        out->child.id.resource != slot->garment_resource || !Target(out->child.id.resource)) {
+        out->child.id.resource != slot->garment_resource || !cm_garment_find(out->child.id.resource, NULL)) {
         return coop_capture_passthrough(s, slot, 1, 0, "child_unit_retired");
     }
     if (!MetaRead(&openMgr, slot->parent_index, &out->parent, PARENT_NODE_LIMIT) ||

@@ -132,7 +132,7 @@ CM_API cm_status cm_compose(const cm_render48 *left,const cm_render48 *right,cm_
  }
  memcpy(out,&result,sizeof result); return CM_OK;
 }
-CM_API const cm_garment *cm_garment_at(uint32_t index) {return index<7?&cm_garments[index]:NULL;}
+CM_API const cm_garment *cm_garment_at(uint32_t index) {return index<7?&cm_garments[index]:cm_dynamic_garment_at(index);}
 
 CM_API cm_status cm_prepare(cm_rig *out,const double basis[9],uint32_t known,cm_policy policy) {
  if(!out || !basis) return CM_ARGUMENT;

@@ -11,9 +11,9 @@ internal static class GameplayNativeTests
         try
         {
             var root = Path.Combine(fixture, "gameplay-native", "pfx", "drive_c", "Forge Folder");
-            check(HellForgeGameplayCatalog.Pinned.Id == "build25480438-r4" && HellForgeGameplayCatalog.Pinned.Artifacts.Count == 11 &&
+            check(HellForgeGameplayCatalog.Pinned.Id == "build25480438-r5" && HellForgeGameplayCatalog.Pinned.Artifacts.Count == 14 &&
                 HellForgeGameplayCatalog.Pinned.Artifacts.Where(a => a.Optional).Select(a => a.Id).ToHashSet(StringComparer.Ordinal).SetEquals(HellForgePreset.Optional),
-                "bridge embeds and validates the r4 gameplay catalog with all four optional mods");
+                "bridge embeds and validates the r5 gameplay catalog with all six optional mods");
             var connection = new Connection(root);
             var player = new LinuxForgePlayer(connection, new() { InstallRoot = root });
             await player.InstallGameplayAsync();

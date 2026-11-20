@@ -1,9 +1,25 @@
 # JohnsonMode(tm)
 
-September 23 naming update: the new launcher calls its existing Full/Lighter switch
-**JohnsonPotatoMode™**. On currently means full-resolution streamed textures.
-The reduced-resolution builds below remain historical experiments and have not
-been rebased onto the current asset pack or silently installed by that switch.
+## November 2026 (`v2.0.0` / `linux-v0.9.0`): `Johnson Ultra-Potato (512px)` (`reduced512`) Integrated in `r48` & `r20`
+
+Starting in **Clonedivers 2.0.0** (Windows) and **Clonedivers Forge Linux 0.9.0**, both **Clonedivers (`2026.11.19-r20`)** and **EmpireDivers (`2026.11.19-r48`)** ship three verified Format-3 `textureProfiles` selectable directly in the Setup Wizard and main launcher across every enemy-skin (`All CIS Droids`, `Mixed Bots + CIS Droids`, `Native Automatons`) and `Covenant` combination:
+
+1. **`full` (`Full`)**: Uncapped mip chains resident in `.gpu_resources` for high-VRAM desktop GPUs (`>= 12–16 GB VRAM`).
+2. **`lighter` (`Lighter (Streamed)`)**: Lossless full-resolution texture streaming built with [Stingray Texture Optimizer](https://github.com/Shiroiame-Kusu/StingrayTextureOptimizer) (`--stream 512 --strategy quality --no-dedup`, no `--max-size`). Mips above `512 px` move byte-for-byte into `.stream` while `<= 512 px` tails stay resident in `.gpu_resources`.
+3. **`reduced512` (`Johnson Ultra-Potato (512px)`)**: Lossy reduced-resolution streaming profile built with Stingray Texture Optimizer (`--max-size 512 --stream 128 --strategy quality --no-dedup --reprocess-streamed`). Caps modded textures at `512 px` maximum and keeps only `<= 128 px` mips resident in `.gpu_resources`, cutting both resident `.gpu_resources` and on-demand `.stream` footprints for `6–8 GB VRAM` GPUs, handhelds, and slower storage.
+
+### Scope and Qualification Boundaries (`v2.0.0`)
+- **What `reduced512` changes:** Texture mip caps (`512 px` max) and resident mip tails (`128 px`) only. Every armor/vehicle/droid unit mesh, skeleton, animation, Wwise audio bank, particle effect, and option layer (`patch_1000..1036` / `patch_1000..1032` in `r48`, `clonedivers`/`commandos` `patch_0..37` / `patch_0..33` in `r20`) is preserved intact. On `Empire r48` (`All CIS Droids`, `Covenant OFF`), `reduced512` lowers resident `.gpu_resources` from `9.00 GiB` (`Full`) and `3.34 GiB` (`Lighter`) to **`2.62 GiB` (`-70.9%`)** and cuts total disk footprint from `10.67 GiB` to **`4.98 GiB` (`-53.3%`)**; on `Clones r20` (`Delta Squad`, `All CIS Droids`, `Covenant OFF`), `reduced512` lowers resident `.gpu_resources` from `7.96 GiB` to **`3.34 GiB` (`-58.1%`)** and total disk from `8.75 GiB` to **`4.45 GiB` (`-49.1%`)**.
+- **Visual trade-off:** Deliberately lossy — large hull plates (Venator, Star Destroyer, AT-ST, Bastion) and close-up armor decals appear softer than `Full` or `Lighter (Streamed)`. Mesh vertex buffers and draw calls are unchanged.
+- **Backwards compatibility:** When resolving against older `r47` or `r19` two-tier manifests (`full` / `lighter`), `HellForgePack` automatically maps `reduced512` to `lighter` without failing setup or migration.
+- **Verification status:** All `r48` and `r20` `reduced512` combinations pass offline Stingray bundle verification (`verify_candidate.py`: `0` missing dependencies, `0` unresolved geometry providers, `0` audio codec mismatches, `0` roundtrip errors) and launcher/bridge/Linux test suites. Live weak-PC FPS, frame-time, and VRAM measurements on build `25480438` remain open (`runtimeTested: false` pending attended `R2` desktop sessions).
+
+---
+
+## Historical Notes (September 2026 Steam-Era `r6`–`r10` Experiments)
+
+September 23 naming update: the Steam-era `1.6.0` launcher called its existing Full/Lighter switch
+**JohnsonPotatoMode™** (selecting full-resolution streamed textures at the time while keeping the `r6` 512px build below as a separate experiment).
 
 Experimental performance build, keeping every mod and optional group in r6.
 

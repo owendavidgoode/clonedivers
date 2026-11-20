@@ -10,7 +10,7 @@ public sealed partial class HellForgeClient
     sealed record GameplayBackup(string Id, string Archive, long Bytes, string Sha256, string ContentHash);
     sealed record GameplaySnapshot(string Root, HellForgeMods Mods, List<GameplayBackup> Backups, bool HadShare = false, bool Share = true);
     sealed record GameplayIntent(string Root, string Catalog, string Backup, string SnapshotSha256, string State,
-        bool OptionalDefaultsApplied = false, string[]? OptionalDefaults = null);
+        bool OptionalDefaultsApplied = false, string[]? OptionalDefaults = null, string? PriorCatalog = null);
     public string GameplayCache => Path.Combine(CacheRoot, "gameplay", HellForgeGameplayCatalog.Pinned.Id);
     string GameplayIntentPath => PackIntentPath + ".gameplay.json";
     HashSet<string> AppliedOptionalDefaults()
@@ -25,11 +25,18 @@ public sealed partial class HellForgeClient
             if (intent.Catalog == HellForgeGameplayCatalog.Pinned.Id)
                 foreach (var artifact in HellForgeGameplayCatalog.Pinned.Artifacts.Where(a => a.Optional))
                     applied.Add(artifact.Id);
+            else if (intent.Catalog == "build25480438-r4")
+                foreach (var id in new[] { HellForgePreset.CleanExit, HellForgePreset.LegoCompactLeafWriter, HellForgePreset.EmpireLegoYoda, HellForgePreset.ChaosInvasions })
+                    applied.Add(id);
             else if (intent.Catalog == "build25480438-r3")
                 applied.Add(HellForgePreset.CleanExit);
         }
         return applied;
     }
+    static bool IsRetiredOptionalDefault(string id, string version) => (id, version) is
+        (HellForgePreset.LegoCompactLeafWriter, "0.0.9") or
+        (HellForgePreset.EmpireLegoYoda, "0.1.0" or "0.1.2") or
+        (HellForgePreset.ChaosInvasions, "0.2.0");
     bool GameplayDefaultsApplied
     {
         get
@@ -87,13 +94,17 @@ public sealed partial class HellForgeClient
         var catalog = await ModsAsync(ct);
         if (catalog.Problems.Length != 0) throw new InvalidDataException("Resolve the mod catalog errors first: " + string.Join("; ", catalog.Problems));
         var missing = new List<GameplayArtifact>();
+        var intent = ReadGameplayIntent();
         var appliedDefaults = AppliedOptionalDefaults();
         foreach (var artifact in HellForgeGameplayCatalog.Pinned.Artifacts)
         {
             var found = catalog.Mods.SingleOrDefault(m => m.Id == artifact.Id);
             // Offer each optional default once. Later removal, disabling or replacement
-            // belongs to the player, including while required mods or newer optionals are applied.
-            if (artifact.Optional && (appliedDefaults.Contains(artifact.Id) || found is { Enabled: false })) continue;
+            // belongs to the player, while enabled prior-catalog defaults upgrade cleanly.
+            var upgradingEnabledPriorDefault = artifact.Optional && intent != null &&
+                intent.Catalog != HellForgeGameplayCatalog.Pinned.Id &&
+                found is { Enabled: true } && IsRetiredOptionalDefault(artifact.Id, found.Version);
+            if (artifact.Optional && !upgradingEnabledPriorDefault && (appliedDefaults.Contains(artifact.Id) || found is { Enabled: false })) continue;
             if (found == null || artifact.Version.Length > 0 && found.Version != artifact.Version || artifact.Version.Length == 0 && found.Name != artifact.Name)
             { missing.Add(artifact); continue; }
             ValidateModFolder(found.Folder);
@@ -183,9 +194,16 @@ public sealed partial class HellForgeClient
         var snapshotPath = FileSafety.Child(backup, "before.json");
         using (var file = new FileStream(snapshotPath, FileMode.CreateNew, FileAccess.Write, FileShare.None))
         { await JsonSerializer.SerializeAsync(file, snapshot, HellForgePack.Json, ct); file.Flush(flushToDisk: true); }
+        var priorIntent = ReadGameplayIntent();
         var priorDefaults = AppliedOptionalDefaults();
+        var priorCatalog = priorIntent == null || (priorIntent.PriorCatalog == "none" && priorIntent.State != "applied")
+            ? "none"
+            : priorIntent.State == "pending"
+                ? (priorIntent.PriorCatalog ?? priorIntent.Catalog)
+                : priorIntent.Catalog;
         var intent = new GameplayIntent(Root, HellForgeGameplayCatalog.Pinned.Id, backup, await HellForgePack.HashAsync(snapshotPath, ct), "pending",
-            GameplayDefaultsApplied, priorDefaults.Count == 0 ? null : priorDefaults.OrderBy(id => id, StringComparer.Ordinal).ToArray());
+            GameplayDefaultsApplied, priorDefaults.Count == 0 ? null : priorDefaults.OrderBy(id => id, StringComparer.Ordinal).ToArray(),
+            priorCatalog);
         await RequireGameplayIdleAsync(ct); ct.ThrowIfCancellationRequested(); WriteGameplayIntent(intent);
         try
         {
@@ -208,7 +226,8 @@ public sealed partial class HellForgeClient
             {
                 State = "applied",
                 OptionalDefaultsApplied = true,
-                OptionalDefaults = HellForgeGameplayCatalog.Pinned.Artifacts.Where(a => a.Optional).Select(a => a.Id).OrderBy(id => id, StringComparer.Ordinal).ToArray()
+                OptionalDefaults = HellForgeGameplayCatalog.Pinned.Artifacts.Where(a => a.Optional).Select(a => a.Id).OrderBy(id => id, StringComparer.Ordinal).ToArray(),
+                PriorCatalog = null
             });
             progress?.Report(after.HostingProblem ?? "Required gameplay mods installed and configured.");
         }
@@ -235,7 +254,7 @@ public sealed partial class HellForgeClient
             await RequireGameplayIdleAsync(ct);
             await commands.RunAsync(["mod-switch", "--id", mod.Id, "--on", on ? "yes" : "no"], ct);
         }
-        foreach (var id in new[] { "pack.612eaf70-d682-43c7-9efd-16dcc695f977", "pack.95ef276a-6287-465f-ac5b-8512d2227b74" })
+        foreach (var id in new[] { HellForgePreset.BingusSharedLoader, HellForgePreset.SmarterSeaf })
         {
             await RequireGameplayIdleAsync(ct); await commands.RunAsync(["mod-pack", "--id", id, "--all", "yes"], ct);
         }
@@ -381,6 +400,9 @@ public sealed partial class HellForgeClient
             if (await GameplayHashAsync(restoredPath, ct) != copy.ContentHash)
                 throw new InvalidDataException("Previous gameplay content could not be confirmed restored: " + actual.Name);
         }
-        WriteGameplayIntent(intent with { State = "restored" });
+        if (intent.PriorCatalog == "none")
+            WriteGameplayIntent(intent with { State = "restored", OptionalDefaultsApplied = false, OptionalDefaults = null });
+        else
+            WriteGameplayIntent(intent with { State = "restored", Catalog = intent.PriorCatalog ?? intent.Catalog });
     }
 }

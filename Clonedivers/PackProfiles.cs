@@ -83,6 +83,8 @@ public static class PackProfiles
         {
             if (!Require(file.Option, true) || !Require(file.UnlessOption, false)) return false;
         }
+        if (requirements.TryGetValue("mixed-droids", out var mixed) && mixed && !Require("droids", true)) return false;
+        if (requirements.TryGetValue("mixed_droids", out var mixedUnder) && mixedUnder && !Require("droids", true)) return false;
         return true;
         bool Require(string? id, bool value)
         {

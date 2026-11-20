@@ -3,11 +3,13 @@
 from __future__ import annotations
 
 import argparse
+import bisect
 from collections import Counter, defaultdict
 import csv
 import functools
 import json
 import logging
+import math
 from pathlib import Path
 import struct
 import sys
@@ -56,6 +58,13 @@ def geometry_provider_scan(resources: dict, index: dict) -> dict:
                 at = struct.unpack_from('<I', raw, 100)[0]
                 names = struct.unpack_from(f'<{len(meshes)}I', raw, at + 4 + 4 * len(meshes)) if meshes else ()
                 record['meshNames'] = [f'{name:08x}' for name in names]
+                needle = needles.get(group) or struct.pack('<Q', group)
+                first_hit = raw.find(needle)
+                other_hit = first_hit not in (-1, 16) or (first_hit == 16 and raw.find(needle, 17) != -1)
+                if provider_key not in resources and struct.unpack_from('<I', raw, 48)[0] != 0 and not pointers(raw, 48) and not other_hit:
+                    record['lodCount'] = 0
+                    references.append(record)
+                    continue
             references.append(record)
             if provider_key not in resources:
                 findings.append({**record, 'reason': 'Native existence does not prove residency. Include provider or inline geometry'})
@@ -92,6 +101,8 @@ def pointers(raw: bytes, field: int) -> list[int]:
     at = struct.unpack_from('<I', raw, field)[0]
     if not at:
         return []
+    if at + 4 > len(raw):
+        raise ValueError('Invalid bounded pointer table')
     count = struct.unpack_from('<I', raw, at)[0]
     if count > 10000 or at + 4 + 4 * count > len(raw):
         raise ValueError('Invalid bounded pointer table')
@@ -110,21 +121,78 @@ def material_map(raw: bytes) -> dict[int, int]:
 
 
 def lod_descriptors(raw: bytes) -> list[list[int]]:
+    if len(raw) < 116:
+        raise ValueError('Invalid LOD table')
+    at48 = struct.unpack_from('<I', raw, 48)[0]
+    if not at48:
+        return []
+    hdr_offs = [struct.unpack_from('<I', raw, f)[0] for f in (48, 52, 88, 92, 96, 100, 104, 108, 112)]
+    upper = min([o for o in hdr_offs if o > at48] + [len(raw)])
     entries = []
+    total_indices = 0
     meshes = pointers(raw, 100)
-    for at in pointers(raw, 48):
-        levels = struct.unpack_from('<I', raw, at + 16)[0]
-        if levels > 10000 or at + 20 + 4 * levels > len(raw):
+    ptrs = pointers(raw, 48)
+    tbl_end = at48 + 4 + 4 * len(ptrs)
+    if tbl_end > upper or (ptrs and ptrs[0] < tbl_end):
+        raise ValueError('Invalid LOD table')
+    for idx, at in enumerate(ptrs):
+        rec_end = ptrs[idx + 1] if idx + 1 < len(ptrs) else upper
+        if at >= rec_end or rec_end > upper or rec_end > len(raw) or at + 20 > rec_end:
             raise ValueError('Invalid LOD table')
+        footers, levels = struct.unpack_from('<II', raw, at + 12)
+        hdr_sz = 20 + 4 * levels + 4 * footers
+        if levels > 10000 or footers > 1000 or at + hdr_sz > rec_end:
+            raise ValueError('Invalid LOD table')
+        if levels > 0 and footers == 0:
+            raise ValueError('Invalid LOD footer')
+        step_spans = []
         for i in range(levels):
-            entry = at + struct.unpack_from('<I', raw, at + 20 + 4 * i)[0]
-            count = struct.unpack_from('<I', raw, entry + 8)[0]
-            if count > 10000 or entry + 12 + 4 * count > len(raw):
+            rel = struct.unpack_from('<I', raw, at + 20 + 4 * i)[0]
+            if rel < hdr_sz:
                 raise ValueError('Invalid LOD entry')
+            entry = at + rel
+            if entry + 12 > rec_end:
+                raise ValueError('Invalid LOD entry')
+            count = struct.unpack_from('<I', raw, entry + 8)[0]
+            if count > 10000 or entry + 12 + 4 * count > rec_end:
+                raise ValueError('Invalid LOD entry')
+            step_spans.append((rel, rel + 12 + 4 * count))
+            total_indices += count
+            if total_indices > 100000:
+                raise ValueError('Invalid LOD descriptor')
             indices = list(struct.unpack_from(f'<{count}I', raw, entry + 12))
             if any(v >= len(meshes) for v in indices):
                 raise ValueError('Invalid LOD descriptor')
             entries.append(indices)
+        merged_starts: list[int] = []
+        merged_ends: list[int] = []
+        for s0, s1 in sorted(step_spans):
+            if merged_ends and s0 <= merged_ends[-1]:
+                if s1 > merged_ends[-1]:
+                    merged_ends[-1] = s1
+            else:
+                merged_starts.append(s0)
+                merged_ends.append(s1)
+        for i in range(footers):
+            frel = struct.unpack_from('<I', raw, at + 20 + 4 * levels + 4 * i)[0]
+            if frel < hdr_sz or at + frel + 40 > rec_end:
+                raise ValueError('Invalid LOD footer')
+            pos = bisect.bisect_left(merged_starts, frel + 40)
+            if pos > 0 and merged_ends[pos - 1] > frel:
+                raise ValueError('Invalid LOD footer')
+            # 40B Stingray LODData footer: <7f (AABB min3, max3, radius) @ +0..28, u32 flags @ +28..32, f32 lod_scale @ +32..36, u32 tail @ +36..40
+            vals7 = struct.unpack_from('<7f', raw, at + frel)
+            mnx, mny, mnz, mxx, mxy, mxz, rad = vals7
+            lod_scale = struct.unpack_from('<f', raw, at + frel + 32)[0]
+            if not (
+                all(math.isfinite(x) for x in (*vals7, lod_scale))
+                and mnx <= mxx
+                and mny <= mxy
+                and mnz <= mxz
+                and rad >= 0.0
+                and lod_scale > 0.0
+            ):
+                raise ValueError('Invalid LOD footer')
     return entries
 
 
@@ -345,6 +413,7 @@ def verify(candidate: Path) -> int:
         if key[1] != P.UNIT:
             continue
         raw = main_part(key)
+        lod_descriptors(raw)
         for field, kind, role in ((8, 0x18dead01056b72e9, 'bones'), (32, 0xa486d4045106165c, 'state-machine'), (16, 0xc4f0f4be7fb0c8d6, 'geometry-group')):
             value = struct.unpack_from('<Q', raw, field)[0]
             if value:

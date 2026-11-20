@@ -127,6 +127,26 @@ static uint32_t g_last_faction_masks[CHAOS_FACTIONS];
 static uint32_t g_last_player_mask = 0;
 static unsigned g_perception_narrowed_total = 0;
 
+typedef struct ChaosPeerSync {
+    uint64_t peer;
+    uint8_t resident_mask;
+    uint8_t hello_seen;
+    uint8_t in_mission;
+    uint8_t active;
+    double joined_age;
+    double last_seen_age;
+} ChaosPeerSync;
+
+static ChaosPeerSync g_peer_sync[CHAOS_MAX_PEERS];
+static uint32_t g_mission_epoch = 1u;
+static uint32_t g_wave_seq = 0u;
+static uint8_t g_last_sent_resident_mask = 0xFFu;
+static double g_last_client_status_sent = -10.0;
+static float g_share_poll = 0.0f;
+static int g_shared_dirty = 0;
+static int g_shared_applied = 0;
+static double g_last_foreign_spawn_age = -1000.0;
+
 /* Optional unit-test overrides cleanly compiled out for shipping DLL */
 #ifdef CHAOS_UNIT_TEST
 typedef struct ChaosNativeMock {
@@ -647,13 +667,223 @@ static int Host(void)
     return session.role == HF_SESSION_SOLO || session.role == HF_SESSION_HOST;
 }
 
-static void PreloadForeignTick(uintptr_t gbase, uintptr_t ebase, size_t esize, float dt)
+static int IsCoopHost(void)
+{
+    HfSession session = {0};
+    if (!hf || !hf->session) return 0;
+    hf->session(self, &session);
+    return session.role == HF_SESSION_HOST;
+}
+
+static int HasAuthorityApi(void)
+{
+    return hf && hf->size >= offsetof(HfApi, is_authority) + sizeof hf->is_authority && hf->is_authority != NULL;
+}
+
+static int HasChannelSend(void)
+{
+    return hf && hf->size >= offsetof(HfApi, send) + sizeof hf->send && hf->send != NULL;
+}
+
+static int HasChannelShare(void)
+{
+    return hf && hf->size >= offsetof(HfApi, share_row) + sizeof hf->share_row &&
+           hf->share_set != NULL && hf->share_get != NULL;
+}
+
+static int EntityAuthorityAllowed(uint32_t entity, uint32_t event_authority)
+{
+    if (!Host() || !event_authority) return 0;
+    if (HasAuthorityApi() && entity != 0u && entity != 0xFFFFFFFFu) {
+        int auth = hf->is_authority(self, entity);
+        if (auth == 0) return 0;
+    }
+    return 1;
+}
+
+static uint8_t CurrentForeignResidentMask(void)
+{
+    uint8_t m = 0;
+    for (int f = 0; f < CHAOS_FACTIONS; f++) {
+        if (g_faction_resident[f]) m |= (uint8_t)(1u << f);
+    }
+    return m;
+}
+
+static int CollectRemotePeers(uintptr_t gbase, uint64_t remote_out[CHAOS_MAX_PEERS])
+{
+    uintptr_t pm = 0, user = 0;
+    uint32_t count = 0;
+    uint64_t local_peer = 0;
+    int remote_count = 0;
+
+    if (!gbase || !ReadPtr(gbase + CHAOS_PLAYERS_RVA, &pm) ||
+        !ReadMem(pm + 0x84u, &count, 4) || count == 0u || count > 4u)
+        return -1;
+
+    if (ReadPtr(gbase + CHAOS_LOCAL_USER_RVA, &user)) {
+        ReadMem(user + 0xB398u, &local_peer, 8);
+    }
+
+    for (uint32_t i = 0; i < count; i++) {
+        uint64_t p = 0;
+        if (!ReadMem(pm + 0x2C8u + (uintptr_t)i * 0x38u, &p, 8) || p == 0ULL) continue;
+        if (local_peer && p == local_peer) continue;
+        int dup = 0;
+        for (int j = 0; j < remote_count; j++) {
+            if (remote_out[j] == p) { dup = 1; break; }
+        }
+        if (!dup && remote_count < CHAOS_MAX_PEERS) remote_out[remote_count++] = p;
+    }
+    return remote_count;
+}
+
+static void PublishSharedState(int force)
+{
+    if (!Host() || !HasChannelShare()) return;
+    if (!force && !g_shared_dirty) return;
+
+    ChaosSharedState st;
+    memset(&st, 0, sizeof st);
+    st.magic = CHAOS_SYNC_MAGIC;
+    st.version = CHAOS_SYNC_VERSION;
+    st.native_faction = (g_native_faction >= 0 && g_native_faction < CHAOS_FACTIONS)
+                        ? (uint8_t)g_native_faction : 0xFFu;
+    st.landed = landed ? 1u : 0u;
+    st.mission_spawned = (uint16_t)(g_tracker.mission_spawned > 0 ? g_tracker.mission_spawned : 0);
+    st.attempts = (uint16_t)(clock_state.attempts > 0xFFFFu ? 0xFFFFu : clock_state.attempts);
+    st.epoch = g_mission_epoch;
+    double rem = (landed && clock_state.next > clock_state.age) ? (clock_state.next - clock_state.age) : 0.0;
+    if (rem > 3600.0) rem = 3600.0;
+    st.cooldown_rem_ms = (int32_t)(rem * 1000.0);
+    st.last_wave_seq = g_wave_seq;
+    st.active_wave = g_pending.active ? 1u : 0u;
+    st.active_faction = g_pending.active ? (uint8_t)g_pending.faction : 0xFFu;
+
+    hf->share_set(self, CHAOS_SHARE_KEY_STATE, &st, sizeof st);
+    g_shared_dirty = 0;
+}
+
+static void ApplySharedState(const ChaosSharedState* st)
+{
+    if (Host() || !ChaosSharedStateValid(st)) return;
+
+    if (st->epoch > g_mission_epoch) g_mission_epoch = st->epoch;
+    if (st->last_wave_seq > g_wave_seq) g_wave_seq = st->last_wave_seq;
+    if (g_native_faction < 0 && st->native_faction < CHAOS_FACTIONS) {
+        g_native_faction = (int)st->native_faction;
+    }
+    if (st->landed && !landed) landed = 1;
+    if ((int)st->mission_spawned > g_tracker.mission_spawned) {
+        g_tracker.mission_spawned = (int)st->mission_spawned;
+    }
+    if ((unsigned)st->attempts > clock_state.attempts) {
+        clock_state.attempts = (unsigned)st->attempts;
+    }
+    if (st->landed) {
+        double rem_s = (st->cooldown_rem_ms > 0) ? ((double)st->cooldown_rem_ms / 1000.0) : 0.0;
+        clock_state.next = clock_state.age + rem_s;
+    }
+    g_shared_applied = 1;
+}
+
+static void ReconcilePeers(uintptr_t gbase)
+{
+    if (!IsCoopHost()) return;
+    uint64_t remote[CHAOS_MAX_PEERS] = {0};
+    int remote_count = CollectRemotePeers(gbase, remote);
+    if (remote_count < 0) return;
+
+    /* Prune peers that left PlayerManager */
+    for (int i = 0; i < CHAOS_MAX_PEERS; i++) {
+        if (!g_peer_sync[i].active) continue;
+        int still_here = 0;
+        for (int j = 0; j < remote_count; j++) {
+            if (remote[j] == g_peer_sync[i].peer) { still_here = 1; break; }
+        }
+        if (!still_here) {
+            hf->log(self, "CHAOS_PEER_LEAVE: peer=%llu resident_mask=0x%x",
+                    (unsigned long long)g_peer_sync[i].peer, g_peer_sync[i].resident_mask);
+            memset(&g_peer_sync[i], 0, sizeof g_peer_sync[i]);
+        }
+    }
+
+    /* Register newly connected peers (including late joiners) */
+    for (int j = 0; j < remote_count; j++) {
+        int found = 0, free_slot = -1;
+        for (int i = 0; i < CHAOS_MAX_PEERS; i++) {
+            if (g_peer_sync[i].active && g_peer_sync[i].peer == remote[j]) { found = 1; break; }
+            if (!g_peer_sync[i].active && free_slot < 0) free_slot = i;
+        }
+        if (!found && free_slot >= 0) {
+            g_peer_sync[free_slot].peer = remote[j];
+            g_peer_sync[free_slot].resident_mask = 0u;
+            g_peer_sync[free_slot].hello_seen = 0u;
+            g_peer_sync[free_slot].in_mission = 1u;
+            g_peer_sync[free_slot].active = 1u;
+            g_peer_sync[free_slot].joined_age = clock_state.age;
+            g_peer_sync[free_slot].last_seen_age = clock_state.age;
+            g_shared_dirty = 1;
+            hf->log(self, "CHAOS_PEER_JOIN: peer=%llu age=%.1fs",
+                    (unsigned long long)remote[j], clock_state.age);
+        }
+    }
+}
+
+static int PeersReadyForFaction(uintptr_t gbase, int chosen)
+{
+    if (!IsCoopHost() || !HasChannelSend() || chosen < 0 || chosen >= CHAOS_FACTIONS) return 1;
+    ReconcilePeers(gbase);
+
+    for (int i = 0; i < CHAOS_MAX_PEERS; i++) {
+        const ChaosPeerSync* p = &g_peer_sync[i];
+        if (!p->active) continue;
+        double since_join = clock_state.age - p->joined_age;
+        if (since_join < 0.0) since_join = 0.0;
+        if (!p->hello_seen) {
+            if (since_join < CHAOS_LATE_JOIN_HELLO_S) return 0;
+            continue;
+        }
+        if (((p->resident_mask & (uint8_t)(1u << chosen)) == 0u) &&
+            since_join < CHAOS_PEER_PRELOAD_GRACE_S) {
+            return 0;
+        }
+    }
+    return 1;
+}
+
+static void SendClientStatusIfNeeded(unsigned now, uint8_t required_mask)
+{
+    if (Host() || !HasChannelSend()) return;
+    uint8_t mask = CurrentForeignResidentMask();
+    int need = (mask != g_last_sent_resident_mask) ||
+               (required_mask && ((mask & required_mask) != required_mask) &&
+                (clock_state.age - g_last_client_status_sent) >= 5.0);
+    if (!need) return;
+
+    ChaosPeerMsg msg;
+    memset(&msg, 0, sizeof msg);
+    msg.magic = CHAOS_SYNC_MAGIC;
+    msg.version = CHAOS_SYNC_VERSION;
+    msg.kind = CHAOS_MSG_PEER_STATUS;
+    msg.resident_mask = mask;
+    msg.in_mission = (now == HF_STATE_MISSION) ? 1u : 0u;
+    msg.epoch = g_mission_epoch;
+    if (hf->send(self, HF_TO_HOST, &msg, sizeof msg) == 0) {
+        g_last_sent_resident_mask = mask;
+        g_last_client_status_sent = clock_state.age;
+    }
+}
+
+static void PreloadForeignFactionPackages(uintptr_t gbase, uintptr_t ebase, size_t esize, float dt, unsigned cur_state)
 {
     int native = -1, diff = 0;
     if (!ReadDirectorContext(gbase, NULL, &native, &diff)) return;
     if (g_native_faction != native) {
         g_native_faction = native;
-        hf->log(self, "CHAOS_MISSION_CONTEXT: native_faction=%s difficulty=%d", chaos_faction_names[native], diff);
+        g_shared_dirty = 1;
+        hf->log(self, "CHAOS_MISSION_CONTEXT: native_faction=%s difficulty=%d host=%d",
+                chaos_faction_names[native], diff, Host());
     }
 
     uintptr_t pkg_sys = 0, map_entries_addr = 0;
@@ -715,8 +945,8 @@ static void PreloadForeignTick(uintptr_t gbase, uintptr_t ebase, size_t esize, f
                 g_faction_resident[f] = 1;
                 if (!g_preload_ready_logged[f]) {
                     g_preload_ready_logged[f] = 1;
-                    hf->log(self, "CHAOS_PRELOAD_READY: faction=%s resident=%d/%d idle=%d",
-                            chaos_faction_names[f], res, g_preload_count[f], idle);
+                    hf->log(self, "CHAOS_PRELOAD_READY: faction=%s resident=%d/%d idle=%d host=%d",
+                            chaos_faction_names[f], res, g_preload_count[f], idle, Host());
                 }
             }
         }
@@ -724,6 +954,8 @@ static void PreloadForeignTick(uintptr_t gbase, uintptr_t ebase, size_t esize, f
     }
 
     if (map_buf) free(map_buf);
+
+    SendClientStatusIfNeeded(cur_state, ChaosRequiredForeignMask(native));
 
     preload_log_poll -= dt;
     if (preload_log_poll <= 0.0f) {
@@ -986,6 +1218,9 @@ static void DispatchChaosWave(uintptr_t gbase, uintptr_t director, int faction, 
 
             g_pending.is_transport = 1;
             g_pending.timeout = CHAOS_TRANSPORT_TIMEOUT_S;
+            ++g_wave_seq;
+            g_shared_dirty = 1;
+            PublishSharedState(1);
             hf->log(self, "CHAOS_WAVE_DISPATCH: event=%s mode=transport ship=%016llx q=%u count=%d cargo_patched=%d anchor=(%.1f,%.1f,%.1f)",
                     chaos_names[faction], (unsigned long long)ship, q_transports, sq,
                     g_pending.cargo_patched, anchor[0], anchor[1], anchor[2]);
@@ -997,6 +1232,9 @@ static void DispatchChaosWave(uintptr_t gbase, uintptr_t director, int faction, 
         g_pending.used_fallback = 1;
         g_pending.timeout = CHAOS_BREACH_TIMEOUT_S;
         DispatchStaggeredRoster(gbase, director, faction, diff, sq, 0x3Cu, anchor, player_pos, 2.0f);
+        ++g_wave_seq;
+        g_shared_dirty = 1;
+        PublishSharedState(1);
         hf->log(self, "CHAOS_WAVE_DISPATCH: event=%s mode=fallback_immediate count=%d anchor=(%.1f,%.1f,%.1f)",
                 chaos_names[faction], sq, anchor[0], anchor[1], anchor[2]);
         return;
@@ -1012,6 +1250,9 @@ static void DispatchChaosWave(uintptr_t gbase, uintptr_t director, int faction, 
     g_pending.is_transport = 0;
     g_pending.timeout = CHAOS_BREACH_TIMEOUT_S;
     DispatchStaggeredRoster(gbase, director, CHAOS_BUGS, diff, sq, 0x24u, anchor, player_pos, CHAOS_BREACH_STAGGER_S);
+    ++g_wave_seq;
+    g_shared_dirty = 1;
+    PublishSharedState(1);
     hf->log(self, "CHAOS_WAVE_DISPATCH: event=bug_breach mode=breach_fx count=%d anchor=(%.1f,%.1f,%.1f)",
             sq, anchor[0], anchor[1], anchor[2]);
 }
@@ -1216,20 +1457,143 @@ static void ResetMissionState(void)
     memset(g_faction_resident, 0, sizeof g_faction_resident);
     memset(g_preload_ready_logged, 0, sizeof g_preload_ready_logged);
     memset(g_preload_refmap_warned, 0, sizeof g_preload_refmap_warned);
+    memset(g_preload_requested, 0, sizeof g_preload_requested);
+    memset(g_preload_built, 0, sizeof g_preload_built);
+    memset(g_preload_count, 0, sizeof g_preload_count);
+    memset(g_rosters_loaded, 0, sizeof g_rosters_loaded);
+    memset(g_peer_sync, 0, sizeof g_peer_sync);
     g_last_player_mask = 0;
+    g_last_sent_resident_mask = 0xFFu;
+    g_last_client_status_sent = -10.0;
+    g_share_poll = 0.0f;
+    g_shared_dirty = 0;
+    g_shared_applied = 0;
+    g_last_foreign_spawn_age = -1000.0;
+    g_wave_seq = 0u;
+    ++g_mission_epoch;
     ChaosReset(&clock_state, &config);
     ChaosTrackerReset(&g_tracker);
+}
+
+static int ChaosIsInMissionFlow(unsigned s)
+{
+    return s == HF_STATE_MISSION || s == HF_STATE_PREPARE_MISSION;
+}
+
+static void HandleHostMigration(unsigned old_host, unsigned new_host)
+{
+    int released = 0;
+    if (g_pending.active) {
+        released = g_tracker.reserved[g_pending.faction];
+        ChaosTrackerReleaseUnusedReservations(&g_tracker, g_pending.faction);
+        memset(&g_pending, 0, sizeof g_pending);
+    }
+
+    ChaosTrackerPrune(&g_tracker, EntityAlive, NULL);
+    memset(g_last_faction_masks, 0, sizeof g_last_faction_masks);
+    g_last_player_mask = 0;
+    perception_poll = 0.0f;
+    g_share_poll = 0.0f;
+    ++g_mission_epoch;
+
+    if (!old_host && new_host) {
+        g_shared_dirty = 1;
+        PublishSharedState(1);
+    } else if (old_host && !new_host) {
+        g_last_sent_resident_mask = 0xFFu;
+        g_last_client_status_sent = -10.0;
+    }
+
+    double rem = (landed && clock_state.next > clock_state.age) ? (clock_state.next - clock_state.age) : 0.0;
+    hf->log(self,
+            "CHAOS_HOST_MIGRATION: old_host=%u new_host=%u landed=%u live=%d mission_spawned=%d released=%d cooldown_rem=%.1fs",
+            old_host, new_host, landed, g_tracker.total_live, g_tracker.mission_spawned, released, rem);
+}
+
+static void OnMessage(HfMod* mod, const HfEventInfo* info, void* user)
+{
+    (void)mod; (void)user;
+    if (!ReadyPhase() || !info || info->size < sizeof(HfMessageEvent)) return;
+    const HfMessageEvent* m = (const HfMessageEvent*)info;
+    if (m->bytes < sizeof(ChaosPeerMsg) || !m->from || !Host()) return;
+
+    ChaosPeerMsg pm;
+    memcpy(&pm, m->data, sizeof pm);
+    if (!ChaosPeerMsgValid(&pm)) return;
+
+    int slot = -1, free_slot = -1;
+    for (int i = 0; i < CHAOS_MAX_PEERS; i++) {
+        if (g_peer_sync[i].active && g_peer_sync[i].peer == m->from) { slot = i; break; }
+        if (!g_peer_sync[i].active && free_slot < 0) free_slot = i;
+    }
+    if (slot < 0) {
+        if (free_slot < 0) return;
+        slot = free_slot;
+        g_peer_sync[slot].peer = m->from;
+        g_peer_sync[slot].active = 1u;
+        g_peer_sync[slot].joined_age = clock_state.age;
+    }
+    int first_hello = !g_peer_sync[slot].hello_seen;
+    uint8_t prev_mask = g_peer_sync[slot].resident_mask;
+    g_peer_sync[slot].hello_seen = 1u;
+    g_peer_sync[slot].resident_mask = pm.resident_mask;
+    g_peer_sync[slot].in_mission = pm.in_mission;
+    g_peer_sync[slot].last_seen_age = clock_state.age;
+    if (first_hello || prev_mask != pm.resident_mask) {
+        hf->log(self, "CHAOS_PEER_READY: peer=%llu resident_mask=0x%x in_mission=%u",
+                (unsigned long long)m->from, pm.resident_mask, pm.in_mission);
+        PublishSharedState(1);
+    }
+}
+
+static void OnShare(HfMod* mod, const HfEventInfo* info, void* user)
+{
+    (void)mod; (void)user;
+    if (!ReadyPhase() || !info || info->size < sizeof(HfShareEvent)) return;
+    const HfShareEvent* s = (const HfShareEvent*)info;
+    if (s->key != CHAOS_SHARE_KEY_STATE || s->bytes < sizeof(ChaosSharedState) || Host()) return;
+
+    ChaosSharedState st;
+    memcpy(&st, s->value, sizeof st);
+    ApplySharedState(&st);
 }
 
 static void OnSpawn(HfMod* mod, const HfEventInfo* info, void* user)
 {
     (void)mod; (void)user;
-    if (!ReadyPhase() || !info || info->size < sizeof(HfSpawnEvent) || hf->game_state(self) != HF_STATE_MISSION || !Host())
-        return;
+    if (!ReadyPhase() || !info || info->size < sizeof(HfSpawnEvent)) return;
+    if (hf->game_state(self) != HF_STATE_MISSION) return;
     const HfSpawnEvent* e = (const HfSpawnEvent*)info;
     int fam = ChaosEnemyFamilyEx(e->resource);
 
-    if (!e->authority) {
+    if (!Host()) {
+        /* Read-only client / late-joiner passive tracking for host-migration budget/population continuity. */
+        if (fam < 0 || ChaosIsTransportResource(e->resource)) return;
+        if (g_native_faction < 0) {
+            uintptr_t gbase = GameBase(NULL);
+            int native = -1, diff = 0;
+            if (gbase && g_pins_ok && ReadDirectorContext(gbase, NULL, &native, &diff)) {
+                g_native_faction = native;
+            }
+        }
+        if (g_native_faction >= 0 && fam != g_native_faction) {
+            if (ChaosTrackerRecordSpawn(&g_tracker, fam, e->entity, 0)) {
+                if (!g_shared_applied && (clock_state.age - g_last_foreign_spawn_age) >= 15.0) {
+                    g_last_foreign_spawn_age = clock_state.age;
+                    ++clock_state.attempts;
+                    if (clock_state.next < clock_state.age + (double)config.cooldown) {
+                        clock_state.next = clock_state.age + (double)config.cooldown;
+                    }
+                }
+                hf->log(self, "CHAOS_PEER_OBSERVE: faction=%s entity=%u resource=%016llx auth=%u live=%d mission_spawned=%d",
+                        chaos_faction_names[fam], e->entity, (unsigned long long)e->resource,
+                        e->authority, g_tracker.live[fam], g_tracker.mission_spawned);
+            }
+        }
+        return;
+    }
+
+    if (!EntityAuthorityAllowed(e->entity, e->authority)) {
         if (g_pending.active && fam != g_native_faction && e->resource != CHAOS_ENTITY_AVATAR &&
             g_pending.unmapped_logged < 12) {
             ++g_pending.unmapped_logged;
@@ -1276,6 +1640,7 @@ static void OnSpawn(HfMod* mod, const HfEventInfo* info, void* user)
     if (g_pending.active && g_pending.faction == fam) {
         if (ChaosTrackerRecordSpawn(&g_tracker, fam, e->entity, 1)) {
             ++g_pending.unloaded_count;
+            g_shared_dirty = 1;
             hf->log(self,
                     "CHAOS_SPAWN: faction=%s entity=%u resource=%016llx mode=%s wave_unloaded=%d/%d elapsed=%.1fs live=%d mission_spawned=%d",
                     chaos_faction_names[fam], e->entity, (unsigned long long)e->resource,
@@ -1285,6 +1650,7 @@ static void OnSpawn(HfMod* mod, const HfEventInfo* info, void* user)
         }
     } else if (g_native_faction >= 0 && fam != g_native_faction) {
         if (ChaosTrackerRecordSpawn(&g_tracker, fam, e->entity, 0)) {
+            g_shared_dirty = 1;
             hf->log(self,
                     "CHAOS_SPAWN: faction=%s entity=%u resource=%016llx mode=late wave_unloaded=0/0 elapsed=%.1fs live=%d mission_spawned=%d",
                     chaos_faction_names[fam], e->entity, (unsigned long long)e->resource,
@@ -1307,10 +1673,30 @@ static void Tick(HfMod* mod, float dt, void* user)
 
     unsigned now = hf->game_state(self);
     unsigned host = (unsigned)Host();
-    if (now != state || host != previous_role) {
+    int in_flow_prev = ChaosIsInMissionFlow(state);
+    int in_flow_now = ChaosIsInMissionFlow(now);
+
+    if (!in_flow_prev || !in_flow_now) {
+        if (now != state) {
+            state = now;
+            previous_role = host;
+            ResetMissionState();
+        } else {
+            previous_role = host;
+        }
+    } else if (now != state) {
+        unsigned prev_state = state;
         state = now;
         previous_role = host;
-        ResetMissionState();
+        if (prev_state == HF_STATE_PREPARE_MISSION && now == HF_STATE_MISSION && !g_shared_applied) {
+            landed = 0;
+            memset(&g_pending, 0, sizeof g_pending);
+            ChaosReset(&clock_state, &config);
+            ChaosTrackerReset(&g_tracker);
+        }
+    } else if (host != previous_role) {
+        HandleHostMigration(previous_role, host);
+        previous_role = host;
     }
 
     options_poll -= dt;
@@ -1319,17 +1705,43 @@ static void Tick(HfMod* mod, float dt, void* user)
         LoadOptions(bridge, 1);
     }
 
-    if (now != HF_STATE_MISSION) return;
+    if (!in_flow_now) return;
     if (!ProveChaosRuntime()) return;
 
     size_t gsize = 0, esize = 0;
     uintptr_t gbase = GameBase(&gsize), ebase = ExeBase(&esize);
     if (!gbase) return;
 
-    /* All-peer curated foreign package preloading */
-    PreloadForeignTick(gbase, ebase, esize, dt);
+    /* All-peer curated foreign package preloading (prepare + active mission) */
+    PreloadForeignFactionPackages(gbase, ebase, esize, dt, now);
 
-    if (!host) return;
+    if (now != HF_STATE_MISSION) return;
+
+    ChaosTrackerPrune(&g_tracker, EntityAlive, NULL);
+
+    float living_pos[4][3];
+    int living_players = CollectLivingPlayers(gbase, living_pos, NULL);
+
+    if (!host) {
+        /* Client / late-joiner: consume host state snapshot & keep clock aligned cleanly, NEVER spawn/mutate */
+        if (landed) clock_state.age += (double)dt;
+        g_share_poll -= dt;
+        if (HasChannelShare() && (!g_shared_applied || g_share_poll <= 0.0f)) {
+            g_share_poll = 1.0f;
+            ChaosSharedState st;
+            if (hf->share_get(self, CHAOS_SHARE_KEY_STATE, &st, sizeof st) >= sizeof st) {
+                ApplySharedState(&st);
+            }
+        }
+        if (!landed && living_players > 0) {
+            landed = 1;
+            if (!g_shared_applied) clock_state.next = clock_state.age + (double)config.grace;
+        }
+        return;
+    }
+
+    /* Authoritative Host / Solo path below */
+    ReconcilePeers(gbase);
 
     /* 250ms Host/Solo mutual-hostility perception narrowing */
     perception_poll -= dt;
@@ -1342,18 +1754,23 @@ static void Tick(HfMod* mod, float dt, void* user)
     int native = -1, diff = 0;
     if (!ReadDirectorContext(gbase, &director, &native, &diff)) return;
 
-    ChaosTrackerPrune(&g_tracker, EntityAlive, NULL);
     ServicePendingWave(gbase, director, dt);
 
-    float living_pos[4][3];
-    int living_players = CollectLivingPlayers(gbase, living_pos, NULL);
     if (!landed && living_players > 0) {
         landed = 1;
         ChaosReset(&clock_state, &config);
+        g_shared_dirty = 1;
         hf->log(self, "CHAOS_LANDING: host=1 native_faction=%d grace=%ds", native, config.grace);
     }
 
+    g_share_poll -= dt;
+    if (g_shared_dirty || g_share_poll <= 0.0f) {
+        g_share_poll = 2.0f;
+        PublishSharedState(g_share_poll == 2.0f);
+    }
+
     if (!ChaosDue(&clock_state, &config, dt, landed != 0)) return;
+    g_shared_dirty = 1;
 
     int chosen = ChaosChoose(&config, native, diff, NextRand());
 
@@ -1365,7 +1782,7 @@ static void Tick(HfMod* mod, float dt, void* user)
     ev.difficulty = diff;
     ev.closure = (chosen >= 0 && g_rosters_loaded[chosen]);
     ev.resident = (chosen >= 0 && g_faction_resident[chosen]);
-    ev.peers = 1;
+    ev.peers = PeersReadyForFaction(gbase, chosen);
     ev.placement = 1;
     ev.constructor = (chosen >= 0) && CallHasHeadroom(gbase, (void*)director, 3u, 0u);
     ev.arrival = g_pins_ok;
@@ -1441,9 +1858,11 @@ HF_MOD_EXPORT int hellforge_mod_init(const HfApi* api, HfMod* mod)
         InterlockedExchange(&g_phase, PHASE_ENDED);
         return 1;
     }
+    if (HasChannelSend()) api->subscribe(mod, HF_ON_MESSAGE, OnMessage, NULL, 0);
+    if (HasChannelShare()) api->subscribe(mod, HF_ON_SHARE, OnShare, NULL, 0);
 
-    SetStatusOnce("Chaos Invasions 0.2.0 ready");
-    api->log(mod, "CHAOS_INIT: version=0.2.0 build=25480438 sdk=16 enabled=%d cooldown=%d grace=%d cap=%d faction_cap=%d squad=%d budget=%d",
+    SetStatusOnce("Chaos Invasions 0.3.0 ready");
+    api->log(mod, "CHAOS_INIT: version=0.3.0 build=25480438 sdk=16 enabled=%d cooldown=%d grace=%d cap=%d faction_cap=%d squad=%d budget=%d",
              config.enabled, config.cooldown, config.grace, config.total_cap, config.faction_cap,
              config.squad_size, config.mission_budget);
     return 0;

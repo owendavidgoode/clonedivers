@@ -39,6 +39,7 @@ static void InvocationQueueLog(HfMod *mod,const char *text);
 static int InvocationRead(uintptr_t at,void *out,size_t bytes);
 
 #include "attachment_core.h"
+#include "garment_config.h"
 #include "invocation_payload.h"
 #include "coop_discovery.h"
 #include "invocation_control.h"
@@ -146,6 +147,24 @@ HF_MOD_EXPORT int hellforge_mod_init(const HfApi *api,HfMod *mod)
        strcmp(api->build_id(),"25480438")||!api->mod_id(mod)||strcmp(api->mod_id(mod),OBS_ID)||
        api->load_phase(mod)!=HF_LOAD_BOOT)return 1;
     hf=api;
+    cm_reset_dynamic_garments();
+    lp_reset_dynamic_assets();
+    if(api->size>=offsetof(HfApi,mod_folder)+sizeof api->mod_folder && api->mod_folder) {
+        const char *modFolder=api->mod_folder(mod);
+        if(modFolder && *modFolder && strlen(modFolder)<960u) {
+            char cfgPath[1024], cfgErr[192];
+            int cfgFound=0; uint32_t cfgLoaded=0;
+            snprintf(cfgPath,sizeof cfgPath,"%s\\lego-garments.json",modFolder);
+            if(!lg_load_garments_file(cfgPath,&cfgFound,&cfgLoaded,cfgErr,sizeof cfgErr)) {
+                api->log(mod,"LEGO_COMPACT_LEAF_WRITER garment_config error=%s path=%s",cfgErr,cfgPath);
+                return 1;
+            }
+            if(cfgFound) {
+                api->log(mod,"LEGO_COMPACT_LEAF_WRITER garment_config loaded=%u total_garments=%u path=%s",
+                         cfgLoaded,cm_garment_count(),cfgPath);
+            }
+        }
+    }
     coop_registry_init(&coopReg);
     if(sm_prepare(&shadowRig)!=CM_OK)return 1;
     if(se_initialize(&invocationEnvelope,InvocationObserve,NULL,IV_ATTEMPTS,IV_PER_MESH)!=SE_OK)return 1;

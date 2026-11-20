@@ -179,7 +179,7 @@ internal sealed class BridgeSession(Func<IReadOnlyList<string>, CancellationToke
             "mod-add" => ["--file"],
             "prepare-pack" => ["--file"],
             "install-gameplay" => ["--file"],
-            "select-mode" => ["--mode", "--delta", "--texture", "--droids", "--covenant"],
+            "select-mode" => ["--mode", "--delta", "--texture", "--droids", "--covenant", "--enemy-skin"],
             "settings" => ["--profile", "--local-playfab", "--multiplayer", "--war"],
             _ => throw new ArgumentException("Unsupported bridge command.")
         };
@@ -195,8 +195,11 @@ internal sealed class BridgeSession(Func<IReadOnlyList<string>, CancellationToke
         if (args[0] is "mod-add" or "prepare-pack" or "install-gameplay" && (!values.TryGetValue("--file", out var file) ||
             (OperatingSystem.IsLinux() ? !Path.IsPathFullyQualified(file) || file.Split('/').Contains("..") : !file.StartsWith("C:\\", StringComparison.OrdinalIgnoreCase) || file.Split('\\').Contains(".."))))
             throw new ArgumentException("Import the verified artifact from this platform's staging cache.");
-        if (args[0] == "select-mode" && (values.Count != 5 || values.GetValueOrDefault("--mode") is not ("regular" or "clonedivers" or "empire") ||
-            values.GetValueOrDefault("--texture") is not ("full" or "lighter") || new[] { "--delta", "--droids", "--covenant" }.Any(k => values.GetValueOrDefault(k) is not ("yes" or "no"))))
+        if (args[0] == "select-mode" && ((values.Count != 5 && values.Count != 6) ||
+            values.GetValueOrDefault("--mode") is not ("regular" or "clonedivers" or "empire") ||
+            values.GetValueOrDefault("--texture") is not ("full" or "lighter" or "reduced512") ||
+            new[] { "--delta", "--droids", "--covenant" }.Any(k => values.GetValueOrDefault(k) is not ("yes" or "no")) ||
+            (values.TryGetValue("--enemy-skin", out var skin) && skin is not ("all-droids" or "mixed-droids" or "native-automatons"))))
             throw new ArgumentException("Choose Regular, Clones or Empire with known texture/options values.");
         if (args[0] == "settings")
             foreach (var (key, value) in values)

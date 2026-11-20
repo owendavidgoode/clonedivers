@@ -1,0 +1,13 @@
+build/
+dist/
+workspace/
+actual-output/
+sdk/
+audio/
+*.dll
+*.exe
+*.pdb
+*.zip
+*.bin
+*.log
+__pycache__/

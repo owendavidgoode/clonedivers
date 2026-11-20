@@ -11,7 +11,7 @@ typedef struct Proof
     BY_HANDLE_FILE_INFORMATION mainInfo, gpuInfo;
     int found, valid;
 } Proof;
-static Proof proofs[4];
+static Proof proofs[YODA_MAX_VISUALS];
 static NTSTATUS (WINAPI *openHash)(BCRYPT_ALG_HANDLE*, LPCWSTR, LPCWSTR, ULONG);
 static NTSTATUS (WINAPI *hashBytes)(BCRYPT_ALG_HANDLE, PUCHAR, ULONG, PUCHAR, ULONG, PUCHAR, ULONG);
 static BCRYPT_ALG_HANDLE sha;
@@ -131,7 +131,7 @@ static int ScanVisuals(const wchar_t* directory)
             ArchiveRow row;
             if (!ReadAt(file, 72ull + 32ull * head[1] + 80ull * i, &row, sizeof row)) { ok = 0; break; }
             if (row.q[1] != 0xE0A48D0BE9A7453Full) continue;
-            for (int v = 0; v < 4; v++) if (row.q[0] == visuals[v].unit)
+            for (size_t v = 0; v < visualCount; v++) if (row.q[0] == visuals[v].unit)
             {
                 Proof* p = &proofs[v];
                 const wchar_t* prior = wcsrchr(p->path, L'\\');
@@ -146,7 +146,7 @@ static int ScanVisuals(const wchar_t* directory)
     if (ok && GetLastError() != ERROR_NO_MORE_FILES) ok = 0;
     FindClose(scan);
     int qualified = 0;
-    if (ok) for (int v = 0; v < 4; v++)
+    if (ok) for (size_t v = 0; v < visualCount; v++)
     {
         Proof* p = &proofs[v];
         p->valid = p->found && p->row.d[1] == 0 && (

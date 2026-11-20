@@ -7,5 +7,7 @@ public static class PackExtras
     public static IEnumerable<PackOption> Visible(PackManifest? pack) =>
         pack?.Options.Where(o => !AlwaysOn(pack, o.Id) && !o.Id.Equals("commandos", StringComparison.OrdinalIgnoreCase) &&
             !o.Id.Equals("skinny", StringComparison.OrdinalIgnoreCase) &&
+            !o.Id.Equals("mixed-droids", StringComparison.OrdinalIgnoreCase) &&
+            !o.Id.Equals("mixed_droids", StringComparison.OrdinalIgnoreCase) &&
             !o.Id.Equals(LauncherModes.EmpireOption, StringComparison.OrdinalIgnoreCase)) ?? Enumerable.Empty<PackOption>();
 }

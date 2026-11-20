@@ -5,6 +5,7 @@ namespace Clonedivers;
 
 public sealed class HellForgePreferences
 {
+    string enemySkin = "all-droids";
     public int Format { get; set; } = 1;
     public string? InstallRoot { get; set; }
     public string Mode { get; set; } = "clonedivers";
@@ -12,16 +13,31 @@ public sealed class HellForgePreferences
     public string Loadout { get; set; } = "account";
     public bool DeltaSquad { get; set; } = true;
     public string Texture { get; set; } = "full";
-    public bool Droids { get; set; } = true;
+    public bool Droids
+    {
+        get => enemySkin != "native-automatons";
+        set => enemySkin = value ? (enemySkin == "native-automatons" ? "all-droids" : enemySkin) : "native-automatons";
+    }
+    public string EnemySkin
+    {
+        get => enemySkin;
+        set => enemySkin = value;
+    }
     public bool Covenant { get; set; }
     public string? PreparedPack { get; set; }
     public string? AppliedSelection { get; set; }
     public bool IsRegular => Mode == "regular";
     public string PackMode => IsRegular ? "regular" : Mode == "empire" ? "empire" : DeltaSquad ? "commandos" : "clonedivers";
+    string EnemyKeySegment => enemySkin == "mixed-droids" ? "mixed-droids" : Droids.ToString();
     public string SelectionKey => IsRegular ? $"regular/{HellForgePack.SupportedBuild}" :
-        Mode == "empire" ? $"r47/{HellForgePack.SupportedBuild}/empire/{Texture}/{Droids}/False" :
-        $"r19/{HellForgePack.SupportedBuild}/{PackMode}/{Texture}/{Droids}/{Covenant}";
-    public static string FilePath => Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), "Clonedivers", "hellforge.json");
+        Mode == "empire" ? $"r48/{HellForgePack.SupportedBuild}/empire/{Texture}/{EnemyKeySegment}/{Covenant}" :
+        $"r20/{HellForgePack.SupportedBuild}/{PackMode}/{Texture}/{EnemyKeySegment}/{Covenant}";
+    internal static string? CustomPreferencesPath()
+    {
+        var custom = Environment.GetEnvironmentVariable("CLONEDIVERS_FORGE_PREFS");
+        return string.IsNullOrWhiteSpace(custom) ? null : Path.GetFullPath(custom.Trim());
+    }
+    public static string FilePath => CustomPreferencesPath() ?? Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), "Clonedivers", "hellforge.json");
 
     public static HellForgePreferences Load(string? path = null)
     {
@@ -43,7 +59,8 @@ public sealed class HellForgePreferences
     public void Validate()
     {
         if (Format != 1 || Mode is not ("regular" or "clonedivers" or "empire") ||
-            Loadout is not ("account" or "armory" or "progression") || Texture is not ("full" or "lighter"))
+            Loadout is not ("account" or "armory" or "progression") || Texture is not ("full" or "lighter" or "reduced512") ||
+            EnemySkin is not ("all-droids" or "mixed-droids" or "native-automatons"))
             throw new InvalidDataException("Unsupported HellForge preferences. Restore hellforge.json from backup.");
         Loadout = "account";
     }
@@ -61,7 +78,7 @@ public sealed class HellForgePreferences
     public HellForgePack.Selection Selection() => IsRegular
         ? throw new InvalidOperationException("Regular HellForge does not use a Star Wars pack.")
         : HellForgePack.PinnedSelection(PackMode, Texture,
-            new Dictionary<string, bool> { ["droids"] = Droids, ["covenant"] = Covenant });
+            new Dictionary<string, bool> { ["droids"] = Droids, ["covenant"] = Covenant, ["mixed-droids"] = EnemySkin == "mixed-droids" });
 }
 
 public interface IHellForgeCommands
@@ -215,11 +232,14 @@ public sealed partial class HellForgeClient(string root, IHellForgeCommands comm
         var ready = json.GetProperty("ready"); var session = json.GetProperty("session"); var settings = json.GetProperty("settings");
         var running = Bool(session, "running");
         var failure = OptionalText(session, "lastFailure");
+        var lastRun = OptionalText(session, "lastRun");
+        var lastStatus = OptionalText(session, "lastStatus");
         string? notice = null;
-        if (!running && failure == null) (failure, notice) = CompletedGameDiagnostic(OptionalText(session, "lastRun"), Text(json, "gameBuild"));
+        if (!running && failure == null) (failure, notice) = CompletedGameDiagnostic(lastRun, Text(json, "gameBuild"));
         return new(returned, Text(json, "hellforge"), Text(json, "gameBuild"), Bool(ready, "gameCopy"), Bool(ready, "sessionRunner"),
-            running, Bool(settings, "multiplayer"), Bool(settings, "localPlayFab"), OptionalText(session, "lastStatus"), failure, notice, InterruptedGameplayProblem() ?? InterruptedPackProblem(), PinnedProblem(json, LinuxNamespace),
-            OptionalText(json, "engine"), json.TryGetProperty("modSdk", out var sdk) && sdk.ValueKind == JsonValueKind.Number && sdk.TryGetInt32(out var number) ? number : null);
+            running, Bool(settings, "multiplayer"), Bool(settings, "localPlayFab"), lastStatus, failure, notice, InterruptedGameplayProblem() ?? InterruptedPackProblem(), PinnedProblem(json, LinuxNamespace),
+            OptionalText(json, "engine"), json.TryGetProperty("modSdk", out var sdk) && sdk.ValueKind == JsonValueKind.Number && sdk.TryGetInt32(out var number) ? number : null,
+            HasRun: !string.IsNullOrWhiteSpace(lastRun) || !string.IsNullOrWhiteSpace(lastStatus));
     }
 
     (string? Failure, string? Notice) CompletedGameDiagnostic(string? run, string build)
@@ -775,10 +795,11 @@ public sealed partial class HellForgeClient(string root, IHellForgeCommands comm
         try
         {
             await ConfigureAsync(null, ct);
-            RequireRegular(await ModsAsync(ct));
+            var after = await ModsAsync(ct);
+            RequireRegular(after);
             SavePackOutcome(backup, "applied");
             WritePackIntent(intent with { State = "applied" });
-            PrunePackStorage(backup, before);
+            PrunePackStorage(backup, after);
         }
         catch (HellForgeCommandOutcomeUnknownException) { SavePackOutcome(backup, "outcome-unknown"); throw; }
         catch (Exception error)
@@ -815,7 +836,11 @@ public sealed partial class HellForgeClient(string root, IHellForgeCommands comm
         await commands.RunAsync(["settings", "--multiplayer", "yes", "--local-playfab", "yes", "--steam-udp", "yes"], ct);
     }
 
-    public async Task<JsonElement> PlayAsync(HellForgePack.Selection selection, CancellationToken ct = default, string? profile = null)
+    public Task<JsonElement> PlayAsync(HellForgePack.Selection selection, CancellationToken ct = default, string? profile = null) =>
+        PlayAsync(selection, ct, profile, progress: null, bytes: null, useVerifyCache: true);
+
+    internal async Task<JsonElement> PlayAsync(HellForgePack.Selection selection, CancellationToken ct, string? profile,
+        IProgress<string>? progress, IProgress<(long Done, long Total)>? bytes, bool useVerifyCache = true)
     {
         using var operation = LockPackChange();
         RequireCliQuiescent();
@@ -828,7 +853,10 @@ public sealed partial class HellForgeClient(string root, IHellForgeCommands comm
         if ((await MissingGameplayAsync(ct)).Any(a => !a.Optional)) throw new InvalidDataException("Required gameplay content changed. Use Prepare Star Wars pack to verify and repair the preset before launching.");
         if (!catalog.Mods.Any(m => m.Id == DifficultyId && m.Enabled)) throw new InvalidDataException("Open HellForge setup to install its built-in difficulty 11, then enable it on the Mods page.");
         ValidateModFolder(selected.Folder);
-        await HellForgePack.VerifyAsync(selected.Folder, selection, ct);
+        progress?.Report($"Verifying {Pack.FormatBytes(selection.Files.Sum(f => f.Size))} of Star Wars files…");
+        var cachePath = useVerifyCache ? Path.Combine(CacheRoot, "verify-cache.json") : null;
+        await HellForgePack.VerifyForLaunchAsync(selected.Folder, selection, cachePath, bytes, ct);
+        progress?.Report("Starting HellForge session…");
         return await StartAsync(ct, profile);
     }
 
@@ -900,12 +928,56 @@ public sealed partial class HellForgeClient(string root, IHellForgeCommands comm
             return cache;
         }
     }
-    public static string? Detect()
+    public static string? Detect() => HellForgePreferences.CustomPreferencesPath() != null ? null : Detect(null);
+
+    internal static string? Detect(IEnumerable<string>? candidates)
     {
-        foreach (var root in new[] { Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.UserProfile), "HellForge"),
-            Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.MyDocuments), "HellForge"), @"D:\HellForge" })
-            try { return HellForgeCommands.ValidateRoot(root); } catch (Exception e) when (e is IOException or UnauthorizedAccessException or InvalidDataException or JsonException or KeyNotFoundException) { }
+        var roots = candidates ?? [
+            Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.UserProfile), "HellForge"),
+            Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.MyDocuments), "HellForge"),
+            @"D:\HellForge"
+        ];
+        foreach (var root in roots)
+            try
+            {
+                var validated = HellForgeCommands.ValidateRoot(root);
+                if (IsSupportedInstallMetadata(validated)) return validated;
+            }
+            catch (Exception e) when (e is IOException or UnauthorizedAccessException or InvalidDataException or JsonException or KeyNotFoundException) { }
         return null;
+    }
+
+    static bool IsSupportedInstallMetadata(string root)
+    {
+        var marker = Path.Combine(root, "hellforge-install.json");
+        FileSafety.RejectLink(marker);
+        using (var doc = JsonDocument.Parse(File.ReadAllText(marker)))
+        {
+            if (OptionalText(doc.RootElement, "buildId") is { Length: > 0 } build && build != HellForgePack.SupportedBuild)
+                return false;
+        }
+        var appBuild = Path.Combine(root, "app", "app-build.json");
+        if (File.Exists(appBuild))
+        {
+            FileSafety.RejectLink(appBuild);
+            if (new FileInfo(appBuild).Length > 64 * 1024) return false;
+            using var doc = JsonDocument.Parse(File.ReadAllText(appBuild));
+            var version = OptionalText(doc.RootElement, "version");
+            var engine = OptionalText(doc.RootElement, "engine");
+            return HellForgeRelease.Supports(version) && engine == HellForgeRelease.Engine ||
+                version != null && (version == "0.3.0-beta" || System.Text.RegularExpressions.Regex.IsMatch(version, @"^0\.3\.0-beta \([0-9a-f]{7,40}\)$")) && engine == "0.1.41";
+        }
+        var engineJson = Path.Combine(root, "app", "engine.json");
+        if (File.Exists(engineJson))
+        {
+            FileSafety.RejectLink(engineJson);
+            if (new FileInfo(engineJson).Length > 1024 * 1024) return false;
+            using var doc = JsonDocument.Parse(File.ReadAllText(engineJson));
+            var version = OptionalText(doc.RootElement, "version");
+            var build = OptionalText(doc.RootElement, "build");
+            return version is HellForgeRelease.Engine or "0.1.41" && (build == null || build == HellForgePack.SupportedBuild);
+        }
+        return false;
     }
     static string Text(JsonElement json, string key) => OptionalText(json, key) is { Length: > 0 } value ? value : throw new InvalidDataException($"HellForge response lacks {key}.");
     static string? OptionalText(JsonElement json, string key) => json.TryGetProperty(key, out var value) && value.ValueKind == JsonValueKind.String ? value.GetString() : null;

@@ -191,6 +191,18 @@ internal static class PlayerReviewTests
             await defaultWarbondsPlayer.RunAsync(["player-status"], CancellationToken.None);
             check(backendCalls == backendBeforeDefault + 1 && official.StatusCalls == 3,
                 "default OpenOwnedWarbondsAsync wrapper retries Warbonds on cached polls without re-running backend review");
+
+            // v2.0 select-mode accepts reduced512 and --enemy-skin while retaining 5-arg backwards compatibility.
+            var v2Resp = await playPlayer.RunAsync(["select-mode", "--mode", "clonedivers", "--delta", "yes", "--texture", "reduced512", "--droids", "yes", "--covenant", "yes", "--enemy-skin", "mixed-droids"], CancellationToken.None);
+            var v2Prefs = new HellForgePreferences { Mode = v2Resp.GetProperty("Mode").GetString()!, Texture = v2Resp.GetProperty("Texture").GetString()!, EnemySkin = v2Resp.GetProperty("EnemySkin").GetString()!, Droids = v2Resp.GetProperty("Droids").GetBoolean(), Covenant = v2Resp.GetProperty("Covenant").GetBoolean() };
+            var v2Selected = v2Prefs.Selection();
+            check(v2Prefs.Mode == "clonedivers" && v2Prefs.Texture == "reduced512" && v2Prefs.EnemySkin == "mixed-droids" && v2Prefs.Droids && v2Prefs.Covenant &&
+                v2Selected.Version == "2026.11.19-r20" && v2Selected.Texture == "reduced512" && v2Selected.Options["mixed-droids"] && v2Selected.Options["droids"] && v2Selected.Options["covenant"] && v2Selected.Files.Count == 114,
+                "bridge select-mode resolves reduced512, mixed-droids, and covenant natively against Clones r20");
+            var backResp = await playPlayer.RunAsync(["select-mode", "--mode", "empire", "--delta", "no", "--texture", "lighter", "--droids", "no", "--covenant", "no"], CancellationToken.None);
+            check(backResp.GetProperty("Mode").GetString() == "empire" && backResp.GetProperty("Texture").GetString() == "lighter" &&
+                !backResp.GetProperty("Droids").GetBoolean() && backResp.GetProperty("EnemySkin").GetString() == "native-automatons",
+                "bridge 5-arg select-mode stays backwards-compatible and maps droids=no to native-automatons");
         }
         finally { Directory.Delete(root, true); }
     }

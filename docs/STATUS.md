@@ -1,5 +1,75 @@
 # Clonedivers Release and Project Status
 
+## November 19–20, 2026 (`v2.0.0` prerelease; `R1` published, `R2` pending; feeds-last): Turnkey 4-Step Wizard, `r48` Empire, `r20` Clones & `build25480438-r5`
+
+Live public feeds (`manifest.json`, `manifest-v3.json`, `manifest-v3-current.json`)
+and `releases/latest` remain untouched at **Windows `1.14.2` / Linux `0.8.2` /
+`r45-v4`** until attended `R2` desktop verification completes (`R1` prerelease asset
+stores are uploaded and verified at HTTP 200 across all 653 pack/manifest and 14
+gameplay URLs). As the **Windows `v2.0.0` prerelease** (with **Linux Forge `0.9.0`**
+staged as a candidate), this release integrates the full v2.0 turnkey UX,
+post-`hf-mod.com` **`build25480438-r5`** gameplay preset, **6 project-owned SDK-16
+runtime mods**, **18-combination EmpireDivers `2026.11.19-r48`**, and **36-combination
+Clonedivers `2026.11.19-r20`**:
+
+- **Turnkey Single Setup Wizard & UX (`F1`–`F16`):** Consolidates onboarding into a
+  4-step modal wizard (`Step 1 Preflight` -> `Step 2 Forge & Game Copy` with in-app
+  Steam Mobile QR + Official fallback -> `Step 3 Mandatory Steam Account Sync` with
+  `hosts` capture-proxy detection -> `Step 4 Pack Download & Ready` with first-launch
+  firewall notice), single-instance window activation (`F15`), fast-crash surfacing
+  (`F6`), and unified **3 Enemy Skins** (`All CIS Droids`, `Mixed Bots + CIS Droids`,
+  `Native Automatons`) × **3 Texture Tiers** (`Full`, `Lighter (Streamed)`,
+  `Johnson Ultra-Potato (512px)` `reduced512`) × **Covenant** (`1670`) controls across
+  Windows, Linux (`ForgeWindow`), and `HellForge.Launcher.ClonediversBridge`. See
+  [v2.0.0](releases/v2.0.0.md) and [linux-0.9.0](releases/linux-0.9.0.md).
+- **Gameplay catalog `build25480438-r5` (`14` downloads, `8,294,265` bytes, `0` `hf-mod.com` URLs):**
+  - Eliminates `hf-mod.com` URLs on its `2026-11-19` public-download shutdown:
+    mirrors permissive `0BSD`/`MIT` runtime mods (`cowboybingus.vanilla-plus-megapack`
+    `0.2.1` `794,057` B fixing HF `0.4.0` startup crash and integrating `Mod Options
+    Menu 1.2.1` + `Mod Bindings Menu 2.3`, `local.operation-reroller` `0.1.6`
+    `1,792,536` B host-gated `HF_SESSION_JOINER` safe, and `local.hf-shared-dispatcher`
+    `0.1.0` `105,845` B) plus owner-permitted MP-hardened SEAF packages
+    (`local.heavy-seaf-presence` `1.2.0-clonedivers.4` `95,313` B and
+    `local.mod-9fd7880666f6` `0.1.4-clonedivers.3` `330,828` B) on
+    `forge-gameplay-build25480438-r5`, while pinning `Bingus Shared Loader v20`
+    (`2,604,118` B), `Smarter SEAF 1.0.4` (`915,566` B, official `Th3chef/Smarter-SEAF`
+    `v1.0.4` contingency), and `Smarter Guard Dogs & Sentries 5.2.0` (`1,267,063` B)
+    directly to author GitHub Releases (`All rights reserved` never mirrored).
+  - Ships **6 project-owned SDK-16 optional defaults** (`388,939` B, full source in
+    `forge-mods/`): `clonedivers.clean-exit` `0.2.0` (`8,192` B),
+    `clonedivers.lego-compact-leaf-writer` `0.1.0` (`237,169` B, `61` Empire + Clone
+    garments, `35,631` `coop_writer_test` checks PASS), `clonedivers.empire-lego-yoda`
+    `0.2.0` (`53,078` B, Empire + `12` Clone torsos, `227` `yoda_test` checks PASS),
+    `clonedivers.empire-atst-writer` `0.1.0` (`34,001` B, S2c film-scale `EXO-45/49`
+    leaf writer for up to 4 co-op walkers), `clonedivers.empire-tie-switch` `0.3.0`
+    (`22,644` B, build `25480438` `RefcountedPackageSystem` `eagle_base` fallback +
+    4-player sortie tracking + multi-tier closure gate, `8,421` C checks PASS, fail-closed on non-TIE packs),
+    and `clonedivers.chaos-invasions` `0.3.0` (`33,855` B, `gameplay: true`,
+    host-authoritative Dropships/Warp Ships/Breaches + preload barrier + host-migration
+    continuity, `225` C + `52` LuaJIT checks PASS).
+  - Excludes `clear-skies-0.5.4.zip` (bundled `.patch_0` not cleared for public
+    redistribution), `faster-corpse-cleanup-1.0.6.zip` (missing `hf->session()` host
+    gate on joiners), and `simple-armor-passive-picker-1.4.2.zip` (slot-0-only
+    `read_cache()`). Upgrades enabled `r4` defaults automatically while preserving
+    disabled/removed choices and disabling superseded `chef.smarter-seaf` and
+    standalone `Mod Options Menu`.
+- **EmpireDivers `2026.11.19-r48` (`patch_1000..1036` `111` files / `patch_1000..1032` `99` files across `18` combinations, SHA-256 `c4a161f409fdb70cc62072dbc7c6f5893230e4da337f9803269840ee2b977e1e`) & Clonedivers `2026.11.19-r20` (`patch_0..37` `114` files / `patch_0..33` `102` files across `36` combinations, SHA-256 `c3b195f4a025f33e5b7d86f4ac9ab34c73927dd939cbe697eb4ffc65304d61bd`):**
+  - `r48` integrates `100%` build `25480438` Imperial wardrobe coverage (`135/135`
+    armors, `158/158` helmets, `1,939/1,939` `UNIT`s, `344` US text keys), S2c
+    film-scale AT-ST (`106` nodes `<= 128`, `[8,1,1]` palettes `<= 64`, `9` native
+    `PHYSICS` restored, `8` child weapons), E-Web UV repair, `18` green orbital
+    turbolaser `PFX`s, Brawny+Lean K-2SO (`B-27`), LEGO mid-back prop tuck, `5,266/5,266`
+    Imperial VO sound slots across `18` banks (`99.68%` Whisper `large-v3` ASR `>= 0.85`),
+    co-op-safe `mixed-droids`, `reduced512` (`5,444,224,572` B / `2,895,263,920` B
+    resident GPU vs `11,769,966,096` B / `9,973,354,112` B Full on `all-droids`), and
+    `Covenant` (`patch_1032` mutual exclusion + shadow `m_shadow` repair).
+  - `r20` integrates `6` isolated Compact LEGO Clone kits (`54` 3P `UNIT`s + `94`
+    hiders), LEGO mid-back prop tuck, Forge `25480438` `3,246`-key US text table (`18`
+    Clone strings), `mixed-droids`, `reduced512` (`4,771,760,418` B vs `9,384,254,636` B
+    Full on `commandos + all-droids`), and `Covenant`. Vault deduplication across all
+    `54/54` verified scenarios produces `653` unique blobs (`50,143,280,990` B).
+- **Verification level reached (`runtimeTested: false` until attended `R2` passes):** Official `verify_candidate.py` passed across all **`54/54`** `r48` & `r20` matrix combinations (`VERIFIER_EXIT=0`), `run-suites.ps1` (`0` failures, `0` warnings across `windows`, `bridge`, `linux-steam`, `linux-forge`, `forge-lab`), isolated `tools/uia-wizard-smoke.ps1` (`ALL UIA SINGLE-WIZARD SMOKE CHECKS PASSED`), and `mp_sim_test.py` (`65` 4-peer simulation checks PASS). Automated Wave 3 live verification passed **`10/10`** serialized `helldivers2.exe` runs (`exitCode=0`, `0` crashes/dumps/writer failures/Chaos fallbacks, `118/118` screenshots verified across `Empire r48` Compact LEGO + K-2SO + Bad Batch + unfolded E-Web, `Clones r20` 4 sampled Compact LEGO kits — Cody, Coruscant Guard, Rex, 501st — plus `Mixed Bots + CIS` + `Covenant 1670`, `chaos-invasions 0.3.0` foreign waves, `Heavy SEAF`, and live `empire-lego-yoda 0.2.0` firing), plus a 6-run `PresentMon 2.5.1` benchmark on a single high-VRAM test PC (`1280x720`) proving `Johnson Ultra-Potato 512px` cuts Peak Dedicated VRAM `-40.6%` (`18,154.53 -> 10,784.25 MiB`), Shared GPU spillover `-96.0%`, WorkingSet RAM `-44.5%`, and Boot-to-Ship `-27.7%` (background average FPS did not improve in this test). Attended live desktop `R2` checks (EXO-45/49 walker pod call-in, live Eagle TIE beacon throws, speaker voice mix, Empire Covenant (`patch_1032`) coexistence, Phase I Shiny and 212th Clone kits, weak-PC (low-VRAM) `512px` frame-time, 4-peer human co-op & host migration, clean-PC wizard run, and Linux Proton gameplay) remain required before feed promotion.
+
 ## November 16, 2026 (`v1.14.2` / `linux-v0.8.2` live; `R1` published, `R2` pending): 4-way Compact LEGO Empire r47 + `build25480438-r4`
 
 Live public versions are **Windows 1.14.2** (`v1.14.2`) and **Linux Forge 0.8.2**

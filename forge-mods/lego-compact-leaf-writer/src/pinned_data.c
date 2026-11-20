@@ -196,3 +196,97 @@ const cm_garment cm_garments[7] = {
 {"4D2F00B6C4929F00",17,1,aliases_5},
 {"BB11C8041C14C747",29,7,aliases_6},
 };
+
+static const uint64_t cm_baked_ids[7] = {
+    0x2BB094EDBC756963ULL, 0x7305FDF48136C05CULL, 0xDD25333BDF5F0143ULL,
+    0x1E25DAEB99B1A917ULL, 0x512399E005614901ULL, 0x4D2F00B6C4929F00ULL,
+    0xBB11C8041C14C747ULL
+};
+static const uint32_t cm_baked_mesh_bases[7] = {14u, 12u, 15u, 12u, 15u, 12u, 17u};
+
+#define CM_DYN_MAX (CM_MAX_GARMENTS - 7u)
+static uint32_t cm_dyn_count;
+static uint64_t cm_dyn_ids[CM_DYN_MAX];
+static char cm_dyn_hex[CM_DYN_MAX][17];
+static cm_alias cm_dyn_aliases[CM_DYN_MAX][CM_MAX_ALIASES];
+static uint32_t cm_dyn_mesh_nodes[CM_DYN_MAX][4];
+static cm_garment cm_dyn_garments[CM_DYN_MAX];
+
+const cm_garment *cm_dynamic_garment_at(uint32_t index) {
+    if (index < 7u) return &cm_garments[index];
+    uint32_t di = index - 7u;
+    return di < cm_dyn_count ? &cm_dyn_garments[di] : NULL;
+}
+
+CM_API uint32_t cm_garment_count(void) {
+    return 7u + cm_dyn_count;
+}
+
+CM_API int cm_garment_find(uint64_t resource, uint32_t *out_index) {
+    if (!resource) return 0;
+    for (uint32_t i = 0; i < 7u; i++) {
+        if (cm_baked_ids[i] == resource) {
+            if (out_index) *out_index = i;
+            return 1;
+        }
+    }
+    for (uint32_t i = 0; i < cm_dyn_count; i++) {
+        if (cm_dyn_ids[i] == resource) {
+            if (out_index) *out_index = 7u + i;
+            return 1;
+        }
+    }
+    return 0;
+}
+
+CM_API uint32_t cm_mesh_node_for(uint32_t garment_index, uint32_t ordinal) {
+    if (ordinal < 1u || ordinal > 4u) return UINT32_MAX;
+    if (garment_index < 7u) return cm_baked_mesh_bases[garment_index] + ordinal - 1u;
+    uint32_t di = garment_index - 7u;
+    if (di >= cm_dyn_count) return UINT32_MAX;
+    return cm_dyn_mesh_nodes[di][ordinal - 1u];
+}
+
+CM_API int cm_register_dynamic_garment(uint64_t resource, uint32_t node_count, uint32_t alias_count,
+                                       const cm_alias *aliases, const uint32_t mesh_nodes[4]) {
+    if (!resource || !node_count || node_count > 128u || alias_count > CM_MAX_ALIASES) return 0;
+    if (alias_count && !aliases) return 0;
+    if (cm_garment_find(resource, NULL)) return 0;
+    if (cm_dyn_count >= CM_DYN_MAX) return 0;
+
+    int has_any_mesh = 0;
+    for (uint32_t ord = 0; ord < 4u; ord++) {
+        uint32_t mn = mesh_nodes ? mesh_nodes[ord] : UINT32_MAX;
+        if (mn != UINT32_MAX) {
+            if (mn >= node_count) return 0;
+            has_any_mesh = 1;
+        }
+    }
+    if (!has_any_mesh) return 0;
+    for (uint32_t a = 0; a < alias_count; a++) {
+        if (aliases[a].source >= CM_SOURCE || aliases[a].node >= node_count) return 0;
+        for (uint32_t ord = 0; ord < 4u; ord++) {
+            if (mesh_nodes && mesh_nodes[ord] == aliases[a].node) return 0;
+        }
+    }
+
+    uint32_t di = cm_dyn_count;
+    static const char hex[] = "0123456789ABCDEF";
+    for (int shift = 60, p = 0; shift >= 0; shift -= 4, p++) {
+        cm_dyn_hex[di][p] = hex[(resource >> shift) & 0xFu];
+    }
+    cm_dyn_hex[di][16] = 0;
+    cm_dyn_ids[di] = resource;
+    for (uint32_t a = 0; a < alias_count; a++) cm_dyn_aliases[di][a] = aliases[a];
+    for (uint32_t ord = 0; ord < 4u; ord++) cm_dyn_mesh_nodes[di][ord] = mesh_nodes[ord];
+    cm_dyn_garments[di].resource = cm_dyn_hex[di];
+    cm_dyn_garments[di].count = node_count;
+    cm_dyn_garments[di].alias_count = alias_count;
+    cm_dyn_garments[di].aliases = alias_count ? cm_dyn_aliases[di] : NULL;
+    cm_dyn_count++;
+    return 1;
+}
+
+CM_API void cm_reset_dynamic_garments(void) {
+    cm_dyn_count = 0;
+}

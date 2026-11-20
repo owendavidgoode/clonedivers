@@ -1,24 +1,9 @@
 #include "coop_avatar_registry.h"
+#include "compact_math.h"
 #include <string.h>
 
-static const uint64_t COOP_GARMENTS[7] = {
-    0x2BB094EDBC756963ULL,
-    0x7305FDF48136C05CULL,
-    0xDD25333BDF5F0143ULL,
-    0x1E25DAEB99B1A917ULL,
-    0x512399E005614901ULL,
-    0x4D2F00B6C4929F00ULL,
-    0xBB11C8041C14C747ULL
-};
-
 int coop_is_compact_garment(uint64_t resource, uint32_t *out_kind) {
-    for (uint32_t i = 0; i < 7u; i++) {
-        if (COOP_GARMENTS[i] == resource) {
-            if (out_kind) *out_kind = i;
-            return 1;
-        }
-    }
-    return 0;
+    return cm_garment_find(resource, out_kind);
 }
 
 void coop_registry_init(coop_registry *reg) {

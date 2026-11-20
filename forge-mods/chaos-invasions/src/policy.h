@@ -1,4 +1,4 @@
-/* Chaos Invasions 0.2.0 policy, native pins, geometry/cap/map guards, and faction helpers.
+/* Chaos Invasions 0.3.0 policy, native pins, geometry/cap/map guards, co-op sync packets, and faction helpers.
  * Pure C helpers here have no engine dependencies and are directly unit-tested offline. */
 #ifndef CHAOS_POLICY_H
 #define CHAOS_POLICY_H
@@ -481,6 +481,70 @@ static uint32_t ChaosNarrowIgnoreMask(uint32_t cur_ignore, uint32_t own_mask,
 {
     uint32_t foreign_enemy_masks = all_enemy_masks & ~own_mask & ~player_mask;
     return cur_ignore & ~foreign_enemy_masks;
+}
+
+/* ---- SDK 16 Co-op Sync & Peer Preload Readiness Packets ------------------------------------------------------- */
+
+#define CHAOS_SHARE_KEY_STATE 0x4348414F53303330ULL /* "CHAOS030" */
+#define CHAOS_SYNC_MAGIC      0x334F4843u           /* "CHO3" */
+#define CHAOS_SYNC_VERSION    3u
+
+#define CHAOS_MAX_PEERS            4
+#define CHAOS_LATE_JOIN_HELLO_S    10.0
+#define CHAOS_PEER_PRELOAD_GRACE_S 30.0
+
+enum {
+    CHAOS_MSG_PEER_STATUS = 1u
+};
+
+typedef struct ChaosSharedState {
+    uint32_t magic;
+    uint16_t version;
+    uint8_t native_faction; /* 0..2 or 0xFF */
+    uint8_t landed;         /* 0 or 1 */
+    uint16_t mission_spawned;
+    uint16_t attempts;
+    uint32_t epoch;
+    int32_t cooldown_rem_ms;
+    uint32_t last_wave_seq;
+    uint8_t active_wave;
+    uint8_t active_faction;
+    uint8_t reserved_pad[6];
+} ChaosSharedState;
+
+typedef struct ChaosPeerMsg {
+    uint32_t magic;
+    uint16_t version;
+    uint8_t kind;          /* CHAOS_MSG_PEER_STATUS */
+    uint8_t resident_mask; /* bit f set when foreign faction f is resident */
+    uint8_t in_mission;    /* 1 in HF_STATE_MISSION, 0 in PREPARE/other */
+    uint8_t reserved[3];
+    uint32_t epoch;
+} ChaosPeerMsg;
+
+#if defined(__STDC_VERSION__) && __STDC_VERSION__ >= 201112L
+_Static_assert(sizeof(ChaosSharedState) == 32, "ChaosSharedState must fit HF_SHARE_VALUE_MAX (64)");
+_Static_assert(sizeof(ChaosPeerMsg) == 16, "ChaosPeerMsg fixed wire layout");
+#endif
+
+static int ChaosSharedStateValid(const ChaosSharedState* s)
+{
+    return s && s->magic == CHAOS_SYNC_MAGIC && s->version == CHAOS_SYNC_VERSION;
+}
+
+static int ChaosPeerMsgValid(const ChaosPeerMsg* m)
+{
+    return m && m->magic == CHAOS_SYNC_MAGIC && m->version == CHAOS_SYNC_VERSION &&
+           m->kind == CHAOS_MSG_PEER_STATUS;
+}
+
+static uint8_t ChaosRequiredForeignMask(int native_faction)
+{
+    uint8_t m = 0;
+    for (int f = 0; f < CHAOS_FACTIONS; f++) {
+        if (f != native_faction) m |= (uint8_t)(1u << f);
+    }
+    return m;
 }
 
 #endif

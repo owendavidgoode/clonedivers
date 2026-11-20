@@ -27,7 +27,7 @@ public sealed class HellForgeGameplayCatalog
     }
     public void Validate()
     {
-        if (Format != 1 || Id != "build25480438-r4" || GameBuild != HellForgePack.SupportedBuild || Artifacts.Count != 11 || Artifacts.Select(a => a.Id).Distinct().Count() != 11 || Order.Distinct().Count() != Order.Count)
+        if (Format != 1 || Id != "build25480438-r5" || GameBuild != HellForgePack.SupportedBuild || Artifacts.Count != 14 || Artifacts.Select(a => a.Id).Distinct().Count() != 14 || Order.Distinct().Count() != Order.Count)
             throw new InvalidDataException("Unsupported gameplay catalog.");
         var supplied = Artifacts.Select(a => a.Id).ToHashSet(StringComparer.Ordinal);
         var bundled = new[] { "hellforge.editor", "skyeshade.hell-forge", "skyeshade.vanilla-plus" };
@@ -40,7 +40,7 @@ public sealed class HellForgeGameplayCatalog
             FileSafety.ValidateLeaf(a.Id);
             if (a.Bytes <= 0 || a.Bytes > 128 * 1024 * 1024 || !FileSafety.IsSha256(a.Sha256) || !FileSafety.IsSha256(a.ContentHash) ||
                 !Uri.TryCreate(a.Url, UriKind.Absolute, out var uri) || uri.Scheme != "https" || uri.UserInfo.Length != 0 || uri.Query.Length != 0 || uri.Fragment.Length != 0 ||
-                !(uri.Host == "github.com" || uri.Host == "hf-mod.com")) throw new InvalidDataException("Untrusted gameplay artifact metadata.");
+                uri.Host != "github.com") throw new InvalidDataException("Untrusted gameplay artifact metadata.");
         }
     }
     public static void RejectLinks(string path)

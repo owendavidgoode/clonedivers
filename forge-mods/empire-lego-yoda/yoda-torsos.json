@@ -1,0 +1,90 @@
+{
+  "schema_version": 1,
+  "entry_fields": "Array objects under torsos require: kit (u32/hex), body (0=brawny, 1=lean), unit (u64/hex), main_sha256 (64 lowercase hex), gpu_sha256 (64 lowercase hex), plus optional alt_main_sha256 & alt_gpu_sha256. Keep below YODA_MAX_VISUALS (256 total including 8 built-ins).",
+  "torsos": [
+    {
+      "kit": "0xAE5978B1",
+      "body": 0,
+      "unit": "0xDAB5777BFBBD1A83",
+      "main_sha256": "998d61bc3172af2fc5ea0c85bd765d50db35448381e1d982343adee9081a4190",
+      "gpu_sha256": "49b9e8febde23c931cb6b941aa8d14ae3be4f58b91378358d6f3ed77deb3bde6"
+    },
+    {
+      "kit": "0xAE5978B1",
+      "body": 1,
+      "unit": "0xD184172E9096A6C2",
+      "main_sha256": "023525738bcbb7855f70d24e73f90a39a03d5e2605fd589b935d243e9e0af557",
+      "gpu_sha256": "6af04d453aff13e4c0bb716f5042ba39db5cd053c3b2f72cf35cd8550ff6e78c"
+    },
+    {
+      "kit": "0x1B8329AB",
+      "body": 0,
+      "unit": "0x37D0A8598D125564",
+      "main_sha256": "cfc9fc65e1798c41aea81ccfd7e11354e57ede5879a7d2f32081b2d3baed5c29",
+      "gpu_sha256": "a6d09cd69564fe0721caed0cc3c502e2bf994fd0387e94d4e62d8a38ab3e9cf7"
+    },
+    {
+      "kit": "0x1B8329AB",
+      "body": 1,
+      "unit": "0xF2EEF185355BAE5E",
+      "main_sha256": "71918b746f412dea0bce9b013c1c26e54517d3c5b53a52d2fa7fde23ea20501b",
+      "gpu_sha256": "c3bbcb1b19f89e825a8e0c1c7ac3bc2a0b6e1db6f414d2a9d7e63c7329d9bd17"
+    },
+    {
+      "kit": "0x2E706DB8",
+      "body": 0,
+      "unit": "0x9E291E101E16DC4F",
+      "main_sha256": "d3def3280ffb82d0883e74895ac24d485f6fcf7a52364715af7626d80d908650",
+      "gpu_sha256": "9481bbc0a78ec9c88887ee4d6f7e4e665d3ebf7bb1bd1f27d52fd61e668b0bd5"
+    },
+    {
+      "kit": "0x2E706DB8",
+      "body": 1,
+      "unit": "0x95EC84B1EFA977B3",
+      "main_sha256": "eb16953dcf372140d0e355225315dde88c587d10f4898e8aa464ea9585f1d1a8",
+      "gpu_sha256": "8ac69ea88db318b700d3a0092c6b09e8ef612d57ac7a93e0397d92bf3a7a0c88"
+    },
+    {
+      "kit": "0xA45385CD",
+      "body": 0,
+      "unit": "0x6B826D06AB7AF07C",
+      "main_sha256": "4c541455a313b3ea99440feda38540f92d132b4069b6f3b23e6bf8c3da5ca5bd",
+      "gpu_sha256": "5f76b4dafaee4631df19d17c7d8942272e3676c59406844f604198baf2d596f2"
+    },
+    {
+      "kit": "0xA45385CD",
+      "body": 1,
+      "unit": "0x4249A344A5268033",
+      "main_sha256": "a95bfc45196970dc8518b9bf418ebd589ea0dd9260e76209e281aa69fdddd7d3",
+      "gpu_sha256": "69c5f4f80811866112a11fd5552ba06bb11680614dbbb4ce8e98bd673ee1e582"
+    },
+    {
+      "kit": "0xDBC21A99",
+      "body": 0,
+      "unit": "0xDDCAF179A5CF81B4",
+      "main_sha256": "cc3ea3470a869a09bbd3cea3bdf4e9d4b7177a79394b97519e161fade158dac8",
+      "gpu_sha256": "7136158c42dcfc02abd5add5c3895a72950126c7e7fc1276c2ce0e8b16a5d798"
+    },
+    {
+      "kit": "0xDBC21A99",
+      "body": 1,
+      "unit": "0xD3D41E93EC4C7842",
+      "main_sha256": "b69d5016eec8fb8aa3535bc3b6952b951d9c5ac5831a7ba251c3070fbd4ad9ee",
+      "gpu_sha256": "f790d794ced0b8d80590c8edf941f29e615c2347093b5057c8238837c94ed95f"
+    },
+    {
+      "kit": "0x5D0D8002",
+      "body": 0,
+      "unit": "0x2B7598966411556F",
+      "main_sha256": "675debdb2f15272fb9fd913d4d2335d455bcb2c709eaa6a0595dd21e332ee2a7",
+      "gpu_sha256": "6ba7523317d5cfa0237ede13c5dd54b76503536c688e74b9c2f3bc83f27d3461"
+    },
+    {
+      "kit": "0x5D0D8002",
+      "body": 1,
+      "unit": "0xC86087DDDF60D9DE",
+      "main_sha256": "7142912ccb86b230b0586ff8d2374e538018a08399af655936684a9a0d24c05e",
+      "gpu_sha256": "7526e9466514c331357666543259da260c1e9c421361206886de41aed9c0a1fc"
+    }
+  ]
+}

@@ -36,7 +36,11 @@ public sealed class HellForgeAccount
                 catch (InvalidOperationException) { }
         }
         finally { foreach (var process in captures) process.Dispose(); }
-        var hosts = OperatingSystem.IsLinux() ? "/etc/hosts" : Path.Combine(Environment.SystemDirectory, "drivers", "etc", "hosts");
+        var customHosts = HellForgePreferences.CustomPreferencesPath() != null
+            ? Environment.GetEnvironmentVariable("CLONEDIVERS_FORGE_TEST_HOSTS") : null;
+        var hosts = !string.IsNullOrWhiteSpace(customHosts) ? Path.GetFullPath(customHosts.Trim())
+            : OperatingSystem.IsLinux() ? "/etc/hosts" : Path.Combine(Environment.SystemDirectory, "drivers", "etc", "hosts");
+        if (!string.IsNullOrWhiteSpace(customHosts)) FileSafety.RejectLink(hosts);
         if (File.Exists(hosts) && File.ReadLines(hosts).Any(line => line.Contains("# HellForge-CaptureProxy", StringComparison.OrdinalIgnoreCase)))
             return "Account sync cleanup is pending. Open HellForge > Profile > Account sync > Clean up before launching.";
         return null;

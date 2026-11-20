@@ -61,7 +61,10 @@ static int InvocationPayload(const Record *r,const RenderMeta *meta,const Owner 
     IvBudget *budget=invocationBudget;unsigned char *p=budget->payload;const se_call *call=budget->call->call;
     uint32_t token=(uint32_t)budget->call->target->token,target=token/8,ordinal=token%8;
     IvValid(0);
-    if(target>=7 || ordinal>=meta->meshes || Target(r->child.id.resource)!=(1u<<target))return IvFail(IV_WHITELIST,"invocation_target_token");
+    uint32_t expectedTarget=0,maxTargets=coopDynamicMode?cm_garment_count():7u;
+    if(target>=maxTargets || ordinal>=meta->meshes ||
+       (coopDynamicMode ? (!cm_garment_find(r->child.id.resource,&expectedTarget) || expectedTarget!=target)
+                        : (Target(r->child.id.resource)!=(1u<<target))))return IvFail(IV_WHITELIST,"invocation_target_token");
     const MeshMeta *m=&meta->mesh[ordinal];
     if(!m->registered || m->resolved.object!=call->mesh || m->resolved.object!=budget->call->target->mesh || !m->skin)
         return IvFail(IV_WHITELIST,"invocation_mesh_binding");

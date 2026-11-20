@@ -282,16 +282,16 @@ try
         "account gating offers no profile creation, lab or unlock-all fallback");
     var selectionArgs = new[] { "select-mode", "--mode", "regular", "--delta", "yes", "--texture", "full", "--droids", "yes", "--covenant", "no" };
     BridgeSession.Validate(selectionArgs);
-    foreach (var texture in new[] { "full", "lighter" })
+    foreach (var texture in new[] { "full", "lighter", "reduced512" })
     foreach (var droids in new[] { "yes", "no" })
     {
         var callCount = playerOfficial.Calls.Count;
-        string[] empireArgs = ["select-mode", "--mode", "empire", "--delta", "yes", "--texture", texture, "--droids", droids, "--covenant", "no"];
+        string[] empireArgs = ["select-mode", "--mode", "empire", "--delta", "yes", "--texture", texture, "--droids", droids, "--covenant", "yes"];
         BridgeSession.Validate(empireArgs);
         var selected = await player.RunAsync(empireArgs, CancellationToken.None);
         Check(selected.GetProperty("Mode").GetString() == "empire" && selected.GetProperty("Texture").GetString() == texture &&
-            selected.GetProperty("Droids").GetBoolean() == (droids == "yes") && playerOfficial.Calls.Count == callCount,
-            $"the actual bridge accepts Empire {texture}/droids={droids} cleanly without running official commands");
+            selected.GetProperty("Droids").GetBoolean() == (droids == "yes") && selected.GetProperty("Covenant").GetBoolean() && playerOfficial.Calls.Count == callCount,
+            $"the actual bridge accepts Empire {texture}/droids={droids}/covenant=yes cleanly without running official commands");
     }
     await player.RunAsync(selectionArgs, CancellationToken.None);
     var state = await player.RunAsync(["player-status"], CancellationToken.None);

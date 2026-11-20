@@ -37,10 +37,11 @@ internal sealed class ForgeWindow : Window
     internal readonly Button Launch = Action("LAUNCH CLONEDIVERS"), Prepare = Action("Prepare Star Wars pack"), Import = Action("Apply HD2 import");
     readonly Button connect = Action("Connect"), browse = Action("Locate…"), refresh = Action("Refresh"), setup = Action("Setup & mods"), fallback = Action("Official HD2 in Steam"), updates = Action("Check updates"), report = Action("Save support report");
     readonly TextBox folder = new() { Watermark = "Separate HellForge installation inside its dedicated prefix" };
-    readonly CheckBox delta = new() { Content = "Delta Squad armor" }, droids = new() { Content = "CIS droids" }, covenant = new() { Content = "Covenant squids" };
-    readonly ToggleButton fullTextures = new() { Content = "Full", Width = 110 }, lighterTextures = new() { Content = "Lighter", Width = 110 };
-    readonly StackPanel appearance = new() { Spacing = 6, MinHeight = 100 }, packChoices = new() { Spacing = 2 };
-    readonly TextBlock appearanceLabel = Text("Clones appearance", 13, Dim), appearanceInfo = Text("", 13, Dim);
+    readonly CheckBox delta = new() { Content = "Delta Squad armor" }, covenant = new() { Content = "Covenant squids" };
+    readonly ToggleButton allDroids = new() { Content = "All CIS Droids" }, mixedDroids = new() { Content = "Mixed Bots + CIS Droids" }, nativeAutomatons = new() { Content = "Native Automatons" };
+    readonly ToggleButton fullTextures = new() { Content = "Full" }, lighterTextures = new() { Content = "Lighter (Streamed)" }, potatoTextures = new() { Content = "Johnson Ultra-Potato (512px)" };
+    readonly StackPanel appearance = new() { Spacing = 6, MinHeight = 128 }, packChoices = new() { Spacing = 4 };
+    readonly TextBlock appearanceLabel = Text("Clones appearance", 13, Dim), appearanceInfo = Text("", 13, Dim), textureAdvisor = Text("", 11, Dim);
     readonly Button later = Action("Not now");
     readonly ProgressBar progress = new() { IsIndeterminate = true, Height = 6 };
     readonly TextBlock diagnostics = Text("", 12, Dim);
@@ -92,14 +93,23 @@ internal sealed class ForgeWindow : Window
             button.Click += (_, _) => Begin(async () => { preferences.Mode = id; await ChangedAsync(); }); Modes[id] = button; cards.Children.Add(button);
         }
         panel.Children.Add(cards);
-        var choices = new WrapPanel { Orientation = Orientation.Horizontal, Children = { delta, droids, covenant } };
+        var choices = new WrapPanel { Orientation = Orientation.Horizontal, Children = { delta, covenant } };
         foreach (var control in choices.Children) control.Margin = new Thickness(0, 0, 18, 0);
-        var textures = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 0, Children = { fullTextures, lighterTextures } };
-        AutomationProperties.SetName(fullTextures, "Full textures"); AutomationProperties.SetName(lighterTextures, "Lighter textures");
-        foreach (var segment in new[] { fullTextures, lighterTextures }) { segment.BorderThickness = new Thickness(1); segment.BorderBrush = Brush.Parse("#263047"); segment.CornerRadius = new CornerRadius(0); }
+        var enemySkins = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 0, Children = { allDroids, mixedDroids, nativeAutomatons } };
+        AutomationProperties.SetName(allDroids, "All CIS Droids");
+        AutomationProperties.SetName(mixedDroids, "Mixed Bots + CIS Droids");
+        AutomationProperties.SetName(nativeAutomatons, "Native Automatons");
+        foreach (var segment in new[] { allDroids, mixedDroids, nativeAutomatons }) { segment.Padding = new Thickness(10, 4); segment.BorderThickness = new Thickness(1); segment.BorderBrush = Brush.Parse("#263047"); segment.CornerRadius = new CornerRadius(0); }
+        var enemyRow = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 12, Children = { Text("Enemies", 13, Dim), enemySkins } };
+        var textures = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 0, Children = { fullTextures, lighterTextures, potatoTextures } };
+        AutomationProperties.SetName(fullTextures, "Full textures");
+        AutomationProperties.SetName(lighterTextures, "Lighter textures");
+        AutomationProperties.SetName(potatoTextures, "Johnson Ultra-Potato (512px) textures");
+        foreach (var segment in new[] { fullTextures, lighterTextures, potatoTextures }) { segment.Padding = new Thickness(10, 4); segment.BorderThickness = new Thickness(1); segment.BorderBrush = Brush.Parse("#263047"); segment.CornerRadius = new CornerRadius(0); }
         ToolTip.SetTip(lighterTextures, "Full-detail textures streamed on demand.");
+        ToolTip.SetTip(potatoTextures, "512 px max / 128 px resident tail for low-VRAM GPUs.");
         var textureRow = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 12, Children = { Text("Textures", 13, Dim), textures } };
-        packChoices.Children.Add(choices); packChoices.Children.Add(textureRow);
+        packChoices.Children.Add(choices); packChoices.Children.Add(enemyRow); packChoices.Children.Add(textureRow); packChoices.Children.Add(textureAdvisor);
         appearance.Children.Add(appearanceLabel); appearance.Children.Add(packChoices); appearance.Children.Add(appearanceInfo); panel.Children.Add(appearance);
         state.FontWeight = FontWeight.SemiBold; state.TextAlignment = detail.TextAlignment = TextAlignment.Center;
         panel.Children.Add(state); panel.Children.Add(detail);
@@ -121,12 +131,17 @@ internal sealed class ForgeWindow : Window
         panel.Children.Add(moreOptions);
         panel.Children.Add(Text("v" + AppInfo.Version, 12, Dim, alignment: HorizontalAlignment.Center));
         Content = new ScrollViewer { Content = panel, HorizontalScrollBarVisibility = ScrollBarVisibility.Disabled };
-        foreach (var box in new[] { delta, droids, covenant }) box.IsCheckedChanged += (_, _) => {
+        foreach (var box in new[] { delta, covenant }) box.IsCheckedChanged += (_, _) => {
             if (updating) return;
-            var newDelta = delta.IsChecked == true; var newDroids = droids.IsChecked == true; var newCovenant = covenant.IsChecked == true;
-            Begin(async () => { preferences.DeltaSquad = newDelta; preferences.Droids = newDroids; preferences.Covenant = newCovenant; await ChangedAsync(); });
+            var newDelta = delta.IsChecked == true; var newCovenant = covenant.IsChecked == true;
+            Begin(async () => { preferences.DeltaSquad = newDelta; preferences.Covenant = newCovenant; await ChangedAsync(); });
         };
-        fullTextures.Click += (_, _) => SetTexture("full"); lighterTextures.Click += (_, _) => SetTexture("lighter");
+        allDroids.Click += (_, _) => SetEnemySkin("all-droids");
+        mixedDroids.Click += (_, _) => SetEnemySkin("mixed-droids");
+        nativeAutomatons.Click += (_, _) => SetEnemySkin("native-automatons");
+        fullTextures.Click += (_, _) => SetTexture("full");
+        lighterTextures.Click += (_, _) => SetTexture("lighter");
+        potatoTextures.Click += (_, _) => SetTexture("reduced512");
         later.Click += (_, _) => { updateDeferred = true; updateFailed = false; UpdateView(); };
         connect.Click += (_, _) => { retryAction = ForgeAction.Connect; Begin(ConnectAsync); };
         browse.Click += (_, _) => Begin(BrowseAsync);
@@ -197,6 +212,12 @@ internal sealed class ForgeWindow : Window
             }
         };
         UpdateView();
+    }
+
+    void SetEnemySkin(string skin)
+    {
+        if (updating || busy || preview) { UpdateView(); return; }
+        Begin(async () => { preferences.EnemySkin = skin; await ChangedAsync(); });
     }
 
     void SetTexture(string texture)
@@ -318,18 +339,29 @@ internal sealed class ForgeWindow : Window
     void UpdateView()
     {
         updating = true;
-        delta.IsChecked = preferences.DeltaSquad; droids.IsChecked = preferences.Droids; covenant.IsChecked = preferences.Covenant;
-        fullTextures.IsChecked = preferences.Texture != "lighter"; lighterTextures.IsChecked = preferences.Texture == "lighter";
+        delta.IsChecked = preferences.DeltaSquad; covenant.IsChecked = preferences.Covenant;
+        allDroids.IsChecked = preferences.EnemySkin == "all-droids";
+        mixedDroids.IsChecked = preferences.EnemySkin == "mixed-droids";
+        nativeAutomatons.IsChecked = preferences.EnemySkin == "native-automatons";
+        fullTextures.IsChecked = preferences.Texture == "full";
+        lighterTextures.IsChecked = preferences.Texture == "lighter";
+        potatoTextures.IsChecked = preferences.Texture == "reduced512";
         var active = preview ? previewState == "running" : player?.SessionActive == true;
         var lost = preview ? previewState == "disconnected" : player?.Disconnected == true;
         var working = busy || preview && previewState == "installing";
         var checking = checkingLauncherUpdate || preview && previewState == "update-checking";
         updates.IsEnabled = !preview && !busy && !active && !checking;
         foreach (var (id, button) in Modes) { button.Background = Brush.Parse(id == preferences.Mode ? "#1D3457" : "#111A2D"); button.BorderBrush = id == preferences.Mode ? Blue : Brush.Parse("#263047"); button.IsEnabled = !working && !active && !checking; selectedModes[id].Text = id == preferences.Mode ? "SELECTED" : ""; }
-        foreach (var control in new Control[] { delta, droids, covenant, fullTextures, lighterTextures }) control.IsEnabled = !working && !active && !checking;
-        foreach (var segment in new[] { fullTextures, lighterTextures }) segment.Background = segment.IsChecked == true ? Brush.Parse("#1D3457") : Navy;
+        foreach (var control in new Control[] { delta, covenant, allDroids, mixedDroids, nativeAutomatons, fullTextures, lighterTextures, potatoTextures }) control.IsEnabled = !working && !active && !checking;
+        foreach (var segment in new[] { allDroids, mixedDroids, nativeAutomatons, fullTextures, lighterTextures, potatoTextures }) segment.Background = segment.IsChecked == true ? Brush.Parse("#1D3457") : Navy;
         packChoices.IsVisible = preferences.Mode != "regular"; appearanceInfo.IsVisible = !packChoices.IsVisible;
-        delta.IsVisible = covenant.IsVisible = preferences.Mode == "clonedivers";
+        delta.IsVisible = preferences.Mode == "clonedivers"; covenant.IsVisible = preferences.Mode != "regular";
+        textureAdvisor.Text = preferences.Texture switch
+        {
+            "reduced512" => "Johnson Ultra-Potato (512px / 128px resident): softer textures for low-VRAM GPUs; meshes & draw calls unchanged.",
+            "lighter" => "Lighter (Streamed): full-resolution textures streamed on demand, lowering resident GPU payload.",
+            _ => "Full: keeps resident textures loaded for high-VRAM GPUs; switch to Streamed or Johnson Ultra-Potato on tighter GPUs."
+        };
         appearanceLabel.Text = preferences.Mode == "clonedivers" ? "Clones appearance" : preferences.Mode == "empire" ? "Empire appearance" : "Regular HellForge";
         appearanceInfo.Text = "Original HD2 appearance with the required Forge gameplay mods.";
         folder.IsEnabled = browse.IsEnabled = !busy && player == null && !preview;
@@ -340,7 +372,7 @@ internal sealed class ForgeWindow : Window
         Import.IsEnabled = !busy && !active && !lost && player?.State?.Status is { GameCopyReady: true, RunnerReady: true, RecoveryProblem: null, CompatibilityProblem: null } && !preview;
         Import.Content = player?.State?.Account is { Captured: true, Imported: false } ? "Finish account sync" : "Sync HD2 account";
         var version = !updateDeferred ? launcherUpdate?.Available?.Version : null;
-        if (preview && previewState is "update-available" or "update-failed") version = "0.9.0";
+        if (preview && previewState is "update-available" or "update-failed") version = "1.0.0";
         var viewState = player?.State;
         if (preview && previewState is "sync" or "recovery") viewState = new(new("/home/player/forge/pfx/drive_c/HellForge", "0.4.0-beta", "25480438", true, true, false, true, true, null, null,
             RecoveryProblem: previewState == "recovery" ? "Gameplay installation interrupted" : null), false, "", new(false, false, ""), null);

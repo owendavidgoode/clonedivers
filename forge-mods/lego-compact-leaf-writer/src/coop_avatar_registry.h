@@ -8,7 +8,8 @@
 #include <stddef.h>
 
 #define COOP_MAX_PLAYERS 4u
-#define COOP_MAX_TARGETS 256u /* 4 players * 7 garments * 4 ordinals = 112 + corpses/previews */
+#define COOP_MAX_GARMENTS 256u /* 7 baked Stormtrooper + up to 249 dynamic JSON Clone/extensible kits */
+#define COOP_MAX_TARGETS 256u /* 4 players * 7+ garments * 4 ordinals + Armory/pod previews + respawns */
 #define COOP_HUMAN_AVATAR_RESOURCE 0x4D1C334D294DFA97ULL
 
 typedef enum {

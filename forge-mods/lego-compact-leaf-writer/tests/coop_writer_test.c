@@ -136,6 +136,8 @@ static MockSlab *sMgr, *sSlots, *sGens;
 static MockSlab *sGameGlobals, *sPlayerRow, *sContext, *sEntities, *sNetBuckets, *sEntBuckets;
 static MockSlab *sPlayerDesc[4];
 static char mockLogsDir[512];
+static char mockModFolder[1024];
+static const char *MockModFolder(HfMod *m) { (void)m; return mockModFolder; }
 
 static int MockRead(uintptr_t at, void *out, size_t bytes) {
     if (at == MOCK_ENGINE + MANAGER_RVA && bytes == 8) {
@@ -759,6 +761,7 @@ static void InitMockHost(const char *logsDir) {
     api.on_game_thread = MockOnTick;
     api.hook_ex = MockHookEx;
     api.logs_folder = MockLogs;
+    api.mod_folder = MockModFolder;
     api.log = MockLog;
     mod.api = &api;
 
@@ -1448,12 +1451,321 @@ int main(int argc, char **argv) {
         coopProbeActive = 0;
     }
 
+    /* Test 15: Extensible JSON/config garment registry (lego-garments-schema.json) + Wave 2 Clone kit pipeline (token >= 56). */
+    {
+        char subDir15[1024], modCfgDir[1024], cfgFile[1024];
+        snprintf(subDir15, sizeof subDir15, "%s/test15", argv[2]);
+        snprintf(modCfgDir, sizeof modCfgDir, "%s/test15_mod", argv[2]);
+        CreateDirectoryA(subDir15, NULL);
+        CreateDirectoryA(modCfgDir, NULL);
+        snprintf(cfgFile, sizeof cfgFile, "%s\\lego-garments.json", modCfgDir);
+
+        char err[192] = {0};
+        uint32_t loaded = 0;
+        const char *badVer = "{\"schema_version\":2,\"garments\":[]}";
+        TCHECK(!lg_load_garments_json(badVer, strlen(badVer), &loaded, err, sizeof err) && strstr(err, "schema_version"));
+        const char *dupBaked = "{\"schema_version\":1,\"garments\":[{\"resource\":\"2BB094EDBC756963\",\"node_count\":21,\"aliases\":[],\"meshes\":[{\"ordinal\":1,\"mesh_node\":14}]}]}";
+        TCHECK(!lg_load_garments_json(dupBaked, strlen(dupBaked), &loaded, err, sizeof err));
+        const char *aliasCollision = "{\"schema_version\":1,\"garments\":[{\"resource\":\"C104E99900000001\",\"node_count\":21,\"aliases\":[{\"source\":2,\"node\":14}],\"meshes\":[{\"ordinal\":1,\"mesh_node\":14}]}]}";
+        TCHECK(!lg_load_garments_json(aliasCollision, strlen(aliasCollision), &loaded, err, sizeof err));
+        TCHECK(cm_garment_count() == 7u);
+
+        const lp_asset *cloneTmpl = lp_asset_find(COMPACT_IDS[6], 1u);
+        const lp_asset *pinnedTmpl = lp_asset_find(COMPACT_IDS[0], 1u);
+        TCHECK(cloneTmpl && pinnedTmpl);
+
+        /* Write Wave 2 Clone config file matching lego-garments-schema.json (structural garment 7 + pinned garment 8) */
+        FILE *cf = fopen(cfgFile, "wb");
+        TCHECK(cf != NULL);
+        fprintf(cf, "{\n  \"schema_version\": 1,\n  \"kit_pack\": \"Wave 2 LEGO Clone Kits\",\n  \"garments\": [\n");
+        fprintf(cf, "    {\n      \"resource\": \"C104E00100000001\",\n      \"name\": \"clone_501st_torso\",\n      \"faction\": \"clonedivers\",\n      \"node_count\": 29,\n");
+        fprintf(cf, "      \"aliases\": [{\"source\":2,\"node\":22},{\"source\":3,\"node\":23},{\"source\":4,\"node\":24},{\"source\":5,\"node\":25},{\"source\":13,\"node\":26},{\"source\":14,\"node\":27},{\"source\":32,\"node\":28}],\n");
+        fprintf(cf, "      \"meshes\": [\n");
+        fprintf(cf, "        {\"ordinal\":1,\"mesh_node\":17,\"skin_mode\":\"structural\",\"bones\":%u,\"groups\":%u},\n", cloneTmpl->bones, cloneTmpl->groups);
+        fprintf(cf, "        {\"ordinal\":2,\"mesh_node\":18,\"skin_mode\":\"structural\",\"bones\":%u,\"groups\":%u},\n", cloneTmpl->bones, cloneTmpl->groups);
+        fprintf(cf, "        {\"ordinal\":3,\"mesh_node\":19,\"skin_mode\":\"structural\",\"bones\":%u,\"groups\":%u},\n", cloneTmpl->bones, cloneTmpl->groups);
+        fprintf(cf, "        {\"ordinal\":4,\"mesh_node\":20,\"skin_mode\":\"structural\",\"bones\":%u,\"groups\":%u}\n", cloneTmpl->bones, cloneTmpl->groups);
+        fprintf(cf, "      ]\n    },\n");
+        fprintf(cf, "    {\n      \"resource\": \"C104E00200000002\",\n      \"name\": \"clone_arc_shoulder\",\n      \"faction\": \"clonedivers\",\n      \"node_count\": 21,\n");
+        fprintf(cf, "      \"aliases\": [{\"source\":7,\"node\":18},{\"source\":8,\"node\":19},{\"source\":9,\"node\":20}],\n");
+        fprintf(cf, "      \"meshes\": [{\"ordinal\":1,\"mesh_node\":14,\"skin_mode\":\"pinned\",\"bones\":%u,\"groups\":%u,\"map\":[", pinnedTmpl->bones, pinnedTmpl->groups);
+        for (uint32_t i = 0; i < pinnedTmpl->bones; i++) fprintf(cf, "%s%u", i ? "," : "", pinnedTmpl->map[i]);
+        fprintf(cf, "],\"bind_bits\":[");
+        for (uint32_t i = 0; i < pinnedTmpl->bones * 12u; i++) fprintf(cf, "%s%u", i ? "," : "", pinnedTmpl->bind[i]);
+        fprintf(cf, "],\"counts\":[");
+        for (uint32_t g = 0; g < pinnedTmpl->groups; g++) fprintf(cf, "%s%u", g ? "," : "", pinnedTmpl->counts[g]);
+        fprintf(cf, "],\"palette\":[");
+        for (uint32_t g = 0; g < pinnedTmpl->groups; g++) {
+            fprintf(cf, "%s[", g ? "," : "");
+            for (uint32_t k = 0; k < pinnedTmpl->counts[g]; k++) fprintf(cf, "%s%u", k ? "," : "", pinnedTmpl->palette[g][k]);
+            fprintf(cf, "]");
+        }
+        fprintf(cf, "]}]\n    }\n  ]\n}\n");
+        fclose(cf);
+
+        int cfgFound = 0;
+        cm_reset_dynamic_garments(); lp_reset_dynamic_assets();
+        TCHECK(lg_load_garments_file(cfgFile, &cfgFound, &loaded, err, sizeof err) && cfgFound == 1 && loaded == 2u);
+        TCHECK(cm_garment_count() == 9u);
+        uint32_t ck = 0;
+        TCHECK(coop_is_compact_garment(0xC104E00100000001ULL, &ck) && ck == 7u);
+        TCHECK(coop_is_compact_garment(0xC104E00200000002ULL, &ck) && ck == 8u);
+        TCHECK(cm_mesh_node_for(7u, 1u) == 17u && cm_mesh_node_for(8u, 1u) == 14u);
+
+        /* Point api.mod_folder at modCfgDir and verify hellforge_mod_init auto-loads lego-garments.json! */
+        snprintf(mockModFolder, sizeof mockModFolder, "%s", modCfgDir);
+        InitMockHost(subDir15);
+        TCHECK(cm_garment_count() == 9u);
+        TCHECK(coop_is_compact_garment(0xC104E00100000001ULL, &ck) && ck == 7u);
+        TCHECK(coop_is_compact_garment(0xC104E00200000002ULL, &ck) && ck == 8u);
+        MockWorld w15 = CreateMockWorld();
+        static MockActor storm0, cloneHost;
+        SpawnMockActor(&storm0, &w15, 10u, 1u, COOP_HUMAN_AVATAR_RESOURCE, 107u, 1);
+        SpawnMockActor(&cloneHost, &w15, 30u, 1u, COOP_HUMAN_AVATAR_RESOURCE, 107u, 1);
+        /* Retarget cloneHost's t=6 unit to Clone kit 0xC104E00100000001ULL */
+        PutU64(cloneHost.childRes[6], 0u, 0xC104E00100000001ULL);
+        PutU64(sContext, 0xB398u, 77ULL);
+        PutU32(sPlayerRow, 0x84u, 2u);
+        SetPlayerSlot(0, 77ULL, 10u, 3u, 1, 100u, &cloneHost);
+        SetPlayerSlot(1, 88ULL, 11u, 3u, 0, 101u, &storm0);
+
+        WriterTick(&mod, 0.016f, NULL);
+        TCHECK(InterlockedCompareExchange(&writer.ready, 0, 0) == 1);
+
+        activeAsset = lp_asset_find(0xC104E00100000001ULL, 1u);
+        TCHECK(activeAsset != NULL);
+        expectedMesh = cloneHost.meshes[6][1]->address;
+        expectedPool = cloneHost.world->rw->address + 0x318u;
+        expectedNormalGraph = cloneHost.childGraphs[6]->address;
+        expectedResource = 0xC104E00100000001ULL;
+        expectedOrdinal = 1u;
+        activeGrouped = 1;
+        expectSubstitution = 1;
+        activeDrawRef = (MeshDrawRef){cloneHost.skins[6][1], cloneHost.subrecs[6][1], cloneHost.binds[6][1], cloneHost.poolOut, {cloneHost.childPoses[6][0], cloneHost.childPoses[6][1]}};
+        unsigned s6 = RetainedSampleForTarget(6u);
+        memcpy(cloneHost.parentPoses[0]->bytes, retainedFiles[s6] + 256u + 13312u, 107u * 48u);
+        memcpy(cloneHost.parentPoses[1]->bytes, retainedFiles[s6] + 256u + 18448u, 107u * 48u);
+        _mm_setcsr(activeCsr); SetLastError(activeErr);
+        uint32_t crc = gw_dispatch(&writer, (void *)expectedMesh, (void *)expectedPool, (void *)expectedNormalGraph, MOCK_ENGINE + 0x258AABu);
+        TCHECK(crc == 0x10u && writer.corrected == 1 && writer.failed == 0 && writer.fatal == 0);
+        const coop_target_slot *cslot = coop_find_mesh(&coopReg, expectedMesh);
+        TCHECK(cslot != NULL && cslot->target_kind == 7u && cslot->target_kind * 8u + 1u == 57u);
+        TCHECK(coopReg.targets[0].mesh != 0);
+
+        /* Verify token=57 succeeds inside CaptureQueueScope & CaptureRenderClose when coopDynamicMode=1 */
+        se_target dynTgt; coop_fill_se_target(cslot, &dynTgt);
+        TCHECK(dynTgt.token == 57u);
+        Record rec15; RenderMeta meta15; Owner own15;
+        memset(&rec15, 0, sizeof rec15); memset(&meta15, 0, sizeof meta15); memset(&own15, 0, sizeof own15);
+        TCHECK(MetaRead(&initial, cslot->child_index, &rec15.child, NODE_LIMIT));
+        TCHECK(MetaRead(&initial, cslot->parent_index, &rec15.parent, PARENT_NODE_LIMIT));
+        TCHECK(RenderRead(&rec15.child, &meta15));
+        se_call call15 = {expectedMesh, expectedPool, expectedNormalGraph, MOCK_ENGINE + 0x258AABu, GetCurrentThreadId(), activeCsr, activeErr};
+        se_observe_context ctx15 = {&invocationEnvelope, &dynTgt, &call15, NULL, 0};
+        IvBudget b15 = {0}; b15.call = &ctx15;
+        RenderMeta before15 = meta15, after15 = meta15;
+        after15.header.queue ^= 0x100u;
+        SavedTarget saved15; memset(&saved15, 0, sizeof saved15);
+        saved15.child = rec15.child; saved15.parent = rec15.parent; saved15.render = meta15;
+        writerCaptureActive = 1; invocationBudget = &b15;
+        TCHECK(CaptureQueueScope(cslot->child_index, &saved15, NULL) == 1);
+        TCHECK(CaptureRenderClose(cslot->child_index, &saved15, NULL, &rec15, &before15, &after15, 7u) == 1);
+        writerCaptureActive = 0; invocationBudget = NULL;
+
+        /* Verify 256-garment / 512-asset capacity headroom + t >= 32 (token >= 256) drain safety */
+        TCHECK(CM_MAX_GARMENTS == 256u && COOP_MAX_GARMENTS == 256u && LP_MAX_DYN_ASSETS == 512u);
+        cm_reset_dynamic_garments();
+        lp_reset_dynamic_assets();
+        for (uint32_t g = 0; g < 249u; g++) {
+            cm_alias ga[1] = {{1u, 16u}};
+            uint32_t mn[4] = {12u, g < 249u ? 13u : UINT32_MAX, UINT32_MAX, UINT32_MAX};
+            uint64_t gid = 0xC200000000000000ULL + (uint64_t)(g + 1u);
+            TCHECK(cm_register_dynamic_garment(gid, 17u, 1u, ga, mn) == 1);
+            lp_asset ma;
+            memset(&ma, 0, sizeof ma);
+            ma.resource = gid; ma.ordinal = 1u; ma.bones = 1u; ma.groups = 1u;
+            TCHECK(lp_register_asset(&ma, 0u) == 1);
+            ma.ordinal = 2u;
+            TCHECK(lp_register_asset(&ma, 0u) == 1);
+        }
+        TCHECK(cm_garment_count() == 256u);
+        {
+            cm_alias extraAlias[1] = {{1u, 16u}};
+            uint32_t extraNodes[4] = {12u, UINT32_MAX, UINT32_MAX, UINT32_MAX};
+            TCHECK(cm_register_dynamic_garment(0xC2FFFFFFFFFFFFFFULL, 17u, 1u, extraAlias, extraNodes) == 0);
+            /* Remaining 14 asset slots up to 512 (249*2 = 498 registered so far) */
+            for (uint32_t extra = 0; extra < 14u; extra++) {
+                lp_asset ma;
+                memset(&ma, 0, sizeof ma);
+                ma.resource = 0xC200000000000001ULL + extra;
+                ma.ordinal = 3u; ma.bones = 1u; ma.groups = 1u;
+                TCHECK(lp_register_asset(&ma, 0u) == 1);
+            }
+            lp_asset overAsset;
+            memset(&overAsset, 0, sizeof overAsset);
+            overAsset.resource = 0xC2000000000000FFULL;
+            overAsset.ordinal = 3u; overAsset.bones = 1u; overAsset.groups = 1u;
+            TCHECK(lp_register_asset(&overAsset, 0u) == 0);
+        }
+
+        /* Also exercise high garment index t = 60 (>= 32) through full dispatch + WriterTick drain */
+        cm_reset_dynamic_garments();
+        lp_reset_dynamic_assets();
+        for (uint32_t g = 0; g < 54u; g++) {
+            cm_alias ga[7] = {{2,22},{3,23},{4,24},{5,25},{13,26},{14,27},{32,28}};
+            uint32_t mn[4] = {17u, 18u, 19u, 20u};
+            uint64_t gid = 0xC300000000000000ULL + (uint64_t)(g + 1u);
+            TCHECK(cm_register_dynamic_garment(gid, 29u, 7u, ga, mn) == 1);
+            for (uint32_t ord = 1u; ord <= 4u; ord++) {
+                lp_asset ma;
+                memset(&ma, 0, sizeof ma);
+                ma.resource = gid; ma.ordinal = ord;
+                ma.bones = cloneTmpl->bones; ma.groups = cloneTmpl->groups;
+                TCHECK(lp_register_asset(&ma, 0u) == 1);
+            }
+        }
+        TCHECK(cm_garment_count() == 61u);
+        {
+            uint64_t highId = 0xC300000000000036ULL; /* g=53 -> target_kind = 60, token = 481 */
+            TCHECK(coop_is_compact_garment(highId, &ck) && ck == 60u);
+            PutU64(cloneHost.childRes[6], 0u, highId);
+            PutU8(sGens, cloneHost.childUnitIdx[6], 2u);
+            cloneHost.childGen[6] = 2u;
+            PutU32(cloneHost.childUnits[6], 8u, (2u << 22) | (cloneHost.childUnitIdx[6] & 0x3FFFFFu));
+            writerPollAt = 0;
+            WriterTick(&mod, 0.016f, NULL);
+            activeAsset = lp_asset_find(highId, 1u);
+            TCHECK(activeAsset != NULL);
+            expectedMesh = cloneHost.meshes[6][1]->address;
+            expectedPool = cloneHost.world->rw->address + 0x318u;
+            expectedNormalGraph = cloneHost.childGraphs[6]->address;
+            expectedResource = highId;
+            expectedOrdinal = 1u;
+            activeGrouped = 1;
+            expectSubstitution = 1;
+            activeDrawRef = (MeshDrawRef){cloneHost.skins[6][1], cloneHost.subrecs[6][1], cloneHost.binds[6][1], cloneHost.poolOut, {cloneHost.childPoses[6][0], cloneHost.childPoses[6][1]}};
+            _mm_setcsr(activeCsr); SetLastError(activeErr);
+            uint32_t hrc = gw_dispatch(&writer, (void *)expectedMesh, (void *)expectedPool, (void *)expectedNormalGraph, MOCK_ENGINE + 0x258AABu);
+            TCHECK(hrc == 0x10u && writer.corrected == 2 && writer.failed == 0 && writer.fatal == 0);
+            const coop_target_slot *hslot = coop_find_mesh(&coopReg, expectedMesh);
+            TCHECK(hslot != NULL && hslot->target_kind == 60u && hslot->target_kind * 8u + 1u == 481u);
+            WriterTick(&mod, 0.016f, NULL);
+            TCHECK(writer.fatal == 0 && shadowFail == 0 && leafFail == 0);
+        }
+
+        /* Validate production lego-garments.json (54 Wave 2A Clone garments, 216 pinned descriptors) */
+        {
+            int prodFound = 0;
+            uint32_t prodLoaded = 0;
+            const char *prodPath = "lego-garments.json";
+            FILE *probeProd = fopen(prodPath, "rb");
+            if (probeProd) {
+                fclose(probeProd);
+            } else {
+                prodPath = "../lego-garments.json";
+            }
+            cm_reset_dynamic_garments();
+            lp_reset_dynamic_assets();
+            TCHECK(lg_load_garments_file(prodPath, &prodFound, &prodLoaded, err, sizeof err));
+            TCHECK(prodFound == 1 && prodLoaded == 54u && cm_garment_count() == 61u);
+            for (uint32_t gi = 7u; gi < 61u; gi++) {
+                const cm_garment *cg = cm_garment_at(gi);
+                TCHECK(cg != NULL && cg->count >= 1u && cg->count <= 128u);
+                uint64_t gRes = strtoull(cg->resource, NULL, 16);
+                uint32_t foundIdx = 0;
+                TCHECK(cm_garment_find(gRes, &foundIdx) && foundIdx == gi);
+                for (uint32_t ord = 1u; ord <= 4u; ord++) {
+                    uint32_t mNode = cm_mesh_node_for(gi, ord);
+                    TCHECK(mNode < cg->count);
+                    const lp_ext_asset *ea = lp_asset_find_ext(gRes, ord);
+                    TCHECK(ea != NULL && ea->pin_mask == LP_PIN_ALL && ea->asset.bones >= 1u && ea->asset.groups >= 1u);
+                }
+            }
+        }
+
+        cm_reset_dynamic_garments();
+        lp_reset_dynamic_assets();
+        mockModFolder[0] = 0;
+    }
+
+    /* Test 16: Explicit 3-Gate Co-op & Recycling Stress (4-player OwnerRead, multi-owner duplicate resources, >300 respawns/previews across 256 slots). */
+    {
+        char subDir16[1024];
+        mockModFolder[0] = 0;
+        snprintf(subDir16, sizeof subDir16, "%s/test16", argv[2]);
+        CreateDirectoryA(subDir16, NULL);
+        InitMockHost(subDir16);
+        MockWorld w16 = CreateMockWorld();
+        static MockActor pActors[4], previews[2];
+        for (unsigned p = 0; p < 4u; p++) {
+            SpawnMockActor(&pActors[p], &w16, p * 8u, 1u, COOP_HUMAN_AVATAR_RESOURCE, 107u, 1);
+        }
+        PutU64(sContext, 0xB398u, 44ULL);
+        PutU32(sPlayerRow, 0x84u, 4u);
+        SetPlayerSlot(0, 11ULL, 10u, 3u, 0, 100u, &pActors[0]);
+        SetPlayerSlot(1, 22ULL, 11u, 3u, 0, 101u, &pActors[1]);
+        SetPlayerSlot(2, 33ULL, 12u, 3u, 0, 102u, &pActors[2]);
+        SetPlayerSlot(3, 44ULL, 13u, 3u, 1, 103u, &pActors[3]); /* local player at non-zero slot 3 */
+
+        WriterTick(&mod, 0.016f, NULL);
+        TCHECK(InterlockedCompareExchange(&writer.ready, 0, 0) == 1);
+
+        /* Gate 1: OwnerRead accepts count == 4 (no count == 1 gate) and selects local slot 3 peer 44 */
+        Owner own16;
+        TCHECK(OwnerRead(&own16) && own16.count == 4u && own16.rowPeer == 44ULL);
+
+        /* Gate 2: All 4 co-op players + 2 Armory/Pod previews share IDENTICAL Stormtrooper resource hashes with zero duplicate_target_resource abort */
+        SpawnMockActor(&previews[0], &w16, 40u, 1u, COOP_HUMAN_AVATAR_RESOURCE, 107u, 1);
+        SpawnMockActor(&previews[1], &w16, 48u, 1u, COOP_HUMAN_AVATAR_RESOURCE, 107u, 1);
+        writerPollAt = 0;
+        WriterTick(&mod, 0.016f, NULL);
+        for (unsigned p = 0; p < 4u; p++) {
+            for (unsigned t = 0; t < 7u; t++) {
+                for (unsigned j = 1u; j <= 4u; j++) InvokeActorMesh(&pActors[p], t, j, 1, 1);
+            }
+        }
+        for (unsigned a = 0; a < 2u; a++) {
+            for (unsigned t = 0; t < 7u; t++) {
+                for (unsigned j = 1u; j <= 4u; j++) InvokeActorMesh(&previews[a], t, j, 0, 1);
+            }
+        }
+        TCHECK(coopReg.active_targets == 168u && duplicateResources == 0u);
+
+        /* Gate 3: Retire 112 targets via 1E7CD0 RenderRemoveObserved and spawn/admit 448 more respawn slots -> 616 lifetime admissions cleanly inside 256-slot cap! */
+        MockSlab *pkt = AllocSlab(16);
+        for (unsigned p = 0; p < 4u; p++) {
+            PutU32(pkt, 4u, pActors[p].parentAppHandle);
+            _mm_setcsr(0x9F81u); SetLastError(0x1357u);
+            RenderRemoveObserved((void *)w16.rw->address, (const void *)pkt->address, NULL);
+        }
+        TCHECK(coopReg.active_targets == 56u);
+
+        for (unsigned wave = 0; wave < 4u; wave++) {
+            static MockActor resp[4];
+            uint32_t baseSlot = 64u + wave * 32u;
+            for (unsigned p = 0; p < 4u; p++) {
+                SpawnMockActor(&resp[p], &w16, baseSlot + p * 8u, (uint8_t)(2u + wave), COOP_HUMAN_AVATAR_RESOURCE, 107u, 1);
+                SetPlayerSlot(p, 11ULL * (p + 1u), 10u + p, 3u, p == 3u, 100u + p, &resp[p]);
+                writerPollAt = 0;
+                WriterTick(&mod, 0.016f, NULL);
+                for (unsigned t = 0; t < 7u; t++) {
+                    for (unsigned j = 1u; j <= 4u; j++) InvokeActorMesh(&resp[p], t, j, 1, 1);
+                }
+                TCHECK(coopReg.active_targets <= COOP_MAX_TARGETS);
+                PutU32(pkt, 4u, resp[p].parentAppHandle);
+                _mm_setcsr(0x9F81u); SetLastError(0x1357u);
+                RenderRemoveObserved((void *)w16.rw->address, (const void *)pkt->address, NULL);
+            }
+        }
+        TCHECK(coopReg.admissions == 616u && coopReg.active_targets == 56u && writer.fatal == 0);
+    }
+
     if (invocationDirectoryHandle != INVALID_HANDLE_VALUE) {
         CloseHandle(invocationDirectoryHandle);
         invocationDirectoryHandle = INVALID_HANDLE_VALUE;
     }
 
-    printf("PASS %u coop multi-actor checks (112 squad meshes x2 routes, slot1 local, preview/corpse, 1E7CD0 retire, ABA rebind, %u-slot cap)\n",
+    printf("PASS %u coop multi-actor checks (112 squad meshes x2 routes, slot1 local, preview/corpse, 1E7CD0 retire, ABA rebind, %u-slot cap, Wave2 JSON Clone kits, 616-admission recycling)\n",
         testChecks, COOP_MAX_TARGETS);
     return 0;
 }

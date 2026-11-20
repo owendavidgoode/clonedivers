@@ -1586,11 +1586,85 @@ public sealed partial class MainForm : Form
 static class Program
 {
     static Mutex? single;
+    static EventWaitHandle? activateEvent;
+    static ManualResetEventSlim? shutdownEvent;
+
+    static string InstanceSuffix()
+    {
+        if (HellForgePreferences.CustomPreferencesPath() is not { } custom) return "";
+        var hash = System.Security.Cryptography.SHA256.HashData(System.Text.Encoding.UTF8.GetBytes(Path.GetFullPath(custom)));
+        return "." + Convert.ToHexString(hash.AsSpan(0, 8));
+    }
+
+    static void SignalExistingInstance(string activateName)
+    {
+        try
+        {
+            using var existing = EventWaitHandle.OpenExisting(activateName);
+            existing.Set();
+        }
+        catch (WaitHandleCannotBeOpenedException) { }
+        catch (UnauthorizedAccessException) { }
+        var current = Environment.ProcessId;
+        var exe = Environment.ProcessPath;
+        var name = Path.GetFileNameWithoutExtension(exe ?? "Clonedivers");
+        var processes = Process.GetProcessesByName(name);
+        try
+        {
+            foreach (var proc in processes)
+            {
+                try
+                {
+                    if (proc.Id == current || proc.HasExited) continue;
+                    if (exe != null && proc.MainModule?.FileName is { } path &&
+                        !string.Equals(Path.GetFullPath(path), Path.GetFullPath(exe), StringComparison.OrdinalIgnoreCase)) continue;
+                    if (HellForgeForm.FocusWindowHandle(proc.MainWindowHandle)) return;
+                }
+                catch (Exception error) when (error is InvalidOperationException or System.ComponentModel.Win32Exception or UnauthorizedAccessException) { }
+            }
+        }
+        finally { foreach (var proc in processes) proc.Dispose(); }
+    }
+
+    static Thread? StartActivationListener(Form form)
+    {
+        if (activateEvent == null || shutdownEvent == null) return null;
+        var handles = new[] { activateEvent, shutdownEvent.WaitHandle };
+        var listener = new Thread(() => {
+            try
+            {
+                while (WaitHandle.WaitAny(handles) == 0)
+                {
+                    if (form.IsDisposed || form.Disposing) break;
+                    if (!form.IsHandleCreated) continue;
+                    try
+                    {
+                        form.BeginInvoke(() => {
+                            if (form is HellForgeForm forge) forge.BringToFrontWindow();
+                            else
+                            {
+                                if (form.WindowState == FormWindowState.Minimized) form.WindowState = FormWindowState.Normal;
+                                form.Activate();
+                                HellForgeForm.FocusWindowHandle(form.Handle);
+                            }
+                        });
+                    }
+                    catch (InvalidOperationException) { }
+                }
+            }
+            catch (ObjectDisposedException) { }
+        }) { IsBackground = true, Name = "SingleInstanceActivator" };
+        listener.Start();
+        return listener;
+    }
 
     /// <summary>Lets the freshly swapped exe start while this one is still shutting down (the mutex is held for the process lifetime otherwise).</summary>
     public static void ReleaseSingleInstance()
     {
+        try { shutdownEvent?.Set(); } catch { }
+        try { activateEvent?.Dispose(); } catch { }
         try { single?.ReleaseMutex(); single?.Dispose(); } catch { }
+        activateEvent = null;
         single = null;
     }
 
@@ -1598,9 +1672,20 @@ static class Program
     static void Main(string[] args)
     {
         // The 60 MB self-contained exe takes a few seconds to unpack on first launch; a second double-click
-        // during that pause should not open a second window.
-        single = new Mutex(true, @"Local\Clonedivers", out bool firstInstance);
-        if (!firstInstance) return;
+        // during that pause should bring the running window forward instead of opening another copy.
+        var suffix = InstanceSuffix();
+        var activateName = @"Local\Clonedivers.Activate" + suffix;
+        single = new Mutex(true, @"Local\Clonedivers" + suffix, out bool firstInstance);
+        if (!firstInstance)
+        {
+            try { single.Dispose(); } catch { }
+            single = null;
+            SignalExistingInstance(activateName);
+            return;
+        }
+        try { activateEvent = new EventWaitHandle(false, EventResetMode.AutoReset, activateName); }
+        catch (UnauthorizedAccessException) { }
+        shutdownEvent = new ManualResetEventSlim(false);
 
         Application.SetHighDpiMode(HighDpiMode.PerMonitorV2);
         Application.EnableVisualStyles();
@@ -1628,11 +1713,22 @@ static class Program
         {
             var settings = Settings.Load();
             var gameDir = GameLocator.IsGameDir(settings.GamePath) ? settings.GamePath : GameLocator.AutoDetect();
-            Application.Run(new MainForm(settings, gameDir, updatedTo, allowAppUpdates: false));
+            using var form = new MainForm(settings, gameDir, updatedTo, allowAppUpdates: false);
+            var listener = StartActivationListener(form);
+            Application.Run(form);
+            shutdownEvent?.Set();
+            listener?.Join(500);
         }
         else
         {
-            try { Application.Run(new HellForgeForm(HellForgePreferences.Load(), migrationNotice: migrationNotice)); }
+            try
+            {
+                using var form = new HellForgeForm(HellForgePreferences.Load(), migrationNotice: migrationNotice);
+                var listener = StartActivationListener(form);
+                Application.Run(form);
+                shutdownEvent?.Set();
+                listener?.Join(500);
+            }
             catch (Exception e) when (e is IOException or UnauthorizedAccessException or InvalidDataException or JsonException)
             {
                 MessageBox.Show("Couldn't open the HellForge launcher:\n" + e.Message + "\n\nYour Steam setup is preserved. Start this launcher with --steam to open it.",
@@ -1640,5 +1736,7 @@ static class Program
             }
         }
         ReleaseSingleInstance();
+        shutdownEvent?.Dispose();
+        shutdownEvent = null;
     }
 }
