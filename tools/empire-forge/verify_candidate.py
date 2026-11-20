@@ -59,7 +59,7 @@ def geometry_provider_scan(resources: dict, index: dict) -> dict:
                 needle = needles.get(group) or struct.pack('<Q', group)
                 first_hit = raw.find(needle)
                 other_hit = first_hit not in (-1, 16) or (first_hit == 16 and raw.find(needle, 17) != -1)
-                if provider_key not in resources and not pointers(raw, 48) and not other_hit:
+                if provider_key not in resources and struct.unpack_from('<I', raw, 48)[0] != 0 and not pointers(raw, 48) and not other_hit:
                     record['lodCount'] = 0
                     references.append(record)
                     continue
@@ -118,16 +118,23 @@ def material_map(raw: bytes) -> dict[int, int]:
 
 def lod_descriptors(raw: bytes) -> list[list[int]]:
     entries = []
+    total_indices = 0
     meshes = pointers(raw, 100)
     for at in pointers(raw, 48):
         levels = struct.unpack_from('<I', raw, at + 16)[0]
         if levels > 10000 or at + 20 + 4 * levels > len(raw):
             raise ValueError('Invalid LOD table')
         for i in range(levels):
-            entry = at + struct.unpack_from('<I', raw, at + 20 + 4 * i)[0]
+            rel = struct.unpack_from('<I', raw, at + 20 + 4 * i)[0]
+            if rel < 20 + 4 * levels:
+                raise ValueError('Invalid LOD entry')
+            entry = at + rel
             count = struct.unpack_from('<I', raw, entry + 8)[0]
             if count > 10000 or entry + 12 + 4 * count > len(raw):
                 raise ValueError('Invalid LOD entry')
+            total_indices += count
+            if total_indices > 100000:
+                raise ValueError('Invalid LOD descriptor')
             indices = list(struct.unpack_from(f'<{count}I', raw, entry + 12))
             if any(v >= len(meshes) for v in indices):
                 raise ValueError('Invalid LOD descriptor')
