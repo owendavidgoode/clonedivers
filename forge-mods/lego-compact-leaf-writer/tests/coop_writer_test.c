@@ -264,10 +264,10 @@ static uint32_t MockLeafNext(void *dst, const void *factor, const void *graph, c
     (void)dst; (void)factor; (void)bind; (void)palette; (void)map;
     TCHECK(_mm_getcsr() == 0x9FA1u && GetLastError() == 0x7799u);
     TCHECK(graph != NULL);
-    if (expectSubstitution) {
+    if (expectSubstitution > 0) {
         TCHECK((uintptr_t)graph != activeDrawRef.poses[0]->address &&
                (uintptr_t)graph != activeDrawRef.poses[1]->address);
-    } else if (activeDrawRef.poses[0] && activeDrawRef.poses[1]) {
+    } else if (expectSubstitution == 0 && activeDrawRef.poses[0] && activeDrawRef.poses[1]) {
         TCHECK((uintptr_t)graph == activeDrawRef.poses[0]->address ||
                (uintptr_t)graph == activeDrawRef.poses[1]->address);
     }
@@ -924,7 +924,7 @@ int main(int argc, char **argv) {
     /* Hit negative cache a second time on foreign garment */
     _mm_setcsr(activeCsr); SetLastError(activeErr);
     TCHECK(SkinObserved((void *)expectedMesh, (void *)expectedPool, NULL) == 0x10u);
-    TCHECK(writer.unclassified == 3 && coopReg.active_targets == 140u && !writer.fatal);
+    TCHECK(writer.corrected == 252 && writer.failed == 0 && coopReg.active_targets == 140u && !writer.fatal);
 
     /* Test 5: 1E7CD0 RenderRemoveObserved native retirement + cross-world isolation */
     MockSlab *sPkt = AllocSlab(16);
@@ -1106,6 +1106,7 @@ int main(int argc, char **argv) {
     TCHECK(writer.corrected == baseCorrected + 56 && writer.failed == 0 && writer.fatal == 0);
 
     /* Test 10: Concurrent unrelated UnitManager capacity/free-list change mid-CoopCaptureTarget -> correction SUCCEEDS with fatal == 0! */
+    writer.fast_coop_run = NULL; /* Exercise slow CoopCaptureTarget path specifically for Tests 10 & 11 */
     hookWatchMgrSlab = sMgr;
     hookWatchMgrAddr = sMgr->address + 0x98u;
     hookMgrHits = 0;
@@ -1150,6 +1151,7 @@ int main(int argc, char **argv) {
     PutU32(hookWatchPoseSlab, hookWatchPoseOff, savedPoseWord);
     InvokeActorMesh(&groundAvatar, 5, 1, 0, 1);
     TCHECK(writer.corrected == baseCorrected + 1 && writer.fatal == 0);
+    writer.fast_coop_run = CoopFastRun; /* Restore parallel fast path for all remaining tests */
 
     /* Emit final health row confirming new telemetry counters format cleanly under 900 chars. */
     writerHealthAt = 0;
@@ -1820,7 +1822,8 @@ int main(int argc, char **argv) {
         }
         TCHECK(coopReg.active_targets == 28u && writer.corrected == 28 && writer.fatal == 0);
 
-        /* Now run 5,000 non-LEGO enemy/SEAF 512B80 calls with LEGO active -> EXACTLY 1 x 4-byte read each! */
+        /* Now run 5,000 non-LEGO enemy/SEAF 512B80 calls with all 28 LEGO meshes admitted -> ZERO hf->read() calls! */
+        TCHECK(coopFast.need_handle_probe == 0u);
         perfTestReadCount = 0; perfTestReadBytes = 0;
         testReadHook = PerfCountReadHook;
         for (unsigned i = 0; i < 5000u; i++) {
@@ -1829,7 +1832,117 @@ int main(int argc, char **argv) {
                 (void *)(w17.rw->address + 0x318u), NULL, MOCK_ENGINE + 0x258E19u, (LONG64)i, &t17, &k17));
         }
         testReadHook = NULL;
-        TCHECK(perfTestReadCount == 5000u && perfTestReadBytes == 20000u);
+        TCHECK(perfTestReadCount == 0u && perfTestReadBytes == 0u);
+
+        /* Verify matched steady-state LEGO 512B80 call takes the lock-free/shared CoopFastRun path (<= 20 reads vs ~260)! */
+        perfTestReadCount = 0; perfTestReadBytes = 0;
+        testReadHook = PerfCountReadHook;
+        InvokeActorMesh(&d11Player, 0, 1, 0, 1);
+        testReadHook = NULL;
+        TCHECK(writer.corrected == 29 && writer.fatal == 0 && perfTestReadCount <= 20u && writer.fast_hits == 1);
+
+        /* Test 18: Bit-for-bit cm_solve_parent + cm_apply_garment equivalence across all 37 retained frames
+         * AND rotating pool+0x170 double/triple-buffer + parent-pose cache hit rate across all 28 meshes! */
+        {
+            static cm_workspace wRef, wSplit;
+            uint32_t savedCsr = _mm_getcsr();
+            _mm_setcsr(0x1f80u);
+            unsigned checkedFrames = 0u;
+            for (unsigned f = 0; f < 37u; f++) {
+                const unsigned char *p = retainedFiles[f] + 256u;
+                if (U32(p + 4u) != 0x007fff7fu || U32(p + 12u) != 0x7fu) continue;
+                uint64_t res = U64(p + 88u);
+                uint32_t gi = 0u;
+                TCHECK(cm_garment_find(res, &gi));
+                uint32_t count = U32(p + 184u);
+                uint32_t meshNode = U32(p + 112u);
+                const cm_render48 *parents[2] = {(const cm_render48 *)(p + 13312u), (const cm_render48 *)(p + 18448u)};
+                const cm_render48 *graphs[2] = {(const cm_render48 *)(p + 1024u), (const cm_render48 *)(p + 7168u)};
+                for (unsigned t = 0; t < 2u; t++) {
+                    cm_mat4 h, fm;
+                    TCHECK(coop_fast_inv3x4(&parents[t][100], &h) == CM_OK);
+                    memset(&fm, 0, sizeof fm);
+                    for (unsigned n = 0; n < 12u; n++) fm.v[n] = graphs[t][meshNode].v[n];
+                    fm.v[15] = 1.0;
+                    cm_frame frame = {parents[t], 107u, graphs[t], count, gi, meshNode, &h, &fm, 1u};
+                    cm_render48 outRef[SM_CAP], outSplit[SM_CAP], packed[CM_SOURCE];
+                    memset(outRef, 0xA5, sizeof outRef);
+                    memset(outSplit, 0x5A, sizeof outSplit);
+                    TCHECK(cm_evaluate(&shadowRig, &frame, &wRef, outRef, SM_CAP) == CM_OK);
+                    TCHECK(cm_solve_parent(&shadowRig, parents[t], 107u, &h, &wSplit, packed) == CM_OK);
+                    TCHECK(cm_apply_garment(&shadowRig, gi, meshNode, graphs[t], count, &fm, packed, &wSplit, outSplit, SM_CAP) == CM_OK);
+                    TCHECK(memcmp(outRef, outSplit, (size_t)count * 48u) == 0);
+                }
+                checkedFrames++;
+            }
+            TCHECK(checkedFrames >= 28u);
+            _mm_setcsr(savedCsr);
+
+            /* Rotate pool+0x170 across 3 distinct skinning buffer bases and run all 28 player meshes -> 100% fast_hits, >= 42/56 pose_hits! */
+            MockSlab *altPool1 = AllocSlab(0x4000u);
+            MockSlab *altPool2 = AllocSlab(0x4000u);
+            MockSlab *origPoolSlab = d11Player.poolOut;
+            MockSlab *poolSlabs[3] = {altPool1, altPool2, origPoolSlab};
+            LONG64 beforeFast = writer.fast_hits, beforePose = writer.pose_hits;
+            for (unsigned t = 0; t < 7u; t++) {
+                for (unsigned j = 1u; j <= 4u; j++) {
+                    MockSlab *ps = poolSlabs[(t * 4u + j) % 3u];
+                    d11Player.poolOut = ps;
+                    PutU64(w17.rw, 0x318u + 0x170u, ps->address);
+                    InvokeActorMesh(&d11Player, t, j, 0, 1);
+                }
+            }
+            d11Player.poolOut = origPoolSlab;
+            PutU64(w17.rw, 0x318u + 0x170u, origPoolSlab->address);
+            TCHECK(writer.fatal == 0 && (writer.fast_hits - beforeFast) == 28 && (writer.pose_hits - beforePose) >= 42);
+        }
+
+        /* Test 19: Late ordinal arrival (>5s after discovery) AND post-eviction re-admission after >5s. */
+        {
+            /* 19a: Evict ordinal 4 of garment 0, age discovered_ms past 5s manually, republish -> need_handle_probe==1
+             * (rate-limited 1-in-64 probe) -> calling ordinal 4 up to 64 times MUST re-admit & substitute it! */
+            coop_target_slot *s4 = coop_lookup_mesh(&coopReg, d11Player.meshes[0][4]->address);
+            TCHECK(s4 != NULL && s4->active);
+            coop_evict_slot(s4);
+            TCHECK(coopReg.active_targets == 27u && coopFast.need_handle_probe == 2u);
+            /* Simulate >5s elapsed since garment discovery with only 3/4 ordinals admitted */
+            for (uint32_t g = 0; g < coopGarmentCount; g++) coopGarments[g].discovered_ms = 0ull;
+            coop_fast_publish();
+            TCHECK(coopFast.need_handle_probe == 1u);
+            int admittedLate = 0;
+            for (unsigned attempt = 0; attempt < 64u && !admittedLate; attempt++) {
+                LONG64 corrBefore = writer.corrected;
+                activeGrouped = 0;
+                expectSubstitution = -1; /* allow either passthrough on un-sampled calls or substitution on sampled admission */
+                expectedMesh = d11Player.meshes[0][4]->address;
+                expectedPool = w17.rw->address + 0x318u;
+                expectedNormalGraph = d11Player.childGraphs[0]->address;
+                expectedResource = COMPACT_IDS[0];
+                expectedOrdinal = 4u;
+                activeAsset = lp_asset_find(COMPACT_IDS[0], 4u);
+                activeDrawRef = (MeshDrawRef){d11Player.skins[0][4], d11Player.subrecs[0][4], d11Player.binds[0][4], d11Player.poolOut, {d11Player.childPoses[0][0], d11Player.childPoses[0][1]}};
+                unsigned sample = RetainedSampleForTarget(0);
+                memcpy(d11Player.parentPoses[0]->bytes, retainedFiles[sample] + 256u + 13312u, 107u * 48u);
+                memcpy(d11Player.parentPoses[1]->bytes, retainedFiles[sample] + 256u + 18448u, 107u * 48u);
+                _mm_setcsr(activeCsr); SetLastError(activeErr);
+                uint32_t rc = gw_dispatch(&writer, (void *)expectedMesh, (void *)expectedPool, NULL, MOCK_ENGINE + 0x258E19u);
+                TCHECK(rc == 0x10u);
+                if (writer.corrected > corrBefore) admittedLate = 1;
+            }
+            TCHECK(admittedLate == 1 && coopReg.active_targets == 28u && coopFast.need_handle_probe == 0u && writer.fatal == 0);
+
+            /* 19b: Age discovered_ms past 5s while all 28 active, then evict slot 0/4 -> coop_evict_slot MUST
+             * immediately reopen need_handle_probe==2 so the very next call re-admits immediately! */
+            for (uint32_t g = 0; g < coopGarmentCount; g++) coopGarments[g].discovered_ms = 0ull;
+            coop_fast_publish();
+            TCHECK(coopFast.need_handle_probe == 0u);
+            coop_target_slot *s4b = coop_lookup_mesh(&coopReg, d11Player.meshes[0][4]->address);
+            TCHECK(s4b != NULL && s4b->active);
+            coop_evict_slot(s4b);
+            TCHECK(coopReg.active_targets == 27u && coopFast.need_handle_probe == 2u);
+            InvokeActorMesh(&d11Player, 0, 4, 0, 1);
+            TCHECK(coopReg.active_targets == 28u && coopFast.need_handle_probe == 0u && writer.fatal == 0);
+        }
     }
 
     if (invocationDirectoryHandle != INVALID_HANDLE_VALUE) {

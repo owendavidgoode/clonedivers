@@ -405,16 +405,16 @@ internal static class TurnkeySetupTests
                 (await postRecovery.MissingGameplayAsync()).Select(a => a.Id).ToHashSet(StringComparer.Ordinal).SetEquals(expectedR4Upgrade),
                 "RecoverGameplayAsync after an interrupted r4->r5 upgrade restores 0.0.9/0.2.0 and still offers the enabled retired-default upgrades on retry");
             fake.Calls.Clear(); await postRecovery.InstallGameplayAsync(postRecovery.GameplayCache);
-            check(fake.Mods.Single(m => m.Id == leafWriter.Id) is { Enabled: true, Version: "0.2.0" } &&
+            check(fake.Mods.Single(m => m.Id == leafWriter.Id) is { Enabled: true, Version: "0.2.1" } &&
                 fake.Mods.Single(m => m.Id == chaos.Id) is { Enabled: true, Version: "0.3.0" } &&
-                fake.Mods.Single(m => m.Id == atst.Id) is { Enabled: true, Version: "0.2.0" } &&
+                fake.Mods.Single(m => m.Id == atst.Id) is { Enabled: true, Version: "0.2.1" } &&
                 newInR5.All(id => fake.Mods.Single(m => m.Id == id).Enabled) &&
                 fake.Mods.Single(m => m.Id == yoda.Id) is { Enabled: false, Version: "0.1.2" } &&
                 fake.Mods.All(m => m.Id != cleanExit.Id) &&
                 fake.Calls.Count(c => c[0] == "mod-add") == expectedR4Upgrade.Count,
-                "r4->r6 retry after RecoverGameplayAsync imports 0.2.0/0.3.0 upgrades and new AT-ST 0.2.0/TIE Switch defaults while leaving disabled Yoda 0.1.2 and removed Clean Exit untouched");
+                "r4->r7 retry after RecoverGameplayAsync imports 0.2.1/0.3.0 upgrades and new AT-ST 0.2.1/TIE Switch defaults while leaving disabled Yoda 0.1.2 and removed Clean Exit untouched");
 
-            // Upgrading from r5 upgrades enabled 0.1.0 LEGO leaf writer and AT-ST writer to 0.2.0 while preserving disabled/removed optionals.
+            // Upgrading from r5 upgrades enabled 0.1.0 LEGO leaf writer and AT-ST writer to 0.2.1 while preserving disabled/removed optionals.
             fake.Mods.RemoveAll(m => HellForgePreset.Optional.Contains(m.Id));
             fake.Mods.Add(new(leafWriter.Id, leafWriter.Name, true, MakeOldDir(leafWriter, "0.1.0"), ["code"], "0.1.0"));
             fake.Mods.Add(new(atst.Id, atst.Name, true, MakeOldDir(atst, "0.1.0"), ["code"], "0.1.0"));
@@ -422,7 +422,17 @@ internal static class TurnkeySetupTests
             WriteRecord("build25480438-r5", "applied", true, HellForgePreset.Optional);
             var expectedR5Upgrade = new[] { leafWriter.Id, atst.Id }.ToHashSet(StringComparer.Ordinal);
             check((await restarted.MissingGameplayAsync()).Select(a => a.Id).ToHashSet(StringComparer.Ordinal).SetEquals(expectedR5Upgrade),
-                "an r5 installation upgrades enabled 0.1.0 LEGO leaf writer and AT-ST writer to 0.2.0 while keeping disabled/removed optionals opted out");
+                "an r5 installation upgrades enabled 0.1.0 LEGO leaf writer and AT-ST writer to 0.2.1 while keeping disabled/removed optionals opted out");
+
+            // Upgrading from r6 upgrades enabled 0.2.0 LEGO leaf writer and AT-ST writer to 0.2.1 while preserving disabled/removed optionals.
+            fake.Mods.RemoveAll(m => HellForgePreset.Optional.Contains(m.Id));
+            fake.Mods.Add(new(leafWriter.Id, leafWriter.Name, true, MakeOldDir(leafWriter, "0.2.0"), ["code"], "0.2.0"));
+            fake.Mods.Add(new(atst.Id, atst.Name, true, MakeOldDir(atst, "0.2.0"), ["code"], "0.2.0"));
+            fake.Mods.Add(new(yoda.Id, yoda.Name, false, MakeOldDir(yoda, "0.2.0"), ["code"], "0.2.0"));
+            WriteRecord("build25480438-r6", "applied", true, HellForgePreset.Optional);
+            var expectedR6Upgrade = new[] { leafWriter.Id, atst.Id }.ToHashSet(StringComparer.Ordinal);
+            check((await restarted.MissingGameplayAsync()).Select(a => a.Id).ToHashSet(StringComparer.Ordinal).SetEquals(expectedR6Upgrade),
+                "an r6 installation upgrades enabled 0.2.0 LEGO leaf writer and AT-ST writer to 0.2.1 while keeping disabled/removed optionals opted out");
 
             // Upgrading from an earlier r5 record with partial OptionalDefaults offers newly added optionals while preserving prior opt-outs and player-kept versions across rollback.
             fake.Mods.RemoveAll(m => HellForgePreset.Optional.Contains(m.Id));

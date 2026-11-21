@@ -69,6 +69,16 @@ CM_API cm_status cm_prepare(cm_rig *out, const double basis[9], uint32_t known, 
    Actual mesh node is checked/preserved; no factor/publication occurs here. */
 CM_API cm_status cm_evaluate(const cm_rig *rig, const cm_frame *frame,
                             cm_workspace *work, cm_render48 *out, size_t capacity);
+/* Split evaluation: solve parent 107->65 source rig once per unique parent pose,
+   then apply per-garment alias composition bit-for-bit identically to cm_evaluate. */
+CM_API cm_status cm_solve_parent(const cm_rig *rig, const cm_render48 *parent, size_t parent_count,
+                                 const cm_mat4 *parent_graph_to_native_rest_model,
+                                 cm_workspace *work, cm_render48 source_packed[CM_SOURCE]);
+CM_API cm_status cm_apply_garment(const cm_rig *rig, uint32_t garment_index, uint32_t mesh_node,
+                                  const cm_render48 *graph, size_t graph_count,
+                                  const cm_mat4 *source_model_to_selected_graph,
+                                  const cm_render48 source_packed[CM_SOURCE],
+                                  cm_workspace *work, cm_render48 *out, size_t capacity);
 /* Literal separate binary32 compose, also used by scatter. Atomic output.
    Finite normal/zero arithmetic; required MXCSR nearest-even, masks on, DAZ/FTZ off. */
 CM_API cm_status cm_compose(const cm_render48 *left, const cm_render48 *right, cm_render48 *out);

@@ -456,15 +456,17 @@ uint32_t at_writer_leaf_5B2990(
     const void *map,
     uint32_t count,
     uintptr_t caller) {
-    DWORD entry_err = GetLastError();
-    uint32_t entry_csr = _mm_getcsr();
-
     at_leaf_skin_fn next = __atomic_load_n(&s->leaf_next, __ATOMIC_ACQUIRE);
     at_tls_frame *f = tls_active_frame;
+    if (!f || !f->active || f->state != s) {
+        return next ? next(dst, factor, graph, bind, palette, map, count) : UINT32_MAX;
+    }
+    DWORD entry_err = GetLastError();
+    uint32_t entry_csr = _mm_getcsr();
     const void *chosen = graph;
     int replace = 0;
 
-    if (f && f->active && f->state == s) {
+    if (1) {
         at_receipt *r = &f->receipt;
         const at_lp_plan *p = &f->plan;
         uint32_t at = r->seen++;

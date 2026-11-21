@@ -23,7 +23,10 @@ static uint64_t rd_u64(const unsigned char *p) {
     return v;
 }
 
-static void evict_slot(at_walker_slot *slot) {
+static void evict_slot(at_walker_registry *reg, at_walker_slot *slot) {
+    if (reg && slot->occupied && slot->unit_index < AT_UNIT_CAP_LIMIT) {
+        reg->scanned_slots[slot->unit_index] = 0u;
+    }
     uint32_t next_epoch = slot->epoch + 1u;
     memset(slot, 0, sizeof(*slot));
     slot->epoch = next_epoch ? next_epoch : 1u;
@@ -314,39 +317,70 @@ uint32_t at_registry_reconcile(
             rhdr.world != s->world ||
             !at_resolve_render_graph(reg, &rhdr, uv.graph_handle, read_fn, read_user, &rgraph) ||
             rgraph.object != s->normal_graph) {
-            evict_slot(s);
+            evict_slot(reg, s);
             reg->scavenged++;
         }
     }
 
-    /* Step 2: Rolling-cursor bulk-chunk scan of UnitManager to admit new 79E4B3D2DA5E45E3 walkers. */
+    /* Step 2: Differential rolling-cursor bulk-chunk scan of UnitManager to admit new 79E4B3D2DA5E45E3 walkers. */
     uint32_t limit = (max_scan && max_scan < mgr.capacity) ? max_scan : mgr.capacity;
     uint32_t start = (max_scan && max_scan < mgr.capacity) ? (reg->scan_cursor % mgr.capacity) : 0u;
     uint32_t admitted = 0;
     uint32_t scanned = 0;
+    uint32_t probed_new = 0;
+    int periodic_refresh = (max_scan && max_scan < mgr.capacity && (reg->sweep_count & 15u) == 15u);
     uintptr_t slot_chunk[512];
+    uint8_t gen_chunk[512];
     while (scanned < limit) {
         uint32_t chunk_start = (start + scanned) % mgr.capacity;
         uint32_t run = mgr.capacity - chunk_start;
         if (run > limit - scanned) run = limit - scanned;
         if (run > 512u) run = 512u;
-        int bulk_ok = (read_fn(mgr.slots + (uintptr_t)chunk_start * 8u, slot_chunk, (size_t)run * 8u, read_user) == 0);
-        for (uint32_t j = 0; j < run; j++) {
+        int bulk_ok = (read_fn(mgr.slots + (uintptr_t)chunk_start * 8u, slot_chunk, (size_t)run * 8u, read_user) == 0 &&
+                       read_fn(mgr.generations + chunk_start, gen_chunk, (size_t)run, read_user) == 0);
+        uint32_t j = 0;
+        for (; j < run; j++) {
+            uint32_t idx = chunk_start + j;
             if (bulk_ok) {
                 uintptr_t unit_ptr = slot_chunk[j];
-                if (!valid_span(unit_ptr, 0xD8u)) continue;
+                uint8_t unit_gen = gen_chunk[j];
+                if (!valid_span(unit_ptr, 0xD8u)) {
+                    reg->scanned_slots[idx] = 0u;
+                    reg->scanned_gens[idx] = unit_gen;
+                    continue;
+                }
+                if (!periodic_refresh && reg->scanned_slots[idx] == unit_ptr && reg->scanned_gens[idx] == unit_gen) {
+                    continue;
+                }
+                if (max_scan && max_scan < mgr.capacity && probed_new >= 96u) {
+                    break;
+                }
+                probed_new++;
                 unsigned char probe[0x38];
                 if (read_fn(unit_ptr, probe, sizeof(probe), read_user) != 0) continue;
-                if ((uintptr_t)rd_u64(probe + 0x00u) != reg->engine_base + AT_RVA_UNIT_VTABLE) continue;
+                if ((uintptr_t)rd_u64(probe + 0x00u) != reg->engine_base + AT_RVA_UNIT_VTABLE) {
+                    reg->scanned_slots[idx] = unit_ptr;
+                    reg->scanned_gens[idx] = unit_gen;
+                    continue;
+                }
                 uintptr_t res_ptr = (uintptr_t)rd_u64(probe + 0x30u);
                 uint64_t res_id = 0;
                 if (!valid_span(res_ptr, 8u) || read_fn(res_ptr, &res_id, 8u, read_user) != 0) continue;
-                if (res_id != AT_UNIT_RESOURCE_ID) continue;
+                if (res_id != AT_UNIT_RESOURCE_ID) {
+                    reg->scanned_slots[idx] = unit_ptr;
+                    reg->scanned_gens[idx] = unit_gen;
+                    continue;
+                }
             }
-            uint32_t idx = chunk_start + j;
             at_unit_view uv;
             if (!at_read_atst_unit(reg, &mgr, idx, read_fn, read_user, &uv)) continue;
-            if (find_slot_by_unit(reg, uv.index, uv.generation, uv.unit) >= 0) continue;
+            if (find_slot_by_unit(reg, uv.index, uv.generation, uv.unit) >= 0) {
+                if (bulk_ok) {
+                    reg->scanned_slots[idx] = uv.unit;
+                    reg->scanned_gens[idx] = uv.generation;
+                }
+                continue;
+            }
 
             at_render_header rhdr;
             at_resolved_graph rgraph;
@@ -356,16 +390,31 @@ uint32_t at_registry_reconcile(
             /* Ensure no stale slot still claims this exact (world, graph_handle) before admitting. */
             int stale = find_slot_by_render(reg, rhdr.world, uv.graph_handle);
             if (stale >= 0) {
-                evict_slot(&reg->slots[stale]);
+                evict_slot(reg, &reg->slots[stale]);
                 reg->scavenged++;
             }
             if (admit_unit_into_lowest_free(reg, &uv, &rhdr, &rgraph) >= 0) {
+                if (bulk_ok) {
+                    reg->scanned_slots[idx] = uv.unit;
+                    reg->scanned_gens[idx] = uv.generation;
+                }
                 admitted++;
             }
         }
-        scanned += run;
+        scanned += j;
+        if (j < run) break;
     }
-    reg->scan_cursor = (max_scan && max_scan < mgr.capacity) ? ((start + limit) % mgr.capacity) : 0u;
+    int sweep_wrapped = 0;
+    if (max_scan && max_scan < mgr.capacity) {
+        if (start + scanned >= mgr.capacity) sweep_wrapped = 1;
+        reg->scan_cursor = (start + scanned) % mgr.capacity;
+    } else {
+        sweep_wrapped = 1;
+        reg->scan_cursor = 0u;
+    }
+    if (sweep_wrapped) {
+        reg->sweep_count++;
+    }
     return admitted;
 }
 
@@ -375,7 +424,7 @@ uint32_t at_registry_retire_handle(at_walker_registry *reg, uintptr_t world, uin
     for (unsigned i = 0; i < AT_MAX_WALKERS; i++) {
         at_walker_slot *s = &reg->slots[i];
         if (s->occupied && s->world == world && s->graph_handle == handle) {
-            evict_slot(s);
+            evict_slot(reg, s);
             reg->retirements++;
             retired++;
         }
@@ -439,7 +488,7 @@ int at_registry_resolve_render(
         uv.association != rhdr.manager + 0x10u ||
         uv.graph_handle != m_handle ||
         s->normal_graph != rgraph.object) {
-        evict_slot(s);
+        evict_slot(reg, s);
         reg->scavenged++;
         reg->passthroughs++;
         return -1;

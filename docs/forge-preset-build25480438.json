@@ -4,9 +4,9 @@
   "HellForge": "0.4.0-beta",
   "Engine": "0.1.47",
   "Sdk": 16,
-  "GameplayCatalog": "build25480438-r6",
+  "GameplayCatalog": "build25480438-r7",
   "ContainsAccountData": false,
-  "Qualification": "Exact offline preset metadata (build25480438-r6 + 18-combination Empire r48 & 36-combination Clones r20 across Full/Lighter/reduced512, All-CIS/Mixed/Native, and Covenant); R1 published, attended R2 live gameplay/multiplayer certification in progress",
+  "Qualification": "Exact offline preset metadata (build25480438-r7 + 18-combination Empire r48 & 36-combination Clones r20 across Full/Lighter/reduced512, All-CIS/Mixed/Native, and Covenant); R1 published, attended R2 live gameplay/multiplayer certification in progress",
   "Appearance": {
     "Mode": "empire",
     "Variants": [
@@ -94,11 +94,11 @@
     {
       "Id": "clonedivers.lego-compact-leaf-writer",
       "Name": "LEGO Compact Leaf Writer",
-      "Version": "0.2.0",
-      "ArchiveSha256": "e26ccf4100d01e51fd4afa2ae2dcd6264393b9aafaa2e1a0a37b3cc98dcf3393",
-      "Source": "https://github.com/owendavidgoode/clonedivers/releases/download/forge-mods-2026-11-20/lego-compact-leaf-writer-0.2.0.zip",
-      "License": "Project-owned client-only SDK-16 code mod (0.2.0 lock-free D11 fast filter + incremental slices + opt-in diagnostics; gameplay: false, coop: per-player, optional default)",
-      "NativeContentHash": "907f07bc93478bc56a5ad881382246af9d3907534e2fa5065a0e99e882e09c8b",
+      "Version": "0.2.1",
+      "ArchiveSha256": "f41439f351f5c9230028e4e7d74335a5b68be8f392ca9c9010f449fb73bf552e",
+      "Source": "https://github.com/owendavidgoode/clonedivers/releases/download/forge-mods-2026-11-21/lego-compact-leaf-writer-0.2.1.zip",
+      "License": "Project-owned client-only SDK-16 code mod (0.2.1 O(1) zero-read non-LEGO hash filter, parallel CoopFastRun with rotating pool base + bit-for-bit parent-pose rig cache, bounded UnitManager slices + QPC health telemetry; gameplay: false, coop: per-player, optional default)",
+      "NativeContentHash": "1897c694632418df33a5ceb66706d4466f3acf0bf426ff0061f6f948fec86fef",
       "Optional": true,
       "Options": []
     },
@@ -116,11 +116,11 @@
     {
       "Id": "clonedivers.empire-atst-writer",
       "Name": "Empire AT-ST Film-Scale Leaf Writer",
-      "Version": "0.2.0",
-      "ArchiveSha256": "6095726add3aafd351cc8c6269c42ebdb4ba9c691c56a9772bc1d5db63a9857c",
-      "Source": "https://github.com/owendavidgoode/clonedivers/releases/download/forge-mods-2026-11-20/empire-atst-writer-0.2.0.zip",
-      "License": "Project-owned client-only SDK-16 code mod (0.2.0 lock-free zero-walker fast filter + smooth 2048-slot rolling discovery; gameplay: false, coop: per-player, optional default)",
-      "NativeContentHash": "c908db59cdf6e3d6091b7403820bb22f6e14e4222be7244fc3527a4ee8d3f6aa",
+      "Version": "0.2.1",
+      "ArchiveSha256": "7349932489cd1682717c4d74afe5514bef889be6e81d1a68668780ab67317a70",
+      "Source": "https://github.com/owendavidgoode/clonedivers/releases/download/forge-mods-2026-11-21/empire-atst-writer-0.2.1.zip",
+      "License": "Project-owned client-only SDK-16 code mod (0.2.1 lock-free zero-walker fast filter + fast 5B2990 tail-call + bounded UnitManager slice probe budget + QPC health telemetry; gameplay: false, coop: per-player, optional default)",
+      "NativeContentHash": "1e36e3c58a1cd37ed0a5511265191bca655c1e7b00752bc3f1b5b3c1e5d0b7ea",
       "Optional": true,
       "Options": []
     },
@@ -351,7 +351,7 @@
     }
   ],
   "RequiredHostingShare": false,
-  "InstallerQualification": "14-download build25480438-r6 preset (8 required + 6 optional project SDK-16 defaults including D11 zero-lock 0.2.0 leaf writers, zero hf-mod.com URLs) + Empire r48 & Clones r20 verified offline; R1 published, attended R2 gameplay/multiplayer checks in progress",
+  "InstallerQualification": "14-download build25480438-r7 preset (8 required + 6 optional project SDK-16 defaults including D11 Tier-0 tuned 0.2.1 leaf writers, zero hf-mod.com URLs) + Empire r48 & Clones r20 verified offline; R1 published, attended R2 gameplay/multiplayer checks in progress",
   "NonShippingBoundaries": [
     "clear-skies-0.5.4: bundled ee6b1ba7e22d71ed.patch_0 not cleared for public redistribution; excluded from r5",
     "faster-corpse-cleanup-1.0.6: lacks hf->session() host gate before native_remove_entity on co-op joiners; excluded from default co-op preset",

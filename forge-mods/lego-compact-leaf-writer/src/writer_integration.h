@@ -12,6 +12,9 @@ static int WriterPlan(lp_plan *plan,se_record *record,int recheck,void *user){
     int ok=recheck?lp_recheck(plan,WriterPlanRead,NULL):lp_capture(plan,p,record->call.mesh,record->call.pool,U64(record->target.identity+8),(unsigned)(record->target.token%8),WriterPlanRead,NULL);
     writerCaptureActive=0;invocationBudget=NULL;
     IvU32(p,32,budget.logical);IvU32(p,36,budget.sdk);IvU32(p,40,budget.bytes);
+    if(coopDynamicMode && !recheck && ok && !budget.status) {
+        coop_cache_slot_plan(record->target.mesh, record->payload, plan);
+    }
     if(coopDynamicMode && (!ok || budget.status)) {
         int structural=plan->trace.error==2u || plan->trace.error==1u ||
             (recheck ? (plan->trace.stage==100u || plan->trace.stage>=103u) : (plan->trace.stage>=6u && plan->trace.stage<=18u));

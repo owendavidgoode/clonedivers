@@ -7,9 +7,9 @@ internal static class LinuxForgePlayerTests
     internal static async Task Run(string root, Action<bool, string> check)
     {
         const string hello = "{\"bridge\":\"clonedivers-forge\",\"format\":1}\n";
-        check(HellForgeGameplayCatalog.Pinned.Id == "build25480438-r6" && HellForgeGameplayCatalog.Pinned.Artifacts.Count == 14 &&
+        check(HellForgeGameplayCatalog.Pinned.Id == "build25480438-r7" && HellForgeGameplayCatalog.Pinned.Artifacts.Count == 14 &&
             HellForgeGameplayCatalog.Pinned.Artifacts.Where(a => a.Optional).Select(a => a.Id).ToHashSet(StringComparer.Ordinal).SetEquals(HellForgePreset.Optional),
-            "Linux embeds and validates the r6 gameplay catalog with all six optional mods");
+            "Linux embeds and validates the r7 gameplay catalog with all six optional mods");
         foreach (var texture in new[] { "full", "lighter", "reduced512" })
         {
             var empire = new LinuxForgePreferences { Mode = "empire", Texture = texture, Covenant = true };
