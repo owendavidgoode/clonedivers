@@ -1,16 +1,19 @@
 # Clonedivers Release and Project Status
 
-## November 19–20, 2026 (`v2.0.0` prerelease; `R1` published, `R2` pending; feeds-last): Turnkey 4-Step Wizard, `r48` Empire, `r20` Clones & `build25480438-r5`
+## November 19–20, 2026 (`v2.0.0` / `linux-v0.9.0` live; `R1` published, `R2` live co-op/Proton in progress): Turnkey 4-Step Wizard, `r48` Empire, `r20` Clones & `build25480438-r5`
 
-Live public feeds (`manifest.json`, `manifest-v3.json`, `manifest-v3-current.json`)
-and `releases/latest` remain untouched at **Windows `1.14.2` / Linux `0.8.2` /
-`r45-v4`** until attended `R2` desktop verification completes (`R1` prerelease asset
-stores are uploaded and verified at HTTP 200 across all 653 pack/manifest and 14
-gameplay URLs). As the **Windows `v2.0.0` prerelease** (with **Linux Forge `0.9.0`**
-staged as a candidate), this release integrates the full v2.0 turnkey UX,
-post-`hf-mod.com` **`build25480438-r5`** gameplay preset, **6 project-owned SDK-16
-runtime mods**, **18-combination EmpireDivers `2026.11.19-r48`**, and **36-combination
-Clonedivers `2026.11.19-r20`**:
+Live public feeds (`manifest.json`, `manifest-v3.json`, `manifest-v3-current.json`
+`"app"` blocks) and `releases/latest` now serve **Windows `2.0.0`** (`v2.0.0`,
+`Clonedivers.exe` `66,658,827` B, SHA-256 `ab84ca131701bb8c88f8590bc53c8b4de2b1e88ea540f46cc99b8995d7449b6b`)
+alongside **Linux Forge `0.9.0`** (`linux-v0.9.0`), backed by verified `R1` asset
+stores (`653/653` pack/manifest URLs and `14/14` gameplay URLs HTTP 200 with exact
+size and SHA-256). Legacy root `"pack"` blocks remain untouched for backwards
+compatibility with older launchers while `2.0.0` / `0.9.0` use their embedded `r48`
+and `r20` catalogs. Attended `R2` multiplayer and Linux Proton tests remain in
+progress. This release integrates the full v2.0 turnkey UX, post-`hf-mod.com`
+**`build25480438-r5`** gameplay preset, **6 project-owned SDK-16 runtime mods**,
+**18-combination EmpireDivers `2026.11.19-r48`**, and **36-combination Clonedivers
+`2026.11.19-r20`**:
 
 - **Turnkey Single Setup Wizard & UX (`F1`–`F16`):** Consolidates onboarding into a
   4-step modal wizard (`Step 1 Preflight` -> `Step 2 Forge & Game Copy` with in-app

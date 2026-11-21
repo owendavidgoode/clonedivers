@@ -1,6 +1,6 @@
 # Clonedivers Forge Linux 0.9.0
 
-> **Candidate release notes (unpublished — feeds-last staging):** `linux-v0.9.0` (`feat/v2.0-turnkey`) is staged alongside Windows `v2.0.0`, `pack-2026.11.19-r48-files`, `pack-2026.11.19-r20-files`, `forge-mods-2026-11-19`, and `forge-gameplay-build25480438-r5`. Root public feeds (`manifest*.json`) stay at live `1.14.2` / `r45-v4` until `R1` asset upload and attended `R2` acceptance complete.
+> **Published alongside Windows `v2.0.0`:** Linux Forge `0.9.0` ([linux-v0.9.0](https://github.com/owendavidgoode/clonedivers/releases/tag/linux-v0.9.0)) is published alongside live Windows [v2.0.0](https://github.com/owendavidgoode/clonedivers/releases/tag/v2.0.0) and verified `R1` asset stores (`pack-2026.11.19-r48-files`, `pack-2026.11.19-r20-files`, `forge-mods-2026-11-19`, `forge-gameplay-build25480438-r5`). Attended `R2` live Proton gameplay and Windows/Linux co-op checks remain in progress.
 
 ## Linux Launcher & Forge Bridge Updates (`0.9.0` / Bridge `0.4.0`)
 
