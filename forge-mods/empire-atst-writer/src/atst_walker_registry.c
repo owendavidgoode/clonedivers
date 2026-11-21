@@ -319,29 +319,53 @@ uint32_t at_registry_reconcile(
         }
     }
 
-    /* Step 2: Scan UnitManager up to max_scan entries to admit new 79E4B3D2DA5E45E3 walkers. */
+    /* Step 2: Rolling-cursor bulk-chunk scan of UnitManager to admit new 79E4B3D2DA5E45E3 walkers. */
     uint32_t limit = (max_scan && max_scan < mgr.capacity) ? max_scan : mgr.capacity;
+    uint32_t start = (max_scan && max_scan < mgr.capacity) ? (reg->scan_cursor % mgr.capacity) : 0u;
     uint32_t admitted = 0;
-    for (uint32_t idx = 0; idx < limit; idx++) {
-        at_unit_view uv;
-        if (!at_read_atst_unit(reg, &mgr, idx, read_fn, read_user, &uv)) continue;
-        if (find_slot_by_unit(reg, uv.index, uv.generation, uv.unit) >= 0) continue;
+    uint32_t scanned = 0;
+    uintptr_t slot_chunk[512];
+    while (scanned < limit) {
+        uint32_t chunk_start = (start + scanned) % mgr.capacity;
+        uint32_t run = mgr.capacity - chunk_start;
+        if (run > limit - scanned) run = limit - scanned;
+        if (run > 512u) run = 512u;
+        int bulk_ok = (read_fn(mgr.slots + (uintptr_t)chunk_start * 8u, slot_chunk, (size_t)run * 8u, read_user) == 0);
+        for (uint32_t j = 0; j < run; j++) {
+            if (bulk_ok) {
+                uintptr_t unit_ptr = slot_chunk[j];
+                if (!valid_span(unit_ptr, 0xD8u)) continue;
+                unsigned char probe[0x38];
+                if (read_fn(unit_ptr, probe, sizeof(probe), read_user) != 0) continue;
+                if ((uintptr_t)rd_u64(probe + 0x00u) != reg->engine_base + AT_RVA_UNIT_VTABLE) continue;
+                uintptr_t res_ptr = (uintptr_t)rd_u64(probe + 0x30u);
+                uint64_t res_id = 0;
+                if (!valid_span(res_ptr, 8u) || read_fn(res_ptr, &res_id, 8u, read_user) != 0) continue;
+                if (res_id != AT_UNIT_RESOURCE_ID) continue;
+            }
+            uint32_t idx = chunk_start + j;
+            at_unit_view uv;
+            if (!at_read_atst_unit(reg, &mgr, idx, read_fn, read_user, &uv)) continue;
+            if (find_slot_by_unit(reg, uv.index, uv.generation, uv.unit) >= 0) continue;
 
-        at_render_header rhdr;
-        at_resolved_graph rgraph;
-        if (!at_read_render_header(uv.association - 0x10u, read_fn, read_user, &rhdr)) continue;
-        if (!at_resolve_render_graph(reg, &rhdr, uv.graph_handle, read_fn, read_user, &rgraph)) continue;
+            at_render_header rhdr;
+            at_resolved_graph rgraph;
+            if (!at_read_render_header(uv.association - 0x10u, read_fn, read_user, &rhdr)) continue;
+            if (!at_resolve_render_graph(reg, &rhdr, uv.graph_handle, read_fn, read_user, &rgraph)) continue;
 
-        /* Ensure no stale slot still claims this exact (world, graph_handle) before admitting. */
-        int stale = find_slot_by_render(reg, rhdr.world, uv.graph_handle);
-        if (stale >= 0) {
-            evict_slot(&reg->slots[stale]);
-            reg->scavenged++;
+            /* Ensure no stale slot still claims this exact (world, graph_handle) before admitting. */
+            int stale = find_slot_by_render(reg, rhdr.world, uv.graph_handle);
+            if (stale >= 0) {
+                evict_slot(&reg->slots[stale]);
+                reg->scavenged++;
+            }
+            if (admit_unit_into_lowest_free(reg, &uv, &rhdr, &rgraph) >= 0) {
+                admitted++;
+            }
         }
-        if (admit_unit_into_lowest_free(reg, &uv, &rhdr, &rgraph) >= 0) {
-            admitted++;
-        }
+        scanned += run;
     }
+    reg->scan_cursor = (max_scan && max_scan < mgr.capacity) ? ((start + limit) % mgr.capacity) : 0u;
     return admitted;
 }
 
@@ -399,13 +423,9 @@ int at_registry_resolve_render(
 
     int slot_idx = find_slot_by_render(reg, world, m_handle);
     if (slot_idx < 0) {
-        /* Just-in-time admission so newly spawned walkers work on frame 0 before WriterTick. */
-        at_registry_reconcile(reg, read_fn, read_user, 0u);
-        slot_idx = find_slot_by_render(reg, world, m_handle);
-        if (slot_idx < 0) {
-            reg->passthroughs++;
-            return -1;
-        }
+        /* Never run full UnitManager scans inside the hot 512B80 render hook; WriterTick owns admission. */
+        reg->passthroughs++;
+        return -1;
     }
 
     /* Re-validate live UnitManager slot generation, vtable, and association on every render entry! */

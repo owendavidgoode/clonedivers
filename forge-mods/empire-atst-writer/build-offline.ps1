@@ -55,7 +55,7 @@ try {
     & $Cli package-mod --mod $StageMod --out $DistDir | Tee-Object -FilePath (Join-Path $BuildDir 'package.log')
     if ($LASTEXITCODE -ne 0) { throw "HellForge.Cli package-mod failed" }
 
-    $ZipFile = Join-Path $DistDir 'empire-atst-writer-0.1.0.zip'
+    $ZipFile = Join-Path $DistDir 'empire-atst-writer-0.2.0.zip'
     if (!(Test-Path -LiteralPath $ZipFile)) { throw "Expected zip not found: $ZipFile" }
 
     $HashOut = & $Cli mod-hash --mod $StageMod | Tee-Object -FilePath (Join-Path $BuildDir 'mod-hash.log')

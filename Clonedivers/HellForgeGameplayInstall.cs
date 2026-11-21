@@ -22,7 +22,7 @@ public sealed partial class HellForgeClient
             if (!string.IsNullOrEmpty(id)) applied.Add(id);
         if (intent.OptionalDefaults == null && (intent.State == "applied" || intent.OptionalDefaultsApplied))
         {
-            if (intent.Catalog == HellForgeGameplayCatalog.Pinned.Id)
+            if (intent.Catalog == HellForgeGameplayCatalog.Pinned.Id || intent.Catalog == "build25480438-r5")
                 foreach (var artifact in HellForgeGameplayCatalog.Pinned.Artifacts.Where(a => a.Optional))
                     applied.Add(artifact.Id);
             else if (intent.Catalog == "build25480438-r4")
@@ -34,8 +34,9 @@ public sealed partial class HellForgeClient
         return applied;
     }
     static bool IsRetiredOptionalDefault(string id, string version) => (id, version) is
-        (HellForgePreset.LegoCompactLeafWriter, "0.0.9") or
+        (HellForgePreset.LegoCompactLeafWriter, "0.0.9" or "0.1.0") or
         (HellForgePreset.EmpireLegoYoda, "0.1.0" or "0.1.2") or
+        (HellForgePreset.EmpireAtstWriter, "0.1.0") or
         (HellForgePreset.ChaosInvasions, "0.2.0");
     bool GameplayDefaultsApplied
     {

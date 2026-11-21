@@ -15,6 +15,7 @@
 static gw_state writer;
 static _Thread_local int writerCaptureActive; /* Capture-thread lifecycle predicate only. */
 static int coopDynamicMode;
+static int coopDiagnosticCapture;
 static cm_rig shadowRig;
 static cm_workspace shadowWork; /* Serialized by the accepted observer gate. */
 static uint32_t shadowRecords,shadowOk,shadowFail;
@@ -133,6 +134,7 @@ static void Loaded(HfMod *mod,HfEvent event,void *user)
     writer.approved_remove_next=InterlockedCompareExchangePointer(&writer.remove_next,NULL,NULL);
     if(!writer.approved_remove_next){Finish(mod,"initial_remove_next_refused");return;}
     coopDynamicMode=1;
+    coopDiagnosticCapture=RequestFile(armPath);
     coop_discovery_init();
     writer.resolve_target=CoopResolveTarget;
     writer.retire_handle=CoopRetireHandle;

@@ -688,7 +688,8 @@ static void test_four_coop_walkers_and_slot_recycling(at_writer_state *ws, sim_u
         build_s2c_graph_from_clip(&ws->rig, AT_CLIP_POSES[(i * 3u + 1u) % AT_CLIP_POSE_COUNT].native_local, &mw, walkers[i].graph.prev);
     }
 
-    /* Admit all 4 concurrent walkers */
+    /* Admit all 4 concurrent walkers via WriterTick (never UnitManager-scanning inside 512B80) */
+    TEST_ASSERT(at_writer_tick(ws, 0u) == 4u, "tick admits all 4 walkers");
     for (unsigned i = 0; i < 4u; i++) {
         at_receipt rec;
         at_writer_dispatch_512B80(
@@ -706,6 +707,7 @@ static void test_four_coop_walkers_and_slot_recycling(at_writer_state *ws, sim_u
     at_mat4 id = {{1,0,0,0, 0,1,0,0, 0,0,1,0, 0,0,0,1}};
     build_s2c_graph_from_clip(&ws->rig, AT_CLIP_POSES[0].native_local, &id, w5_extra.graph.cur);
     build_s2c_graph_from_clip(&ws->rig, AT_CLIP_POSES[0].native_local, &id, w5_extra.graph.prev);
+    TEST_ASSERT(at_writer_tick(ws, 0u) == 0u, "5th walker refused by tick at 4-walker cap");
     at_receipt rec5;
     at_writer_dispatch_512B80(
         ws, &w5_extra.mesh, (void *)(rs->world + 0x318u), &w5_extra.graph,
@@ -732,6 +734,7 @@ static void test_four_coop_walkers_and_slot_recycling(at_writer_state *ws, sim_u
     at_mat4 mw_rec = {{1,0,0,33.0, 0,1,0,44.0, 0,0,1,5.0, 0,0,0,1}};
     build_s2c_graph_from_clip(&ws->rig, AT_CLIP_POSES[7].native_local, &mw_rec, walkers[1].graph.cur);
     build_s2c_graph_from_clip(&ws->rig, AT_CLIP_POSES[6].native_local, &mw_rec, walkers[1].graph.prev);
+    TEST_ASSERT(at_writer_tick(ws, 0u) == 1u, "tick recycles slot 1");
     at_receipt rec_new1;
     at_writer_dispatch_512B80(
         ws, &walkers[1].mesh, (void *)(rs->world + 0x318u), &walkers[1].graph,
@@ -762,6 +765,7 @@ static void test_fail_closed_and_env_preservation(at_writer_state *ws, sim_unit_
     at_mat4 id = {{1,0,0,0, 0,1,0,0, 0,0,1,0, 0,0,0,1}};
     build_s2c_graph_from_clip(&ws->rig, AT_CLIP_POSES[0].native_local, &id, w.graph.cur);
     build_s2c_graph_from_clip(&ws->rig, AT_CLIP_POSES[0].native_local, &id, w.graph.prev);
+    TEST_ASSERT(at_writer_tick(ws, 0u) == 1u, "admit walker for fail-closed test");
 
     /* 1. Foreign caller RVA -> passthrough */
     at_receipt rec;
@@ -783,6 +787,7 @@ static void test_fail_closed_and_env_preservation(at_writer_state *ws, sim_unit_
         (uintptr_t)g_fake_engine + AT_RVA_CALLER_NORMAL, &rec);
     TEST_ASSERT(rec.replaced == 0u && g_last_leaf_addrs[0] == (uintptr_t)w.graph.cur, "foreign resource untouched");
     w.unit.resource_id = AT_UNIT_RESOURCE_ID;
+    TEST_ASSERT(at_writer_tick(ws, 0u) == 1u, "re-admit walker after foreign-resource scavenge");
 
     /* 3. Mid-leaf palette tamper -> 5B2990 fails closed and passes native graph through */
     g_tamper_leaf_palette = 1;
@@ -835,6 +840,7 @@ static void test_peer_hook_chaining_and_lazy_lookup(at_writer_state *ws, sim_uni
     at_mat4 id = {{1,0,0,0, 0,1,0,0, 0,0,1,0, 0,0,0,1}};
     build_s2c_graph_from_clip(&ws->rig, AT_CLIP_POSES[2].native_local, &id, w.graph.cur);
     build_s2c_graph_from_clip(&ws->rig, AT_CLIP_POSES[1].native_local, &id, w.graph.prev);
+    TEST_ASSERT(at_writer_tick(ws, 0u) == 1u, "admit walker for peer hook test");
 
     /* 1. Solo caller RVAs: normal (opt_graph != NULL) and rest (opt_graph == NULL) both succeed */
     at_receipt rec;
@@ -1007,6 +1013,7 @@ static void test_concurrent_multi_pass_and_mid_leaf_retire(at_writer_state *ws, 
     at_mat4 mw = {{1,0,0,15.0, 0,1,0,-9.5, 0,0,1,3.25, 0,0,0,1}};
     build_s2c_graph_from_clip(&ws->rig, AT_CLIP_POSES[4].native_local, &mw, w.graph.cur);
     build_s2c_graph_from_clip(&ws->rig, AT_CLIP_POSES[3].native_local, &mw, w.graph.prev);
+    TEST_ASSERT(at_writer_tick(ws, 0u) == 1u, "admit walker for concurrent test");
 
     at_private_graph expected_priv;
     memset(&expected_priv, 0, sizeof(expected_priv));
@@ -1054,6 +1061,63 @@ static void test_concurrent_multi_pass_and_mid_leaf_retire(at_writer_state *ws, 
     printf("[PASS] test_concurrent_multi_pass_and_mid_leaf_retire\n");
 }
 
+static volatile LONG g_counted_reads = 0;
+static int counting_read(uintptr_t addr, void *buf, size_t sz, void *user) {
+    InterlockedIncrement(&g_counted_reads);
+    return sim_read(addr, buf, sz, user);
+}
+
+static void test_zero_walker_and_d11_fast_path(at_writer_state *ws, sim_unit_mgr *um, sim_render_sys *rs) {
+    at_writer_shutdown(ws);
+    memset(um->slots, 0, sizeof(um->slots));
+    at_safe_read_fn orig_read = ws->read_fn;
+    ws->read_fn = counting_read;
+    InterlockedExchange(&ws->ready, 1);
+
+    /* 1. Zero active walkers: 10,000 non-walker 512B80 calls & 1E7CD0 calls do ZERO read_fn calls and ZERO locks! */
+    sim_walker dummy;
+    bind_walker(&dummy, um, rs, (uintptr_t)g_fake_engine, 0u, 1u, 77u, 0u);
+    um->slots[0] = 0u; /* Not admitted */
+    unsigned char pkt[8] = {0};
+    w_u32(pkt, 4u, 77u);
+    InterlockedExchange(&g_counted_reads, 0);
+    for (unsigned i = 0; i < 10000u; i++) {
+        at_receipt rec;
+        at_writer_dispatch_512B80(
+            ws, &dummy.mesh, (void *)(rs->world + 0x318u), &dummy.graph,
+            (uintptr_t)g_fake_engine + AT_RVA_CALLER_NORMAL, &rec);
+        TEST_ASSERT(rec.replaced == 0u, "zero-walker fast reject passthrough");
+        at_writer_retire_1E7CD0(ws, (uintptr_t)rs->world, pkt, 0u);
+    }
+    TEST_ASSERT(g_counted_reads == 0, "zero read_fn calls when 0 walkers active");
+
+    /* 2. Active walker present + rolling cursor finds walker beyond first scan window, foreign mesh does 1 read */
+    sim_walker w_active, w_foreign;
+    bind_walker(&w_active, um, rs, (uintptr_t)g_fake_engine, 12u, 1u, 30u, 0u);
+    at_mat4 id = {{1,0,0,0, 0,1,0,0, 0,0,1,0, 0,0,0,1}};
+    build_s2c_graph_from_clip(&ws->rig, AT_CLIP_POSES[0].native_local, &id, w_active.graph.cur);
+    build_s2c_graph_from_clip(&ws->rig, AT_CLIP_POSES[0].native_local, &id, w_active.graph.prev);
+    TEST_ASSERT(at_writer_tick(ws, 8u) == 0u, "first 8-slot slice advances cursor");
+    TEST_ASSERT(ws->reg.scan_cursor == 8u, "scan cursor advanced to 8");
+    TEST_ASSERT(at_writer_tick(ws, 8u) == 1u, "second 8-slot slice discovers walker at slot 12");
+    TEST_ASSERT(ws->fast.count == 1u, "fast filter published 1 active walker");
+
+    bind_walker(&w_foreign, um, rs, (uintptr_t)g_fake_engine, 2u, 1u, 99u, 0u);
+    um->slots[2] = 0u;
+    InterlockedExchange(&g_counted_reads, 0);
+    for (unsigned i = 0; i < 1000u; i++) {
+        at_receipt rec;
+        at_writer_dispatch_512B80(
+            ws, &w_foreign.mesh, (void *)(rs->world + 0x318u), &w_foreign.graph,
+            (uintptr_t)g_fake_engine + AT_RVA_CALLER_NORMAL, &rec);
+        TEST_ASSERT(rec.replaced == 0u, "foreign mesh rejected lock-free");
+    }
+    TEST_ASSERT(g_counted_reads == 1000, "exact 1 handle read per foreign mesh (zero UnitManager scans)");
+
+    ws->read_fn = orig_read;
+    printf("[PASS] test_zero_walker_and_d11_fast_path\n");
+}
+
 int main(void) {
     g_fake_engine = (uint8_t *)VirtualAlloc(NULL, 0x02000000u, MEM_COMMIT | MEM_RESERVE, PAGE_READWRITE);
     g_render_sys = (sim_render_sys *)calloc(1, sizeof(sim_render_sys));
@@ -1081,6 +1145,7 @@ int main(void) {
     test_fail_closed_and_env_preservation(ws, um, g_render_sys);
     test_peer_hook_chaining_and_lazy_lookup(ws, um, g_render_sys);
     test_concurrent_multi_pass_and_mid_leaf_retire(ws, um, g_render_sys);
+    test_zero_walker_and_d11_fast_path(ws, um, g_render_sys);
 
     printf("ALL C TESTS PASSED (0 failures)\n");
     free(ws);
