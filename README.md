@@ -5,7 +5,7 @@
 Choose **Regular**, **Clones** or **Empire** in a separate HellForge installation.
 Play the official online Helldivers 2 game directly through Steam.
 
-[Windows launcher](https://github.com/owendavidgoode/clonedivers/releases/latest/download/Clonedivers.exe) · [Ubuntu/Debian x86-64 package](https://github.com/owendavidgoode/clonedivers/releases/download/linux-v0.9.0/Clonedivers-linux-x64.deb) · [Linux portable](https://github.com/owendavidgoode/clonedivers/releases/download/linux-v0.9.0/Clonedivers-linux-x64.tar.gz)
+[Windows launcher](https://github.com/owendavidgoode/clonedivers/releases/latest/download/Clonedivers.exe) · [Ubuntu/Debian x86-64 package](https://github.com/owendavidgoode/clonedivers/releases/download/linux-v0.9.1/Clonedivers-linux-x64.deb) · [Linux portable](https://github.com/owendavidgoode/clonedivers/releases/download/linux-v0.9.1/Clonedivers-linux-x64.tar.gz)
 
 ## Quick Start for Friends (Windows)
 
@@ -22,7 +22,7 @@ Play the official online Helldivers 2 game directly through Steam.
 
 ## Update or Install
 
-The current live public releases are **Windows 2.0.0** ([v2.0.0](https://github.com/owendavidgoode/clonedivers/releases/tag/v2.0.0)) and **Linux Forge 0.9.0** ([linux-v0.9.0](https://github.com/owendavidgoode/clonedivers/releases/tag/linux-v0.9.0)), backed by verified `R1` asset stores (**EmpireDivers `2026.11.19-r48`**, **Clonedivers `2026.11.19-r20`**, and **`build25480438-r5`** with `0` `hf-mod.com` URLs; attended `R2` multiplayer and Linux Proton checks remain in progress). Update Windows through the launcher. On Linux, install the complete `.deb` or extract the full portable archive.
+The current live public releases are **Windows 2.0.1** ([v2.0.1](https://github.com/owendavidgoode/clonedivers/releases/tag/v2.0.1)) and **Linux Forge 0.9.1** ([linux-v0.9.1](https://github.com/owendavidgoode/clonedivers/releases/tag/linux-v0.9.1)), backed by verified `R1` asset stores (**EmpireDivers `2026.11.19-r48`**, **Clonedivers `2026.11.19-r20`**, and **`build25480438-r6`** with D11 zero-lock `0.2.0` leaf writers and `0` `hf-mod.com` URLs; attended `R2` multiplayer and Linux Proton checks remain in progress). Update Windows through the launcher. On Linux, install the complete `.deb` or extract the full portable archive.
 
 New players press **Set up Clonedivers** on Windows or **Set up / update Forge**
 on Linux. Windows checks for at least **70 GB** (`70 GiB`) free on the Forge
@@ -38,13 +38,13 @@ Read [the migration and first-setup guide](docs/FORGE-MIGRATION.md). The launche
 update preserves settings and account data and keeps a verified previous Windows
 executable for rollback. It does not edit live Steam game files or close a running
 game. **Set up selected mode** obtains **14 gameplay downloads** automatically in
-the `build25480438-r5` catalog (**8 required** gameplay and author archives totaling
+the `build25480438-r6` catalog (**8 required** gameplay and author archives totaling
 `7,905,326` bytes / `~7.54 MiB` plus **6 optional** project-owned SDK-16 defaults:
-`Clonedivers Clean Exit` `0.2.0` at `8,192` B, `LEGO Compact Leaf Writer` `0.1.0` at
-`237,169` B, `Empire LEGO Yoda Death` `0.2.0` at `53,078` B, `Empire AT-ST Film-Scale
-Leaf Writer` `0.1.0` at `34,001` B, `Empire per-attack TIE` `0.3.0` at `22,644` B,
+`Clonedivers Clean Exit` `0.2.0` at `8,192` B, `LEGO Compact Leaf Writer` `0.2.0` at
+`240,032` B, `Empire LEGO Yoda Death` `0.2.0` at `53,078` B, `Empire AT-ST Film-Scale
+Leaf Writer` `0.2.0` at `35,362` B, `Empire per-attack TIE` `0.3.0` at `22,644` B,
 and host-authoritative `Chaos Invasions` `0.3.0` at `33,855` B), totaling
-**`8,294,265` bytes (`~7.91 MiB`)** before appearance assets. It verifies their
+**`8,298,489` bytes (`~7.91 MiB`)** before appearance assets. It verifies their
 archives and content, imports them through Forge, applies preset order/options and
 then prepares the appearance.
 

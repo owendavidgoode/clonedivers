@@ -1,6 +1,35 @@
 # Clonedivers Release and Project Status
 
-## November 19–20, 2026 (`v2.0.0` / `linux-v0.9.0` live; `R1` published, `R2` live co-op/Proton in progress): Turnkey 4-Step Wizard, `r48` Empire, `r20` Clones & `build25480438-r5`
+## November 20, 2026 (`v2.0.1` / `linux-v0.9.1` live; `build25480438-r6` D11 1-FPS leaf-writer hotfix)
+
+Live public feeds (`manifest.json`, `manifest-v3.json`, `manifest-v3-current.json`
+`"app"` blocks) and `releases/latest` now serve **Windows `2.0.1`** (`v2.0.1`,
+`Clonedivers.exe` `66,658,902` B, SHA-256 `c6b9b90f651325dbd5c4f33e2386382a3a32649fb15f87058c3fa505639ba659`)
+alongside **Linux Forge `0.9.1`** (`linux-v0.9.1`), upgrading the gameplay catalog to
+**`build25480438-r6`** (`14` downloads, `8,298,489` B) with both `0.2.0` leaf writers
+from `forge-mods-2026-11-20`:
+
+- **`clonedivers.lego-compact-leaf-writer` `0.2.0`** (`240,032` B, SHA-256 `e26ccf4100d01e51fd4afa2ae2dcd6264393b9aafaa2e1a0a37b3cc98dcf3393`, ContentHash `907f07bc93478bc56a5ad881382246af9d3907534e2fa5065a0e99e882e09c8b`):
+  Replaces global `SRWLOCK` acquisition and `UnitManager` scanning in `512B80` with a
+  64-byte-aligned lock-free seqlock fast filter (`__atomic_load_n` acquire loads, zero
+  shared atomic writes on reject), moves garment discovery to 250 ms `WriterTick` with
+  O(active) point reads and bounded 16,384-slot incremental slices, checks O(4) player
+  roster avatars first in `coop_find_slot_ptr`, and gates per-invocation `.bin` capture
+  behind `.arm` opt-in (eliminating log-budget `fatal reason=3` during heavy combat).
+- **`clonedivers.empire-atst-writer` `0.2.0`** (`35,362` B, SHA-256 `6095726add3aafd351cc8c6269c42ebdb4ba9c691c56a9772bc1d5db63a9857c`, ContentHash `c908db59cdf6e3d6091b7403820bb22f6e14e4222be7244fc3527a4ee8d3f6aa`):
+  Adds a 64-byte-aligned lock-free seqlock fast filter (zero locks and zero memory reads
+  when 0 walkers are active), removes `at_registry_reconcile` from `512B80`, and scans a
+  smooth 2,048-slot per-frame rolling slice with a 56-byte vtable/resource pre-check and
+  per-slot fallback on bulk read failure.
+- **Migration & verification:** Existing `2.0.0` / `0.9.0` (`r5`) installs auto-upgrade
+  enabled `0.1.0` leaf writers to `0.2.0` while preserving explicit opt-outs. Verified by
+  C unit suites (`46,456` LEGO checks including Test 17 D11 262,144-slot zero-lock/zero-scan
+  guard + `16,087` leaf checks + `7/7` AT-ST tests), independent Claude Opus 5.5 review
+  (`APPROVED`), and all `11/11` GitHub Actions CI jobs (PR #29). Live in-game D11
+  frame-time capture remains to be confirmed in attended gameplay. See
+  [v2.0.1](releases/v2.0.1.md) and [linux-0.9.1](releases/linux-0.9.1.md).
+
+## November 19–20, 2026 (`v2.0.0` / `linux-v0.9.0` superseded by `v2.0.1` / `linux-v0.9.1`): Turnkey 4-Step Wizard, `r48` Empire, `r20` Clones & `build25480438-r5`
 
 Live public feeds (`manifest.json`, `manifest-v3.json`, `manifest-v3-current.json`
 `"app"` blocks) and `releases/latest` now serve **Windows `2.0.0`** (`v2.0.0`,
