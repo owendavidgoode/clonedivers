@@ -2,8 +2,8 @@
   "format": 1,
   "id": "clonedivers.lego-compact-leaf-writer",
   "name": "LEGO Compact Leaf Writer",
-  "version": "0.1.0",
-  "description": "Multi-actor co-op compact LEGO leaf writer (0.1.0). All 3 single-player gates lifted: multi-slot PlayerManager 0..3 lookup, multi-owner concurrent garment admission, 256-slot generation/1E7CD0 recycling for 4 co-op players + Armory/pod previews + respawns, and extensible JSON garment registry (lego-garments-schema.json) for Stormtrooper & Wave 2 LEGO Clone kits.",
+  "version": "0.2.0",
+  "description": "Multi-actor co-op compact LEGO leaf writer (0.2.0). Lock-free seqlock fast filter on 512B80/1E7CD0, bounded incremental UnitManager slices (zero render-thread UnitManager scans for D11 100k+ unit missions), opt-in .arm diagnostic recording, and extensible JSON garment registry (lego-garments-schema.json) for Stormtrooper & Wave 2 LEGO Clone kits.",
   "gameplay": false,
   "coop": "per-player",
   "code": {

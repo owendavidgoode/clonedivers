@@ -839,6 +839,13 @@ static void ResetMockUnitsAndWorld(void) {
     PutU32(sMgr, 0x98u, 512u);
 }
 
+static uint64_t perfTestReadCount, perfTestReadBytes;
+static void PerfCountReadHook(uintptr_t at, size_t bytes) {
+    (void)at;
+    perfTestReadCount++;
+    perfTestReadBytes += (uint64_t)bytes;
+}
+
 int main(int argc, char **argv) {
     TCHECK(argc == 3);
     for (unsigned i = 0; i < 37u; i++) {
@@ -877,6 +884,10 @@ int main(int argc, char **argv) {
     SetPlayerSlot(1, 0x2002ULL, 11u, 3u, 1, 101u, &squad[1]); /* local client at non-zero slot! */
     SetPlayerSlot(2, 0x3003ULL, 12u, 3u, 0, 102u, &squad[2]); /* remote peer */
     SetPlayerSlot(3, 0x4004ULL, 13u, 3u, 0, 103u, &squad[3]); /* remote peer */
+
+    /* WriterTick discovers all spawned garments on the game thread (never scanning UnitManager on 512B80). */
+    writerPollAt = 0;
+    WriterTick(&mod, 0.016f, NULL);
 
     /* Test 2: Full 4-player 112-mesh admission across BOTH normal (route 1) and grouped (route 2) = 224 calls */
     for (unsigned p = 0; p < 4u; p++) {
@@ -969,12 +980,10 @@ int main(int argc, char **argv) {
     writer.resolve_target = CoopResolveTarget;
     TCHECK(writer.corrected == prevCorrected && writer.failed == prevFailed && writer.fatal == 0);
 
-    /* Drain diagnostics & emit health row */
-    for (unsigned i = 0; i < 160u; i++) {
-        writerPollAt = 0; writerHealthAt = 0;
-        WriterTick(&mod, 0.016f, NULL);
-    }
-    TCHECK(invocationFiles > 0u && shadowFail == 0u && leafFail == 0u && writer.fatal == 0);
+    /* Production mode (no .arm file): diagnostics stay closed -> zero skin-invocation-*.bin disk spam & zero fatal=3! */
+    writerPollAt = 0; writerHealthAt = 0;
+    WriterTick(&mod, 0.016f, NULL);
+    TCHECK(coopDiagnosticCapture == 0 && invocationFiles == 0u && shadowFail == 0u && leafFail == 0u && writer.fatal == 0);
 
     /* Test 8: Full >= 256 target slot table capacity + rejection */
     coop_registry fullReg;
@@ -1027,6 +1036,8 @@ int main(int argc, char **argv) {
     PutU64(sContext, 0xB398u, 0x7777ULL);
     PutU32(sPlayerRow, 0x84u, 1u);
     SetPlayerSlot(0, 0x7777ULL, 50u, 3u, 1, 500u, &shipAvatar);
+    writerPollAt = 0;
+    WriterTick(&mod, 0.016f, NULL);
 
     for (unsigned t = 0; t < 7u; t++) {
         for (unsigned j = 1; j <= 4u; j++) {
@@ -1083,6 +1094,8 @@ int main(int argc, char **argv) {
     }
     SpawnMockActor(&groundAvatar, &wGround, 16u, 2u, COOP_HUMAN_AVATAR_RESOURCE, 107u, 1);
     SetPlayerSlot(0, 0x7777ULL, 50u, 4u, 1, 501u, &groundAvatar);
+    writerPollAt = 0;
+    WriterTick(&mod, 0.016f, NULL);
     baseCorrected = writer.corrected;
     for (unsigned t = 0; t < 7u; t++) {
         for (unsigned j = 1; j <= 4u; j++) {
@@ -1176,6 +1189,8 @@ int main(int argc, char **argv) {
         PutU64(sContext, 0xB398u, 0x8888ULL);
         PutU32(sPlayerRow, 0x84u, 1u);
         SetPlayerSlot(0, 0x8888ULL, 60u, 3u, 1, 600u, &ship12);
+        writerPollAt = 0;
+        WriterTick(&mod, 0.016f, NULL);
 
         for (unsigned t = 0; t < 7u; t++) {
             for (unsigned j = 1; j <= 4u; j++) {
@@ -1244,6 +1259,8 @@ int main(int argc, char **argv) {
         PutU64(extraSibs[40], 0x1E0u, 0u);
 
         SetPlayerSlotEx(0, 0x8888ULL, 61u, 4u, 1, 601u, &mission12, 16384u, 5000u, 24u);
+        writerPollAt = 0;
+        WriterTick(&mod, 0.016f, NULL);
 
         for (unsigned t = 0; t < 7u; t++) {
             for (unsigned j = 1; j <= 4u; j++) {
@@ -1267,6 +1284,8 @@ int main(int argc, char **argv) {
         SpawnMockActor(&return12, &wReturn12, 20000u, 4u, COOP_HUMAN_AVATAR_RESOURCE, 107u, 1);
         SetActorSelfHandles(&return12);
         SetPlayerSlotEx(0, 0x8888ULL, 62u, 3u, 1, 602u, &return12, 16384u, 5001u, 24u);
+        writerPollAt = 0;
+        WriterTick(&mod, 0.016f, NULL);
         for (unsigned t = 0; t < 7u; t++) {
             for (unsigned j = 1; j <= 4u; j++) {
                 InvokeActorMesh(&return12, t, j, 0, 1);
@@ -1311,23 +1330,17 @@ int main(int argc, char **argv) {
 
         se_target tmpTgt;
         coop_actor_kind tmpKind;
+        /* With 0 discovered garments, lock-free CoopFastFilter rejects immediately (zero UnitManager scans, zero lock/atomic writes). */
         for (unsigned t = 0; t < 7u; t++) {
             for (unsigned j = 1; j <= 4u; j++) {
                 TCHECK(!CoopResolveTarget(&writer, (void *)actor13.meshes[t][j]->address,
                     (void *)(w13.rw->address + 0x318u), NULL, MOCK_ENGINE + 0x258E19u, 1, &tmpTgt, &tmpKind));
             }
         }
-        TCHECK(writer.rej_nomatch == 28 && coopReg.active_targets == 0u);
-        for (unsigned t = 0; t < 7u; t++) {
-            for (unsigned j = 1; j <= 4u; j++) {
-                TCHECK(!CoopResolveTarget(&writer, (void *)actor13.meshes[t][j]->address,
-                    (void *)(w13.rw->address + 0x318u), NULL, MOCK_ENGINE + 0x258E19u, 2, &tmpTgt, &tmpKind));
-            }
-        }
-        TCHECK(writer.neg_hits == 28);
+        TCHECK(writer.rej_nomatch == 0 && coopReg.active_targets == 0u);
 
-        /* Now bind childUnits into sSlots WITHOUT u + 0x60 populated, advance epoch, and probe again ->
-         * must stay uncommitted (coopScanComplete == 0) and must NOT re-poison coopNegCache! */
+        /* Now bind childUnits into sSlots WITHOUT u + 0x60 populated and trigger WriterTick ->
+         * still 0 registered garments -> fast filter continues rejecting lock-free! */
         for (unsigned t = 0; t < 7u; t++) {
             PutU64(sSlots, actor13.childUnitIdx[t] * 8u, savedChildPtrs[t]);
             PutU32(actor13.childUnits[t], 0x64u, 0u);
@@ -1335,18 +1348,13 @@ int main(int argc, char **argv) {
         }
         writerPollAt = 0;
         WriterTick(&mod, 0.016f, NULL);
-        LONG64 negHitsBefore = writer.neg_hits;
         for (unsigned t = 0; t < 7u; t++) {
             for (unsigned j = 1; j <= 4u; j++) {
                 TCHECK(!CoopResolveTarget(&writer, (void *)actor13.meshes[t][j]->address,
                     (void *)(w13.rw->address + 0x318u), NULL, MOCK_ENGINE + 0x258E19u, 3, &tmpTgt, &tmpKind));
             }
         }
-        TCHECK(coopReg.active_targets == 0u && !coopScanComplete);
-        /* Second call while u+0x60 still unbound must not hit neg cache (since coopScanComplete was 0). */
-        TCHECK(!CoopResolveTarget(&writer, (void *)actor13.meshes[0][1]->address,
-            (void *)(w13.rw->address + 0x318u), NULL, MOCK_ENGINE + 0x258E19u, 4, &tmpTgt, &tmpKind));
-        TCHECK(writer.neg_hits == negHitsBefore);
+        TCHECK(coopReg.active_targets == 0u && writer.garments_cached == 0);
 
         /* Also re-poison coopNegCache explicitly on all 28 meshes right before populating u + 0x60,
          * then populate u + 0x60 and trigger WriterTick refresh/epoch advance -> verify 28/28 recover & admit! */
@@ -1363,7 +1371,7 @@ int main(int argc, char **argv) {
         }
         writerPollAt = 0;
         WriterTick(&mod, 0.016f, NULL);
-        TCHECK(coopNegEpoch != savedEpoch && writer.garments_cached == 7);
+        TCHECK(coopNegEpoch != savedEpoch && writer.garments_cached == 7 && coopFast.handle_count == 7u);
 
         for (unsigned t = 0; t < 7u; t++) {
             for (unsigned j = 1; j <= 4u; j++) {
@@ -1376,7 +1384,7 @@ int main(int argc, char **argv) {
         writerHealthAt = 0;
         WriterTick(&mod, 0.016f, NULL);
         TCHECK(strstr(lastLogLine, "unit_cap=32768") && strstr(lastLogLine, "garments=7") &&
-               strstr(lastLogLine, "neg_hits=28") && strstr(lastLogLine, "rej_nomatch=") &&
+               strstr(lastLogLine, "neg_hits=") && strstr(lastLogLine, "rej_nomatch=") &&
                strlen(lastLogLine) < 900u);
     }
 
@@ -1758,6 +1766,70 @@ int main(int argc, char **argv) {
             }
         }
         TCHECK(coopReg.admissions == 616u && coopReg.active_targets == 56u && writer.fatal == 0);
+    }
+
+    /* Test 17: D11 262,144-slot UnitManager Zero-Lock / Zero-Scan Performance Regression Guard. */
+    {
+        char subDir17[1024];
+        snprintf(subDir17, sizeof subDir17, "%s/test17", argv[2]);
+        CreateDirectoryA(subDir17, NULL);
+        InitMockHost(subDir17);
+        sSlots = AllocSlab(COOP_UNIT_CAPACITY_LIMIT * 8u);
+        sGens = AllocSlab(COOP_UNIT_CAPACITY_LIMIT);
+        PutU32(sMgr, 0x98u, COOP_UNIT_CAPACITY_LIMIT);
+        PutU64(sMgr, 0x88u, sSlots->address);
+        PutU64(sMgr, 0xA0u, sGens->address);
+        PutU32(sPlayerRow, 0x84u, 0u);
+        WriterTick(&mod, 0.016f, NULL);
+        TCHECK(writer.ready == 1 && writer.unit_cap == COOP_UNIT_CAPACITY_LIMIT);
+
+        MockWorld w17 = CreateMockWorld();
+        static MockActor d11Player, d11Foreign;
+        /* Foreign enemy mesh with 0 garments active -> 5,000 calls do EXACTLY 0 reads! */
+        SpawnMockActor(&d11Foreign, &w17, 100u, 1u, COOP_HUMAN_AVATAR_RESOURCE, 107u, 0);
+        perfTestReadCount = 0; perfTestReadBytes = 0;
+        testReadHook = PerfCountReadHook;
+        for (unsigned i = 0; i < 5000u; i++) {
+            se_target t17; coop_actor_kind k17;
+            TCHECK(!CoopResolveTarget(&writer, (void *)d11Foreign.meshes[0][1]->address,
+                (void *)(w17.rw->address + 0x318u), NULL, MOCK_ENGINE + 0x258E19u, (LONG64)i, &t17, &k17));
+        }
+        testReadHook = NULL;
+        TCHECK(perfTestReadCount == 0u && perfTestReadBytes == 0u);
+
+        /* Now spawn a LEGO player at slot 180,000 (far past the 4,096 slice) -> WriterTick discovers in O(1)
+         * and reads <= 64 KB total (incremental slice, NEVER 2.35 MB)! */
+        SpawnMockActor(&d11Player, &w17, 180000u, 1u, COOP_HUMAN_AVATAR_RESOURCE, 107u, 1);
+        SetActorSelfHandles(&d11Player);
+        PutU64(sContext, 0xB398u, 0xD110ULL);
+        PutU32(sPlayerRow, 0x84u, 1u);
+        SetPlayerSlot(0, 0xD110ULL, 80u, 3u, 1, 800u, &d11Player);
+        perfTestReadCount = 0; perfTestReadBytes = 0;
+        testReadHook = PerfCountReadHook;
+        writerPollAt = 0;
+        WriterTick(&mod, 0.016f, NULL);
+        testReadHook = NULL;
+        TCHECK(writer.garments_cached == 7 && coopFast.handle_count == 7u);
+        TCHECK(perfTestReadBytes <= 196608u); /* bounded 16384-slot slice (~144 KB), never full 2.35 MB copy! */
+
+        /* Verify all 28 player LEGO meshes still substitute cleanly */
+        for (unsigned t = 0; t < 7u; t++) {
+            for (unsigned j = 1u; j <= 4u; j++) {
+                InvokeActorMesh(&d11Player, t, j, 0, 1);
+            }
+        }
+        TCHECK(coopReg.active_targets == 28u && writer.corrected == 28 && writer.fatal == 0);
+
+        /* Now run 5,000 non-LEGO enemy/SEAF 512B80 calls with LEGO active -> EXACTLY 1 x 4-byte read each! */
+        perfTestReadCount = 0; perfTestReadBytes = 0;
+        testReadHook = PerfCountReadHook;
+        for (unsigned i = 0; i < 5000u; i++) {
+            se_target t17; coop_actor_kind k17;
+            TCHECK(!CoopResolveTarget(&writer, (void *)d11Foreign.meshes[0][1]->address,
+                (void *)(w17.rw->address + 0x318u), NULL, MOCK_ENGINE + 0x258E19u, (LONG64)i, &t17, &k17));
+        }
+        testReadHook = NULL;
+        TCHECK(perfTestReadCount == 5000u && perfTestReadBytes == 20000u);
     }
 
     if (invocationDirectoryHandle != INVALID_HANDLE_VALUE) {

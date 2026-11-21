@@ -52,8 +52,16 @@ typedef struct {
     uint32_t environment_ok;
 } at_receipt;
 
+typedef struct __attribute__((aligned(64))) {
+    volatile uint32_t seq; /* seqlock: even = stable, odd = updating */
+    uint32_t count;
+    uint32_t handles[AT_MAX_WALKERS];
+    uintptr_t worlds[AT_MAX_WALKERS];
+} at_fast_filter;
+
 typedef struct at_writer_state {
-    SRWLOCK lock;
+    at_fast_filter fast;
+    SRWLOCK lock __attribute__((aligned(64)));
     volatile LONG ready;
     uintptr_t engine_base;
     at_rig rig;

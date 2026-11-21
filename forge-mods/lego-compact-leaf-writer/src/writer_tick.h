@@ -30,9 +30,13 @@ static void WriterTick(HfMod *mod,float dt,void *context) {
             coopProbeActive=0;
             uint32_t pc=coopReg.player_count;
             ReleaseSRWLockExclusive(&writer.metadata);
+            if(!coopDiagnosticCapture) {
+                InterlockedExchange(&writer.diagnostics_closed,1);
+                writerDiagnosticsDone=1;
+            }
             InterlockedExchange(&writer.ready,1);
-            hf->log(mod,"LEGO_COMPACT_LEAF_WRITER writer_ready grouped=1 normal=1 coop=1 dynamic=1 max_targets=%u warmup=unqualified policy=neck_and_arm_shoulder_hinge approved_next=%llX approved_leaf_next=%llX approved_remove_next=%llX players=%u",
-                COOP_MAX_TARGETS,(unsigned long long)(uintptr_t)writer.approved_next,(unsigned long long)(uintptr_t)writer.approved_leaf_next,(unsigned long long)(uintptr_t)writer.approved_remove_next,pc);
+            hf->log(mod,"LEGO_COMPACT_LEAF_WRITER writer_ready grouped=1 normal=1 coop=1 dynamic=1 max_targets=%u warmup=unqualified policy=neck_and_arm_shoulder_hinge approved_next=%llX approved_leaf_next=%llX approved_remove_next=%llX players=%u diag_capture=%u",
+                COOP_MAX_TARGETS,(unsigned long long)(uintptr_t)writer.approved_next,(unsigned long long)(uintptr_t)writer.approved_leaf_next,(unsigned long long)(uintptr_t)writer.approved_remove_next,pc,(unsigned)coopDiagnosticCapture);
             InterlockedExchange(&tickLock,0);
             return;
         }
@@ -51,7 +55,7 @@ static void WriterTick(HfMod *mod,float dt,void *context) {
     if(InterlockedCompareExchange(&tickLock,1,0))return;
     uint64_t now=GetTickCount64();
     int pollDue=now>=writerPollAt;
-    if(pollDue){writerPollAt=now+500;if(RequestFile(stopPath)){
+    if(pollDue){writerPollAt=now+250;if(RequestFile(stopPath)){
         InterlockedExchange(&writer.diagnostics_closed,1);InterlockedExchange(&writer.teardown,1);}}
     if(coopDynamicMode && pollDue && !Stopped()) {
         AcquireSRWLockExclusive(&writer.metadata);
@@ -59,18 +63,19 @@ static void WriterTick(HfMod *mod,float dt,void *context) {
         Manager m;
         if(CoopManagerRead(&m)) {
             InterlockedExchange64(&writer.unit_cap,(LONG64)m.capacity);
-            coop_discover_player_garments(&m);
             coop_refresh_units(&m,0);
             InterlockedExchange64(&writer.garments_cached,(LONG64)coopGarmentCount);
         }
-        coop_neg_advance_epoch();
         coopProbeActive=0;
         ReleaseSRWLockExclusive(&writer.metadata);
     }
     logsTick=0;
     WriterFaultTick(mod);
     if(!writerDiagnosticsDone) {
-        if(!InvocationDrainOne(mod)){gw_fail(&writer,GW_CAPTURE,0);InterlockedExchange(&writer.diagnostics_closed,1);}
+        if(!InvocationDrainOne(mod)){
+            if(!coopDynamicMode) gw_fail(&writer,GW_CAPTURE,0);
+            InterlockedExchange(&writer.diagnostics_closed,1);
+        }
         if(!coopDynamicMode && leafNormalMask==0x7f && leafGroupedMask==0x7f)InterlockedExchange(&writer.diagnostics_closed,1);
         if(InterlockedCompareExchange(&writer.diagnostics_closed,0,0)) {
             if(!writerDrainAt)writerDrainAt=now?now:1;
@@ -92,7 +97,7 @@ static void WriterTick(HfMod *mod,float dt,void *context) {
     if(fatal && !writerReportedFatal && InterlockedCompareExchange(&writer.fault.state,0,0)>=2){writerReportedFatal=writer.fault.reason;
         hf->log(mod,"LEGO_COMPACT_LEAF_WRITER fatal reason=%ld sequence=%llu correction_active=1 cleanup_required=1",writer.fault.reason,(unsigned long long)writer.fault.sequence);}
     if(now>=writerHealthAt && writerHealthRows<600) {
-        writerHealthAt=now+500;writerHealthRows++;
+        writerHealthAt=now+(coopDynamicMode?30000u:500u);writerHealthRows++;
         uint32_t activeTargets=0,adm=0,ret=0,aba=0,players=0;
         if(coopDynamicMode) {
             AcquireSRWLockShared(&writer.metadata);

@@ -7,7 +7,8 @@ $sdk=Join-Path $workspace 'app\sdk'
 $tools=Join-Path $workspace 'tools'
 $out=Join-Path $PSScriptRoot 'dist'
 New-Item -ItemType Directory -Force $stage,$sdk,$tools,$out | Out-Null
-Copy-Item -Path (Join-Path $PSScriptRoot 'sdk\*.h') -Destination $sdk -Force
+$SdkSource = if (Test-Path -LiteralPath (Join-Path $PSScriptRoot 'sdk')) { Join-Path $PSScriptRoot 'sdk' } else { Join-Path (Split-Path (Split-Path $Cli -Parent) -Parent) 'sdk' }
+Copy-Item -Path (Join-Path $SdkSource '*.h') -Destination $sdk -Force
 $compiler=Join-Path $tools 'zig'
 if(!(Test-Path -LiteralPath $compiler)){New-Item -ItemType Junction -Path $compiler -Target $Zig | Out-Null}
 if(@((Get-Item -LiteralPath $compiler).Target)[0] -ne $Zig){throw 'Compiler junction differs'}
@@ -40,7 +41,9 @@ try {
    $fixtureDirectory=Join-Path $PSScriptRoot ('build\'+$fixture+'-'+[DateTime]::UtcNow.ToString('yyyyMMdd-HHmmss-fffffff'))
    New-Item -ItemType Directory -Path $fixtureDirectory | Out-Null
    if($fixture -eq 'queue_integration_test') {
-    & $binary $RetainedRun $fixtureDirectory (Join-Path $PSScriptRoot 'inputs/133609-leaf-fault-first.bin') | Set-Content -LiteralPath (Join-Path $fixtureDirectory 'test.log')
+    $faultInput = Join-Path $PSScriptRoot 'inputs/133609-leaf-fault-first.bin'
+    if (!(Test-Path -LiteralPath $faultInput)) { Write-Host "SKIP queue_integration_test (missing optional $faultInput)"; continue }
+    & $binary $RetainedRun $fixtureDirectory $faultInput | Set-Content -LiteralPath (Join-Path $fixtureDirectory 'test.log')
    } else {
     & $binary $RetainedRun $fixtureDirectory | Set-Content -LiteralPath (Join-Path $fixtureDirectory 'test.log')
    }
@@ -50,7 +53,7 @@ try {
  }
  & $Cli package-mod --mod $stage --out $out | Set-Content -LiteralPath (Join-Path $PSScriptRoot 'build\package.log')
  if($LASTEXITCODE -ne 0){throw 'Package failed'}
- $zipPath=Join-Path $out 'lego-compact-leaf-writer-0.1.0.zip'
+ $zipPath=Join-Path $out 'lego-compact-leaf-writer-0.2.0.zip'
  $zipItem=Get-Item -LiteralPath $zipPath
  $zipSha=(Get-FileHash -LiteralPath $zipPath -Algorithm SHA256).Hash.ToLowerInvariant()
  $folderHash=($(& $Cli mod-hash --mod $stage) | ConvertFrom-Json).hash

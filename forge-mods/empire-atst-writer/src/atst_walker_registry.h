@@ -82,6 +82,7 @@ typedef struct {
     at_walker_slot slots[AT_MAX_WALKERS];
     uintptr_t engine_base;
     uintptr_t rmanager_vtable_graph; /* engine + 0x16880B0u (overridable if needed in unit tests) */
+    uint32_t scan_cursor;
     uint32_t admissions;
     uint32_t retirements;
     uint32_t scavenged;

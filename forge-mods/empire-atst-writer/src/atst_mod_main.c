@@ -51,7 +51,8 @@ static void WriterTick(HfMod *mod, float dt, void *user) {
     (void)mod;
     (void)dt;
     (void)user;
-    at_writer_tick(&g_writer, 4096u);
+    /* Smooth rolling slice: 2048 slots/frame (~2s full D11 262k sweep at 60 FPS, no 4 Hz burst). */
+    at_writer_tick(&g_writer, 2048u);
 }
 
 static void OnSessionEnd(HfMod *mod, HfEvent event, void *user) {

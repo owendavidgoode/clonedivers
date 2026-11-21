@@ -6,7 +6,8 @@ static _Thread_local unsigned gw_metadata_depth;
 typedef struct gw_frame {struct gw_frame *previous;gw_state *state;gw_slot *slot;gw_receipt *receipt;
  uintptr_t factor[2],reservation;DWORD owner;uint64_t serial;unsigned depth;int active;} gw_frame;
 static _Thread_local gw_frame *gw_current;
-static LONG gw_load(volatile LONG *p){return InterlockedCompareExchange(p,0,0);}
+static LONG gw_load(volatile LONG *p){return __atomic_load_n(p,__ATOMIC_ACQUIRE);}
+static void *gw_load_ptr(void *volatile *p){return __atomic_load_n(p,__ATOMIC_ACQUIRE);}
 void gw_fail(gw_state *s,LONG reason,LONG64 sequence) {
  if(InterlockedCompareExchange(&s->fatal,reason,0)==0){
 #ifdef GW_TEST_FATAL_CAS_PAUSE
@@ -129,14 +130,14 @@ uint32_t gw_dispatch(gw_state *s,void *mesh,void *pool,void *graph,uintptr_t cal
    }
   }
  }
- se_next_fn next=(se_next_fn)InterlockedCompareExchangePointer(&s->binding->next,NULL,NULL);
+ se_next_fn next=(se_next_fn)gw_load_ptr(&s->binding->next);
  if(gw_load(&s->ready) && (void*)next!=s->approved_next) {
   gw_fail(s,GW_CHAIN,sequence);substitution=0;
   if(record){sm_result *math=(sm_result*)(record->payload+SM_RAW_BYTES);uintptr_t supplied=(uintptr_t)graph;
    memcpy(math->reserved,&supplied,8);math->reserved[2]=0;}
  }
- if(gw_load(&s->ready) && InterlockedCompareExchangePointer(&s->leaf_next,NULL,NULL)!=s->approved_leaf_next){gw_fail(s,GW_CHAIN,sequence);substitution=0;}
- if(gw_load(&s->ready) && s->approved_remove_next && InterlockedCompareExchangePointer(&s->remove_next,NULL,NULL)!=s->approved_remove_next){gw_fail(s,GW_CHAIN,sequence);substitution=0;}
+ if(gw_load(&s->ready) && gw_load_ptr(&s->leaf_next)!=s->approved_leaf_next){gw_fail(s,GW_CHAIN,sequence);substitution=0;}
+ if(gw_load(&s->ready) && s->approved_remove_next && gw_load_ptr(&s->remove_next)!=s->approved_remove_next){gw_fail(s,GW_CHAIN,sequence);substitution=0;}
  frame.active=substitution;
  SetLastError(entry_error);_mm_setcsr(entry_csr);uint32_t delegate_csr=_mm_getcsr();
  uint32_t result=next(mesh,pool,graph);
@@ -177,7 +178,7 @@ uint32_t gw_dispatch(gw_state *s,void *mesh,void *pool,void *graph,uintptr_t cal
 uint32_t gw_leaf_dispatch(gw_state *s,void *dst,const void *factor,const void *graph,const void *bind,const uint32_t *palette,const uint32_t *map,uint32_t count,uintptr_t caller){
  uint32_t entry_csr=_mm_getcsr();DWORD entry_error=GetLastError();gw_frame *f=gw_current;
  const void *chosen=graph;int replace=0;
- gw_leaf_fn next=(gw_leaf_fn)InterlockedCompareExchangePointer(&s->leaf_next,NULL,NULL);
+ gw_leaf_fn next=(gw_leaf_fn)gw_load_ptr(&s->leaf_next);
  if(f && f->active && f->state==s){
   lp_plan *p=&f->slot->plan;gw_receipt *r=f->receipt;unsigned at=r->seen++,group=at/2,t=at%2;
   int ok=!r->failure && f->owner==GetCurrentThreadId() && f->serial==f->slot->record.sequence && at<r->expected && group<p->groups &&

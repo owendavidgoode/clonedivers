@@ -32,7 +32,7 @@ jobs:
           Copy-Item docs/FORGE-0.4-TURNKEY-2026-11-05.md artifacts/windows/FORGE-0.4-INTEGRATION.md
           Copy-Item docs/SEAF-COMPATIBILITY-PERMISSION.md artifacts/windows/SEAF-COMPATIBILITY-PERMISSION.md
           Copy-Item docs/releases/pack-2026.11.09-r47-full.md artifacts/windows/EMPIREDIVERS-CREDITS.md
-          Copy-Item Clonedivers/Resources/forge-gameplay-build25480438-r5.json artifacts/windows/gameplay-catalog.json
+          Copy-Item Clonedivers/Resources/forge-gameplay-build25480438-r6.json artifacts/windows/gameplay-catalog.json
           Copy-Item Clonedivers/Licenses/PresentMon.txt artifacts/windows/LICENSE-PresentMon.txt
           foreach ($package in @('microsoft.netcore.app.runtime.win-x64','microsoft.windowsdesktop.app.runtime.win-x64')) {
             $runtime = Get-ChildItem (Join-Path $env:USERPROFILE ".nuget/packages/$package") -Directory | Sort-Object { [version]$_.Name } | Select-Object -Last 1
@@ -77,7 +77,7 @@ jobs:
           cp docs/forge-preset-build25480438.json dist/forge-stage/preset.json
           cp docs/SEAF-COMPATIBILITY-PERMISSION.md dist/forge-stage/SEAF-COMPATIBILITY-PERMISSION.md
           cp docs/releases/pack-2026.11.09-r47-full.md dist/forge-stage/EMPIREDIVERS-CREDITS.md
-          cp Clonedivers/Resources/forge-gameplay-build25480438-r5.json dist/forge-stage/gameplay-catalog.json
+          cp Clonedivers/Resources/forge-gameplay-build25480438-r6.json dist/forge-stage/gameplay-catalog.json
           cp Clonedivers.Linux/THIRD-PARTY-NOTICES.txt dist/forge-stage/licenses/Avalonia-Skia-HarfBuzz.txt
           for rid in linux-x64; do
             runtime=$(find "$HOME/.nuget/packages/microsoft.netcore.app.runtime.$rid" -mindepth 1 -maxdepth 1 -type d | sort -V | tail -n1)
