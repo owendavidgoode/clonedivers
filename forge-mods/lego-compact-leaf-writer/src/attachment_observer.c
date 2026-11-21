@@ -26,7 +26,7 @@ _Static_assert(GW_RECEIPT_OFFSET+sizeof(gw_receipt)<=SE_PAYLOAD,"Leaf receipt bo
 _Static_assert(offsetof(se_record,payload)%16==0,"Private header aligned");
 typedef struct IvBudget {uint32_t logical,sdk,bytes,status;unsigned char *payload;const se_observe_context *call;} IvBudget;
 static se_state invocationEnvelope;
-static IvBudget *invocationBudget; /* Accessible only under the envelope metadata gate. */
+static _Thread_local IvBudget *invocationBudget; /* Thread-local active capture budget. */
 static uint32_t logicalTick,logicalTotal,sdkReadTotal;
 static volatile LONG invocationFatal,invocationTerminal;
 static uint32_t invocationPid,invocationFiles,invocationAccepted,invocationRefused,invocationAbandoned,invocationMask;
@@ -138,6 +138,7 @@ static void Loaded(HfMod *mod,HfEvent event,void *user)
     coop_discovery_init();
     writer.resolve_target=CoopResolveTarget;
     writer.fast_may_match=CoopFastMayMatch;
+    writer.fast_coop_run=CoopFastRun;
     writer.retire_handle=CoopRetireHandle;
     RLog(mod,"LEGO_COMPACT_LEAF_WRITER ready coop_dynamic=1 auto_armed=1 managed_hook=512B80 leaf_hook=5B2990 remove_hook=1E7CD0 priority=0 max_targets=%u originals=M_P_R8_return leaf_graph=private_after_writer_ready pose_reads=bounded no_shared_pose_writes pid=%lu birth_100ns=%llu engine=%llX game=%llX hash_probe_limit=%u",
         COOP_MAX_TARGETS,(unsigned long)GetCurrentProcessId(),(unsigned long long)birth,(unsigned long long)engine,(unsigned long long)gameModule,COOP_HASH_PROBE_LIMIT);

@@ -20,10 +20,11 @@ typedef struct {
  uintptr_t read_at;uint32_t read_size,comparison_length,probe_offset,probe_bytes;
  unsigned char expected[64],observed[64];
 } lp_trace;
+typedef struct {uintptr_t palette;uint32_t count,offset[2];} lp_group;
 typedef struct {
  uintptr_t graph,arrays[2],bind,map,pool_base;
  uint32_t count,mesh_node,groups,output_count,blocks,bytes;
- struct {uintptr_t palette;uint32_t count,offset[2];} group[LP_GROUPS];
+ lp_group group[LP_GROUPS];
  lp_block block[LP_BLOCKS];unsigned char evidence[LP_BYTES];
  lp_trace trace;
 } lp_plan;

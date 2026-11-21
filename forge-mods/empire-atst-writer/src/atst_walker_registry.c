@@ -327,6 +327,8 @@ uint32_t at_registry_reconcile(
     uint32_t start = (max_scan && max_scan < mgr.capacity) ? (reg->scan_cursor % mgr.capacity) : 0u;
     uint32_t admitted = 0;
     uint32_t scanned = 0;
+    uint32_t probed_new = 0;
+    int periodic_refresh = (max_scan && max_scan < mgr.capacity && (reg->sweep_count & 15u) == 15u);
     uintptr_t slot_chunk[512];
     uint8_t gen_chunk[512];
     while (scanned < limit) {
@@ -336,7 +338,8 @@ uint32_t at_registry_reconcile(
         if (run > 512u) run = 512u;
         int bulk_ok = (read_fn(mgr.slots + (uintptr_t)chunk_start * 8u, slot_chunk, (size_t)run * 8u, read_user) == 0 &&
                        read_fn(mgr.generations + chunk_start, gen_chunk, (size_t)run, read_user) == 0);
-        for (uint32_t j = 0; j < run; j++) {
+        uint32_t j = 0;
+        for (; j < run; j++) {
             uint32_t idx = chunk_start + j;
             if (bulk_ok) {
                 uintptr_t unit_ptr = slot_chunk[j];
@@ -346,9 +349,13 @@ uint32_t at_registry_reconcile(
                     reg->scanned_gens[idx] = unit_gen;
                     continue;
                 }
-                if (reg->scanned_slots[idx] == unit_ptr && reg->scanned_gens[idx] == unit_gen) {
+                if (!periodic_refresh && reg->scanned_slots[idx] == unit_ptr && reg->scanned_gens[idx] == unit_gen) {
                     continue;
                 }
+                if (max_scan && max_scan < mgr.capacity && probed_new >= 96u) {
+                    break;
+                }
+                probed_new++;
                 unsigned char probe[0x38];
                 if (read_fn(unit_ptr, probe, sizeof(probe), read_user) != 0) continue;
                 if ((uintptr_t)rd_u64(probe + 0x00u) != reg->engine_base + AT_RVA_UNIT_VTABLE) {
@@ -394,21 +401,19 @@ uint32_t at_registry_reconcile(
                 admitted++;
             }
         }
-        scanned += run;
+        scanned += j;
+        if (j < run) break;
     }
     int sweep_wrapped = 0;
     if (max_scan && max_scan < mgr.capacity) {
-        if (start + limit >= mgr.capacity) sweep_wrapped = 1;
-        reg->scan_cursor = (start + limit) % mgr.capacity;
+        if (start + scanned >= mgr.capacity) sweep_wrapped = 1;
+        reg->scan_cursor = (start + scanned) % mgr.capacity;
     } else {
         sweep_wrapped = 1;
         reg->scan_cursor = 0u;
     }
     if (sweep_wrapped) {
         reg->sweep_count++;
-        if ((reg->sweep_count & 15u) == 0u) {
-            memset(reg->scanned_slots, 0, sizeof(reg->scanned_slots));
-        }
     }
     return admitted;
 }

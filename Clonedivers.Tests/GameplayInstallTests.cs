@@ -12,7 +12,7 @@ internal static class GameplayInstallTests
     {
         var catalog = HellForgeGameplayCatalog.Pinned;
         catalog.Validate();
-        check(catalog.Id == "build25480438-r7" && catalog.Artifacts.Count == 14 && catalog.Artifacts.Sum(a => a.Bytes) == 8305416,
+        check(catalog.Id == "build25480438-r7" && catalog.Artifacts.Count == 14 && catalog.Artifacts.Sum(a => a.Bytes) == 8312339,
             "the r7 preset pairs six optional project SDK-16 mods with eight required gameplay and author archives");
         check(catalog.Artifacts.Count(a => a.Url.Contains("/owendavidgoode/clonedivers/")) == 11 && catalog.Artifacts.Count(a => !a.Url.Contains("/owendavidgoode/clonedivers/")) == 3 &&
             catalog.Artifacts.All(a => !a.Url.Contains("hf-mod.com", StringComparison.OrdinalIgnoreCase)) &&
@@ -31,9 +31,9 @@ internal static class GameplayInstallTests
             cleanExit.ContentHash == "0006a02101583cf05e3bd9fa4e431409c18ff4ac72f59ae1ece8c7d9831a888a" &&
             cleanExit.Url == "https://github.com/owendavidgoode/clonedivers/releases/download/forge-mods-2026-11-08/clean-exit-0.2.0.zip",
             "Clean Exit stays optional with the exact independently verified 0.2.0 release pins");
-        check(leafWriter.Name == "LEGO Compact Leaf Writer" && leafWriter.Version == "0.2.1" && leafWriter.Bytes == 246177 &&
-            leafWriter.Sha256 == "0986058a59cdb43a1a5f1fc6500ff609784a20ee81077ff63ec1fce89163f75f" &&
-            leafWriter.ContentHash == "ccd2f93dc52b2a68bae536ec8b1cb1073c6dfd658b535f51fed0c0fca7a342ad" &&
+        check(leafWriter.Name == "LEGO Compact Leaf Writer" && leafWriter.Version == "0.2.1" && leafWriter.Bytes == 253057 &&
+            leafWriter.Sha256 == "bbbe6739e7a17d09e7b59a971573e7c6f6b8c77f2792f1901ff2c33153e76a8f" &&
+            leafWriter.ContentHash == "e8cb5f723a2a62f0bda4f5a1ac9c7cdae0a814e10792b07bf0c0e489e7c18531" &&
             leafWriter.Url == "https://github.com/owendavidgoode/clonedivers/releases/download/forge-mods-2026-11-21/lego-compact-leaf-writer-0.2.1.zip",
             "LEGO Compact Leaf Writer is optional with the exact 0.2.1 D11 tuned release pins");
         check(yoda.Name == "Empire LEGO Yoda Death" && yoda.Version == "0.2.0" && yoda.Bytes == 53078 &&
@@ -41,9 +41,9 @@ internal static class GameplayInstallTests
             yoda.ContentHash == "d896384245eae48b4a883a8cb561daae75cd61a739c9ac20f85ea54be474b043" &&
             yoda.Url == "https://github.com/owendavidgoode/clonedivers/releases/download/forge-mods-2026-11-19/empire-lego-yoda-0.2.0.zip",
             "Empire LEGO Yoda Death is optional with the exact 0.2.0 co-op release pins");
-        check(atst.Name == "Empire AT-ST Film-Scale Leaf Writer" && atst.Version == "0.2.1" && atst.Bytes == 36144 &&
-            atst.Sha256 == "367c054c2771302b985502239d3abcb6677a548bd1b1fb9ef533495d9e09b667" &&
-            atst.ContentHash == "869f2e5d24917651a56d4bd13f73950fe688857d184f837a09c5e73214340aa0" &&
+        check(atst.Name == "Empire AT-ST Film-Scale Leaf Writer" && atst.Version == "0.2.1" && atst.Bytes == 36187 &&
+            atst.Sha256 == "7349932489cd1682717c4d74afe5514bef889be6e81d1a68668780ab67317a70" &&
+            atst.ContentHash == "1e36e3c58a1cd37ed0a5511265191bca655c1e7b00752bc3f1b5b3c1e5d0b7ea" &&
             atst.Url == "https://github.com/owendavidgoode/clonedivers/releases/download/forge-mods-2026-11-21/empire-atst-writer-0.2.1.zip",
             "Empire AT-ST Film-Scale Leaf Writer is optional with the exact 0.2.1 D11 tuned release pins");
         check(tieSwitch.Name == "Empire per-attack TIE (lab candidate)" && tieSwitch.Version == "0.3.0" && tieSwitch.Bytes == 22644 &&

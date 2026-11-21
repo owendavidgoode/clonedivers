@@ -52,6 +52,68 @@ uint32_t gw_dispatch(gw_state *s,void *mesh,void *pool,void *graph,uintptr_t cal
   }
   SetLastError(fast_err);_mm_setcsr(fast_csr);
  }
+ if(!gw_current && s->fast_coop_run && gw_load(&s->ready) && gw_load(&s->diagnostics_closed)) {
+  uint32_t entry_csr=_mm_getcsr();DWORD entry_error=GetLastError();
+  se_next_fn fast_next=(se_next_fn)gw_load_ptr(&s->binding->next);
+  if((void*)fast_next==s->approved_next &&
+     gw_load_ptr(&s->leaf_next)==s->approved_leaf_next &&
+     (!s->approved_remove_next || gw_load_ptr(&s->remove_next)==s->approved_remove_next)) {
+   DWORD tid=GetCurrentThreadId();
+   unsigned start=(unsigned)((tid*2654435761u)&(GW_SLOTS-1u));
+   gw_slot *fslot=NULL;
+   for(unsigned k=0;k<GW_SLOTS;k++) {
+    unsigned idx=(start+k)&(GW_SLOTS-1u);
+    if(InterlockedCompareExchange(&s->slots[idx].state,1,0)==0){fslot=&s->slots[idx];break;}
+   }
+   if(fslot) {
+    coop_actor_kind fkind=COOP_ACTOR_REJECTED;
+    uint32_t froute=0;
+    int fr=s->fast_coop_run(s,mesh,pool,graph,caller,fslot,entry_csr,&fkind,&froute);
+    if(fr==1) {
+     LONG64 seq=gw_inc(s,&s->calls);
+     gw_inc(s,&s->matched);
+     if(fkind==COOP_ACTOR_LOCAL_PLAYER)gw_inc(s,&s->local_hits);
+     else if(fkind==COOP_ACTOR_REMOTE_PLAYER)gw_inc(s,&s->remote_hits);
+     else if(fkind==COOP_ACTOR_PREVIEW_OR_CORPSE)gw_inc(s,&s->preview_hits);
+     LONG64 active=gw_inc(s,&s->inflight),peak=InterlockedCompareExchange64(&s->peak,0,0);
+     while(active>peak){LONG64 prior=InterlockedCompareExchange64(&s->peak,active,peak);if(prior==peak)break;peak=prior;}
+     fslot->record.sequence=(uint64_t)seq;
+     gw_receipt *receipt=(gw_receipt*)(fslot->record.payload+GW_RECEIPT_OFFSET);
+     memset(receipt,0,sizeof *receipt);
+     receipt->route=froute;receipt->expected=fslot->plan.groups*2u;
+     receipt->outer_args_unchanged=1;receipt->recheck_ok=1;
+     gw_frame frame={0};frame.previous=NULL;frame.state=s;frame.slot=fslot;frame.receipt=receipt;
+     frame.owner=tid;frame.serial=(uint64_t)seq;frame.depth=1;frame.active=1;
+     gw_current=&frame;
+     SetLastError(entry_error);_mm_setcsr(entry_csr);uint32_t delegate_csr=_mm_getcsr();
+     uint32_t result=fast_next(mesh,pool,graph);
+     uint32_t return_csr=_mm_getcsr();DWORD return_error=GetLastError();
+     frame.active=0;gw_current=NULL;
+     lp_plan *p=&fslot->plan;
+     receipt->environment_ok=(delegate_csr==entry_csr);
+     receipt->allocation_ok=frame.reservation>=p->pool_base && frame.reservation-p->pool_base==(uint64_t)result*16u;
+     int ok=!receipt->failure && receipt->seen==receipt->expected && receipt->replaced==receipt->expected &&
+            receipt->allocation_ok && receipt->environment_ok && result!=UINT32_MAX;
+     if(ok) gw_inc(s,&s->corrected);
+     else {
+      if(!receipt->failure) receipt->failure=20;
+      gw_fail(s,delegate_csr!=entry_csr?GW_ENVIRONMENT:(result==UINT32_MAX?GW_NATIVE:GW_LEAF),seq);
+      gw_inc(s,&s->failed);
+     }
+     InterlockedDecrement64(&s->inflight);InterlockedExchange(&fslot->state,0);
+     SetLastError(return_error);_mm_setcsr(return_csr);
+     return result;
+    }
+    InterlockedExchange(&fslot->state,0);
+    if(fr<0) {
+     gw_inc(s,&s->calls);gw_inc(s,&s->matched);gw_inc(s,&s->passthrough_retired);
+     SetLastError(entry_error);_mm_setcsr(entry_csr);
+     return fast_next(mesh,pool,graph);
+    }
+   }
+  }
+  SetLastError(entry_error);_mm_setcsr(entry_csr);
+ }
  uint32_t entry_csr=_mm_getcsr();DWORD entry_error=GetLastError();
  LONG64 sequence=gw_inc(s,&s->calls);gw_slot *slot=NULL;se_record *record=NULL;
  int substitution=0,matched_target=0,retired_mid_call=0;se_target resolved_target;memset(&resolved_target,0,sizeof resolved_target);

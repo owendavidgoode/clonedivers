@@ -1106,6 +1106,7 @@ int main(int argc, char **argv) {
     TCHECK(writer.corrected == baseCorrected + 56 && writer.failed == 0 && writer.fatal == 0);
 
     /* Test 10: Concurrent unrelated UnitManager capacity/free-list change mid-CoopCaptureTarget -> correction SUCCEEDS with fatal == 0! */
+    writer.fast_coop_run = NULL; /* Exercise slow CoopCaptureTarget path specifically for Tests 10 & 11 */
     hookWatchMgrSlab = sMgr;
     hookWatchMgrAddr = sMgr->address + 0x98u;
     hookMgrHits = 0;
@@ -1150,6 +1151,7 @@ int main(int argc, char **argv) {
     PutU32(hookWatchPoseSlab, hookWatchPoseOff, savedPoseWord);
     InvokeActorMesh(&groundAvatar, 5, 1, 0, 1);
     TCHECK(writer.corrected == baseCorrected + 1 && writer.fatal == 0);
+    writer.fast_coop_run = CoopFastRun; /* Restore parallel fast path for all remaining tests */
 
     /* Emit final health row confirming new telemetry counters format cleanly under 900 chars. */
     writerHealthAt = 0;
@@ -1820,7 +1822,8 @@ int main(int argc, char **argv) {
         }
         TCHECK(coopReg.active_targets == 28u && writer.corrected == 28 && writer.fatal == 0);
 
-        /* Now run 5,000 non-LEGO enemy/SEAF 512B80 calls with LEGO active -> EXACTLY 1 x 4-byte read each! */
+        /* Now run 5,000 non-LEGO enemy/SEAF 512B80 calls with all 28 LEGO meshes admitted -> ZERO hf->read() calls! */
+        TCHECK(coopFast.need_handle_probe == 0u);
         perfTestReadCount = 0; perfTestReadBytes = 0;
         testReadHook = PerfCountReadHook;
         for (unsigned i = 0; i < 5000u; i++) {
@@ -1829,7 +1832,70 @@ int main(int argc, char **argv) {
                 (void *)(w17.rw->address + 0x318u), NULL, MOCK_ENGINE + 0x258E19u, (LONG64)i, &t17, &k17));
         }
         testReadHook = NULL;
-        TCHECK(perfTestReadCount == 5000u && perfTestReadBytes == 20000u);
+        TCHECK(perfTestReadCount == 0u && perfTestReadBytes == 0u);
+
+        /* Verify matched steady-state LEGO 512B80 call takes the lock-free/shared CoopFastRun path (<= 20 reads vs ~260)! */
+        perfTestReadCount = 0; perfTestReadBytes = 0;
+        testReadHook = PerfCountReadHook;
+        InvokeActorMesh(&d11Player, 0, 1, 0, 1);
+        testReadHook = NULL;
+        TCHECK(writer.corrected == 29 && writer.fatal == 0 && perfTestReadCount <= 20u && writer.fast_hits == 1);
+
+        /* Test 18: Bit-for-bit cm_solve_parent + cm_apply_garment equivalence across all 37 retained frames
+         * AND rotating pool+0x170 double/triple-buffer + parent-pose cache hit rate across all 28 meshes! */
+        {
+            static cm_workspace wRef, wSplit;
+            uint32_t savedCsr = _mm_getcsr();
+            _mm_setcsr(0x1f80u);
+            unsigned checkedFrames = 0u;
+            for (unsigned f = 0; f < 37u; f++) {
+                const unsigned char *p = retainedFiles[f] + 256u;
+                if (U32(p + 4u) != 0x007fff7fu || U32(p + 12u) != 0x7fu) continue;
+                uint64_t res = U64(p + 88u);
+                uint32_t gi = 0u;
+                TCHECK(cm_garment_find(res, &gi));
+                uint32_t count = U32(p + 184u);
+                uint32_t meshNode = U32(p + 112u);
+                const cm_render48 *parents[2] = {(const cm_render48 *)(p + 13312u), (const cm_render48 *)(p + 18448u)};
+                const cm_render48 *graphs[2] = {(const cm_render48 *)(p + 1024u), (const cm_render48 *)(p + 7168u)};
+                for (unsigned t = 0; t < 2u; t++) {
+                    cm_mat4 h, fm;
+                    TCHECK(coop_fast_inv3x4(&parents[t][100], &h) == CM_OK);
+                    memset(&fm, 0, sizeof fm);
+                    for (unsigned n = 0; n < 12u; n++) fm.v[n] = graphs[t][meshNode].v[n];
+                    fm.v[15] = 1.0;
+                    cm_frame frame = {parents[t], 107u, graphs[t], count, gi, meshNode, &h, &fm, 1u};
+                    cm_render48 outRef[SM_CAP], outSplit[SM_CAP], packed[CM_SOURCE];
+                    memset(outRef, 0xA5, sizeof outRef);
+                    memset(outSplit, 0x5A, sizeof outSplit);
+                    TCHECK(cm_evaluate(&shadowRig, &frame, &wRef, outRef, SM_CAP) == CM_OK);
+                    TCHECK(cm_solve_parent(&shadowRig, parents[t], 107u, &h, &wSplit, packed) == CM_OK);
+                    TCHECK(cm_apply_garment(&shadowRig, gi, meshNode, graphs[t], count, &fm, packed, &wSplit, outSplit, SM_CAP) == CM_OK);
+                    TCHECK(memcmp(outRef, outSplit, (size_t)count * 48u) == 0);
+                }
+                checkedFrames++;
+            }
+            TCHECK(checkedFrames >= 28u);
+            _mm_setcsr(savedCsr);
+
+            /* Rotate pool+0x170 across 3 distinct skinning buffer bases and run all 28 player meshes -> 100% fast_hits, >= 42/56 pose_hits! */
+            MockSlab *altPool1 = AllocSlab(0x4000u);
+            MockSlab *altPool2 = AllocSlab(0x4000u);
+            MockSlab *origPoolSlab = d11Player.poolOut;
+            MockSlab *poolSlabs[3] = {altPool1, altPool2, origPoolSlab};
+            LONG64 beforeFast = writer.fast_hits, beforePose = writer.pose_hits;
+            for (unsigned t = 0; t < 7u; t++) {
+                for (unsigned j = 1u; j <= 4u; j++) {
+                    MockSlab *ps = poolSlabs[(t * 4u + j) % 3u];
+                    d11Player.poolOut = ps;
+                    PutU64(w17.rw, 0x318u + 0x170u, ps->address);
+                    InvokeActorMesh(&d11Player, t, j, 0, 1);
+                }
+            }
+            d11Player.poolOut = origPoolSlab;
+            PutU64(w17.rw, 0x318u + 0x170u, origPoolSlab->address);
+            TCHECK(writer.fatal == 0 && (writer.fast_hits - beforeFast) == 28 && (writer.pose_hits - beforePose) >= 42);
+        }
     }
 
     if (invocationDirectoryHandle != INVALID_HANDLE_VALUE) {

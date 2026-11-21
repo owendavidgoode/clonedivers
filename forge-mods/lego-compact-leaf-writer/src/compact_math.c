@@ -460,3 +460,104 @@ CM_API cm_status cm_evaluate(const cm_rig *rig,const cm_frame *frame,cm_workspac
  }
  memcpy(out,work->graph,frame->graph_count*48); return CM_OK;
 }
+
+CM_API cm_status cm_solve_parent(const cm_rig *rig,const cm_render48 *parent,size_t parent_count,
+                                 const cm_mat4 *parent_graph_to_native_rest_model,
+                                 cm_workspace *work,cm_render48 source_packed[CM_SOURCE]) {
+ if(!rig || !parent || !parent_graph_to_native_rest_model || !work || !source_packed) return CM_ARGUMENT;
+ if(parent_count!=107) return CM_COUNT;
+ if(overlaps(work,sizeof *work,source_packed,CM_SOURCE*48) ||
+    overlaps(work,sizeof *work,parent,parent_count*48) ||
+    overlaps(work,sizeof *work,parent_graph_to_native_rest_model,sizeof(cm_mat4)) ||
+    overlaps(source_packed,CM_SOURCE*48,parent,parent_count*48)) return CM_OVERLAP;
+ TRY(environment());
+ if(rig->magic!=CM_MAGIC) return CM_UNPREPARED;
+ if(rig->policy>CM_NECK_AND_ARM_SHOULDER_HINGE) return CM_POLICY;
+ TRY(finite_rows(parent,107));
+ TRY(rigid(parent_graph_to_native_rest_model,2e-6));
+ memset(&work->diagnostics,0,sizeof work->diagnostics);
+ for(int i=0;i<107;i++) {
+  cm_mat4 pose; double rotation[9],scale[3],delta[9],temp[9];
+  TRY(transformed(parent_graph_to_native_rest_model,&parent[i],&pose));
+  TRY(split(&pose,rotation,scale));
+  int nonunit=0;
+  for(int c=0;c<3;c++) {
+   double e=fabs(scale[c]/rig->native_scale[i][c]-1);
+   if(e>work->diagnostics.scale_relative_error) work->diagnostics.scale_relative_error=e;
+   if(e>2e-6) return CM_SCALE;
+   if(fabs(rig->native_scale[i][c]-1)>2e-6) nonunit=1;
+   e=fabs(pose.v[c*4+3]-cm_native_rest[i].v[c*4+3]);
+   if(e>work->diagnostics.ignored_native_translation_max) work->diagnostics.ignored_native_translation_max=e;
+  }
+  work->diagnostics.nonunit_native_rest_nodes+=(uint32_t)nonunit;
+  multiply(rotation,rig->native_inverse[i],delta);
+  double error=gram(delta); if(error>work->diagnostics.delta_gram_error) work->diagnostics.delta_gram_error=error;
+  if(error>4e-6) return CM_SHEAR;
+  multiply(rig->basis,delta,temp); multiply(temp,rig->basis_inverse,work->delta[i]);
+ }
+ cm_mat4 quantized;
+ for(int i=0;i<65;i++) {
+  int p=cm_parents[i],anchor=cm_anchors[i];
+  int absolute=anchor>=0 && (!cm_helpers[i] || (rig->policy!=CM_INHERIT_HELPERS && i==13));
+  double r[9],target[9]; work->local[i]=rig->local[i]; identity(&work->world[i]);
+  if(absolute) {
+   linear(&rig->source[i],r); multiply(work->delta[anchor],r,target);
+   if(p>=0) {double pr[9],inv[9],own[9]; linear(&work->world[p],pr); TRY(inverse(pr,inv)); multiply(inv,target,own); putlinear(&work->local[i],own);}
+   else putlinear(&work->local[i],target);
+  } else {
+   if(p<0) return CM_MAPPING;
+   double pr[9]; linear(&work->world[p],pr); linear(&rig->local[i],r); multiply(pr,r,target);
+  }
+  putlinear(&work->world[i],target);
+  for(int row=0;row<3;row++) {
+   double t=work->local[i].v[row*4+3];
+   if(p>=0) {
+    t=0; for(int c=0;c<3;c++) t+=work->world[p].v[row*4+c]*work->local[i].v[c*4+3];
+    t+=work->world[p].v[row*4+3];
+   }
+   work->world[i].v[row*4+3]=t;
+  }
+  TRY(finite64(work->local[i].v,16)); TRY(finite64(work->world[i].v,16));
+  cm_render48 packed; TRY(to_rows(&work->world[i],&packed));
+  identity(&quantized); for(int j=0;j<12;j++) quantized.v[j]=packed.v[j];
+  TRY(rigid(&quantized,2e-6));
+ }
+ if(rig->policy==CM_YAW_TORSO_NECK) TRY(contact_policy(rig,work));
+ if(rig->policy==CM_NECK_AIM_ONLY || rig->policy==CM_NECK_AND_ARM_SHOULDER_HINGE) TRY(neck_policy(rig,work));
+ if(rig->policy==CM_ARM_SHOULDER_HINGE || rig->policy==CM_NECK_AND_ARM_SHOULDER_HINGE) TRY(arm_policy(rig,work));
+ for(int i=0;i<CM_SOURCE;i++) TRY(to_rows(&work->world[i],&source_packed[i]));
+ return CM_OK;
+}
+
+CM_API cm_status cm_apply_garment(const cm_rig *rig,uint32_t garment_index,uint32_t mesh_node,
+                                  const cm_render48 *graph,size_t graph_count,
+                                  const cm_mat4 *source_model_to_selected_graph,
+                                  const cm_render48 source_packed[CM_SOURCE],
+                                  cm_workspace *work,cm_render48 *out,size_t capacity) {
+ if(!rig || !graph || !source_model_to_selected_graph || !source_packed || !work || !out) return CM_ARGUMENT;
+ if(graph_count==0 || graph_count>512 || capacity<graph_count || capacity>512) return CM_COUNT;
+ if(overlaps(work,sizeof *work,out,capacity*48) ||
+    overlaps(work,sizeof *work,graph,graph_count*48) ||
+    overlaps(out,capacity*48,graph,graph_count*48) ||
+    overlaps(out,capacity*48,source_packed,CM_SOURCE*48)) return CM_OVERLAP;
+ TRY(environment());
+ if(rig->magic!=CM_MAGIC) return CM_UNPREPARED;
+ if(rig->policy>CM_NECK_AND_ARM_SHOULDER_HINGE) return CM_POLICY;
+ const cm_garment *garment=cm_garment_at(garment_index);
+ if(!garment) return CM_MAPPING;
+ if(graph_count!=garment->count) return CM_COUNT;
+ if(mesh_node>=graph_count) return CM_INDEX;
+ for(uint32_t i=0;i<garment->alias_count;i++) if(garment->aliases[i].node==mesh_node) return CM_MAPPING;
+ TRY(finite_rows(graph,graph_count));
+ cm_render48 graph_frame; TRY(to_rows(source_model_to_selected_graph,&graph_frame));
+ cm_mat4 quantized; identity(&quantized); for(int i=0;i<12;i++) quantized.v[i]=graph_frame.v[i];
+ TRY(rigid(&quantized,2e-6));
+ memcpy(work->graph,graph,graph_count*48);
+ for(uint32_t i=0;i<garment->alias_count;i++) {
+  const cm_alias a=garment->aliases[i];
+  if(a.source>=65 || a.node>=graph_count) return CM_MAPPING;
+  for(uint32_t j=0;j<i;j++) if(garment->aliases[j].source==a.source || garment->aliases[j].node==a.node) return CM_MAPPING;
+  TRY(cm_compose(&graph_frame,&source_packed[a.source],&work->graph[a.node]));
+ }
+ memcpy(out,work->graph,graph_count*48); return CM_OK;
+}

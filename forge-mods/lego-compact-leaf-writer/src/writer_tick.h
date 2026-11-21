@@ -121,7 +121,7 @@ static void WriterTick(HfMod *mod,float dt,void *context) {
         uint64_t tickAvgUs=writerTickCount?(writerTickUsSum/writerTickCount):0u;
         uint64_t tickMaxUs=writerTickUsMax;
         writerTickUsSum=0;writerTickUsMax=0;writerTickCount=0;
-        hf->log(mod,"LEGO_COMPACT_LEAF_WRITER health row=%u correction_active=1 matched=%llu corrected=%llu failed=%llu unclassified=%llu warmup=%llu inflight=%llu peak=%llu diagnostic_dropped=%llu fatal=%ld teardown=%ld active_targets=%u retires=%llu aba=%llu local=%llu remote=%llu preview=%llu players=%u passthrough=%llu plan_pass=%llu recheck_pass=%llu fast_evicts=%llu teardown_evicts=%llu mut_skips=%llu unit_cap=%llu garments=%llu neg_hits=%llu rej_mgr=%llu rej_world=%llu rej_nomatch=%llu rej_meta=%llu rej_parent=%llu rej_admit=%llu tick_us_avg=%llu tick_us_max=%llu",
+        hf->log(mod,"LEGO_COMPACT_LEAF_WRITER health row=%u correction_active=1 matched=%llu corrected=%llu failed=%llu unclassified=%llu warmup=%llu inflight=%llu peak=%llu diagnostic_dropped=%llu fatal=%ld teardown=%ld active_targets=%u retires=%llu aba=%llu local=%llu remote=%llu preview=%llu players=%u passthrough=%llu plan_pass=%llu recheck_pass=%llu fast_evicts=%llu teardown_evicts=%llu mut_skips=%llu unit_cap=%llu garments=%llu neg_hits=%llu rej_mgr=%llu rej_world=%llu rej_nomatch=%llu rej_meta=%llu rej_parent=%llu rej_admit=%llu fast_hits=%llu pose_hits=%llu tick_us_avg=%llu tick_us_max=%llu",
             writerHealthRows,(unsigned long long)WriterCounter(&writer.matched),(unsigned long long)WriterCounter(&writer.corrected),
             (unsigned long long)WriterCounter(&writer.failed),(unsigned long long)WriterCounter(&writer.unclassified),
             (unsigned long long)WriterCounter(&writer.warmup),(unsigned long long)WriterCounter(&writer.inflight),
@@ -145,6 +145,8 @@ static void WriterTick(HfMod *mod,float dt,void *context) {
             (unsigned long long)WriterCounter(&writer.rej_meta),
             (unsigned long long)WriterCounter(&writer.rej_parent),
             (unsigned long long)WriterCounter(&writer.rej_admit),
+            (unsigned long long)WriterCounter(&writer.fast_hits),
+            (unsigned long long)WriterCounter(&writer.pose_hits),
             (unsigned long long)tickAvgUs,(unsigned long long)tickMaxUs);
     }
     InterlockedExchange(&tickLock,0);

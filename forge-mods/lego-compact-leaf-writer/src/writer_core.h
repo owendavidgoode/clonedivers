@@ -25,6 +25,7 @@ typedef struct gw_state {
  void *volatile remove_next;void *approved_remove_next;
  gw_resolve_fn resolve_target;
  int (*fast_may_match)(struct gw_state *,void *,void *);
+ int (*fast_coop_run)(struct gw_state *,void *,void *,void *,uintptr_t,gw_slot *,uint32_t,coop_actor_kind *,uint32_t *);
  void (*retire_handle)(struct gw_state *,uintptr_t,uint32_t);
  void *resolve_user;
  int (*plan_capture)(lp_plan *,se_record *,int,void *);void *plan_user;
@@ -38,6 +39,7 @@ typedef struct gw_state {
  volatile LONG64 retires,aba_rebinds,dynamic_admissions,local_hits,remote_hits,preview_hits;
  volatile LONG64 passthrough_retired,passthrough_plan,passthrough_recheck,fast_evicts,capture_teardown_evicts,capture_mutation_skips;
  volatile LONG64 unit_cap,garments_cached,neg_hits,rej_mgr,rej_world,rej_nomatch,rej_meta,rej_parent,rej_admit;
+ volatile LONG64 fast_hits,pose_hits;
  gw_slot slots[GW_SLOTS];
  gw_fault fault;
 } gw_state;
