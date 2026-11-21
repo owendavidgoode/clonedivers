@@ -3,8 +3,8 @@ namespace Clonedivers;
 internal enum ForgeAction { None, Setup, Connect, EndSession, Launch, Manager, Prepare, Sync, Refresh, Update }
 internal sealed record ForgePresentation(string Headline, string Detail, string Button, ForgeAction Action)
 {
-    internal const string SyncInstructions = "In HellForge choose Profile > Account sync > Sync Inventory (default is selected). Approve the Linux helper and pass HD2's title screen. " +
-        "When HD2 closes, return here. Leave Apply import and auto-apply off. Keep Clonedivers open; it verifies and merges your sealed capture after cleanup.";
+    internal const string SyncInstructions = "In HellForge choose Profile > Account sync > Sync Inventory (default is selected). Approve the Linux helper, pass HD2's title screen, then quit HD2 yourself. " +
+        "HellForge finishes capture cleanup once HD2 closes. Leave Apply import and auto-apply off. Keep Clonedivers open; it verifies and merges your sealed capture after cleanup.";
     internal static ForgePresentation Resolve(ForgePlayerState? state = null, bool connected = false, bool disconnected = false,
         bool active = false, bool ownsSession = false, bool canLaunch = false, bool busy = false, string? error = null,
         string? updateVersion = null, bool updateFailed = false, bool syncing = false, ForgeAction retryAction = ForgeAction.Refresh)

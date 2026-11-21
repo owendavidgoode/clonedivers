@@ -473,6 +473,7 @@ public sealed partial class HellForgeClient(string root, IHellForgeCommands comm
         if (account.ValueKind == JsonValueKind.Undefined || Text(account, "template") != "starter")
             throw new InvalidDataException("The default account profile is missing or uses a test template. Restore it in HellForge before syncing; existing characters will not be reset.");
         if (reviewCapture) await new HellForgeAccount(Root).BindLegacyReceiptAsync(ct);
+        else new HellForgeAccount(Root).DisableAutoApply();
         await RequireIdleAsync(ct);
         await commands.RunAsync(["settings", "--profile", HellForgeAccount.Profile], ct);
     }

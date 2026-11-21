@@ -9,16 +9,19 @@ namespace Clonedivers.ForgeBridge;
 /// <summary>Reuse the verified Forge account/preset backend with the installed official native tools.</summary>
 internal sealed class PlayerCommands
 {
+    readonly string root;
     readonly IHellForgeCommands official;
     readonly HellForgeClient client;
     readonly HellForgeAccount account;
     readonly HellForgePreferences selection = new();
-    readonly Action openManager;
+    readonly Action? customOpenManager;
     readonly Func<CancellationToken, Task<int?>> reviewWarbonds;
     internal Func<DateTime> UtcNow { get; init; } = () => DateTime.UtcNow;
     internal Func<string?> CaptureBlockCheck { get; init; } = HellForgeAccount.CaptureBlock;
     internal Func<string?> SteamUserProbe { get; init; } = () => LinuxSteamUser();
     internal Func<CancellationToken, Task<string>>? EnsureAccount { get; init; }
+    Process? managedWindow;
+    string? managerOpenFingerprint;
     HellForgeAccountState? lastAccount;
     string? lastAccountFingerprint;
     DateTime lastAccountReview;
@@ -31,16 +34,37 @@ internal sealed class PlayerCommands
     {
         if (reviewWarbonds != null && reviewWarbondsWithStatus != null)
             throw new ArgumentException("Specify at most one Warbond review callback.");
+        this.root = root;
         this.official = official;
         client = new(root, official) { LinuxNamespace = true };
         account = new(root, backend);
         this.reviewWarbonds = reviewWarbondsWithStatus
             ?? (reviewWarbonds != null ? async ct => (int?)await reviewWarbonds(ct) : TryOpenOwnedWarbondsOrDeferAsync);
-        this.openManager = openManager ?? (() => {
-            using var manager = Process.Start(ManagerStart(root)) ?? throw new IOException("Official HellForge manager did not start.");
-            // The long-lived manager must not hold the frontend's protocol pipes (our stdio), or their EOF never arrives on close.
-            manager.StandardInput.Close(); manager.StandardOutput.Close(); manager.StandardError.Close();
-        });
+        customOpenManager = openManager;
+    }
+    bool OpenOrReuseManager()
+    {
+        try { managerOpenFingerprint = client.AccountFingerprint(); }
+        catch (Exception e) when (e is IOException or UnauthorizedAccessException) { managerOpenFingerprint = null; }
+        if (customOpenManager != null) { customOpenManager(); return false; }
+        if (managedWindow != null)
+        {
+            try { if (!managedWindow.HasExited) return true; }
+            catch (InvalidOperationException) { }
+            managedWindow.Dispose();
+            managedWindow = null;
+        }
+        var manager = Process.Start(ManagerStart(root)) ?? throw new IOException("Official HellForge manager did not start.");
+        // The long-lived manager must not hold the frontend's protocol pipes (our stdio), or their EOF never arrives on close.
+        manager.StandardInput.Close(); manager.StandardOutput.Close(); manager.StandardError.Close();
+        managedWindow = manager;
+        return false;
+    }
+    bool ManagerWindowOpen()
+    {
+        if (managedWindow == null) return false;
+        try { return !managedWindow.HasExited; }
+        catch (InvalidOperationException) { return false; }
     }
     internal static ProcessStartInfo ManagerStart(string root) =>
         new(OperatingSystem.IsLinux() ? Path.Combine(root, "app", "launcher-linux", "HellForge.Launcher") : Path.Combine(root, "HellForge.exe")) {
@@ -49,7 +73,9 @@ internal sealed class PlayerCommands
     {
         switch (args[0])
         {
-            case "open-manager": openManager(); return JsonSerializer.SerializeToElement(new { opened = "official-manager" });
+            case "open-manager":
+                var alreadyOpen = OpenOrReuseManager();
+                return JsonSerializer.SerializeToElement(new { opened = "official-manager", alreadyOpen });
             case "account-status": return JsonSerializer.SerializeToElement(await account.ReadAsync(ct));
             case "select-account":
                 lastAccount = null; lastAccountFingerprint = null; warbondsPending = false;
@@ -104,8 +130,12 @@ internal sealed class PlayerCommands
     async Task<JsonElement> StateAsync(CancellationToken ct)
     {
         var status = await client.StatusAsync(ct);
-        // Preserve a known running status even if a later mod/account query fails.
-        if (status.Running) return JsonSerializer.SerializeToElement(new { status, ready = false, detail = "Session running. End session waits for official cleanup.", account = (object?)null, mods = (object?)null });
+        // Preserve a known running or starting status even if a later mod/account query fails
+        // or while HellForge has swapped game/bin/steam_api64.dll for session SDK shims.
+        if (status.Running || HellForgeAccount.SessionShimsActive(root, UtcNow()))
+            return JsonSerializer.SerializeToElement(new { status, ready = false,
+                detail = status.Running ? "Session running. End session waits for official cleanup." : "Session starting. Waiting for HellForge to launch the game.",
+                account = (object?)null, mods = (object?)null });
         var catalog = await client.ModsAsync(ct);
         HellForgeAccountState imported;
         try
@@ -113,6 +143,12 @@ internal sealed class PlayerCommands
             if (CaptureBlockCheck() is { } capturing)
             {
                 lastAccount = null; lastAccountFingerprint = null; imported = new(false, false, capturing);
+            }
+            else if (ManagerWindowOpen() && managerOpenFingerprint != null && client.AccountFingerprint() == managerOpenFingerprint)
+            {
+                // Avoid spawning Proton ownership probes while the HellForge window we opened for sync is still active with unchanged files.
+                imported = lastAccount ?? new(false, false, "HellForge is open. Finish Sync Inventory in HellForge, quit HD2, and wait for cleanup.");
+                imported = AccountMessage(imported);
             }
             else
             {
@@ -201,13 +237,20 @@ internal sealed class PlayerCommands
     {
         home ??= Environment.GetFolderPath(Environment.SpecialFolder.UserProfile);
         if (string.IsNullOrWhiteSpace(home)) return null;
-        if (ReadVdfText(Path.Combine(home, ".steam", "registry.vdf")) is { } registry &&
-            ParseRegistryActiveUser(registry) is { } active)
+        var registryText = ReadVdfText(Path.Combine(home, ".steam", "registry.vdf"));
+        if (registryText != null && ParseRegistryActiveUser(registryText) is { } active)
             return active;
         var primaryLogin = Path.Combine(home, ".steam", "steam", "config", "loginusers.vdf");
         var fallbackLogin = Path.Combine(home, ".local", "share", "Steam", "config", "loginusers.vdf");
         var loginText = ReadVdfText(primaryLogin) ?? (File.Exists(primaryLogin) ? null : ReadVdfText(fallbackLogin));
-        return loginText != null ? ParseLoginUsersMostRecent(loginText) : null;
+        if (loginText != null)
+        {
+            var loginUser = ParseLoginUsersMostRecent(loginText);
+            if (loginUser != null) return loginUser;
+            // If loginusers.vdf exists and is explicitly ambiguous (e.g. multiple MostRecent=1), do not guess from registry.
+            if (HasAmbiguousMostRecent(loginText)) return null;
+        }
+        return registryText != null ? ParseRegistryAutoLoginUser(registryText) : null;
     }
     static string? ReadVdfText(string path)
     {
@@ -243,7 +286,18 @@ internal sealed class PlayerCommands
         }
         return candidate;
     }
-    internal static string? ParseLoginUsersMostRecent(string vdf)
+    internal static string? ParseRegistryAutoLoginUser(string vdf)
+    {
+        foreach (var (parent, _, key, value) in ReadVdfEntries(vdf))
+        {
+            if (!key.Equals("AutoLoginUser", StringComparison.OrdinalIgnoreCase)) continue;
+            if (parent != null && !parent.Equals("Steam", StringComparison.OrdinalIgnoreCase)) continue;
+            var trimmed = value.Trim();
+            if (!string.IsNullOrEmpty(trimmed)) return "autologinuser:" + trimmed;
+        }
+        return null;
+    }
+    static bool HasAmbiguousMostRecent(string vdf)
     {
         var matches = new HashSet<string>(StringComparer.Ordinal);
         foreach (var (parent, grandparent, key, value) in ReadVdfEntries(vdf))
@@ -253,7 +307,39 @@ internal sealed class PlayerCommands
             if (ulong.TryParse(parent, NumberStyles.None, CultureInfo.InvariantCulture, out var id) && id != 0)
                 matches.Add(id.ToString(CultureInfo.InvariantCulture));
         }
-        return matches.Count == 1 ? "recent:" + matches.First() : null;
+        return matches.Count > 1;
+    }
+    internal static string? ParseLoginUsersMostRecent(string vdf)
+    {
+        var mostRecent = new HashSet<string>(StringComparer.Ordinal);
+        var autoLogin = new HashSet<string>(StringComparer.Ordinal);
+        var allUsers = new HashSet<string>(StringComparer.Ordinal);
+        var timestamps = new Dictionary<string, ulong>(StringComparer.Ordinal);
+        foreach (var (parent, grandparent, key, value) in ReadVdfEntries(vdf))
+        {
+            if (string.IsNullOrWhiteSpace(parent) || grandparent != null && !grandparent.Equals("users", StringComparison.OrdinalIgnoreCase)) continue;
+            if (!ulong.TryParse(parent, NumberStyles.None, CultureInfo.InvariantCulture, out var id) || id == 0) continue;
+            var idText = id.ToString(CultureInfo.InvariantCulture);
+            allUsers.Add(idText);
+            if (key.Equals("MostRecent", StringComparison.OrdinalIgnoreCase) && value.Trim() == "1")
+                mostRecent.Add(idText);
+            else if (key.Equals("AutoLogin", StringComparison.OrdinalIgnoreCase) && value.Trim() == "1")
+                autoLogin.Add(idText);
+            else if (key.Equals("timestamp", StringComparison.OrdinalIgnoreCase) &&
+                ulong.TryParse(value.Trim(), NumberStyles.None, CultureInfo.InvariantCulture, out var ts) && ts > 0)
+                timestamps[idText] = ts;
+        }
+        if (mostRecent.Count == 1) return "recent:" + mostRecent.First();
+        if (mostRecent.Count > 1) return null;
+        if (autoLogin.Count == 1) return "autologin:" + autoLogin.First();
+        if (allUsers.Count == 1) return "single:" + allUsers.First();
+        if (timestamps.Count > 0)
+        {
+            var maxTs = timestamps.Values.Max();
+            var newest = timestamps.Where(kv => kv.Value == maxTs).Select(kv => kv.Key).ToList();
+            if (newest.Count == 1) return "latest:" + newest[0];
+        }
+        return null;
     }
     static IEnumerable<(string? Parent, string? Grandparent, string Key, string Value)> ReadVdfEntries(string text)
     {

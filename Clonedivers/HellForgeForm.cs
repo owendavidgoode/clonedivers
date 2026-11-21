@@ -84,8 +84,8 @@ public sealed class HellForgeForm : Form
     internal const string SetupRequirements = "Keep Helldivers 2 installed in Steam. Allow about 70 GB free for Forge and your pack. " +
         "Use the Steam phone app to scan the sign-in QR code, or choose Official setup (fallback). Windows will ask for administrator approval two or three times.";
     internal const string SyncInstructions = "Keep Helldivers 2 installed and up to date in Steam. Windows will ask for administrator approval for the sync proxy. " +
-        "In HellForge choose Profile > Account sync > Sync Inventory (default is selected). Pass HD2's title screen. " +
-        "When HD2 exits, close HellForge and return here. Leave Apply import and auto-apply off. Clonedivers verifies and merges your sealed capture automatically.";
+        "In HellForge choose Profile > Account sync > Sync Inventory (default is selected). Pass HD2's title screen, then quit HD2 yourself. " +
+        "Once HellForge finishes cleanup, close HellForge and return here. Leave Apply import and auto-apply off. Clonedivers verifies and merges your sealed capture automatically.";
     const string DeferredWarbondsMessage = "Account imported. Close the HellForge window to unlock your owned Warbonds.";
     const string CloseHellForgeToUnlockWarbondsMessage = "Close the HellForge window before launching to unlock your owned Warbonds.";
     const string LaunchAcceptedMessage = "HellForge accepted the launch and session status will update here.";
@@ -463,7 +463,7 @@ public sealed class HellForgeForm : Form
             }
             var (block, blockUnreadable) = ReadCaptureBlock();
             HellForgeAccountState? account = lastAccount;
-            if (!status.Running && !Game.IsRunning())
+            if (!status.Running && !Game.IsRunning() && !HellForgeAccount.SessionShimsActive(root))
             {
                 string? accountKey;
                 try { accountKey = root + "\n" + client.AccountFingerprint() + "\n" + SteamUser(); }
@@ -1069,6 +1069,7 @@ public sealed class HellForgeForm : Form
         }
         else
         {
+            CreateAccount(client.Root).DisableAutoApply();
             ShowPrompt(this, SyncInstructions, "Sync HD2 account", MessageBoxButtons.OK, MessageBoxIcon.Information);
             OpenManager(client.Root);
             syncRequested = true;
