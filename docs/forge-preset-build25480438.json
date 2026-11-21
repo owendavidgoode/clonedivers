@@ -95,10 +95,10 @@
       "Id": "clonedivers.lego-compact-leaf-writer",
       "Name": "LEGO Compact Leaf Writer",
       "Version": "0.2.1",
-      "ArchiveSha256": "bbbe6739e7a17d09e7b59a971573e7c6f6b8c77f2792f1901ff2c33153e76a8f",
+      "ArchiveSha256": "f41439f351f5c9230028e4e7d74335a5b68be8f392ca9c9010f449fb73bf552e",
       "Source": "https://github.com/owendavidgoode/clonedivers/releases/download/forge-mods-2026-11-21/lego-compact-leaf-writer-0.2.1.zip",
       "License": "Project-owned client-only SDK-16 code mod (0.2.1 O(1) zero-read non-LEGO hash filter, parallel CoopFastRun with rotating pool base + bit-for-bit parent-pose rig cache, bounded UnitManager slices + QPC health telemetry; gameplay: false, coop: per-player, optional default)",
-      "NativeContentHash": "e8cb5f723a2a62f0bda4f5a1ac9c7cdae0a814e10792b07bf0c0e489e7c18531",
+      "NativeContentHash": "1897c694632418df33a5ceb66706d4466f3acf0bf426ff0061f6f948fec86fef",
       "Optional": true,
       "Options": []
     },

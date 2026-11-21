@@ -64,6 +64,7 @@ typedef struct CoopParentPoseEntry {
     cm_render48 source_packed[CM_SOURCE];
 } __attribute__((aligned(64))) CoopParentPoseEntry;
 
+/* Note: coopPoseCache is not keyed on s->rig because s->rig is process-constant (initialized once in hellforge_mod_init). */
 static coop_registry coopReg;
 static CoopSlotCache coopSlotCache[COOP_MAX_TARGETS];
 static CoopParentPoseEntry coopPoseCache[COOP_POSE_CACHE_SIZE];
@@ -73,6 +74,16 @@ static uintptr_t coopRawSlots[COOP_UNIT_CAPACITY_LIMIT], coopScannedSlots[COOP_U
 static uint8_t coopRawGens[COOP_UNIT_CAPACITY_LIMIT], coopScannedGens[COOP_UNIT_CAPACITY_LIMIT];
 static CoopGarmentUnit coopGarments[COOP_GARMENT_CACHE_LIMIT];
 static uint32_t coopGarmentCount;
+
+static void coop_reopen_garment_probe(uintptr_t child_unit, uint32_t child_gen) {
+    if (!child_unit) return;
+    uint64_t nowMs = GetTickCount64();
+    for (uint32_t g = 0; g < coopGarmentCount; g++) {
+        if (coopGarments[g].unit == child_unit && coopGarments[g].generation == (uint8_t)child_gen) {
+            coopGarments[g].discovered_ms = nowMs;
+        }
+    }
+}
 static CoopNegEntry coopNegCache[COOP_NEG_CACHE_LIMIT];
 static uint32_t coopNegEpoch = 1u;
 static uint32_t coopScanCursor;
@@ -170,7 +181,10 @@ static void coop_fast_publish(void) {
             }
         }
     }
-    /* Probe handles via hf->read() ONLY while a newly-discovered garment (<5s) still lacks all 4 admitted meshes. */
+    /* need_handle_probe:
+     *   2 = immediate full handle probe (garment <5s old or freshly evicted/refused & <4 admitted meshes)
+     *   1 = 1-in-64 TLS-sampled probe (garment >5s old still missing an ordinal, e.g. culled remote player / late LOD)
+     *   0 = zero hf->read() steady state (all live garments have all 4 ordinals admitted) */
     uint64_t nowMs = GetTickCount64();
     uint32_t needProbe = 0u;
     for (uint32_t g = 0; g < coopGarmentCount; g++) {
@@ -181,9 +195,12 @@ static void coop_fast_publish(void) {
                 admittedCount++;
             }
         }
-        if (admittedCount < 4u && (nowMs - coopGarments[g].discovered_ms) < COOP_HANDLE_PROBE_WINDOW_MS) {
-            needProbe = 1u;
-            break;
+        if (admittedCount < 4u) {
+            if ((nowMs - coopGarments[g].discovered_ms) < COOP_HANDLE_PROBE_WINDOW_MS) {
+                needProbe = 2u;
+                break;
+            }
+            if (needProbe < 1u) needProbe = 1u;
         }
     }
     __atomic_store_n(&coopFast.handle_count, hc, __ATOMIC_RELAXED);
@@ -193,7 +210,7 @@ static void coop_fast_publish(void) {
     __atomic_store_n(&coopFast.seq, s + 2u, __ATOMIC_RELEASE); /* even: consistent snapshot published */
 }
 
-static int coop_fast_may_match_skin(uintptr_t mesh) {
+static int coop_fast_may_match_skin(uintptr_t mesh, int sampled) {
     const uint32_t hcap = COOP_GARMENT_CACHE_LIMIT + COOP_MAX_TARGETS;
     for (unsigned attempt = 0; attempt < 4u; attempt++) {
         uint32_t seq1 = __atomic_load_n(&coopFast.seq, __ATOMIC_ACQUIRE);
@@ -217,14 +234,21 @@ static int coop_fast_may_match_skin(uintptr_t mesh) {
             }
         }
         if (!matched && probe && hc > 0u) {
-            uint32_t m_handle = 0u;
-            if (!hf || !hf->read || hf->read(mesh + 0x34u, &m_handle, 4u) != 0) return 1;
-            if (m_handle && m_handle != 0xFFFFFFu) {
-                uint32_t idx = coop_hash_u32(m_handle);
-                for (uint32_t p = 0; p < COOP_FAST_HT_SIZE; p++) {
-                    uint32_t entry = __atomic_load_n(&coopFast.handle_ht[(idx + p) & COOP_FAST_HT_MASK], __ATOMIC_RELAXED);
-                    if (!entry) break;
-                    if (entry == m_handle) { matched = 1; break; }
+            int doProbe = (!sampled || probe >= 2u);
+            if (!doProbe) {
+                static _Thread_local uint32_t tls_late_probe;
+                doProbe = ((++tls_late_probe & 63u) == 0u);
+            }
+            if (doProbe) {
+                uint32_t m_handle = 0u;
+                if (!hf || !hf->read || hf->read(mesh + 0x34u, &m_handle, 4u) != 0) return 1;
+                if (m_handle && m_handle != 0xFFFFFFu) {
+                    uint32_t idx = coop_hash_u32(m_handle);
+                    for (uint32_t p = 0; p < COOP_FAST_HT_SIZE; p++) {
+                        uint32_t entry = __atomic_load_n(&coopFast.handle_ht[(idx + p) & COOP_FAST_HT_MASK], __ATOMIC_RELAXED);
+                        if (!entry) break;
+                        if (entry == m_handle) { matched = 1; break; }
+                    }
                 }
             }
         }
@@ -516,6 +540,9 @@ static int coop_retire_stale_targets(const Manager *m, uintptr_t preserve_mesh) 
                 pu != ts->parent_unit || pg != (uint8_t)ts->parent_gen) bad = 1;
         }
         if (bad) {
+            coop_reopen_garment_probe(ts->child_unit, ts->child_gen);
+            coopSlotCache[s].valid = 0;
+            coopSlotCache[s].admit_epoch = 0;
             memset(ts, 0, sizeof *ts);
             if (coopReg.active_targets > 0) coopReg.active_targets--;
             coopReg.retirements++;
@@ -687,7 +714,7 @@ static int coop_refresh_units(const Manager *m, uintptr_t preserve_mesh) {
         coopScanCursor = nextCursor;
         coopScanComplete = 0;
     }
-    if (__atomic_load_n(&coopFast.need_handle_probe, __ATOMIC_RELAXED)) filterDirty = 1;
+    if (__atomic_load_n(&coopFast.need_handle_probe, __ATOMIC_RELAXED) >= 2u) filterDirty = 1;
     if (spawned_garment) coop_neg_advance_epoch();
     if (filterDirty || spawned_garment) coop_fast_publish();
     return 1;
@@ -742,6 +769,7 @@ static void coop_fill_se_target(const coop_target_slot *slot, se_target *out) {
 
 static void coop_evict_slot(coop_target_slot *slot) {
     if (!slot || !slot->active) return;
+    coop_reopen_garment_probe(slot->child_unit, slot->child_gen);
     ptrdiff_t idx = slot - coopReg.targets;
     if (idx >= 0 && (uint32_t)idx < COOP_MAX_TARGETS) {
         coopSlotCache[idx].valid = 0;
@@ -795,6 +823,16 @@ static void CoopRetireHandle(gw_state *s, uintptr_t world, uint32_t handle) {
     uint32_t removed = coop_retire_handle_world(&coopReg, world, handle);
     coop_neg_invalidate_handle(world, handle);
     if (removed > 0u) {
+        uint64_t nowMs = GetTickCount64();
+        for (uint32_t i = 0; i < COOP_MAX_TARGETS; i++) {
+            if (!coopReg.targets[i].active) {
+                coopSlotCache[i].valid = 0;
+                coopSlotCache[i].admit_epoch = 0;
+            }
+        }
+        for (uint32_t g = 0; g < coopGarmentCount; g++) {
+            coopGarments[g].discovered_ms = nowMs;
+        }
         coop_neg_advance_epoch();
         coop_fast_publish();
     }
@@ -806,7 +844,7 @@ static int CoopFastMayMatch(gw_state *s, void *mesh_ptr, void *pool_ptr) {
     if (!s || !mesh_ptr || !pool_ptr) return 1;
     uintptr_t mesh = (uintptr_t)mesh_ptr, pool = (uintptr_t)pool_ptr;
     if (!Span(mesh, 0xD0) || pool < 0x10318u || !Span(pool, 0x180u)) return 1;
-    return coop_fast_may_match_skin(mesh);
+    return coop_fast_may_match_skin(mesh, 1);
 }
 
 static int CoopResolveTarget(gw_state *s, void *mesh_ptr, void *pool_ptr, void *graph_ptr,
@@ -821,7 +859,7 @@ static int CoopResolveTarget(gw_state *s, void *mesh_ptr, void *pool_ptr, void *
     }
 
     /* Lock-free fast filter: reject 99.95%+ non-LEGO meshes without taking writer.metadata, scanning UnitManager, or bouncing shared atomics. */
-    if (!coop_fast_may_match_skin(mesh)) {
+    if (!coop_fast_may_match_skin(mesh, 0)) {
         return 0;
     }
 
@@ -1102,6 +1140,8 @@ static int CoopResolveTarget(gw_state *s, void *mesh_ptr, void *pool_ptr, void *
     if (coopReg.admissions > prevAdmissions) InterlockedAdd64(&s->dynamic_admissions, (LONG64)(coopReg.admissions - prevAdmissions));
     if (coopReg.aba_rebinds > prevAba) InterlockedAdd64(&s->aba_rebinds, (LONG64)(coopReg.aba_rebinds - prevAba));
     if (kind == COOP_ACTOR_REJECTED) {
+        coop_reopen_garment_probe(probe.child_unit, probe.child_unit_gen);
+        coop_fast_publish();
         InterlockedIncrement64(&s->rej_admit);
         goto out;
     }

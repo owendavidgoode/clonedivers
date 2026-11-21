@@ -264,10 +264,10 @@ static uint32_t MockLeafNext(void *dst, const void *factor, const void *graph, c
     (void)dst; (void)factor; (void)bind; (void)palette; (void)map;
     TCHECK(_mm_getcsr() == 0x9FA1u && GetLastError() == 0x7799u);
     TCHECK(graph != NULL);
-    if (expectSubstitution) {
+    if (expectSubstitution > 0) {
         TCHECK((uintptr_t)graph != activeDrawRef.poses[0]->address &&
                (uintptr_t)graph != activeDrawRef.poses[1]->address);
-    } else if (activeDrawRef.poses[0] && activeDrawRef.poses[1]) {
+    } else if (expectSubstitution == 0 && activeDrawRef.poses[0] && activeDrawRef.poses[1]) {
         TCHECK((uintptr_t)graph == activeDrawRef.poses[0]->address ||
                (uintptr_t)graph == activeDrawRef.poses[1]->address);
     }
@@ -1895,6 +1895,53 @@ int main(int argc, char **argv) {
             d11Player.poolOut = origPoolSlab;
             PutU64(w17.rw, 0x318u + 0x170u, origPoolSlab->address);
             TCHECK(writer.fatal == 0 && (writer.fast_hits - beforeFast) == 28 && (writer.pose_hits - beforePose) >= 42);
+        }
+
+        /* Test 19: Late ordinal arrival (>5s after discovery) AND post-eviction re-admission after >5s. */
+        {
+            /* 19a: Evict ordinal 4 of garment 0, age discovered_ms past 5s manually, republish -> need_handle_probe==1
+             * (rate-limited 1-in-64 probe) -> calling ordinal 4 up to 64 times MUST re-admit & substitute it! */
+            coop_target_slot *s4 = coop_lookup_mesh(&coopReg, d11Player.meshes[0][4]->address);
+            TCHECK(s4 != NULL && s4->active);
+            coop_evict_slot(s4);
+            TCHECK(coopReg.active_targets == 27u && coopFast.need_handle_probe == 2u);
+            /* Simulate >5s elapsed since garment discovery with only 3/4 ordinals admitted */
+            for (uint32_t g = 0; g < coopGarmentCount; g++) coopGarments[g].discovered_ms = 0ull;
+            coop_fast_publish();
+            TCHECK(coopFast.need_handle_probe == 1u);
+            int admittedLate = 0;
+            for (unsigned attempt = 0; attempt < 64u && !admittedLate; attempt++) {
+                LONG64 corrBefore = writer.corrected;
+                activeGrouped = 0;
+                expectSubstitution = -1; /* allow either passthrough on un-sampled calls or substitution on sampled admission */
+                expectedMesh = d11Player.meshes[0][4]->address;
+                expectedPool = w17.rw->address + 0x318u;
+                expectedNormalGraph = d11Player.childGraphs[0]->address;
+                expectedResource = COMPACT_IDS[0];
+                expectedOrdinal = 4u;
+                activeAsset = lp_asset_find(COMPACT_IDS[0], 4u);
+                activeDrawRef = (MeshDrawRef){d11Player.skins[0][4], d11Player.subrecs[0][4], d11Player.binds[0][4], d11Player.poolOut, {d11Player.childPoses[0][0], d11Player.childPoses[0][1]}};
+                unsigned sample = RetainedSampleForTarget(0);
+                memcpy(d11Player.parentPoses[0]->bytes, retainedFiles[sample] + 256u + 13312u, 107u * 48u);
+                memcpy(d11Player.parentPoses[1]->bytes, retainedFiles[sample] + 256u + 18448u, 107u * 48u);
+                _mm_setcsr(activeCsr); SetLastError(activeErr);
+                uint32_t rc = gw_dispatch(&writer, (void *)expectedMesh, (void *)expectedPool, NULL, MOCK_ENGINE + 0x258E19u);
+                TCHECK(rc == 0x10u);
+                if (writer.corrected > corrBefore) admittedLate = 1;
+            }
+            TCHECK(admittedLate == 1 && coopReg.active_targets == 28u && coopFast.need_handle_probe == 0u && writer.fatal == 0);
+
+            /* 19b: Age discovered_ms past 5s while all 28 active, then evict slot 0/4 -> coop_evict_slot MUST
+             * immediately reopen need_handle_probe==2 so the very next call re-admits immediately! */
+            for (uint32_t g = 0; g < coopGarmentCount; g++) coopGarments[g].discovered_ms = 0ull;
+            coop_fast_publish();
+            TCHECK(coopFast.need_handle_probe == 0u);
+            coop_target_slot *s4b = coop_lookup_mesh(&coopReg, d11Player.meshes[0][4]->address);
+            TCHECK(s4b != NULL && s4b->active);
+            coop_evict_slot(s4b);
+            TCHECK(coopReg.active_targets == 27u && coopFast.need_handle_probe == 2u);
+            InvokeActorMesh(&d11Player, 0, 4, 0, 1);
+            TCHECK(coopReg.active_targets == 28u && coopFast.need_handle_probe == 0u && writer.fatal == 0);
         }
     }
 
