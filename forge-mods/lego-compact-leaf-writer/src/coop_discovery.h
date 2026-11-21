@@ -675,6 +675,13 @@ static void CoopRetireHandle(gw_state *s, uintptr_t world, uint32_t handle) {
     if (removed) InterlockedAdd64(&s->retires, (LONG64)removed);
 }
 
+static int CoopFastMayMatch(gw_state *s, void *mesh_ptr, void *pool_ptr) {
+    if (!s || !mesh_ptr || !pool_ptr) return 1;
+    uintptr_t mesh = (uintptr_t)mesh_ptr, pool = (uintptr_t)pool_ptr;
+    if (!Span(mesh, 0xD0) || pool < 0x10318u || !Span(pool, 0x180u)) return 1;
+    return coop_fast_may_match_skin(mesh);
+}
+
 static int CoopResolveTarget(gw_state *s, void *mesh_ptr, void *pool_ptr, void *graph_ptr,
                              uintptr_t caller, LONG64 sequence, se_target *out_target, coop_actor_kind *out_kind) {
     (void)caller; (void)sequence;

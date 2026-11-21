@@ -34,6 +34,24 @@ void gw_retire_handle(gw_state *s,uintptr_t world,uint32_t handle) {
  s->retire_handle(s,world,handle);
 }
 uint32_t gw_dispatch(gw_state *s,void *mesh,void *pool,void *graph,uintptr_t caller) {
+ if(!gw_current && s->fast_may_match && gw_load(&s->ready)) {
+  uint32_t fast_csr=_mm_getcsr();DWORD fast_err=GetLastError();
+  if(!s->fast_may_match(s,mesh,pool)) {
+   se_next_fn fast_next=(se_next_fn)gw_load_ptr(&s->binding->next);
+   if((void*)fast_next==s->approved_next &&
+      gw_load_ptr(&s->leaf_next)==s->approved_leaf_next &&
+      (!s->approved_remove_next || gw_load_ptr(&s->remove_next)==s->approved_remove_next)) {
+    static _Thread_local uint64_t gw_tls_fast_rej;
+    if((++gw_tls_fast_rej & 4095u)==0u) {
+     InterlockedAdd64(&s->calls,4096);
+     InterlockedAdd64(&s->unclassified,4096);
+    }
+    SetLastError(fast_err);_mm_setcsr(fast_csr);
+    return fast_next(mesh,pool,graph);
+   }
+  }
+  SetLastError(fast_err);_mm_setcsr(fast_csr);
+ }
  uint32_t entry_csr=_mm_getcsr();DWORD entry_error=GetLastError();
  LONG64 sequence=gw_inc(s,&s->calls);gw_slot *slot=NULL;se_record *record=NULL;
  int substitution=0,matched_target=0,retired_mid_call=0;se_target resolved_target;memset(&resolved_target,0,sizeof resolved_target);
@@ -176,10 +194,14 @@ uint32_t gw_dispatch(gw_state *s,void *mesh,void *pool,void *graph,uintptr_t cal
 }
 
 uint32_t gw_leaf_dispatch(gw_state *s,void *dst,const void *factor,const void *graph,const void *bind,const uint32_t *palette,const uint32_t *map,uint32_t count,uintptr_t caller){
- uint32_t entry_csr=_mm_getcsr();DWORD entry_error=GetLastError();gw_frame *f=gw_current;
- const void *chosen=graph;int replace=0;
+ gw_frame *f=gw_current;
  gw_leaf_fn next=(gw_leaf_fn)gw_load_ptr(&s->leaf_next);
- if(f && f->active && f->state==s){
+ if(!f || !f->active || f->state!=s) {
+  return next(dst,factor,graph,bind,palette,map,count);
+ }
+ uint32_t entry_csr=_mm_getcsr();DWORD entry_error=GetLastError();
+ const void *chosen=graph;int replace=0;
+ if(1){
   lp_plan *p=&f->slot->plan;gw_receipt *r=f->receipt;unsigned at=r->seen++,group=at/2,t=at%2;
   int ok=!r->failure && f->owner==GetCurrentThreadId() && f->serial==f->slot->record.sequence && at<r->expected && group<p->groups &&
    caller==s->engine+(t?0x513054:0x512fea) && (uintptr_t)graph==p->arrays[t] &&

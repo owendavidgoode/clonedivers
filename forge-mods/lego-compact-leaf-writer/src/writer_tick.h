@@ -1,4 +1,5 @@
 static uint64_t writerPollAt,writerHealthAt,writerDrainAt;
+static uint64_t writerTickQpf,writerTickUsSum,writerTickUsMax,writerTickCount;
 static unsigned writerHealthRows,writerDiagnosticsDone;static LONG writerReportedFatal;
 static uint32_t writerLastAdmissions,writerLastRetires,writerLastAba,writerLastPlayers;
 static LONG64 WriterCounter(volatile LONG64 *value){return InterlockedCompareExchange64(value,0,0);}
@@ -58,6 +59,9 @@ static void WriterTick(HfMod *mod,float dt,void *context) {
     if(pollDue){writerPollAt=now+250;if(RequestFile(stopPath)){
         InterlockedExchange(&writer.diagnostics_closed,1);InterlockedExchange(&writer.teardown,1);}}
     if(coopDynamicMode && pollDue && !Stopped()) {
+        LARGE_INTEGER tk0,tk1;
+        if(!writerTickQpf){LARGE_INTEGER f;QueryPerformanceFrequency(&f);writerTickQpf=f.QuadPart?(uint64_t)f.QuadPart:1u;}
+        QueryPerformanceCounter(&tk0);
         AcquireSRWLockExclusive(&writer.metadata);
         coopProbeActive=1;coopProbeReads=coopProbeBytes=0;
         Manager m;
@@ -68,6 +72,10 @@ static void WriterTick(HfMod *mod,float dt,void *context) {
         }
         coopProbeActive=0;
         ReleaseSRWLockExclusive(&writer.metadata);
+        QueryPerformanceCounter(&tk1);
+        uint64_t us=(uint64_t)((tk1.QuadPart-tk0.QuadPart)*1000000LL/(LONGLONG)writerTickQpf);
+        writerTickUsSum+=us;writerTickCount++;
+        if(us>writerTickUsMax)writerTickUsMax=us;
     }
     logsTick=0;
     WriterFaultTick(mod);
@@ -110,7 +118,10 @@ static void WriterTick(HfMod *mod,float dt,void *context) {
                     activeTargets,adm,ret,aba,players,(unsigned long long)WriterCounter(&writer.local_hits),(unsigned long long)WriterCounter(&writer.remote_hits),(unsigned long long)WriterCounter(&writer.preview_hits));
             }
         }
-        hf->log(mod,"LEGO_COMPACT_LEAF_WRITER health row=%u correction_active=1 matched=%llu corrected=%llu failed=%llu unclassified=%llu warmup=%llu inflight=%llu peak=%llu diagnostic_dropped=%llu fatal=%ld teardown=%ld active_targets=%u retires=%llu aba=%llu local=%llu remote=%llu preview=%llu players=%u passthrough=%llu plan_pass=%llu recheck_pass=%llu fast_evicts=%llu teardown_evicts=%llu mut_skips=%llu unit_cap=%llu garments=%llu neg_hits=%llu rej_mgr=%llu rej_world=%llu rej_nomatch=%llu rej_meta=%llu rej_parent=%llu rej_admit=%llu",
+        uint64_t tickAvgUs=writerTickCount?(writerTickUsSum/writerTickCount):0u;
+        uint64_t tickMaxUs=writerTickUsMax;
+        writerTickUsSum=0;writerTickUsMax=0;writerTickCount=0;
+        hf->log(mod,"LEGO_COMPACT_LEAF_WRITER health row=%u correction_active=1 matched=%llu corrected=%llu failed=%llu unclassified=%llu warmup=%llu inflight=%llu peak=%llu diagnostic_dropped=%llu fatal=%ld teardown=%ld active_targets=%u retires=%llu aba=%llu local=%llu remote=%llu preview=%llu players=%u passthrough=%llu plan_pass=%llu recheck_pass=%llu fast_evicts=%llu teardown_evicts=%llu mut_skips=%llu unit_cap=%llu garments=%llu neg_hits=%llu rej_mgr=%llu rej_world=%llu rej_nomatch=%llu rej_meta=%llu rej_parent=%llu rej_admit=%llu tick_us_avg=%llu tick_us_max=%llu",
             writerHealthRows,(unsigned long long)WriterCounter(&writer.matched),(unsigned long long)WriterCounter(&writer.corrected),
             (unsigned long long)WriterCounter(&writer.failed),(unsigned long long)WriterCounter(&writer.unclassified),
             (unsigned long long)WriterCounter(&writer.warmup),(unsigned long long)WriterCounter(&writer.inflight),
@@ -133,7 +144,8 @@ static void WriterTick(HfMod *mod,float dt,void *context) {
             (unsigned long long)WriterCounter(&writer.rej_nomatch),
             (unsigned long long)WriterCounter(&writer.rej_meta),
             (unsigned long long)WriterCounter(&writer.rej_parent),
-            (unsigned long long)WriterCounter(&writer.rej_admit));
+            (unsigned long long)WriterCounter(&writer.rej_admit),
+            (unsigned long long)tickAvgUs,(unsigned long long)tickMaxUs);
     }
     InterlockedExchange(&tickLock,0);
 }

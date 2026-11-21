@@ -924,7 +924,7 @@ int main(int argc, char **argv) {
     /* Hit negative cache a second time on foreign garment */
     _mm_setcsr(activeCsr); SetLastError(activeErr);
     TCHECK(SkinObserved((void *)expectedMesh, (void *)expectedPool, NULL) == 0x10u);
-    TCHECK(writer.unclassified == 3 && coopReg.active_targets == 140u && !writer.fatal);
+    TCHECK(writer.corrected == 252 && writer.failed == 0 && coopReg.active_targets == 140u && !writer.fatal);
 
     /* Test 5: 1E7CD0 RenderRemoveObserved native retirement + cross-world isolation */
     MockSlab *sPkt = AllocSlab(16);

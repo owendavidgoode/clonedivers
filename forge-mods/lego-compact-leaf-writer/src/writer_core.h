@@ -24,6 +24,7 @@ typedef struct gw_state {
  void *volatile leaf_next;void *approved_leaf_next;
  void *volatile remove_next;void *approved_remove_next;
  gw_resolve_fn resolve_target;
+ int (*fast_may_match)(struct gw_state *,void *,void *);
  void (*retire_handle)(struct gw_state *,uintptr_t,uint32_t);
  void *resolve_user;
  int (*plan_capture)(lp_plan *,se_record *,int,void *);void *plan_user;

@@ -88,6 +88,9 @@ typedef struct {
     uint32_t scavenged;
     uint32_t capacity_refusals;
     uint32_t passthroughs;
+    uint32_t sweep_count;
+    uintptr_t scanned_slots[AT_UNIT_CAP_LIMIT];
+    uint8_t scanned_gens[AT_UNIT_CAP_LIMIT];
 } at_walker_registry;
 
 void at_registry_init(at_walker_registry *reg, uintptr_t engine_base);

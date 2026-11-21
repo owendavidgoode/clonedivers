@@ -47,12 +47,47 @@ static uint64_t Hook1E7CD0(uintptr_t world, void *packet, uintptr_t aux) {
     return at_writer_retire_1E7CD0(&g_writer, world, packet, aux);
 }
 
+static uint64_t g_qpf = 0u;
+static uint64_t g_tick_us_sum = 0u;
+static uint64_t g_tick_us_max = 0u;
+static uint64_t g_tick_count = 0u;
+static uint64_t g_next_health_ms = 0u;
+static uint32_t g_health_row = 0u;
+
 static void WriterTick(HfMod *mod, float dt, void *user) {
-    (void)mod;
     (void)dt;
     (void)user;
-    /* Smooth rolling slice: 2048 slots/frame (~2s full D11 262k sweep at 60 FPS, no 4 Hz burst). */
+    LARGE_INTEGER t0, t1;
+    if (!g_qpf) {
+        LARGE_INTEGER f;
+        QueryPerformanceFrequency(&f);
+        g_qpf = f.QuadPart ? (uint64_t)f.QuadPart : 1u;
+    }
+    QueryPerformanceCounter(&t0);
+    /* Smooth rolling differential slice: 2048 slots/frame (~2s full D11 sweep at 60 FPS). */
     at_writer_tick(&g_writer, 2048u);
+    QueryPerformanceCounter(&t1);
+    uint64_t us = (uint64_t)((t1.QuadPart - t0.QuadPart) * 1000000LL / (LONGLONG)g_qpf);
+    g_tick_us_sum += us;
+    g_tick_count++;
+    if (us > g_tick_us_max) g_tick_us_max = us;
+
+    uint64_t now = GetTickCount64();
+    if (now >= g_next_health_ms && g_hf && g_hf->log && mod && g_health_row < 600u) {
+        g_next_health_ms = now + 30000u;
+        g_health_row++;
+        uint64_t avg_us = g_tick_count ? (g_tick_us_sum / g_tick_count) : 0u;
+        uint64_t max_us = g_tick_us_max;
+        g_tick_us_sum = 0u;
+        g_tick_us_max = 0u;
+        g_tick_count = 0u;
+        g_hf->log(mod, "ATST_WRITER health row=%u walkers=%u subs=%u leaf_fail=%u math_fail=%u chain_fail=%u env_fail=%u scav=%u ret=%u tick_us_avg=%llu tick_us_max=%llu",
+                  g_health_row, __atomic_load_n(&g_writer.fast.count, __ATOMIC_ACQUIRE),
+                  g_writer.substitutions, g_writer.leaf_failures, g_writer.math_failures,
+                  g_writer.chain_failures, g_writer.env_failures,
+                  g_writer.reg.scavenged, g_writer.reg.retirements,
+                  (unsigned long long)avg_us, (unsigned long long)max_us);
+    }
 }
 
 static void OnSessionEnd(HfMod *mod, HfEvent event, void *user) {
