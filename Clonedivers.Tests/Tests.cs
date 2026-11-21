@@ -189,6 +189,7 @@ static class TestProgram
             Task.Run(() => StorageTests.Run(root, Check)).GetAwaiter().GetResult();
             Task.Run(() => GameplayInstallTests.Run(root, Check)).GetAwaiter().GetResult();
             Task.Run(() => TurnkeySetupTests.Run(root, Check)).GetAwaiter().GetResult();
+            Task.Run(() => LauncherRedesignTests.Run(root, Check)).GetAwaiter().GetResult();
             FpvDefaultsTests.Run(root, Check);
             SelfUpdateAndAcfTests(root);
         }

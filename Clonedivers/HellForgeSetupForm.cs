@@ -441,6 +441,7 @@ internal sealed class HellForgeSetupForm : Form
     async Task RunStep2ForgeAndGameAsync()
     {
         busy = true;
+        Power.KeepAwake(true);
         UpdateView();
         try
         {
@@ -498,6 +499,7 @@ internal sealed class HellForgeSetupForm : Form
         catch (Exception e) { detail.Text = e.Message; }
         finally
         {
+            Power.KeepAwake(false);
             workCts?.Dispose(); workCts = null; canPause = false; busy = false;
             SetApproval(null); progress.Visible = false;
             if (!IsDisposed) UpdateView();
@@ -623,6 +625,7 @@ internal sealed class HellForgeSetupForm : Form
         if (InstallationRoot == null || busy || IsDisposed) return;
         step4Notice = null;
         busy = true;
+        Power.KeepAwake(true);
         UpdateView();
         try
         {
@@ -680,6 +683,7 @@ internal sealed class HellForgeSetupForm : Form
                 return;
             }
 
+            var consentedBytes = allowDownload && pendingPackPlan != null ? pendingPackPlan.Missing.Sum(f => f.Size) : 0L;
             var selection = SelectionOverride != null ? SelectionOverride() : preferences.Selection();
             if (pendingPackPlan == null || !SameSelection(pendingPackPlan.Selection, selection) ||
                 Directory.Exists(pendingPackPlan.Output) || File.Exists(pendingPackPlan.Output))
@@ -694,6 +698,13 @@ internal sealed class HellForgeSetupForm : Form
                 var sources = CollectLocalSources(client);
                 var output = Path.Combine(client.CacheRoot, "exports", preferences.PackMode + "-" + Guid.NewGuid().ToString("N"));
                 pendingPackPlan = await Task.Run(() => HellForgePack.PlanAsync(selection, output, sources, installReport, ct), ct);
+                var newMissing = pendingPackPlan.Missing.Sum(f => f.Size);
+                if (allowDownload && newMissing > consentedBytes)
+                {
+                    step4Checked = true;
+                    step4Notice = detail.Text = $"Download size updated to {Pack.FormatBytes(newMissing)}. Click DOWNLOAD PACK to confirm.";
+                    return;
+                }
             }
 
             if (pendingPackPlan.Missing.Count > 0 && !allowDownload)
@@ -735,6 +746,7 @@ internal sealed class HellForgeSetupForm : Form
         }
         finally
         {
+            Power.KeepAwake(false);
             workCts?.Dispose(); workCts = null; canPause = false; busy = false;
             progress.Visible = false;
             if (!IsDisposed) UpdateView();

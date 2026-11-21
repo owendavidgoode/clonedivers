@@ -82,29 +82,46 @@ internal static class LinuxForgeBootstrap
         if (!File.Exists(program) || !File.Exists(Path.Combine(output, "HellForge-Linux.zip"))) throw new InvalidDataException("Official native installer payload is incomplete.");
         return program;
     }
-    internal static async Task<string?> InstallAsync(string? existing, IProgress<string>? progress, CancellationToken ct)
+    internal static Task<string?> InstallAsync(string? existing, IProgress<string>? progress, CancellationToken ct) =>
+        InstallAsync(existing, progress, null, ct);
+
+    internal static async Task<string?> InstallAsync(string? existing, IProgress<string>? progress, IProgress<OperationProgress>? richProgress, CancellationToken ct)
     {
         if (!OperatingSystem.IsLinux()) throw new PlatformNotSupportedException("Native Forge setup requires Linux.");
         if (!LinuxForgePlan.SupportsArchitecture(System.Runtime.InteropServices.RuntimeInformation.ProcessArchitecture)) throw new PlatformNotSupportedException("The native Forge installer requires x86-64 Linux.");
         if (Game.IsRunning()) throw new InvalidOperationException("End HD2 before upgrading its separate Forge application.");
         existing = ExistingRoot(existing);
-        if (MissingTools().Length != 0) await InstallToolsAsync(ct);
+        if (MissingTools().Length != 0)
+        {
+            richProgress?.Report(new("Installing Linux prerequisites", "Waiting for desktop package approval…", IsIndeterminate: true, CanCancel: false));
+            await InstallToolsAsync(ct);
+        }
         var cache = Path.Combine(PlatformPaths.ConfigDirectory, "installers", "forge-0.4.0"); HellForgeGameplayCatalog.RejectLinks(cache); Directory.CreateDirectory(cache);
         using var lease = new FileStream(Path.Combine(cache, "setup.lock"), FileMode.OpenOrCreate, FileAccess.ReadWrite, FileShare.None);
         SweepStaging(cache);
         var archive = Path.Combine(cache, Installer.Name);
         progress?.Report("Downloading and verifying official native Forge 0.4.0 setup…");
-        await Pack.DownloadAsync(Installer, archive, null, ct);
+        var speed = new SpeedTracker();
+        richProgress?.Report(new("Downloading HellForge 0.4.0", "Official Linux installer (440 MB)", 0, 0, 0, Installer.Size, CanCancel: true));
+        await Pack.DownloadAsync(Installer, archive, new SyncProgress<(long Done, long Total)>(p =>
+        {
+            var (rate, eta) = speed.Update(p.Done, p.Total);
+            richProgress?.Report(new("Downloading HellForge 0.4.0", "Official Linux installer", 0, 0, p.Done, p.Total, rate, eta, CanCancel: true));
+        }), ct);
         if (Game.IsRunning()) throw new InvalidOperationException("HD2 started during download. Close it; the verified installer is saved.");
+        richProgress?.Report(new("Verifying HellForge installer", "Checking SHA-256 signature…", IsIndeterminate: true, CanCancel: false));
         using var pinned = File.Open(archive, FileMode.Open, FileAccess.Read, FileShare.Read);
         if (pinned.Length != Installer.Size || await HellForgePack.HashAsync(archive, ct) != Installer.Sha256) throw new InvalidDataException("Native installer verification failed.");
         var staging = Path.Combine(cache, "unpacked-" + Guid.NewGuid().ToString("N"));
         Process? process = null;
         try
         {
+            richProgress?.Report(new("Unpacking HellForge setup", "Preparing official native installer…", IsIndeterminate: true, CanCancel: false));
             var program = await ExtractAsync(archive, staging, ct);
-            progress?.Report(existing == null ? "In official setup, choose Proton and Install. Clonedivers will reconnect automatically." :
-                "In official setup, keep your existing prefix: " + PrefixFor(existing) + ". The installer keeps your game, account and mods.");
+            var instruction = existing == null ? "In official setup, choose Proton and Install. Clonedivers will reconnect automatically." :
+                "In official setup, keep your existing prefix: " + PrefixFor(existing) + ". The installer keeps your game, account and mods.";
+            progress?.Report(instruction);
+            richProgress?.Report(new("Official HellForge setup open", instruction, IsIndeterminate: true, CanCancel: false));
             process = Process.Start(new ProcessStartInfo(program) { WorkingDirectory = Path.GetDirectoryName(program)!, UseShellExecute = false })
                 ?? throw new IOException("Official native setup did not open.");
             await process.WaitForExitAsync(ct);

@@ -501,13 +501,22 @@ public sealed partial class HellForgeClient(string root, IHellForgeCommands comm
         return await TryOpenOwnedWarbondsAsync(ct);
     }
 
-    public async Task InstallPackAsync(string folder, HellForgePack.Selection selection, CancellationToken ct = default)
+    public Task InstallPackAsync(string folder, HellForgePack.Selection selection, CancellationToken ct = default) =>
+        InstallPackAsync(folder, selection, null, ct);
+
+    public async Task InstallPackAsync(string folder, HellForgePack.Selection selection, IProgress<OperationProgress>? progress, CancellationToken ct = default)
     {
         await RequireIdleAsync(ct);
         using var operation = LockPackChange();
         RequireNoInterruptedPack();
         RequireCliQuiescent();
-        await HellForgePack.VerifyAsync(folder, selection, ct);
+        var verifySpeed = new SpeedTracker();
+        progress?.Report(new("Verifying prepared pack", "Checking file integrity before install…", 0, selection.Files.Count, 0, selection.Files.Sum(f => f.Size), CanCancel: true));
+        await HellForgePack.VerifyAsync(folder, selection, progress == null ? null : new SyncProgress<(long Done, long Total)>(p =>
+        {
+            var (rate, eta) = verifySpeed.Update(p.Done, p.Total);
+            progress.Report(new("Verifying prepared pack", null, 0, 0, p.Done, p.Total, rate, eta, CanCancel: true));
+        }), ct);
         var before = await ModsAsync(ct);
         if (before.Problems.Length > 0) throw new InvalidDataException("Resolve HellForge's mod notices before installing: " + string.Join("; ", before.Problems));
         var beforeStatus = await StatusAsync(ct);
@@ -535,11 +544,21 @@ public sealed partial class HellForgeClient(string root, IHellForgeCommands comm
         Directory.CreateDirectory(backup);
         if (File.Exists(settingsPath)) await HellForgePack.CopyLocalAsync(settingsPath, Path.Combine(backup, "hellforge-mods.json"), new FileInfo(settingsPath).Length, ct);
         var evidence = new List<PackBackupFile>();
-        foreach (var file in sources)
+        long totalBackupBytes = sources.Sum(f => f.Bytes);
+        long doneBackupBytes = 0;
+        var backupSpeed = new SpeedTracker();
+        for (int i = 0; i < sources.Count; i++)
         {
+            var file = sources[i];
             var target = Path.Combine(backup, "previous-pack", file.Relative);
             Directory.CreateDirectory(Path.GetDirectoryName(target)!);
-            await HellForgePack.CopyLocalAsync(file.Source, target, file.Bytes, ct);
+            long baseBytes = doneBackupBytes;
+            await HellForgePack.CopyLocalAsync(file.Source, target, file.Bytes, ct, progress == null ? null : copied =>
+            {
+                var (rate, eta) = backupSpeed.Update(baseBytes + copied, totalBackupBytes);
+                progress.Report(new("Backing up current appearance", file.Relative, i + 1, sources.Count, baseBytes + copied, totalBackupBytes, rate, eta, CanCancel: true));
+            });
+            doneBackupBytes += file.Bytes;
             evidence.Add(new(file.Relative, file.Bytes, await HellForgePack.HashAsync(target, ct)));
         }
         await File.WriteAllTextAsync(Path.Combine(backup, "before.json"), JsonSerializer.Serialize(new { mods = before, status = beforeStatus, files = evidence }, HellForgePack.Json), ct);
@@ -551,13 +570,20 @@ public sealed partial class HellForgeClient(string root, IHellForgeCommands comm
         var intent = await BeginPackIntentAsync(backup, selection.Mode, ct);
         try
         {
+            progress?.Report(new("Importing pack into HellForge", "HellForge is registering your Star Wars pack — please wait…", IsIndeterminate: true, CanCancel: false));
             var imported = await commands.RunAsync(["mod-add", "--file", Path.Combine(folder, "manifest.json")], ct);
             if (Text(imported, "id") != HellForgePack.PackId(selection.Mode)) throw new InvalidDataException("HellForge imported an unexpected pack ID.");
+            progress?.Report(new("Applying pack settings", "Enabling selected universe and Steam co-op…", IsIndeterminate: true, CanCancel: false));
             await ConfigureAsync(selection, ct);
             var after = await ModsAsync(ct);
             var selected = RequireSelected(after, selection);
             ValidateModFolder(selected.Folder);
-            await HellForgePack.VerifyAsync(selected.Folder, selection, ct);
+            var postVerifySpeed = new SpeedTracker();
+            await HellForgePack.VerifyAsync(selected.Folder, selection, progress == null ? null : new SyncProgress<(long Done, long Total)>(p =>
+            {
+                var (rate, eta) = postVerifySpeed.Update(p.Done, p.Total);
+                progress.Report(new("Verifying installed pack", null, 0, 0, p.Done, p.Total, rate, eta, CanCancel: false));
+            }), ct);
             SavePackOutcome(backup, "applied");
             WritePackIntent(intent with { State = "applied" });
             PrunePackStorage(backup, after);

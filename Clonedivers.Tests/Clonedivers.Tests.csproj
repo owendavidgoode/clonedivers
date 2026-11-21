@@ -14,6 +14,8 @@
   </PropertyGroup>
 
   <ItemGroup>
+    <PackageReference Include="Avalonia.Desktop" Version="11.3.22" />
+    <PackageReference Include="Avalonia.Themes.Fluent" Version="11.3.22" />
     <EmbeddedResource Include="../Clonedivers/Resources/hellforge-clones-r20.json" LogicalName="Clonedivers.HellForge.Manifest.json" />
     <EmbeddedResource Include="../Clonedivers/Resources/hellforge-empire-r48.json" LogicalName="Clonedivers.HellForge.Empire.Manifest.json" />
     <EmbeddedResource Include="../Clonedivers/Resources/hellforge-r19.json" LogicalName="Clonedivers.Tests.Clones.R19.Manifest.json" />
@@ -31,6 +33,7 @@
     <EmbeddedResource Include="../forge-mods/empire-tie-switch/hellforge-mod.json" LogicalName="Clonedivers.Tests.EmpireTieSwitch.json" />
     <EmbeddedResource Include="../forge-mods/chaos-invasions/hellforge-mod.json" LogicalName="Clonedivers.Tests.ChaosInvasions.json" />
     <Compile Include="..\Clonedivers\*.cs" Link="%(Filename)%(Extension)" />
+    <Compile Include="..\Clonedivers\Ui\*.cs" Link="Ui\%(Filename)%(Extension)" />
   </ItemGroup>
 
 </Project>

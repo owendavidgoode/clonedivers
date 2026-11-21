@@ -55,8 +55,48 @@ internal sealed class LauncherApplication : Application
     public override void OnFrameworkInitializationCompleted()
     {
         if (ApplicationLifetime is IClassicDesktopStyleApplicationLifetime desktop)
-            desktop.MainWindow = DesktopProgram.Arguments.Contains("--forge") || DesktopProgram.Arguments.Contains("--forge-preview")
-                ? new ForgeWindow(DesktopProgram.Arguments) : new LauncherWindow(DesktopProgram.Arguments);
+        {
+            if (DesktopProgram.Arguments.Contains("--forge") || DesktopProgram.Arguments.Contains("--forge-preview"))
+            {
+                var host = new LinuxForgeHost(DesktopProgram.Arguments);
+                var window = new Clonedivers.Ui.ForgeShellWindow(host, DesktopProgram.Arguments.Contains("details") ? "settings" : null)
+                {
+                    Width = host.PreviewWidth,
+                    Height = host.PreviewHeight
+                };
+                if (host.RenderOutput is { } outDir)
+                {
+                    window.Opened += async (_, _) =>
+                    {
+                        var code = 0;
+                        try
+                        {
+                            await Avalonia.Threading.Dispatcher.UIThread.InvokeAsync(() => { }, Avalonia.Threading.DispatcherPriority.Loaded);
+                            await Task.Delay(200);
+                            window.UpdateLayout();
+                            Directory.CreateDirectory(outDir);
+                            foreach (var scale in new[] { 1d, 1.5d })
+                            {
+                                using var bitmap = new Avalonia.Media.Imaging.RenderTargetBitmap(
+                                    new PixelSize((int)Math.Ceiling(window.Bounds.Width * scale), (int)Math.Ceiling(window.Bounds.Height * scale)),
+                                    new Vector(96 * scale, 96 * scale));
+                                bitmap.Render(window);
+                                var path = Path.Combine(outDir, $"forge-{host.PreviewName}-{scale.ToString(System.Globalization.CultureInfo.InvariantCulture)}.png");
+                                bitmap.Save(path);
+                                Console.WriteLine(path);
+                            }
+                        }
+                        catch (Exception ex) { code = 1; Console.Error.WriteLine(ex); }
+                        desktop.Shutdown(code);
+                    };
+                }
+                desktop.MainWindow = window;
+            }
+            else
+            {
+                desktop.MainWindow = new LauncherWindow(DesktopProgram.Arguments);
+            }
+        }
         base.OnFrameworkInitializationCompleted();
     }
 }

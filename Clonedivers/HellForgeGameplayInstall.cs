@@ -151,17 +151,23 @@ public sealed partial class HellForgeClient
         { return "Gameplay recovery needs review: " + error.Message; }
     }
 
-    public async Task InstallGameplayAsync(string staged, IProgress<string>? progress = null, CancellationToken ct = default)
+    public Task InstallGameplayAsync(string staged, IProgress<string>? progress = null, CancellationToken ct = default) =>
+        InstallGameplayAsync(staged, progress, null, ct);
+
+    public async Task InstallGameplayAsync(string staged, IProgress<string>? progress, IProgress<OperationProgress>? richProgress, CancellationToken ct = default)
     {
         using var budget = CancellationTokenSource.CreateLinkedTokenSource(ct); budget.CancelAfter(TimeSpan.FromMinutes(20)); ct = budget.Token;
         if (!Path.GetFullPath(staged).Equals(Path.GetFullPath(GameplayCache), RecoveryPathComparison)) throw new InvalidDataException("Use this installation's verified gameplay staging cache.");
         using var operation = LockPackChange(); RequireCliQuiescent(); RequireNoInterruptedPack();
         await RequireGameplayIdleAsync(ct);
+        richProgress?.Report(new("Checking gameplay preset", "Inspecting installed gameplay mods…", IsIndeterminate: true, CanCancel: false));
         var before = await ModsAsync(ct);
         var missing = await MissingGameplayAsync(ct);
         if (missing.Count == 0 && GameplayDefaultsApplied && HellForgePreset.Problem(before, checkOrder: true) == null) { progress?.Report("Required gameplay preset already verified."); return; }
-        foreach (var artifact in missing)
+        for (int i = 0; i < missing.Count; i++)
         {
+            var artifact = missing[i];
+            richProgress?.Report(new("Verifying gameplay archives", artifact.Name, i + 1, missing.Count, CanCancel: false));
             var path = FileSafety.Child(staged, artifact.FileName);
             await HellForgeGameplayCatalog.VerifyArchiveAsync(path, artifact, ct);
             if (await GameplayHashAsync(path, ct) != artifact.ContentHash) throw new InvalidDataException("Unexpected native content in " + artifact.Name);
@@ -171,10 +177,12 @@ public sealed partial class HellForgeClient
         var backup = Path.Combine(CacheRoot, "backups", "gameplay-" + Guid.NewGuid().ToString("N"));
         RejectAncestors(backup); Directory.CreateDirectory(backup);
         var copies = new List<GameplayBackup>();
-        foreach (var artifact in missing)
+        for (int i = 0; i < missing.Count; i++)
         {
+            var artifact = missing[i];
             var old = before.Mods.SingleOrDefault(m => m.Id == artifact.Id);
             if (old == null) continue;
+            richProgress?.Report(new("Backing up gameplay mods", old.Name, i + 1, missing.Count, CanCancel: false));
             ValidateModFolder(old.Folder);
             var name = artifact.Sha256 + ".zip"; var path = FileSafety.Child(backup, name);
             string content;
@@ -208,19 +216,24 @@ public sealed partial class HellForgeClient
         await RequireGameplayIdleAsync(ct); ct.ThrowIfCancellationRequested(); WriteGameplayIntent(intent);
         try
         {
-            foreach (var artifact in missing)
+            for (int i = 0; i < missing.Count; i++)
             {
+                var artifact = missing[i];
                 await RequireGameplayIdleAsync(ct);
-                progress?.Report("Installing " + artifact.Name + "…");
+                progress?.Report($"Installing {artifact.Name} ({i + 1}/{missing.Count})…");
+                richProgress?.Report(new("Installing gameplay mods", artifact.Name, i + 1, missing.Count, CanCancel: false));
                 await ImportGameplayArchiveAsync(FileSafety.Child(staged, artifact.FileName), ct);
             }
             var imported = await ModsAsync(ct);
-            foreach (var artifact in HellForgeGameplayCatalog.Pinned.Artifacts.Where(a => !a.Optional || missing.Contains(a)))
+            var toVerify = HellForgeGameplayCatalog.Pinned.Artifacts.Where(a => !a.Optional || missing.Contains(a)).ToList();
+            for (int i = 0; i < toVerify.Count; i++)
             {
+                var artifact = toVerify[i];
+                richProgress?.Report(new("Verifying gameplay mods", artifact.Name, i + 1, toVerify.Count, CanCancel: false));
                 var mod = imported.Mods.SingleOrDefault(m => m.Id == artifact.Id) ?? throw new InvalidDataException("Forge did not import " + artifact.Name);
                 if (await InstalledGameplayHashAsync(mod, artifact, ct) != artifact.ContentHash) throw new InvalidDataException("Installed content differs for " + artifact.Name);
             }
-            await ConfigureGameplayAsync(missing, ct);
+            await ConfigureGameplayAsync(missing, ct, richProgress);
             var after = await ModsAsync(ct);
             if (HellForgePreset.Problem(after with { HostingProblem = null }, checkOrder: true) is { } issue) throw new InvalidDataException(issue);
             WriteGameplayIntent(intent with
@@ -241,31 +254,41 @@ public sealed partial class HellForgeClient
         }
     }
 
-    async Task ConfigureGameplayAsync(List<GameplayArtifact> installed, CancellationToken ct)
+    async Task ConfigureGameplayAsync(List<GameplayArtifact> installed, CancellationToken ct, IProgress<OperationProgress>? richProgress = null)
     {
         var catalog = await ModsAsync(ct);
         var wanted = HellForgeGameplayCatalog.Pinned.Order.ToHashSet(StringComparer.Ordinal);
-        foreach (var mod in catalog.Mods)
+        var switches = catalog.Mods.Where(mod =>
+            !(HellForgeGameplayCatalog.Pinned.Artifacts.Any(a => a.Id == mod.Id && a.Optional) && installed.All(a => a.Id != mod.Id)) &&
+            (wanted.Contains(mod.Id) || HellForgePreset.IsConflictingAlternative(mod)) &&
+            mod.Enabled != wanted.Contains(mod.Id)).ToList();
+        var dogOptions = new[] { "Smarter Guard Dogs and Sentries", "Guard Dogs", "Sentries", "Intelligence", "Safety", "Sentry Safety", "SEAF Safety", "Targeting Marker" };
+        int totalSteps = switches.Count + 2 + dogOptions.Length + 2;
+        int step = 0;
+        void ReportStep(string detail) => richProgress?.Report(new("Configuring gameplay preset", detail, ++step, totalSteps, CanCancel: false));
+
+        foreach (var mod in switches)
         {
-            if (HellForgeGameplayCatalog.Pinned.Artifacts.Any(a => a.Id == mod.Id && a.Optional) && installed.All(a => a.Id != mod.Id)) continue;
-            var conflict = HellForgePreset.IsConflictingAlternative(mod);
-            if (!wanted.Contains(mod.Id) && !conflict) continue;
             var on = wanted.Contains(mod.Id);
-            if (mod.Enabled == on) continue;
+            ReportStep((on ? "Enabling " : "Disabling ") + mod.Name);
             await RequireGameplayIdleAsync(ct);
             await commands.RunAsync(["mod-switch", "--id", mod.Id, "--on", on ? "yes" : "no"], ct);
         }
         foreach (var id in new[] { HellForgePreset.BingusSharedLoader, HellForgePreset.SmarterSeaf })
         {
+            ReportStep("Configuring " + id);
             await RequireGameplayIdleAsync(ct); await commands.RunAsync(["mod-pack", "--id", id, "--all", "yes"], ct);
         }
-        foreach (var option in new[] { "Smarter Guard Dogs and Sentries", "Guard Dogs", "Sentries", "Intelligence", "Safety", "Sentry Safety", "SEAF Safety", "Targeting Marker" })
+        foreach (var option in dogOptions)
         {
+            ReportStep("Configuring Guard Dogs: " + option);
             await RequireGameplayIdleAsync(ct);
             await commands.RunAsync(["mod-pack", "--id", HellForgePreset.GuardDogs, "--option", option, "--on", option == "Targeting Marker" ? "no" : "yes"], ct);
         }
+        ReportStep("Applying gameplay load order");
         var ordered = HellForgeGameplayCatalog.Pinned.Order.Where(id => catalog.Mods.Any(m => m.Id == id)).Concat(catalog.Mods.Select(m => m.Id).Where(id => !wanted.Contains(id))).ToArray();
         await RequireGameplayIdleAsync(ct); await commands.RunAsync(["mod-order", "--ids", string.Join(",", ordered)], ct);
+        ReportStep("Saving mod-sharing setting");
         await WriteSharingAsync(true, false, ct);
     }
 

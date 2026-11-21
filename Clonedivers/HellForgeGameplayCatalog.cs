@@ -68,19 +68,37 @@ public sealed class HellForgeGameplayCatalog
         }
     }
     public static async Task StageAsync(string folder, IEnumerable<GameplayArtifact> artifacts, IProgress<string>? progress, CancellationToken ct = default,
-        IProgress<(long done, long total)>? downloadProgress = null)
+        IProgress<(long done, long total)>? downloadProgress = null, IProgress<OperationProgress>? richProgress = null)
     {
         RejectLinks(folder); Directory.CreateDirectory(folder);
         var pending = artifacts.ToList(); long done = 0, total = pending.Sum(a => a.Bytes);
-        foreach (var artifact in pending)
+        var speed = new SpeedTracker();
+        for (int i = 0; i < pending.Count; i++)
         {
+            var artifact = pending[i];
             ct.ThrowIfCancellationRequested();
             var path = FileSafety.Child(folder, artifact.FileName);
-            progress?.Report("Getting " + artifact.Name + "…");
+            progress?.Report($"Getting {artifact.Name} ({i + 1}/{pending.Count})…");
+            richProgress?.Report(new("Downloading gameplay mods", artifact.Name, i + 1, pending.Count, done, total, CanCancel: true));
             await Pack.DownloadAsync(new PackFile { Name = artifact.FileName, Url = artifact.Url, Size = artifact.Bytes, Sha256 = artifact.Sha256 }, path,
-                new SyncProgress<(long done, long total)>(p => downloadProgress?.Report((done + p.done, total))), ct);
+                new SyncProgress<(long done, long total)>(p =>
+                {
+                    var currentDone = done + p.done;
+                    downloadProgress?.Report((currentDone, total));
+                    if (richProgress != null)
+                    {
+                        var (rate, eta) = speed.Update(currentDone, total);
+                        richProgress.Report(new("Downloading gameplay mods", artifact.Name, i + 1, pending.Count, currentDone, total, rate, eta, CanCancel: true));
+                    }
+                }), ct);
             await VerifyArchiveAsync(path, artifact, ct);
-            done += artifact.Bytes; downloadProgress?.Report((done, total));
+            done += artifact.Bytes;
+            downloadProgress?.Report((done, total));
+            if (richProgress != null)
+            {
+                var (rate, eta) = speed.Update(done, total);
+                richProgress.Report(new("Downloading gameplay mods", artifact.Name, i + 1, pending.Count, done, total, rate, eta, CanCancel: true));
+            }
         }
     }
 }

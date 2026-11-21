@@ -40,7 +40,7 @@ internal sealed class OfficialCommands : Clonedivers.IHellForgeCommands
             RedirectStandardOutput = true, RedirectStandardError = true };
         foreach (var arg in args) start.ArgumentList.Add(arg);
         using var timeout = CancellationTokenSource.CreateLinkedTokenSource(ct);
-        timeout.CancelAfter(TimeSpan.FromMinutes(args[0] == "mod-add" ? 10 : 2));
+        timeout.CancelAfter(TimeSpan.FromMinutes(args[0] == "mod-add" ? 10 : args[0] == "play" ? 9 : 2));
         try
         {
             return await Clonedivers.HellForgeCommands.ReadJsonProcessAsync(start, args[0] == "play", timeout.Token);
