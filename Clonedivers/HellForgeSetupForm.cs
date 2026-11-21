@@ -698,9 +698,11 @@ internal sealed class HellForgeSetupForm : Form
                 var sources = CollectLocalSources(client);
                 var output = Path.Combine(client.CacheRoot, "exports", preferences.PackMode + "-" + Guid.NewGuid().ToString("N"));
                 pendingPackPlan = await Task.Run(() => HellForgePack.PlanAsync(selection, output, sources, installReport, ct), ct);
-                if (allowDownload && pendingPackPlan.Missing.Sum(f => f.Size) > consentedBytes)
+                var newMissing = pendingPackPlan.Missing.Sum(f => f.Size);
+                if (allowDownload && newMissing > consentedBytes)
                 {
                     step4Checked = true;
+                    step4Notice = detail.Text = $"Download size updated to {Pack.FormatBytes(newMissing)}. Click DOWNLOAD PACK to confirm.";
                     return;
                 }
             }

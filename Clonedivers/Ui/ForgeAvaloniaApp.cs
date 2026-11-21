@@ -29,6 +29,11 @@ public sealed class ForgeAvaloniaApp : Application
 
     public override void OnFrameworkInitializationCompleted()
     {
+        Dispatcher.UIThread.UnhandledException += (_, e) =>
+        {
+            Console.Error.WriteLine("Unhandled UI exception: " + e.Exception);
+            e.Handled = true;
+        };
         if (ApplicationLifetime is IClassicDesktopStyleApplicationLifetime desktop)
         {
             if (!string.IsNullOrWhiteSpace(RenderAllOutputDir))

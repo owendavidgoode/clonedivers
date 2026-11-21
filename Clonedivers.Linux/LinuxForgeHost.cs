@@ -165,14 +165,24 @@ internal sealed class LinuxForgeHost : IForgeUiHost
         }
         Task.Run(() =>
         {
-            string? cache = null;
-            if (!string.IsNullOrWhiteSpace(root))
+            PackSizePreview est;
+            try
             {
-                try { cache = Path.Combine(Path.GetDirectoryName(Path.TrimEndingDirectorySeparator(Path.GetFullPath(root)))!, "Clonedivers-HellForge-cache"); }
-                catch { }
+                string? cache = null;
+                if (!string.IsNullOrWhiteSpace(root))
+                {
+                    try { cache = Path.Combine(Path.GetDirectoryName(Path.TrimEndingDirectorySeparator(Path.GetFullPath(root)))!, "Clonedivers-HellForge-cache"); }
+                    catch { }
+                }
+                var folders = PackSizeEstimator.CollectSearchFolders(root, cache, GameLocator.AutoDetect());
+                est = PackSizeEstimator.Estimate(isRegular, selection, folders, player?.CanLaunch == true);
             }
-            var folders = PackSizeEstimator.CollectSearchFolders(root, cache, GameLocator.AutoDetect());
-            var est = PackSizeEstimator.Estimate(isRegular, selection, folders, player?.CanLaunch == true);
+            catch
+            {
+                est = new PackSizePreview(isRegular, 0, 0, 0, 0, 0, 0, player?.CanLaunch == true,
+                    isRegular ? "No pack download needed" : "Size checked on apply",
+                    "Exact download size is verified before any files download.");
+            }
             if (ver == Volatile.Read(ref sizeEstimateVersion) && !disposed)
             {
                 cachedSizePreview = est;

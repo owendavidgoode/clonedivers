@@ -293,8 +293,8 @@ public sealed class ForgeShellWindow : Window
             confirmAsync: ShowConfirmOverlayAsync,
             pickFolderAsync: PickFolderAsync,
             saveFileAsync: SaveFileAsync,
-            taskbarProgress: p => WindowsTaskbar.SetProgress(this, p),
-            requestAttention: () => WindowsTaskbar.FlashAttention(this));
+            taskbarProgress: p => Dispatcher.UIThread.Post(() => WindowsTaskbar.SetProgress(this, p)),
+            requestAttention: () => Dispatcher.UIThread.Post(() => WindowsTaskbar.FlashAttention(this)));
 
         host.StateChanged += () => Dispatcher.UIThread.Post(RefreshAll);
         host.SetupVisibilityChanged += show => Dispatcher.UIThread.Post(() =>
@@ -1040,19 +1040,27 @@ public sealed class ForgeShellWindow : Window
         settingsCheckUpdatesButton.Click += async (_, _) => { await host.CheckUpdatesAsync(); await LoadSettingsDiagnosticsAsync(); };
         settingsCopyReportButton.Click += async (_, _) =>
         {
-            if (Clipboard is { } cb)
+            try
             {
-                await cb.SetTextAsync(settingsReportBox.Text ?? "");
-                settingsCopyReportButton.Content = "Copied!";
-                await Task.Delay(1600);
-                settingsCopyReportButton.Content = "Copy Report";
+                if (Clipboard is { } cb)
+                {
+                    await cb.SetTextAsync(settingsReportBox.Text ?? "");
+                    settingsCopyReportButton.Content = "Copied!";
+                    await Task.Delay(1600);
+                    settingsCopyReportButton.Content = "Copy Report";
+                }
             }
+            catch (Exception ex) { settingsUpdateNote.Text = "Couldn't copy to clipboard: " + ex.Message; }
         };
         settingsSaveReportButton.Click += async (_, _) =>
         {
-            var saved = await host.SaveSupportReportAsync();
-            if (!string.IsNullOrWhiteSpace(saved))
-                settingsUpdateNote.Text = "Support report saved to " + saved;
+            try
+            {
+                var saved = await host.SaveSupportReportAsync();
+                if (!string.IsNullOrWhiteSpace(saved))
+                    settingsUpdateNote.Text = "Support report saved to " + saved;
+            }
+            catch (Exception ex) { settingsUpdateNote.Text = "Couldn't save report: " + ex.Message; }
         };
 
         var installCard = new Border

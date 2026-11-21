@@ -139,22 +139,28 @@ public sealed class WindowsForgeHost : IForgeUiHost
 
     void SetProgress(OperationProgress? p, bool forSetup = false)
     {
-        if (forSetup)
+        void Apply()
         {
-            setupProgress = p;
-            setupCanCancel = p?.CanCancel == true;
-            if (p?.QrRows != null)
+            if (disposed) return;
+            if (forSetup)
             {
-                setupQrRows = p.QrRows;
-                requestAttention?.Invoke();
+                setupProgress = p;
+                setupCanCancel = p?.CanCancel == true;
+                if (p?.QrRows != null)
+                {
+                    setupQrRows = p.QrRows;
+                    requestAttention?.Invoke();
+                }
             }
+            else
+            {
+                activeProgress = p;
+            }
+            taskbarProgress?.Invoke(p);
+            Notify();
         }
-        else
-        {
-            activeProgress = p;
-        }
-        taskbarProgress?.Invoke(p);
-        Notify();
+        if (Dispatcher.UIThread.CheckAccess()) Apply();
+        else Dispatcher.UIThread.Post(Apply);
     }
 
     void ScheduleSizeEstimate()
@@ -171,14 +177,24 @@ public sealed class WindowsForgeHost : IForgeUiHost
         }
         Task.Run(() =>
         {
-            string? cacheRoot = null;
-            if (!string.IsNullOrWhiteSpace(installRoot))
+            PackSizePreview estimate;
+            try
             {
-                try { cacheRoot = Path.Combine(Path.GetDirectoryName(Path.TrimEndingDirectorySeparator(Path.GetFullPath(installRoot)))!, "Clonedivers-HellForge-cache"); }
-                catch { }
+                string? cacheRoot = null;
+                if (!string.IsNullOrWhiteSpace(installRoot))
+                {
+                    try { cacheRoot = Path.Combine(Path.GetDirectoryName(Path.TrimEndingDirectorySeparator(Path.GetFullPath(installRoot)))!, "Clonedivers-HellForge-cache"); }
+                    catch { }
+                }
+                var folders = PackSizeEstimator.CollectSearchFolders(installRoot, cacheRoot, GameLocator.AutoDetect());
+                estimate = PackSizeEstimator.Estimate(isRegular, selection, folders, applied);
             }
-            var folders = PackSizeEstimator.CollectSearchFolders(installRoot, cacheRoot, GameLocator.AutoDetect());
-            var estimate = PackSizeEstimator.Estimate(isRegular, selection, folders, applied);
+            catch
+            {
+                estimate = new PackSizePreview(isRegular, 0, 0, 0, 0, 0, 0, applied,
+                    isRegular ? "No pack download needed" : "Size checked on apply",
+                    "Exact download size is verified before any files download.");
+            }
             if (ver == Volatile.Read(ref sizeEstimateVersion) && !disposed)
             {
                 cachedSizePreview = estimate;
@@ -471,26 +487,34 @@ public sealed class WindowsForgeHost : IForgeUiHost
     public Task SelectModeAsync(string mode)
     {
         if (working || lastStatus?.Running == true) return Task.CompletedTask;
-        operationFailure = null;
-        toastNotice = null;
-        preferences.Mode = mode;
-        SavePrefs();
+        try
+        {
+            operationFailure = null;
+            toastNotice = null;
+            preferences.Mode = mode;
+            SavePrefs();
+            ScheduleSizeEstimate();
+        }
+        catch (Exception e) { toastNotice = "Couldn't save preferences: " + e.Message; }
         Notify();
-        ScheduleSizeEstimate();
         return Task.CompletedTask;
     }
 
     public Task UpdateCustomizationAsync(string enemySkin, bool deltaSquad, bool covenant, string texture)
     {
         if (working || lastStatus?.Running == true) return Task.CompletedTask;
-        operationFailure = null;
-        preferences.EnemySkin = enemySkin;
-        preferences.DeltaSquad = deltaSquad;
-        preferences.Covenant = covenant;
-        preferences.Texture = texture;
-        SavePrefs();
+        try
+        {
+            operationFailure = null;
+            preferences.EnemySkin = enemySkin;
+            preferences.DeltaSquad = deltaSquad;
+            preferences.Covenant = covenant;
+            preferences.Texture = texture;
+            SavePrefs();
+            ScheduleSizeEstimate();
+        }
+        catch (Exception e) { toastNotice = "Couldn't save preferences: " + e.Message; }
         Notify();
-        ScheduleSizeEstimate();
         return Task.CompletedTask;
     }
 
@@ -731,6 +755,30 @@ public sealed class WindowsForgeHost : IForgeUiHost
         toastNotice = "Session ended and HellForge cleanup is complete.";
     });
 
+    internal static async Task RequireUpdateIdleCoreAsync(
+        string? installRoot,
+        Func<bool> gameRunning,
+        Func<string?> captureBlockCheck,
+        Func<string, bool> installMissing,
+        Func<string, bool> programsMissing,
+        Func<string, CancellationToken, Task<bool>> sessionRunningAsync,
+        CancellationToken ct)
+    {
+        if (gameRunning() || captureBlockCheck() != null)
+            throw new InvalidOperationException("Finish the game or account sync before replacing the launcher.");
+        if (installRoot != null && !installMissing(installRoot) && !programsMissing(installRoot) && await sessionRunningAsync(installRoot, ct))
+            throw new InvalidOperationException("End the Forge session before replacing the launcher.");
+    }
+
+    Task RequireUpdateIdleAsync(CancellationToken ct) => RequireUpdateIdleCoreAsync(
+        preferences.InstallRoot,
+        Game.IsRunning,
+        HellForgeForm.CaptureBlockCheck,
+        HellForgeForm.InstallationMissing,
+        HellForgeForm.ProgramsMissing,
+        async (root, token) => (await CreateClient(root).StatusAsync(token)).Running,
+        ct);
+
     public async Task TriggerUpdateBannerActionAsync()
     {
         if (launcherRelease == null || working) return;
@@ -739,8 +787,7 @@ public sealed class WindowsForgeHost : IForgeUiHost
             var app = launcherRelease;
             if (!ForgeLauncherUpdate.IsOffer(app, AppInfo.Version))
                 throw new InvalidDataException("A verified Forge update is required.");
-            if (Game.IsRunning() || HellForgeForm.CaptureBlockCheck() != null)
-                throw new InvalidOperationException("Close the game and finish account sync before updating the launcher.");
+            await RequireUpdateIdleAsync(ct);
             if (launcherReplaced) { RestartUpdatedLauncher(app!.Version); return; }
 
             var ok = await confirmAsync(new ForgeConfirmRequest(
@@ -765,7 +812,9 @@ public sealed class WindowsForgeHost : IForgeUiHost
             if (new FileInfo(paths.update).Length != app.Size || !string.Equals(await Pack.Sha256Async(paths.update, ct), app.Sha256, StringComparison.OrdinalIgnoreCase))
                 throw new InvalidDataException("Launcher update failed SHA-256 verification; nothing was replaced.");
             SetProgress(new("Installing launcher update", "Swapping verified executable and restarting…", IsIndeterminate: true, CanCancel: false));
+            await RequireUpdateIdleAsync(ct);
             ForgeLauncherUpdate.PreservePrevious(exe);
+            ct.ThrowIfCancellationRequested();
             await Task.Run(() => SelfUpdate.Swap(paths.exe, paths.update, paths.old, TimeSpan.FromSeconds(30)), ct);
             launcherReplaced = true;
             RestartUpdatedLauncher(app.Version);

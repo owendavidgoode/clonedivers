@@ -124,5 +124,37 @@ internal static class LauncherRedesignTests
             check(!string.IsNullOrWhiteSpace(home.Headline) && !string.IsNullOrWhiteSpace(setup.Headline) && diag.HealthChecks.Count > 0,
                 $"PreviewForgeHost preset '{preset}' produces complete Home/Setup/Diagnostics state");
         }
+
+        // 9. WindowsForgeHost.RequireUpdateIdleCoreAsync enforces game, capture-block, AND active Forge session guards (H1)
+        bool blockedSession = false;
+        try
+        {
+            await WindowsForgeHost.RequireUpdateIdleCoreAsync(
+                @"D:\HellForge", () => false, () => null, _ => false, _ => false, (_, _) => Task.FromResult(true), default);
+        }
+        catch (InvalidOperationException ex) { blockedSession = ex.Message.Contains("Forge session", StringComparison.OrdinalIgnoreCase); }
+        check(blockedSession, "RequireUpdateIdleCoreAsync refuses self-update while a Forge session is running");
+
+        bool blockedGame = false;
+        try
+        {
+            await WindowsForgeHost.RequireUpdateIdleCoreAsync(
+                @"D:\HellForge", () => true, () => null, _ => false, _ => false, (_, _) => Task.FromResult(false), default);
+        }
+        catch (InvalidOperationException) { blockedGame = true; }
+        check(blockedGame, "RequireUpdateIdleCoreAsync refuses self-update while HD2 is running");
+
+        bool blockedCapture = false;
+        try
+        {
+            await WindowsForgeHost.RequireUpdateIdleCoreAsync(
+                @"D:\HellForge", () => false, () => "Capture running", _ => false, _ => false, (_, _) => Task.FromResult(false), default);
+        }
+        catch (InvalidOperationException) { blockedCapture = true; }
+        check(blockedCapture, "RequireUpdateIdleCoreAsync refuses self-update during active account sync capture");
+
+        await WindowsForgeHost.RequireUpdateIdleCoreAsync(
+            @"D:\HellForge", () => false, () => null, _ => false, _ => false, (_, _) => Task.FromResult(false), default);
+        check(true, "RequireUpdateIdleCoreAsync allows self-update when game, capture, and Forge session are all idle");
     }
 }

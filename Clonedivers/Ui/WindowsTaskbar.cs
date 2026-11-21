@@ -13,10 +13,10 @@ public static class WindowsTaskbar
     public static void ApplyDarkTitleBar(Window window)
     {
         if (!OperatingSystem.IsWindows()) return;
-        var hwnd = TryGetHwnd(window);
-        if (hwnd == IntPtr.Zero) return;
         try
         {
+            var hwnd = TryGetHwnd(window);
+            if (hwnd == IntPtr.Zero) return;
             if (!OperatingSystem.IsWindowsVersionAtLeast(10, 0, 17763)) return;
             int on = 1;
             if (DwmSetWindowAttribute(hwnd, 20, ref on, 4) != 0)
@@ -35,10 +35,10 @@ public static class WindowsTaskbar
     public static void SetProgress(Window window, OperationProgress? progress)
     {
         if (!OperatingSystem.IsWindows()) return;
-        var hwnd = TryGetHwnd(window);
-        if (hwnd == IntPtr.Zero) return;
         try
         {
+            var hwnd = TryGetHwnd(window);
+            if (hwnd == IntPtr.Zero) return;
             var tb = GetTaskbar();
             if (tb == null) return;
             if (progress == null)
@@ -62,10 +62,10 @@ public static class WindowsTaskbar
     public static void FlashAttention(Window window)
     {
         if (!OperatingSystem.IsWindows()) return;
-        var hwnd = TryGetHwnd(window);
-        if (hwnd == IntPtr.Zero) return;
         try
         {
+            var hwnd = TryGetHwnd(window);
+            if (hwnd == IntPtr.Zero) return;
             var info = new FlashWInfo
             {
                 cbSize = (uint)Marshal.SizeOf<FlashWInfo>(),
@@ -81,13 +81,13 @@ public static class WindowsTaskbar
 
     public static void BringToFront(Window window)
     {
-        if (window.WindowState == WindowState.Minimized) window.WindowState = WindowState.Normal;
-        window.Activate();
-        if (!OperatingSystem.IsWindows()) return;
-        var hwnd = TryGetHwnd(window);
-        if (hwnd == IntPtr.Zero) return;
         try
         {
+            if (window.WindowState == WindowState.Minimized) window.WindowState = WindowState.Normal;
+            window.Activate();
+            if (!OperatingSystem.IsWindows()) return;
+            var hwnd = TryGetHwnd(window);
+            if (hwnd == IntPtr.Zero) return;
             if (IsIconic(hwnd)) ShowWindow(hwnd, 9);
             SetForegroundWindow(hwnd);
         }
