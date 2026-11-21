@@ -5,7 +5,7 @@
 Choose **Regular**, **Clones** or **Empire** in a separate HellForge installation.
 Play the official online Helldivers 2 game directly through Steam.
 
-[Windows launcher](https://github.com/owendavidgoode/clonedivers/releases/latest/download/Clonedivers.exe) · [Ubuntu/Debian x86-64 package](https://github.com/owendavidgoode/clonedivers/releases/download/linux-v0.9.1/Clonedivers-linux-x64.deb) · [Linux portable](https://github.com/owendavidgoode/clonedivers/releases/download/linux-v0.9.1/Clonedivers-linux-x64.tar.gz)
+[Windows launcher](https://github.com/owendavidgoode/clonedivers/releases/latest/download/Clonedivers.exe) · [Ubuntu/Debian x86-64 package](https://github.com/owendavidgoode/clonedivers/releases/download/linux-v0.9.2/Clonedivers-linux-x64.deb) · [Linux portable](https://github.com/owendavidgoode/clonedivers/releases/download/linux-v0.9.2/Clonedivers-linux-x64.tar.gz)
 
 ## Quick Start for Friends (Windows)
 
@@ -22,7 +22,7 @@ Play the official online Helldivers 2 game directly through Steam.
 
 ## Update or Install
 
-The current live public releases are **Windows 2.0.1** ([v2.0.1](https://github.com/owendavidgoode/clonedivers/releases/tag/v2.0.1)) and **Linux Forge 0.9.1** ([linux-v0.9.1](https://github.com/owendavidgoode/clonedivers/releases/tag/linux-v0.9.1)), backed by verified `R1` asset stores (**EmpireDivers `2026.11.19-r48`**, **Clonedivers `2026.11.19-r20`**, and **`build25480438-r6`** with D11 zero-lock `0.2.0` leaf writers and `0` `hf-mod.com` URLs; attended `R2` multiplayer and Linux Proton checks remain in progress). Update Windows through the launcher. On Linux, install the complete `.deb` or extract the full portable archive.
+The current live public releases are **Windows 2.0.2** ([v2.0.2](https://github.com/owendavidgoode/clonedivers/releases/tag/v2.0.2)) and **Linux Forge 0.9.2** ([linux-v0.9.2](https://github.com/owendavidgoode/clonedivers/releases/tag/linux-v0.9.2)), featuring the unified cross-platform Avalonia 11 launcher UI, real download/install progress (files, GB, MB/s, ETA), embedded 4-stage guided setup with multi-drive free-space picker and live 5-step account sync tracker, and verified `R1` asset stores (**EmpireDivers `2026.11.19-r48`**, **Clonedivers `2026.11.19-r20`**, and **`build25480438-r7`** with D11-verified `0.2.1` leaf writers and `0` `hf-mod.com` URLs; attended `R2` multiplayer and Linux Proton checks remain in progress). Update Windows through the launcher. On Linux, install the complete `.deb` or extract the full portable archive.
 
 New players press **Set up Clonedivers** on Windows or **Set up / update Forge**
 on Linux. Windows checks for at least **70 GB** (`70 GiB`) free on the Forge

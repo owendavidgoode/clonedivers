@@ -1,6 +1,16 @@
 # Clonedivers Release and Project Status
 
-## November 20, 2026 (`v2.0.1` / `linux-v0.9.1` live; `build25480438-r6` D11 1-FPS leaf-writer hotfix)
+## November 21, 2026 (`v2.0.2` / `linux-v0.9.2` live; unified Avalonia 11 launcher + `build25480438-r7` D11 FPS fix)
+
+Live public feeds (`manifest.json`, `manifest-v3.json`, `manifest-v3-current.json` `"app"` blocks) and `releases/latest` now serve **Windows `2.0.2`** ([v2.0.2](https://github.com/owendavidgoode/clonedivers/releases/tag/v2.0.2), `Clonedivers.exe` `76,368,366` B, SHA-256 `a7150afd90cb6f76c3187b261c478dbc3d858b1688d3f24f1ca4f755d814042f`) alongside **Linux Forge `0.9.2`** ([linux-v0.9.2](https://github.com/owendavidgoode/clonedivers/releases/tag/linux-v0.9.2)):
+
+- **Unified Avalonia 11 Launcher UI (PR #32):** Single-window dark Star Wars launcher shared by Windows and Linux (`--steam` and `--classic` fallbacks retained), reducing Home controls from 24 to 7, adding a slide-over Customize drawer with live pre-click download-size preview, a non-blocking update banner, an in-window 4-stage Guided Setup (multi-drive free-space picker, fixed non-jumping Steam QR card, live auto-advancing 5-step Account Sync tracker, and pre-download texture tier choice), and Settings/Diagnostics with Copy & Save Support Report.
+- **Structured Progress Engine & Wave B Fixes:** Real file counts, bytes, MB/s, ETA, `Power.KeepAwake`, Windows taskbar progress (`ITaskbarList3`), and 100ms throttling across gameplay mod staging/install, pack planning/export/backup/import/verify, and Forge upgrades; post-recovery backup pruning (`HellForgeRecovery.cs`); Linux `play` CLI timeout raised 2 min -> 9 min (`OfficialCommands.cs`); Linux installer download progress; and strict Step 4 retry download-size consent matching.
+- **D11 Leaf Writer FPS Fix (`build25480438-r7`, PR #31):** Ships `lego-compact-leaf-writer 0.2.1` and `empire-atst-writer 0.2.1` from [`forge-mods-2026-11-21`](https://github.com/owendavidgoode/clonedivers/releases/tag/forge-mods-2026-11-21) (`-34.25%` -> `+4.02%` across 12 live D11 runs + 15-min `S4` soak at `86.09 FPS`). Existing installs auto-upgrade enabled `0.1.0`/`0.2.0` writers.
+- **Account Sync Fixes (PR #30, Issue #28):** Disables HellForge `autoApply` before sync, caches Linux Steam VDF users cleanly, suppresses background probes during active session SDK shims, and avoids duplicate HellForge manager windows.
+- **Verification:** Independent Claude Opus 5.5 reviews (`APPROVED` on PR #31 `aba4496` and PR #32 `458c13a`), `11/11` green CI checks on PR #31 and PR #32 (Windows + Ubuntu `22.04`/`24.04`/`26.04` upgrade & GUI smoke), and visual inspection of 26 rendered PNGs (`100%` & `150%` DPI). See [v2.0.2](releases/v2.0.2.md) and [linux-0.9.2](releases/linux-0.9.2.md).
+
+## November 20, 2026 (`v2.0.1` / `linux-v0.9.1` superseded by `v2.0.2` / `linux-v0.9.2`; `build25480438-r6` D11 1-FPS leaf-writer hotfix)
 
 Live public feeds (`manifest.json`, `manifest-v3.json`, `manifest-v3-current.json`
 `"app"` blocks) and `releases/latest` now serve **Windows `2.0.1`** (`v2.0.1`,
