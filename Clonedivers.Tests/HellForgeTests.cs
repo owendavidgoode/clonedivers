@@ -225,10 +225,10 @@ static class HellForgeTests
                             advisor.Visible && advisor.Text.Contains("512px"),
                             "Empire shows and enables all three texture tiers and low-VRAM advisor note");
                         check(allDroids.Visible && mixedDroids.Visible && nativeAutomatons.Visible &&
-                            allDroids.Checked && !delta.Visible && covenant.Visible && covenant.Enabled,
-                            "Empire shows Enemy skin selector defaulted to All CIS Droids and Covenant toggle while hiding Clones-only Delta Squad");
+                            mixedDroids.Checked && !delta.Visible && covenant.Visible && covenant.Enabled && covenant.Checked,
+                            "Empire shows Enemy skin selector defaulted to Mixed Bots + CIS Droids and Covenant ON while hiding Clones-only Delta Squad");
                         var applied = preferences.SelectionKey;
-                        nativeAutomatons.Checked = true; Application.DoEvents();
+                        covenant.Checked = false; nativeAutomatons.Checked = true; Application.DoEvents();
                         check(!preferences.Droids && preferences.EnemySkin == "native-automatons" && !preferences.Selection().Options["droids"] && preferences.SelectionKey != applied &&
                             preferences.SelectionKey == $"r48/{HellForgePack.SupportedBuild}/empire/full/False/False" && preferences.Selection().Files.Count == 99 && primaryAction.Enabled,
                             "Empire Native Automatons option reaches native 99-file Automaton composition without blocking launch");

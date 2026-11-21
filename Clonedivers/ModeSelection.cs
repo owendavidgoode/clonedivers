@@ -2,6 +2,17 @@ namespace Clonedivers;
 
 public static class LegacyAppearance
 {
+    public static bool HasSavedConfigFor(string forgePreferencePath)
+    {
+        var file = Path.Combine(Path.GetDirectoryName(Path.GetFullPath(forgePreferencePath))!, "config.json");
+        try
+        {
+            FileSafety.RejectLink(file);
+            return File.Exists(file) && new FileInfo(file).Length <= 64 * 1024;
+        }
+        catch (Exception error) when (error is IOException or UnauthorizedAccessException or InvalidDataException) { return false; }
+    }
+
     public static Settings ReadFor(string forgePreferencePath)
     {
         var file = Path.Combine(Path.GetDirectoryName(Path.GetFullPath(forgePreferencePath))!, "config.json");
