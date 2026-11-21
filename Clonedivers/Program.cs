@@ -1671,6 +1671,25 @@ static class Program
     [STAThread]
     static void Main(string[] args)
     {
+        // Preview / visual QA modes never take the single-instance lock or mutate saved preferences.
+        var renderIndex = Array.IndexOf(args, "--ui-render-all");
+        if (renderIndex >= 0 && renderIndex + 1 < args.Length)
+        {
+            Environment.ExitCode = Clonedivers.Ui.ForgeAvaloniaApp.RunRenderAll(args, Path.GetFullPath(args[renderIndex + 1]));
+            return;
+        }
+        var previewIndex = Array.IndexOf(args, "--ui-preview");
+        if (previewIndex >= 0)
+        {
+            var preset = previewIndex + 1 < args.Length && !args[previewIndex + 1].StartsWith('-') ? args[previewIndex + 1] : "home-clones";
+            Environment.ExitCode = Clonedivers.Ui.ForgeAvaloniaApp.RunDesktop(args, () =>
+            {
+                var h = new Clonedivers.Ui.PreviewForgeHost(preset);
+                return new Clonedivers.Ui.ForgeShellWindow(h, h.InitialOverlay);
+            });
+            return;
+        }
+
         // The 60 MB self-contained exe takes a few seconds to unpack on first launch; a second double-click
         // during that pause should bring the running window forward instead of opening another copy.
         var suffix = InstanceSuffix();
@@ -1719,13 +1738,43 @@ static class Program
             shutdownEvent?.Set();
             listener?.Join(500);
         }
-        else
+        else if (args.Contains("--classic", StringComparer.OrdinalIgnoreCase))
         {
             try
             {
                 using var form = new HellForgeForm(HellForgePreferences.Load(), migrationNotice: migrationNotice);
                 var listener = StartActivationListener(form);
                 Application.Run(form);
+                shutdownEvent?.Set();
+                listener?.Join(500);
+            }
+            catch (Exception e) when (e is IOException or UnauthorizedAccessException or InvalidDataException or JsonException)
+            {
+                MessageBox.Show("Couldn't open the HellForge launcher:\n" + e.Message + "\n\nYour Steam setup is preserved. Start this launcher with --steam to open it.",
+                    "Clonedivers", MessageBoxButtons.OK, MessageBoxIcon.Error);
+            }
+        }
+        else
+        {
+            try
+            {
+                var prefs = HellForgePreferences.Load();
+                Thread? listener = null;
+                Clonedivers.Ui.ForgeAvaloniaApp.RunDesktop(args, () => new Clonedivers.Ui.ForgeShellWindow(new Clonedivers.Ui.WindowsForgeHost(prefs, migrationNotice)), window =>
+                {
+                    if (activateEvent == null || shutdownEvent == null) return;
+                    var handles = new[] { activateEvent, shutdownEvent.WaitHandle };
+                    listener = new Thread(() =>
+                    {
+                        try
+                        {
+                            while (WaitHandle.WaitAny(handles) == 0)
+                                Avalonia.Threading.Dispatcher.UIThread.Post(() => Clonedivers.Ui.WindowsTaskbar.BringToFront(window));
+                        }
+                        catch (ObjectDisposedException) { }
+                    }) { IsBackground = true, Name = "SingleInstanceActivator" };
+                    listener.Start();
+                });
                 shutdownEvent?.Set();
                 listener?.Join(500);
             }

@@ -139,5 +139,6 @@ public sealed partial class HellForgeClient
         await RestorePackChangeAsync(snapshot.Mods, snapshot.Status, intent.Mode, old, intent.Backup, snapshot.Files, ct);
         SavePackOutcome(intent.Backup, "restored");
         WritePackIntent(intent with { State = "restored" });
+        PrunePackStorage(intent.Backup, snapshot.Mods);
     }
 }

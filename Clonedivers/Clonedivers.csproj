@@ -30,6 +30,8 @@
   </PropertyGroup>
 
   <ItemGroup>
+    <PackageReference Include="Avalonia.Desktop" Version="11.3.22" />
+    <PackageReference Include="Avalonia.Themes.Fluent" Version="11.3.22" />
     <EmbeddedResource Include="Resources/hellforge-clones-r20.json" LogicalName="Clonedivers.HellForge.Manifest.json" />
     <EmbeddedResource Include="Resources/hellforge-empire-r48.json" LogicalName="Clonedivers.HellForge.Empire.Manifest.json" />
     <EmbeddedResource Include="Resources/forge-gameplay-build25480438-r7.json" LogicalName="Clonedivers.Forge.Gameplay.json" />

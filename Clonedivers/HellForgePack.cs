@@ -131,7 +131,7 @@ public static class HellForgePack
     }
 
     public static async Task<Plan> PlanAsync(Selection selection, string output, IEnumerable<string> sources,
-        IProgress<string>? progress = null, CancellationToken ct = default)
+        IProgress<string>? progress = null, CancellationToken ct = default, IProgress<OperationProgress>? richProgress = null)
     {
         output = Path.GetFullPath(output);
         if (Directory.Exists(output) || File.Exists(output)) throw new IOException("Output already exists; choose a new folder.");
@@ -157,6 +157,8 @@ public static class HellForgePack
         var sizes = selection.Files.Where(f => f.Size > 0).Select(f => f.Size).ToHashSet();
         var bySize = new Dictionary<long, List<string>>();
         progress?.Report("Finding reusable pack files…");
+        richProgress?.Report(new("Scanning local cache", "Checking existing folders for reusable files…", IsIndeterminate: true, CanCancel: true));
+        int scannedFiles = 0;
         foreach (var source in sources.Distinct(StringComparer.OrdinalIgnoreCase))
         {
             var root = Path.GetFullPath(source);
@@ -167,20 +169,44 @@ public static class HellForgePack
                 RecurseSubdirectories = true, AttributesToSkip = FileAttributes.ReparsePoint, IgnoreInaccessible = false }))
             {
                 ct.ThrowIfCancellationRequested();
+                scannedFiles++;
+                if (richProgress != null && scannedFiles % 64 == 0)
+                    richProgress.Report(new("Scanning local cache", $"Checked {scannedFiles:N0} local files…", IsIndeterminate: true, CanCancel: true));
                 if (!sizes.Contains(file.Length)) continue;
                 if (!bySize.TryGetValue(file.Length, out var list)) bySize[file.Length] = list = [];
                 list.Add(file.FullName);
             }
         }
         var local = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
-        foreach (var group in selection.Files.Where(f => f.Size > 0).DistinctBy(f => f.Sha256).GroupBy(f => f.Size))
+        var groups = selection.Files.Where(f => f.Size > 0).DistinctBy(f => f.Sha256).GroupBy(f => f.Size).ToList();
+        var totalCheckFiles = groups.Sum(g => g.Count());
+        long totalCheckBytes = groups.Sum(g => g.Key * g.Count());
+        int checkedFiles = 0;
+        long checkedBytes = 0;
+        var speed = new SpeedTracker();
+        foreach (var group in groups)
         {
             var hashes = group.Select(f => f.Sha256).ToHashSet(StringComparer.OrdinalIgnoreCase);
             foreach (var path in bySize.GetValueOrDefault(group.Key) ?? [])
             {
                 var hash = await HashAsync(path, ct);
-                if (hashes.Contains(hash)) local.TryAdd(hash, path);
+                if (hashes.Contains(hash) && local.TryAdd(hash, path))
+                {
+                    checkedFiles++;
+                    checkedBytes += group.Key;
+                    var (rate, eta) = speed.Update(checkedBytes, totalCheckBytes);
+                    richProgress?.Report(new("Verifying cached files", $"Reusing {local.Count} local files", checkedFiles, totalCheckFiles, checkedBytes, totalCheckBytes, rate, eta, CanCancel: true));
+                }
                 if (hashes.All(local.ContainsKey)) break;
+            }
+            // Account for uncached files in this size group so the bar advances smoothly to 100%.
+            var missed = hashes.Count(h => !local.ContainsKey(h));
+            if (missed > 0)
+            {
+                checkedFiles += missed;
+                checkedBytes += group.Key * missed;
+                var (rate, eta) = speed.Update(checkedBytes, totalCheckBytes);
+                richProgress?.Report(new("Verifying cached files", $"Checked {checkedFiles}/{totalCheckFiles} files ({local.Count} cached)", checkedFiles, totalCheckFiles, checkedBytes, totalCheckBytes, rate, eta, CanCancel: true));
             }
         }
         return new(selection, output, local);
@@ -236,12 +262,13 @@ public static class HellForgePack
         { return null; } // unavailable capacity is not evidence of a full disk; actual writes remain checked
     }
     public static Task ExportAsync(Plan plan, bool download, IProgress<string>? progress = null, CancellationToken ct = default,
-        IProgress<(long Done, long Total)>? bytes = null) =>
-        ExportAsync(plan, download, progress, ct, AvailableExportBytes, bytes: bytes);
+        IProgress<(long Done, long Total)>? bytes = null, IProgress<OperationProgress>? richProgress = null) =>
+        ExportAsync(plan, download, progress, ct, AvailableExportBytes, bytes: bytes, richProgress: richProgress);
 
     internal static async Task ExportAsync(Plan plan, bool download, IProgress<string>? progress, CancellationToken ct, Func<string, long?> availableBytes,
         Func<PackFile, string, CancellationToken, Task>? downloadFile = null, IProgress<(long Done, long Total)>? bytes = null,
-        Func<PackFile, string, IProgress<(long Done, long Total)>, CancellationToken, Task>? downloadWithProgress = null)
+        Func<PackFile, string, IProgress<(long Done, long Total)>, CancellationToken, Task>? downloadWithProgress = null,
+        IProgress<OperationProgress>? richProgress = null)
     {
         ct.ThrowIfCancellationRequested();
         FileSafety.ValidateTargets(plan.Selection.Files);
@@ -261,7 +288,7 @@ public static class HellForgePack
             RejectInstallationOutput(cache); FileSafety.RejectLink(cache); Directory.CreateDirectory(cache);
             using var lease = new FileStream(FileSafety.Child(cache, "download.lock"), FileMode.OpenOrCreate, FileAccess.ReadWrite, FileShare.None);
             PruneDownloadCache(cache, plan.Missing);
-            await ExportFilesAsync(plan, cache, progress, ct, target => unverified = target, downloadFile, bytes, downloadWithProgress);
+            await ExportFilesAsync(plan, cache, progress, ct, target => unverified = target, downloadFile, bytes, downloadWithProgress, richProgress);
         }
         catch
         {
@@ -298,17 +325,35 @@ public static class HellForgePack
     }
     static async Task ExportFilesAsync(Plan plan, string cache, IProgress<string>? progress, CancellationToken ct, Action<string?> writing,
         Func<PackFile, string, CancellationToken, Task>? downloadFile, IProgress<(long Done, long Total)>? bytes,
-        Func<PackFile, string, IProgress<(long Done, long Total)>, CancellationToken, Task>? downloadWithProgress)
+        Func<PackFile, string, IProgress<(long Done, long Total)>, CancellationToken, Task>? downloadWithProgress,
+        IProgress<OperationProgress>? richProgress = null)
     {
         var exported = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
         int done = 0; long completed = 0;
+        int totalFiles = plan.Selection.Files.Count;
+        var speed = new SpeedTracker();
         bytes?.Report((0, plan.Bytes));
+        richProgress?.Report(new(plan.Missing.Count > 0 ? "Downloading Star Wars pack" : "Copying cached pack files",
+            null, 0, totalFiles, 0, plan.Bytes, CanCancel: true));
         foreach (var file in plan.Selection.Files)
         {
             ct.ThrowIfCancellationRequested();
             var target = FileSafety.Child(plan.Output, file.Name); writing(target); string? cached = null;
             long reported = 0;
-            void Report(long value) { reported = Math.Max(reported, Math.Clamp(value, 0, file.Size)); bytes?.Report((completed + reported, plan.Bytes)); }
+            bool isDownload = file.Size > 0 && !exported.ContainsKey(file.Sha256) && !plan.Local.ContainsKey(file.Sha256);
+            string stage = isDownload ? "Downloading Star Wars pack" : "Preparing cached pack files";
+            string subStep = isDownload ? $"Downloading {file.Name}" : $"Copying {file.Name}";
+            void Report(long value)
+            {
+                reported = Math.Max(reported, Math.Clamp(value, 0, file.Size));
+                long totalDone = completed + reported;
+                bytes?.Report((totalDone, plan.Bytes));
+                if (richProgress != null)
+                {
+                    var (rate, eta) = speed.Update(totalDone, plan.Bytes);
+                    richProgress.Report(new(stage, subStep, done + 1, totalFiles, totalDone, plan.Bytes, rate, eta, CanCancel: true));
+                }
+            }
             if (file.Size == 0) await File.WriteAllBytesAsync(target, [], ct);
             else if (exported.TryGetValue(file.Sha256, out var prior)) await CopyLocalAsync(prior, target, file.Size, ct, Report);
             else if (plan.Local.TryGetValue(file.Sha256, out var source)) await CopyLocalAsync(source, target, file.Size, ct, Report);

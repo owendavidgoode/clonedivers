@@ -34,6 +34,7 @@ jobs:
           Copy-Item docs/releases/pack-2026.11.09-r47-full.md artifacts/windows/EMPIREDIVERS-CREDITS.md
           Copy-Item Clonedivers/Resources/forge-gameplay-build25480438-r7.json artifacts/windows/gameplay-catalog.json
           Copy-Item Clonedivers/Licenses/PresentMon.txt artifacts/windows/LICENSE-PresentMon.txt
+          Copy-Item Clonedivers.Linux/THIRD-PARTY-NOTICES.txt artifacts/windows/THIRD-PARTY-NOTICES-Avalonia.txt
           foreach ($package in @('microsoft.netcore.app.runtime.win-x64','microsoft.windowsdesktop.app.runtime.win-x64')) {
             $runtime = Get-ChildItem (Join-Path $env:USERPROFILE ".nuget/packages/$package") -Directory | Sort-Object { [version]$_.Name } | Select-Object -Last 1
             foreach ($name in @('LICENSE','LICENSE.TXT','THIRD-PARTY-NOTICES.TXT')) {

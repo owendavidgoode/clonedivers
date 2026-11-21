@@ -128,8 +128,13 @@ internal static partial class HellForgeSetup
             foreach (var artifact in new[] { nextArtifact, previousArtifact }.DistinctBy(a => a.Sha256))
                 await ReuseInstallerAsync(InstallCache(root), cache, artifact, ct, cacheAvailableBytes);
         await RequireCacheSpaceAsync(cache, [nextArtifact, previousArtifact], ProtectedBackupBytes(root), ct, cacheAvailableBytes);
-        var next = await DownloadAsync(cache, progress, ct, nextArtifact);
-        var previous = await DownloadAsync(cache, progress, ct, previousArtifact);
+        var combinedTotal = checked(nextArtifact.Size + previousArtifact.Size);
+        var nextProgress = progress == null ? null : new SyncProgress<ForgeSetupProgress>(p =>
+            progress.Report(new("Downloading Forge 0.4.0 update…", p.Total > 0 ? p.Done : 0, combinedTotal, p.CanCancel)));
+        var next = await DownloadAsync(cache, nextProgress, ct, nextArtifact);
+        var prevProgress = progress == null ? null : new SyncProgress<ForgeSetupProgress>(p =>
+            progress.Report(new("Downloading rollback backup (0.3.0)…", checked(nextArtifact.Size + (p.Total > 0 ? p.Done : 0)), combinedTotal, p.CanCancel)));
+        var previous = await DownloadAsync(cache, prevProgress, ct, previousArtifact);
         idle(root); ct.ThrowIfCancellationRequested();
         await RequireCacheSpaceAsync(cache, [], ProtectedBackupBytes(root), ct, cacheAvailableBytes);
         var backup = Path.Combine(cache, "backups", "forge-upgrade-" + Guid.NewGuid().ToString("N"));

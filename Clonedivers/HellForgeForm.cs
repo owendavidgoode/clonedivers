@@ -760,11 +760,12 @@ public sealed class HellForgeForm : Form
         operation = CancellationTokenSource.CreateLinkedTokenSource(lifetime.Token);
         working = true; progress.Style = ProgressBarStyle.Marquee; progress.Visible = true; message.Text = ""; UpdateView(); state.Text = "Working…"; detail.Text = "Please wait while this step finishes."; lastError = failureDetail = operationFailure = startupNotice = null;
         lastAccountFingerprint = null; // any operation can change the account; review it again afterwards
-        try { await pendingRefresh; lastError = null; await action(); }
+        try { Power.KeepAwake(true); await pendingRefresh; lastError = null; await action(); }
         catch (OperationCanceledException) { if (!IsDisposed) { updateCancelled = updateDownloading; message.Text = "Operation cancelled."; } }
         catch (Exception e) { if (!IsDisposed) { var summary = FailureSummary(e.ToString()); lastError = e.Message; failureDetail = e.ToString(); operationFailure = summary; if (updateDownloading) updateFailed = true; message.Text = summary; } }
         finally
         {
+            Power.KeepAwake(false);
             Cancellable = false; launch.Enabled = false;
             working = false; updateDownloading = false;
             operation.Dispose(); operation = null;
@@ -846,7 +847,23 @@ public sealed class HellForgeForm : Form
     }
     bool NeedsGameplaySetup() => lastMods != null && HellForgePreset.Problem(lastMods, checkOrder: true) != null;
     async Task UpgradeForgeAsync() => await OperationAsync(async () => {
-        var report = new Progress<ForgeSetupProgress>(p => { if (!IsDisposed) message.Text = p.Message; });
+        var speed = new SpeedTracker();
+        var throttled = new ProgressThrottler(p => {
+            if (IsDisposed || !working) return;
+            Cancellable = p.CanCancel;
+            if (p.BytesTotal > 0)
+            {
+                progress.Style = ProgressBarStyle.Continuous;
+                progress.Value = Math.Clamp(p.Percent ?? 0, 0, 100);
+            }
+            else progress.Style = ProgressBarStyle.Marquee;
+            message.Text = p.FormatSummary();
+        });
+        var report = new Progress<ForgeSetupProgress>(p => {
+            if (IsDisposed || !working) return;
+            var (rate, eta) = p.Total > 0 ? speed.Update(p.Done, p.Total) : (null, null);
+            throttled.Report(new(p.Message, null, 0, 0, p.Done, p.Total, rate, eta, IsIndeterminate: p.Total <= 0, CanCancel: p.CanCancel));
+        });
         await HellForgeSetup.UpdateAsync(preferences.InstallRoot!, report, WorkToken);
         var client = Client(); await InstallGameplayCoreAsync(client);
         // The supported game build and selected appearance have not changed. Keep
