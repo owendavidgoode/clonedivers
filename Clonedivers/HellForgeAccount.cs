@@ -3,6 +3,7 @@ using System.Globalization;
 using System.Security.Cryptography;
 using System.Text;
 using System.Text.Json;
+using System.Text.Json.Nodes;
 using System.Text.Json.Serialization;
 
 namespace Clonedivers;
@@ -44,6 +45,56 @@ public sealed class HellForgeAccount
         if (File.Exists(hosts) && File.ReadLines(hosts).Any(line => line.Contains("# HellForge-CaptureProxy", StringComparison.OrdinalIgnoreCase)))
             return "Account sync cleanup is pending. Open HellForge > Profile > Account sync > Clean up before launching.";
         return null;
+    }
+
+    /// <summary>True while HellForge has freshly swapped game/bin DLLs (e.g. steam_api64.dll) for session SDK shims.</summary>
+    public static bool SessionShimsActive(string root, DateTime? utcNow = null)
+    {
+        if (string.IsNullOrWhiteSpace(root)) return false;
+        try
+        {
+            var shims = Path.Combine(Path.TrimEndingDirectorySeparator(Path.GetFullPath(root)), "temp", "sdk-shim-originals");
+            if (!Directory.Exists(shims)) return false;
+            var files = Directory.GetFiles(shims);
+            if (files.Length == 0) return false;
+            // Guard against orphaned files left after a crash: only suppress probes during the active startup window (<= 3 min).
+            var newestUtc = files.Max(File.GetLastWriteTimeUtc);
+            var now = utcNow ?? DateTime.UtcNow;
+            return now - newestUtc < TimeSpan.FromMinutes(3);
+        }
+        catch (Exception error) when (error is IOException or UnauthorizedAccessException) { return false; }
+    }
+
+    public bool HasAutoApplyEnabled()
+    {
+        try
+        {
+            var path = Checked(profile, "account-import.json", 64 * 1024);
+            if (!File.Exists(path)) return false;
+            using var doc = JsonDocument.Parse(File.ReadAllText(path));
+            return doc.RootElement.ValueKind == JsonValueKind.Object &&
+                doc.RootElement.TryGetProperty("autoApply", out var flag) &&
+                flag.ValueKind == JsonValueKind.True;
+        }
+        catch (Exception error) when (error is IOException or UnauthorizedAccessException or JsonException or InvalidDataException) { return false; }
+    }
+
+    /// <summary>Turns off HellForge's native autoApply before Clonedivers opens Sync so native imports cannot race ahead of Clonedivers' freshness check.</summary>
+    public bool DisableAutoApply()
+    {
+        var path = Checked(profile, "account-import.json", 64 * 1024);
+        if (!File.Exists(path)) return false;
+        using var operation = Lease();
+        if (!File.Exists(path)) return false;
+        JsonObject? obj;
+        try { obj = JsonNode.Parse(File.ReadAllText(path)) as JsonObject; }
+        catch (JsonException) { return false; }
+        if (obj == null || obj["autoApply"]?.GetValueKind() != JsonValueKind.True) return false;
+        obj["autoApply"] = false;
+        var temporary = Checked(profile, "account-import.json.tmp", 64 * 1024);
+        File.WriteAllText(temporary, obj.ToJsonString(HellForgePack.Json));
+        File.Move(temporary, path, true);
+        return true;
     }
 
     public HellForgeAccount(string root, Func<IReadOnlyList<string>, CancellationToken, Task<string>>? backend = null)
@@ -196,7 +247,8 @@ public sealed class HellForgeAccount
     HellForgeAccountState State(VerifiedCapture capture, Receipt? receipt, Pending? pending)
     {
         if (receipt == null && pending == null && LatestNativeImport() is { } native && capture.CapturedUtc <= native)
-            return new(false, false, "This character already has an official Forge import. Sync a fresh HD2 capture before linking it to Clonedivers; its earned Forge progress will be kept and an old capture will not be replayed.");
+            return new(false, false, "This character already has an official Forge import. Sync a fresh HD2 capture before linking it to Clonedivers; its earned Forge progress will be kept and an old capture will not be replayed." +
+                (HasAutoApplyEnabled() ? " HellForge auto-apply is enabled; click Sync account again and Clonedivers will turn auto-apply off before capturing." : ""));
         if (receipt != null) RequireOwner(receipt, capture);
         if (pending != null)
         {

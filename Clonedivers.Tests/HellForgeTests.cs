@@ -1031,6 +1031,24 @@ static class HellForgeTests
             try { await HellForgeForm.ReviewAccountAsync(account, closing.Token); } catch (OperationCanceledException) { cancelled = true; }
             check(cancelled, "closing the launcher still cancels an account review");
         }
+        // #28: DisableAutoApply flips native autoApply: true -> false while preserving all category rules, and SessionShimsActive detects fresh SDK shims.
+        var importPolicyPath = Path.Combine(folder, "account-import.json");
+        File.WriteAllText(importPolicyPath, """{"autoApply":true,"categories":{"level":{"include":true,"rule":"Higher"},"warbondItems":{"include":true,"rule":"Merge"}}}""");
+        check(account.HasAutoApplyEnabled() && account.DisableAutoApply() && !account.HasAutoApplyEnabled() && !account.DisableAutoApply(),
+            "DisableAutoApply turns off HellForge native autoApply once and becomes a no-op when already off");
+        using (var afterDisable = JsonDocument.Parse(File.ReadAllText(importPolicyPath)))
+            check(!afterDisable.RootElement.GetProperty("autoApply").GetBoolean() &&
+                afterDisable.RootElement.GetProperty("categories").GetProperty("warbondItems").GetProperty("rule").GetString() == "Merge",
+                "DisableAutoApply preserves existing HellForge import category rules");
+        var shimsDir = Path.Combine(install, "temp", "sdk-shim-originals");
+        check(!HellForgeAccount.SessionShimsActive(install), "SessionShimsActive is false when no SDK shim backup directory exists");
+        Directory.CreateDirectory(shimsDir);
+        check(!HellForgeAccount.SessionShimsActive(install), "SessionShimsActive ignores an empty sdk-shim-originals directory");
+        var shimFile = Path.Combine(shimsDir, "steam_api64.dll");
+        File.WriteAllText(shimFile, "original");
+        check(HellForgeAccount.SessionShimsActive(install), "SessionShimsActive detects freshly backed-up game/bin DLLs during session startup");
+        check(!HellForgeAccount.SessionShimsActive(install, DateTime.UtcNow.AddMinutes(5)), "SessionShimsActive ignores orphaned shim files older than 3 minutes after a crash");
+        Directory.Delete(shimsDir, true);
         var probe = new HellForgeClient(install, new FakeCommands(install));
         var accountKey = probe.AccountFingerprint();
         check(probe.AccountFingerprint() == accountKey, "an unchanged capture and profile reuse the last account review");

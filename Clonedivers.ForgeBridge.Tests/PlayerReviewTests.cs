@@ -203,6 +203,39 @@ internal static class PlayerReviewTests
             check(backResp.GetProperty("Mode").GetString() == "empire" && backResp.GetProperty("Texture").GetString() == "lighter" &&
                 !backResp.GetProperty("Droids").GetBoolean() && backResp.GetProperty("EnemySkin").GetString() == "native-automatons",
                 "bridge 5-arg select-mode stays backwards-compatible and maps droids=no to native-automatons");
+
+            // #28: Modern Steam VDF fallbacks (AutoLogin / single user / newest timestamp / registry AutoLoginUser) + mid-startup SDK shim guard.
+            var steam28 = Path.Combine(root, "steam-home-28");
+            var reg28 = Path.Combine(steam28, ".steam", "registry.vdf");
+            var login28 = Path.Combine(steam28, ".steam", "steam", "config", "loginusers.vdf");
+            Directory.CreateDirectory(Path.GetDirectoryName(reg28)!);
+            Directory.CreateDirectory(Path.GetDirectoryName(login28)!);
+            File.WriteAllText(reg28, "\"Registry\"\n{\n\t\"HKCU\"\n\t{\n\t\t\"Software\"\n\t\t{\n\t\t\t\"Valve\"\n\t\t\t{\n\t\t\t\t\"Steam\"\n\t\t\t\t{\n\t\t\t\t\t\"AutoLoginUser\"\t\t\"alamo\"\n\t\t\t\t}\n\t\t\t}\n\t\t}\n\t}\n}\n");
+            check(PlayerCommands.LinuxSteamUser(steam28) == "autologinuser:alamo",
+                "#28 registry.vdf AutoLoginUser fallback caches when ActiveUser and loginusers.vdf are absent");
+            File.WriteAllText(login28, "\"users\"\n{\n\t\"76561198000000041\"\n\t{\n\t\t\"AccountName\"\t\t\"alamo\"\n\t\t\"AutoLogin\"\t\t\"1\"\n\t\t\"timestamp\"\t\t\"1795235000\"\n\t}\n}\n");
+            check(PlayerCommands.LinuxSteamUser(steam28) == "autologin:76561198000000041",
+                "#28 loginusers.vdf AutoLogin=1 without MostRecent caches the signed-in Linux Steam user");
+            File.WriteAllText(login28, "\"users\"\n{\n\t\"76561198000000041\"\n\t{\n\t\t\"AccountName\"\t\t\"alamo\"\n\t\t\"timestamp\"\t\t\"1795235000\"\n\t}\n}\n");
+            check(PlayerCommands.LinuxSteamUser(steam28) == "single:76561198000000041",
+                "#28 single-user loginusers.vdf without MostRecent or AutoLogin caches cleanly");
+            File.WriteAllText(login28, "\"users\"\n{\n\t\"76561198000000041\"\n\t{\n\t\t\"timestamp\"\t\t\"1795235000\"\n\t}\n\t\"76561198000000042\"\n\t{\n\t\t\"timestamp\"\t\t\"1795236000\"\n\t}\n}\n");
+            check(PlayerCommands.LinuxSteamUser(steam28) == "latest:76561198000000042",
+                "#28 multi-user loginusers.vdf without MostRecent picks the unique newest timestamp");
+
+            var shimDir = Path.Combine(root, "temp", "sdk-shim-originals");
+            Directory.CreateDirectory(shimDir);
+            var shimDll = Path.Combine(shimDir, "steam_api64.dll");
+            File.WriteAllText(shimDll, "orig");
+            File.SetLastWriteTimeUtc(shimDll, now);
+            var backendBeforeShim = backendCalls;
+            var shimResp = await playPlayer.RunAsync(["player-status"], CancellationToken.None);
+            check(backendCalls == backendBeforeShim && shimResp.GetProperty("detail").GetString()!.Contains("Session starting"),
+                "#28 active sdk-shim-originals suppresses background ownership probes during the session startup window");
+            Directory.Delete(shimDir, true);
+            var afterShim = await playPlayer.RunAsync(["player-status"], CancellationToken.None);
+            check(backendCalls == backendBeforeShim && afterShim.GetProperty("account").GetProperty("Imported").GetBoolean(),
+                "#28 cached account state survives the session startup shim window cleanly without reverting to Sync account");
         }
         finally { Directory.Delete(root, true); }
     }

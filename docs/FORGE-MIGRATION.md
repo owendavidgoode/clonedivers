@@ -71,8 +71,9 @@ through the author's documented atomic preferences-file contract, preserving
 other fields. Each player acquires their own matching preset through setup.
 
 For account sync, the default profile is selected automatically. Use official
-Forge's Profile > Account sync > Sync Inventory, approve the system helper and
-pass the HD2 title screen. Forge 0.4 closes the normal game after capture. Keep
+Forge's Profile > Account sync > Sync Inventory, approve the system helper,
+pass the HD2 title screen, and then quit Helldivers 2 yourself; HellForge
+finishes capture cleanup once the game closes. Keep
 Clonedivers open: it finishes a requested, verified one-way import after cleanup.
 An old snapshot is never replayed at startup. A character previously imported in
 native Forge needs a fresh verified capture when first linked; its earned Forge
