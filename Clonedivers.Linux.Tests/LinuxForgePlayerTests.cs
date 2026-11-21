@@ -10,9 +10,25 @@ internal static class LinuxForgePlayerTests
         check(HellForgeGameplayCatalog.Pinned.Id == "build25480438-r7" && HellForgeGameplayCatalog.Pinned.Artifacts.Count == 14 &&
             HellForgeGameplayCatalog.Pinned.Artifacts.Where(a => a.Optional).Select(a => a.Id).ToHashSet(StringComparer.Ordinal).SetEquals(HellForgePreset.Optional),
             "Linux embeds and validates the r7 gameplay catalog with all six optional mods");
+        var brandNewLinux = LinuxForgePreferences.Load(Path.Combine(root, "brand-new-linux", "forge.json"));
+        check(brandNewLinux.Mode == "clonedivers" && brandNewLinux.EnemySkin == "mixed-droids" && brandNewLinux.Covenant &&
+            brandNewLinux.DeltaSquad && brandNewLinux.AutoPerformanceTier && brandNewLinux.PerformanceTier == "auto" &&
+            brandNewLinux.SoundEffectsEnabled && brandNewLinux.DiscordRpcEnabled && !brandNewLinux.MinimizeToTray &&
+            brandNewLinux.HostChaosIntensity == "standard" && brandNewLinux.HostHeavySeaf == "standard" && brandNewLinux.HostFasterCorpseCleanup,
+            "brand-new Linux installs default to the full-variety mix (mixed-droids, Covenant=true, DeltaSquad=true) and AutoPerformanceTier=true");
+        var legacyLinuxPath = Path.Combine(root, "legacy-linux-forge.json");
+        File.WriteAllText(legacyLinuxPath, """{"Format":1,"Mode":"clonedivers","Texture":"lighter"}""");
+        var legacyLinux = LinuxForgePreferences.Load(legacyLinuxPath);
+        check(legacyLinux.EnemySkin == "all-droids" && !legacyLinux.Covenant && !legacyLinux.AutoPerformanceTier && legacyLinux.PerformanceTier == "balanced",
+            "existing saved Linux forge.json files preserve legacy EnemySkin, Covenant=false, and AutoPerformanceTier=false");
+        check(SquadFingerprint.Compute(HellForgeGameplayCatalog.Current).StartsWith("r7-", StringComparison.Ordinal) &&
+            PerformanceTierAdvisor.Tiers.Count == 5 &&
+            DiscordReportFormatter.Format("0.9.3", "r7-a9c4", "clonedivers", "mixed-droids", true, true, "auto", "lighter",
+                PerformanceTierAdvisor.Recommend("AMD Radeon GPU", 8.0, 16.0), "/home/deck/HellForge", null).Split('\n').Length is >= 10 and <= 14,
+            "Linux shares SquadFingerprint, 5-tier PerformanceTierAdvisor, and 10–14 line DiscordReportFormatter");
         foreach (var texture in new[] { "full", "lighter", "reduced512" })
         {
-            var empire = new LinuxForgePreferences { Mode = "empire", Texture = texture, Covenant = true };
+            var empire = new LinuxForgePreferences { Mode = "empire", Texture = texture, EnemySkin = "all-droids", Covenant = true };
             var on = empire.PackSelection();
             empire.EnemySkin = "mixed-droids";
             var mixed = empire.PackSelection();

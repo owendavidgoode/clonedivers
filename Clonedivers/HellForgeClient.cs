@@ -5,7 +5,7 @@ namespace Clonedivers;
 
 public sealed class HellForgePreferences
 {
-    string enemySkin = "all-droids";
+    string enemySkin = "mixed-droids";
     public int Format { get; set; } = 1;
     public string? InstallRoot { get; set; }
     public string Mode { get; set; } = "clonedivers";
@@ -23,7 +23,18 @@ public sealed class HellForgePreferences
         get => enemySkin;
         set => enemySkin = value;
     }
-    public bool Covenant { get; set; }
+    public bool Covenant { get; set; } = true;
+    public bool AutoPerformanceTier { get; set; } = true;
+    public string PerformanceTier { get; set; } = PerformanceTierAdvisor.Auto;
+    public bool SoundEffectsEnabled { get; set; } = true;
+    public bool DiscordRpcEnabled { get; set; } = true;
+    public bool MinimizeToTray { get; set; }
+    public string? LastStepDownSuggestedTier { get; set; }
+    public string? PendingStepDownReason { get; set; }
+    public string HostChaosIntensity { get; set; } = "standard";
+    public string HostHeavySeaf { get; set; } = "standard";
+    public bool HostFasterCorpseCleanup { get; set; } = true;
+    public string? PlayerLabel { get; set; }
     public string? PreparedPack { get; set; }
     public string? AppliedSelection { get; set; }
     public bool IsRegular => Mode == "regular";
@@ -39,28 +50,107 @@ public sealed class HellForgePreferences
     }
     public static string FilePath => CustomPreferencesPath() ?? Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), "Clonedivers", "hellforge.json");
 
+    public void ApplyPerformanceTier(string tierId, HardwarePerformanceRecommendation? hardware = null)
+    {
+        if (!PerformanceTierAdvisor.IsValidPreferenceTier(tierId))
+            throw new ArgumentException($"Unsupported performance tier: {tierId}", nameof(tierId));
+        PerformanceTier = tierId;
+        AutoPerformanceTier = tierId == PerformanceTierAdvisor.Auto;
+        Texture = PerformanceTierAdvisor.ResolvePackTexture(tierId, hardware);
+    }
+
+    public HostMutatorOptions ToHostMutatorOptions(DateTimeOffset? updatedUtc = null) => new()
+    {
+        Format = 1,
+        ChaosIntensity = HostChaosIntensity,
+        HeavySeaf = HostHeavySeaf,
+        FasterCorpseCleanup = HostFasterCorpseCleanup,
+        UpdatedUtc = updatedUtc ?? DateTimeOffset.UtcNow
+    };
+
+    static bool TryGetJsonProperty(JsonElement obj, string name, out JsonElement value)
+    {
+        if (obj.ValueKind == JsonValueKind.Object)
+        {
+            foreach (var prop in obj.EnumerateObject())
+            {
+                if (string.Equals(prop.Name, name, StringComparison.OrdinalIgnoreCase))
+                {
+                    value = prop.Value;
+                    return true;
+                }
+            }
+        }
+        value = default;
+        return false;
+    }
+
     public static HellForgePreferences Load(string? path = null)
     {
         path ??= FilePath;
         FileSafety.RejectLink(path);
         if (!File.Exists(path))
         {
+            if (!LegacyAppearance.HasSavedConfigFor(path))
+                return new();
             var legacy = LegacyAppearance.ReadFor(path);
-            return new() { Mode = legacy.Options.GetValueOrDefault("empire") ? "empire" : "clonedivers",
-                DeltaSquad = legacy.Options.GetValueOrDefault("commandos", true), Droids = legacy.Options.GetValueOrDefault("droids", true),
-                Covenant = legacy.Options.GetValueOrDefault("covenant"), Texture = legacy.TextureProfile == "lighter" ? "lighter" : "full" };
+            var hasExplicitTexture = !string.IsNullOrWhiteSpace(legacy.TextureProfile);
+            return new()
+            {
+                Mode = legacy.Options.GetValueOrDefault("empire") ? "empire" : "clonedivers",
+                DeltaSquad = legacy.Options.GetValueOrDefault("commandos", true),
+                EnemySkin = legacy.Options.TryGetValue("droids", out var legacyDroids) ? (legacyDroids ? "all-droids" : "native-automatons") : "mixed-droids",
+                Covenant = legacy.Options.TryGetValue("covenant", out var legacyCov) ? legacyCov : true,
+                Texture = legacy.TextureProfile == "lighter" ? "lighter" : "full",
+                AutoPerformanceTier = !hasExplicitTexture,
+                PerformanceTier = !hasExplicitTexture ? PerformanceTierAdvisor.Auto : (legacy.TextureProfile == "lighter" ? PerformanceTierAdvisor.Balanced : PerformanceTierAdvisor.Ultra)
+            };
         }
         if (new FileInfo(path).Length > 64 * 1024) throw new InvalidDataException("HellForge preferences are oversized.");
-        var preferences = JsonSerializer.Deserialize<HellForgePreferences>(File.ReadAllText(path), HellForgePack.Json)
+        var raw = File.ReadAllText(path);
+        using var doc = JsonDocument.Parse(raw);
+        var preferences = JsonSerializer.Deserialize<HellForgePreferences>(raw, HellForgePack.Json)
             ?? throw new InvalidDataException("HellForge preferences are empty.");
+        if (doc.RootElement.ValueKind == JsonValueKind.Object)
+        {
+            if (!TryGetJsonProperty(doc.RootElement, "EnemySkin", out _))
+            {
+                preferences.EnemySkin = TryGetJsonProperty(doc.RootElement, "Droids", out var droidsProp) && droidsProp.ValueKind is JsonValueKind.True or JsonValueKind.False
+                    ? (droidsProp.GetBoolean() ? "all-droids" : "native-automatons")
+                    : "all-droids";
+            }
+            if (!TryGetJsonProperty(doc.RootElement, "Covenant", out _))
+                preferences.Covenant = false;
+            if (!TryGetJsonProperty(doc.RootElement, "AutoPerformanceTier", out _))
+            {
+                preferences.AutoPerformanceTier = false;
+                if (!TryGetJsonProperty(doc.RootElement, "PerformanceTier", out _))
+                    preferences.PerformanceTier = PerformanceTierAdvisor.TierFromPackTexture(preferences.Texture);
+            }
+        }
         preferences.Validate();
         return preferences;
     }
     public void Validate()
     {
+        if (string.IsNullOrEmpty(PerformanceTier))
+            PerformanceTier = AutoPerformanceTier ? PerformanceTierAdvisor.Auto : PerformanceTierAdvisor.TierFromPackTexture(Texture);
+        if (string.IsNullOrEmpty(HostChaosIntensity)) HostChaosIntensity = "standard";
+        if (string.IsNullOrEmpty(HostHeavySeaf)) HostHeavySeaf = "standard";
+        if (string.IsNullOrWhiteSpace(LastStepDownSuggestedTier)) LastStepDownSuggestedTier = null;
+        if (string.IsNullOrWhiteSpace(PendingStepDownReason)) PendingStepDownReason = null;
+        if (string.IsNullOrWhiteSpace(PlayerLabel)) PlayerLabel = null;
+        else PlayerLabel = PlayerLabel.Trim();
+
         if (Format != 1 || Mode is not ("regular" or "clonedivers" or "empire") ||
             Loadout is not ("account" or "armory" or "progression") || Texture is not ("full" or "lighter" or "reduced512") ||
-            EnemySkin is not ("all-droids" or "mixed-droids" or "native-automatons"))
+            EnemySkin is not ("all-droids" or "mixed-droids" or "native-automatons") ||
+            !PerformanceTierAdvisor.IsValidPreferenceTier(PerformanceTier) ||
+            (LastStepDownSuggestedTier != null && !PerformanceTierAdvisor.IsConcreteTier(LastStepDownSuggestedTier)) ||
+            (PendingStepDownReason != null && PendingStepDownReason.Length > 512) ||
+            !HostMutatorConfig.IsValidChaosIntensity(HostChaosIntensity) ||
+            !HostMutatorConfig.IsValidHeavySeaf(HostHeavySeaf) ||
+            (PlayerLabel != null && PlayerLabel.Length > 40))
             throw new InvalidDataException("Unsupported HellForge preferences. Restore hellforge.json from backup.");
         Loadout = "account";
     }

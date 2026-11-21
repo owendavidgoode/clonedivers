@@ -44,5 +44,15 @@
     <EmbeddedResource Include="../Clonedivers/Resources/hellforge-empire-r48.json" LogicalName="Clonedivers.HellForge.Empire.Manifest.json" />
     <EmbeddedResource Include="../Clonedivers/Resources/forge-gameplay-build25480438-r7.json" LogicalName="Clonedivers.Forge.Gameplay.json" />
     <Compile Include="../Clonedivers/HellForgeGameplayCatalog.cs" Link="Core/HellForgeGameplayCatalog.cs" />
+    <Compile Include="../Clonedivers/PerformanceTierAdvisor.cs" Link="Core/PerformanceTierAdvisor.cs" />
+    <Compile Include="../Clonedivers/ForgeDiskManager.cs" Link="Core/ForgeDiskManager.cs" />
+    <Compile Include="../Clonedivers/SquadFingerprint.cs" Link="Core/SquadFingerprint.cs" />
+    <Compile Include="../Clonedivers/CrashTriage.cs" Link="Core/CrashTriage.cs" />
+    <Compile Include="../Clonedivers/HostMutatorConfig.cs" Link="Core/HostMutatorConfig.cs" />
+    <Compile Include="../Clonedivers/DiscordRpcClient.cs" Link="Core/DiscordRpcClient.cs" />
+    <Compile Include="../Clonedivers/SquadReportClient.cs" Link="Core/SquadReportClient.cs" />
+    <Compile Include="../Clonedivers/WhatsNewFetcher.cs" Link="Core/WhatsNewFetcher.cs" />
+    <Compile Include="../Clonedivers/DiscordReportFormatter.cs" Link="Core/DiscordReportFormatter.cs" />
+    <Compile Include="../Clonedivers/Ui/UiSoundEffects.cs" Link="Ui/UiSoundEffects.cs" />
   </ItemGroup>
 </Project>
