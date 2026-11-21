@@ -42,6 +42,66 @@ jobs:
               if (Test-Path $source) { Copy-Item $source ("artifacts/windows/$package-$name") }
             }
           }
+      - name: Check Azure Trusted Signing configuration
+        id: check-signing
+        shell: pwsh
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+          AZURE_TENANT_ID: ${{ secrets.AZURE_TENANT_ID }}
+          AZURE_CLIENT_ID: ${{ secrets.AZURE_CLIENT_ID }}
+          AZURE_CLIENT_SECRET: ${{ secrets.AZURE_CLIENT_SECRET }}
+          AZURE_SIGNING_ENDPOINT: ${{ secrets.AZURE_SIGNING_ENDPOINT }}
+          AZURE_SIGNING_ACCOUNT: ${{ secrets.AZURE_SIGNING_ACCOUNT }}
+          AZURE_SIGNING_PROFILE: ${{ secrets.AZURE_SIGNING_PROFILE }}
+        run: |
+          if ($env:EVENT_NAME -eq 'pull_request') {
+            "enabled=false" | Out-File -FilePath $env:GITHUB_OUTPUT -Append -Encoding utf8
+            Write-Host "Skipping Windows Authenticode signing on pull_request event; CI stays green."
+            exit 0
+          }
+          $required = @(
+            'AZURE_TENANT_ID',
+            'AZURE_CLIENT_ID',
+            'AZURE_CLIENT_SECRET',
+            'AZURE_SIGNING_ENDPOINT',
+            'AZURE_SIGNING_ACCOUNT',
+            'AZURE_SIGNING_PROFILE'
+          )
+          $missing = @($required | Where-Object { [string]::IsNullOrWhiteSpace([Environment]::GetEnvironmentVariable($_)) })
+          if ($missing.Count -eq 0) {
+            "enabled=true" | Out-File -FilePath $env:GITHUB_OUTPUT -Append -Encoding utf8
+            Write-Host "Azure Trusted Signing secrets detected; signing artifacts/windows/Clonedivers.exe."
+          } else {
+            "enabled=false" | Out-File -FilePath $env:GITHUB_OUTPUT -Append -Encoding utf8
+            Write-Host "Skipping Windows Authenticode signing: secrets not configured ($($missing -join ', ')). Packaging unsigned binary; see docs/CODE-SIGNING-SETUP.md."
+          }
+      - name: Sign Clonedivers.exe with Azure Trusted Signing
+        if: steps.check-signing.outputs.enabled == 'true'
+        uses: Azure/trusted-signing-action@v2
+        with:
+          azure-tenant-id: ${{ secrets.AZURE_TENANT_ID }}
+          azure-client-id: ${{ secrets.AZURE_CLIENT_ID }}
+          azure-client-secret: ${{ secrets.AZURE_CLIENT_SECRET }}
+          endpoint: ${{ secrets.AZURE_SIGNING_ENDPOINT }}
+          signing-account-name: ${{ secrets.AZURE_SIGNING_ACCOUNT }}
+          certificate-profile-name: ${{ secrets.AZURE_SIGNING_PROFILE }}
+          files: ${{ github.workspace }}\artifacts\windows\Clonedivers.exe
+          file-digest: SHA256
+          timestamp-rfc3161: http://timestamp.acs.microsoft.com
+          timestamp-digest: SHA256
+          description: Clonedivers — Forge Launcher
+          description-url: https://github.com/owendavidgoode/clonedivers
+      - name: Verify Authenticode signature
+        if: steps.check-signing.outputs.enabled == 'true'
+        shell: pwsh
+        run: |
+          $sig = Get-AuthenticodeSignature -LiteralPath artifacts/windows/Clonedivers.exe
+          Write-Host "Authenticode status: $($sig.Status) ($($sig.StatusMessage))"
+          if ($sig.Status -ne 'Valid') { throw "Authenticode signature verification failed: $($sig.Status)" }
+      - name: Package Windows archive and checksums
+        shell: pwsh
+        run: |
+          $exe = Get-Item -LiteralPath artifacts/windows/Clonedivers.exe
           $files = @(Get-ChildItem artifacts/windows -File | Select-Object -ExpandProperty FullName)
           Compress-Archive -LiteralPath $files -DestinationPath artifacts/windows/Clonedivers-windows-2.0.2.zip
           (Get-FileHash $exe.FullName).Hash.ToLowerInvariant() + '  Clonedivers.exe' | Set-Content artifacts/windows/SHA256SUMS -Encoding utf8
