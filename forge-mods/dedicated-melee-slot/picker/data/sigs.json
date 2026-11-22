@@ -1,0 +1,61 @@
+[
+ {
+  "name": "ui_manager",
+  "hex": "38512974474c8b050000000033c0885129413980703a00007632660f1f4400008bc84803c94181bcc8803a000023010000",
+  "mask": "ffffffffffffffff00000000ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff",
+  "anchor": "38512974",
+  "anchor_offset": 0,
+  "extract_offset": 8,
+  "extract_end": 12,
+  "site": "game.dll+0x4ED9C5 in the function at +0x4ED9C0: mov    r8,QWORD PTR [rip+0x2e3949c]        # 0x3326e68",
+  "symbol": "manager"
+ },
+ {
+  "name": "ui_material",
+  "hex": "488bcbe800000000baa1e743d1488bcbe800000000488b15000000004533c0488bcb488b5228e800000000f30f100500000000",
+  "mask": "ffffffff00000000ffffffffffffffffff00000000ffffff00000000ffffffffffffffffffffff00000000ffffffff00000000",
+  "anchor": "baa1e743",
+  "anchor_offset": 8,
+  "extract_offset": 24,
+  "extract_end": 28,
+  "site": "game.dll+0x17D4FA1 in the function at +0x17D4AF0: mov    rdx,QWORD PTR [rip+0x1ff04d0]        # 0x37c5478",
+  "symbol": "material",
+  "optional": true
+ },
+ {
+  "name": "ui_font",
+  "hex": "c74424780000803f41ff9238010000488b0500000000488d1500000000488b1d00000000410f28dc488b4e084c8bc3",
+  "mask": "ffffffffffffffffffffffffffffffffffff00000000ffffff00000000ffffff00000000ffffffffffffffffffffff",
+  "anchor": "3f41ff92",
+  "anchor_offset": 7,
+  "extract_offset": 32,
+  "extract_end": 36,
+  "site": "game.dll+0x140ECF6 in the function at +0x140E3B0: mov    rbx,QWORD PTR [rip+0x236356b]        # 0x3772268",
+  "symbol": "font",
+  "optional": true
+ },
+ {
+  "name": "ui_atlas",
+  "hex": "f3440f592500000000488b3d00000000f3450f108e24010000488b3500000000410f28cc450f28dcf30f590d00000000",
+  "mask": "ffffffffff00000000ffffff00000000ffffffffffffffffffffffff00000000ffffffffffffffffffffffff00000000",
+  "anchor": "108e2401",
+  "anchor_offset": 19,
+  "extract_offset": 28,
+  "extract_end": 32,
+  "site": "game.dll+0x1388054 in the function at +0x1387D00: mov    rsi,QWORD PTR [rip+0x23eae8d]        # 0x3772ee8",
+  "symbol": "atlas",
+  "optional": true
+ },
+ {
+  "name": "input_consume_call",
+  "hex": "0f8500000000f30f10150000000048ba0200000014000000488b0d00000000e800000000488b2d00000000448bde8b3d0000000041ba03000000",
+  "mask": "ffff00000000ffffffff00000000ffffffffffffffffffffffffff00000000ff00000000ffffff00000000ffffffffff00000000ffffffffffff",
+  "anchor": "8bde8b3d",
+  "anchor_offset": 44,
+  "extract_offset": 32,
+  "extract_end": 36,
+  "site": "game.dll+0x83136D in the function at +0x8311C0: call   0x12fde90",
+  "symbol": "input_consume",
+  "optional": true
+ }
+]

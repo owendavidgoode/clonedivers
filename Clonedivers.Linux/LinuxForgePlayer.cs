@@ -11,6 +11,8 @@ internal interface IForgeConnection : IAsyncDisposable
 internal sealed class LinuxForgePreferences
 {
     string enemySkin = "mixed-droids";
+    string squidSkin = "mixed-covenant";
+    bool squidSkinExplicit;
     public int Format { get; set; } = 1;
     public string? InstallRoot { get; set; }
     public string Mode { get; set; } = "clonedivers";
@@ -26,7 +28,17 @@ internal sealed class LinuxForgePreferences
         get => enemySkin;
         set => enemySkin = value;
     }
-    public bool Covenant { get; set; } = true;
+    public bool Covenant
+    {
+        get => squidSkin != "native-squids";
+        set => squidSkin = value ? (squidSkinExplicit && squidSkin == "mixed-covenant" ? "mixed-covenant" : "all-covenant") : "native-squids";
+    }
+    public string SquidSkin
+    {
+        get => squidSkin;
+        set { squidSkin = value; squidSkinExplicit = true; }
+    }
+    public bool DeathTrooperVoice { get; set; } = true;
     public bool AutoPerformanceTier { get; set; } = true;
     public string PerformanceTier { get; set; } = PerformanceTierAdvisor.Auto;
     public bool SoundEffectsEnabled { get; set; } = true;
@@ -86,8 +98,10 @@ internal sealed class LinuxForgePreferences
         if (string.IsNullOrWhiteSpace(PlayerLabel)) PlayerLabel = null;
         else PlayerLabel = PlayerLabel.Trim();
 
-        if (Format != 1 || Mode is not ("regular" or "clonedivers" or "empire") || Texture is not ("full" or "lighter" or "reduced512") ||
+        if (Format != 1 || Mode is not ("regular" or "clonedivers" or "empire") ||
+            Texture is not ("full" or "lighter" or "reduced1024" or "reduced512" or "potato256") ||
             EnemySkin is not ("all-droids" or "mixed-droids" or "native-automatons") ||
+            SquidSkin is not ("all-covenant" or "mixed-covenant" or "native-squids") ||
             !PerformanceTierAdvisor.IsValidPreferenceTier(PerformanceTier) ||
             (LastStepDownSuggestedTier != null && !PerformanceTierAdvisor.IsConcreteTier(LastStepDownSuggestedTier)) ||
             (PendingStepDownReason != null && PendingStepDownReason.Length > 512) ||
@@ -106,7 +120,9 @@ internal sealed class LinuxForgePreferences
             var legacy = LegacyAppearance.ReadFor(file);
             var legacyTexture = legacy.TextureProfile?.Trim().ToLowerInvariant() switch
             {
+                "potato256" or "reduced256" or "reduced-256" => "potato256",
                 "reduced512" or "reduced-512" => "reduced512",
+                "reduced1024" or "reduced-1024" => "reduced1024",
                 "lighter" or "skinny" => "lighter",
                 "full" => "full",
                 _ => null
@@ -117,7 +133,7 @@ internal sealed class LinuxForgePreferences
                 Mode = legacy.Options.GetValueOrDefault("empire") ? "empire" : "clonedivers",
                 DeltaSquad = legacy.Options.GetValueOrDefault("commandos", true),
                 EnemySkin = legacy.Options.TryGetValue("droids", out var legacyDroids) ? (legacyDroids ? "all-droids" : "native-automatons") : "mixed-droids",
-                Covenant = legacy.Options.TryGetValue("covenant", out var legacyCov) ? legacyCov : true,
+                SquidSkin = legacy.Options.TryGetValue("covenant", out var legacyCov) ? (legacyCov ? "all-covenant" : "native-squids") : "mixed-covenant",
                 Texture = legacyTexture ?? "full",
                 AutoPerformanceTier = !hasExplicitTexture,
                 PerformanceTier = !hasExplicitTexture ? PerformanceTierAdvisor.Auto : PerformanceTierAdvisor.TierFromPackTexture(legacyTexture)
@@ -135,8 +151,16 @@ internal sealed class LinuxForgePreferences
                     ? (droidsProp.GetBoolean() ? "all-droids" : "native-automatons")
                     : "all-droids";
             }
-            if (!TryGetJsonProperty(doc.RootElement, "Covenant", out _))
-                value.Covenant = false;
+            if (TryGetJsonProperty(doc.RootElement, "SquidSkin", out var squidProp) && squidProp.ValueKind == JsonValueKind.String)
+            {
+                value.SquidSkin = squidProp.GetString()!;
+            }
+            else
+            {
+                value.SquidSkin = TryGetJsonProperty(doc.RootElement, "Covenant", out var covProp) && covProp.ValueKind is JsonValueKind.True or JsonValueKind.False
+                    ? (covProp.GetBoolean() ? "all-covenant" : "native-squids")
+                    : "native-squids";
+            }
             if (!TryGetJsonProperty(doc.RootElement, "AutoPerformanceTier", out _))
             {
                 value.AutoPerformanceTier = false;
@@ -156,9 +180,21 @@ internal sealed class LinuxForgePreferences
         File.Move(file + ".tmp", file, true);
     }
     internal string[] SelectionCommand() => ["select-mode", "--mode", Mode, "--delta", DeltaSquad ? "yes" : "no", "--texture", Texture,
-        "--droids", Droids ? "yes" : "no", "--covenant", Covenant ? "yes" : "no", "--enemy-skin", EnemySkin];
-    internal HellForgePack.Selection PackSelection() => HellForgePack.PinnedSelection(Mode == "empire" ? "empire" : DeltaSquad ? "commandos" : "clonedivers", Texture,
-        new Dictionary<string, bool> { ["droids"] = Droids, ["covenant"] = Covenant, ["mixed-droids"] = EnemySkin == "mixed-droids" });
+        "--droids", Droids ? "yes" : "no", "--covenant", Covenant ? "yes" : "no", "--enemy-skin", EnemySkin,
+        "--squid-skin", SquidSkin, "--deathtrooper", DeathTrooperVoice ? "yes" : "no"];
+    internal HellForgePack.Selection PackSelection()
+    {
+        var options = new Dictionary<string, bool>
+        {
+            ["droids"] = Droids,
+            ["covenant"] = Covenant,
+            ["mixed-droids"] = EnemySkin == "mixed-droids",
+            ["mixed-covenant"] = SquidSkin == "mixed-covenant"
+        };
+        if (Mode == "empire")
+            options["deathtrooper"] = DeathTrooperVoice;
+        return HellForgePack.PinnedSelection(Mode == "empire" ? "empire" : DeltaSquad ? "commandos" : "clonedivers", Texture, options);
+    }
 }
 internal sealed record ForgeAccountView(bool Captured, bool Imported, string Message)
 {

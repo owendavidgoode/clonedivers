@@ -986,7 +986,9 @@ public static class Pack
             explicitMode != null && string.Equals(id, "commandos", StringComparison.OrdinalIgnoreCase)
                 ? string.Equals(explicitMode, "commandos", StringComparison.OrdinalIgnoreCase)
                 : PackExtras.AlwaysOn(pack, id) || (string.Equals(id, "skinny", StringComparison.OrdinalIgnoreCase) ? profile != "full" : optionEnabled(id));
-        bool Enabled(string id) => RawEnabled(id) || (string.Equals(id, "droids", StringComparison.OrdinalIgnoreCase) && (RawEnabled("mixed-droids") || RawEnabled("mixed_droids")));
+        bool Enabled(string id) => RawEnabled(id)
+            || (string.Equals(id, "droids", StringComparison.OrdinalIgnoreCase) && (RawEnabled("mixed-droids") || RawEnabled("mixed_droids")))
+            || (string.Equals(id, "covenant", StringComparison.OrdinalIgnoreCase) && (RawEnabled("mixed-covenant") || RawEnabled("mixed_covenant")));
         var mode = explicitMode ?? (LauncherModes.SupportsEmpire(pack) && Enabled(LauncherModes.EmpireOption) ? "empire" :
             (pack.TextureProfiles.Count > 0 || pack.Options.Any(o => string.Equals(o.Id, "commandos", StringComparison.OrdinalIgnoreCase))) && Enabled("commandos") ? "commandos" : "clonedivers");
         var kept = pack.Files.Where(f => PackProfiles.Includes(f, mode, profile) && (f.Option is null || Enabled(f.Option)) && (f.UnlessOption is null || !Enabled(f.UnlessOption))).Select(f => f.Clone()).ToList();

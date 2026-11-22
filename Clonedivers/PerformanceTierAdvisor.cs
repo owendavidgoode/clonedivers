@@ -57,11 +57,11 @@ public static class PerformanceTierAdvisor
             Id: Balanced,
             DisplayName: "Balanced",
             ShortLabel: "Balanced",
-            Description: "Balanced streamed textures for 6–8 GB GPUs and gaming laptops (ready for 1024px tier in v2.1).",
-            MappedPackTexture: "lighter",
+            Description: "1024px streamed Star Wars textures for 6–8 GB GPUs and gaming laptops.",
+            MappedPackTexture: "reduced1024",
             RecommendedMinVramGb: 6.0,
             RecommendedMinRamGb: 16.0,
-            PlannedFutureProfile: "1024px"),
+            PlannedFutureProfile: "reduced1024"),
         new(
             Id: Low512,
             DisplayName: "Low VRAM (512px)",
@@ -70,16 +70,16 @@ public static class PerformanceTierAdvisor
             MappedPackTexture: "reduced512",
             RecommendedMinVramGb: 4.0,
             RecommendedMinRamGb: 8.0,
-            PlannedFutureProfile: "512px"),
+            PlannedFutureProfile: "reduced512"),
         new(
             Id: UltraPotato,
             DisplayName: "Ultra Potato",
             ShortLabel: "Ultra Potato",
-            Description: "Lowest-memory 512px preset for <= 4 GB or integrated GPUs (ready for 256px + decimated meshes in v2.1).",
-            MappedPackTexture: "reduced512",
+            Description: "Lowest-memory 256px textures + decimated meshes for <= 4 GB or integrated GPUs.",
+            MappedPackTexture: "potato256",
             RecommendedMinVramGb: 0.0,
             RecommendedMinRamGb: 8.0,
-            PlannedFutureProfile: "256px-decimated")
+            PlannedFutureProfile: "potato256")
     ];
 
     public static bool IsValidPreferenceTier(string? tierId) =>
@@ -91,8 +91,10 @@ public static class PerformanceTierAdvisor
     public static string TierFromPackTexture(string? texture) => texture?.Trim().ToLowerInvariant() switch
     {
         "full" => Ultra,
-        "lighter" or "skinny" => Balanced,
+        "lighter" or "skinny" => High,
+        "reduced1024" or "reduced-1024" => Balanced,
         "reduced512" or "reduced-512" => Low512,
+        "potato256" or "reduced256" or "reduced-256" => UltraPotato,
         _ => Balanced
     };
 
@@ -105,10 +107,10 @@ public static class PerformanceTierAdvisor
         {
             Auto => (hardware ?? ScanHardware()).RecommendedTierId,
             Ultra or "full" => Ultra,
-            High => High,
-            Balanced or "lighter" or "skinny" or "reduced1024" or "reduced-1024" => Balanced,
+            High or "lighter" or "skinny" => High,
+            Balanced or "reduced1024" or "reduced-1024" => Balanced,
             Low512 or "reduced512" or "reduced-512" => Low512,
-            UltraPotato or "reduced256" or "reduced-256" => UltraPotato,
+            UltraPotato or "potato256" or "reduced256" or "reduced-256" => UltraPotato,
             _ => Balanced
         };
     }

@@ -1,10 +1,12 @@
-Chaos Invasions 0.3.0 (`clonedivers.chaos-invasions`) is playable cross-faction
+Chaos Invasions 0.3.2 (`clonedivers.chaos-invasions`) is playable cross-faction
 Chaos Mode for HellForge SDK 16 / Helldivers 2 build 25480438.
 
-2-4 Player Co-op Hardening (0.3.0):
-- All-peer `PreloadForeignFactionPackages()` across `HF_STATE_PREPARE_MISSION` and
-  `HF_STATE_MISSION` (with SDK 16 `HF_ON_MESSAGE` readiness reporting and late-join
-  preload barrier).
+2-4 Player Co-op & D11 Mega City OOM Hardening (0.3.2):
+- Strictly defers all foreign package preloading until `HF_STATE_MISSION` (zero
+  foreign package requests during `HF_STATE_PREPARE_MISSION` level generation and
+  `RenderTerrainLightingMaps`), with a `1.0s` post-drop settle and smooth
+  faction-by-faction `RefcountedPackageRequest` pacing (`6` pkgs/sec, max `2`/tick),
+  plus SDK 16 `HF_ON_MESSAGE` readiness reporting and late-join preload barrier.
 - Strict authoritative Host execution (`Host()` + `hf->is_authority`) for spawns,
   Director scopes, Cargo patches, and perception narrowing.
 - Mid-mission host migration continuity via client passive foreign-spawn tracking

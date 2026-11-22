@@ -85,6 +85,8 @@ public static class PackProfiles
         }
         if (requirements.TryGetValue("mixed-droids", out var mixed) && mixed && !Require("droids", true)) return false;
         if (requirements.TryGetValue("mixed_droids", out var mixedUnder) && mixedUnder && !Require("droids", true)) return false;
+        if (requirements.TryGetValue("mixed-covenant", out var mixedCov) && mixedCov && !Require("covenant", true)) return false;
+        if (requirements.TryGetValue("mixed_covenant", out var mixedCovUnder) && mixedCovUnder && !Require("covenant", true)) return false;
         return true;
         bool Require(string? id, bool value)
         {

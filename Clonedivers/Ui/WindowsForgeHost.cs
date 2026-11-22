@@ -48,10 +48,13 @@ public sealed class WindowsForgeHost : IForgeUiHost
     bool selfInstallEligible;
     bool selfInstallDismissed;
     bool sessionWasActive;
+    bool gameProcessObserved;
     DateTimeOffset? sessionStartUtc;
     string? lastProcessedSessionKey;
     CrashTriageResult? lastTriage;
     AppRelease? launcherRelease;
+
+    internal Func<bool> IsGameProcessRunning { get; set; } = Game.IsRunning;
 
     OperationProgress? activeProgress;
     string? lastError;
@@ -110,7 +113,17 @@ public sealed class WindowsForgeHost : IForgeUiHost
             preferences.IsRegular ? "No pack download needed" : "Estimating size…",
             "Checking local cache…");
 
-        homeTimer.Tick += async (_, _) => { if (!inSetup) await RefreshAsync(); };
+        homeTimer.Tick += async (_, _) =>
+        {
+            if (inSetup) return;
+            if (lastStatus?.Running == true && !gameProcessObserved && SyncGameProcessObserved())
+            {
+                homeTimer.Interval = TimeSpan.FromSeconds(5);
+                taskbarProgress?.Invoke(null);
+                Notify();
+            }
+            await RefreshAsync();
+        };
         setupTimer.Tick += async (_, _) => { if (inSetup) await PollSetupAsync(); };
     }
 
@@ -141,11 +154,30 @@ public sealed class WindowsForgeHost : IForgeUiHost
         }
     }
 
+    bool SyncGameProcessObserved()
+    {
+        if (lastStatus?.Running != true)
+        {
+            gameProcessObserved = false;
+            return false;
+        }
+        if (!gameProcessObserved && (lastStatus.GameLaunched == true || IsGameProcessRunning()))
+            gameProcessObserved = true;
+        return gameProcessObserved;
+    }
+
+    bool IsPreWindowLaunching => lastStatus?.Running == true && !SyncGameProcessObserved();
+
     public bool CanClose(out string? reason)
     {
         if (working || setupBusy)
         {
             reason = "Wait for the current step to finish, or cancel the active download first.";
+            return false;
+        }
+        if (IsPreWindowLaunching)
+        {
+            reason = "Helldivers 2 is still launching (usually 15–30 seconds). Wait for the game window, or click Cancel Launch first.";
             return false;
         }
         reason = null;
@@ -175,7 +207,7 @@ public sealed class WindowsForgeHost : IForgeUiHost
         }
         var details = ForgeTacticalCopy.DiscordPresenceDetails(preferences.Mode, preferences.DeltaSquad);
         var state = $"Squad {ComputeSquadMatchHash()} · Build {HellForgePack.SupportedBuild}";
-        discordRpc.SetPresence(state, details);
+        discordRpc.SetPresence(state, details, ForgeTacticalCopy.DiscordPresenceImageKey(preferences.Mode));
     }
 
     void TrySyncHostMutatorFile(string? installRoot)
@@ -195,6 +227,9 @@ public sealed class WindowsForgeHost : IForgeUiHost
             ? Math.Max(0d, (DateTimeOffset.UtcNow - started).TotalSeconds)
             : null;
         sessionWasActive = false;
+        gameProcessObserved = false;
+        homeTimer.Interval = TimeSpan.FromSeconds(5);
+        taskbarProgress?.Invoke(null);
         sessionStartUtc = null;
         UpdateDiscordPresence(running: false);
 
@@ -306,7 +341,7 @@ public sealed class WindowsForgeHost : IForgeUiHost
     bool IsSelectionAppliedOnDisk()
     {
         if (lastStatus == null || lastMods == null) return false;
-        var ours = lastMods.Mods.Where(m => m.Enabled && HellForgePack.IsOurPack(m.Id)).ToArray();
+        var ours = lastMods.Mods.Where(m => m.Enabled && HellForgePack.IsStarWarsOverhaulMod(m)).ToArray();
         if (preferences.IsRegular) return ours.Length == 0 && lastStatus.Multiplayer && lastStatus.LocalBackend;
         return preferences.AppliedSelection == preferences.SelectionKey
             && ours.Length == 1
@@ -350,7 +385,8 @@ public sealed class WindowsForgeHost : IForgeUiHost
                 lastStatus = null; lastMods = null; lastAccount = null;
                 lastModsFingerprint = lastAccountFingerprint = null;
                 syncRequested = false; warbondsPending = false; lastError = null;
-                sessionWasActive = false;
+                sessionWasActive = false; gameProcessObserved = false;
+                homeTimer.Interval = TimeSpan.FromSeconds(5);
                 UpdateDiscordPresence(running: false);
                 (captureBlock, captureBlockUnreadable) = ReadCaptureBlock();
                 return;
@@ -360,7 +396,16 @@ public sealed class WindowsForgeHost : IForgeUiHost
             var client = CreateClient(root);
             var status = await client.StatusAsync(lifetime.Token);
             if (root != preferences.InstallRoot) return;
+            var wasPreWindow = lastStatus?.Running == true && !gameProcessObserved;
             lastStatus = status;
+            SyncGameProcessObserved();
+            homeTimer.Interval = status.Running && !gameProcessObserved
+                ? TimeSpan.FromMilliseconds(1500)
+                : TimeSpan.FromSeconds(5);
+            if (status.Running && !gameProcessObserved)
+                taskbarProgress?.Invoke(new OperationProgress(ForgeTacticalCopy.LaunchingHeadline, ForgeTacticalCopy.LaunchingDetail, IsIndeterminate: true, CanCancel: false));
+            else if (wasPreWindow && activeProgress == null)
+                taskbarProgress?.Invoke(null);
 
             if (status.Running)
             {
@@ -530,19 +575,26 @@ public sealed class WindowsForgeHost : IForgeUiHost
             InstallRoot: preferences.InstallRoot,
             AccountImported: lastAccount?.Imported == true,
             IsModeAppliedOnDisk: IsSelectionAppliedOnDisk(),
-            Progress: activeProgress,
+            Progress: activeProgress ?? (!working && IsPreWindowLaunching
+                ? new OperationProgress(ForgeTacticalCopy.LaunchingHeadline, ForgeTacticalCopy.LaunchingDetail, IsIndeterminate: true, CanCancel: false)
+                : null),
             UpdateBanner: banner,
             SizePreview: cachedSizePreview,
             ToastNotice: toastNotice,
             StepDownBanner: ResolveStepDownBanner(),
             SelfInstallBanner: ResolveSelfInstallBanner(),
-            MinimizeToTray: preferences.MinimizeToTray);
+            MinimizeToTray: preferences.MinimizeToTray,
+            SquidSkin: preferences.SquidSkin,
+            DeathTrooperVoice: preferences.DeathTrooperVoice);
     }
 
     (string Badge, ForgeHeroTone BadgeTone, string Headline, string Detail, string Cta, bool Enabled, ForgeHeroTone CtaTone, string? Secondary) ResolveHomePresentation()
     {
         if (working)
         {
+            if (string.Equals(activeProgress?.Stage, ForgeTacticalCopy.LaunchingHeadline, StringComparison.Ordinal))
+                return ("Launching…", ForgeHeroTone.Running, ForgeTacticalCopy.LaunchingHeadline,
+                    ForgeTacticalCopy.LaunchingDetail, ForgeTacticalCopy.LaunchingPrimaryButton, false, ForgeHeroTone.Neutral, null);
             bool canCancel = activeProgress?.CanCancel == true;
             var pct = activeProgress?.Percent is { } p ? $" · {p}%" : "";
             return ("Working" + pct, ForgeHeroTone.Running, activeProgress?.Stage ?? "Working…",
@@ -550,10 +602,16 @@ public sealed class WindowsForgeHost : IForgeUiHost
                 canCancel ? "CANCEL" : "WORKING…", canCancel, canCancel ? ForgeHeroTone.Danger : ForgeHeroTone.Neutral, null);
         }
         if (lastStatus?.Running == true)
-            return ("Session Active", ForgeHeroTone.Running, "HellForge session is running",
-                "End the session here when you finish playing so cleanup completes cleanly.",
+        {
+            if (!SyncGameProcessObserved())
+                return ("Launching…", ForgeHeroTone.Running, ForgeTacticalCopy.LaunchingHeadline,
+                    ForgeTacticalCopy.LaunchingDetail,
+                    ForgeTacticalCopy.LaunchingPrimaryButton, false, ForgeHeroTone.Neutral, ForgeTacticalCopy.CancelLaunchButton);
+            return ("Session Active", ForgeHeroTone.Running, ForgeTacticalCopy.RunningHeadline,
+                ForgeTacticalCopy.RunningDetail,
                 "END SESSION", true, ForgeHeroTone.Running, null);
-        if (Game.IsRunning())
+        }
+        if (IsGameProcessRunning())
             return ("Game Running", ForgeHeroTone.Warning, "Helldivers 2 is running",
                 "Close Helldivers 2 before changing mods or starting a HellForge session.",
                 "CLOSE GAME FIRST", false, ForgeHeroTone.Neutral, null);
@@ -686,7 +744,7 @@ public sealed class WindowsForgeHost : IForgeUiHost
         return Task.CompletedTask;
     }
 
-    public Task UpdateCustomizationAsync(string enemySkin, bool deltaSquad, bool covenant, string texture)
+    public Task UpdateCustomizationAsync(string enemySkin, bool deltaSquad, bool covenant, string texture, string? squidSkin = null, bool? deathTrooperVoice = null)
     {
         if (working || lastStatus?.Running == true) return Task.CompletedTask;
         try
@@ -694,7 +752,9 @@ public sealed class WindowsForgeHost : IForgeUiHost
             operationFailure = null;
             preferences.EnemySkin = enemySkin;
             preferences.DeltaSquad = deltaSquad;
-            preferences.Covenant = covenant;
+            if (squidSkin != null) preferences.SquidSkin = squidSkin;
+            else preferences.Covenant = covenant;
+            if (deathTrooperVoice is { } dt) preferences.DeathTrooperVoice = dt;
             if (!string.Equals(preferences.Texture, texture, StringComparison.OrdinalIgnoreCase))
             {
                 preferences.Texture = texture;
@@ -838,8 +898,12 @@ public sealed class WindowsForgeHost : IForgeUiHost
             if (activeProgress?.CanCancel == true) workCts?.Cancel();
             return;
         }
-        if (lastStatus?.Running == true) { await EndSessionAsync(); return; }
-        if (Game.IsRunning()) return;
+        if (lastStatus?.Running == true)
+        {
+            if (SyncGameProcessObserved()) await EndSessionAsync();
+            return;
+        }
+        if (IsGameProcessRunning()) return;
         if (installationMissing || preferences.InstallRoot == null || lastStatus is { GameCopyReady: false } or { RunnerReady: false } || lastStatus?.CompatibilityProblem != null)
         {
             await EnterSetupAsync();
@@ -894,6 +958,11 @@ public sealed class WindowsForgeHost : IForgeUiHost
     public async Task TriggerSecondaryActionAsync()
     {
         if (working) return;
+        if (IsPreWindowLaunching)
+        {
+            await EndSessionAsync();
+            return;
+        }
         await LocateInstallAsync();
     }
 
@@ -1073,7 +1142,7 @@ public sealed class WindowsForgeHost : IForgeUiHost
         var profile = await HellForgeForm.EnsureAccountAction(client, ct);
         if (preferences.IsRegular)
         {
-            SetProgress(new("Starting HellForge session", "Launching Regular Helldivers 2…", IsIndeterminate: true, CanCancel: false));
+            SetProgress(new(ForgeTacticalCopy.LaunchingHeadline, ForgeTacticalCopy.LaunchingDetail, IsIndeterminate: true, CanCancel: false));
             await Task.Run(() => client.PlayRegularAsync(ct, profile), ct);
         }
         else
@@ -1085,26 +1154,41 @@ public sealed class WindowsForgeHost : IForgeUiHost
                 var (rate, eta) = speed.Update(p.Done, p.Total);
                 throttler.Report(new("Verifying Star Wars files", "Fast layout verification before launch", 0, 0, p.Done, p.Total, rate, eta, CanCancel: true));
             });
-            var statusReport = new SyncProgress<string>(msg => SetProgress(new(msg, null, IsIndeterminate: true, CanCancel: false)));
+            var statusReport = new SyncProgress<string>(msg =>
+            {
+                if (msg.StartsWith("Starting HellForge", StringComparison.OrdinalIgnoreCase))
+                    SetProgress(new(ForgeTacticalCopy.LaunchingHeadline, ForgeTacticalCopy.LaunchingDetail, IsIndeterminate: true, CanCancel: false));
+                else
+                    SetProgress(new(msg, null, IsIndeterminate: true, CanCancel: false));
+            });
             await Task.Run(() => client.PlayAsync(preferences.Selection(), ct, profile, statusReport, bytes), ct);
         }
 
+        var launchedNow = IsGameProcessRunning();
+        lastStatus = lastStatus != null ? lastStatus with { Running = true, GameLaunched = launchedNow ? true : null } : null;
+        gameProcessObserved = launchedNow;
+        homeTimer.Interval = launchedNow ? TimeSpan.FromSeconds(5) : TimeSpan.FromMilliseconds(1500);
         sessionWasActive = true;
         sessionStartUtc = DateTimeOffset.UtcNow;
         UpdateDiscordPresence(running: true);
-        toastNotice = "HellForge accepted the launch — session status updates automatically.";
+        toastNotice = null;
     }
 
     async Task EndSessionAsync() => await RunWorkAsync(async ct =>
     {
         var root = preferences.InstallRoot!;
-        SetProgress(new("Ending HellForge session", "Closing game and completing sandbox cleanup…", IsIndeterminate: true, CanCancel: false));
+        bool cancellingLaunch = lastStatus?.Running == true && !gameProcessObserved;
+        SetProgress(new(cancellingLaunch ? "Cancelling launch…" : "Ending HellForge session",
+            cancellingLaunch ? "Stopping staging and completing sandbox cleanup…" : "Closing game and completing sandbox cleanup…",
+            IsIndeterminate: true, CanCancel: false));
         var client = CreateClient(root);
         await client.EndSessionAsync(ct);
         var afterStatus = await client.StatusAsync(ct);
         HandleSessionEnded(root, afterStatus);
         if (lastTriage is { Kind: CrashKind.Clean })
-            toastNotice = "Session ended and HellForge cleanup is complete.";
+            toastNotice = cancellingLaunch
+                ? "Launch cancelled and HellForge cleanup is complete."
+                : "Session ended and HellForge cleanup is complete.";
     });
 
     public async Task CleanCacheAsync()
@@ -1798,7 +1882,9 @@ public sealed class WindowsForgeHost : IForgeUiHost
             hardware: cachedHardware,
             installRoot: installRoot,
             triage: triage,
-            redactUserPaths: true);
+            redactUserPaths: true,
+            squidSkin: preferences.SquidSkin,
+            deathTrooperVoice: preferences.DeathTrooperVoice);
 
         var health = new List<ForgeHealthItem>
         {
@@ -1824,7 +1910,7 @@ public sealed class WindowsForgeHost : IForgeUiHost
         sb.AppendLine($"Squad Match: {matchHash}");
         sb.AppendLine($"Installation: {installRoot ?? "Not selected"}");
         sb.AppendLine($"Disk Usage: {ForgeTacticalCopy.FormatDiskUsageSummary(disk, hasInstall)}");
-        sb.AppendLine($"Selected Mode: {preferences.Mode} · EnemySkin={preferences.EnemySkin} · Delta={preferences.DeltaSquad} · Covenant={preferences.Covenant} · PerfTier={preferences.PerformanceTier} · Texture={preferences.Texture}");
+        sb.AppendLine($"Selected Mode: {preferences.Mode} · EnemySkin={preferences.EnemySkin} · SquidSkin={preferences.SquidSkin} · Delta={preferences.DeltaSquad} · DeathTrooperVoice={preferences.DeathTrooperVoice} · PerfTier={preferences.PerformanceTier} · Texture={preferences.Texture}");
         sb.AppendLine($"Host Rules: Chaos={preferences.HostChaosIntensity} · HeavySeaf={preferences.HostHeavySeaf} · FasterCorpseCleanup={preferences.HostFasterCorpseCleanup}");
         sb.AppendLine($"Hardware: {cachedHardware.GpuName} ({cachedHardware.VramGb:0.#} GB VRAM, {cachedHardware.RamGb:0.#} GB RAM)");
         sb.AppendLine($"Account: {lastAccount?.Message ?? "Not checked"}");

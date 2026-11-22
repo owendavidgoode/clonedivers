@@ -12,15 +12,73 @@ internal static class LinuxForgePlayerTests
             "Linux embeds and validates the r7 gameplay catalog with all six optional mods");
         var brandNewLinux = LinuxForgePreferences.Load(Path.Combine(root, "brand-new-linux", "forge.json"));
         check(brandNewLinux.Mode == "clonedivers" && brandNewLinux.EnemySkin == "mixed-droids" && brandNewLinux.Covenant &&
+            brandNewLinux.SquidSkin == "mixed-covenant" && brandNewLinux.DeathTrooperVoice &&
             brandNewLinux.DeltaSquad && brandNewLinux.AutoPerformanceTier && brandNewLinux.PerformanceTier == "auto" &&
             brandNewLinux.SoundEffectsEnabled && brandNewLinux.DiscordRpcEnabled && !brandNewLinux.MinimizeToTray &&
             brandNewLinux.HostChaosIntensity == "standard" && brandNewLinux.HostHeavySeaf == "standard" && brandNewLinux.HostFasterCorpseCleanup,
-            "brand-new Linux installs default to the full-variety mix (mixed-droids, Covenant=true, DeltaSquad=true) and AutoPerformanceTier=true");
+            "brand-new Linux installs default to the full-variety mix (mixed-droids, SquidSkin=mixed-covenant, DeathTrooperVoice=true, DeltaSquad=true) and AutoPerformanceTier=true");
         var legacyLinuxPath = Path.Combine(root, "legacy-linux-forge.json");
         File.WriteAllText(legacyLinuxPath, """{"Format":1,"Mode":"clonedivers","Texture":"lighter"}""");
         var legacyLinux = LinuxForgePreferences.Load(legacyLinuxPath);
-        check(legacyLinux.EnemySkin == "all-droids" && !legacyLinux.Covenant && !legacyLinux.AutoPerformanceTier && legacyLinux.PerformanceTier == "balanced",
-            "existing saved Linux forge.json files preserve legacy EnemySkin, Covenant=false, and AutoPerformanceTier=false");
+        check(legacyLinux.EnemySkin == "all-droids" && !legacyLinux.Covenant && legacyLinux.SquidSkin == "native-squids" &&
+            !legacyLinux.AutoPerformanceTier && legacyLinux.PerformanceTier == "high",
+            "existing saved Linux forge.json files preserve legacy EnemySkin, Covenant=false (native-squids), and AutoPerformanceTier=false");
+
+        var legacyLinuxCovTruePath = Path.Combine(root, "legacy-linux-cov-true.json");
+        File.WriteAllText(legacyLinuxCovTruePath, """{"Format":1,"Mode":"clonedivers","Covenant":true}""");
+        var legacyLinuxCovTrue = LinuxForgePreferences.Load(legacyLinuxCovTruePath);
+        check(legacyLinuxCovTrue.SquidSkin == "all-covenant" && legacyLinuxCovTrue.Covenant && legacyLinuxCovTrue.DeathTrooperVoice,
+            "existing Linux forge.json with Covenant=true (no SquidSkin) upgrades cleanly to SquidSkin='all-covenant'");
+
+        // Milestone 2: all 5 texture profiles + 3-way SquidSkin + DeathTrooperVoice + SelectionCommand flags on Linux
+        foreach (var tex in new[] { "full", "lighter", "reduced1024", "reduced512", "potato256" })
+        {
+            var lp = new LinuxForgePreferences
+            {
+                Mode = "empire",
+                Texture = tex,
+                AutoPerformanceTier = false,
+                PerformanceTier = PerformanceTierAdvisor.TierFromPackTexture(tex),
+                SquidSkin = "mixed-covenant",
+                DeathTrooperVoice = false
+            };
+            lp.Validate();
+            var cmd = lp.SelectionCommand();
+            var sel = lp.PackSelection();
+            var expectedResolved = tex == "reduced1024" ? "lighter" : tex == "potato256" ? "reduced512" : tex;
+            check(sel.Texture == expectedResolved &&
+                  sel.Options["covenant"] &&
+                  cmd.Contains("--squid-skin") && cmd.Contains("mixed-covenant") &&
+                  cmd.Contains("--deathtrooper") && cmd.Contains("no"),
+                  $"LinuxForgePreferences accepts texture '{tex}', emits --squid-skin/--deathtrooper, and resolves r48 fallback cleanly");
+        }
+
+        // #67 Pre-window launching UX on LinuxForgeHost ("Launching Helldivers 2 — please wait…" + "Cancel Launch" -> "Helldivers 2 is running" + "END SESSION")
+        await using (var linuxLaunching = new LinuxForgeHost(["--forge-preview", "launching"]))
+        {
+            var st = linuxLaunching.GetHomeState();
+            check(st.IsSessionRunning &&
+                  st.HeaderBadgeText == "Launching…" &&
+                  st.Headline == ForgeTacticalCopy.LaunchingHeadline &&
+                  st.Detail == ForgeTacticalCopy.LaunchingDetail &&
+                  st.PrimaryActionLabel == ForgeTacticalCopy.LaunchingPrimaryButton &&
+                  !st.PrimaryActionEnabled &&
+                  st.SecondaryActionLabel == ForgeTacticalCopy.CancelLaunchButton &&
+                  st.Progress is { IsIndeterminate: true },
+                  "LinuxForgeHost shows 'Launching Helldivers 2 — please wait…', pulsing progress, disabled primary CTA, and 'Cancel Launch' while staging (#67)");
+        }
+        await using (var linuxRunning = new LinuxForgeHost(["--forge-preview", "running"]))
+        {
+            var st = linuxRunning.GetHomeState();
+            check(st.IsSessionRunning &&
+                  st.HeaderBadgeText == "Session Active" &&
+                  st.Headline == ForgeTacticalCopy.RunningHeadline &&
+                  st.PrimaryActionLabel == "END SESSION" &&
+                  st.PrimaryActionEnabled &&
+                  st.SecondaryActionLabel == null &&
+                  st.Progress == null,
+                  "LinuxForgeHost transitions to 'Helldivers 2 is running' + primary 'END SESSION' once game is running (#67)");
+        }
 
         var legacy512LinuxDir = Path.Combine(root, "legacy-linux-config-512");
         Directory.CreateDirectory(legacy512LinuxDir);

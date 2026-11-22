@@ -99,7 +99,7 @@ public static class Diagnostics
     static string ProfileToken(string? value) => value?.ToLowerInvariant() switch
     {
         "full" => "Full", "skinny" => "Lighter", "lighter" => "Lighter", "reduced" => "Reduced",
-        "reduced1024" or "reduced-1024" => "Reduced 1024", "reduced512" or "reduced-512" => "Reduced 512", null or "" => "not recorded (legacy options may apply)", _ => "unrecognized profile"
+        "reduced1024" or "reduced-1024" => "Reduced 1024", "reduced512" or "reduced-512" => "Reduced 512", "potato256" or "reduced256" or "reduced-256" => "Ultra-Potato 256", null or "" => "not recorded (legacy options may apply)", _ => "unrecognized profile"
     };
     public static string GiB(ulong bytes) => (bytes / 1073741824d).ToString("0.00", CultureInfo.InvariantCulture) + " GiB";
     static string OneLine(string text) => Regex.Replace(text, @"[\r\n\t\p{C}]", " ").Trim();

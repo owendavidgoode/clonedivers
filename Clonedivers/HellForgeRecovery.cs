@@ -131,7 +131,7 @@ public sealed partial class HellForgeClient
         }
         else if (snapshot.Files.Count != 0) throw new InvalidDataException("The saved appearance backup does not match its selection.");
         var current = await ModsAsync(ct);
-        HellForgeMods Unrelated(HellForgeMods catalog) => catalog with { Mods = catalog.Mods.Where(m => !HellForgePack.IsOurPack(m.Id) && m.Id != DifficultyId).ToList() };
+        HellForgeMods Unrelated(HellForgeMods catalog) => catalog with { Mods = catalog.Mods.Where(m => !HellForgePack.IsStarWarsOverhaulMod(m) && m.Id != DifficultyId).ToList() };
         if (current.Problems.Length != 0 || PackState(Unrelated(current)) != PackState(Unrelated(snapshot.Mods)))
             throw new InvalidDataException("Other gameplay mods changed after the interrupted appearance operation. Review the saved snapshot before recovering; those choices were not overwritten.");
         await RequireIdleAsync(ct);

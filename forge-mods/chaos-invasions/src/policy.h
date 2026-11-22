@@ -1,4 +1,4 @@
-/* Chaos Invasions 0.3.0 policy, native pins, geometry/cap/map guards, co-op sync packets, and faction helpers.
+/* Chaos Invasions 0.3.2 policy, native pins, geometry/cap/map guards, co-op sync packets, and faction helpers.
  * Pure C helpers here have no engine dependencies and are directly unit-tested offline. */
 #ifndef CHAOS_POLICY_H
 #define CHAOS_POLICY_H
@@ -9,6 +9,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include "clonedivers_host_options.h"
 
 enum { CHAOS_BOTS = 0, CHAOS_SQUIDS = 1, CHAOS_BUGS = 2, CHAOS_FACTIONS = 3 };
 
@@ -30,6 +31,30 @@ static ChaosConfig ChaosDefaults(void)
 {
     ChaosConfig c = {1, 150, 45, 12, 6, 4, 36, 100, 80, 100};
     return c;
+}
+
+/* Applies Clonedivers Launcher host intensity preset ("off" / "standard" / "total-war")
+ * within bounded ChaosOption / menu_bridge.lua invariants while keeping mod ContentHash identical. */
+static inline void ChaosApplyHostIntensity(ChaosConfig* out, const ChaosConfig* base_ini, CdChaosIntensity mode)
+{
+    ChaosConfig base = base_ini ? *base_ini : ChaosDefaults();
+    *out = base;
+    if (mode == CD_CHAOS_OFF) {
+        out->enabled = 0;
+    } else if (mode == CD_CHAOS_TOTAL_WAR) {
+        out->enabled = 1;
+        out->cooldown = 75;
+        out->grace = 30;
+        out->total_cap = 20;
+        out->faction_cap = 10;
+        out->squad_size = 6;
+        out->mission_budget = 72;
+        out->bots_weight = 100;
+        out->squids_weight = 100;
+        out->bugs_weight = 100;
+    } else {
+        out->enabled = 1;
+    }
 }
 
 /* Full-line, bounded integers. Reject unknown keys, overflow and trailing junk. */

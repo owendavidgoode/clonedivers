@@ -6,6 +6,8 @@ namespace Clonedivers;
 public sealed class HellForgePreferences
 {
     string enemySkin = "mixed-droids";
+    string squidSkin = "mixed-covenant";
+    bool squidSkinExplicit;
     public int Format { get; set; } = 1;
     public string? InstallRoot { get; set; }
     public string Mode { get; set; } = "clonedivers";
@@ -23,7 +25,17 @@ public sealed class HellForgePreferences
         get => enemySkin;
         set => enemySkin = value;
     }
-    public bool Covenant { get; set; } = true;
+    public bool Covenant
+    {
+        get => squidSkin != "native-squids";
+        set => squidSkin = value ? (squidSkinExplicit && squidSkin == "mixed-covenant" ? "mixed-covenant" : "all-covenant") : "native-squids";
+    }
+    public string SquidSkin
+    {
+        get => squidSkin;
+        set { squidSkin = value; squidSkinExplicit = true; }
+    }
+    public bool DeathTrooperVoice { get; set; } = true;
     public bool AutoPerformanceTier { get; set; } = true;
     public string PerformanceTier { get; set; } = PerformanceTierAdvisor.Auto;
     public bool SoundEffectsEnabled { get; set; } = true;
@@ -40,9 +52,11 @@ public sealed class HellForgePreferences
     public bool IsRegular => Mode == "regular";
     public string PackMode => IsRegular ? "regular" : Mode == "empire" ? "empire" : DeltaSquad ? "commandos" : "clonedivers";
     string EnemyKeySegment => enemySkin == "mixed-droids" ? "mixed-droids" : Droids.ToString();
+    string SquidKeySegment => squidSkin == "mixed-covenant" ? "mixed-covenant" : Covenant.ToString();
+    string EmpireVoiceSuffix => DeathTrooperVoice ? "" : "/deathtrooper-off";
     public string SelectionKey => IsRegular ? $"regular/{HellForgePack.SupportedBuild}" :
-        Mode == "empire" ? $"r48/{HellForgePack.SupportedBuild}/empire/{Texture}/{EnemyKeySegment}/{Covenant}" :
-        $"r20/{HellForgePack.SupportedBuild}/{PackMode}/{Texture}/{EnemyKeySegment}/{Covenant}";
+        Mode == "empire" ? $"r48/{HellForgePack.SupportedBuild}/empire/{Texture}/{EnemyKeySegment}/{SquidKeySegment}{EmpireVoiceSuffix}" :
+        $"r20/{HellForgePack.SupportedBuild}/{PackMode}/{Texture}/{EnemyKeySegment}/{SquidKeySegment}";
     internal static string? CustomPreferencesPath()
     {
         var custom = Environment.GetEnvironmentVariable("CLONEDIVERS_FORGE_PREFS");
@@ -96,7 +110,9 @@ public sealed class HellForgePreferences
             var legacy = LegacyAppearance.ReadFor(path);
             var legacyTexture = legacy.TextureProfile?.Trim().ToLowerInvariant() switch
             {
+                "potato256" or "reduced256" or "reduced-256" => "potato256",
                 "reduced512" or "reduced-512" => "reduced512",
+                "reduced1024" or "reduced-1024" => "reduced1024",
                 "lighter" or "skinny" => "lighter",
                 "full" => "full",
                 _ => null
@@ -107,7 +123,7 @@ public sealed class HellForgePreferences
                 Mode = legacy.Options.GetValueOrDefault("empire") ? "empire" : "clonedivers",
                 DeltaSquad = legacy.Options.GetValueOrDefault("commandos", true),
                 EnemySkin = legacy.Options.TryGetValue("droids", out var legacyDroids) ? (legacyDroids ? "all-droids" : "native-automatons") : "mixed-droids",
-                Covenant = legacy.Options.TryGetValue("covenant", out var legacyCov) ? legacyCov : true,
+                SquidSkin = legacy.Options.TryGetValue("covenant", out var legacyCov) ? (legacyCov ? "all-covenant" : "native-squids") : "mixed-covenant",
                 Texture = legacyTexture ?? "full",
                 AutoPerformanceTier = !hasExplicitTexture,
                 PerformanceTier = !hasExplicitTexture ? PerformanceTierAdvisor.Auto : PerformanceTierAdvisor.TierFromPackTexture(legacyTexture)
@@ -126,8 +142,16 @@ public sealed class HellForgePreferences
                     ? (droidsProp.GetBoolean() ? "all-droids" : "native-automatons")
                     : "all-droids";
             }
-            if (!TryGetJsonProperty(doc.RootElement, "Covenant", out _))
-                preferences.Covenant = false;
+            if (TryGetJsonProperty(doc.RootElement, "SquidSkin", out var squidProp) && squidProp.ValueKind == JsonValueKind.String)
+            {
+                preferences.SquidSkin = squidProp.GetString()!;
+            }
+            else
+            {
+                preferences.SquidSkin = TryGetJsonProperty(doc.RootElement, "Covenant", out var covProp) && covProp.ValueKind is JsonValueKind.True or JsonValueKind.False
+                    ? (covProp.GetBoolean() ? "all-covenant" : "native-squids")
+                    : "native-squids";
+            }
             if (!TryGetJsonProperty(doc.RootElement, "AutoPerformanceTier", out _))
             {
                 preferences.AutoPerformanceTier = false;
@@ -150,8 +174,10 @@ public sealed class HellForgePreferences
         else PlayerLabel = PlayerLabel.Trim();
 
         if (Format != 1 || Mode is not ("regular" or "clonedivers" or "empire") ||
-            Loadout is not ("account" or "armory" or "progression") || Texture is not ("full" or "lighter" or "reduced512") ||
+            Loadout is not ("account" or "armory" or "progression") ||
+            Texture is not ("full" or "lighter" or "reduced1024" or "reduced512" or "potato256") ||
             EnemySkin is not ("all-droids" or "mixed-droids" or "native-automatons") ||
+            SquidSkin is not ("all-covenant" or "mixed-covenant" or "native-squids") ||
             !PerformanceTierAdvisor.IsValidPreferenceTier(PerformanceTier) ||
             (LastStepDownSuggestedTier != null && !PerformanceTierAdvisor.IsConcreteTier(LastStepDownSuggestedTier)) ||
             (PendingStepDownReason != null && PendingStepDownReason.Length > 512) ||
@@ -172,10 +198,20 @@ public sealed class HellForgePreferences
         File.WriteAllText(path + ".tmp", JsonSerializer.Serialize(this, HellForgePack.Json));
         File.Move(path + ".tmp", path, overwrite: true);
     }
-    public HellForgePack.Selection Selection() => IsRegular
-        ? throw new InvalidOperationException("Regular HellForge does not use a Star Wars pack.")
-        : HellForgePack.PinnedSelection(PackMode, Texture,
-            new Dictionary<string, bool> { ["droids"] = Droids, ["covenant"] = Covenant, ["mixed-droids"] = EnemySkin == "mixed-droids" });
+    public HellForgePack.Selection Selection()
+    {
+        if (IsRegular) throw new InvalidOperationException("Regular HellForge does not use a Star Wars pack.");
+        var options = new Dictionary<string, bool>
+        {
+            ["droids"] = Droids,
+            ["covenant"] = Covenant,
+            ["mixed-droids"] = EnemySkin == "mixed-droids",
+            ["mixed-covenant"] = SquidSkin == "mixed-covenant"
+        };
+        if (Mode == "empire")
+            options["deathtrooper"] = DeathTrooperVoice;
+        return HellForgePack.PinnedSelection(PackMode, Texture, options);
+    }
 }
 
 public interface IHellForgeCommands
@@ -328,6 +364,13 @@ public sealed partial class HellForgeClient(string root, IHellForgeCommands comm
         if (!returned.Equals(Root, RecoveryPathComparison)) throw new InvalidDataException("HellForge reported a different installation.");
         var ready = json.GetProperty("ready"); var session = json.GetProperty("session"); var settings = json.GetProperty("settings");
         var running = Bool(session, "running");
+        bool? gameLaunched = session.TryGetProperty("gameLaunched", out var gl) && gl.ValueKind is JsonValueKind.True or JsonValueKind.False
+            ? gl.GetBoolean()
+            : session.TryGetProperty("gamePid", out var gpid) && gpid.ValueKind == JsonValueKind.Number && gpid.TryGetInt32(out var gp)
+                ? gp > 0
+                : session.TryGetProperty("pid", out var pid) && pid.ValueKind == JsonValueKind.Number && pid.TryGetInt32(out var p)
+                    ? p > 0
+                    : null;
         var failure = OptionalText(session, "lastFailure");
         var lastRun = OptionalText(session, "lastRun");
         var lastStatus = OptionalText(session, "lastStatus");
@@ -336,7 +379,7 @@ public sealed partial class HellForgeClient(string root, IHellForgeCommands comm
         return new(returned, Text(json, "hellforge"), Text(json, "gameBuild"), Bool(ready, "gameCopy"), Bool(ready, "sessionRunner"),
             running, Bool(settings, "multiplayer"), Bool(settings, "localPlayFab"), lastStatus, failure, notice, InterruptedGameplayProblem() ?? InterruptedPackProblem(), PinnedProblem(json, LinuxNamespace),
             OptionalText(json, "engine"), json.TryGetProperty("modSdk", out var sdk) && sdk.ValueKind == JsonValueKind.Number && sdk.TryGetInt32(out var number) ? number : null,
-            HasRun: !string.IsNullOrWhiteSpace(lastRun) || !string.IsNullOrWhiteSpace(lastStatus));
+            HasRun: !string.IsNullOrWhiteSpace(lastRun) || !string.IsNullOrWhiteSpace(lastStatus), GameLaunched: gameLaunched);
     }
 
     (string? Failure, string? Notice) CompletedGameDiagnostic(string? run, string build)
@@ -864,7 +907,7 @@ public sealed partial class HellForgeClient(string root, IHellForgeCommands comm
             await commands.RunAsync(["mod-remove", "--id", id], ct);
         }
         current = await ModsAsync(ct);
-        foreach (var previous in before.Mods.Where(m => HellForgePack.IsOurPack(m.Id) || m.Id == DifficultyId))
+        foreach (var previous in before.Mods.Where(m => HellForgePack.IsStarWarsOverhaulMod(m) || m.Id == DifficultyId))
         {
             var now = current.Mods.SingleOrDefault(m => m.Id == previous.Id) ?? throw new InvalidDataException("A previous preset mod is missing during recovery: " + previous.Name);
             if (now.Enabled == previous.Enabled) continue;
@@ -945,7 +988,7 @@ public sealed partial class HellForgeClient(string root, IHellForgeCommands comm
     {
         var catalog = await ModsAsync(ct);
         var selectedId = selection == null ? null : HellForgePack.PackId(selection.Mode);
-        foreach (var mod in catalog.Mods.Where(m => HellForgePack.IsOurPack(m.Id)))
+        foreach (var mod in catalog.Mods.Where(HellForgePack.IsStarWarsOverhaulMod))
         {
             await RequireIdleAsync(ct);
             await commands.RunAsync(["mod-switch", "--id", mod.Id, "--on", mod.Id == selectedId ? "yes" : "no"], ct);
@@ -1019,7 +1062,7 @@ public sealed partial class HellForgeClient(string root, IHellForgeCommands comm
     {
         if (catalog.Problems.Length > 0) throw new InvalidDataException("HellForge mod notices: " + string.Join("; ", catalog.Problems));
         if (ModConflict(catalog) is { } conflict) throw new InvalidDataException(conflict);
-        if (catalog.Mods.Any(m => m.Enabled && HellForgePack.IsOurPack(m.Id)))
+        if (catalog.Mods.Any(m => m.Enabled && HellForgePack.IsStarWarsOverhaulMod(m)))
             throw new InvalidDataException("Apply Regular mode to disable the Star Wars packs before playing.");
     }
 
@@ -1027,7 +1070,7 @@ public sealed partial class HellForgeClient(string root, IHellForgeCommands comm
     {
         if (catalog.Problems.Length > 0) throw new InvalidDataException("HellForge mod notices: " + string.Join("; ", catalog.Problems));
         if (ModConflict(catalog) is { } conflict) throw new InvalidDataException(conflict);
-        var active = catalog.Mods.Where(m => m.Enabled && HellForgePack.IsOurPack(m.Id)).ToList();
+        var active = catalog.Mods.Where(m => m.Enabled && HellForgePack.IsStarWarsOverhaulMod(m)).ToList();
         if (active.Count != 1 || active[0].Id != HellForgePack.PackId(selection.Mode)) throw new InvalidDataException("Prepare the selected Star Wars mode before playing. Enable only one Star Wars pack.");
         return active[0];
     }

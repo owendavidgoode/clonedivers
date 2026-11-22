@@ -67,7 +67,7 @@ internal static class Milestone1CoreTests
         File.WriteAllText(v1Path, v1Json);
         var loadedV1 = HellForgePreferences.Load(v1Path);
         check(loadedV1.EnemySkin == "all-droids" && !loadedV1.Covenant && !loadedV1.AutoPerformanceTier &&
-              loadedV1.PerformanceTier == "balanced" && loadedV1.Texture == "lighter" &&
+              loadedV1.PerformanceTier == "high" && loadedV1.Texture == "lighter" &&
               File.ReadAllText(v1Path) == v1Json,
               "existing v1 hellforge.json preserves saved choices cleanly without mutating disk file");
 
@@ -141,10 +141,10 @@ internal static class Milestone1CoreTests
         check(tiers.Count == 5 &&
               tiers[0].Id == "ultra" && tiers[0].MappedPackTexture == "full" &&
               tiers[1].Id == "high" && tiers[1].MappedPackTexture == "lighter" &&
-              tiers[2].Id == "balanced" && tiers[2].MappedPackTexture == "lighter" &&
+              tiers[2].Id == "balanced" && tiers[2].MappedPackTexture == "reduced1024" &&
               tiers[3].Id == "low-512" && tiers[3].MappedPackTexture == "reduced512" &&
-              tiers[4].Id == "ultra-potato" && tiers[4].MappedPackTexture == "reduced512",
-              "PerformanceTierAdvisor defines the 5-tier ladder mapped cleanly onto full/lighter/reduced512 today");
+              tiers[4].Id == "ultra-potato" && tiers[4].MappedPackTexture == "potato256",
+              "PerformanceTierAdvisor defines the 5-tier ladder mapped 1:1 onto full/lighter/reduced1024/reduced512/potato256");
 
         check(PerformanceTierAdvisor.NextLowerTier("ultra") == "high" &&
               PerformanceTierAdvisor.NextLowerTier("high") == "balanced" &&

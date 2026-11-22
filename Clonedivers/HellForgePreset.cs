@@ -15,6 +15,9 @@ public static class HellForgePreset
     public const string EmpireLegoYoda = "clonedivers.empire-lego-yoda";
     public const string EmpireAtstWriter = "clonedivers.empire-atst-writer";
     public const string EmpireTieSwitch = "clonedivers.empire-tie-switch";
+    public const string EmpireCameraPullback = "clonedivers.empire-camera-pullback";
+    public const string DedicatedMeleeSlot = "vibeslacker.dedicated-melee-slot";
+    public const string FasterCorpseCleanup = "local.faster-corpse-cleanup";
     public const string ChaosInvasions = "clonedivers.chaos-invasions";
     public static readonly string[] Optional = [CleanExit, LegoCompactLeafWriter, EmpireLegoYoda, EmpireAtstWriter, EmpireTieSwitch, ChaosInvasions];
     public static readonly (string Id, string Name, string Version)[] Required = [

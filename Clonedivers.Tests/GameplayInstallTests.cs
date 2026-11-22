@@ -80,11 +80,17 @@ internal static class GameplayInstallTests
             check(manifest.RootElement.GetProperty("id").GetString() == tieSwitch.Id && manifest.RootElement.GetProperty("version").GetString() == tieSwitch.Version &&
                 !manifest.RootElement.GetProperty("gameplay").GetBoolean() && manifest.RootElement.GetProperty("coop").GetString() == "per-player",
                 "Empire per-attack TIE switch declares 0.3.0, gameplay false and per-player co-op scope");
-        using (var stream = typeof(GameplayInstallTests).Assembly.GetManifestResourceStream("Clonedivers.Tests.ChaosInvasions.json")!)
-        using (var manifest = JsonDocument.Parse(stream))
-            check(manifest.RootElement.GetProperty("id").GetString() == chaos.Id && manifest.RootElement.GetProperty("version").GetString() == chaos.Version &&
+        using (var r8Stream = typeof(GameplayInstallTests).Assembly.GetManifestResourceStream("Clonedivers.Tests.Gameplay.R8.json")!)
+        {
+            var r8Catalog = JsonSerializer.Deserialize<HellForgeGameplayCatalog>(r8Stream, HellForgePack.Json)!;
+            var r8Chaos = r8Catalog.Artifacts.Single(a => a.Id == HellForgePreset.ChaosInvasions);
+            using var stream = typeof(GameplayInstallTests).Assembly.GetManifestResourceStream("Clonedivers.Tests.ChaosInvasions.json")!;
+            using var manifest = JsonDocument.Parse(stream);
+            check(manifest.RootElement.GetProperty("id").GetString() == chaos.Id &&
+                manifest.RootElement.GetProperty("version").GetString() == r8Chaos.Version &&
                 manifest.RootElement.GetProperty("gameplay").GetBoolean(),
-                "Chaos Invasions declares 0.3.0 and gameplay true as a host-driven optional gameplay mod");
+                "Chaos Invasions source manifest matches staged r8 version and declares gameplay true as a host-driven optional gameplay mod");
+        }
         var clone = JsonSerializer.Deserialize<HellForgeGameplayCatalog>(JsonSerializer.Serialize(catalog, HellForgePack.Json), HellForgePack.Json)!;
         clone.Artifacts[clone.Artifacts.FindIndex(a => a.Id == yoda.Id)] = yoda with { Optional = false };
         try { clone.Validate(); check(false, "catalog validation must reject required-flagged optional mod"); }

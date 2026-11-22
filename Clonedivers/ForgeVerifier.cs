@@ -207,7 +207,7 @@ public static class ForgeVerifier
             if (prefs.IsRegular)
             {
                 var currentStatus = await client.StatusAsync(ct);
-                bool regularClean = !catalog.Mods.Any(m => m.Enabled && HellForgePack.IsOurPack(m.Id)) &&
+                bool regularClean = !catalog.Mods.Any(m => m.Enabled && HellForgePack.IsStarWarsOverhaulMod(m)) &&
                                     catalog.Mods.Any(m => m.Id == HellForgeClient.DifficultyId && m.Enabled) &&
                                     currentStatus.Multiplayer && currentStatus.LocalBackend;
                 if (!regularClean)
@@ -225,7 +225,7 @@ public static class ForgeVerifier
                 var expectedSelection = selectionOverride != null ? selectionOverride() : prefs.Selection();
                 var expectedPackId = HellForgePack.PackId(expectedSelection.Mode);
                 var activePack = catalog.Mods.SingleOrDefault(m => m.Enabled && m.Id == expectedPackId);
-                bool needsRepair = activePack == null || catalog.Mods.Count(m => m.Enabled && HellForgePack.IsOurPack(m.Id)) != 1;
+                bool needsRepair = activePack == null || catalog.Mods.Count(m => m.Enabled && HellForgePack.IsStarWarsOverhaulMod(m)) != 1;
 
                 if (!needsRepair && activePack != null)
                 {

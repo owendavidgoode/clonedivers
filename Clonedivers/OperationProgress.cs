@@ -651,6 +651,13 @@ public static class ForgeTacticalCopy
         return firstLaunch ? line + " · Windows may ask for network approval once" : line;
     }
 
+    public const string LaunchingHeadline = "Launching Helldivers 2 — please wait…";
+    public const string LaunchingDetail = "Staging mods and starting the game (usually 15–30 seconds). Don't close the launcher.";
+    public const string LaunchingPrimaryButton = "LAUNCHING HELLDIVERS 2 — PLEASE WAIT…";
+    public const string CancelLaunchButton = "Cancel Launch";
+    public const string RunningHeadline = "Helldivers 2 is running";
+    public const string RunningDetail = "End the session here when you finish playing so cleanup completes cleanly.";
+
     public static string FormatLoadoutSummary(
         string mode,
         string enemySkin,
@@ -661,7 +668,9 @@ public static class ForgeTacticalCopy
         HardwarePerformanceRecommendation? hardware,
         string hostChaosIntensity = "standard",
         string hostHeavySeaf = "standard",
-        bool hostFasterCorpseCleanup = true)
+        bool hostFasterCorpseCleanup = true,
+        string? squidSkin = null,
+        bool deathTrooperVoice = true)
     {
         var hostNote = FormatHostMutatorNote(hostChaosIntensity, hostHeavySeaf, hostFasterCorpseCleanup);
         if (string.Equals(mode, "regular", StringComparison.OrdinalIgnoreCase))
@@ -670,9 +679,13 @@ public static class ForgeTacticalCopy
             return string.IsNullOrEmpty(hostNote) ? baseRegular : $"{baseRegular} · {hostNote}";
         }
 
+        var effectiveSquid = squidSkin ?? (covenant ? "mixed-covenant" : "native-squids");
+        bool isEmpire = string.Equals(mode, "empire", StringComparison.OrdinalIgnoreCase);
+        bool isClones = string.Equals(mode, "clonedivers", StringComparison.OrdinalIgnoreCase);
         bool isDefaultFullMix = string.Equals(enemySkin, "mixed-droids", StringComparison.OrdinalIgnoreCase) &&
-                                covenant &&
-                                (!string.Equals(mode, "clonedivers", StringComparison.OrdinalIgnoreCase) || deltaSquad);
+                                string.Equals(effectiveSquid, "mixed-covenant", StringComparison.OrdinalIgnoreCase) &&
+                                (!isClones || deltaSquad) &&
+                                (!isEmpire || deathTrooperVoice);
 
         string mixPart;
         if (isDefaultFullMix)
@@ -681,7 +694,7 @@ public static class ForgeTacticalCopy
         }
         else
         {
-            var segments = new List<string>(3)
+            var segments = new List<string>(4)
             {
                 enemySkin switch
                 {
@@ -690,10 +703,21 @@ public static class ForgeTacticalCopy
                     _ => "All CIS Droids"
                 }
             };
-            if (string.Equals(mode, "clonedivers", StringComparison.OrdinalIgnoreCase))
+            if (isClones)
                 segments.Add(deltaSquad ? "Delta Squad" : "Standard Clones");
-            if (covenant)
+            if (squidSkin != null)
+            {
+                if (string.Equals(squidSkin, "mixed-covenant", StringComparison.OrdinalIgnoreCase))
+                    segments.Add("Mixed Covenant");
+                else if (string.Equals(squidSkin, "all-covenant", StringComparison.OrdinalIgnoreCase))
+                    segments.Add("Covenant");
+            }
+            else if (covenant)
+            {
                 segments.Add("Covenant");
+            }
+            if (isEmpire && !deathTrooperVoice)
+                segments.Add("Standard Voices");
             mixPart = string.Join(" · ", segments);
         }
 
@@ -753,4 +777,7 @@ public static class ForgeTacticalCopy
             ? "Playing Clonedivers — Republic Commandos (HellForge)"
             : "Playing Clonedivers — Clone Wars (HellForge)"
     };
+
+    public static string DiscordPresenceImageKey(string mode) =>
+        string.Equals(mode, "empire", StringComparison.OrdinalIgnoreCase) ? "empire-helmet" : "clone-helmet";
 }

@@ -18,7 +18,9 @@ public static class SquadFingerprint
         HellForgePreset.LegoCompactLeafWriter,
         HellForgePreset.EmpireLegoYoda,
         HellForgePreset.EmpireAtstWriter,
-        HellForgePreset.EmpireTieSwitch
+        HellForgePreset.EmpireTieSwitch,
+        HellForgePreset.EmpireCameraPullback,
+        HellForgePreset.DedicatedMeleeSlot
     };
 
     static readonly HashSet<string> RequiredGameplayIds =
@@ -41,8 +43,8 @@ public static class SquadFingerprint
         ArgumentNullException.ThrowIfNull(mod);
         if (!mod.Enabled) return false;
 
-        // 1. Star Wars visual/cosmetic packs (Clones, Delta Squad, Empire) are always client-only.
-        if (HellForgePack.IsOurPack(mod.Id)) return false;
+        // 1. Star Wars visual/cosmetic packs (Clones, Delta Squad, Empire, and local overhaul variants) are always client-only.
+        if (HellForgePack.IsStarWarsOverhaulMod(mod)) return false;
 
         // 2. Project client-only code mods declaring gameplay:false (per-player co-op).
         if (KnownClientOnlyCodeMods.Contains(mod.Id)) return false;

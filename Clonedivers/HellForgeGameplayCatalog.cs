@@ -38,11 +38,31 @@ public sealed class HellForgeGameplayCatalog
             throw new InvalidDataException("Gameplay catalog does not cover the required preset.");
         foreach (var a in Artifacts)
         {
-            FileSafety.ValidateLeaf(a.Id);
-            if (a.Bytes <= 0 || a.Bytes > 128 * 1024 * 1024 || !FileSafety.IsSha256(a.Sha256) || !FileSafety.IsSha256(a.ContentHash) ||
-                !Uri.TryCreate(a.Url, UriKind.Absolute, out var uri) || uri.Scheme != "https" || uri.UserInfo.Length != 0 || uri.Query.Length != 0 || uri.Fragment.Length != 0 ||
-                uri.Host != "github.com") throw new InvalidDataException("Untrusted gameplay artifact metadata.");
+            ValidateArtifact(a);
         }
+    }
+    public void ValidateDraft()
+    {
+        if (Format != 1 || string.IsNullOrWhiteSpace(Id) || GameBuild != HellForgePack.SupportedBuild ||
+            Artifacts.Count == 0 || Artifacts.Select(a => a.Id).Distinct(StringComparer.Ordinal).Count() != Artifacts.Count ||
+            Order.Distinct(StringComparer.Ordinal).Count() != Order.Count)
+            throw new InvalidDataException("Unsupported gameplay catalog draft.");
+        var supplied = Artifacts.Select(a => a.Id).ToHashSet(StringComparer.Ordinal);
+        var bundled = new[] { "hellforge.editor", "skyeshade.hell-forge", "skyeshade.vanilla-plus" };
+        if (!supplied.Concat(bundled).ToHashSet(StringComparer.Ordinal).SetEquals(Order) ||
+            Order[^1] != HellForgePreset.BingusSharedLoader)
+            throw new InvalidDataException("Gameplay catalog draft has an invalid load order.");
+        foreach (var a in Artifacts)
+        {
+            ValidateArtifact(a);
+        }
+    }
+    static void ValidateArtifact(GameplayArtifact a)
+    {
+        FileSafety.ValidateLeaf(a.Id);
+        if (a.Bytes <= 0 || a.Bytes > 128 * 1024 * 1024 || !FileSafety.IsSha256(a.Sha256) || !FileSafety.IsSha256(a.ContentHash) ||
+            !Uri.TryCreate(a.Url, UriKind.Absolute, out var uri) || uri.Scheme != "https" || uri.UserInfo.Length != 0 || uri.Query.Length != 0 || uri.Fragment.Length != 0 ||
+            uri.Host != "github.com") throw new InvalidDataException("Untrusted gameplay artifact metadata.");
     }
     public static void RejectLinks(string path)
     {

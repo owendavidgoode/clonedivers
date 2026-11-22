@@ -253,6 +253,8 @@ internal static class LauncherRedesignTests
         check((bool)trayField.GetValue(startupTrayWin)!,
             "ForgeShellWindow initializes minimizeToTrayActive=true from ForgeHomeState on startup without opening Settings (H4)");
 
+        await Milestone2Tests.RunHeadlessUiChecksAsync(area, check);
+
         // 15. M5 regression: DisposeTrayIcon / PrepareForUpdatedLauncherExit detaches TrayIcon from Application.Current, and Closing completes even if host.DisposeAsync() throws!
         if (Avalonia.Application.Current is { } app)
         {
@@ -337,7 +339,7 @@ internal static class LauncherRedesignTests
         public Task InitializeAsync() => Task.CompletedTask;
         public bool CanClose(out string? reason) { reason = null; return true; }
         public Task SelectModeAsync(string mode) => Task.CompletedTask;
-        public Task UpdateCustomizationAsync(string enemySkin, bool deltaSquad, bool covenant, string texture) => Task.CompletedTask;
+        public Task UpdateCustomizationAsync(string enemySkin, bool deltaSquad, bool covenant, string texture, string? squidSkin = null, bool? deathTrooperVoice = null) => Task.CompletedTask;
         public Task SetPerformanceTierAsync(string tierId) => Task.CompletedTask;
         public Task UpdateHostMutatorsAsync(string chaosIntensity, string heavySeaf, bool fasterCorpseCleanup) => Task.CompletedTask;
         public Task ApplyCustomizationNowAsync() => Task.CompletedTask;
