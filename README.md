@@ -5,7 +5,7 @@
 Choose **Regular**, **Clones** or **Empire** in a separate HellForge installation.
 Play the official online Helldivers 2 game directly through Steam.
 
-[Windows launcher](https://github.com/owendavidgoode/clonedivers/releases/latest/download/Clonedivers.exe) · [Ubuntu/Debian x86-64 package](https://github.com/owendavidgoode/clonedivers/releases/download/linux-v0.10.0/Clonedivers-linux-x64.deb) · [Linux portable](https://github.com/owendavidgoode/clonedivers/releases/download/linux-v0.10.0/Clonedivers-linux-x64.tar.gz)
+[Windows launcher](https://github.com/owendavidgoode/clonedivers/releases/latest/download/Clonedivers.exe) · [Ubuntu/Debian x86-64 package](https://github.com/owendavidgoode/clonedivers/releases/download/linux-v0.10.1/Clonedivers-linux-x64.deb) · [Linux portable](https://github.com/owendavidgoode/clonedivers/releases/download/linux-v0.10.1/Clonedivers-linux-x64.tar.gz)
 
 ## Quick Start for Friends (Windows)
 
@@ -22,7 +22,7 @@ Play the official online Helldivers 2 game directly through Steam.
 
 ## Update or Install
 
-The current live public releases are **Windows 2.1.0** ([v2.1.0](https://github.com/owendavidgoode/clonedivers/releases/tag/v2.1.0)) and **Linux Forge 0.10.0** ([linux-v0.10.0](https://github.com/owendavidgoode/clonedivers/releases/tag/linux-v0.10.0)), shipping **5 real texture tiers** across **EmpireDivers `2026.11.22-r49`** (`496` armor/vehicle/shuttle/rig repairs, solid folded-wing Lambda shuttle, film-scale AT-ST on all 4 Exosuits, Encrypted Death Trooper voice) and **Clonedivers `2026.11.22-r21`** (`31` rig/skinning/culling fixes including all 4 AT-TEs and LAAT/i), **3-way Covenant + Squids mix**, unmistakable **`Launching Helldivers 2 — please wait…`** staging UI + overhaul-pack collision guard, and **`build25480438-r8`** (`17` verified mods, `0` `hf-mod.com` URLs, including O(1) `empire-camera-pullback 0.1.2`, D11 Mega City OOM-safe `chaos-invasions 0.3.3`, 4-player co-op `dedicated-melee-slot 1.5.2-clonedivers.2`, host-gated `faster-corpse-cleanup 1.0.6-clonedivers.1`, `empire-atst-writer 0.2.2`, and `heavy-seaf-presence 1.2.0-clonedivers.5`; attended live `R2` multiplayer and Linux Proton checks remain pending). Update Windows through the launcher. On Linux, install the complete `.deb` or extract the full portable archive.
+The current live public releases are **Windows 2.1.1** ([v2.1.1](https://github.com/owendavidgoode/clonedivers/releases/tag/v2.1.1)) and **Linux Forge 0.10.1** ([linux-v0.10.1](https://github.com/owendavidgoode/clonedivers/releases/tag/linux-v0.10.1)), shipping **5 real texture tiers** across **EmpireDivers `2026.11.22-r49`** (`496` armor/vehicle/shuttle/rig repairs, solid folded-wing Lambda shuttle, film-scale AT-ST on all 4 Exosuits, Encrypted Death Trooper voice) and **Clonedivers `2026.11.22-r21`** (`31` rig/skinning/culling fixes including all 4 AT-TEs and LAAT/i), **3-way Covenant + Squids mix**, unmistakable **`Launching Helldivers 2 — please wait…`** staging UI + overhaul-pack collision guard, and **`build25480438-r8`** (`17` verified mods, `0` `hf-mod.com` URLs, including live-verified O(1) `empire-camera-pullback 0.1.3`, D11 Mega City OOM-safe `chaos-invasions 0.3.3`, 4-player co-op `dedicated-melee-slot 1.5.2-clonedivers.2`, host-gated `faster-corpse-cleanup 1.0.6-clonedivers.1`, `empire-atst-writer 0.2.2`, and `heavy-seaf-presence 1.2.0-clonedivers.5`; unlocked desktop stratagem call-ins, attended live `R2` multiplayer, and Linux Proton checks remain pending). Update Windows through the launcher. On Linux, install the complete `.deb` or extract the full portable archive.
 
 New players press **Set up Clonedivers** on Windows or **Set up / update Forge**
 on Linux. Windows checks for at least **70 GB** (`70 GiB`) free on the Forge
@@ -39,7 +39,7 @@ update preserves settings and account data and keeps a verified previous Windows
 executable for rollback. It does not edit live Steam game files or close a running
 game. **Set up selected mode** obtains **17 gameplay downloads** automatically in
 the `build25480438-r8` catalog (**9 required** gameplay and author archives totaling
-`7,991,821` bytes / `~7.62 MiB` including host-gated `Faster Corpse Cleanup` `1.0.6-clonedivers.1` and `Heavy SEAF` `1.2.0-clonedivers.5`, plus **8 optional** project-owned SDK-16 defaults totaling `502,183` bytes: `Clonedivers Clean Exit` `0.2.0`, `LEGO Compact Leaf Writer` `0.2.1`, `Empire LEGO Yoda Death` `0.2.0`, `Empire AT-ST Film-Scale Leaf Writer` `0.2.2`, `Empire per-attack TIE` `0.3.0`, O(1) `Empire Camera Pullback` `0.1.2`, co-op `Dedicated Melee Slot` `1.5.2-clonedivers.2`, and Mega City OOM-safe `Chaos Invasions` `0.3.3`), totaling **`8,494,004` bytes (`~8.10 MiB`)** before appearance assets. It verifies their
+`7,991,821` bytes / `~7.62 MiB` including host-gated `Faster Corpse Cleanup` `1.0.6-clonedivers.1` and `Heavy SEAF` `1.2.0-clonedivers.5`, plus **8 optional** project-owned SDK-16 defaults totaling `502,723` bytes: `Clonedivers Clean Exit` `0.2.0`, `LEGO Compact Leaf Writer` `0.2.1`, `Empire LEGO Yoda Death` `0.2.0`, `Empire AT-ST Film-Scale Leaf Writer` `0.2.2`, `Empire per-attack TIE` `0.3.0`, O(1) `Empire Camera Pullback` `0.1.3`, co-op `Dedicated Melee Slot` `1.5.2-clonedivers.2`, and Mega City OOM-safe `Chaos Invasions` `0.3.3`), totaling **`8,494,544` bytes (`~8.10 MiB`)** before appearance assets. It verifies their
 archives and content, imports them through Forge, applies preset order/options and
 then prepares the appearance.
 
@@ -66,13 +66,13 @@ Every player needs their own Steam-owned HD2, official separate **HellForge
 0.4.0-beta / engine 0.1.47 / SDK 16 / game 25480438**, and permitted matching mods.
 Keep supported isolation and sandbox enabled. Linux requires a dedicated Proton
 prefix and the official namespace setup (`pasta` from `passt` on Ubuntu 24.04+ /
-Debian 13+ or equivalent). Complete Linux packages include the native UI (`0.10.0`)
+Debian 13+ or equivalent). Complete Linux packages include the native UI (`0.10.1`)
 and controller (`0.4.0`); no separate .NET install is needed. ARM64, Steam Deck, and
 Flatpak/Snap Forge are not qualified.
 
 ## Modes, Account, and Gameplay
 
-Regular, Clones and Empire are Forge appearance choices. In **2.1.0** / **0.10.0**,
+Regular, Clones and Empire are Forge appearance choices. In **2.1.1** / **0.10.1**,
 both **Clones (`2026.11.22-r21`)** and **Empire (`2026.11.22-r49`)** ship the full
 **5-tier texture matrix** (`Full (Ultra)`, `High (Streamed)`, `1024px (Medium)`,
 `512px (Low / Deck)`, and `256px + Decimated Meshes (Ultra-Potato)` — cutting active
@@ -80,7 +80,7 @@ VRAM up to `-80%` and pack disk up to `-66%`), **3 Enemy Skins** (`All CIS Droid
 `Mixed Bots + CIS Droids`, `Native Automatons`), and **3-way Covenant + Squids**
 (`Mixed Covenant + Squids` default, `All Covenant`, `Native Squids`), plus **Delta Squad**
 in Clones and **Encrypted Death Trooper Voice** in Empire.
-See [v2.1.0 release notes](docs/releases/v2.1.0.md), [linux-v0.10.0 notes](docs/releases/linux-v0.10.0.md),
+See [v2.1.1 release notes](docs/releases/v2.1.1.md), [linux-v0.10.1 notes](docs/releases/linux-v0.10.1.md),
 and [JohnsonMode notes](docs/JOHNSONMODE.md). Every mode uses
 the player's own verified **one-way HD2 → Forge account import**. Forge progression
 saves locally and does not count back in official HD2. Never share captures, profiles,
