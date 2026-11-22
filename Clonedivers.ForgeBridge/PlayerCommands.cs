@@ -92,10 +92,13 @@ internal sealed class PlayerCommands
                 var requested = new HellForgePreferences { Mode = values["--mode"], DeltaSquad = values["--delta"] == "yes",
                     Texture = values["--texture"], EnemySkin = values["--droids"] == "yes" ? "all-droids" : "native-automatons", Covenant = values["--covenant"] == "yes" };
                 if (values.TryGetValue("--enemy-skin", out var skin)) requested.EnemySkin = skin;
+                if (values.TryGetValue("--squid-skin", out var squid)) requested.SquidSkin = squid;
+                if (values.TryGetValue("--deathtrooper", out var dt)) requested.DeathTrooperVoice = dt == "yes";
                 requested.Validate();
                 selection.Mode = requested.Mode; selection.DeltaSquad = requested.DeltaSquad;
-                selection.Texture = requested.Texture; selection.EnemySkin = requested.EnemySkin; selection.Covenant = requested.Covenant;
-                return JsonSerializer.SerializeToElement(new { selection.Mode, selection.DeltaSquad, selection.Texture, selection.Droids, selection.EnemySkin, selection.Covenant });
+                selection.Texture = requested.Texture; selection.EnemySkin = requested.EnemySkin;
+                selection.SquidSkin = requested.SquidSkin; selection.DeathTrooperVoice = requested.DeathTrooperVoice;
+                return JsonSerializer.SerializeToElement(new { selection.Mode, selection.DeltaSquad, selection.Texture, selection.Droids, selection.EnemySkin, selection.Covenant, selection.SquidSkin, selection.DeathTrooperVoice });
             case "prepare-regular":
                 if (!selection.IsRegular) throw new InvalidOperationException("Select Regular before applying that mode.");
                 await client.PrepareRegularAsync(ct); return JsonSerializer.SerializeToElement(new { prepared = true });

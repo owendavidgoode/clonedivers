@@ -33,6 +33,27 @@ public static class HellForgePack
     };
     public static bool IsOurPack(string id) => new[] { "empire", "commandos", "clonedivers" }.Any(m => id == PackId(m));
 
+    /// <summary>
+    /// True for any official or stray/demo/legacy Clonedivers or EmpireDivers Star Wars overhaul pack
+    /// (such as local test/demo exports like pack.ef3458f5-f409-4f24-8933-05fdc10a2101) so mode switches
+    /// disable competing overhaul packs and launch guards reject overlapping Star Wars overhauls.
+    /// Note: reserves HellForge pack.* display-name prefixes "Clonedivers*" and "EmpireDivers*" for full
+    /// Star Wars visual overhaul packs (sub-addons or gameplay mods should use distinct names or non-pack IDs).
+    /// </summary>
+    public static bool IsStarWarsOverhaulMod(HellForgeMod mod)
+    {
+        ArgumentNullException.ThrowIfNull(mod);
+        if (IsOurPack(mod.Id)) return true;
+        if (!mod.Id.StartsWith("pack.", StringComparison.OrdinalIgnoreCase)) return false;
+        if (mod.Id.StartsWith("pack.ef3458f5-f409-4f24-8933-", StringComparison.OrdinalIgnoreCase) ||
+            mod.Id.StartsWith("pack.b7b312b3-d764-4c7e-a287-", StringComparison.OrdinalIgnoreCase) ||
+            mod.Id.StartsWith("pack.e9f12495-c8e7-49f8-89d3-", StringComparison.OrdinalIgnoreCase))
+            return true;
+        var trimmed = mod.Name?.TrimStart() ?? "";
+        return trimmed.StartsWith("Clonedivers", StringComparison.OrdinalIgnoreCase) ||
+               trimmed.StartsWith("EmpireDivers", StringComparison.OrdinalIgnoreCase);
+    }
+
     public static Selection Select(Manifest feed, string manifestSha, string mode, string texture, IReadOnlyDictionary<string, bool>? changes = null)
     {
         _ = GuidFor(mode);
@@ -49,6 +70,8 @@ public static class HellForgePack
         options["commandos"] = mode == "commandos";
         if (options.GetValueOrDefault("mixed-droids") || options.GetValueOrDefault("mixed_droids"))
             options["droids"] = true;
+        if (options.GetValueOrDefault("mixed-covenant") || options.GetValueOrDefault("mixed_covenant"))
+            options["covenant"] = true;
         var files = Pack.EffectiveFiles(pack, id => options.GetValueOrDefault(id), texture, explicitMode: mode);
         FileSafety.ValidateTargets(files);
         return new(mode, texture, pack.Version, SupportedBuild, manifestSha, options, files);
@@ -67,9 +90,9 @@ public static class HellForgePack
         var resource = mode == "empire" ? "Clonedivers.HellForge.Empire.Manifest.json" : "Clonedivers.HellForge.Manifest.json";
         var primary = ReadEmbeddedBytes(resource);
         byte[]? fallback = null;
-        if (mode == "empire" && texture is "lighter" or "reduced512")
+        if (mode == "empire" && texture is "lighter" or "reduced1024" or "reduced512" or "potato256")
         {
-            var alt = texture == "reduced512" && typeof(HellForgePack).Assembly.GetManifestResourceInfo("Clonedivers.HellForge.Empire.Potato.Manifest.json") != null
+            var alt = texture is "reduced512" or "potato256" && typeof(HellForgePack).Assembly.GetManifestResourceInfo("Clonedivers.HellForge.Empire.Potato.Manifest.json") != null
                 ? "Clonedivers.HellForge.Empire.Potato.Manifest.json"
                 : typeof(HellForgePack).Assembly.GetManifestResourceInfo("Clonedivers.HellForge.Empire.Lighter.Manifest.json") != null
                     ? "Clonedivers.HellForge.Empire.Lighter.Manifest.json" : null;
@@ -88,23 +111,39 @@ public static class HellForgePack
                 ["droids"] = requested.GetValueOrDefault("droids", true),
                 ["covenant"] = requested.GetValueOrDefault("covenant", false)
             };
-            if (requested.TryGetValue("mixed-droids", out var mixedHyphen)) empireChanges["mixed-droids"] = mixedHyphen;
-            if (requested.TryGetValue("mixed_droids", out var mixedUnder)) empireChanges["mixed_droids"] = mixedUnder;
+            foreach (var key in new[] { "mixed-droids", "mixed_droids", "mixed-covenant", "mixed_covenant", "deathtrooper" })
+                if (requested.TryGetValue(key, out var value)) empireChanges[key] = value;
             requested = empireChanges;
         }
+        else
+        {
+            requested.Remove("deathtrooper");
+        }
         var feed = Manifest.Parse(System.Text.Encoding.UTF8.GetString(bytes));
-        if (mode == "empire" && texture is "lighter" or "reduced512" && lighterFallbackBytes != null &&
-            !PackProfiles.Supported(feed.Pack!).Any(p => string.Equals(p.Id, texture, StringComparison.OrdinalIgnoreCase)))
+        static bool HasProfile(PackManifest candidate, string id) =>
+            PackProfiles.Supported(candidate).Any(p => string.Equals(p.Id, id, StringComparison.OrdinalIgnoreCase));
+        if (mode == "empire" && texture is "lighter" or "reduced1024" or "reduced512" or "potato256" && lighterFallbackBytes != null &&
+            !HasProfile(feed.Pack!, texture) &&
+            !(texture == "reduced1024" && HasProfile(feed.Pack!, "lighter")) &&
+            !(texture == "potato256" && HasProfile(feed.Pack!, "reduced512")))
         {
             bytes = lighterFallbackBytes;
             feed = Manifest.Parse(System.Text.Encoding.UTF8.GetString(bytes));
         }
         var pack = feed.Pack!;
-        // Resolve v2.0 texture/enemy-skin/covenant selections backwards-compatibly against r47/r19 manifests
-        // as well as r48/r20 manifests carrying explicit reduced512 / mixed-droids / Empire covenant entries.
+        // Resolve v2.0/v2.1 texture, enemy-skin, squid-skin, and Death Trooper voice selections backwards-compatibly
+        // against r47/r19 and r48/r20 manifests (reduced1024 -> lighter, potato256 -> reduced512 -> lighter,
+        // mixed-covenant -> covenant, and Empire deathtrooper graceful no-op when absent) until r49/r21 land.
         var resolvedTexture = texture;
-        if (resolvedTexture == "reduced512" && !PackProfiles.Supported(pack).Any(p => string.Equals(p.Id, "reduced512", StringComparison.OrdinalIgnoreCase)))
-            resolvedTexture = PackProfiles.Supported(pack).Any(p => string.Equals(p.Id, "lighter", StringComparison.OrdinalIgnoreCase)) ? "lighter" : "full";
+        if (!HasProfile(pack, resolvedTexture))
+        {
+            if (string.Equals(resolvedTexture, "potato256", StringComparison.OrdinalIgnoreCase))
+                resolvedTexture = HasProfile(pack, "reduced512") ? "reduced512" : HasProfile(pack, "lighter") ? "lighter" : HasProfile(pack, "full") ? "full" : resolvedTexture;
+            else if (string.Equals(resolvedTexture, "reduced512", StringComparison.OrdinalIgnoreCase))
+                resolvedTexture = HasProfile(pack, "lighter") ? "lighter" : HasProfile(pack, "full") ? "full" : resolvedTexture;
+            else if (string.Equals(resolvedTexture, "reduced1024", StringComparison.OrdinalIgnoreCase))
+                resolvedTexture = HasProfile(pack, "lighter") ? "lighter" : HasProfile(pack, "full") ? "full" : resolvedTexture;
+        }
         var optionIds = pack.Options.Select(o => o.Id).ToHashSet(StringComparer.OrdinalIgnoreCase);
         foreach (var futureKey in new[] { "mixed-droids", "mixed_droids" })
         {
@@ -113,6 +152,18 @@ public static class HellForgePack
                 if (mixedOn) requested["droids"] = true;
                 if (!optionIds.Contains(futureKey)) requested.Remove(futureKey);
             }
+        }
+        foreach (var futureCovKey in new[] { "mixed-covenant", "mixed_covenant" })
+        {
+            if (requested.TryGetValue(futureCovKey, out var mixedCovOn))
+            {
+                if (mixedCovOn) requested["covenant"] = true;
+                if (!optionIds.Contains(futureCovKey)) requested.Remove(futureCovKey);
+            }
+        }
+        if (requested.ContainsKey("deathtrooper") && (mode != "empire" || !optionIds.Contains("deathtrooper")))
+        {
+            requested.Remove("deathtrooper");
         }
         if (mode == "empire" && !pack.Files.Any(f => PackProfiles.Includes(f, "empire", resolvedTexture) &&
             (string.Equals(f.Option, "covenant", StringComparison.OrdinalIgnoreCase) || string.Equals(f.UnlessOption, "covenant", StringComparison.OrdinalIgnoreCase))))
@@ -123,7 +174,9 @@ public static class HellForgePack
         if (mode == "empire")
         {
             bool RawEnabled(string id) => PackExtras.AlwaysOn(pack, id) || requested.GetValueOrDefault(id, pack.Options.FirstOrDefault(o => o.Id == id)?.Default ?? false);
-            bool Enabled(string id) => RawEnabled(id) || (string.Equals(id, "droids", StringComparison.OrdinalIgnoreCase) && (RawEnabled("mixed-droids") || RawEnabled("mixed_droids")));
+            bool Enabled(string id) => RawEnabled(id)
+                || (string.Equals(id, "droids", StringComparison.OrdinalIgnoreCase) && (RawEnabled("mixed-droids") || RawEnabled("mixed_droids")))
+                || (string.Equals(id, "covenant", StringComparison.OrdinalIgnoreCase) && (RawEnabled("mixed-covenant") || RawEnabled("mixed_covenant")));
             pack.Files = pack.Files.Where(f => PackProfiles.Includes(f, mode, resolvedTexture) &&
                 (f.Option == null || Enabled(f.Option)) && (f.UnlessOption == null || !Enabled(f.UnlessOption))).ToList();
         }

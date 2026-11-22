@@ -15,15 +15,19 @@ public static class HellForgePreset
     public const string EmpireLegoYoda = "clonedivers.empire-lego-yoda";
     public const string EmpireAtstWriter = "clonedivers.empire-atst-writer";
     public const string EmpireTieSwitch = "clonedivers.empire-tie-switch";
+    public const string EmpireCameraPullback = "clonedivers.empire-camera-pullback";
+    public const string DedicatedMeleeSlot = "vibeslacker.dedicated-melee-slot";
+    public const string FasterCorpseCleanup = "local.faster-corpse-cleanup";
     public const string ChaosInvasions = "clonedivers.chaos-invasions";
-    public static readonly string[] Optional = [CleanExit, LegoCompactLeafWriter, EmpireLegoYoda, EmpireAtstWriter, EmpireTieSwitch, ChaosInvasions];
+    public static readonly string[] Optional = [CleanExit, LegoCompactLeafWriter, EmpireLegoYoda, EmpireAtstWriter, EmpireTieSwitch, EmpireCameraPullback, DedicatedMeleeSlot, ChaosInvasions];
     public static readonly (string Id, string Name, string Version)[] Required = [
         ("hellforge.editor", "HellForge Editor", "0.4.2"),
         ("skyeshade.hell-forge", "Hell Forge Difficulty", "0.16.1"),
         ("local.hf-shared-dispatcher", "Shared Callback Manager", "0.1.0"),
         ("local.operation-reroller", "Operation Reroller", "0.1.6"),
+        (FasterCorpseCleanup, "Faster Corpse Cleanup", "1.0.6-clonedivers.1"),
         ("cowboybingus.vanilla-plus-megapack", "Vanilla Plus Megapack", "0.2.1"),
-        ("local.heavy-seaf-presence", "Heavy SEAF Presence Everywhere", "1.2.0-clonedivers.4"),
+        ("local.heavy-seaf-presence", "Heavy SEAF Presence Everywhere", "1.2.0-clonedivers.5"),
         ("local.mod-9fd7880666f6", "SEAF Squad Stratagems", "0.1.4-clonedivers.3"),
         (BingusSharedLoader, "Bingus Shared Loader - v20", ""),
         (SmarterSeaf, "Smarter SEAF 1.0.4", ""),

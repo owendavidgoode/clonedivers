@@ -126,10 +126,10 @@ internal static class LauncherRedesignTests
             check(!string.IsNullOrWhiteSpace(home.Headline) &&
                   !string.IsNullOrWhiteSpace(setup.Headline) &&
                   diag.HealthChecks.Count > 0 &&
-                  System.Text.RegularExpressions.Regex.IsMatch(home.SquadMatchHash, @"^r7-[0-9a-f]{4}$") &&
+                  System.Text.RegularExpressions.Regex.IsMatch(home.SquadMatchHash, @"^r8-[0-9a-f]{4}$") &&
                   !string.IsNullOrWhiteSpace(diag.DiscordReportText) &&
                   !string.IsNullOrWhiteSpace(diag.DiskUsageSummary),
-                $"PreviewForgeHost preset '{preset}' produces complete Home/Setup/Diagnostics state with r7 match hash and Discord report");
+                $"PreviewForgeHost preset '{preset}' produces complete Home/Setup/Diagnostics state with r8 match hash and Discord report");
         }
 
         var stepDownHome = new PreviewForgeHost("home-stepdown").GetHomeState();
@@ -143,7 +143,7 @@ internal static class LauncherRedesignTests
             "PreviewForgeHost 'home-resume' exposes UPDATE & LAUNCH CTA, Resume download pill, and Self-Install shortcuts banner");
 
         // 10. Version bump & cross-platform WindowIcon extraction (Deliverables 1 & 4)
-        check(AppInfo.Version == "2.0.3" || AppInfo.Version == "1.0.0", // Test runner assembly may be 1.0.0 unless Version set, verify Clonedivers.Icon.ico!
+        check(AppInfo.Version == "2.1.0" || AppInfo.Version == "1.0.0", // Test runner assembly may be 1.0.0 unless Version set, verify Clonedivers.Icon.ico!
             "AppInfo.Version resolves cleanly");
         using (var icoRes = typeof(ForgeTheme).Assembly.GetManifestResourceStream("Clonedivers.Icon.ico"))
         {
@@ -253,6 +253,8 @@ internal static class LauncherRedesignTests
         check((bool)trayField.GetValue(startupTrayWin)!,
             "ForgeShellWindow initializes minimizeToTrayActive=true from ForgeHomeState on startup without opening Settings (H4)");
 
+        await Milestone2Tests.RunHeadlessUiChecksAsync(area, check);
+
         // 15. M5 regression: DisposeTrayIcon / PrepareForUpdatedLauncherExit detaches TrayIcon from Application.Current, and Closing completes even if host.DisposeAsync() throws!
         if (Avalonia.Application.Current is { } app)
         {
@@ -337,7 +339,7 @@ internal static class LauncherRedesignTests
         public Task InitializeAsync() => Task.CompletedTask;
         public bool CanClose(out string? reason) { reason = null; return true; }
         public Task SelectModeAsync(string mode) => Task.CompletedTask;
-        public Task UpdateCustomizationAsync(string enemySkin, bool deltaSquad, bool covenant, string texture) => Task.CompletedTask;
+        public Task UpdateCustomizationAsync(string enemySkin, bool deltaSquad, bool covenant, string texture, string? squidSkin = null, bool? deathTrooperVoice = null) => Task.CompletedTask;
         public Task SetPerformanceTierAsync(string tierId) => Task.CompletedTask;
         public Task UpdateHostMutatorsAsync(string chaosIntensity, string heavySeaf, bool fasterCorpseCleanup) => Task.CompletedTask;
         public Task ApplyCustomizationNowAsync() => Task.CompletedTask;

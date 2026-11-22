@@ -45,6 +45,10 @@
 #define CHAOS_BREACH_TIMEOUT_S    8.0
 #define CHAOS_BREACH_STAGGER_S    3.5f
 
+#define CHAOS_PRELOAD_SETTLE_S       1.0f
+#define CHAOS_PRELOAD_RATE_PER_S     6.0f
+#define CHAOS_PRELOAD_FACTION_WAIT_S 8.0f
+
 enum { PHASE_INACTIVE = 0, PHASE_ACTIVE = 1, PHASE_ENDED = 2 };
 
 typedef struct ChaosRosterUnit {
@@ -100,6 +104,11 @@ static const HfApi* hf;
 static HfMod* self;
 static volatile LONG g_phase = PHASE_INACTIVE;
 static ChaosConfig config;
+static ChaosConfig g_ini_config;
+static char g_host_options_path[CD_HOST_OPTIONS_MAX_PATH];
+static uint64_t g_host_options_mtime = 0ULL;
+static uint64_t g_published_bridge_mtime = 0ULL;
+static uint64_t g_bridge_user_edit_mtime = 0ULL;
 static ChaosClock clock_state;
 static ChaosTracker g_tracker;
 static ChaosPendingWave g_pending;
@@ -122,6 +131,10 @@ static int g_faction_resident[CHAOS_FACTIONS];
 static int g_preload_ready_logged[CHAOS_FACTIONS];
 static int g_preload_refmap_warned[CHAOS_FACTIONS];
 static int g_bot_smoke_resident = 0;
+static float g_preload_mission_time = 0.0f;
+static float g_preload_tokens = 0.0f;
+static float g_preload_faction_wait[CHAOS_FACTIONS];
+static int g_preload_deferred_logged = 0;
 
 static uint32_t g_last_faction_masks[CHAOS_FACTIONS];
 static uint32_t g_last_player_mask = 0;
@@ -134,6 +147,7 @@ typedef struct ChaosPeerSync {
     uint8_t in_mission;
     uint8_t active;
     double joined_age;
+    double mission_entered_age;
     double last_seen_age;
 } ChaosPeerSync;
 
@@ -141,6 +155,7 @@ static ChaosPeerSync g_peer_sync[CHAOS_MAX_PEERS];
 static uint32_t g_mission_epoch = 1u;
 static uint32_t g_wave_seq = 0u;
 static uint8_t g_last_sent_resident_mask = 0xFFu;
+static uint8_t g_last_sent_in_mission = 0xFFu;
 static double g_last_client_status_sent = -10.0;
 static float g_share_poll = 0.0f;
 static int g_shared_dirty = 0;
@@ -819,9 +834,10 @@ static void ReconcilePeers(uintptr_t gbase)
             g_peer_sync[free_slot].peer = remote[j];
             g_peer_sync[free_slot].resident_mask = 0u;
             g_peer_sync[free_slot].hello_seen = 0u;
-            g_peer_sync[free_slot].in_mission = 1u;
+            g_peer_sync[free_slot].in_mission = 0u;
             g_peer_sync[free_slot].active = 1u;
             g_peer_sync[free_slot].joined_age = clock_state.age;
+            g_peer_sync[free_slot].mission_entered_age = clock_state.age;
             g_peer_sync[free_slot].last_seen_age = clock_state.age;
             g_shared_dirty = 1;
             hf->log(self, "CHAOS_PEER_JOIN: peer=%llu age=%.1fs",
@@ -844,8 +860,16 @@ static int PeersReadyForFaction(uintptr_t gbase, int chosen)
             if (since_join < CHAOS_LATE_JOIN_HELLO_S) return 0;
             continue;
         }
+        if (!p->in_mission) {
+            /* H4: Joiner is still in HF_STATE_PREPARE_MISSION (e.g. slow D11 Mega City level gen > 30s):
+             * hold foreign spawns up to CHAOS_PEER_PREPARE_GRACE_S (120s safety cap). */
+            if (since_join < CHAOS_PEER_PREPARE_GRACE_S) return 0;
+            continue;
+        }
+        double since_mission = clock_state.age - p->mission_entered_age;
+        if (since_mission < 0.0) since_mission = 0.0;
         if (((p->resident_mask & (uint8_t)(1u << chosen)) == 0u) &&
-            since_join < CHAOS_PEER_PRELOAD_GRACE_S) {
+            since_mission < CHAOS_PEER_PRELOAD_GRACE_S) {
             return 0;
         }
     }
@@ -856,7 +880,9 @@ static void SendClientStatusIfNeeded(unsigned now, uint8_t required_mask)
 {
     if (Host() || !HasChannelSend()) return;
     uint8_t mask = CurrentForeignResidentMask();
+    uint8_t in_mission = (now == HF_STATE_MISSION) ? 1u : 0u;
     int need = (mask != g_last_sent_resident_mask) ||
+               (in_mission != g_last_sent_in_mission) ||
                (required_mask && ((mask & required_mask) != required_mask) &&
                 (clock_state.age - g_last_client_status_sent) >= 5.0);
     if (!need) return;
@@ -867,16 +893,38 @@ static void SendClientStatusIfNeeded(unsigned now, uint8_t required_mask)
     msg.version = CHAOS_SYNC_VERSION;
     msg.kind = CHAOS_MSG_PEER_STATUS;
     msg.resident_mask = mask;
-    msg.in_mission = (now == HF_STATE_MISSION) ? 1u : 0u;
+    msg.in_mission = in_mission;
     msg.epoch = g_mission_epoch;
     if (hf->send(self, HF_TO_HOST, &msg, sizeof msg) == 0) {
         g_last_sent_resident_mask = mask;
+        g_last_sent_in_mission = in_mission;
         g_last_client_status_sent = clock_state.age;
     }
 }
 
-static void PreloadForeignFactionPackages(uintptr_t gbase, uintptr_t ebase, size_t esize, float dt, unsigned cur_state)
+static void PreloadForeignFactionPackagesPaced(
+    uintptr_t gbase,
+    uintptr_t ebase,
+    size_t esize,
+    float dt,
+    unsigned cur_state,
+    int pace_requests)
 {
+    /* NEVER preload foreign enemy packages during HF_STATE_PREPARE_MISSION (or outside active HF_STATE_MISSION):
+     * D11 Mega City generation + RenderTerrainLightingMaps peak-allocates 45.6 MB VirtualAlloc buffers during PrepareMission. */
+    if (cur_state != HF_STATE_MISSION) return;
+
+    /* On Solo / Host, skip foreign package preloading entirely while Chaos is disabled ("off" preset).
+     * Joined clients still preload in HF_STATE_MISSION so they stay ready for the Host's active config. */
+    if (pace_requests && Host() && !config.enabled) {
+        preload_log_poll -= dt;
+        if (preload_log_poll <= 0.0f) {
+            preload_log_poll = 15.0f;
+            SetStatusOnce("Chaos Invasions standby (disabled)");
+        }
+        return;
+    }
+
     int native = -1, diff = 0;
     if (!ReadDirectorContext(gbase, NULL, &native, &diff)) return;
     if (g_native_faction != native) {
@@ -884,6 +932,19 @@ static void PreloadForeignFactionPackages(uintptr_t gbase, uintptr_t ebase, size
         g_shared_dirty = 1;
         hf->log(self, "CHAOS_MISSION_CONTEXT: native_faction=%s difficulty=%d host=%d",
                 chaos_faction_names[native], diff, Host());
+    }
+
+    int req_budget = CHAOS_MAX_PRELOAD_PKGS * CHAOS_FACTIONS;
+    if (pace_requests) {
+        g_preload_mission_time += dt;
+        if (g_preload_mission_time < CHAOS_PRELOAD_SETTLE_S) {
+            SendClientStatusIfNeeded(cur_state, ChaosRequiredForeignMask(native));
+            return;
+        }
+        g_preload_tokens += dt * CHAOS_PRELOAD_RATE_PER_S;
+        float max_burst = (dt >= 0.25f) ? 4.0f : 2.0f;
+        if (g_preload_tokens > max_burst) g_preload_tokens = max_burst;
+        req_budget = (int)g_preload_tokens;
     }
 
     uintptr_t pkg_sys = 0, map_entries_addr = 0;
@@ -903,43 +964,53 @@ static void PreloadForeignFactionPackages(uintptr_t gbase, uintptr_t ebase, size
     }
 
     int ready_count = 0;
+    int block_next_faction = 0;
     for (int f = 0; f < CHAOS_FACTIONS; f++) {
         if (f == native) continue;
-        BuildPreloadList(gbase, f);
 
-        /* Best-effort catalogue smoke flare package for Bot dropship arrivals */
-        if (f == CHAOS_BOTS && !g_bot_smoke_resident && hf->load_package) {
-            int ls = hf->load_package(self, CHAOS_PKG_G3_SMOKE);
-            if (ls == HF_PACKAGE_RESIDENT) g_bot_smoke_resident = 1;
-        }
+        if (!block_next_faction) {
+            BuildPreloadList(gbase, f);
 
-        if (map_buf && g_preload_built[f]) {
-            for (int i = 0; i < g_preload_count[f]; i++) {
-                if (g_preload_requested[f][i]) continue;
-                uint64_t pkg_id = g_preload_pkgs[f][i];
-                uint32_t used = 0;
-                int already = 0;
-                if (!ChaosRefMapHasHeadroom(map_buf, map_cap, empty_key, pkg_id, &used, &already)) {
-                    if (!g_preload_refmap_warned[f]) {
-                        g_preload_refmap_warned[f] = 1;
-                        hf->log(self, "CHAOS_PRELOAD_REFUSED: faction=%s pkg=%016llx reason=refmap_75pct used=%u cap=%u",
-                                chaos_faction_names[f], (unsigned long long)pkg_id, used, map_cap);
-                    }
-                    break;
-                }
-                if (!already) {
-                    CallPkgRequest(gbase, (void*)pkg_sys, &pkg_id, 1u);
-                    if (!ReadMem(map_entries_addr, map_buf, (size_t)map_cap * 16u)) {
-                        free(map_buf);
-                        map_buf = NULL;
+            /* Best-effort catalogue smoke flare package for Bot dropship arrivals (in HF_STATE_MISSION only). */
+            if (f == CHAOS_BOTS && !g_bot_smoke_resident && hf->load_package) {
+                int ls = hf->load_package(self, CHAOS_PKG_G3_SMOKE);
+                if (ls == HF_PACKAGE_RESIDENT) g_bot_smoke_resident = 1;
+            }
+
+            if (map_buf && g_preload_built[f]) {
+                for (int i = 0; i < g_preload_count[f]; i++) {
+                    if (g_preload_requested[f][i]) continue;
+                    if (pace_requests && req_budget <= 0) break;
+                    uint64_t pkg_id = g_preload_pkgs[f][i];
+                    uint32_t used = 0;
+                    int already = 0;
+                    if (!ChaosRefMapHasHeadroom(map_buf, map_cap, empty_key, pkg_id, &used, &already)) {
+                        if (!g_preload_refmap_warned[f]) {
+                            g_preload_refmap_warned[f] = 1;
+                            hf->log(self, "CHAOS_PRELOAD_REFUSED: faction=%s pkg=%016llx reason=refmap_75pct used=%u cap=%u",
+                                    chaos_faction_names[f], (unsigned long long)pkg_id, used, map_cap);
+                        }
                         break;
                     }
+                    if (!already) {
+                        CallPkgRequest(gbase, (void*)pkg_sys, &pkg_id, 1u);
+                        if (pace_requests) {
+                            --req_budget;
+                            g_preload_tokens -= 1.0f;
+                            if (g_preload_tokens < 0.0f) g_preload_tokens = 0.0f;
+                        }
+                        if (!ReadMem(map_entries_addr, map_buf, (size_t)map_cap * 16u)) {
+                            free(map_buf);
+                            map_buf = NULL;
+                            break;
+                        }
+                    }
+                    g_preload_requested[f][i] = 1;
                 }
-                g_preload_requested[f][i] = 1;
             }
         }
 
-        if (!g_faction_resident[f]) {
+        if (g_preload_built[f] && !g_faction_resident[f]) {
             int res = 0, idle = 0;
             if (CheckFactionResidency(gbase, ebase, esize, f, &res, &idle)) {
                 g_faction_resident[f] = 1;
@@ -950,7 +1021,23 @@ static void PreloadForeignFactionPackages(uintptr_t gbase, uintptr_t ebase, size
                 }
             }
         }
-        if (g_faction_resident[f]) ++ready_count;
+
+        if (g_faction_resident[f]) {
+            ++ready_count;
+        } else if (pace_requests && !block_next_faction) {
+            int all_req = g_preload_built[f] && g_preload_count[f] > 0;
+            for (int i = 0; all_req && i < g_preload_count[f]; i++) {
+                if (!g_preload_requested[f][i]) all_req = 0;
+            }
+            if (!all_req) {
+                block_next_faction = 1;
+            } else {
+                g_preload_faction_wait[f] += dt;
+                if (g_preload_faction_wait[f] < CHAOS_PRELOAD_FACTION_WAIT_S) {
+                    block_next_faction = 1;
+                }
+            }
+        }
     }
 
     if (map_buf) free(map_buf);
@@ -965,6 +1052,13 @@ static void PreloadForeignFactionPackages(uintptr_t gbase, uintptr_t ebase, size
         else SetStatusOnce("Chaos client: foreign packages resident");
     }
 }
+
+#ifdef CHAOS_UNIT_TEST
+static void PreloadForeignFactionPackages(uintptr_t gbase, uintptr_t ebase, size_t esize, float dt, unsigned cur_state)
+{
+    PreloadForeignFactionPackagesPaced(gbase, ebase, esize, dt, cur_state, 0);
+}
+#endif
 
 /* ---- Ground Anchor Finder -------------------------------------------------------------------------------------- */
 
@@ -1397,6 +1491,7 @@ static void Publish(void)
         fprintf(f, "session=%lu\n", token);
         WriteValues(f);
         fclose(f);
+        cd_get_file_mtime_100ns(bridge, &g_published_bridge_mtime);
     }
 }
 
@@ -1421,12 +1516,54 @@ static void LoadOptions(const char* path, int session_required)
     }
     int valid = !ferror(f) && (!session_required || count == 10);
     fclose(f);
-    if (valid && memcmp(&config, &next, sizeof next) != 0) {
+    if (!valid) return;
+    if (!session_required) {
+        g_ini_config = next;
+    }
+    if (memcmp(&config, &next, sizeof next) != 0) {
+        if (session_required) {
+            uint64_t bm = 0ULL;
+            if (cd_get_file_mtime_100ns(path, &bm) == 1) g_bridge_user_edit_mtime = bm;
+        }
         config = next;
+        if (!config.enabled && g_pending.active) {
+            ChaosTrackerReleaseUnusedReservations(&g_tracker, g_pending.faction);
+            memset(&g_pending, 0, sizeof g_pending);
+        }
         ChaosReset(&clock_state, &config);
+        g_shared_dirty = 1;
         hf->log(self, "CHAOS_OPTIONS: enabled=%d cooldown=%d grace=%d cap=%d faction_cap=%d squad=%d budget=%d",
                 config.enabled, config.cooldown, config.grace, config.total_cap, config.faction_cap,
                 config.squad_size, config.mission_budget);
+    }
+}
+
+static void LoadHostOptions(int is_poll)
+{
+    if (!g_host_options_path[0]) return;
+    uint64_t hm = 0ULL;
+    int st = cd_get_file_mtime_100ns(g_host_options_path, &hm);
+    if (st != 1) return;
+    if (is_poll && hm == g_host_options_mtime) return;
+    g_host_options_mtime = hm;
+    if (is_poll && cd_session_override_is_newer(hm, g_bridge_user_edit_mtime)) return;
+
+    CdHostOptions ho;
+    if (cd_load_host_options_file(g_host_options_path, &ho) != 1) return;
+    ChaosConfig next;
+    ChaosApplyHostIntensity(&next, &g_ini_config, ho.chaos_intensity);
+    if (memcmp(&config, &next, sizeof next) != 0) {
+        config = next;
+        if (!config.enabled && g_pending.active) {
+            ChaosTrackerReleaseUnusedReservations(&g_tracker, g_pending.faction);
+            memset(&g_pending, 0, sizeof g_pending);
+        }
+        ChaosReset(&clock_state, &config);
+        g_shared_dirty = 1;
+        if (is_poll && bridge[0]) Publish();
+        hf->log(self, "CHAOS_HOST_OPTIONS: intensity=%s enabled=%d cooldown=%d grace=%d cap=%d faction_cap=%d squad=%d budget=%d",
+                cd_chaos_intensity_name(ho.chaos_intensity), config.enabled, config.cooldown, config.grace,
+                config.total_cap, config.faction_cap, config.squad_size, config.mission_budget);
     }
 }
 
@@ -1462,8 +1599,13 @@ static void ResetMissionState(void)
     memset(g_preload_count, 0, sizeof g_preload_count);
     memset(g_rosters_loaded, 0, sizeof g_rosters_loaded);
     memset(g_peer_sync, 0, sizeof g_peer_sync);
+    memset(g_preload_faction_wait, 0, sizeof g_preload_faction_wait);
+    g_preload_mission_time = 0.0f;
+    g_preload_tokens = 0.0f;
+    g_preload_deferred_logged = 0;
     g_last_player_mask = 0;
     g_last_sent_resident_mask = 0xFFu;
+    g_last_sent_in_mission = 0xFFu;
     g_last_client_status_sent = -10.0;
     g_share_poll = 0.0f;
     g_shared_dirty = 0;
@@ -1501,6 +1643,7 @@ static void HandleHostMigration(unsigned old_host, unsigned new_host)
         PublishSharedState(1);
     } else if (old_host && !new_host) {
         g_last_sent_resident_mask = 0xFFu;
+        g_last_sent_in_mission = 0xFFu;
         g_last_client_status_sent = -10.0;
     }
 
@@ -1532,14 +1675,20 @@ static void OnMessage(HfMod* mod, const HfEventInfo* info, void* user)
         g_peer_sync[slot].peer = m->from;
         g_peer_sync[slot].active = 1u;
         g_peer_sync[slot].joined_age = clock_state.age;
+        g_peer_sync[slot].mission_entered_age = clock_state.age;
     }
     int first_hello = !g_peer_sync[slot].hello_seen;
     uint8_t prev_mask = g_peer_sync[slot].resident_mask;
+    uint8_t prev_in_mission = g_peer_sync[slot].in_mission;
     g_peer_sync[slot].hello_seen = 1u;
     g_peer_sync[slot].resident_mask = pm.resident_mask;
     g_peer_sync[slot].in_mission = pm.in_mission;
+    if (pm.in_mission && (first_hello || !prev_in_mission)) {
+        /* H4: Joiner entered HF_STATE_MISSION (directly or after slow PrepareMission): grant full post-entry preload grace. */
+        g_peer_sync[slot].mission_entered_age = clock_state.age;
+    }
     g_peer_sync[slot].last_seen_age = clock_state.age;
-    if (first_hello || prev_mask != pm.resident_mask) {
+    if (first_hello || prev_mask != pm.resident_mask || prev_in_mission != pm.in_mission) {
         hf->log(self, "CHAOS_PEER_READY: peer=%llu resident_mask=0x%x in_mission=%u",
                 (unsigned long long)m->from, pm.resident_mask, pm.in_mission);
         PublishSharedState(1);
@@ -1703,19 +1852,33 @@ static void Tick(HfMod* mod, float dt, void* user)
     if (options_poll <= 0.0f) {
         options_poll = 1.0f;
         LoadOptions(bridge, 1);
+        LoadHostOptions(1);
     }
 
     if (!in_flow_now) return;
+
+    /* v0.3.2 D11 Mega City OOM Fix: NEVER touch native Director/rosters or preload foreign packages during
+     * HF_STATE_PREPARE_MISSION while level generation & RenderTerrainLightingMaps allocate 45.6 MB buffers. */
+    if (now == HF_STATE_PREPARE_MISSION) {
+        if (!g_preload_deferred_logged) {
+            g_preload_deferred_logged = 1;
+            hf->log(self, "CHAOS_PRELOAD_DEFERRED: state=PREPARE_MISSION reason=defer_until_mission");
+        }
+        if (!host) {
+            SendClientStatusIfNeeded(now, 0u);
+        }
+        return;
+    }
+    if (now != HF_STATE_MISSION) return;
+
     if (!ProveChaosRuntime()) return;
 
     size_t gsize = 0, esize = 0;
     uintptr_t gbase = GameBase(&gsize), ebase = ExeBase(&esize);
     if (!gbase) return;
 
-    /* All-peer curated foreign package preloading (prepare + active mission) */
-    PreloadForeignFactionPackages(gbase, ebase, esize, dt, now);
-
-    if (now != HF_STATE_MISSION) return;
+    /* All-peer curated foreign package preloading (strictly in HF_STATE_MISSION, smoothly paced) */
+    PreloadForeignFactionPackagesPaced(gbase, ebase, esize, dt, now, 1);
 
     ChaosTrackerPrune(&g_tracker, EntityAlive, NULL);
 
@@ -1723,6 +1886,10 @@ static void Tick(HfMod* mod, float dt, void* user)
     int living_players = CollectLivingPlayers(gbase, living_pos, NULL);
 
     if (!host) {
+        /* H4: Transmit in_mission: 0 -> 1 immediately on Tick 1 in HF_STATE_MISSION (even if Director context is still settling). */
+        SendClientStatusIfNeeded(
+            now,
+            (g_native_faction >= 0 && g_native_faction < CHAOS_FACTIONS) ? ChaosRequiredForeignMask(g_native_faction) : 0u);
         /* Client / late-joiner: consume host state snapshot & keep clock aligned cleanly, NEVER spawn/mutate */
         if (landed) clock_state.age += (double)dt;
         g_share_poll -= dt;
@@ -1747,7 +1914,9 @@ static void Tick(HfMod* mod, float dt, void* user)
     perception_poll -= dt;
     if (perception_poll <= 0.0f) {
         perception_poll = 0.25f;
-        UpdatePerceptionHostility(gbase);
+        if (config.enabled || g_tracker.total_live > 0) {
+            UpdatePerceptionHostility(gbase);
+        }
     }
 
     uintptr_t director = 0;
@@ -1823,6 +1992,11 @@ HF_MOD_EXPORT int hellforge_mod_init(const HfApi* api, HfMod* mod)
     self = mod;
     InterlockedExchange(&g_phase, PHASE_ACTIVE);
     config = ChaosDefaults();
+    g_ini_config = config;
+    g_host_options_path[0] = 0;
+    g_host_options_mtime = 0ULL;
+    g_published_bridge_mtime = 0ULL;
+    g_bridge_user_edit_mtime = 0ULL;
     status_text[0] = 0;
 
     const char* folder = api->mod_folder(mod);
@@ -1830,6 +2004,8 @@ HF_MOD_EXPORT int hellforge_mod_init(const HfApi* api, HfMod* mod)
     snprintf(options, sizeof options, "%s\\options.ini", folder);
     snprintf(stop_file, sizeof stop_file, "%s\\chaos.stop", folder);
     LoadOptions(options, 0);
+    cd_resolve_host_options_path(folder, g_host_options_path, sizeof g_host_options_path);
+    LoadHostOptions(0);
 
     char base[1600];
     DWORD n = GetEnvironmentVariableA("LOCALAPPDATA", base, sizeof base);
@@ -1861,8 +2037,8 @@ HF_MOD_EXPORT int hellforge_mod_init(const HfApi* api, HfMod* mod)
     if (HasChannelSend()) api->subscribe(mod, HF_ON_MESSAGE, OnMessage, NULL, 0);
     if (HasChannelShare()) api->subscribe(mod, HF_ON_SHARE, OnShare, NULL, 0);
 
-    SetStatusOnce("Chaos Invasions 0.3.0 ready");
-    api->log(mod, "CHAOS_INIT: version=0.3.0 build=25480438 sdk=16 enabled=%d cooldown=%d grace=%d cap=%d faction_cap=%d squad=%d budget=%d",
+    SetStatusOnce("Chaos Invasions 0.3.3 ready");
+    api->log(mod, "CHAOS_INIT: version=0.3.3 build=25480438 sdk=16 enabled=%d cooldown=%d grace=%d cap=%d faction_cap=%d squad=%d budget=%d",
              config.enabled, config.cooldown, config.grace, config.total_cap, config.faction_cap,
              config.squad_size, config.mission_budget);
     return 0;

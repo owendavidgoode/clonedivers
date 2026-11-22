@@ -1,6 +1,6 @@
 param(
     [string]$Cli = 'D:\HellForge\app\cli\HellForge.Cli.exe',
-    [string]$Zig = 'D:\HellForge\tools\zig',
+    [string]$Zig = 'D:\ClaudeWork\workstreams-v21\code-mods\tools\zig',
     [string]$WorkStage = 'D:\ClaudeWork\cache\tmp\atst-hf-stage'
 )
 
@@ -26,18 +26,32 @@ New-Item -ItemType Directory -Force $StageMod, $StageSdk, $StageTools | Out-Null
 New-Item -ItemType Junction -Path $StageZig -Target $Zig | Out-Null
 
 Copy-Item -LiteralPath (Join-Path $ModRoot 'src') -Destination $StageMod -Recurse -Force
-$SdkRoot = if (Test-Path -LiteralPath (Join-Path $ModRoot 'sdk')) { Join-Path $ModRoot 'sdk' } else { Join-Path (Split-Path (Split-Path $Cli -Parent) -Parent) 'sdk' }
+$SdkRoot = if (Test-Path -LiteralPath 'D:\ClaudeWork\hellforge-src\native\mod-sdk\hellforge_mod.h') {
+    'D:\ClaudeWork\hellforge-src\native\mod-sdk'
+} elseif (Test-Path -LiteralPath (Join-Path $ModRoot 'sdk')) {
+    Join-Path $ModRoot 'sdk'
+} else {
+    Join-Path (Split-Path (Split-Path $Cli -Parent) -Parent) 'sdk'
+}
 Copy-Item -Path (Join-Path $SdkRoot '*') -Destination $StageSdk -Force
 Copy-Item -LiteralPath (Join-Path $ModRoot 'hellforge-mod.json') -Destination $StageMod -Force
+if (Test-Path -LiteralPath (Join-Path $ModRoot 'README.md')) {
+    Copy-Item -LiteralPath (Join-Path $ModRoot 'README.md') -Destination $StageMod -Force
+}
 
 $oldGlobal = $env:ZIG_GLOBAL_CACHE_DIR
 $oldLocal = $env:ZIG_LOCAL_CACHE_DIR
+$oldTemp = $env:TEMP
+$oldTmp = $env:TMP
 $ZigCache = Join-Path $WorkStage 'atst-zig-cache'
-New-Item -ItemType Directory -Force $ZigCache | Out-Null
+$TmpRun = Join-Path $WorkStage 'atst-tmp'
+New-Item -ItemType Directory -Force $ZigCache, $TmpRun | Out-Null
 
 try {
     $env:ZIG_GLOBAL_CACHE_DIR = $ZigCache
     $env:ZIG_LOCAL_CACHE_DIR = $ZigCache
+    $env:TEMP = $TmpRun
+    $env:TMP = $TmpRun
 
     # 1. Strict bare zig cc check (-Wall -Werror with NO -Wno-unused-parameter)
     $Sources = Get-ChildItem (Join-Path $ModRoot 'src') -Filter '*.c' | ForEach-Object { $_.FullName }
@@ -51,29 +65,43 @@ try {
 
     Copy-Item -LiteralPath (Join-Path $StageMod 'empire_atst_writer.dll') -Destination (Join-Path $BuildDir 'empire_atst_writer.dll') -Force
 
-    # 3. Package via HellForge CLI
+    # 3. Package via HellForge CLI (v0.2.2)
+    $ZipFile = Join-Path $DistDir 'empire-atst-writer-0.2.2.zip'
+    if (Test-Path -LiteralPath $ZipFile) { Remove-Item -LiteralPath $ZipFile -Force }
     & $Cli package-mod --mod $StageMod --out $DistDir | Tee-Object -FilePath (Join-Path $BuildDir 'package.log')
     if ($LASTEXITCODE -ne 0) { throw "HellForge.Cli package-mod failed" }
-
-    $ZipFile = Join-Path $DistDir 'empire-atst-writer-0.2.1.zip'
     if (!(Test-Path -LiteralPath $ZipFile)) { throw "Expected zip not found: $ZipFile" }
 
+    $SharedDist = Join-Path (Split-Path $ModRoot -Parent) 'dist'
+    if (Test-Path -LiteralPath $SharedDist) {
+        Copy-Item -LiteralPath $ZipFile -Destination (Join-Path $SharedDist 'empire-atst-writer-0.2.2.zip') -Force
+    }
+
     $HashOut = & $Cli mod-hash --mod $StageMod | Tee-Object -FilePath (Join-Path $BuildDir 'mod-hash.log')
+    if ($LASTEXITCODE -ne 0) { throw "HellForge.Cli mod-hash failed" }
+    $ContentHash = (($HashOut -join "`n") | ConvertFrom-Json).hash
+    $ZipBytes = (Get-Item -LiteralPath $ZipFile).Length
     $ZipSha = (Get-FileHash -Algorithm SHA256 -LiteralPath $ZipFile).Hash.ToLowerInvariant()
     $DllSha = (Get-FileHash -Algorithm SHA256 -LiteralPath (Join-Path $BuildDir 'empire_atst_writer.dll')).Hash.ToLowerInvariant()
 
-    @{
+    [ordered]@{
+        version = '0.2.2'
         zip_path = $ZipFile
+        shared_dist_path = (Join-Path $SharedDist 'empire-atst-writer-0.2.2.zip')
+        zip_bytes = $ZipBytes
         zip_sha256 = $ZipSha
+        content_hash = $ContentHash
         dll_path = (Join-Path $BuildDir 'empire_atst_writer.dll')
         dll_sha256 = $DllSha
         cli_mod_hash = ($HashOut -join "`n")
     } | ConvertTo-Json | Set-Content -LiteralPath (Join-Path $BuildDir 'build-receipt.json') -Encoding utf8
 
-    Write-Output "BUILD_OK zip=$ZipFile zip_sha256=$ZipSha dll_sha256=$DllSha"
+    Write-Output "BUILD_OK zip=$ZipFile bytes=$ZipBytes zip_sha256=$ZipSha content_hash=$ContentHash dll_sha256=$DllSha"
 } finally {
     $env:ZIG_GLOBAL_CACHE_DIR = $oldGlobal
     $env:ZIG_LOCAL_CACHE_DIR = $oldLocal
+    $env:TEMP = $oldTemp
+    $env:TMP = $oldTmp
     if (Test-Path -LiteralPath $StageRoot) {
         if (Test-Path -LiteralPath $StageZig) { cmd /c rmdir "`"$StageZig`"" 2>$null }
         Remove-Item -LiteralPath $StageRoot -Recurse -Force -ErrorAction SilentlyContinue

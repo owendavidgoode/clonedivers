@@ -6,8 +6,9 @@ public sealed class PreviewForgeHost : IForgeUiHost
     readonly string preset;
     string mode;
     string enemySkin = "mixed-droids";
+    string squidSkin = "mixed-covenant";
     bool deltaSquad = true;
-    bool covenant = true;
+    bool deathTrooperVoice = true;
     string texture = "full";
     bool autoPerformanceTier = true;
     string performanceTier = PerformanceTierAdvisor.Auto;
@@ -80,6 +81,7 @@ public sealed class PreviewForgeHost : IForgeUiHost
             performanceTier = PerformanceTierAdvisor.Low512;
             texture = "reduced512";
             enemySkin = "all-droids";
+            squidSkin = "mixed-covenant";
             hostChaos = "total-war";
             hostSeaf = "heavy";
         }
@@ -98,7 +100,8 @@ public sealed class PreviewForgeHost : IForgeUiHost
     public ForgeHomeState GetHomeState()
     {
         var isBusy = preset == "downloading";
-        var isRunning = preset == "running";
+        var isLaunching = preset == "launching";
+        var isRunning = preset is "running" or "launching";
         var hasUpdate = preset is "home-update" or "whats-new" && !updateDismissed;
         var hasStepDown = preset == "home-stepdown" && !stepDownDismissed;
         var hasResume = preset == "home-resume";
@@ -143,12 +146,19 @@ public sealed class PreviewForgeHost : IForgeUiHost
                 Eta: TimeSpan.FromSeconds(116),
                 IsIndeterminate: false,
                 CanCancel: true)
-            : null;
+            : isLaunching
+                ? new OperationProgress(
+                    Stage: ForgeTacticalCopy.LaunchingHeadline,
+                    SubStep: ForgeTacticalCopy.LaunchingDetail,
+                    IsIndeterminate: true,
+                    CanCancel: false)
+                : null;
 
         var (badgeText, badgeTone, headline, detail, ctaLabel, ctaTone, secondary) = preset switch
         {
             "downloading" => ("Downloading · 53%", ForgeHeroTone.Running, "Downloading Star Wars pack", "Temporary connection errors retry automatically.", "CANCEL DOWNLOAD", ForgeHeroTone.Danger, (string?)null),
-            "running" => ("Session Active", ForgeHeroTone.Running, "HellForge session is running", "End the session here when you finish playing so cleanup completes cleanly.", "END SESSION", ForgeHeroTone.Running, (string?)null),
+            "launching" => ("Launching…", ForgeHeroTone.Running, ForgeTacticalCopy.LaunchingHeadline, ForgeTacticalCopy.LaunchingDetail, ForgeTacticalCopy.LaunchingPrimaryButton, ForgeHeroTone.Neutral, ForgeTacticalCopy.CancelLaunchButton),
+            "running" => ("Session Active", ForgeHeroTone.Running, ForgeTacticalCopy.RunningHeadline, ForgeTacticalCopy.RunningDetail, "END SESSION", ForgeHeroTone.Running, (string?)null),
             "error" => ("Needs Attention", ForgeHeroTone.Danger, "Download service didn't respond", "GitHub timed out while fetching verified pack assets. Your saved files are intact.", "RETRY", ForgeHeroTone.Action, "View Diagnostics"),
             "home-stepdown" => ("Last Run Notice", ForgeHeroTone.Warning, "Last session ended unexpectedly", "GPU ran out of video memory or hung (D3D12) — try stepping down to High for smoother play.", "LAUNCH CLONEDIVERS", ForgeHeroTone.Ready, (string?)null),
             "home-resume" => ("Update & Launch", ForgeHeroTone.Action, "Switch to EmpireDivers & launch", "Resumes the remaining 4.2 GB download, applies your loadout, and launches automatically.", "UPDATE & LAUNCH", ForgeHeroTone.Action, (string?)null),
@@ -177,7 +187,7 @@ public sealed class PreviewForgeHost : IForgeUiHost
             Mode: mode,
             EnemySkin: enemySkin,
             DeltaSquad: deltaSquad,
-            Covenant: covenant,
+            Covenant: squidSkin != "native-squids",
             Texture: texture,
             AutoPerformanceTier: autoPerformanceTier,
             PerformanceTier: performanceTier,
@@ -192,7 +202,7 @@ public sealed class PreviewForgeHost : IForgeUiHost
             Headline: headline,
             Detail: detail,
             PrimaryActionLabel: ctaLabel,
-            PrimaryActionEnabled: true,
+            PrimaryActionEnabled: !isLaunching,
             PrimaryActionTone: ctaTone,
             SecondaryActionLabel: secondary,
             ShowLocateMissing: false,
@@ -209,7 +219,9 @@ public sealed class PreviewForgeHost : IForgeUiHost
             ToastNotice: preset == "home-clones" ? null : null,
             StepDownBanner: stepDown,
             SelfInstallBanner: selfInstall,
-            MinimizeToTray: minimizeToTray);
+            MinimizeToTray: minimizeToTray,
+            SquidSkin: squidSkin,
+            DeathTrooperVoice: deathTrooperVoice);
     }
 
     public ForgeSetupState GetSetupState()
@@ -283,14 +295,16 @@ public sealed class PreviewForgeHost : IForgeUiHost
             squadMatchCode: matchCode,
             mode: mode,
             enemySkin: enemySkin,
-            covenant: covenant,
+            covenant: squidSkin != "native-squids",
             deltaSquad: deltaSquad,
             performanceTier: autoPerformanceTier ? PerformanceTierAdvisor.Auto : performanceTier,
             packTexture: texture,
             hardware: demoHardware,
             installRoot: @"D:\HellForge",
             triage: triage,
-            redactUserPaths: true);
+            redactUserPaths: true,
+            squidSkin: squidSkin,
+            deathTrooperVoice: deathTrooperVoice);
 
         return Task.FromResult(new ForgeDiagnosticsState(
             InstallRoot: @"D:\HellForge",
@@ -300,7 +314,7 @@ public sealed class PreviewForgeHost : IForgeUiHost
             [
                 new ForgeHealthItem("HellForge", "0.4.0-beta · SDK 16", Healthy: true),
                 new ForgeHealthItem("Game Copy", "Build 25480438", Healthy: true),
-                new ForgeHealthItem("Gameplay Preset", $"14/14 ({matchCode})", Healthy: true),
+                new ForgeHealthItem("Gameplay Preset", $"17/17 ({matchCode})", Healthy: true),
                 new ForgeHealthItem("Account Sync", "Imported", Healthy: true),
                 new ForgeHealthItem("Co-op Network", "Sandbox + WFP OK", Healthy: true)
             ],
@@ -324,7 +338,16 @@ public sealed class PreviewForgeHost : IForgeUiHost
     public Task InitializeAsync() => Task.CompletedTask;
     public bool CanClose(out string? reason) { reason = null; return true; }
     public Task SelectModeAsync(string newMode) { mode = newMode; StateChanged?.Invoke(); return Task.CompletedTask; }
-    public Task UpdateCustomizationAsync(string skin, bool delta, bool cov, string tex) { enemySkin = skin; deltaSquad = delta; covenant = cov; texture = tex; StateChanged?.Invoke(); return Task.CompletedTask; }
+    public Task UpdateCustomizationAsync(string skin, bool delta, bool cov, string tex, string? squid = null, bool? dtVoice = null)
+    {
+        enemySkin = skin;
+        deltaSquad = delta;
+        squidSkin = squid ?? (cov ? "all-covenant" : "native-squids");
+        if (dtVoice is { } dt) deathTrooperVoice = dt;
+        texture = tex;
+        StateChanged?.Invoke();
+        return Task.CompletedTask;
+    }
     public Task SetPerformanceTierAsync(string tierId)
     {
         performanceTier = tierId;
@@ -344,16 +367,16 @@ public sealed class PreviewForgeHost : IForgeUiHost
     public Task InstallSelfShortcutsAsync() { selfInstallDismissed = true; StateChanged?.Invoke(); return Task.CompletedTask; }
     public void DismissSelfInstallBanner() { selfInstallDismissed = true; StateChanged?.Invoke(); }
     public Task<WhatsNewResult> FetchWhatsNewAsync(string? versionOrTag, CancellationToken ct = default) => Task.FromResult(new WhatsNewResult(
-        Tag: WhatsNewFetcher.NormalizeTag(versionOrTag ?? "2.0.3", isLinux: false),
+        Tag: WhatsNewFetcher.NormalizeTag(versionOrTag ?? "2.1.0", isLinux: false),
         Bullets:
         [
-            "Smart 5-tier GPU performance advisor with automatic D3D12 low-VRAM protection.",
-            "True 1-click UPDATE & LAUNCH plus resumable download size tracking.",
-            "One-click Verify & Repair and safe background cache cleanup in Settings.",
-            "Squad Match Code (r7) and plain-English crash triage for co-op sessions."
+            "5 native Star Wars texture tiers (up to -80% VRAM & decimated meshes on Ultra-Potato).",
+            "Empire r49 & Clones r21: folded-wing HD Lambda, multi-exo AT-ST, 500+ rig fixes & Death Trooper voice.",
+            "3-way Mixed Covenant + Squids selector, O(1) camera pullback, Dedicated Melee Slot & D11 Chaos OOM fix.",
+            "Squad Match Code (r8), clear pre-window launch staging status, and overhaul-pack collision guard."
         ],
         IsFallback: false,
-        ReleaseUrl: "https://github.com/owendavidgoode/clonedivers/releases/tag/v2.0.3"));
+        ReleaseUrl: "https://github.com/owendavidgoode/clonedivers/releases/tag/v2.1.0"));
     public void ToggleSoundEffects() { soundEffectsEnabled = !soundEffectsEnabled; StateChanged?.Invoke(); }
     public void OpenSteamLibrary() { }
     public Task EnterSetupAsync() { SetupVisibilityChanged?.Invoke(true); return Task.CompletedTask; }

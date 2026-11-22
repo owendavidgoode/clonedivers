@@ -109,4 +109,12 @@ public sealed class ForgeAvaloniaApp : Application
             .LogToTrace()
             .StartWithClassicDesktopLifetime(args);
     }
+
+    public static void RunExportDiscordIcons(string outputDir, int pixels = 512)
+    {
+        AppBuilder.Configure<ForgeAvaloniaApp>()
+            .UsePlatformDetect()
+            .SetupWithoutStarting();
+        ForgeTheme.ExportDiscordHelmetIcons(outputDir, pixels);
+    }
 }

@@ -17,7 +17,9 @@ public sealed record DiscordReportInput(
     HardwarePerformanceRecommendation? Hardware,
     string? InstallRoot,
     CrashTriageResult? Triage,
-    bool RedactUserPaths = true);
+    bool RedactUserPaths = true,
+    string? SquidSkin = null,
+    bool DeathTrooperVoice = true);
 
 /// <summary>
 /// Formats a concise 10–14 line Discord markdown diagnostic snippet covering version,
@@ -47,7 +49,7 @@ public static class DiscordReportFormatter
         var vramText = hw.VramGb > 0 ? $"{hw.VramGb:0.#} GB VRAM" : "VRAM n/a";
         var ramText = hw.RamGb > 0 ? $"{hw.RamGb:0.#} GB RAM" : "RAM n/a";
 
-        var modeSummary = FormatModeSummary(input.Mode, input.EnemySkin, input.Covenant, input.DeltaSquad);
+        var modeSummary = FormatModeSummary(input.Mode, input.EnemySkin, input.Covenant, input.DeltaSquad, input.SquidSkin, input.DeathTrooperVoice);
         var tierSummary = FormatTierSummary(input.PerformanceTier, input.PackTexture, hw);
         var rootText = FormatInstallRoot(input.InstallRoot, input.RedactUserPaths);
         var sessionSummary = FormatTriageSummary(input.Triage);
@@ -107,7 +109,9 @@ public static class DiscordReportFormatter
         HardwarePerformanceRecommendation? hardware,
         string? installRoot,
         CrashTriageResult? triage,
-        bool redactUserPaths = true) =>
+        bool redactUserPaths = true,
+        string? squidSkin = null,
+        bool deathTrooperVoice = true) =>
         Format(new DiscordReportInput(
             AppVersion: appVersion,
             Platform: OperatingSystem.IsLinux() ? "Linux" : "Windows",
@@ -122,15 +126,18 @@ public static class DiscordReportFormatter
             Hardware: hardware,
             InstallRoot: installRoot,
             Triage: triage,
-            RedactUserPaths: redactUserPaths));
+            RedactUserPaths: redactUserPaths,
+            SquidSkin: squidSkin,
+            DeathTrooperVoice: deathTrooperVoice));
 
-    static string FormatModeSummary(string mode, string enemySkin, bool covenant, bool deltaSquad)
+    static string FormatModeSummary(string mode, string enemySkin, bool covenant, bool deltaSquad, string? squidSkin, bool deathTrooperVoice)
     {
         if (string.Equals(mode, "regular", StringComparison.OrdinalIgnoreCase))
             return "Regular HellForge (Vanilla visuals)";
 
-        var universe = string.Equals(mode, "empire", StringComparison.OrdinalIgnoreCase)
-            ? "EmpireDivers"
+        bool isEmpire = string.Equals(mode, "empire", StringComparison.OrdinalIgnoreCase);
+        var universe = isEmpire
+            ? (deathTrooperVoice ? "EmpireDivers (Death Trooper VO)" : "EmpireDivers")
             : (deltaSquad ? "Clonedivers (Delta Squad)" : "Clonedivers");
 
         var bots = enemySkin switch
@@ -140,7 +147,13 @@ public static class DiscordReportFormatter
             _ => "All CIS Droids"
         };
 
-        var cov = covenant ? "Covenant ON" : "Covenant OFF";
+        var cov = squidSkin switch
+        {
+            "mixed-covenant" => "Mixed Cov+Squids",
+            "all-covenant" => "Covenant ON",
+            "native-squids" => "Covenant OFF",
+            _ => covenant ? "Covenant ON" : "Covenant OFF"
+        };
         return $"{universe} · {bots} · {cov}";
     }
 

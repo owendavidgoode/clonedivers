@@ -441,4 +441,78 @@ public static class ForgeTheme
         System.Runtime.InteropServices.Marshal.Copy(buffer, 0, fb.Address, buffer.Length);
         return bitmap;
     }
+
+    /// <summary>Exports crisp 512x512 transparent RGBA Discord Rich Presence helmet icons matching ForgeTheme vector emblems.</summary>
+    public static void ExportDiscordHelmetIcons(string outputDir, int pixels = 512)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(outputDir);
+        if (pixels < 64 || pixels > 2048) throw new ArgumentOutOfRangeException(nameof(pixels));
+        Directory.CreateDirectory(outputDir);
+
+        foreach (var (mode, fileName) in new[] { ("clonedivers", "clone-helmet.png"), ("empire", "empire-helmet.png") })
+        {
+            var canvas = new Canvas { Width = 100, Height = 100 };
+            void Shape(string geometry, string color) =>
+                canvas.Children.Add(new ShapePath { Data = Geometry.Parse(geometry), Fill = Brush.Parse(color) });
+
+            if (mode == "empire")
+            {
+                Shape("M14 40 C13 -1 87 -1 86 40 L90 51 87 65 94 81 81 93 66 94 58 88 42 88 34 94 19 93 6 81 13 65 10 51 Z", "#F3F6FC");
+                Shape("M14 34 L32 31 68 31 86 34 87 40 67 37 33 37 13 40 Z M19 43 L31 40 46 46 42 55 25 53 Z M81 43 L69 40 54 46 58 55 75 53 Z M31 73 L42 61 50 57 58 61 69 73 59 69 50 64 41 69 Z", "#0B1020");
+                Shape("M11 77 L20 71 30 76 35 87 29 90 20 86 Z M89 77 L80 71 70 76 65 87 71 90 80 86 Z", "#9AA9C7");
+                Shape("M46 13 H54 V27 H46 Z", "#EF4444");
+            }
+            else
+            {
+                Shape("M18 45 C15 0 85 0 82 45 L86 75 72 92 28 92 14 75 Z", "#F3F6FC");
+                Shape("M45 10 H55 V35 H45 Z", "#38BDF8");
+                Shape("M22 40 L78 40 73 51 56 53 54 74 46 74 44 53 27 51 Z M39 82 H61 V86 H39 Z", "#0B1020");
+                Shape("M20 62 L32 62 34 73 22 73 Z M68 62 L80 62 78 73 66 73 Z", "#9AA9C7");
+            }
+
+            double badgeSize = Math.Round(pixels * 0.90);
+            double helmetSize = Math.Round(pixels * 0.72);
+            double stroke = Math.Max(2.0, Math.Round(pixels * 0.014));
+
+            var badge = new Border
+            {
+                Width = badgeSize,
+                Height = badgeSize,
+                CornerRadius = new CornerRadius(badgeSize / 2.0),
+                Background = Brush.Parse(mode == "empire" ? "#16111F" : "#0E1C36"),
+                BorderBrush = AccentForMode(mode),
+                BorderThickness = new Thickness(stroke),
+                HorizontalAlignment = HorizontalAlignment.Center,
+                VerticalAlignment = VerticalAlignment.Center,
+                Child = new Border
+                {
+                    CornerRadius = new CornerRadius(badgeSize / 2.0),
+                    Background = GlowForMode(mode),
+                    Child = new Viewbox
+                    {
+                        Width = helmetSize,
+                        Height = helmetSize,
+                        HorizontalAlignment = HorizontalAlignment.Center,
+                        VerticalAlignment = VerticalAlignment.Center,
+                        Child = canvas
+                    }
+                }
+            };
+
+            var root = new Avalonia.Controls.Grid
+            {
+                Width = pixels,
+                Height = pixels,
+                Background = Brushes.Transparent,
+                Children = { badge }
+            };
+            root.Measure(new Avalonia.Size(pixels, pixels));
+            root.Arrange(new Rect(0, 0, pixels, pixels));
+            root.UpdateLayout();
+
+            using var bitmap = new RenderTargetBitmap(new PixelSize(pixels, pixels), new Vector(96, 96));
+            bitmap.Render(root);
+            bitmap.Save(Path.Combine(outputDir, fileName));
+        }
+    }
 }

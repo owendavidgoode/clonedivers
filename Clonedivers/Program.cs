@@ -1672,6 +1672,12 @@ static class Program
     static void Main(string[] args)
     {
         // Preview / visual QA modes never take the single-instance lock or mutate saved preferences.
+        var exportIconsIndex = Array.IndexOf(args, "--export-discord-icons");
+        if (exportIconsIndex >= 0 && exportIconsIndex + 1 < args.Length)
+        {
+            Clonedivers.Ui.ForgeAvaloniaApp.RunExportDiscordIcons(Path.GetFullPath(args[exportIconsIndex + 1]), 512);
+            return;
+        }
         var renderIndex = Array.IndexOf(args, "--ui-render-all");
         if (renderIndex >= 0 && renderIndex + 1 < args.Length)
         {

@@ -12,19 +12,23 @@ internal static class GameplayInstallTests
     {
         var catalog = HellForgeGameplayCatalog.Pinned;
         catalog.Validate();
-        check(catalog.Id == "build25480438-r7" && catalog.Artifacts.Count == 14 && catalog.Artifacts.Sum(a => a.Bytes) == 8313527,
-            "the r7 preset pairs six optional project SDK-16 mods with eight required gameplay and author archives");
-        check(catalog.Artifacts.Count(a => a.Url.Contains("/owendavidgoode/clonedivers/")) == 11 && catalog.Artifacts.Count(a => !a.Url.Contains("/owendavidgoode/clonedivers/")) == 3 &&
+        check(catalog.Id == "build25480438-r8" && catalog.Artifacts.Count == 17 && catalog.Artifacts.Sum(a => a.Bytes) == 8494004,
+            "the r8 preset pairs eight optional SDK-16 mods with nine required gameplay and author archives");
+        check(catalog.Artifacts.Count(a => a.Url.Contains("/owendavidgoode/clonedivers/")) == 14 && catalog.Artifacts.Count(a => !a.Url.Contains("/owendavidgoode/clonedivers/")) == 3 &&
             catalog.Artifacts.All(a => !a.Url.Contains("hf-mod.com", StringComparison.OrdinalIgnoreCase)) &&
             catalog.Artifacts.All(a => !a.FileName.Contains("clear-skies", StringComparison.OrdinalIgnoreCase)),
-            "r5 eliminates hf-mod.com dependencies via permissive mirrors, permitted SEAF packages, six project mods, and three direct author GitHub releases while excluding non-redistributable clear-skies");
+            "r8 eliminates hf-mod.com dependencies via permissive mirrors, permitted SEAF packages, project/MIT code mods, and three direct author GitHub releases while excluding non-redistributable clear-skies");
         check(catalog.Artifacts.All(a => FileSafety.IsSha256(a.ContentHash) && FileSafety.IsSha256(a.Sha256)), "every gameplay dependency has independent archive and official content-hash pins");
         var cleanExit = catalog.Artifacts.Single(a => a.Id == HellForgePreset.CleanExit);
         var leafWriter = catalog.Artifacts.Single(a => a.Id == HellForgePreset.LegoCompactLeafWriter);
         var yoda = catalog.Artifacts.Single(a => a.Id == HellForgePreset.EmpireLegoYoda);
         var atst = catalog.Artifacts.Single(a => a.Id == HellForgePreset.EmpireAtstWriter);
         var tieSwitch = catalog.Artifacts.Single(a => a.Id == HellForgePreset.EmpireTieSwitch);
+        var cameraPullback = catalog.Artifacts.Single(a => a.Id == HellForgePreset.EmpireCameraPullback);
+        var dedicatedMelee = catalog.Artifacts.Single(a => a.Id == HellForgePreset.DedicatedMeleeSlot);
         var chaos = catalog.Artifacts.Single(a => a.Id == HellForgePreset.ChaosInvasions);
+        var corpseCleanup = catalog.Artifacts.Single(a => a.Id == HellForgePreset.FasterCorpseCleanup);
+        var heavySeaf = catalog.Artifacts.Single(a => a.Id == "local.heavy-seaf-presence");
         check(catalog.Artifacts.Where(a => a.Optional).Select(a => a.Id).ToHashSet(StringComparer.Ordinal).SetEquals(HellForgePreset.Optional) &&
             HellForgePreset.Required.All(r => !HellForgePreset.Optional.Contains(r.Id)) &&
             cleanExit.Version == "0.2.0" && cleanExit.Bytes == 8192 && cleanExit.Sha256 == "6835354fff8264c6f29c33dfac71a0b6e4c4da7a401920bb76e1b604d2435932" &&
@@ -41,21 +45,34 @@ internal static class GameplayInstallTests
             yoda.ContentHash == "d896384245eae48b4a883a8cb561daae75cd61a739c9ac20f85ea54be474b043" &&
             yoda.Url == "https://github.com/owendavidgoode/clonedivers/releases/download/forge-mods-2026-11-19/empire-lego-yoda-0.2.0.zip",
             "Empire LEGO Yoda Death is optional with the exact 0.2.0 co-op release pins");
-        check(atst.Name == "Empire AT-ST Film-Scale Leaf Writer" && atst.Version == "0.2.1" && atst.Bytes == 36187 &&
-            atst.Sha256 == "7349932489cd1682717c4d74afe5514bef889be6e81d1a68668780ab67317a70" &&
-            atst.ContentHash == "1e36e3c58a1cd37ed0a5511265191bca655c1e7b00752bc3f1b5b3c1e5d0b7ea" &&
-            atst.Url == "https://github.com/owendavidgoode/clonedivers/releases/download/forge-mods-2026-11-21/empire-atst-writer-0.2.1.zip",
-            "Empire AT-ST Film-Scale Leaf Writer is optional with the exact 0.2.1 D11 tuned release pins");
+        check(atst.Name == "Empire AT-ST Film-Scale Leaf Writer" && atst.Version == "0.2.2" && atst.Bytes == 37771 &&
+            atst.Sha256 == "d807baff203a0f82238600d6b10ad1890e46d95804c2bc75fbc15046abe87401" &&
+            atst.ContentHash == "1040b25ecf28f875e5df0ced10a490d953813869308422c5d5a1fa8a4bc45751" &&
+            atst.Url == "https://github.com/owendavidgoode/clonedivers/releases/download/forge-mods-2026-11-22/empire-atst-writer-0.2.2.zip",
+            "Empire AT-ST Film-Scale Leaf Writer is optional with the exact 0.2.2 multi-exosuit release pins");
         check(tieSwitch.Name == "Empire per-attack TIE (lab candidate)" && tieSwitch.Version == "0.3.0" && tieSwitch.Bytes == 22644 &&
             tieSwitch.Sha256 == "491f437bbed022aaf6899b259784156341e6acec80bf1ff5a6116f106da06f5b" &&
             tieSwitch.ContentHash == "fe2c081780faecf75bc6f4d4a4e07df7ca9ddc332f32e4a148af4e460d2fbe7b" &&
             tieSwitch.Url == "https://github.com/owendavidgoode/clonedivers/releases/download/forge-mods-2026-11-19/empire-tie-switch-0.3.0.zip",
             "Empire per-attack TIE switch is optional with the exact 0.3.0 release pins");
-        check(chaos.Name == "Chaos Invasions" && chaos.Version == "0.3.0" && chaos.Bytes == 33855 &&
-            chaos.Sha256 == "1f5f8a746c7b063e067fb3d9e9e15c4822cfab66dd1366f25578d12943b1b00f" &&
-            chaos.ContentHash == "cd45f2b705a73e33bbe01d862d3e17b31791661e72014185eb5f1e8014a466d4" &&
-            chaos.Url == "https://github.com/owendavidgoode/clonedivers/releases/download/forge-mods-2026-11-19/chaos-invasions-0.3.0.zip",
-            "Chaos Invasions is optional with the exact 0.3.0 host-authoritative co-op release pins");
+        check(cameraPullback.Name == "Empire & Clone Camera Pullback" && cameraPullback.Version == "0.1.2" && cameraPullback.Bytes == 31015 &&
+            cameraPullback.Sha256 == "7ecb795d2e0832e96ab63445e382beb484149fe2fde4fb65b27644c52de12d57" &&
+            cameraPullback.ContentHash == "3d24bab9eb3bd8e4654e1fcf0b8ecb375a683910a3082c25b18d8f314fec1926" &&
+            cameraPullback.Url == "https://github.com/owendavidgoode/clonedivers/releases/download/forge-mods-2026-11-22/empire-camera-pullback-0.1.2.zip",
+            "Empire & Clone Camera Pullback is optional with the exact 0.1.2 O(1) release pins");
+        check(dedicatedMelee.Name == "Dedicated Melee Slot" && dedicatedMelee.Version == "1.5.2-clonedivers.2" && dedicatedMelee.Bytes == 53146 &&
+            dedicatedMelee.Sha256 == "3dfe28c02ae4db9f344e8368c1f8bd2b717a723c3ac871c608fb027ea4c00e07" &&
+            dedicatedMelee.ContentHash == "814a5d993dbf5f9f7bb09c7e68636e1c80ba06a57c8b1d4efdc4815df7b1c9a4" &&
+            dedicatedMelee.Url == "https://github.com/owendavidgoode/clonedivers/releases/download/forge-mods-2026-11-22/dedicated-melee-slot-1.5.2-clonedivers.2.zip",
+            "Dedicated Melee Slot is optional with the exact 1.5.2-clonedivers.2 co-op release pins");
+        check(chaos.Name == "Chaos Invasions" && chaos.Version == "0.3.3" && chaos.Bytes == 42092 &&
+            chaos.Sha256 == "1a4c3f992f270d40aafe7305947a84a6e326151847d27ece774165f24543e67a" &&
+            chaos.ContentHash == "be9dc1cf956c391c8fdf4c307d4177a44fe25a30981dd3c4d49182d7a81215c7" &&
+            chaos.Url == "https://github.com/owendavidgoode/clonedivers/releases/download/forge-mods-2026-11-22/chaos-invasions-0.3.3.zip",
+            "Chaos Invasions is optional with the exact 0.3.3 D11 OOM-safe release pins");
+        check(!corpseCleanup.Optional && corpseCleanup.Version == "1.0.6-clonedivers.1" && corpseCleanup.Bytes == 75523 &&
+            !heavySeaf.Optional && heavySeaf.Version == "1.2.0-clonedivers.5" && heavySeaf.Bytes == 106285,
+            "Faster Corpse Cleanup (1.0.6-clonedivers.1) and Heavy SEAF Presence (1.2.0-clonedivers.5) are required in r8");
         using (var stream = typeof(GameplayInstallTests).Assembly.GetManifestResourceStream("Clonedivers.Tests.CleanExit.json")!)
         using (var manifest = JsonDocument.Parse(stream))
             check(manifest.RootElement.GetProperty("id").GetString() == cleanExit.Id && manifest.RootElement.GetProperty("version").GetString() == cleanExit.Version &&
@@ -70,21 +87,32 @@ internal static class GameplayInstallTests
             check(manifest.RootElement.GetProperty("id").GetString() == yoda.Id && manifest.RootElement.GetProperty("version").GetString() == yoda.Version &&
                 !manifest.RootElement.GetProperty("gameplay").GetBoolean() && manifest.RootElement.GetProperty("coop").GetString() == "per-player",
                 "Empire LEGO Yoda Death declares 0.2.0, gameplay false and per-player co-op scope");
-        using (var stream = typeof(GameplayInstallTests).Assembly.GetManifestResourceStream("Clonedivers.Tests.EmpireAtstWriter.json")!)
-        using (var manifest = JsonDocument.Parse(stream))
-            check(manifest.RootElement.GetProperty("id").GetString() == atst.Id && manifest.RootElement.GetProperty("version").GetString() == atst.Version &&
-                !manifest.RootElement.GetProperty("gameplay").GetBoolean() && manifest.RootElement.GetProperty("coop").GetString() == "per-player",
-                "Empire AT-ST Writer declares 0.2.1, gameplay false and per-player co-op scope");
         using (var stream = typeof(GameplayInstallTests).Assembly.GetManifestResourceStream("Clonedivers.Tests.EmpireTieSwitch.json")!)
         using (var manifest = JsonDocument.Parse(stream))
             check(manifest.RootElement.GetProperty("id").GetString() == tieSwitch.Id && manifest.RootElement.GetProperty("version").GetString() == tieSwitch.Version &&
                 !manifest.RootElement.GetProperty("gameplay").GetBoolean() && manifest.RootElement.GetProperty("coop").GetString() == "per-player",
                 "Empire per-attack TIE switch declares 0.3.0, gameplay false and per-player co-op scope");
-        using (var stream = typeof(GameplayInstallTests).Assembly.GetManifestResourceStream("Clonedivers.Tests.ChaosInvasions.json")!)
-        using (var manifest = JsonDocument.Parse(stream))
-            check(manifest.RootElement.GetProperty("id").GetString() == chaos.Id && manifest.RootElement.GetProperty("version").GetString() == chaos.Version &&
+        using (var r8Stream = typeof(GameplayInstallTests).Assembly.GetManifestResourceStream("Clonedivers.Forge.Gameplay.json")!)
+        {
+            var r8Catalog = JsonSerializer.Deserialize<HellForgeGameplayCatalog>(r8Stream, HellForgePack.Json)!;
+            var r8Atst = r8Catalog.Artifacts.Single(a => a.Id == HellForgePreset.EmpireAtstWriter);
+            using (var atstStream = typeof(GameplayInstallTests).Assembly.GetManifestResourceStream("Clonedivers.Tests.EmpireAtstWriter.json")!)
+            using (var atstManifest = JsonDocument.Parse(atstStream))
+            {
+                check(atstManifest.RootElement.GetProperty("id").GetString() == atst.Id &&
+                    atstManifest.RootElement.GetProperty("version").GetString() == r8Atst.Version &&
+                    !atstManifest.RootElement.GetProperty("gameplay").GetBoolean() &&
+                    atstManifest.RootElement.GetProperty("coop").GetString() == "per-player",
+                    "Empire AT-ST Writer source manifest matches staged r8 version (0.2.2), gameplay false and per-player co-op scope");
+            }
+            var r8Chaos = r8Catalog.Artifacts.Single(a => a.Id == HellForgePreset.ChaosInvasions);
+            using var stream = typeof(GameplayInstallTests).Assembly.GetManifestResourceStream("Clonedivers.Tests.ChaosInvasions.json")!;
+            using var manifest = JsonDocument.Parse(stream);
+            check(manifest.RootElement.GetProperty("id").GetString() == chaos.Id &&
+                manifest.RootElement.GetProperty("version").GetString() == r8Chaos.Version &&
                 manifest.RootElement.GetProperty("gameplay").GetBoolean(),
-                "Chaos Invasions declares 0.3.0 and gameplay true as a host-driven optional gameplay mod");
+                "Chaos Invasions source manifest matches staged r8 version and declares gameplay true as a host-driven optional gameplay mod");
+        }
         var clone = JsonSerializer.Deserialize<HellForgeGameplayCatalog>(JsonSerializer.Serialize(catalog, HellForgePack.Json), HellForgePack.Json)!;
         clone.Artifacts[clone.Artifacts.FindIndex(a => a.Id == yoda.Id)] = yoda with { Optional = false };
         try { clone.Validate(); check(false, "catalog validation must reject required-flagged optional mod"); }
@@ -116,7 +144,7 @@ internal static class GameplayInstallTests
         var backup = Path.Combine(client.CacheRoot, "backups", "gameplay-" + Guid.NewGuid().ToString("N")); Directory.CreateDirectory(backup);
         void Write(string catalog, string state, string? owner = null) => File.WriteAllText(record, JsonSerializer.Serialize(new {
             Root = owner ?? client.Root, Catalog = catalog, Backup = backup, SnapshotSha256 = new string('a', 64), State = state }));
-        foreach (var revision in new[] { "build25480438-r1", "build25480438-r2", "build25480438-r3", "build25480438-r4", "build25480438-r5", "build25480438-r6" })
+        foreach (var revision in new[] { "build25480438-r1", "build25480438-r2", "build25480438-r3", "build25480438-r4", "build25480438-r5", "build25480438-r6", "build25480438-r7" })
         foreach (var state in new[] { "applied", "restored" })
         {
             Write(revision, state);
@@ -127,7 +155,7 @@ internal static class GameplayInstallTests
         check(client.InterruptedGameplayProblem()?.StartsWith("Gameplay setup was interrupted", StringComparison.Ordinal) == true, "a pending record from the pinned catalog still requires recovery");
         Write(HellForgeGameplayCatalog.Pinned.Id, "applied", Path.Combine(root, "other"));
         check(client.InterruptedGameplayProblem()?.Contains("needs review") == true, "a record for another installation still needs review");
-        foreach (var revision in new[] { "build25480438-r1", "build25480438-r2", "build25480438-r3", "build25480438-r4", "build25480438-r5", "build25480438-r6" })
+        foreach (var revision in new[] { "build25480438-r1", "build25480438-r2", "build25480438-r3", "build25480438-r4", "build25480438-r5", "build25480438-r6", "build25480438-r7" })
         {
             Write(revision, "pending");
             check(client.InterruptedGameplayProblem()?.StartsWith("Gameplay setup from an earlier launcher", StringComparison.Ordinal) == true, "a pending " + revision + " record names its own recovery path");

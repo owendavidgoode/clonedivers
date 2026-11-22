@@ -12,6 +12,8 @@ import numpy as np
 
 HERE = Path(__file__).resolve().parent
 PINS_JSON = HERE.parent / "delta" / "atst-pins.json"
+if not PINS_JSON.exists():
+    PINS_JSON = Path(r"D:\ClaudeWork\workstreams-20261116-v2\at-st\delta\atst-pins.json")
 OUT_H = HERE / "src" / "atst_asset_pins.h"
 
 
@@ -90,6 +92,16 @@ def main() -> int:
     out.append("#define ATST_ASSET_PINS_H\n")
     out.append("#include <stdint.h>\n")
     out.append("#define AT_UNIT_RESOURCE_ID 0x79E4B3D2DA5E45E3ULL")
+    out.append("#define AT_UNIT_EXO49_RESOURCE_ID 0xC2D449ECF7FACAB1ULL")
+    out.append("#define AT_UNIT_EXO51_RESOURCE_ID 0x7B2326F6FD9C8069ULL")
+    out.append("#define AT_UNIT_EXO55_RESOURCE_ID 0x35DBF54F016F3624ULL")
+    out.append("#define AT_SUPPORTED_UNIT_COUNT 4u\n")
+    out.append("static inline int at_is_supported_atst_unit_id(uint64_t res_id) {")
+    out.append("    return res_id == AT_UNIT_RESOURCE_ID ||")
+    out.append("           res_id == AT_UNIT_EXO49_RESOURCE_ID ||")
+    out.append("           res_id == AT_UNIT_EXO51_RESOURCE_ID ||")
+    out.append("           res_id == AT_UNIT_EXO55_RESOURCE_ID;")
+    out.append("}\n")
     out.append("#define AT_JOINTS 198u")
     out.append("#define AT_S2C_NODES 106u")
     out.append("#define AT_GRAPH_CAP 128u")

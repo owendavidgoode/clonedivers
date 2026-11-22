@@ -165,7 +165,7 @@ static void OnGameLoaded(HfMod *mod, HfEvent event, void *user) {
     size_t init_peer_size = (size_t)InterlockedCompareExchangePointer(
         (PVOID *)&g_writer.peer_leaf_size, NULL, NULL);
     InterlockedExchange(&g_writer.ready, 1);
-    hf->log(mod, "ATST_WRITER ready build=%s s2c_nodes=%u max_walkers=%u unit=79E4B3D2DA5E45E3 engine=0x%llX peer_leaf=0x%llX peer_size=0x%llX hook_priority=%d",
+    hf->log(mod, "ATST_WRITER ready build=%s s2c_nodes=%u max_walkers=%u units=79E4B3D2DA5E45E3,C2D449ECF7FACAB1,7B2326F6FD9C8069,35DBF54F016F3624 engine=0x%llX peer_leaf=0x%llX peer_size=0x%llX hook_priority=%d",
             AT_EXPECTED_BUILD, AT_S2C_NODES, AT_MAX_WALKERS,
             (unsigned long long)engine,
             (unsigned long long)init_peer_base,

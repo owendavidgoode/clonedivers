@@ -9,5 +9,8 @@ public static class PackExtras
             !o.Id.Equals("skinny", StringComparison.OrdinalIgnoreCase) &&
             !o.Id.Equals("mixed-droids", StringComparison.OrdinalIgnoreCase) &&
             !o.Id.Equals("mixed_droids", StringComparison.OrdinalIgnoreCase) &&
+            !o.Id.Equals("mixed-covenant", StringComparison.OrdinalIgnoreCase) &&
+            !o.Id.Equals("mixed_covenant", StringComparison.OrdinalIgnoreCase) &&
+            !o.Id.Equals("deathtrooper", StringComparison.OrdinalIgnoreCase) &&
             !o.Id.Equals(LauncherModes.EmpireOption, StringComparison.OrdinalIgnoreCase)) ?? Enumerable.Empty<PackOption>();
 }

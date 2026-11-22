@@ -301,9 +301,11 @@ internal static class TurnkeySetupTests
             var yoda = catalog.Artifacts.Single(a => a.Id == HellForgePreset.EmpireLegoYoda);
             var atst = catalog.Artifacts.Single(a => a.Id == HellForgePreset.EmpireAtstWriter);
             var tieSwitch = catalog.Artifacts.Single(a => a.Id == HellForgePreset.EmpireTieSwitch);
+            var cameraPullback = catalog.Artifacts.Single(a => a.Id == HellForgePreset.EmpireCameraPullback);
+            var dedicatedMelee = catalog.Artifacts.Single(a => a.Id == HellForgePreset.DedicatedMeleeSlot);
             var chaos = catalog.Artifacts.Single(a => a.Id == HellForgePreset.ChaosInvasions);
             var newSinceR3 = HellForgePreset.Optional.Where(id => id != cleanExit.Id).ToHashSet(StringComparer.Ordinal);
-            var newInR5 = new[] { atst.Id, tieSwitch.Id }.ToHashSet(StringComparer.Ordinal);
+            var newInR5 = new[] { atst.Id, tieSwitch.Id, cameraPullback.Id, dedicatedMelee.Id }.ToHashSet(StringComparer.Ordinal);
             fake.Mods.RemoveAll(m => HellForgePreset.Optional.Contains(m.Id) || HellForgePreset.IsConflictingAlternative(m));
             foreach (var oldCatalog in new[] { "build25480438-r1", "build25480438-r2" })
             {
@@ -389,55 +391,66 @@ internal static class TurnkeySetupTests
             fake.Mods.Add(new(yoda.Id, yoda.Name, false, MakeOldDir(yoda, "0.1.2"), ["code"], "0.1.2"));
             fake.Mods.Add(new(chaos.Id, chaos.Name, true, MakeOldDir(chaos, "0.2.0"), ["gameplay", "code"], "0.2.0"));
             WriteRecord("build25480438-r4", "applied", true, [cleanExit.Id, leafWriter.Id, yoda.Id, chaos.Id]);
-            var expectedR4Upgrade = new[] { leafWriter.Id, chaos.Id, atst.Id, tieSwitch.Id }.ToHashSet(StringComparer.Ordinal);
+            var expectedR4Upgrade = new[] { leafWriter.Id, chaos.Id, atst.Id, tieSwitch.Id, cameraPullback.Id, dedicatedMelee.Id }.ToHashSet(StringComparer.Ordinal);
             check((await restarted.MissingGameplayAsync()).Select(a => a.Id).ToHashSet(StringComparer.Ordinal).SetEquals(expectedR4Upgrade),
-                "an r4 installation upgrades enabled 0.0.9/0.2.0 optionals and offers AT-ST + TIE Switch while keeping disabled Yoda 0.1.2 and removed Clean Exit opted out");
-            // Simulate an interrupted r4->r5 upgrade (lost import acknowledgement) followed by RecoverGameplayAsync() and a fresh r5 retry.
+                "an r4 installation upgrades enabled 0.0.9/0.2.0 optionals and offers AT-ST, TIE Switch, Camera Pullback, and Dedicated Melee while keeping disabled Yoda 0.1.2 and removed Clean Exit opted out");
+            // Simulate an interrupted r4->r8 upgrade (lost import acknowledgement) followed by RecoverGameplayAsync() and a fresh r8 retry.
             fake.LoseFirstModAdd = true;
-            try { await restarted.InstallGameplayAsync(restarted.GameplayCache); check(false, "lost r4->r5 acknowledgement must throw"); }
+            try { await restarted.InstallGameplayAsync(restarted.GameplayCache); check(false, "lost r4->r8 acknowledgement must throw"); }
             catch (HellForgeCommandOutcomeUnknownException) { }
-            check(restarted.InterruptedGameplayProblem() != null, "interrupted r4->r5 upgrade leaves recovery pending");
+            check(restarted.InterruptedGameplayProblem() != null, "interrupted r4->r8 upgrade leaves recovery pending");
             await new HellForgeClient(root, fake) { RequireCliQuiescent = () => { } }.RecoverGameplayAsync();
             var postRecovery = new HellForgeClient(root, fake) { RequireCliQuiescent = () => { } };
             check(postRecovery.InterruptedGameplayProblem() == null &&
                 fake.Mods.Single(m => m.Id == leafWriter.Id) is { Enabled: true, Version: "0.0.9" } &&
                 fake.Mods.Single(m => m.Id == chaos.Id) is { Enabled: true, Version: "0.2.0" } &&
                 (await postRecovery.MissingGameplayAsync()).Select(a => a.Id).ToHashSet(StringComparer.Ordinal).SetEquals(expectedR4Upgrade),
-                "RecoverGameplayAsync after an interrupted r4->r5 upgrade restores 0.0.9/0.2.0 and still offers the enabled retired-default upgrades on retry");
+                "RecoverGameplayAsync after an interrupted r4->r8 upgrade restores 0.0.9/0.2.0 and still offers the enabled retired-default upgrades on retry");
             fake.Calls.Clear(); await postRecovery.InstallGameplayAsync(postRecovery.GameplayCache);
             check(fake.Mods.Single(m => m.Id == leafWriter.Id) is { Enabled: true, Version: "0.2.1" } &&
-                fake.Mods.Single(m => m.Id == chaos.Id) is { Enabled: true, Version: "0.3.0" } &&
-                fake.Mods.Single(m => m.Id == atst.Id) is { Enabled: true, Version: "0.2.1" } &&
+                fake.Mods.Single(m => m.Id == chaos.Id) is { Enabled: true, Version: "0.3.3" } &&
+                fake.Mods.Single(m => m.Id == atst.Id) is { Enabled: true, Version: "0.2.2" } &&
                 newInR5.All(id => fake.Mods.Single(m => m.Id == id).Enabled) &&
                 fake.Mods.Single(m => m.Id == yoda.Id) is { Enabled: false, Version: "0.1.2" } &&
                 fake.Mods.All(m => m.Id != cleanExit.Id) &&
                 fake.Calls.Count(c => c[0] == "mod-add") == expectedR4Upgrade.Count,
-                "r4->r7 retry after RecoverGameplayAsync imports 0.2.1/0.3.0 upgrades and new AT-ST 0.2.1/TIE Switch defaults while leaving disabled Yoda 0.1.2 and removed Clean Exit untouched");
+                "r4->r8 retry after RecoverGameplayAsync imports 0.2.1/0.2.2/0.3.3 upgrades and new AT-ST/TIE Switch/Camera Pullback/Dedicated Melee defaults while leaving disabled Yoda 0.1.2 and removed Clean Exit untouched");
 
-            // Upgrading from r5 upgrades enabled 0.1.0 LEGO leaf writer and AT-ST writer to 0.2.1 while preserving disabled/removed optionals.
+            // Upgrading from r5 upgrades enabled 0.1.0 LEGO leaf writer and AT-ST writer while offering Camera Pullback + Dedicated Melee and preserving disabled/removed optionals.
+            var r5OptionalIds = new[] { cleanExit.Id, leafWriter.Id, yoda.Id, atst.Id, tieSwitch.Id, chaos.Id };
             fake.Mods.RemoveAll(m => HellForgePreset.Optional.Contains(m.Id));
             fake.Mods.Add(new(leafWriter.Id, leafWriter.Name, true, MakeOldDir(leafWriter, "0.1.0"), ["code"], "0.1.0"));
             fake.Mods.Add(new(atst.Id, atst.Name, true, MakeOldDir(atst, "0.1.0"), ["code"], "0.1.0"));
             fake.Mods.Add(new(yoda.Id, yoda.Name, false, MakeOldDir(yoda, "0.2.0"), ["code"], "0.2.0"));
-            WriteRecord("build25480438-r5", "applied", true, HellForgePreset.Optional);
-            var expectedR5Upgrade = new[] { leafWriter.Id, atst.Id }.ToHashSet(StringComparer.Ordinal);
+            WriteRecord("build25480438-r5", "applied", true, r5OptionalIds);
+            var expectedR5Upgrade = new[] { leafWriter.Id, atst.Id, cameraPullback.Id, dedicatedMelee.Id }.ToHashSet(StringComparer.Ordinal);
             check((await restarted.MissingGameplayAsync()).Select(a => a.Id).ToHashSet(StringComparer.Ordinal).SetEquals(expectedR5Upgrade),
-                "an r5 installation upgrades enabled 0.1.0 LEGO leaf writer and AT-ST writer to 0.2.1 while keeping disabled/removed optionals opted out");
+                "an r5 installation upgrades enabled 0.1.0 LEGO leaf writer and AT-ST writer and offers Camera Pullback + Dedicated Melee while keeping disabled/removed optionals opted out");
 
-            // Upgrading from r6 upgrades enabled 0.2.0 LEGO leaf writer and AT-ST writer to 0.2.1 while preserving disabled/removed optionals.
+            // Upgrading from r6 upgrades enabled 0.2.0 LEGO leaf writer and AT-ST writer while offering Camera Pullback + Dedicated Melee and preserving disabled/removed optionals.
             fake.Mods.RemoveAll(m => HellForgePreset.Optional.Contains(m.Id));
             fake.Mods.Add(new(leafWriter.Id, leafWriter.Name, true, MakeOldDir(leafWriter, "0.2.0"), ["code"], "0.2.0"));
             fake.Mods.Add(new(atst.Id, atst.Name, true, MakeOldDir(atst, "0.2.0"), ["code"], "0.2.0"));
             fake.Mods.Add(new(yoda.Id, yoda.Name, false, MakeOldDir(yoda, "0.2.0"), ["code"], "0.2.0"));
-            WriteRecord("build25480438-r6", "applied", true, HellForgePreset.Optional);
-            var expectedR6Upgrade = new[] { leafWriter.Id, atst.Id }.ToHashSet(StringComparer.Ordinal);
+            WriteRecord("build25480438-r6", "applied", true, r5OptionalIds);
+            var expectedR6Upgrade = new[] { leafWriter.Id, atst.Id, cameraPullback.Id, dedicatedMelee.Id }.ToHashSet(StringComparer.Ordinal);
             check((await restarted.MissingGameplayAsync()).Select(a => a.Id).ToHashSet(StringComparer.Ordinal).SetEquals(expectedR6Upgrade),
-                "an r6 installation upgrades enabled 0.2.0 LEGO leaf writer and AT-ST writer to 0.2.1 while keeping disabled/removed optionals opted out");
+                "an r6 installation upgrades enabled 0.2.0 LEGO leaf writer and AT-ST writer and offers Camera Pullback + Dedicated Melee while keeping disabled/removed optionals opted out");
 
-            // Upgrading from an earlier r5 record with partial OptionalDefaults offers newly added optionals while preserving prior opt-outs and player-kept versions across rollback.
+            // Upgrading from r7 upgrades enabled AT-ST 0.2.1 -> 0.2.2 and Chaos 0.3.0 -> 0.3.3 while offering Camera Pullback + Dedicated Melee and preserving disabled/removed optionals.
+            fake.Mods.RemoveAll(m => HellForgePreset.Optional.Contains(m.Id));
+            fake.Mods.Add(new(atst.Id, atst.Name, true, MakeOldDir(atst, "0.2.1"), ["code"], "0.2.1"));
+            fake.Mods.Add(new(chaos.Id, chaos.Name, true, MakeOldDir(chaos, "0.3.0"), ["gameplay", "code"], "0.3.0"));
+            fake.Mods.Add(new(yoda.Id, yoda.Name, false, MakeOldDir(yoda, "0.2.0"), ["code"], "0.2.0"));
+            WriteRecord("build25480438-r7", "applied", true, r5OptionalIds);
+            var expectedR7Upgrade = new[] { atst.Id, chaos.Id, cameraPullback.Id, dedicatedMelee.Id }.ToHashSet(StringComparer.Ordinal);
+            check((await restarted.MissingGameplayAsync()).Select(a => a.Id).ToHashSet(StringComparer.Ordinal).SetEquals(expectedR7Upgrade),
+                "an r7 installation upgrades enabled AT-ST 0.2.1 and Chaos 0.3.0 and offers Camera Pullback + Dedicated Melee while keeping disabled/removed optionals opted out");
+
+            // Upgrading from an earlier record with partial OptionalDefaults offers newly added optionals while preserving prior opt-outs and player-kept versions across rollback.
             fake.Mods.RemoveAll(m => HellForgePreset.Optional.Contains(m.Id));
             fake.Mods.Add(new(yoda.Id, yoda.Name, true, MakeOldDir(yoda, "0.1.2"), ["code"], "0.1.2"));
-            WriteRecord(HellForgeGameplayCatalog.Pinned.Id, "applied", true, [cleanExit.Id, yoda.Id, atst.Id, tieSwitch.Id]);
+            WriteRecord(HellForgeGameplayCatalog.Pinned.Id, "applied", true, [cleanExit.Id, yoda.Id, atst.Id, tieSwitch.Id, cameraPullback.Id, dedicatedMelee.Id]);
             var partialNew = new[] { leafWriter.Id, chaos.Id };
             check((await restarted.MissingGameplayAsync()).Select(a => a.Id).ToHashSet(StringComparer.Ordinal).SetEquals(partialNew),
                 "an applied r5 record with partial OptionalDefaults offers newly added optional defaults while keeping prior opt-outs and kept Yoda 0.1.2");

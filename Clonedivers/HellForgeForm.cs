@@ -167,6 +167,7 @@ public sealed class HellForgeForm : Form
     readonly Button locateMissing = new() { Text = "Locate Forge", Width = 120, Height = 36, Visible = false, AccessibleName = "Locate Forge" };
     readonly ContextMenuStrip moreMenu = new() { BackColor = Slate, ForeColor = TextMain, RenderMode = ToolStripRenderMode.System };
     bool updateDeferred, updateFailed, updateDownloading, updateCancelled, launcherReplaced;
+    bool awaitingGameWindow;
     AppRelease? launcherRelease;
     bool checkingUpdates;
     bool installationMissing;
@@ -296,7 +297,15 @@ public sealed class HellForgeForm : Form
         more.Click += (_, _) => moreMenu.Show(more, new Point(0, more.Height));
         actions.Controls.Add(more);
         locateMissing.Click += (_, _) => Locate(); actions.Controls.Add(locateMissing);
-        later.Click += (_, _) => { updateDeferred = true; updateFailed = false; lastError = operationFailure = null; message.Text = ""; UpdateView(); };
+        later.Click += async (_, _) =>
+        {
+            if (awaitingGameWindow && lastStatus?.Running == true)
+            {
+                await EndSessionAsync();
+                return;
+            }
+            updateDeferred = true; updateFailed = false; lastError = operationFailure = null; message.Text = ""; UpdateView();
+        };
         actions.Controls.Add(later); root.Controls.Add(actions, 0, 5);
         updates.Click += async (_, _) => { if (launcherRelease != null) { updateDeferred = false; await ApplyLauncherUpdateAsync(); } else await CheckLauncherUpdateAsync(true); };
         // Keep the Steam fallback and version visible even when Windows clamps
@@ -386,11 +395,19 @@ public sealed class HellForgeForm : Form
     {
         if (initializing || working) return;
         operationFailure = null;
-        preferences.DeltaSquad = delta.Checked; preferences.Covenant = covenant.Checked;
+        preferences.DeltaSquad = delta.Checked;
+        if (preferences.Covenant != covenant.Checked) preferences.Covenant = covenant.Checked;
         Save(); message.Text = "Prepare the pack to apply your selection."; UpdateView();
     }
     void Save() { if (!preview) preferences.Save(); }
-    static HellForgeClient CreateClient(string root) => new(HellForgeCommands.ValidateRoot(root), CreateCommands(root));
+    static HellForgeClient CreateClient(string root)
+    {
+        var validated = HellForgeCommands.ValidateRoot(root);
+        var cmds = CreateCommands(validated);
+        var client = new HellForgeClient(validated, cmds);
+        if (cmds is not HellForgeCommands) client.RequireCliQuiescent = () => { };
+        return client;
+    }
     HellForgeClient Client() => CreateClient(preferences.InstallRoot ?? throw new InvalidOperationException("Locate your HellForge installation first."));
 
     // Access failures cannot establish idle. An absent installation can, but an
@@ -558,7 +575,8 @@ public sealed class HellForgeForm : Form
         UpdateState();
         launch.AccessibleName = launch.Text;
         if (preview) return;
-        later.Visible = false;
+        bool launchingPreWindow = !working && lastStatus?.Running == true && awaitingGameWindow;
+        later.Visible = launchingPreWindow;
         if (!working)
         {
             if (OfferUpdate) ShowUpdateOffer(launcherRelease!.Version, updateFailed);
@@ -581,8 +599,10 @@ public sealed class HellForgeForm : Form
                     detail.Text = message.Text;
             }
         }
+        progress.Visible = working || launchingPreWindow;
+        if (launchingPreWindow) progress.Style = ProgressBarStyle.Marquee;
         message.Visible = working || (!string.IsNullOrWhiteSpace(message.Text) && message.Text != detail.Text);
-        activity.Visible = working || message.Visible || Cancellable;
+        activity.Visible = working || launchingPreWindow || message.Visible || Cancellable;
     }
     void UpdateState()
     {
@@ -648,8 +668,28 @@ public sealed class HellForgeForm : Form
             return;
         }
         if (working) { launch.Text = Cancellable ? "CANCEL" : "WORKING…"; launch.Enabled = Cancellable; return; }
+        later.Text = "Not now";
+        later.AccessibleName = "Update later";
+        if (lastStatus?.Running != true) awaitingGameWindow = false;
+        else if (lastStatus.GameLaunched == true || Game.IsRunning()) awaitingGameWindow = false;
         if (lastStatus?.Running == true || Game.IsRunning()) {
-            state.Text = lastStatus?.Running == true ? "HellForge session running" : "Your game is running";
+            if (lastStatus?.Running == true && awaitingGameWindow)
+            {
+                state.Text = ForgeTacticalCopy.LaunchingHeadline;
+                detail.Text = ForgeTacticalCopy.LaunchingDetail;
+                prepare.Enabled = false;
+                launch.Text = ForgeTacticalCopy.LaunchingPrimaryButton;
+                launch.Enabled = false;
+                later.Text = ForgeTacticalCopy.CancelLaunchButton;
+                later.AccessibleName = ForgeTacticalCopy.CancelLaunchButton;
+                later.Visible = true;
+                later.Enabled = true;
+                progress.Visible = true;
+                progress.Style = ProgressBarStyle.Marquee;
+                activity.Visible = true;
+                return;
+            }
+            state.Text = lastStatus?.Running == true ? ForgeTacticalCopy.RunningHeadline : "Your game is running";
             detail.Text = lastStatus?.Running == true ? "End the session to close the game and finish cleanup." :
                 "Close the game before installing or launching a Forge session.";
             if (lastError != null) detail.Text = FailureSummary(lastError);
@@ -732,7 +772,7 @@ public sealed class HellForgeForm : Form
             launch.Text = "INSTALL REQUIRED MODS"; launch.Enabled = true; return;
         }
         if (!preferences.IsRegular && preferences.AppliedSelection != preferences.SelectionKey) { state.Text = "Prepare your Star Wars pack"; detail.Text = "Apply your selected universe and texture options to HellForge."; EnableModeSetup(); return; }
-        var our = lastMods?.Mods.Where(m => m.Enabled && HellForgePack.IsOurPack(m.Id)).ToList() ?? [];
+        var our = lastMods?.Mods.Where(m => m.Enabled && HellForgePack.IsStarWarsOverhaulMod(m)).ToList() ?? [];
         if (preferences.IsRegular && our.Count != 0) { state.Text = "Apply Regular mode"; detail.Text = "Disable the Star Wars appearance packs. Your selected HellForge gameplay mods remain active."; EnableModeSetup(); return; }
         if (!preferences.IsRegular && (our.Count != 1 || our[0].Id != HellForgePack.PackId(preferences.PackMode))) { state.Text = "Prepare your Star Wars pack"; detail.Text = "Apply your selected universe and texture options to HellForge."; EnableModeSetup(); return; }
         if (lastMods?.Mods.Any(m => m.Id == HellForgeClient.DifficultyId && m.Enabled) != true) { state.Text = "Enable Hell Forge Difficulty"; detail.Text = "Restore the bundled difficulty through guided setup."; launch.Text = "INSTALL REQUIRED MODS"; launch.Enabled = true; return; }
@@ -884,7 +924,7 @@ public sealed class HellForgeForm : Form
     void EnableDetails() { detailsAction = true; launch.Text = "VIEW DETAILS"; launch.Enabled = true; }
     bool NeedsModeSetup()
     {
-        var ours = lastMods?.Mods.Where(m => m.Enabled && HellForgePack.IsOurPack(m.Id)).ToArray() ?? [];
+        var ours = lastMods?.Mods.Where(m => m.Enabled && HellForgePack.IsStarWarsOverhaulMod(m)).ToArray() ?? [];
         return preferences.IsRegular ? ours.Length != 0 || lastStatus is { Multiplayer: false } or { LocalBackend: false }
             : preferences.AppliedSelection != preferences.SelectionKey || ours.Length != 1 || ours[0].Id != HellForgePack.PackId(preferences.PackMode) ||
               lastStatus is { Multiplayer: false } or { LocalBackend: false };
@@ -1040,9 +1080,11 @@ public sealed class HellForgeForm : Form
             try { await Task.Run(() => client.PlayAsync(preferences.Selection(), WorkToken, profile, status, bytes), WorkToken); }
             finally { verifying = false; Cancellable = false; progress.Style = ProgressBarStyle.Marquee; }
         }
-        message.Text = LaunchAcceptedMessage;
+        awaitingGameWindow = !Game.IsRunning();
+        message.Text = awaitingGameWindow ? ForgeTacticalCopy.LaunchingDetail : LaunchAcceptedMessage;
     });
     async Task EndSessionAsync() => await OperationAsync(async () => {
+        awaitingGameWindow = false;
         state.Text = "Ending session…";
         launch.Text = "ENDING SESSION…";
         message.Text = "Asking HellForge to close the game and finish cleanup…";
@@ -1194,8 +1236,17 @@ public sealed class HellForgeForm : Form
     }
     protected override void OnFormClosing(FormClosingEventArgs e)
     {
-        // An in-flight CLI import must be allowed to finish. Closing this window never stops a game.
-        if (working) { e.Cancel = true; message.Text = "Please wait for pack preparation or the CLI operation to finish."; }
+        // An in-flight CLI import or pre-window launch staging must be allowed to finish unless explicitly cancelled.
+        if (working)
+        {
+            e.Cancel = true;
+            message.Text = "Please wait for pack preparation or the CLI operation to finish.";
+        }
+        else if (awaitingGameWindow && lastStatus?.Running == true)
+        {
+            e.Cancel = true;
+            detail.Text = "Helldivers 2 is still launching (usually 15–30 seconds). Wait for the game window, or click Cancel Launch first.";
+        }
         base.OnFormClosing(e);
     }
     protected override void Dispose(bool disposing)

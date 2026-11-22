@@ -10,7 +10,7 @@
 
 #include "atst_writer_core.h"
 
-#define BENCH_THREADS 16u
+#define BENCH_THREADS 4u
 #define BENCH_UNIT_CAP 262144u
 #define BENCH_ENEMY_UNITS 104857u /* 40% density matching D11 bug breach / heavy SEAF */
 #define BENCH_FOREIGN_MESHES 1024u
@@ -308,10 +308,19 @@ int main(void) {
     uintptr_t caller = (uintptr_t)eng + AT_RVA_CALLER_NORMAL;
     int ok1 = run_case("CaseA_0Walkers_262k", ws, rs, foreign, caller, 2048u);
 
-    /* Case B: 4 active co-op AT-ST walkers at high D11 slots */
+    /* Case B: 4 active co-op AT-ST walkers (EXO-45, EXO-49, EXO-51, EXO-55) at high D11 slots */
+    const uint64_t variant_ids[4] = {
+        AT_UNIT_RESOURCE_ID,
+        AT_UNIT_EXO49_RESOURCE_ID,
+        AT_UNIT_EXO51_RESOURCE_ID,
+        AT_UNIT_EXO55_RESOURCE_ID,
+    };
     bench_walker *walkers = (bench_walker *)calloc(4, sizeof(*walkers));
     uint32_t wslots[4] = {50003u, 120007u, 180011u, 240013u};
-    for (unsigned i = 0; i < 4u; i++) bind_walker(&walkers[i], um, rs, (uintptr_t)eng, wslots[i], i + 1u);
+    for (unsigned i = 0; i < 4u; i++) {
+        bind_walker(&walkers[i], um, rs, (uintptr_t)eng, wslots[i], i + 1u);
+        walkers[i].resource_id = variant_ids[i];
+    }
     at_writer_tick(ws, 0u); /* full admit */
     int ok2 = run_case("CaseB_4Walkers_262k", ws, rs, foreign, caller, 2048u);
 

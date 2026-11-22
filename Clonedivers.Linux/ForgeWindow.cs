@@ -134,7 +134,7 @@ internal sealed class ForgeWindow : Window
         foreach (var box in new[] { delta, covenant }) box.IsCheckedChanged += (_, _) => {
             if (updating) return;
             var newDelta = delta.IsChecked == true; var newCovenant = covenant.IsChecked == true;
-            Begin(async () => { preferences.DeltaSquad = newDelta; preferences.Covenant = newCovenant; await ChangedAsync(); });
+            Begin(async () => { preferences.DeltaSquad = newDelta; if (preferences.Covenant != newCovenant) preferences.Covenant = newCovenant; await ChangedAsync(); });
         };
         allDroids.Click += (_, _) => SetEnemySkin("all-droids");
         mixedDroids.Click += (_, _) => SetEnemySkin("mixed-droids");

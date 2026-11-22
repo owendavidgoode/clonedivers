@@ -67,7 +67,7 @@ internal static class Milestone1CoreTests
         File.WriteAllText(v1Path, v1Json);
         var loadedV1 = HellForgePreferences.Load(v1Path);
         check(loadedV1.EnemySkin == "all-droids" && !loadedV1.Covenant && !loadedV1.AutoPerformanceTier &&
-              loadedV1.PerformanceTier == "balanced" && loadedV1.Texture == "lighter" &&
+              loadedV1.PerformanceTier == "high" && loadedV1.Texture == "lighter" &&
               File.ReadAllText(v1Path) == v1Json,
               "existing v1 hellforge.json preserves saved choices cleanly without mutating disk file");
 
@@ -89,7 +89,7 @@ internal static class Milestone1CoreTests
             DeltaSquad = false,
             AutoPerformanceTier = false,
             PerformanceTier = "ultra-potato",
-            Texture = "reduced512",
+            Texture = "potato256",
             SoundEffectsEnabled = false,
             DiscordRpcEnabled = false,
             MinimizeToTray = true,
@@ -141,10 +141,10 @@ internal static class Milestone1CoreTests
         check(tiers.Count == 5 &&
               tiers[0].Id == "ultra" && tiers[0].MappedPackTexture == "full" &&
               tiers[1].Id == "high" && tiers[1].MappedPackTexture == "lighter" &&
-              tiers[2].Id == "balanced" && tiers[2].MappedPackTexture == "lighter" &&
+              tiers[2].Id == "balanced" && tiers[2].MappedPackTexture == "reduced1024" &&
               tiers[3].Id == "low-512" && tiers[3].MappedPackTexture == "reduced512" &&
-              tiers[4].Id == "ultra-potato" && tiers[4].MappedPackTexture == "reduced512",
-              "PerformanceTierAdvisor defines the 5-tier ladder mapped cleanly onto full/lighter/reduced512 today");
+              tiers[4].Id == "ultra-potato" && tiers[4].MappedPackTexture == "potato256",
+              "PerformanceTierAdvisor defines the 5-tier ladder mapped 1:1 onto full/lighter/reduced1024/reduced512/potato256");
 
         check(PerformanceTierAdvisor.NextLowerTier("ultra") == "high" &&
               PerformanceTierAdvisor.NextLowerTier("high") == "balanced" &&
@@ -320,21 +320,21 @@ internal static class Milestone1CoreTests
         Directory.CreateDirectory(dir);
 
         var catalogCode = SquadFingerprint.Compute(HellForgeGameplayCatalog.Current);
-        check(System.Text.RegularExpressions.Regex.IsMatch(catalogCode, @"^r7-[0-9a-f]{4}$"),
-              $"SquadFingerprint.Compute(Current) produces short deterministic r7 match code ({catalogCode})");
+        check(System.Text.RegularExpressions.Regex.IsMatch(catalogCode, @"^r8-[0-9a-f]{4}$"),
+              $"SquadFingerprint.Compute(Current) produces short deterministic r8 match code ({catalogCode})");
 
         // Build two player mod lists:
-        // Player A: Clonedivers pack + all 5 gameplay:false client code mods enabled + r7 gameplay preset
-        // Player B: EmpireDivers pack + 0 gameplay:false client code mods enabled + r7 gameplay preset (reversed order)
+        // Player A: Clonedivers pack + all 7 gameplay:false client code mods enabled + r8 gameplay preset
+        // Player B: EmpireDivers pack + 0 gameplay:false client code mods enabled + r8 gameplay preset (reversed order)
         HellForgeMods BuildPlayerMods(string? starWarsMode, bool enableClientCodeMods, string difficultyVersion = "0.16.1", bool enableChaos = true)
         {
             var list = new List<HellForgeMod>();
             foreach (var req in HellForgePreset.Required)
                 list.Add(new(req.Id, req.Name, true, "fixture", ["gameplay"], req.Id == "skyeshade.hell-forge" ? difficultyVersion : req.Version));
             list.Add(new("skyeshade.vanilla-plus", "Vanilla Plus", true, "fixture", ["gameplay"], ""));
-            list.Add(new(HellForgePreset.ChaosInvasions, "Chaos Invasions", enableChaos, "fixture", ["gameplay", "code"], "0.3.0"));
+            list.Add(new(HellForgePreset.ChaosInvasions, "Chaos Invasions", enableChaos, "fixture", ["gameplay", "code"], "0.3.3"));
 
-            foreach (var clientId in new[] { HellForgePreset.CleanExit, HellForgePreset.LegoCompactLeafWriter, HellForgePreset.EmpireLegoYoda, HellForgePreset.EmpireAtstWriter, HellForgePreset.EmpireTieSwitch })
+            foreach (var clientId in new[] { HellForgePreset.CleanExit, HellForgePreset.LegoCompactLeafWriter, HellForgePreset.EmpireLegoYoda, HellForgePreset.EmpireAtstWriter, HellForgePreset.EmpireTieSwitch, HellForgePreset.EmpireCameraPullback, HellForgePreset.DedicatedMeleeSlot })
                 list.Add(new(clientId, clientId, enableClientCodeMods, "fixture", ["code"], "0.2.1"));
 
             if (starWarsMode != null)

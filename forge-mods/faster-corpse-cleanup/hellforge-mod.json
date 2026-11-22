@@ -1,0 +1,13 @@
+{
+  "format": 1,
+  "id": "local.faster-corpse-cleanup",
+  "name": "Faster Corpse Cleanup",
+  "version": "1.0.6-clonedivers.1",
+  "description": "Host-gated enemy corpse cleanup for build 25480438 (SDK 16). Strict HF_SESSION_SOLO/HOST authority gate on entity removal and decay writes (fail-closed no-op on joiners), plus clonedivers-host-options.json integration.",
+  "gameplay": true,
+  "code": {
+    "dll": "corpse_cleanup.dll",
+    "sdk": 16,
+    "game": "25480438"
+  }
+}

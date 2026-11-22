@@ -1,0 +1,13 @@
+{
+  "format": 1,
+  "id": "local.heavy-seaf-presence",
+  "name": "Heavy SEAF Presence Everywhere",
+  "version": "1.2.0-clonedivers.5",
+  "description": "MP-hardened Heavy SEAF Presence (SDK 16, build 25480438): 10-arg ActivateStratagemBeacon ABI fix, positive mission-ground 15s landing gate, 1-unit/tick squad equip pacing, and clonedivers-host-options.json support (defaulting constant drops off).",
+  "gameplay": true,
+  "code": {
+    "dll": "heavy_seaf_presence.dll",
+    "sdk": 16,
+    "game": "25480438"
+  }
+}

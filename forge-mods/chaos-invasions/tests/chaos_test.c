@@ -2,6 +2,7 @@
 #include <stdarg.h>
 
 static unsigned checks, subscriptions, ticks, fail_subscription, skipped_logs, fallback_logs, landing_logs, preload_ready_logs;
+static unsigned preload_deferred_logs, g_pkg_request_calls, g_pkg_requested_items, g_lookup_pkg_calls;
 static unsigned spawn_logs, spawn_unmapped_logs, transport_spawn_logs, wave_complete_logs, wave_timeout_logs;
 static unsigned peer_observe_logs, host_migration_logs, peer_leave_logs;
 static unsigned role = HF_SESSION_SOLO, game_state = HF_STATE_MISSION;
@@ -59,6 +60,7 @@ static void Log(HfMod* m, const char* format, ...)
     if (strstr(buf, "CHAOS_TRANSPORT_FALLBACK")) ++fallback_logs;
     if (strstr(buf, "CHAOS_LANDING")) ++landing_logs;
     if (strstr(buf, "CHAOS_PRELOAD_READY")) ++preload_ready_logs;
+    if (strstr(buf, "CHAOS_PRELOAD_DEFERRED")) ++preload_deferred_logs;
     if (strstr(buf, "CHAOS_SPAWN:")) ++spawn_logs;
     if (strstr(buf, "CHAOS_SPAWN_UNMAPPED:")) ++spawn_unmapped_logs;
     if (strstr(buf, "CHAOS_TRANSPORT_SPAWN:")) ++transport_spawn_logs;
@@ -211,6 +213,7 @@ static int g_force_anchor_z_bad = 0;
 
 static const uint8_t* MockLookupEntityPkgs(uint64_t hash)
 {
+    ++g_lookup_pkg_calls;
     for (int i = 0; i < g_lookup_count; i++) {
         if (g_lookup_hashes[i] == hash) return (const uint8_t*)&g_lookup_recs[i];
     }
@@ -248,6 +251,8 @@ static void AddExeResidentPkg(uint64_t id, uint32_t parts, uint32_t pstate)
 static void MockPkgRequest(void* sys, const uint64_t* ids, uint32_t count)
 {
     (void)sys;
+    ++g_pkg_request_calls;
+    g_pkg_requested_items += count;
     for (uint32_t k = 0; k < count; k++) {
         uint64_t pkg = ids[k];
         int found = 0;
@@ -653,7 +658,8 @@ static void ResetMockCountersAndModState(void)
     g_mock_headroom = 1;
     g_mock_alive = 1;
     g_force_anchor_z_bad = 0;
-    skipped_logs = fallback_logs = landing_logs = preload_ready_logs = 0;
+    skipped_logs = fallback_logs = landing_logs = preload_ready_logs = preload_deferred_logs = 0;
+    g_pkg_request_calls = g_pkg_requested_items = g_lookup_pkg_calls = 0;
     spawn_logs = spawn_unmapped_logs = transport_spawn_logs = wave_complete_logs = wave_timeout_logs = 0;
     peer_observe_logs = host_migration_logs = peer_leave_logs = 0;
     g_mock_dead_count = 0;
@@ -1075,7 +1081,8 @@ static void SetMockLobbyPeers(uint32_t count, const uint64_t peers[4])
 
 static void TestHostClientSplitAndLateJoin(HfApi* channel_api)
 {
-    /* 1. Prepare Mission -> Mission preload continuity on Client (HF_SESSION_JOINER) */
+    /* 1. Prepare Mission -> Mission preload gating on Client (HF_SESSION_JOINER):
+     *    v0.3.2: ZERO foreign package preloads during HF_STATE_PREPARE_MISSION; preloads smoothly in HF_STATE_MISSION. */
     InitMockGameArenas(CHAOS_NATIVE_BUGS_BIT, 5u);
     ResetMockCountersAndModState();
     config = ChaosDefaults(); config.grace = 15; config.cooldown = 30;
@@ -1087,18 +1094,17 @@ static void TestHostClientSplitAndLateJoin(HfApi* channel_api)
 
     role = HF_SESSION_JOINER;
     game_state = HF_STATE_PREPARE_MISSION;
-    Seconds(1);
-    CHECK(g_faction_resident[CHAOS_BOTS] && g_faction_resident[CHAOS_SQUIDS]);
+    Seconds(5);
+    CHECK(g_pkg_request_calls == 0u && g_lookup_pkg_calls == 0u && preload_deferred_logs == 1u);
+    CHECK(!g_faction_resident[CHAOS_BOTS] && !g_faction_resident[CHAOS_SQUIDS]);
     CHECK(g_mock_send_calls >= 1u && g_mock_last_send_to == HF_TO_HOST);
     ChaosPeerMsg sent_msg;
     memcpy(&sent_msg, g_mock_last_send_buf, sizeof sent_msg);
     CHECK(ChaosPeerMsgValid(&sent_msg));
-    CHECK((sent_msg.resident_mask & ((1u << CHAOS_BOTS) | (1u << CHAOS_SQUIDS))) ==
-          ((1u << CHAOS_BOTS) | (1u << CHAOS_SQUIDS)));
-    CHECK(sent_msg.in_mission == 0u);
+    CHECK(sent_msg.resident_mask == 0u && sent_msg.in_mission == 0u);
     CHECK(g_transport_calls == 0 && g_roster_calls == 0);
 
-    /* Entering active mission as Joiner keeps preloaded packages resident and sends in_mission=1 */
+    /* Entering active mission as Joiner paces foreign package preload cleanly and reports in_mission=1 */
     game_state = HF_STATE_MISSION;
     /* Simulate Host already in mission with shared state snapshot */
     ChaosSharedState host_st = {0};
@@ -1116,9 +1122,14 @@ static void TestHostClientSplitAndLateJoin(HfApi* channel_api)
     g_mock_share_has_row = 1;
 
     Seconds(1);
-    CHECK(g_faction_resident[CHAOS_BOTS] && g_faction_resident[CHAOS_SQUIDS]);
     CHECK(landed == 1u && g_tracker.mission_spawned == 12 && clock_state.attempts == 2u);
     CHECK(fabs((clock_state.next - clock_state.age) - 25.0) < 0.05);
+    Seconds(4);
+    CHECK(g_faction_resident[CHAOS_BOTS] && g_faction_resident[CHAOS_SQUIDS]);
+    memcpy(&sent_msg, g_mock_last_send_buf, sizeof sent_msg);
+    CHECK(sent_msg.in_mission == 1u &&
+          (sent_msg.resident_mask & ((1u << CHAOS_BOTS) | (1u << CHAOS_SQUIDS))) ==
+              ((1u << CHAOS_BOTS) | (1u << CHAOS_SQUIDS)));
     CHECK(g_transport_calls == 0 && g_roster_calls == 0 && g_fx_calls == 0 && g_burst_calls == 0);
 
     /* 2. Host + Late Joiner barrier: Host blocks spawn while late-joining peer still preloading, then unblocks */
@@ -1275,6 +1286,288 @@ static void TestMidMissionHostMigration(void)
     CHECK(host_migration_logs == 1u && !g_pending.active && g_tracker.reserved[CHAOS_BOTS] == 0);
 }
 
+static int WriteTextWithMtime(const char* path, const char* content, uint64_t mtime_100ns)
+{
+    FILE* f = fopen(path, "wb");
+    if (!f) return 0;
+    size_t n = strlen(content);
+    size_t wr = fwrite(content, 1, n, f);
+    fclose(f);
+    if (wr != n) return 0;
+    HANDLE h = CreateFileA(path, FILE_WRITE_ATTRIBUTES,
+                           FILE_SHARE_READ | FILE_SHARE_WRITE | FILE_SHARE_DELETE,
+                           NULL, OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, NULL);
+    if (h == INVALID_HANDLE_VALUE) return 0;
+    FILETIME ft;
+    ft.dwLowDateTime = (DWORD)(mtime_100ns & 0xFFFFFFFFULL);
+    ft.dwHighDateTime = (DWORD)(mtime_100ns >> 32);
+    BOOL ok = SetFileTime(h, NULL, NULL, &ft);
+    CloseHandle(h);
+    return ok != 0;
+}
+
+static void TestHostOptionsPresetsAndPrecedence(HfApi* api)
+{
+    char saved_fixture[1800];
+    strcpy(saved_fixture, fixture);
+
+    char mods_dir[1600], folder_mod[1650], unpacked_base[1650], unpacked_pkg[1700], unpacked_mod[1750], host_json[1700];
+    snprintf(mods_dir, sizeof mods_dir, "%s\\mods", saved_fixture);
+    snprintf(folder_mod, sizeof folder_mod, "%s\\mods\\chaos-invasions", saved_fixture);
+    snprintf(unpacked_base, sizeof unpacked_base, "%s\\mods\\.unpacked", saved_fixture);
+    snprintf(unpacked_pkg, sizeof unpacked_pkg, "%s\\mods\\.unpacked\\hash031", saved_fixture);
+    snprintf(unpacked_mod, sizeof unpacked_mod, "%s\\mods\\.unpacked\\hash031\\chaos-invasions", saved_fixture);
+    snprintf(host_json, sizeof host_json, "%s\\mods\\clonedivers-host-options.json", saved_fixture);
+
+    CreateDirectoryA(mods_dir, NULL);
+    CreateDirectoryA(folder_mod, NULL);
+    CreateDirectoryA(unpacked_base, NULL);
+    CreateDirectoryA(unpacked_pkg, NULL);
+    CreateDirectoryA(unpacked_mod, NULL);
+
+    const uint64_t t0 = 134200000000000000ULL;
+
+    /* 1. Boot with .unpacked install and chaosIntensity = "off" -> disabled=1, zero spawns in mission! */
+    CHECK(WriteTextWithMtime(
+        host_json,
+        "{\"format\":1,\"chaosIntensity\":\"off\",\"heavySeaf\":\"standard\",\"fasterCorpseCleanup\":true}",
+        t0));
+    strcpy(fixture, unpacked_mod);
+    InitMockGameArenas(CHAOS_NATIVE_BUGS_BIT, 5u);
+    role = HF_SESSION_SOLO;
+    game_state = HF_STATE_MISSION;
+    ResetMockCountersAndModState();
+    subscriptions = ticks = 0;
+    CHECK(hellforge_mod_init(api, (HfMod*)1) == 0);
+    CHECK(config.enabled == 0 && config.cooldown == 150 && config.total_cap == 12);
+    Seconds(60);
+    CHECK(g_transport_calls == 0 && g_roster_calls == 0 && skipped_logs >= 1u);
+
+    /* 2. Live switch via clonedivers-host-options.json -> "total-war" */
+    CHECK(WriteTextWithMtime(
+        host_json,
+        "{\"format\":1,\"chaosIntensity\":\"total-war\",\"heavySeaf\":\"standard\",\"fasterCorpseCleanup\":true}",
+        t0 + 10000000ULL));
+    Seconds(2);
+    CHECK(config.enabled == 1 && config.cooldown == 75 && config.grace == 30 &&
+          config.total_cap == 20 && config.faction_cap == 10 &&
+          config.squad_size == 6 && config.mission_budget == 72 &&
+          config.squids_weight == 100);
+    /* Verify 30s grace triggers a 6-unit total-war wave! */
+    config.bots_weight = 100; config.squids_weight = 0; Publish();
+    g_bridge_user_edit_mtime = 0ULL;
+    ChaosReset(&clock_state, &config);
+    Seconds(30);
+    CHECK(g_transport_calls == 1u && g_pending.squad_size == 6 && g_tracker.reserved[CHAOS_BOTS] == 6);
+
+    /* 3. Verify mtime precedence: newer in-game Mod Options Menu edit in ChaosInvasions.values wins */
+    char bridge_edit[512];
+    snprintf(bridge_edit, sizeof bridge_edit,
+             "session=%lu\nenabled=1\ncooldown_seconds=120\nlanding_grace_seconds=45\ntotal_cap=12\n"
+             "faction_cap=6\nsquad_size=4\nmission_budget=36\ndroid_weight=100\nsquid_weight=80\nbug_weight=100\n",
+             token);
+    CHECK(WriteTextWithMtime(bridge, bridge_edit, t0 + 50000000ULL));
+    Seconds(2);
+    CHECK(config.cooldown == 120 && config.squad_size == 4);
+
+    /* Older host options write (t0 + 30s < t0 + 50s) does NOT overwrite session edit */
+    CHECK(WriteTextWithMtime(
+        host_json,
+        "{\"format\":1,\"chaosIntensity\":\"off\",\"heavySeaf\":\"standard\",\"fasterCorpseCleanup\":true}",
+        t0 + 30000000ULL));
+    Seconds(2);
+    CHECK(config.enabled == 1 && config.cooldown == 120);
+
+    /* Newer Launcher Apply (t0 + 80s > t0 + 50s) with folder install -> "standard" overrides session edit */
+    strcpy(fixture, folder_mod);
+    cd_resolve_host_options_path(fixture, g_host_options_path, sizeof g_host_options_path);
+    CHECK(WriteTextWithMtime(
+        host_json,
+        "{\"format\":1,\"chaosIntensity\":\"standard\",\"heavySeaf\":\"standard\",\"fasterCorpseCleanup\":true}",
+        t0 + 80000000ULL));
+    Seconds(2);
+    CHECK(config.enabled == 1 && config.cooldown == 150 && config.grace == 45 &&
+          config.total_cap == 12 && config.squad_size == 4 && config.mission_budget == 36);
+
+    DeleteFileA(host_json);
+    strcpy(fixture, saved_fixture);
+    g_host_options_path[0] = 0;
+    g_host_options_mtime = 0ULL;
+    g_bridge_user_edit_mtime = 0ULL;
+    Publish();
+}
+
+static void TestPrepareMissionZeroPreloadAndPacedMissionQueue(void)
+{
+    /* Simulate Owen's exact D11 Mega City Bots scenario: total-war intensity, difficulty 11, native = Bots. */
+    unsigned roles_to_test[3] = {HF_SESSION_SOLO, HF_SESSION_HOST, HF_SESSION_JOINER};
+    for (int r = 0; r < 3; r++) {
+        InitMockGameArenas(CHAOS_NATIVE_BOTS_BIT, 11u);
+        role = roles_to_test[r];
+        game_state = HF_STATE_SHIP;
+        ResetMockCountersAndModState();
+        ChaosApplyHostIntensity(&config, &g_ini_config, CD_CHAOS_TOTAL_WAR);
+        Publish();
+
+        /* Spend 60 full seconds inside HF_STATE_PREPARE_MISSION (Mega City generation + RenderTerrainLightingMaps). */
+        game_state = HF_STATE_PREPARE_MISSION;
+        Seconds(60);
+        CHECK(g_pkg_request_calls == 0u && g_pkg_requested_items == 0u && g_lookup_pkg_calls == 0u);
+        CHECK(g_mock_smoke_state == 0 && preload_deferred_logs == 1u);
+        CHECK(!g_preload_built[CHAOS_SQUIDS] && !g_preload_built[CHAOS_BUGS]);
+        CHECK(!g_faction_resident[CHAOS_SQUIDS] && !g_faction_resident[CHAOS_BUGS]);
+
+        /* Even a direct helper call with HF_STATE_PREPARE_MISSION must fail closed with 0 requests. */
+        PreloadForeignFactionPackages((uintptr_t)g_arena_game, (uintptr_t)g_arena_exe, kArenaExeSize, 1.0f, HF_STATE_PREPARE_MISSION);
+        CHECK(g_pkg_request_calls == 0u && !g_preload_built[CHAOS_SQUIDS]);
+    }
+
+    /* Now transition Host from HF_STATE_PREPARE_MISSION -> HF_STATE_MISSION at real 60 FPS (dt = 1/60s)
+     * and verify: (a) 0 requests during 1.0s settle, (b) <= 2 requests/tick, (c) Squids completes before Bugs starts! */
+    InitMockGameArenas(CHAOS_NATIVE_BOTS_BIT, 11u);
+    role = HF_SESSION_HOST;
+    game_state = HF_STATE_PREPARE_MISSION;
+    ResetMockCountersAndModState();
+    ChaosApplyHostIntensity(&config, &g_ini_config, CD_CHAOS_TOTAL_WAR);
+    Publish();
+    Seconds(5);
+    CHECK(g_pkg_request_calls == 0u);
+
+    game_state = HF_STATE_MISSION;
+    const float dt60 = 1.0f / 60.0f;
+    for (int f = 0; f < 58; f++) {
+        Tick(self, dt60, NULL);
+    }
+    CHECK(g_pkg_request_calls == 0u && !g_preload_built[CHAOS_SQUIDS] && !g_preload_built[CHAOS_BUGS]);
+
+    unsigned max_per_tick = 0u;
+    int saw_squids_before_bugs = 0;
+    for (int f = 0; f < 360; f++) {
+        unsigned before = g_pkg_request_calls;
+        Tick(self, dt60, NULL);
+        unsigned delta = g_pkg_request_calls - before;
+        if (delta > max_per_tick) max_per_tick = delta;
+        if (g_preload_built[CHAOS_SQUIDS] && !g_preload_built[CHAOS_BUGS]) {
+            saw_squids_before_bugs = 1;
+        }
+    }
+    CHECK(max_per_tick >= 1u && max_per_tick <= 2u);
+    CHECK(saw_squids_before_bugs == 1);
+    CHECK(g_faction_resident[CHAOS_SQUIDS] && g_faction_resident[CHAOS_BUGS]);
+}
+
+static void TestH4SlowD11JoinerBarrierAndImmediateMissionSync(void)
+{
+    /* 1. H4 Joiner: Immediate in_mission: 0 -> 1 transmission on the VERY FIRST 60Hz tick in HF_STATE_MISSION
+     *    (even while resident_mask == 0 during the 1.0s settle window, and even if Director is momentarily NULL). */
+    InitMockGameArenas(CHAOS_NATIVE_BOTS_BIT, 11u);
+    role = HF_SESSION_JOINER;
+    game_state = HF_STATE_PREPARE_MISSION;
+    ResetMockCountersAndModState();
+    config = ChaosDefaults();
+    Publish();
+
+    uint64_t peers2[4] = {1001ULL, 2002ULL, 0ULL, 0ULL};
+    SetMockLobbyPeers(2u, peers2);
+
+    /* Spend 45s in HF_STATE_PREPARE_MISSION (slow D11 Mega City level gen) -> sends {resident_mask=0, in_mission=0} once */
+    Seconds(45);
+    CHECK(g_mock_send_calls == 1u);
+    ChaosPeerMsg msg;
+    memcpy(&msg, g_mock_last_send_buf, sizeof msg);
+    CHECK(ChaosPeerMsgValid(&msg) && msg.resident_mask == 0u && msg.in_mission == 0u);
+
+    /* Temporarily zero Director pointer on Frame 1 of HF_STATE_MISSION to prove Tick 1 STILL sends in_mission=1! */
+    void* saved_dir = NULL;
+    memcpy(&saved_dir, g_arena_game + CHAOS_DIRECTOR_RVA, 8);
+    void* null_dir = NULL;
+    memcpy(g_arena_game + CHAOS_DIRECTOR_RVA, &null_dir, 8);
+
+    game_state = HF_STATE_MISSION;
+    Tick(self, 1.0f / 60.0f, NULL); /* Single 16.6ms frame! */
+    CHECK(g_mock_send_calls == 2u);
+    memcpy(&msg, g_mock_last_send_buf, sizeof msg);
+    CHECK(ChaosPeerMsgValid(&msg) && msg.resident_mask == 0u && msg.in_mission == 1u);
+    memcpy(g_arena_game + CHAOS_DIRECTOR_RVA, &saved_dir, 8);
+
+    /* 2. H4 Host: Slow D11 Mega City joiner spending 55s (> 30s!) in PrepareMission (in_mission=0) MUST NOT expire at 30s,
+     *    and gets a fresh 30s post-entry preload grace window upon transitioning in_mission: 0 -> 1! */
+    game_state = HF_STATE_SHIP;
+    Seconds(1);
+    InitMockGameArenas(CHAOS_NATIVE_BUGS_BIT, 11u);
+    role = HF_SESSION_HOST;
+    game_state = HF_STATE_MISSION;
+    ResetMockCountersAndModState();
+    config = ChaosDefaults();
+    ChaosApplyHostIntensity(&config, &config, CD_CHAOS_TOTAL_WAR); /* grace=30s, cooldown=30s below */
+    config.cooldown = 30;
+    config.bots_weight = 100;
+    config.squids_weight = 0;
+    Publish();
+    ChaosReset(&clock_state, &config);
+
+    SetMockLobbyPeers(2u, peers2);
+    Seconds(5); /* Host landed, foreign packages preloaded, clock age ~4s */
+    CHECK(landed == 1u && g_faction_resident[CHAOS_BOTS]);
+
+    /* Peer 2002 sends hello in HF_STATE_PREPARE_MISSION (in_mission = 0, resident_mask = 0) */
+    HfMessageEvent peer_ev = {0};
+    peer_ev.info.size = sizeof peer_ev;
+    peer_ev.info.kind = HF_ON_MESSAGE;
+    peer_ev.from = 2002ULL;
+    ChaosPeerMsg peer_prep = {CHAOS_SYNC_MAGIC, CHAOS_SYNC_VERSION, CHAOS_MSG_PEER_STATUS, 0u, 0u, {0}, 1u};
+    memcpy(peer_ev.data, &peer_prep, sizeof peer_prep);
+    peer_ev.bytes = sizeof peer_prep;
+    OnMessage(self, (const HfEventInfo*)&peer_ev, NULL);
+
+    /* Advance 50s (total 55s > 30s CHAOS_PEER_PRELOAD_GRACE_S!) while joiner is STILL in PrepareMission (in_mission=0):
+     * Host MUST hold off spawning at t=30s! */
+    Seconds(50);
+    CHECK(g_transport_calls == 0u && g_roster_calls == 0u && skipped_logs >= 1u);
+
+    /* Now at t=55s, Joiner enters HF_STATE_MISSION (in_mission: 0 -> 1, resident_mask still 0):
+     * Host resets mission_entered_age so the 30s preload grace window starts fresh from t=55s! */
+    ChaosPeerMsg peer_entered = {CHAOS_SYNC_MAGIC, CHAOS_SYNC_VERSION, CHAOS_MSG_PEER_STATUS, 0u, 1u, {0}, 1u};
+    memcpy(peer_ev.data, &peer_entered, sizeof peer_entered);
+    OnMessage(self, (const HfEventInfo*)&peer_ev, NULL);
+
+    /* Advance +20s (t=75s; next cooldown check fires at t=60s, where since_mission = 5s < 30s -> still held!) */
+    Seconds(20);
+    CHECK(g_transport_calls == 0u && g_roster_calls == 0u && skipped_logs >= 2u);
+
+    /* Joiner finishes preloading Bots -> sends resident_mask = (1 << CHAOS_BOTS), in_mission = 1 -> unblocks next wave! */
+    ChaosPeerMsg peer_ready = {CHAOS_SYNC_MAGIC, CHAOS_SYNC_VERSION, CHAOS_MSG_PEER_STATUS,
+                               (uint8_t)(1u << CHAOS_BOTS), 1u, {0}, 1u};
+    memcpy(peer_ev.data, &peer_ready, sizeof peer_ready);
+    OnMessage(self, (const HfEventInfo*)&peer_ev, NULL);
+    Seconds(20); /* Passes t=90s cooldown check -> spawns! */
+    CHECK(g_transport_calls == 1u);
+
+    /* 3. H4 Safety Cap: A hung peer stuck in PrepareMission (in_mission=0) holds up to 120s, then unblocks past 120s! */
+    game_state = HF_STATE_SHIP;
+    Seconds(1);
+    InitMockGameArenas(CHAOS_NATIVE_BUGS_BIT, 11u);
+    role = HF_SESSION_HOST;
+    game_state = HF_STATE_MISSION;
+    ResetMockCountersAndModState();
+    config = ChaosDefaults();
+    config.grace = 30;
+    config.cooldown = 30;
+    config.bots_weight = 100;
+    config.squids_weight = 0;
+    Publish();
+    ChaosReset(&clock_state, &config);
+    SetMockLobbyPeers(2u, peers2);
+    Seconds(5); /* clock age ~4s */
+    memcpy(peer_ev.data, &peer_prep, sizeof peer_prep);
+    OnMessage(self, (const HfEventInfo*)&peer_ev, NULL);
+
+    Seconds(110); /* clock age ~114s, since_join ~114s < 120s -> still blocked across t=30, 60, 90! */
+    CHECK(g_transport_calls == 0u && skipped_logs >= 3u);
+    Seconds(15);  /* clock age ~129s > 120s safety cap -> t=120s / 129s unblocks! */
+    CHECK(g_transport_calls == 1u);
+}
+
 int main(int argc, char** argv)
 {
     CHECK(argc == 2 && strlen(argv[1]) < sizeof fixture);
@@ -1326,6 +1619,9 @@ int main(int argc, char** argv)
     CHECK(hellforge_mod_init(&api, (HfMod*)1) == 0 && subscriptions == 3 && ticks == 1);
     TestHostClientSplitAndLateJoin(&api);
     TestMidMissionHostMigration();
+    TestHostOptionsPresetsAndPrecedence(&api);
+    TestPrepareMissionZeroPreloadAndPacedMissionQueue();
+    TestH4SlowD11JoinerBarrierAndImmediateMissionSync();
 
     /* Kill switch latch & token mismatch tests */
     FILE* f = fopen(bridge, "wb"); CHECK(f != NULL);
@@ -1341,7 +1637,7 @@ int main(int argc, char** argv)
     Seconds(5);
     CHECK(stopped == 1); /* latched until session restart */
 
-    printf("PASS %u checks; 0.3.0 co-op policy, %u code pins, all-peer preloader, host/client split, late-join barrier, mid-mission migration, and 3/4/5-way perception verified\n",
+    printf("PASS %u checks; 0.3.3 co-op policy, %u code pins, PrepareMission 0-preload OOM guard, paced HF_STATE_MISSION preloader, H4 slow-D11 joiner barrier, host-options presets, mid-mission migration, and 3/4/5-way perception verified\n",
            checks, (unsigned)CPIN_COUNT);
     return 0;
 }

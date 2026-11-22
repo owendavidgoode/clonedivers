@@ -34,6 +34,15 @@ using ToolTip = Avalonia.Controls.ToolTip;
 /// <summary>Unified modern Star Wars holoterminal launcher window shared across Windows and Linux.</summary>
 public sealed class ForgeShellWindow : Window
 {
+    public static IReadOnlyDictionary<string, string> CustomizeTierDescriptions { get; } = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
+    {
+        [PerformanceTierAdvisor.Ultra] = "Full (Ultra)",
+        [PerformanceTierAdvisor.High] = "High (Streamed)",
+        [PerformanceTierAdvisor.Balanced] = "1024px (Medium)",
+        [PerformanceTierAdvisor.Low512] = "512px (Low / Deck)",
+        [PerformanceTierAdvisor.UltraPotato] = "256px + Decimated Meshes (Ultra-Potato)"
+    };
+
     readonly IForgeUiHost host;
     bool showingSetup;
     bool showingCustomize;
@@ -43,6 +52,7 @@ public sealed class ForgeShellWindow : Window
     bool closingConfirmed;
     bool updatingControls;
     bool wasSessionRunning;
+    bool wasGameWindowActive;
     bool minimizeToTrayActive;
     string? hoveredModeId;
     TaskCompletionSource<bool>? pendingConfirm;
@@ -202,9 +212,11 @@ public sealed class ForgeShellWindow : Window
 
     readonly StackPanel drawerVisualExtrasSection = new() { Spacing = 8 };
     readonly Dictionary<string, ToggleButton> enemyPills = new();
+    readonly Dictionary<string, ToggleButton> squidPills = new();
     readonly ToggleSwitch deltaToggle = new() { OnContent = "On", OffContent = "Off" };
     readonly Border deltaRow = new();
-    readonly ToggleSwitch covenantToggle = new() { OnContent = "On", OffContent = "Off" };
+    readonly ToggleSwitch deathTrooperToggle = new() { OnContent = "On", OffContent = "Off" };
+    readonly Border deathTrooperRow = new();
 
     // Host Gameplay Controls (#20)
     readonly Dictionary<string, ToggleButton> chaosPills = new();
@@ -448,7 +460,7 @@ public sealed class ForgeShellWindow : Window
                 Dispatcher.UIThread.Post(() => drawerScrollViewer?.ScrollToEnd(), DispatcherPriority.Loaded);
             }
             else if (initialOverlay == "settings") { showingSettings = true; _ = LoadSettingsDiagnosticsAsync(); }
-            else if (initialOverlay == "whats-new") { _ = OpenWhatsNewAsync("2.0.3"); }
+            else if (initialOverlay == "whats-new") { _ = OpenWhatsNewAsync("2.1.0"); }
             RefreshAll();
             await host.InitializeAsync();
             RefreshAll();
@@ -582,12 +594,7 @@ public sealed class ForgeShellWindow : Window
             openItem.Click += (_, _) => Dispatcher.UIThread.Post(RestoreFromTray);
 
             trayEndSessionItem = new NativeMenuItem("End Session") { IsEnabled = false };
-            trayEndSessionItem.Click += (_, _) => Dispatcher.UIThread.Post(async () =>
-            {
-                RestoreFromTray();
-                if (host.GetHomeState().IsSessionRunning)
-                    await host.TriggerPrimaryActionAsync();
-            });
+            trayEndSessionItem.Click += (_, _) => Dispatcher.UIThread.Post(async () => await HandleTraySessionActionAsync());
 
             var quitItem = new NativeMenuItem("Quit");
             quitItem.Click += (_, _) => Dispatcher.UIThread.Post(() =>
@@ -653,6 +660,17 @@ public sealed class ForgeShellWindow : Window
             WindowsTaskbar.BringToFront(this);
         }
         catch { }
+    }
+
+    internal async Task HandleTraySessionActionAsync()
+    {
+        RestoreFromTray();
+        var s = host.GetHomeState();
+        if (!s.IsSessionRunning || s.IsBusy) return;
+        if (string.Equals(s.SecondaryActionLabel, ForgeTacticalCopy.CancelLaunchButton, StringComparison.Ordinal))
+            await host.TriggerSecondaryActionAsync();
+        else if (s.PrimaryActionEnabled)
+            await host.TriggerPrimaryActionAsync();
     }
 
     internal void DisposeTrayIcon()
@@ -1134,9 +1152,9 @@ public sealed class ForgeShellWindow : Window
         {
             [PerformanceTierAdvisor.Ultra] = "12 GB+ VRAM · Resident",
             [PerformanceTierAdvisor.High] = "8–11 GB VRAM · Streamed",
-            [PerformanceTierAdvisor.Balanced] = "6–8 GB VRAM · Streamed",
+            [PerformanceTierAdvisor.Balanced] = "6–8 GB VRAM · 1024px",
             [PerformanceTierAdvisor.Low512] = "4–6 GB VRAM · 512px",
-            [PerformanceTierAdvisor.UltraPotato] = "≤ 4 GB / iGPU · Lowest"
+            [PerformanceTierAdvisor.UltraPotato] = "≤ 4 GB / iGPU · 256px"
         };
 
         foreach (var tier in PerformanceTierAdvisor.Tiers)
@@ -1157,17 +1175,36 @@ public sealed class ForgeShellWindow : Window
             recPill.IsVisible = false;
             tierRecPills[tier.Id] = recPill;
 
-            var leftCluster = new StackPanel
+            var titleRow = new StackPanel
             {
                 Orientation = Orientation.Horizontal,
                 Spacing = 8,
                 VerticalAlignment = VerticalAlignment.Center,
                 Children =
                 {
-                    dot,
                     ForgeTheme.Label(tier.DisplayName, 12.5, ForgeTheme.TextPrimary, FontWeight.SemiBold, wrap: false),
                     recPill
                 }
+            };
+            var profileDesc = ForgeTheme.Label(
+                CustomizeTierDescriptions.GetValueOrDefault(tier.Id, tier.Description),
+                11,
+                ForgeTheme.TextSecondary,
+                wrap: false);
+
+            var leftTextStack = new StackPanel
+            {
+                Spacing = 1,
+                VerticalAlignment = VerticalAlignment.Center,
+                Children = { titleRow, profileDesc }
+            };
+
+            var leftCluster = new StackPanel
+            {
+                Orientation = Orientation.Horizontal,
+                Spacing = 8,
+                VerticalAlignment = VerticalAlignment.Center,
+                Children = { dot, leftTextStack }
             };
 
             var rightHint = ForgeTheme.Label(vramHints.GetValueOrDefault(tier.Id, ""), 11, ForgeTheme.TextSecondary, alignment: TextAlignment.Right, wrap: false);
@@ -1189,7 +1226,7 @@ public sealed class ForgeShellWindow : Window
                 Cursor = new Cursor(StandardCursorType.Hand),
                 Child = rowGrid
             };
-            AutomationProperties.SetName(rowBorder, tier.DisplayName);
+            AutomationProperties.SetName(rowBorder, $"{tier.DisplayName} — {CustomizeTierDescriptions.GetValueOrDefault(tier.Id, tier.Description)}");
             var tierIdCopy = tier.Id;
             rowBorder.PointerPressed += async (_, _) =>
             {
@@ -1236,7 +1273,7 @@ public sealed class ForgeShellWindow : Window
                 Dispatcher.UIThread.Post(() => drawerScrollViewer?.ScrollToHome(), DispatcherPriority.Loaded);
         };
 
-        // Advanced 1: Enemy Skin segmented pills
+        // Advanced 1: Enemy Skin & Squid Skin segmented pills
         var enemyWrap = new UniformGrid { Columns = 3 };
         var enemySpecs = new[]
         {
@@ -1253,13 +1290,35 @@ public sealed class ForgeShellWindow : Window
                 if (updatingControls) return;
                 UiSoundEffects.PlayButtonBlip();
                 var s = host.GetHomeState();
-                await host.UpdateCustomizationAsync(id, s.DeltaSquad, s.Covenant, s.Texture);
+                await host.UpdateCustomizationAsync(id, s.DeltaSquad, s.Covenant, s.Texture, s.SquidSkin, s.DeathTrooperVoice);
             };
             enemyPills[id] = pill;
             enemyWrap.Children.Add(pill);
         }
 
-        // Advanced 2: Delta Squad & Covenant Squids
+        var squidWrap = new UniformGrid { Columns = 3 };
+        var squidSpecs = new[]
+        {
+            ("mixed-covenant", "Mixed Covenant"),
+            ("all-covenant", "All Covenant"),
+            ("native-squids", "Native Squids")
+        };
+        for (int i = 0; i < squidSpecs.Length; i++)
+        {
+            var (id, label) = squidSpecs[i];
+            var pill = BuildSegmentedPill(label, i < squidSpecs.Length - 1);
+            pill.Click += async (_, _) =>
+            {
+                if (updatingControls) return;
+                UiSoundEffects.PlayButtonBlip();
+                var s = host.GetHomeState();
+                await host.UpdateCustomizationAsync(s.EnemySkin, s.DeltaSquad, id != "native-squids", s.Texture, id, s.DeathTrooperVoice);
+            };
+            squidPills[id] = pill;
+            squidWrap.Children.Add(pill);
+        }
+
+        // Advanced 2: Faction-specific Extras (Clones Delta Squad & Empire Encrypted Death Trooper Voice)
         deltaRow.Background = ForgeTheme.BgElevated;
         deltaRow.BorderBrush = ForgeTheme.BorderSubtle;
         deltaRow.BorderThickness = new Thickness(1);
@@ -1271,31 +1330,30 @@ public sealed class ForgeShellWindow : Window
             if (updatingControls) return;
             UiSoundEffects.PlayButtonBlip();
             var s = host.GetHomeState();
-            await host.UpdateCustomizationAsync(s.EnemySkin, deltaToggle.IsChecked == true, s.Covenant, s.Texture);
+            await host.UpdateCustomizationAsync(s.EnemySkin, deltaToggle.IsChecked == true, s.Covenant, s.Texture, s.SquidSkin, s.DeathTrooperVoice);
         };
 
-        var covenantCard = new Border
-        {
-            Background = ForgeTheme.BgElevated,
-            BorderBrush = ForgeTheme.BorderSubtle,
-            BorderThickness = new Thickness(1),
-            CornerRadius = new CornerRadius(9),
-            Padding = new Thickness(11, 7),
-            Child = BuildSwitchRow("Covenant Squids", "Halo Covenant visual overhaul for the Illuminate.", covenantToggle)
-        };
-        covenantToggle.IsCheckedChanged += async (_, _) =>
+        deathTrooperRow.Background = ForgeTheme.BgElevated;
+        deathTrooperRow.BorderBrush = ForgeTheme.BorderSubtle;
+        deathTrooperRow.BorderThickness = new Thickness(1);
+        deathTrooperRow.CornerRadius = new CornerRadius(9);
+        deathTrooperRow.Padding = new Thickness(11, 7);
+        deathTrooperRow.Child = BuildSwitchRow("Encrypted Death Trooper Voice", "Rogue One scrambled comms on Imperial voice slot 4.", deathTrooperToggle);
+        deathTrooperToggle.IsCheckedChanged += async (_, _) =>
         {
             if (updatingControls) return;
             UiSoundEffects.PlayButtonBlip();
             var s = host.GetHomeState();
-            await host.UpdateCustomizationAsync(s.EnemySkin, s.DeltaSquad, covenantToggle.IsChecked == true, s.Texture);
+            await host.UpdateCustomizationAsync(s.EnemySkin, s.DeltaSquad, s.Covenant, s.Texture, s.SquidSkin, deathTrooperToggle.IsChecked == true);
         };
 
         drawerVisualExtrasSection.Children.Add(ForgeTheme.Label("ENEMY SKIN", 10.5, ForgeTheme.TextMuted, FontWeight.Bold));
         drawerVisualExtrasSection.Children.Add(enemyWrap);
+        drawerVisualExtrasSection.Children.Add(ForgeTheme.Label("SQUID SKIN", 10.5, ForgeTheme.TextMuted, FontWeight.Bold));
+        drawerVisualExtrasSection.Children.Add(squidWrap);
         drawerVisualExtrasSection.Children.Add(ForgeTheme.Label("EXTRAS", 10.5, ForgeTheme.TextMuted, FontWeight.Bold));
         drawerVisualExtrasSection.Children.Add(deltaRow);
-        drawerVisualExtrasSection.Children.Add(covenantCard);
+        drawerVisualExtrasSection.Children.Add(deathTrooperRow);
 
         // Advanced 3: Host Gameplay Controls (#20)
         var chaosWrap = new UniformGrid { Columns = 3 };
@@ -1628,23 +1686,31 @@ public sealed class ForgeShellWindow : Window
             setupStage3Panel.Children.Add(card);
         }
 
-        var step4TexGrid = new UniformGrid { Columns = 3 };
-        foreach (var (id, title, sub) in new[]
+        var step4TopGrid = new UniformGrid { Columns = 3 };
+        var step4BottomGrid = new UniformGrid { Columns = 2 };
+        var step4Specs = new[]
         {
-            ("full", "Ultra (Full)", "12 GB+ VRAM · Sharpest"),
-            ("lighter", "Balanced (Streamed)", "6–11 GB VRAM · Streamed"),
-            ("reduced512", "Low VRAM (512px)", "≤ 6 GB VRAM · Fastest")
-        })
+            ("full", "Full (Ultra)", "12 GB+ VRAM · Sharpest"),
+            ("lighter", "High (Streamed)", "8–11 GB VRAM · Streamed"),
+            ("reduced1024", "1024px (Medium)", "6–8 GB VRAM · 1024px"),
+            ("reduced512", "512px (Low / Deck)", "4–6 GB VRAM · 512px"),
+            ("potato256", "256px + Decimated Meshes (Ultra-Potato)", "≤ 4 GB / iGPU · Fastest")
+        };
+        for (int idx = 0; idx < step4Specs.Length; idx++)
         {
+            var (id, title, sub) = step4Specs[idx];
             var content = new StackPanel
             {
                 Spacing = 2,
                 Children =
                 {
-                    ForgeTheme.Label(title, 12.5, ForgeTheme.TextPrimary, FontWeight.Bold, TextAlignment.Center, wrap: false),
-                    ForgeTheme.Label(sub, 11, ForgeTheme.TextSecondary, FontWeight.Normal, TextAlignment.Center)
+                    ForgeTheme.Label(title, 12, ForgeTheme.TextPrimary, FontWeight.Bold, TextAlignment.Center, wrap: false),
+                    ForgeTheme.Label(sub, 10.5, ForgeTheme.TextSecondary, FontWeight.Normal, TextAlignment.Center)
                 }
             };
+            bool inTopRow = idx < 3;
+            int colIdx = inTopRow ? idx : idx - 3;
+            int colMax = inTopRow ? 2 : 1;
             var btn = new Button
             {
                 Content = content,
@@ -1652,8 +1718,8 @@ public sealed class ForgeShellWindow : Window
                 BorderBrush = ForgeTheme.BorderSubtle,
                 BorderThickness = new Thickness(2),
                 CornerRadius = new CornerRadius(9),
-                Padding = new Thickness(10, 9),
-                Margin = new Thickness(id == "full" ? 0 : 5, 0, id == "reduced512" ? 0 : 5, 0),
+                Padding = new Thickness(8, 8),
+                Margin = new Thickness(colIdx == 0 ? 0 : 4, 0, colIdx == colMax ? 0 : 4, 0),
                 HorizontalAlignment = HorizontalAlignment.Stretch,
                 HorizontalContentAlignment = HorizontalAlignment.Center,
                 Cursor = new Cursor(StandardCursorType.Hand)
@@ -1664,8 +1730,10 @@ public sealed class ForgeShellWindow : Window
                 await host.SetSetupTextureAsync(id);
             };
             setupStep4TextureButtons[id] = btn;
-            step4TexGrid.Children.Add(btn);
+            if (inTopRow) step4TopGrid.Children.Add(btn);
+            else step4BottomGrid.Children.Add(btn);
         }
+        var step4TexGrid = new StackPanel { Spacing = 8, Children = { step4TopGrid, step4BottomGrid } };
         setupStep4ConsentBox.Child = setupStep4ConsentText;
         setupStage4Panel.Children.Add(setupStep4ModeText);
         setupStage4Panel.Children.Add(ForgeTheme.Label("CHOOSE TEXTURE QUALITY BEFORE DOWNLOADING", 11, ForgeTheme.TextMuted, FontWeight.Bold));
@@ -2228,21 +2296,24 @@ public sealed class ForgeShellWindow : Window
         ApplyBadgeTone(headerStatusBadge, headerStatusText, home.HeaderBadgeText, home.HeaderBadgeTone);
 
         if (trayEndSessionItem != null)
-            trayEndSessionItem.IsEnabled = home.IsSessionRunning;
-
-        if (!host.IsPreview && home.IsSessionRunning != wasSessionRunning)
         {
-            var becameRunning = home.IsSessionRunning;
-            wasSessionRunning = becameRunning;
-            if (becameRunning && minimizeToTrayActive)
+            bool canCancelLaunch = home.IsSessionRunning &&
+                !home.IsBusy &&
+                string.Equals(home.SecondaryActionLabel, ForgeTacticalCopy.CancelLaunchButton, StringComparison.Ordinal);
+            trayEndSessionItem.Header = canCancelLaunch ? ForgeTacticalCopy.CancelLaunchButton : "End Session";
+            trayEndSessionItem.IsEnabled = canCancelLaunch || (home.IsSessionRunning && home.PrimaryActionEnabled);
+        }
+
+        var gameWindowActive = home.IsSessionRunning && !home.IsBusy && home.Progress == null;
+        if (!host.IsPreview)
+        {
+            if (gameWindowActive && !wasGameWindowActive && minimizeToTrayActive)
                 HideToTray();
-            else if (!becameRunning && !IsVisible)
+            else if (!home.IsSessionRunning && wasSessionRunning && !IsVisible)
                 RestoreFromTray();
         }
-        else
-        {
-            wasSessionRunning = home.IsSessionRunning;
-        }
+        wasSessionRunning = home.IsSessionRunning;
+        wasGameWindowActive = gameWindowActive;
 
         // Update banner (never hijacks Play!)
         if (home.UpdateBanner is { } banner && !showingSetup)
@@ -2347,7 +2418,9 @@ public sealed class ForgeShellWindow : Window
             s.Hardware,
             s.HostChaosIntensity,
             s.HostHeavySeaf,
-            s.HostFasterCorpseCleanup);
+            s.HostFasterCorpseCleanup,
+            s.SquidSkin,
+            s.DeathTrooperVoice);
         customizeOpenButton.Content = s.Mode == "regular" ? "Host Rules ▸" : "Customize ▸";
         customizeOpenButton.IsVisible = true;
         customizeOpenButton.IsEnabled = !s.ControlsLocked;
@@ -2360,8 +2433,8 @@ public sealed class ForgeShellWindow : Window
         customizeSizePillText.Foreground = cached ? ForgeTheme.SuccessText : isResume ? ForgeTheme.InfoText : ForgeTheme.WarningText;
         customizeSizePillText.Text = preview.BadgeText;
 
-        // Fixed-height Status & Progress Deck
-        if (s.IsBusy && s.Progress is { } prog)
+        // Fixed-height Status & Progress Deck (also pulses indeterminately during pre-window HD2 launch staging!)
+        if ((s.IsBusy || s.IsSessionRunning) && s.Progress is { } prog)
         {
             statusDot.Background = ForgeTheme.ClonesAccent;
             statusHeadline.Text = prog.Stage;
@@ -2463,12 +2536,22 @@ public sealed class ForgeShellWindow : Window
                 pill.IsEnabled = !s.ControlsLocked;
             }
 
+            foreach (var (id, pill) in squidPills)
+            {
+                bool on = string.Equals(s.SquidSkin, id, StringComparison.OrdinalIgnoreCase);
+                pill.IsChecked = on;
+                pill.Background = on ? ForgeTheme.BgSelected : ForgeTheme.BgCanvas;
+                pill.BorderBrush = on ? ForgeTheme.ClonesAccent : ForgeTheme.BorderSubtle;
+                pill.IsEnabled = !s.ControlsLocked;
+            }
+
             deltaRow.IsVisible = s.Mode == "clonedivers";
             deltaToggle.IsChecked = s.DeltaSquad;
             deltaToggle.IsEnabled = !s.ControlsLocked;
 
-            covenantToggle.IsChecked = s.Covenant;
-            covenantToggle.IsEnabled = !s.ControlsLocked;
+            deathTrooperRow.IsVisible = s.Mode == "empire";
+            deathTrooperToggle.IsChecked = s.DeathTrooperVoice;
+            deathTrooperToggle.IsEnabled = !s.ControlsLocked;
 
             foreach (var (id, pill) in chaosPills)
             {

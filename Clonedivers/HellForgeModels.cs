@@ -12,7 +12,7 @@ public static class HellForgeRelease
 
 public sealed record HellForgeStatus(string Root, string Version, string Build, bool GameCopyReady, bool RunnerReady,
     bool Running, bool Multiplayer, bool LocalBackend, string? LastStatus, string? LastFailure, string? LastNotice = null, string? RecoveryProblem = null, string? CompatibilityProblem = null,
-    string? Engine = null, int? ModSdk = null, bool HasRun = true);
+    string? Engine = null, int? ModSdk = null, bool HasRun = true, bool? GameLaunched = null);
 public sealed record HellForgeOption(string Name, bool On);
 public sealed record HellForgeMod(string Id, string Name, bool Enabled, string Folder, string[] Tags, string Version = "", HellForgeOption[]? Options = null, string? Archive = null);
 public sealed record HellForgeMods(List<HellForgeMod> Mods, string[] Problems, string? Code, string? HostingProblem = null);

@@ -1,0 +1,22 @@
+{
+  "version": 6,
+  "configurePresets": [
+    {
+      "name": "default",
+      "displayName": "HellForge mod (Zig)",
+      "description": "Builds with HellForge's pinned Zig, CMake and Ninja.",
+      "generator": "Ninja",
+      "binaryDir": "${sourceDir}/build",
+      "toolchainFile": "${sourceDir}/../../app/sdk/cmake/HellForgeToolchain.cmake",
+      "cacheVariables": {
+        "CMAKE_BUILD_TYPE": "Release",
+        "CMAKE_MAKE_PROGRAM": "${sourceDir}/../../tools/ninja/ninja.exe",
+        "CMAKE_EXPORT_COMPILE_COMMANDS": "ON",
+        "HELLFORGE_INSTALL": "D:/HellForge"
+      }
+    }
+  ],
+  "buildPresets": [
+    { "name": "default", "configurePreset": "default" }
+  ]
+}

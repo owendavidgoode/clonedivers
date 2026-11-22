@@ -352,6 +352,54 @@ await Clonedivers.ForgeBridge.Tests.ImportTests.RegularAsync(Check);
 await Clonedivers.ForgeBridge.Tests.CliTests.RunAsync(Check);
 await Clonedivers.ForgeBridge.Tests.CliTests.OutputAsync(Check);
 await Clonedivers.ForgeBridge.Tests.CompatibilityTests.RunAsync(Check);
+
+// Milestone 2 (v2.1): BridgeSession & PlayerCommands 5 texture profiles, 3-way --squid-skin, --deathtrooper, backwards-compat select-mode, and #66 stray pack guard
+foreach (var tex in new[] { "full", "lighter", "reduced1024", "reduced512", "potato256" })
+{
+    foreach (var sq in new[] { "mixed-covenant", "all-covenant", "native-squids" })
+    {
+        var args23 = new[]
+        {
+            "select-mode", "--mode", "empire", "--delta", "no", "--texture", tex,
+            "--droids", "yes", "--covenant", sq != "native-squids" ? "yes" : "no",
+            "--enemy-skin", "mixed-droids", "--squid-skin", sq, "--deathtrooper", "no"
+        };
+        BridgeSession.Validate(args23);
+    }
+}
+// Legacy 15-arg and 19-arg select-mode still validate cleanly
+BridgeSession.Validate(["select-mode", "--mode", "clonedivers", "--delta", "yes", "--texture", "full", "--droids", "yes", "--covenant", "no"]);
+BridgeSession.Validate(["select-mode", "--mode", "clonedivers", "--delta", "yes", "--texture", "lighter", "--droids", "yes", "--covenant", "yes", "--enemy-skin", "mixed-droids"]);
+Reject(() => BridgeSession.Validate(["select-mode", "--mode", "empire", "--delta", "no", "--texture", "ultra-8k", "--droids", "yes", "--covenant", "yes", "--enemy-skin", "mixed-droids", "--squid-skin", "mixed-covenant", "--deathtrooper", "yes"]),
+    "BridgeSession.Validate rejects unsupported texture profile");
+Reject(() => BridgeSession.Validate(["select-mode", "--mode", "empire", "--delta", "no", "--texture", "full", "--droids", "yes", "--covenant", "yes", "--enemy-skin", "mixed-droids", "--squid-skin", "flood", "--deathtrooper", "yes"]),
+    "BridgeSession.Validate rejects unsupported --squid-skin value");
+Reject(() => BridgeSession.Validate(["select-mode", "--mode", "empire", "--delta", "no", "--texture", "full", "--droids", "yes", "--covenant", "yes", "--enemy-skin", "mixed-droids", "--squid-skin", "mixed-covenant", "--deathtrooper", "maybe"]),
+    "BridgeSession.Validate rejects non-boolean --deathtrooper value");
+Check(true, "BridgeSession.Validate accepts all 5 texture profiles, 3-way --squid-skin, --deathtrooper, and legacy 15/19-token select-mode");
+
+var v21BridgeRoot = Path.Combine(Path.GetTempPath(), "bridge-v21-" + Guid.NewGuid().ToString("N"));
+Directory.CreateDirectory(v21BridgeRoot);
+try
+{
+    var v21Official = new Fake { Root = Path.TrimEndingDirectorySeparator(Path.GetFullPath(v21BridgeRoot)) };
+    var v21Player = new PlayerCommands(v21BridgeRoot, v21Official);
+    var v21Reply = await v21Player.RunAsync(
+        ["select-mode", "--mode", "empire", "--delta", "no", "--texture", "potato256",
+         "--droids", "yes", "--covenant", "yes", "--enemy-skin", "mixed-droids",
+         "--squid-skin", "mixed-covenant", "--deathtrooper", "no"],
+        CancellationToken.None);
+    Check(v21Reply.GetProperty("Mode").GetString() == "empire" &&
+          v21Reply.GetProperty("Texture").GetString() == "potato256" &&
+          v21Reply.GetProperty("SquidSkin").GetString() == "mixed-covenant" &&
+          !v21Reply.GetProperty("DeathTrooperVoice").GetBoolean(),
+          "PlayerCommands select-mode stores and echoes potato256, mixed-covenant, and DeathTrooperVoice=false");
+}
+finally
+{
+    if (Directory.Exists(v21BridgeRoot)) Directory.Delete(v21BridgeRoot, true);
+}
+
 Console.WriteLine($"{passed} bridge/plan/protocol assertions passed (fixtures only; no Linux/game qualification).");
 
 sealed class CancelOnWrite(CancellationTokenSource source) : StringWriter

@@ -101,7 +101,7 @@ int at_read_atst_unit(
     uint64_t res_id = 0;
     if (!valid_span(res_ptr, 8u)) return 0;
     if (read_fn(res_ptr, &res_id, 8u, read_user) != 0) return 0;
-    if (res_id != AT_UNIT_RESOURCE_ID) return 0;
+    if (!at_is_supported_atst_unit_id(res_id)) return 0;
 
     uint32_t graph_handle = rd_u32(uhdr + 0x64u);
     uintptr_t assoc = (uintptr_t)rd_u64(uhdr + 0x68u);
@@ -285,6 +285,7 @@ static int admit_unit_into_lowest_free(
     slot->unit_index = uv->index;
     slot->unit_gen = uv->generation;
     slot->unit = uv->unit;
+    slot->resource_id = uv->resource_id;
     slot->association = uv->association;
     slot->world = rhdr->world;
     slot->graph_handle = uv->graph_handle;
@@ -311,6 +312,7 @@ uint32_t at_registry_reconcile(
         if (!at_read_atst_unit(reg, &mgr, s->unit_index, read_fn, read_user, &uv) ||
             uv.generation != s->unit_gen ||
             uv.unit != s->unit ||
+            uv.resource_id != s->resource_id ||
             uv.association != s->association ||
             uv.graph_handle != s->graph_handle ||
             !at_read_render_header(uv.association - 0x10u, read_fn, read_user, &rhdr) ||
@@ -366,7 +368,7 @@ uint32_t at_registry_reconcile(
                 uintptr_t res_ptr = (uintptr_t)rd_u64(probe + 0x30u);
                 uint64_t res_id = 0;
                 if (!valid_span(res_ptr, 8u) || read_fn(res_ptr, &res_id, 8u, read_user) != 0) continue;
-                if (res_id != AT_UNIT_RESOURCE_ID) {
+                if (!at_is_supported_atst_unit_id(res_id)) {
                     reg->scanned_slots[idx] = unit_ptr;
                     reg->scanned_gens[idx] = unit_gen;
                     continue;
@@ -485,6 +487,7 @@ int at_registry_resolve_render(
         !at_read_atst_unit(reg, &mgr, s->unit_index, read_fn, read_user, &uv) ||
         uv.generation != s->unit_gen ||
         uv.unit != s->unit ||
+        uv.resource_id != s->resource_id ||
         uv.association != rhdr.manager + 0x10u ||
         uv.graph_handle != m_handle ||
         s->normal_graph != rgraph.object) {

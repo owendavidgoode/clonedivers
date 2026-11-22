@@ -191,6 +191,7 @@ static class TestProgram
             Task.Run(() => TurnkeySetupTests.Run(root, Check)).GetAwaiter().GetResult();
             Task.Run(() => LauncherRedesignTests.Run(root, Check)).GetAwaiter().GetResult();
             Task.Run(() => Milestone1CoreTests.Run(root, Check)).GetAwaiter().GetResult();
+            Task.Run(() => Milestone2Tests.Run(root, Check)).GetAwaiter().GetResult();
             FpvDefaultsTests.Run(root, Check);
             SelfUpdateAndAcfTests(root);
         }

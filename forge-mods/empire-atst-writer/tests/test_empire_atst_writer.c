@@ -479,6 +479,9 @@ static void test_code_pins_and_dll_handshake(uint8_t *eng) {
     /* Load actual built DLL and verify hellforge_mod_init + OnGameLoaded hook priorities (-10) & peer lookup */
     HMODULE mod_dll = LoadLibraryA("..\\build\\empire_atst_writer.dll");
     if (!mod_dll) {
+        mod_dll = LoadLibraryA("build\\empire_atst_writer.dll");
+    }
+    if (!mod_dll) {
         mod_dll = LoadLibraryA("forge-mods\\empire-atst-writer\\build\\empire_atst_writer.dll");
     }
     if (!mod_dll) {
@@ -1118,6 +1121,108 @@ static void test_zero_walker_and_d11_fast_path(at_writer_state *ws, sim_unit_mgr
     printf("[PASS] test_zero_walker_and_d11_fast_path\n");
 }
 
+static void test_exo49_and_mixed_variant_walkers(at_writer_state *ws, sim_unit_mgr *um, sim_render_sys *rs) {
+    at_writer_shutdown(ws);
+    memset(um->slots, 0, sizeof(um->slots));
+    InterlockedExchange(&ws->ready, 1);
+
+    at_mat4 binds_8[8];
+    for (unsigned b = 0; b < 8; b++) {
+        at_render48 r;
+        memcpy(r.v, AT_BINDS_48_U32[b], sizeof(r.v));
+        TEST_ASSERT(at_unpack(&r, &binds_8[b]) == AT_OK, "unpack bind exo49");
+    }
+
+    /* 1. Solo Emancipator EXO-49 (0xC2D449ECF7FACAB1ULL): admit, full 15-pose walk/turn S2c substitution, 1E7CD0 retire */
+    sim_walker w49;
+    bind_walker(&w49, um, rs, (uintptr_t)g_fake_engine, 3u, 7u, 14u, 0u);
+    w49.unit.resource_id = AT_UNIT_EXO49_RESOURCE_ID;
+    TEST_ASSERT(at_writer_tick(ws, 16u) == 1u, "admit EXO-49 Emancipator walker");
+    TEST_ASSERT(ws->reg.slots[0].occupied == 1u && ws->reg.slots[0].resource_id == AT_UNIT_EXO49_RESOURCE_ID,
+                "slot 0 tracks EXO-49 resource_id");
+
+    double yaw = -0.48;
+    at_mat4 uw = {{
+        cos(yaw), -sin(yaw), 0.0, -34.0,
+        sin(yaw),  cos(yaw), 0.0,  62.5,
+        0.0,       0.0,      1.0,   4.25,
+        0.0,       0.0,      0.0,   1.0
+    }};
+    double max_exo49_err = 0.0;
+    for (unsigned p = 0; p < AT_CLIP_POSE_COUNT; p++) {
+        const at_clip_pose_sample *cur_s = &AT_CLIP_POSES[p];
+        const at_clip_pose_sample *prev_s = &AT_CLIP_POSES[(p + AT_CLIP_POSE_COUNT - 1u) % AT_CLIP_POSE_COUNT];
+        build_s2c_graph_from_clip(&ws->rig, cur_s->native_local, &uw, w49.graph.cur);
+        build_s2c_graph_from_clip(&ws->rig, prev_s->native_local, &uw, w49.graph.prev);
+
+        at_receipt rec;
+        at_writer_dispatch_512B80(
+            ws, &w49.mesh, (void *)(rs->world + 0x318u), &w49.graph,
+            (uintptr_t)g_fake_engine + AT_RVA_CALLER_NORMAL, &rec);
+        TEST_ASSERT(rec.seen == 6u && rec.replaced == 6u && rec.failure == 0u, "EXO-49 all 6 leaf calls replaced");
+
+        const at_render48 *sub_cur = g_last_leaf_snapshots[0];
+        at_mat4 exp_8[8], act_8[8], auth0, inv_auth0, frame_auth;
+        auth0 = mat4_from_r48_f(cur_s->expected_world[0]);
+        TEST_ASSERT(at_inv_affine(&auth0, &inv_auth0) == AT_OK, "inv auth0 exo49");
+        frame_auth = mul_mat4_host(&uw, &inv_auth0);
+        for (unsigned b = 0; b < 8; b++) {
+            unsigned j = AT_SKIN_ORIG_JOINTS[b];
+            at_mat4 ej = mat4_from_r48_f(cur_s->expected_world[j]);
+            exp_8[b] = mul_mat4_host(&frame_auth, &ej);
+            TEST_ASSERT(at_unpack(&sub_cur[AT_SKIN_BONES[b]], &act_8[b]) == AT_OK, "unpack exo49 substituted");
+        }
+        double err = eval_pose_vertex_err(act_8, exp_8, binds_8);
+        if (err > max_exo49_err) max_exo49_err = err;
+    }
+    TEST_ASSERT(max_exo49_err < 2e-5, "EXO-49 512B80->5B2990 pose accuracy < 2e-5 m");
+
+    unsigned char pkt[8] = {0};
+    w_u32(pkt, 4u, w49.handle);
+    at_writer_retire_1E7CD0(ws, (uintptr_t)rs->world, pkt, 0u);
+    TEST_ASSERT(ws->reg.slots[0].occupied == 0u && ws->fast.count == 0u, "EXO-49 retired cleanly via 1E7CD0");
+
+    /* 2. Mixed 4-walker co-op: EXO-45 + EXO-49 + EXO-51 + EXO-55 simultaneously active */
+    at_writer_shutdown(ws);
+    memset(um->slots, 0, sizeof(um->slots));
+    InterlockedExchange(&ws->ready, 1);
+
+    const uint64_t variant_ids[4] = {
+        AT_UNIT_RESOURCE_ID,
+        AT_UNIT_EXO49_RESOURCE_ID,
+        AT_UNIT_EXO51_RESOURCE_ID,
+        AT_UNIT_EXO55_RESOURCE_ID,
+    };
+    sim_walker mix[4];
+    for (unsigned i = 0; i < 4u; i++) {
+        bind_walker(&mix[i], um, rs, (uintptr_t)g_fake_engine, 2u + i, (uint8_t)(30u + i), 30u + i, i);
+        mix[i].unit.resource_id = variant_ids[i];
+        at_mat4 mw = {{1,0,0, 8.0 * (double)i, 0,1,0, -4.0 * (double)i, 0,0,1, 1.5, 0,0,0, 1}};
+        build_s2c_graph_from_clip(&ws->rig, AT_CLIP_POSES[i].native_local, &mw, mix[i].graph.cur);
+        build_s2c_graph_from_clip(&ws->rig, AT_CLIP_POSES[(i + 1u) % AT_CLIP_POSE_COUNT].native_local, &mw, mix[i].graph.prev);
+    }
+    TEST_ASSERT(at_writer_tick(ws, 0u) == 4u, "admit mixed EXO-45/49/51/55 co-op squad");
+    for (unsigned i = 0; i < 4u; i++) {
+        at_receipt rec;
+        at_writer_dispatch_512B80(
+            ws, &mix[i].mesh, (void *)(rs->world + 0x318u), &mix[i].graph,
+            (uintptr_t)g_fake_engine + AT_RVA_CALLER_NORMAL, &rec);
+        TEST_ASSERT(rec.seen == 6u && rec.replaced == 6u && rec.failure == 0u, "mixed variant walker draw ok");
+        TEST_ASSERT(ws->reg.slots[i].resource_id == variant_ids[i], "slot preserves exact variant resource_id");
+    }
+
+    /* 3. Mid-slot resource_id mutation (even to another valid walker ID without generation bump) -> scavenged! */
+    mix[1].unit.resource_id = AT_UNIT_RESOURCE_ID;
+    at_receipt rec_swap;
+    at_writer_dispatch_512B80(
+        ws, &mix[1].mesh, (void *)(rs->world + 0x318u), &mix[1].graph,
+        (uintptr_t)g_fake_engine + AT_RVA_CALLER_NORMAL, &rec_swap);
+    TEST_ASSERT(rec_swap.replaced == 0u && ws->reg.slots[1].occupied == 0u,
+                "resource_id swap without generation bump scavenged cleanly");
+
+    printf("[PASS] test_exo49_and_mixed_variant_walkers exo49_max_err=%.9e m\n", max_exo49_err);
+}
+
 int main(void) {
     g_fake_engine = (uint8_t *)VirtualAlloc(NULL, 0x02000000u, MEM_COMMIT | MEM_RESERVE, PAGE_READWRITE);
     g_render_sys = (sim_render_sys *)calloc(1, sizeof(sim_render_sys));
@@ -1146,6 +1251,7 @@ int main(void) {
     test_peer_hook_chaining_and_lazy_lookup(ws, um, g_render_sys);
     test_concurrent_multi_pass_and_mid_leaf_retire(ws, um, g_render_sys);
     test_zero_walker_and_d11_fast_path(ws, um, g_render_sys);
+    test_exo49_and_mixed_variant_walkers(ws, um, g_render_sys);
 
     printf("ALL C TESTS PASSED (0 failures)\n");
     free(ws);
