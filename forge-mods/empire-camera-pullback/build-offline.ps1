@@ -53,13 +53,13 @@ try {
     if ($LASTEXITCODE -ne 0) { throw 'Unit test execution failed' }
 
     # 4. Package & mod-hash
-    if (Test-Path -LiteralPath "$out\empire-camera-pullback-0.1.2.zip") {
-        Remove-Item -LiteralPath "$out\empire-camera-pullback-0.1.2.zip" -Force
+    if (Test-Path -LiteralPath "$out\empire-camera-pullback-0.1.3.zip") {
+        Remove-Item -LiteralPath "$out\empire-camera-pullback-0.1.3.zip" -Force
     }
     & $CliPath package-mod --mod $stage --out $out | Tee-Object "$mod\build\package.log"
     if ($LASTEXITCODE -ne 0) { throw 'HellForge.Cli package-mod failed' }
 
-    $zipPath=Join-Path $out 'empire-camera-pullback-0.1.2.zip'
+    $zipPath=Join-Path $out 'empire-camera-pullback-0.1.3.zip'
     if (!(Test-Path -LiteralPath $zipPath)) { throw "Expected package not found: $zipPath" }
     $zipItem=Get-Item -LiteralPath $zipPath
     $zipSha=(Get-FileHash -LiteralPath $zipPath -Algorithm SHA256).Hash.ToLowerInvariant()

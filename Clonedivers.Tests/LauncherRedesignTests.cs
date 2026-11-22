@@ -143,7 +143,7 @@ internal static class LauncherRedesignTests
             "PreviewForgeHost 'home-resume' exposes UPDATE & LAUNCH CTA, Resume download pill, and Self-Install shortcuts banner");
 
         // 10. Version bump & cross-platform WindowIcon extraction (Deliverables 1 & 4)
-        check(AppInfo.Version == "2.1.0" || AppInfo.Version == "1.0.0", // Test runner assembly may be 1.0.0 unless Version set, verify Clonedivers.Icon.ico!
+        check(AppInfo.Version == "2.1.1" || AppInfo.Version == "1.0.0", // Test runner assembly may be 1.0.0 unless Version set, verify Clonedivers.Icon.ico!
             "AppInfo.Version resolves cleanly");
         using (var icoRes = typeof(ForgeTheme).Assembly.GetManifestResourceStream("Clonedivers.Icon.ico"))
         {
