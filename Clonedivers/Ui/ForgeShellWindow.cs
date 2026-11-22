@@ -1872,7 +1872,7 @@ public sealed class ForgeShellWindow : Window
                 accountUpdateCard,
                 ForgeTheme.Label("HEALTH CHECKS", 10.5, ForgeTheme.TextMuted, FontWeight.Bold),
                 settingsHealthWrap,
-                ForgeTheme.Label("DISCORD SUPPORT REPORT (REDACTED)", 10.5, ForgeTheme.TextMuted, FontWeight.Bold),
+                ForgeTheme.Label("DISCORD SUPPORT REPORT", 10.5, ForgeTheme.TextMuted, FontWeight.Bold),
                 settingsReportBox
             }
         };
