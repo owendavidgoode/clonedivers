@@ -104,16 +104,23 @@ internal sealed class LinuxForgePreferences
             if (!LegacyAppearance.HasSavedConfigFor(file))
                 return new();
             var legacy = LegacyAppearance.ReadFor(file);
-            var hasExplicitTexture = !string.IsNullOrWhiteSpace(legacy.TextureProfile);
+            var legacyTexture = legacy.TextureProfile?.Trim().ToLowerInvariant() switch
+            {
+                "reduced512" or "reduced-512" => "reduced512",
+                "lighter" or "skinny" => "lighter",
+                "full" => "full",
+                _ => null
+            };
+            var hasExplicitTexture = legacyTexture != null;
             return new()
             {
                 Mode = legacy.Options.GetValueOrDefault("empire") ? "empire" : "clonedivers",
                 DeltaSquad = legacy.Options.GetValueOrDefault("commandos", true),
                 EnemySkin = legacy.Options.TryGetValue("droids", out var legacyDroids) ? (legacyDroids ? "all-droids" : "native-automatons") : "mixed-droids",
                 Covenant = legacy.Options.TryGetValue("covenant", out var legacyCov) ? legacyCov : true,
-                Texture = legacy.TextureProfile == "lighter" ? "lighter" : "full",
+                Texture = legacyTexture ?? "full",
                 AutoPerformanceTier = !hasExplicitTexture,
-                PerformanceTier = !hasExplicitTexture ? PerformanceTierAdvisor.Auto : (legacy.TextureProfile == "lighter" ? PerformanceTierAdvisor.Balanced : PerformanceTierAdvisor.Ultra)
+                PerformanceTier = !hasExplicitTexture ? PerformanceTierAdvisor.Auto : PerformanceTierAdvisor.TierFromPackTexture(legacyTexture)
             };
         }
         if (new FileInfo(file).Length > 65536) throw new InvalidDataException("Forge preferences are oversized.");
@@ -340,14 +347,17 @@ internal sealed class LinuxForgePlayer(IForgeConnection connection, LinuxForgePr
         if (Preferences.Mode == "regular") throw new InvalidOperationException("Regular needs no appearance download.");
         var root = ResolvedInstallRoot ?? throw new InvalidOperationException("Choose a Forge installation.");
         var cache = Path.Combine(Path.GetDirectoryName(root)!, "Clonedivers-HellForge-cache", "exports");
-        FileSafety.RejectLink(cache);
-        var selection = Preferences.PackSelection();
-        var exports = Directory.Exists(cache) ? new DirectoryInfo(cache).EnumerateDirectories().OrderByDescending(d => d.LastWriteTimeUtc).Take(32).Select(d => d.FullName).ToList() : [];
-        if (await FindExportAsync(exports, selection, progress, ct, richProgress) is { } prepared) return prepared;
         var mods = Path.Combine(root, "mods");
-        FileSafety.RejectLink(mods);
-        IEnumerable<string> sources = Directory.Exists(mods) ? exports.Prepend(mods) : exports;
-        return await HellForgePack.PlanAsync(selection, Path.Combine(cache, "linux-" + Guid.NewGuid().ToString("N")), sources, progress, ct, richProgress: richProgress);
+        var selection = Preferences.PackSelection();
+        return await Task.Run(async () =>
+        {
+            FileSafety.RejectLink(cache);
+            var exports = Directory.Exists(cache) ? new DirectoryInfo(cache).EnumerateDirectories().OrderByDescending(d => d.LastWriteTimeUtc).Take(32).Select(d => d.FullName).ToList() : [];
+            if (await FindExportAsync(exports, selection, progress, ct, richProgress) is { } prepared) return prepared;
+            FileSafety.RejectLink(mods);
+            IEnumerable<string> sources = Directory.Exists(mods) ? exports.Prepend(mods) : exports;
+            return await HellForgePack.PlanAsync(selection, Path.Combine(cache, "linux-" + Guid.NewGuid().ToString("N")), sources, progress, ct, richProgress: richProgress);
+        }, ct);
     }
     /// <summary>Like Windows, reuse a verified earlier export instead of writing another full copy; its plan needs no download or export.</summary>
     internal static async Task<HellForgePack.Plan?> FindExportAsync(IEnumerable<string> exports, HellForgePack.Selection selection, IProgress<string>? progress = null, CancellationToken ct = default, IProgress<OperationProgress>? richProgress = null)
@@ -397,20 +407,25 @@ internal sealed class LinuxForgePlayer(IForgeConnection connection, LinuxForgePr
                 plan.Selection.Options.Count != expected.Options.Count || expected.Options.Any(pair => !plan.Selection.Options.TryGetValue(pair.Key, out var on) || on != pair.Value))
                 throw new InvalidDataException("The selected mode/options changed after planning. Prepare the selection again.");
             var path = connection.NativePaths ? plan.Output : WindowsPath(ResolvedInstallRoot!, plan.Output);
-            // This code runs in the native frontend, outside the isolated Wine namespace.
-            if (Directory.Exists(plan.Output))
+            // Pure disk verification/export runs off-thread without touching LinuxForgePlayer state; bridge commands & RefreshAsync run on host context.
+            await Task.Run(async () =>
             {
-                richProgress?.Report(new("Verifying cached pack", "Checking prepared export metadata…", IsIndeterminate: true, CanCancel: true));
-                await HellForgePack.VerifyMetadataAsync(plan.Output, expected, ct); // reused export; the bridge re-hashes before import
-            }
-            else
-            {
-                await HellForgePack.ExportAsync(plan, allowDownloads, progress, ct, richProgress: richProgress);
-            }
+                if (Directory.Exists(plan.Output))
+                {
+                    richProgress?.Report(new("Verifying cached pack", "Checking prepared export metadata…", IsIndeterminate: true, CanCancel: true));
+                    await HellForgePack.VerifyMetadataAsync(plan.Output, expected, ct); // reused export; the bridge re-hashes before import
+                }
+                else
+                {
+                    await HellForgePack.ExportAsync(plan, allowDownloads, progress, ct, richProgress: richProgress);
+                }
+            }, ct);
             await SelectAsync(ct);
             richProgress?.Report(new("Installing Star Wars pack", "Importing verified pack into HellForge…", IsIndeterminate: true, CanCancel: false));
             await connection.RunAsync(["prepare-pack", "--file", path], ct);
-            PruneExports(Path.GetDirectoryName(Path.GetFullPath(plan.Output))!, plan.Output);
+            var pruneDir = Path.GetDirectoryName(Path.GetFullPath(plan.Output))!;
+            var pruneKeep = plan.Output;
+            await Task.Run(() => PruneExports(pruneDir, pruneKeep), CancellationToken.None);
         }
         await RefreshAsync(ct);
     }

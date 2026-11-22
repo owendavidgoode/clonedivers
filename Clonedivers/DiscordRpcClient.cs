@@ -28,10 +28,13 @@ public sealed class DiscordRpcClient : IDisposable, IAsyncDisposable
     readonly long sessionStartUnix = DateTimeOffset.UtcNow.ToUnixTimeSeconds();
     Stream? transport;
     bool handshakeCompleted;
-    bool disposed;
+    int disposedFlag;
+    long presenceGeneration;
+
+    bool IsDisposed => Volatile.Read(ref disposedFlag) != 0;
 
     public bool Enabled { get; set; } = true;
-    public bool IsConnected => transport != null && handshakeCompleted && !disposed;
+    public bool IsConnected => Volatile.Read(ref transport) != null && Volatile.Read(ref handshakeCompleted) && !IsDisposed;
     public string AppId => appId;
 
     public DiscordRpcClient(string? appId = null, Func<CancellationToken, Task<Stream?>>? connectOverride = null)
@@ -50,118 +53,160 @@ public sealed class DiscordRpcClient : IDisposable, IAsyncDisposable
 
     public void SetPresence(string state, string details, string largeImageKey = "clonedivers")
     {
-        if (disposed || !Enabled || string.IsNullOrWhiteSpace(appId)) return;
-        _ = Task.Run(() => SetPresenceAsync(state, details, largeImageKey));
+        if (IsDisposed || !Enabled || string.IsNullOrWhiteSpace(appId)) return;
+        var generation = Interlocked.Increment(ref presenceGeneration);
+        _ = Task.Run(() => SetPresenceCoreAsync(state, details, largeImageKey, generation, CancellationToken.None));
     }
 
     public void ClearPresence()
     {
-        if (disposed || string.IsNullOrWhiteSpace(appId)) return;
-        _ = Task.Run(() => ClearPresenceAsync());
+        if (IsDisposed || string.IsNullOrWhiteSpace(appId)) return;
+        var generation = Interlocked.Increment(ref presenceGeneration);
+        _ = Task.Run(() => ClearPresenceCoreAsync(generation, CancellationToken.None));
     }
 
-    public async Task<bool> SetPresenceAsync(string state, string details, string largeImageKey = "clonedivers", CancellationToken ct = default)
+    public Task<bool> SetPresenceAsync(string state, string details, string largeImageKey = "clonedivers", CancellationToken ct = default)
     {
-        if (disposed || !Enabled || string.IsNullOrWhiteSpace(appId)) return false;
+        if (IsDisposed || !Enabled || string.IsNullOrWhiteSpace(appId)) return Task.FromResult(false);
+        var generation = Interlocked.Increment(ref presenceGeneration);
+        return SetPresenceCoreAsync(state, details, largeImageKey, generation, ct);
+    }
+
+    async Task<bool> SetPresenceCoreAsync(string state, string details, string largeImageKey, long generation, CancellationToken ct)
+    {
+        if (IsDisposed || !Enabled || string.IsNullOrWhiteSpace(appId)) return false;
+        if (generation != Volatile.Read(ref presenceGeneration)) return false;
+
+        using var timeout = CancellationTokenSource.CreateLinkedTokenSource(ct);
+        timeout.CancelAfter(TimeSpan.FromSeconds(3));
 
         try
         {
-            using var timeout = CancellationTokenSource.CreateLinkedTokenSource(ct);
-            timeout.CancelAfter(TimeSpan.FromSeconds(3));
             await gate.WaitAsync(timeout.Token).ConfigureAwait(false);
-            try
-            {
-                if (disposed || !Enabled) return false;
-                if (!await EnsureConnectedAsync(timeout.Token).ConfigureAwait(false))
-                    return false;
+        }
+        catch
+        {
+            // Never call ResetConnection() outside gate when WaitAsync times out or is cancelled.
+            return false;
+        }
 
-                var activity = new Dictionary<string, object?>
+        try
+        {
+            if (IsDisposed || !Enabled || generation != Volatile.Read(ref presenceGeneration))
+                return false;
+            if (!await EnsureConnectedAsync(timeout.Token).ConfigureAwait(false))
+                return false;
+            if (IsDisposed || !Enabled || generation != Volatile.Read(ref presenceGeneration))
+                return false;
+
+            var activity = new Dictionary<string, object?>
+            {
+                ["timestamps"] = new { start = sessionStartUnix }
+            };
+            if (!string.IsNullOrWhiteSpace(state))
+                activity["state"] = ClampString(state, 128);
+            if (!string.IsNullOrWhiteSpace(details))
+                activity["details"] = ClampString(details, 128);
+            if (!string.IsNullOrWhiteSpace(largeImageKey))
+            {
+                activity["assets"] = new
                 {
-                    ["timestamps"] = new { start = sessionStartUnix }
+                    large_image = ClampString(largeImageKey, 64),
+                    large_text = "Clonedivers"
                 };
-                if (!string.IsNullOrWhiteSpace(state))
-                    activity["state"] = ClampString(state, 128);
-                if (!string.IsNullOrWhiteSpace(details))
-                    activity["details"] = ClampString(details, 128);
-                if (!string.IsNullOrWhiteSpace(largeImageKey))
-                {
-                    activity["assets"] = new
-                    {
-                        large_image = ClampString(largeImageKey, 64),
-                        large_text = "Clonedivers"
-                    };
-                }
-
-                var payload = JsonSerializer.Serialize(new
-                {
-                    cmd = "SET_ACTIVITY",
-                    args = new
-                    {
-                        pid = Environment.ProcessId,
-                        activity
-                    },
-                    nonce = Guid.NewGuid().ToString("N")
-                });
-
-                await WriteFrameAsync(transport!, OpcodeFrame, payload, timeout.Token).ConfigureAwait(false);
-                var reply = await ReadFrameAsync(transport!, timeout.Token).ConfigureAwait(false);
-                if (reply == null || reply.Value.Opcode == OpcodeClose)
-                {
-                    ResetConnection();
-                    return false;
-                }
-                return true;
             }
-            finally
+
+            var payload = JsonSerializer.Serialize(new
             {
-                gate.Release();
+                cmd = "SET_ACTIVITY",
+                args = new
+                {
+                    pid = Environment.ProcessId,
+                    activity
+                },
+                nonce = Guid.NewGuid().ToString("N")
+            });
+
+            await WriteFrameAsync(transport!, OpcodeFrame, payload, timeout.Token).ConfigureAwait(false);
+            var reply = await ReadFrameAsync(transport!, timeout.Token).ConfigureAwait(false);
+            if (reply == null || reply.Value.Opcode == OpcodeClose)
+            {
+                ResetConnection();
+                return false;
             }
+            return true;
         }
         catch
         {
             ResetConnection();
             return false;
+        }
+        finally
+        {
+            try { gate.Release(); } catch (ObjectDisposedException) { }
         }
     }
 
-    public async Task<bool> ClearPresenceAsync(CancellationToken ct = default)
+    public Task<bool> ClearPresenceAsync(CancellationToken ct = default)
     {
-        if (disposed || string.IsNullOrWhiteSpace(appId)) return false;
+        if (IsDisposed || string.IsNullOrWhiteSpace(appId)) return Task.FromResult(false);
+        var generation = Interlocked.Increment(ref presenceGeneration);
+        return ClearPresenceCoreAsync(generation, ct);
+    }
+
+    async Task<bool> ClearPresenceCoreAsync(long generation, CancellationToken ct)
+    {
+        if (IsDisposed || string.IsNullOrWhiteSpace(appId)) return false;
+        if (generation != Volatile.Read(ref presenceGeneration)) return false;
+
+        using var timeout = CancellationTokenSource.CreateLinkedTokenSource(ct);
+        timeout.CancelAfter(TimeSpan.FromSeconds(2));
 
         try
         {
-            using var timeout = CancellationTokenSource.CreateLinkedTokenSource(ct);
-            timeout.CancelAfter(TimeSpan.FromSeconds(2));
             await gate.WaitAsync(timeout.Token).ConfigureAwait(false);
-            try
-            {
-                if (transport == null || !handshakeCompleted)
-                    return true; // Already cleared / not connected
+        }
+        catch
+        {
+            // Never call ResetConnection() outside gate when WaitAsync times out or is cancelled.
+            return false;
+        }
 
-                var payload = JsonSerializer.Serialize(new
+        try
+        {
+            if (IsDisposed || generation != Volatile.Read(ref presenceGeneration))
+                return false;
+            if (transport == null || !handshakeCompleted)
+                return true; // Already cleared / not connected
+
+            var payload = JsonSerializer.Serialize(new
+            {
+                cmd = "SET_ACTIVITY",
+                args = new
                 {
-                    cmd = "SET_ACTIVITY",
-                    args = new
-                    {
-                        pid = Environment.ProcessId,
-                        activity = (object?)null
-                    },
-                    nonce = Guid.NewGuid().ToString("N")
-                });
+                    pid = Environment.ProcessId,
+                    activity = (object?)null
+                },
+                nonce = Guid.NewGuid().ToString("N")
+            });
 
-                await WriteFrameAsync(transport, OpcodeFrame, payload, timeout.Token).ConfigureAwait(false);
-                _ = await ReadFrameAsync(transport, timeout.Token).ConfigureAwait(false);
-                return true;
-            }
-            finally
+            await WriteFrameAsync(transport, OpcodeFrame, payload, timeout.Token).ConfigureAwait(false);
+            var reply = await ReadFrameAsync(transport, timeout.Token).ConfigureAwait(false);
+            if (reply == null || reply.Value.Opcode == OpcodeClose)
             {
-                gate.Release();
+                ResetConnection();
+                return false;
             }
+            return true;
         }
         catch
         {
             ResetConnection();
             return false;
+        }
+        finally
+        {
+            try { gate.Release(); } catch (ObjectDisposedException) { }
         }
     }
 
@@ -187,7 +232,7 @@ public sealed class DiscordRpcClient : IDisposable, IAsyncDisposable
             return false;
         }
 
-        handshakeCompleted = true;
+        Volatile.Write(ref handshakeCompleted, true);
         return true;
     }
 
@@ -314,22 +359,22 @@ public sealed class DiscordRpcClient : IDisposable, IAsyncDisposable
 
     void ResetConnection()
     {
-        handshakeCompleted = false;
+        Volatile.Write(ref handshakeCompleted, false);
         var current = Interlocked.Exchange(ref transport, null);
         try { current?.Dispose(); } catch { }
     }
 
     public void Dispose()
     {
-        if (disposed) return;
-        disposed = true;
+        if (Interlocked.Exchange(ref disposedFlag, 1) != 0) return;
+        Interlocked.Increment(ref presenceGeneration);
         ResetConnection();
         gate.Dispose();
     }
 
     public async ValueTask DisposeAsync()
     {
-        if (disposed) return;
+        if (IsDisposed) return;
         try { await ClearPresenceAsync().ConfigureAwait(false); } catch { }
         Dispose();
     }

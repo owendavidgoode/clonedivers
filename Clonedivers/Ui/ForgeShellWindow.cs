@@ -454,29 +454,41 @@ public sealed class ForgeShellWindow : Window
             RefreshAll();
         };
 
-        Closing += async (_, e) =>
-        {
-            if (host.IsPreview || closingConfirmed) return;
-            if (!host.CanClose(out var reason))
-            {
-                e.Cancel = true;
-                if (!string.IsNullOrWhiteSpace(reason))
-                {
-                    toastText.Text = reason;
-                    toastText.IsVisible = true;
-                }
-                return;
-            }
-            e.Cancel = true;
-            closingConfirmed = true;
-            DisposeTrayIcon();
-            await host.DisposeAsync();
-            Close();
-        };
+        Closing += async (_, e) => await HandleClosingCoreAsync(() => e.Cancel = true, Close);
 
         Closed += (_, _) => DisposeTrayIcon();
 
         RefreshAll();
+    }
+
+    internal async Task HandleClosingCoreAsync(Action cancelClose, Action invokeClose)
+    {
+        if (host.IsPreview || closingConfirmed) return;
+        if (!host.CanClose(out var reason))
+        {
+            cancelClose();
+            if (!string.IsNullOrWhiteSpace(reason))
+            {
+                toastText.Text = reason;
+                toastText.IsVisible = true;
+            }
+            return;
+        }
+        cancelClose();
+        closingConfirmed = true;
+        DisposeTrayIcon();
+        try
+        {
+            await host.DisposeAsync();
+        }
+        catch (Exception ex)
+        {
+            Console.Error.WriteLine("Error disposing host during shutdown: " + ex);
+        }
+        finally
+        {
+            invokeClose();
+        }
     }
 
     void OnWindowKeyDown(object? sender, KeyEventArgs e)
@@ -643,16 +655,69 @@ public sealed class ForgeShellWindow : Window
         catch { }
     }
 
-    void DisposeTrayIcon()
+    internal void DisposeTrayIcon()
     {
-        if (trayIcon == null) return;
+        var icon = trayIcon;
+        trayIcon = null;
         try
         {
-            trayIcon.IsVisible = false;
-            trayIcon.Dispose();
+            if (Application.Current != null)
+                TrayIcon.SetIcons(Application.Current, null);
         }
         catch { }
-        trayIcon = null;
+        if (icon == null) return;
+        try
+        {
+            icon.IsVisible = false;
+            icon.Dispose();
+        }
+        catch { }
+    }
+
+    public static void DisposeApplicationTrayIcons()
+    {
+        void Cleanup()
+        {
+            try
+            {
+                var app = Application.Current;
+                if (app == null) return;
+                if (app.ApplicationLifetime is IClassicDesktopStyleApplicationLifetime { MainWindow: ForgeShellWindow shell })
+                    shell.DisposeTrayIcon();
+                var icons = TrayIcon.GetIcons(app);
+                if (icons != null)
+                {
+                    TrayIcon.SetIcons(app, null);
+                    foreach (var icon in icons)
+                    {
+                        try
+                        {
+                            icon.IsVisible = false;
+                            icon.Dispose();
+                        }
+                        catch { }
+                    }
+                }
+            }
+            catch { }
+        }
+
+        if (Dispatcher.UIThread.CheckAccess())
+        {
+            Cleanup();
+        }
+        else
+        {
+            try
+            {
+                if (!Dispatcher.UIThread.InvokeAsync(Cleanup).GetTask().Wait(TimeSpan.FromMilliseconds(500)))
+                    Cleanup();
+            }
+            catch
+            {
+                Cleanup();
+            }
+        }
     }
 
     void HandleAttentionRequest()
@@ -2152,6 +2217,7 @@ public sealed class ForgeShellWindow : Window
         whatsNewOverlay.IsVisible = showingWhatsNew;
 
         var home = host.GetHomeState();
+        minimizeToTrayActive = home.MinimizeToTray;
         headerSubtitle.Text = home.PlatformTag;
         muteButton.Content = home.SoundEffectsEnabled ? "🔊" : "🔇";
         muteButton.Foreground = home.SoundEffectsEnabled ? ForgeTheme.ClonesAccent : ForgeTheme.TextMuted;

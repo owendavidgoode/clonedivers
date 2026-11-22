@@ -13,6 +13,8 @@ type Device = { id: string; token_hash: string; revoked: number };
 const GITHUB_ISSUES_URL = 'https://api.github.com/repos/owendavidgoode/clonedivers/issues';
 const GITHUB_ISSUE_URL_RE = /^https:\/\/github\.com\/owendavidgoode\/clonedivers\/issues\/\d+$/;
 const HOURLY_ISSUE_LIMIT = 5;
+const AUTO_ISSUE_CRASH_CLASSES = new Set(['OutOfVram', 'UnexpectedCrash']);
+const ISSUE_RESERVATION_PREFIX = 'pending:';
 
 const json = (v: unknown, status = 200): Response => Response.json(v, { status, headers: { 'Cache-Control': 'no-store', 'X-Content-Type-Options': 'nosniff' } });
 
@@ -27,8 +29,28 @@ async function matches(a: string, b: string | undefined): Promise<boolean> {
   return typeof crypto.subtle.timingSafeEqual === 'function' ? crypto.subtle.timingSafeEqual(x, y) : timingSafeEqual(x, y);
 }
 
-function escapeGitHubMentions(s: string): string {
-  return s.replace(/@([a-zA-Z0-9_-]+)/g, '@\u200b$1');
+export function neutralizeGitHubIssueText(s: string): string {
+  return s
+    .replace(/@([a-zA-Z0-9_-]+)/g, '@\u200b$1')
+    .replace(/\b(close[sd]?|fix(?:e[sd])?|resolve[sd]?)(?=\s*:?\s*(?:[a-zA-Z0-9_.-]+\/[a-zA-Z0-9_.-]+)?#\d+|\s*:?\s*https?:\/\/github\.com\/)/gi, '$1\u200b')
+    .replace(/#(\d+)/g, '#\u200b$1');
+}
+
+export function formatSafeCodeCell(raw: string): string {
+  const cleaned = neutralizeGitHubIssueText(raw)
+    .replace(/[\r\n]+/g, ' ')
+    .replace(/`+/g, "'")
+    .replace(/\|/g, '/')
+    .replace(/!\[/g, '! [')
+    .trim();
+  return cleaned ? `\`${cleaned}\`` : '—';
+}
+
+export function formatSafeCodeBlock(raw: string, maxChars = 4000): string {
+  return neutralizeGitHubIssueText(raw)
+    .replace(/`{3,}/g, "'''")
+    .replace(/~{3,}/g, '---')
+    .slice(0, maxChars);
 }
 
 function fmtFpsPair(avg: number | null, low1: number | null): string {
@@ -51,24 +73,34 @@ async function postDiscordWebhook(webhookUrl: string | undefined, embed: Record<
 }
 
 async function createCrashGitHubIssue(githubToken: string, c: CrashReportInput, reportId: string, receivedUtc: string): Promise<string | null> {
-  const safeTail = escapeGitHubMentions(c.log_tail.replaceAll('```', "'''")).slice(0, 4000);
+  const modeTier = [c.mode, c.perf_tier].filter(Boolean).join(' · ');
+  const gpuRam = [c.gpu, c.ram_gb !== null ? `${c.ram_gb} GB` : ''].filter(Boolean).join(' · ');
+  const safeSummary = formatSafeCodeBlock(c.summary, 500);
+  const safeTail = formatSafeCodeBlock(c.log_tail, 4000);
+  const safeTitleSummary = neutralizeGitHubIssueText(c.summary)
+    .replace(/[\r\n`|\[\]<>!]+/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim()
+    .slice(0, 90);
   const bodyLines = [
-    `### Automated Squad Crash Report (\`${c.crash_class}\`)`,
+    `### Automated Squad Crash Report (${formatSafeCodeCell(c.crash_class)})`,
     '',
     '| Field | Value |',
     '| --- | --- |',
     `| **Report ID** | \`${reportId}\` |`,
     `| **Received (UTC)** | \`${receivedUtc}\` |`,
-    `| **Launcher Version** | \`${c.launcher_version}\` |`,
-    `| **Crash Class** | \`${c.crash_class}\` |`,
+    `| **Launcher Version** | ${formatSafeCodeCell(c.launcher_version)} |`,
+    `| **Crash Class** | ${formatSafeCodeCell(c.crash_class)} |`,
     `| **Exit Code** | \`${c.exit_code}\` |`,
-    `| **Player** | ${escapeGitHubMentions(c.player)} |`,
-    `| **Mode / Tier** | ${escapeGitHubMentions([c.mode, c.perf_tier].filter(Boolean).join(' · ') || '—')} |`,
-    `| **Match Hash** | ${c.match_hash ? `\`${c.match_hash}\`` : '—'} |`,
-    `| **GPU / RAM** | ${escapeGitHubMentions([c.gpu, c.ram_gb !== null ? `${c.ram_gb} GB` : ''].filter(Boolean).join(' · ') || '—')} |`,
+    `| **Player** | ${formatSafeCodeCell(c.player)} |`,
+    `| **Mode / Tier** | ${formatSafeCodeCell(modeTier)} |`,
+    `| **Match Hash** | ${c.match_hash ? formatSafeCodeCell(c.match_hash) : '—'} |`,
+    `| **GPU / RAM** | ${formatSafeCodeCell(gpuRam)} |`,
     '',
     '#### Summary',
-    escapeGitHubMentions(c.summary),
+    '```text',
+    safeSummary,
+    '```',
   ];
   if (safeTail) {
     bodyLines.push('', '#### Log Tail', '```text', safeTail, '```');
@@ -86,7 +118,7 @@ async function createCrashGitHubIssue(githubToken: string, c: CrashReportInput, 
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
-        title: `[Crash] ${c.crash_class} (${c.launcher_version}): ${c.summary.slice(0, 90)}`,
+        title: `[Crash] ${c.crash_class} (${c.launcher_version}): ${safeTitleSummary}`,
         body: bodyLines.join('\n'),
         labels: ['crash-report'],
       }),
@@ -175,7 +207,8 @@ export default {
           `).all()).results;
           const crashes = (await env.DB.prepare(`
             SELECT id, received_utc, player, launcher_version, match_hash, mode, perf_tier,
-                   gpu, ram_gb, exit_code, crash_class, summary, log_tail, github_issue_url
+                   gpu, ram_gb, exit_code, crash_class, summary, log_tail,
+                   CASE WHEN github_issue_url LIKE 'https://%' THEN github_issue_url ELSE NULL END AS github_issue_url
             FROM crash_reports
             ORDER BY received_utc DESC, id DESC
             LIMIT 25
@@ -218,30 +251,98 @@ export default {
         const now = Date.now();
         const receivedUtc = new Date(now).toISOString();
         const cutoff24h = new Date(now - 24 * 3600_000).toISOString();
+        const cutoff1h = new Date(now - 3600_000).toISOString();
+        const githubToken = env.GITHUB_TOKEN?.trim() ?? '';
+        const eligibleForIssue = Boolean(githubToken) && AUTO_ISSUE_CRASH_CLASSES.has(c.crash_class);
+        const reservationToken = `${ISSUE_RESERVATION_PREFIX}${id}`;
 
-        const prior = await env.DB.prepare(
-          'SELECT id, github_issue_url FROM crash_reports WHERE crash_class=? AND launcher_version=? AND received_utc>=? ORDER BY (github_issue_url IS NOT NULL) DESC, received_utc DESC LIMIT 1'
-        ).bind(c.crash_class, c.launcher_version, cutoff24h).first<{ id: string; github_issue_url: string | null }>();
+        // Atomically insert and reserve the 24h dedup + hourly issue cap slot in D1 BEFORE calling GitHub API.
+        await env.DB.prepare(`
+          INSERT INTO crash_reports(
+            id, received_utc, player, launcher_version, match_hash, mode, perf_tier,
+            gpu, ram_gb, exit_code, crash_class, summary, log_tail, github_issue_url
+          )
+          SELECT
+            ?, ?, ?, ?, ?, ?, ?,
+            ?, ?, ?, ?, ?, ?,
+            CASE
+              WHEN ? = 1
+                AND NOT EXISTS (
+                  SELECT 1 FROM crash_reports
+                  WHERE crash_class = ?
+                    AND launcher_version = ?
+                    AND received_utc >= ?
+                    AND github_issue_url IS NOT NULL
+                )
+                AND (
+                  SELECT COUNT(DISTINCT github_issue_url) FROM crash_reports
+                  WHERE received_utc >= ?
+                    AND github_issue_url IS NOT NULL
+                ) < ?
+              THEN ?
+              ELSE (
+                SELECT github_issue_url FROM crash_reports
+                WHERE crash_class = ?
+                  AND launcher_version = ?
+                  AND received_utc >= ?
+                  AND github_issue_url LIKE 'https://%'
+                ORDER BY received_utc DESC
+                LIMIT 1
+              )
+            END
+        `).bind(
+          id, receivedUtc, c.player, c.launcher_version, c.match_hash, c.mode, c.perf_tier,
+          c.gpu, c.ram_gb, c.exit_code, c.crash_class, c.summary, c.log_tail,
+          eligibleForIssue ? 1 : 0,
+          c.crash_class, c.launcher_version, cutoff24h,
+          cutoff1h, HOURLY_ISSUE_LIMIT,
+          reservationToken,
+          c.crash_class, c.launcher_version, cutoff24h
+        ).run();
 
-        let githubIssueUrl: string | null = prior?.github_issue_url ?? null;
-        const deduplicated = Boolean(prior);
+        const state = await env.DB.prepare(`
+          SELECT
+            github_issue_url,
+            EXISTS (
+              SELECT 1 FROM crash_reports
+              WHERE crash_class = ?
+                AND launcher_version = ?
+                AND received_utc >= ?
+                AND id <> ?
+                AND (
+                  received_utc < ?
+                  OR (received_utc = ? AND rowid < (SELECT rowid FROM crash_reports WHERE id = ?))
+                )
+            ) AS had_prior
+          FROM crash_reports
+          WHERE id = ?
+        `).bind(
+          c.crash_class, c.launcher_version, cutoff24h, id,
+          receivedUtc, receivedUtc, id,
+          id
+        ).first<{ github_issue_url: string | null; had_prior: number }>();
 
-        if (env.GITHUB_TOKEN && env.GITHUB_TOKEN.trim() && !githubIssueUrl) {
-          const cutoff1h = new Date(now - 3600_000).toISOString();
-          const recentCount = await env.DB.prepare(
-            'SELECT COUNT(DISTINCT github_issue_url) AS cnt FROM crash_reports WHERE received_utc>=? AND github_issue_url IS NOT NULL'
-          ).bind(cutoff1h).first<{ cnt: number }>();
-          if ((recentCount?.cnt ?? 0) < HOURLY_ISSUE_LIMIT) {
-            githubIssueUrl = await createCrashGitHubIssue(env.GITHUB_TOKEN.trim(), c, id, receivedUtc);
+        const deduplicated = Boolean(state?.had_prior);
+        let githubIssueUrl: string | null = null;
+
+        if (state?.github_issue_url === reservationToken) {
+          try {
+            githubIssueUrl = await createCrashGitHubIssue(githubToken, c, id, receivedUtc);
+          } finally {
+            if (githubIssueUrl) {
+              await env.DB.prepare(
+                'UPDATE crash_reports SET github_issue_url = ? WHERE id = ? OR (crash_class = ? AND launcher_version = ? AND received_utc >= ? AND github_issue_url IS NULL)'
+              ).bind(githubIssueUrl, id, c.crash_class, c.launcher_version, cutoff24h).run();
+            } else {
+              await env.DB.prepare(
+                'UPDATE crash_reports SET github_issue_url = NULL WHERE id = ?'
+              ).bind(id).run();
+            }
           }
+        } else if (state?.github_issue_url && GITHUB_ISSUE_URL_RE.test(state.github_issue_url)) {
+          githubIssueUrl = state.github_issue_url;
         }
 
-        await env.DB.prepare(
-          'INSERT INTO crash_reports(id,received_utc,player,launcher_version,match_hash,mode,perf_tier,gpu,ram_gb,exit_code,crash_class,summary,log_tail,github_issue_url) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?)'
-        ).bind(
-          id, receivedUtc, c.player, c.launcher_version, c.match_hash, c.mode, c.perf_tier,
-          c.gpu, c.ram_gb, c.exit_code, c.crash_class, c.summary, c.log_tail, githubIssueUrl
-        ).run();
         await postDiscordWebhook(env.DISCORD_WEBHOOK_URL, buildCrashEmbed(c, receivedUtc, githubIssueUrl));
         return json({ ok: true, id, githubIssueUrl, deduplicated });
       }

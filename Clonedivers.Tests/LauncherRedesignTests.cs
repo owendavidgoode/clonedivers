@@ -239,6 +239,54 @@ internal static class LauncherRedesignTests
         check(!shellWin.HandleShortcutKey(Avalonia.Input.Key.Escape),
             "Pressing Escape with no overlays open is a safe no-op");
 
+        // 14. H4 regression: MinimizeToTray preference loads immediately on startup via ForgeHomeState without opening Settings!
+        var trayHost = new PreviewForgeHost("home-clones");
+        trayHost.SetMinimizeToTray(true);
+        check(trayHost.GetHomeState().MinimizeToTray, "PreviewForgeHost exposes MinimizeToTray in ForgeHomeState (H4)");
+        var winPrefs = new HellForgePreferences { MinimizeToTray = true };
+        await using (var winHost = new WindowsForgeHost(winPrefs))
+        {
+            check(winHost.GetHomeState().MinimizeToTray, "WindowsForgeHost populates ForgeHomeState.MinimizeToTray from saved preferences on startup (H4)");
+        }
+        var trayField = typeof(ForgeShellWindow).GetField("minimizeToTrayActive", System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic)!;
+        var startupTrayWin = new ForgeShellWindow(trayHost);
+        check((bool)trayField.GetValue(startupTrayWin)!,
+            "ForgeShellWindow initializes minimizeToTrayActive=true from ForgeHomeState on startup without opening Settings (H4)");
+
+        // 15. M5 regression: DisposeTrayIcon / PrepareForUpdatedLauncherExit detaches TrayIcon from Application.Current, and Closing completes even if host.DisposeAsync() throws!
+        if (Avalonia.Application.Current is { } app)
+        {
+            var testTrayIcon = new Avalonia.Controls.TrayIcon { ToolTipText = "M5 Test" };
+            Avalonia.Controls.TrayIcon.SetIcons(app, new Avalonia.Controls.TrayIcons { testTrayIcon });
+            check(Avalonia.Controls.TrayIcon.GetIcons(app)?.Count == 1, "Test TrayIcon attached to Application.Current");
+            await using var exitHost = new WindowsForgeHost(new HellForgePreferences());
+            exitHost.PrepareForUpdatedLauncherExit();
+            check(Avalonia.Controls.TrayIcon.GetIcons(app) == null,
+                "PrepareForUpdatedLauncherExit detaches and disposes Application.Current TrayIcons before Environment.Exit (M5)");
+        }
+
+        var throwingHost = new ThrowingDisposeHost();
+        var closingWin = new ForgeShellWindow(throwingHost);
+        if (Avalonia.Application.Current is { } app2)
+            Avalonia.Controls.TrayIcon.SetIcons(app2, new Avalonia.Controls.TrayIcons { new Avalonia.Controls.TrayIcon { ToolTipText = "Closing Test" } });
+        bool firstCancelled = false, finalCloseInvoked = false;
+        var closeTask = closingWin.HandleClosingCoreAsync(
+            () => firstCancelled = true,
+            () => finalCloseInvoked = true);
+        while (!closeTask.IsCompleted)
+        {
+            Avalonia.Threading.Dispatcher.UIThread.RunJobs();
+            Thread.Sleep(5);
+        }
+        await closeTask;
+        bool reentrantCancelled = false, reentrantClose = false;
+        await closingWin.HandleClosingCoreAsync(
+            () => reentrantCancelled = true,
+            () => reentrantClose = true);
+        check(firstCancelled && throwingHost.DisposeCalled && finalCloseInvoked && !reentrantCancelled && !reentrantClose &&
+              (Avalonia.Application.Current == null || Avalonia.Controls.TrayIcon.GetIcons(Avalonia.Application.Current) == null),
+            "ForgeShellWindow.Closing completes Close() in finally and detaches TrayIcon even when host.DisposeAsync() throws (M5)");
+
         // 9. WindowsForgeHost.RequireUpdateIdleCoreAsync enforces game, capture-block, AND active Forge session guards (H1)
         bool blockedSession = false;
         try
@@ -270,5 +318,65 @@ internal static class LauncherRedesignTests
         await WindowsForgeHost.RequireUpdateIdleCoreAsync(
             @"D:\HellForge", () => false, () => null, _ => false, _ => false, (_, _) => Task.FromResult(false), default);
         check(true, "RequireUpdateIdleCoreAsync allows self-update when game, capture, and Forge session are all idle");
+    }
+
+    sealed class ThrowingDisposeHost : IForgeUiHost
+    {
+        readonly PreviewForgeHost inner = new("home-clones");
+        public bool DisposeCalled { get; private set; }
+        public event Action? StateChanged { add => inner.StateChanged += value; remove => inner.StateChanged -= value; }
+        public event Action<bool>? SetupVisibilityChanged { add => inner.SetupVisibilityChanged += value; remove => inner.SetupVisibilityChanged -= value; }
+        public bool IsPreview => false;
+        public bool SupportsEmbeddedSetup => false;
+        public bool SupportsSelfUpdate => false;
+        public ForgeHomeState GetHomeState() => inner.GetHomeState();
+        public ForgeSetupState GetSetupState() => inner.GetSetupState();
+        public Task<ForgeDiagnosticsState> GetDiagnosticsAsync(CancellationToken ct = default) => inner.GetDiagnosticsAsync(ct);
+        public void AttachUiCallbacks(Func<ForgeConfirmRequest, Task<bool>> confirmAsync, Func<string, Task<string?>> pickFolderAsync, Func<string, string, Task<string?>> saveFileAsync, Action<OperationProgress?>? taskbarProgress = null, Action? requestAttention = null) =>
+            inner.AttachUiCallbacks(confirmAsync, pickFolderAsync, saveFileAsync, taskbarProgress, requestAttention);
+        public Task InitializeAsync() => Task.CompletedTask;
+        public bool CanClose(out string? reason) { reason = null; return true; }
+        public Task SelectModeAsync(string mode) => Task.CompletedTask;
+        public Task UpdateCustomizationAsync(string enemySkin, bool deltaSquad, bool covenant, string texture) => Task.CompletedTask;
+        public Task SetPerformanceTierAsync(string tierId) => Task.CompletedTask;
+        public Task UpdateHostMutatorsAsync(string chaosIntensity, string heavySeaf, bool fasterCorpseCleanup) => Task.CompletedTask;
+        public Task ApplyCustomizationNowAsync() => Task.CompletedTask;
+        public Task TriggerPrimaryActionAsync() => Task.CompletedTask;
+        public Task TriggerSecondaryActionAsync() => Task.CompletedTask;
+        public Task TriggerUpdateBannerActionAsync() => Task.CompletedTask;
+        public void DismissUpdateBanner() { }
+        public Task AcceptStepDownAsync() => Task.CompletedTask;
+        public void DismissStepDownBanner() { }
+        public Task InstallSelfShortcutsAsync() => Task.CompletedTask;
+        public void DismissSelfInstallBanner() { }
+        public Task<WhatsNewResult> FetchWhatsNewAsync(string? versionOrTag, CancellationToken ct = default) => inner.FetchWhatsNewAsync(versionOrTag, ct);
+        public void ToggleSoundEffects() { }
+        public void OpenSteamLibrary() { }
+        public Task EnterSetupAsync() => Task.CompletedTask;
+        public void ExitSetup() { }
+        public void SelectSetupDrive(string driveRoot) { }
+        public Task BrowseSetupFolderAsync(bool existing) => Task.CompletedTask;
+        public Task SetSetupTextureAsync(string texture) => Task.CompletedTask;
+        public Task TriggerSetupPrimaryActionAsync() => Task.CompletedTask;
+        public void CancelSetupWork() { }
+        public Task OpenOfficialSetupFallbackAsync() => Task.CompletedTask;
+        public Task LocateInstallAsync() => Task.CompletedTask;
+        public void OpenInstallFolder() { }
+        public Task OpenManagerAsync() => Task.CompletedTask;
+        public Task SyncAccountFromSettingsAsync() => Task.CompletedTask;
+        public Task CheckUpdatesAsync() => Task.CompletedTask;
+        public Task CleanCacheAsync() => Task.CompletedTask;
+        public Task VerifyAndRepairAsync() => Task.CompletedTask;
+        public void SetDiscordRpcEnabled(bool enabled) { }
+        public void SetMinimizeToTray(bool enabled) => inner.SetMinimizeToTray(enabled);
+        public Task<string?> SaveSupportReportAsync() => Task.FromResult<string?>(null);
+        public async ValueTask DisposeAsync()
+        {
+            await Task.Run(() =>
+            {
+                DisposeCalled = true;
+                throw new IOException("Simulated host disposal failure");
+            });
+        }
     }
 }

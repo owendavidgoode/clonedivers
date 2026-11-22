@@ -165,8 +165,8 @@ public static class DiscordReportFormatter
         if (!redactUserPaths)
             return clean;
 
-        clean = Regex.Replace(clean, @"(?i)([A-Z]:\\Users\\)[^\\/\s]+", @"$1<user>");
-        clean = Regex.Replace(clean, @"(/home/)[^/\s]+", "$1<user>");
+        clean = Regex.Replace(clean, @"(?i)([A-Z]:[\\/]+Users[\\/]+)[^\\/\s""']+", "$1<user>");
+        clean = Regex.Replace(clean, @"(?i)(/(?:home|Users)/)[^/\s""']+", "$1<user>");
         return clean;
     }
 

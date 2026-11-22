@@ -334,3 +334,146 @@ test('dashboard inline script has valid JS syntax, optional webhooks degrade gra
   assert.deepEqual(squad.crashes.map(c => c.player), ['Tech']);
 });
 
+test('H3: POST /crash reserves dedup + hourly cap in D1 before GitHub fetch, restricts to CrashKind allowlist, and fences/escapes Markdown & auto-close keywords', async () => {
+  const ghCalls: Array<{ title: string; body: string }> = [];
+  let issueSeq = 200;
+  let releaseFirstFetch!: () => void;
+  const firstFetchGate = new Promise<void>(resolve => { releaseFirstFetch = resolve; });
+  let firstFetchEntered!: () => void;
+  const enteredPromise = new Promise<void>(resolve => { firstFetchEntered = resolve; });
+
+  const origFetch = globalThis.fetch;
+  let holdFirst = true;
+  globalThis.fetch = (async (input: RequestInfo | URL, init?: RequestInit) => {
+    const url = String(input);
+    if (url.includes('api.github.com')) {
+      const parsed = JSON.parse(String(init?.body ?? '{}')) as { title: string; body: string };
+      ghCalls.push(parsed);
+      if (holdFirst) {
+        holdFirst = false;
+        firstFetchEntered();
+        await firstFetchGate;
+      }
+      issueSeq += 1;
+      return Response.json({ html_url: `https://github.com/owendavidgoode/clonedivers/issues/${issueSeq}` }, { status: 201 });
+    }
+    return new Response(null, { status: 204 });
+  }) as typeof fetch;
+
+  try {
+    const { env, raw } = createEnv({
+      GITHUB_TOKEN: 'ghp_test_token_value_for_h3_spec_check',
+    });
+
+    // 1. Non-allowlisted crash_class values are stored in D1 (200 OK) without opening GitHub issues or burning HOURLY_ISSUE_LIMIT!
+    for (const nonAllowlisted of ['MissingLinuxNetwork', 'ModMismatch', 'InjectedFakeClass1', 'InjectedFakeClass2']) {
+      const r = await worker.fetch(new Request('https://telemetry.test/crash', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          player: 'Probe',
+          launcher_version: '2.0.3',
+          crash_class: nonAllowlisted,
+          exit_code: 1,
+          summary: 'Non-allowlisted crash class check',
+        }),
+      }), env);
+      assert.equal(r.status, 200);
+      const j = await r.json() as { githubIssueUrl: string | null };
+      assert.equal(j.githubIssueUrl, null);
+    }
+    assert.equal(ghCalls.length, 0, 'Non-allowlisted crash classes must never call GitHub Issues API');
+
+    // 2. Concurrent 4-player squad crash burst with malicious Markdown / table / auto-close payload:
+    // Start Request 1, wait until it is paused mid-GitHub-fetch (confirming D1 row is already reserved!), then fire 3 parallel duplicates!
+    const maliciousPayload = {
+      player: 'Attacker | ![x](https://e.co/p.png) @owendavidgoode',
+      launcher_version: '2.0.3',
+      match_hash: 'r7-a9c4',
+      mode: 'Empire | BreakTable',
+      perf_tier: 'Full',
+      gpu: 'RTX 4090 | [phish](https://evil.example)',
+      ram_gb: 32,
+      exit_code: 1,
+      crash_class: 'OutOfVram',
+      summary: 'Fixes #33 Closes #12 Resolves owendavidgoode/clonedivers#99 ![beacon](https://evil.example/b.png) ``` breakout',
+      log_tail: 'line 1\n```\nFixes #77\n![leak](https://evil.example/l.png)\n~~~\ntail end',
+    };
+
+    const p1 = worker.fetch(new Request('https://telemetry.test/crash', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(maliciousPayload),
+    }), env);
+
+    await enteredPromise;
+
+    // Verify D1 row was inserted BEFORE GitHub API responded, and /admin/squad never leaks the internal pending token
+    const midFlightAdmin = await (await worker.fetch(new Request('https://telemetry.test/admin/squad', {
+      headers: { Authorization: 'Bearer ' + ADMIN },
+    }), env)).json() as { crashes: Array<{ crash_class: string; github_issue_url: string | null }> };
+    const midFlightRow = midFlightAdmin.crashes.find(c => c.crash_class === 'OutOfVram');
+    assert.ok(midFlightRow, 'Crash row must be inserted in D1 before GitHub fetch completes');
+    assert.equal(midFlightRow.github_issue_url, null, '/admin/squad must mask internal pending reservation token');
+
+    // Fire 3 concurrent squadmates with the same (OutOfVram, 2.0.3) while Request 1 is still awaiting GitHub!
+    const [r2, r3, r4] = await Promise.all([1, 2, 3].map(i =>
+      worker.fetch(new Request('https://telemetry.test/crash', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ ...maliciousPayload, player: `Squadmate-${i}` }),
+      }), env)
+    ));
+
+    releaseFirstFetch();
+    const r1 = await p1;
+    const [j1, j2, j3, j4] = await Promise.all([r1.json(), r2.json(), r3.json(), r4.json()]) as Array<{
+      githubIssueUrl: string | null;
+      deduplicated: boolean;
+    }>;
+
+    assert.equal(ghCalls.length, 1, 'Simultaneous 4-player squad crash must open exactly 1 GitHub issue');
+    assert.equal(j1.githubIssueUrl, 'https://github.com/owendavidgoode/clonedivers/issues/201');
+    assert.equal(j1.deduplicated, false);
+    assert.equal(j2.deduplicated, true);
+    assert.equal(j3.deduplicated, true);
+    assert.equal(j4.deduplicated, true);
+
+    // Verify D1 backfilled the resolved GitHub issue URL and cleared pending token
+    const pendingRows = raw.prepare("SELECT COUNT(*) AS cnt FROM crash_reports WHERE github_issue_url LIKE 'pending:%'").get() as { cnt: number };
+    assert.equal(pendingRows.cnt, 0);
+
+    // Verify Markdown / table / auto-close sanitization on the created GitHub issue
+    const createdIssue = ghCalls[0];
+    assert.doesNotMatch(createdIssue.title, /\b(?:Fixes|Closes|Resolves)\s+#\d+/i);
+    assert.doesNotMatch(createdIssue.body, /\b(?:Fixes|Closes|Resolves)\s+(?:[a-z0-9_.-]+\/[a-z0-9_.-]+)?#\d+/i);
+    assert.doesNotMatch(createdIssue.body, /@owendavidgoode/);
+    for (const tableLine of createdIssue.body.split('\n').filter(l => l.startsWith('|'))) {
+      const pipeCount = [...tableLine].filter(ch => ch === '|').length;
+      assert.equal(pipeCount, 3, `Table row must keep exact 3 pipes without column injection: ${tableLine}`);
+    }
+    // Summary and Log Tail must both be enclosed inside fenced ```text blocks with inner ``` neutralized
+    const fenceMatches = createdIssue.body.match(/^```/gm) ?? [];
+    assert.equal(fenceMatches.length, 4, 'Summary and Log Tail must each have opening and closing ``` fences with no breakout');
+
+    // 3. Hourly cap (HOURLY_ISSUE_LIMIT = 5 total per hour): 1 already opened above -> firing 7 distinct versions only opens 4 more (total = 5)!
+    const capResps = await Promise.all([1, 2, 3, 4, 5, 6, 7].map(i =>
+      worker.fetch(new Request('https://telemetry.test/crash', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          player: `CapTester-${i}`,
+          launcher_version: `2.1.${i}`,
+          crash_class: 'UnexpectedCrash',
+          exit_code: 1,
+          summary: `Distinct crash ${i}`,
+        }),
+      }), env)
+    ));
+    for (const cr of capResps) assert.equal(cr.status, 200);
+    assert.equal(ghCalls.length, 5, 'Hourly cap must strictly cap GitHub issue creation at 5 per hour');
+  } finally {
+    globalThis.fetch = origFetch;
+  }
+});
+

@@ -214,8 +214,8 @@ public sealed class SquadReportClient
         s = Regex.Replace(s, @"(?i)(?:steamLoginSecure|sessionid|token|password|secret|apikey|api_key|authorization)\s*[:=]\s*\S+", "[redacted-credential]");
         s = Regex.Replace(s, @"\b7656119\d{10}\b", "<steam-id>");
         s = Regex.Replace(s, @"\b[0-9a-fA-F]{40,128}\b", "<hex-redacted>");
-        s = Regex.Replace(s, @"(?i)[A-Z]:\\Users\\[^\\/\s]+", @"C:\Users\<user>");
-        s = Regex.Replace(s, @"/home/[^/\s]+", "/home/<user>");
+        s = Regex.Replace(s, @"(?i)([A-Z]:[\\/]+Users[\\/]+)[^\\/\s""']+", "$1<user>");
+        s = Regex.Replace(s, @"(?i)(/(?:home|Users)/)[^/\s""']+", "$1<user>");
         s = Regex.Replace(s, @"https?://[^\s?]+\?[^\s]+", "<url-redacted>");
         s = Regex.Replace(s, @"(?i)@(?:everyone|here)\b", "at-mention");
         s = Regex.Replace(s, @"(?i)(?:real-inventory\.json|progression\.json|seal\.json|account-snapshot)", "[account-redacted]");

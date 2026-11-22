@@ -198,35 +198,75 @@ public static class SelfInstallHelper
         }
     }
 
-    static bool TryCreateShortcutViaPowerShell(string shortcutPath, string targetExePath, string workingDirectory, string description)
+    internal static string ResolveSystemPowerShellPath(string? systemDirOverride = null)
+    {
+        var systemDir = string.IsNullOrWhiteSpace(systemDirOverride)
+            ? Environment.GetFolderPath(Environment.SpecialFolder.System)
+            : systemDirOverride;
+        if (string.IsNullOrWhiteSpace(systemDir))
+            throw new FileNotFoundException("Windows System32 directory could not be resolved.");
+
+        var fullSystemDir = Path.GetFullPath(systemDir);
+        for (var dir = new DirectoryInfo(fullSystemDir); dir != null; dir = dir.Parent)
+            FileSafety.RejectLink(dir.FullName);
+
+        var psRootDir = Path.Combine(fullSystemDir, "WindowsPowerShell");
+        var psV1Dir = Path.Combine(psRootDir, "v1.0");
+        FileSafety.RejectLink(psRootDir);
+        FileSafety.RejectLink(psV1Dir);
+
+        var psExe = Path.Combine(fullSystemDir, @"WindowsPowerShell\v1.0\powershell.exe");
+        FileSafety.RejectLink(psExe);
+        if (!File.Exists(psExe))
+            throw new FileNotFoundException("System WindowsPowerShell executable was not found.", psExe);
+        return psExe;
+    }
+
+    internal static ProcessStartInfo CreatePowerShellShortcutStartInfo(
+        string shortcutPath,
+        string targetExePath,
+        string workingDirectory,
+        string description,
+        string? systemDirOverride = null)
+    {
+        // Pass paths via environment variables — never interpolate paths into script text!
+        const string script =
+            "$s = (New-Object -ComObject WScript.Shell).CreateShortcut($env:CD_LNK_PATH); " +
+            "$s.TargetPath = $env:CD_TARGET_EXE; " +
+            "$s.WorkingDirectory = $env:CD_WORK_DIR; " +
+            "$s.IconLocation = ($env:CD_TARGET_EXE + ',0'); " +
+            "$s.Description = $env:CD_DESC; " +
+            "$s.Save()";
+
+        var psExe = ResolveSystemPowerShellPath(systemDirOverride);
+        var psi = new ProcessStartInfo(psExe)
+        {
+            UseShellExecute = false,
+            CreateNoWindow = true,
+            RedirectStandardOutput = false,
+            RedirectStandardError = false
+        };
+        psi.ArgumentList.Add("-NoProfile");
+        psi.ArgumentList.Add("-NonInteractive");
+        psi.ArgumentList.Add("-Command");
+        psi.ArgumentList.Add(script);
+        psi.Environment["CD_LNK_PATH"] = shortcutPath;
+        psi.Environment["CD_TARGET_EXE"] = targetExePath;
+        psi.Environment["CD_WORK_DIR"] = workingDirectory;
+        psi.Environment["CD_DESC"] = description;
+        return psi;
+    }
+
+    internal static bool TryCreateShortcutViaPowerShell(
+        string shortcutPath,
+        string targetExePath,
+        string workingDirectory,
+        string description,
+        string? systemDirOverride = null)
     {
         try
         {
-            // Pass paths via environment variables — never interpolate paths into script text!
-            const string script =
-                "$s = (New-Object -ComObject WScript.Shell).CreateShortcut($env:CD_LNK_PATH); " +
-                "$s.TargetPath = $env:CD_TARGET_EXE; " +
-                "$s.WorkingDirectory = $env:CD_WORK_DIR; " +
-                "$s.IconLocation = ($env:CD_TARGET_EXE + ',0'); " +
-                "$s.Description = $env:CD_DESC; " +
-                "$s.Save()";
-
-            var psi = new ProcessStartInfo("powershell.exe")
-            {
-                UseShellExecute = false,
-                CreateNoWindow = true,
-                RedirectStandardOutput = true,
-                RedirectStandardError = true
-            };
-            psi.ArgumentList.Add("-NoProfile");
-            psi.ArgumentList.Add("-NonInteractive");
-            psi.ArgumentList.Add("-Command");
-            psi.ArgumentList.Add(script);
-            psi.Environment["CD_LNK_PATH"] = shortcutPath;
-            psi.Environment["CD_TARGET_EXE"] = targetExePath;
-            psi.Environment["CD_WORK_DIR"] = workingDirectory;
-            psi.Environment["CD_DESC"] = description;
-
+            var psi = CreatePowerShellShortcutStartInfo(shortcutPath, targetExePath, workingDirectory, description, systemDirOverride);
             using var proc = Process.Start(psi);
             if (proc == null) return false;
             if (!proc.WaitForExit(8000))
