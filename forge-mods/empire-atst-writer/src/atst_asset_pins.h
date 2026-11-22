@@ -5,6 +5,18 @@
 #include <stdint.h>
 
 #define AT_UNIT_RESOURCE_ID 0x79E4B3D2DA5E45E3ULL
+#define AT_UNIT_EXO49_RESOURCE_ID 0xC2D449ECF7FACAB1ULL
+#define AT_UNIT_EXO51_RESOURCE_ID 0x7B2326F6FD9C8069ULL
+#define AT_UNIT_EXO55_RESOURCE_ID 0x35DBF54F016F3624ULL
+#define AT_SUPPORTED_UNIT_COUNT 4u
+
+static inline int at_is_supported_atst_unit_id(uint64_t res_id) {
+    return res_id == AT_UNIT_RESOURCE_ID ||
+           res_id == AT_UNIT_EXO49_RESOURCE_ID ||
+           res_id == AT_UNIT_EXO51_RESOURCE_ID ||
+           res_id == AT_UNIT_EXO55_RESOURCE_ID;
+}
+
 #define AT_JOINTS 198u
 #define AT_S2C_NODES 106u
 #define AT_GRAPH_CAP 128u

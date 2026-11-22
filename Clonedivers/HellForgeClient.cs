@@ -158,6 +158,8 @@ public sealed class HellForgePreferences
                 if (!TryGetJsonProperty(doc.RootElement, "PerformanceTier", out _))
                     preferences.PerformanceTier = PerformanceTierAdvisor.TierFromPackTexture(preferences.Texture);
             }
+            if (!preferences.AutoPerformanceTier)
+                preferences.PerformanceTier = PerformanceTierAdvisor.ReconcileManualTier(preferences.PerformanceTier, preferences.Texture);
         }
         preferences.Validate();
         return preferences;
@@ -368,9 +370,7 @@ public sealed partial class HellForgeClient(string root, IHellForgeCommands comm
             ? gl.GetBoolean()
             : session.TryGetProperty("gamePid", out var gpid) && gpid.ValueKind == JsonValueKind.Number && gpid.TryGetInt32(out var gp)
                 ? gp > 0
-                : session.TryGetProperty("pid", out var pid) && pid.ValueKind == JsonValueKind.Number && pid.TryGetInt32(out var p)
-                    ? p > 0
-                    : null;
+                : null;
         var failure = OptionalText(session, "lastFailure");
         var lastRun = OptionalText(session, "lastRun");
         var lastStatus = OptionalText(session, "lastStatus");

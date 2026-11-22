@@ -98,6 +98,19 @@ public static class PerformanceTierAdvisor
         _ => Balanced
     };
 
+    /// <summary>
+    /// Reconciles a saved manual PerformanceTier with its active pack Texture on load (e.g. upgrading v2.0.3
+    /// {"AutoPerformanceTier":false,"PerformanceTier":"balanced","Texture":"lighter"} -> "high" and
+    /// {"AutoPerformanceTier":false,"PerformanceTier":"ultra-potato","Texture":"reduced512"} -> "low-512")
+    /// while preserving invalid tier strings so Validate() still rejects corrupt preferences.
+    /// </summary>
+    public static string ReconcileManualTier(string? savedTier, string? texture)
+    {
+        var canonical = TierFromPackTexture(texture);
+        if (string.IsNullOrEmpty(savedTier)) return canonical;
+        return IsValidPreferenceTier(savedTier) ? canonical : savedTier;
+    }
+
     public static string NormalizeConcreteTier(string? tierOrTexture, HardwarePerformanceRecommendation? hardware = null)
     {
         if (string.IsNullOrWhiteSpace(tierOrTexture))

@@ -1456,6 +1456,118 @@ static void TestPrepareMissionZeroPreloadAndPacedMissionQueue(void)
     CHECK(g_faction_resident[CHAOS_SQUIDS] && g_faction_resident[CHAOS_BUGS]);
 }
 
+static void TestH4SlowD11JoinerBarrierAndImmediateMissionSync(void)
+{
+    /* 1. H4 Joiner: Immediate in_mission: 0 -> 1 transmission on the VERY FIRST 60Hz tick in HF_STATE_MISSION
+     *    (even while resident_mask == 0 during the 1.0s settle window, and even if Director is momentarily NULL). */
+    InitMockGameArenas(CHAOS_NATIVE_BOTS_BIT, 11u);
+    role = HF_SESSION_JOINER;
+    game_state = HF_STATE_PREPARE_MISSION;
+    ResetMockCountersAndModState();
+    config = ChaosDefaults();
+    Publish();
+
+    uint64_t peers2[4] = {1001ULL, 2002ULL, 0ULL, 0ULL};
+    SetMockLobbyPeers(2u, peers2);
+
+    /* Spend 45s in HF_STATE_PREPARE_MISSION (slow D11 Mega City level gen) -> sends {resident_mask=0, in_mission=0} once */
+    Seconds(45);
+    CHECK(g_mock_send_calls == 1u);
+    ChaosPeerMsg msg;
+    memcpy(&msg, g_mock_last_send_buf, sizeof msg);
+    CHECK(ChaosPeerMsgValid(&msg) && msg.resident_mask == 0u && msg.in_mission == 0u);
+
+    /* Temporarily zero Director pointer on Frame 1 of HF_STATE_MISSION to prove Tick 1 STILL sends in_mission=1! */
+    void* saved_dir = NULL;
+    memcpy(&saved_dir, g_arena_game + CHAOS_DIRECTOR_RVA, 8);
+    void* null_dir = NULL;
+    memcpy(g_arena_game + CHAOS_DIRECTOR_RVA, &null_dir, 8);
+
+    game_state = HF_STATE_MISSION;
+    Tick(self, 1.0f / 60.0f, NULL); /* Single 16.6ms frame! */
+    CHECK(g_mock_send_calls == 2u);
+    memcpy(&msg, g_mock_last_send_buf, sizeof msg);
+    CHECK(ChaosPeerMsgValid(&msg) && msg.resident_mask == 0u && msg.in_mission == 1u);
+    memcpy(g_arena_game + CHAOS_DIRECTOR_RVA, &saved_dir, 8);
+
+    /* 2. H4 Host: Slow D11 Mega City joiner spending 55s (> 30s!) in PrepareMission (in_mission=0) MUST NOT expire at 30s,
+     *    and gets a fresh 30s post-entry preload grace window upon transitioning in_mission: 0 -> 1! */
+    game_state = HF_STATE_SHIP;
+    Seconds(1);
+    InitMockGameArenas(CHAOS_NATIVE_BUGS_BIT, 11u);
+    role = HF_SESSION_HOST;
+    game_state = HF_STATE_MISSION;
+    ResetMockCountersAndModState();
+    config = ChaosDefaults();
+    ChaosApplyHostIntensity(&config, &config, CD_CHAOS_TOTAL_WAR); /* grace=30s, cooldown=30s below */
+    config.cooldown = 30;
+    config.bots_weight = 100;
+    config.squids_weight = 0;
+    Publish();
+    ChaosReset(&clock_state, &config);
+
+    SetMockLobbyPeers(2u, peers2);
+    Seconds(5); /* Host landed, foreign packages preloaded, clock age ~4s */
+    CHECK(landed == 1u && g_faction_resident[CHAOS_BOTS]);
+
+    /* Peer 2002 sends hello in HF_STATE_PREPARE_MISSION (in_mission = 0, resident_mask = 0) */
+    HfMessageEvent peer_ev = {0};
+    peer_ev.info.size = sizeof peer_ev;
+    peer_ev.info.kind = HF_ON_MESSAGE;
+    peer_ev.from = 2002ULL;
+    ChaosPeerMsg peer_prep = {CHAOS_SYNC_MAGIC, CHAOS_SYNC_VERSION, CHAOS_MSG_PEER_STATUS, 0u, 0u, {0}, 1u};
+    memcpy(peer_ev.data, &peer_prep, sizeof peer_prep);
+    peer_ev.bytes = sizeof peer_prep;
+    OnMessage(self, (const HfEventInfo*)&peer_ev, NULL);
+
+    /* Advance 50s (total 55s > 30s CHAOS_PEER_PRELOAD_GRACE_S!) while joiner is STILL in PrepareMission (in_mission=0):
+     * Host MUST hold off spawning at t=30s! */
+    Seconds(50);
+    CHECK(g_transport_calls == 0u && g_roster_calls == 0u && skipped_logs >= 1u);
+
+    /* Now at t=55s, Joiner enters HF_STATE_MISSION (in_mission: 0 -> 1, resident_mask still 0):
+     * Host resets mission_entered_age so the 30s preload grace window starts fresh from t=55s! */
+    ChaosPeerMsg peer_entered = {CHAOS_SYNC_MAGIC, CHAOS_SYNC_VERSION, CHAOS_MSG_PEER_STATUS, 0u, 1u, {0}, 1u};
+    memcpy(peer_ev.data, &peer_entered, sizeof peer_entered);
+    OnMessage(self, (const HfEventInfo*)&peer_ev, NULL);
+
+    /* Advance +20s (t=75s; next cooldown check fires at t=60s, where since_mission = 5s < 30s -> still held!) */
+    Seconds(20);
+    CHECK(g_transport_calls == 0u && g_roster_calls == 0u && skipped_logs >= 2u);
+
+    /* Joiner finishes preloading Bots -> sends resident_mask = (1 << CHAOS_BOTS), in_mission = 1 -> unblocks next wave! */
+    ChaosPeerMsg peer_ready = {CHAOS_SYNC_MAGIC, CHAOS_SYNC_VERSION, CHAOS_MSG_PEER_STATUS,
+                               (uint8_t)(1u << CHAOS_BOTS), 1u, {0}, 1u};
+    memcpy(peer_ev.data, &peer_ready, sizeof peer_ready);
+    OnMessage(self, (const HfEventInfo*)&peer_ev, NULL);
+    Seconds(20); /* Passes t=90s cooldown check -> spawns! */
+    CHECK(g_transport_calls == 1u);
+
+    /* 3. H4 Safety Cap: A hung peer stuck in PrepareMission (in_mission=0) holds up to 120s, then unblocks past 120s! */
+    game_state = HF_STATE_SHIP;
+    Seconds(1);
+    InitMockGameArenas(CHAOS_NATIVE_BUGS_BIT, 11u);
+    role = HF_SESSION_HOST;
+    game_state = HF_STATE_MISSION;
+    ResetMockCountersAndModState();
+    config = ChaosDefaults();
+    config.grace = 30;
+    config.cooldown = 30;
+    config.bots_weight = 100;
+    config.squids_weight = 0;
+    Publish();
+    ChaosReset(&clock_state, &config);
+    SetMockLobbyPeers(2u, peers2);
+    Seconds(5); /* clock age ~4s */
+    memcpy(peer_ev.data, &peer_prep, sizeof peer_prep);
+    OnMessage(self, (const HfEventInfo*)&peer_ev, NULL);
+
+    Seconds(110); /* clock age ~114s, since_join ~114s < 120s -> still blocked across t=30, 60, 90! */
+    CHECK(g_transport_calls == 0u && skipped_logs >= 3u);
+    Seconds(15);  /* clock age ~129s > 120s safety cap -> t=120s / 129s unblocks! */
+    CHECK(g_transport_calls == 1u);
+}
+
 int main(int argc, char** argv)
 {
     CHECK(argc == 2 && strlen(argv[1]) < sizeof fixture);
@@ -1509,6 +1621,7 @@ int main(int argc, char** argv)
     TestMidMissionHostMigration();
     TestHostOptionsPresetsAndPrecedence(&api);
     TestPrepareMissionZeroPreloadAndPacedMissionQueue();
+    TestH4SlowD11JoinerBarrierAndImmediateMissionSync();
 
     /* Kill switch latch & token mismatch tests */
     FILE* f = fopen(bridge, "wb"); CHECK(f != NULL);
@@ -1524,7 +1637,7 @@ int main(int argc, char** argv)
     Seconds(5);
     CHECK(stopped == 1); /* latched until session restart */
 
-    printf("PASS %u checks; 0.3.2 co-op policy, %u code pins, PrepareMission 0-preload OOM guard, paced HF_STATE_MISSION preloader, host-options presets, late-join barrier, mid-mission migration, and 3/4/5-way perception verified\n",
+    printf("PASS %u checks; 0.3.3 co-op policy, %u code pins, PrepareMission 0-preload OOM guard, paced HF_STATE_MISSION preloader, H4 slow-D11 joiner barrier, host-options presets, mid-mission migration, and 3/4/5-way perception verified\n",
            checks, (unsigned)CPIN_COUNT);
     return 0;
 }

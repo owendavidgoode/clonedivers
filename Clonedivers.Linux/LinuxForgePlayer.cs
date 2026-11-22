@@ -167,6 +167,8 @@ internal sealed class LinuxForgePreferences
                 if (!TryGetJsonProperty(doc.RootElement, "PerformanceTier", out _))
                     value.PerformanceTier = PerformanceTierAdvisor.TierFromPackTexture(value.Texture);
             }
+            if (!value.AutoPerformanceTier)
+                value.PerformanceTier = PerformanceTierAdvisor.ReconcileManualTier(value.PerformanceTier, value.Texture);
         }
         value.Validate(); return value;
     }

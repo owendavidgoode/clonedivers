@@ -37,7 +37,7 @@ public sealed class ForgeShellWindow : Window
     public static IReadOnlyDictionary<string, string> CustomizeTierDescriptions { get; } = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
     {
         [PerformanceTierAdvisor.Ultra] = "Full (Ultra)",
-        [PerformanceTierAdvisor.High] = "Balanced (Streamed)",
+        [PerformanceTierAdvisor.High] = "High (Streamed)",
         [PerformanceTierAdvisor.Balanced] = "1024px (Medium)",
         [PerformanceTierAdvisor.Low512] = "512px (Low / Deck)",
         [PerformanceTierAdvisor.UltraPotato] = "256px + Decimated Meshes (Ultra-Potato)"
@@ -594,12 +594,7 @@ public sealed class ForgeShellWindow : Window
             openItem.Click += (_, _) => Dispatcher.UIThread.Post(RestoreFromTray);
 
             trayEndSessionItem = new NativeMenuItem("End Session") { IsEnabled = false };
-            trayEndSessionItem.Click += (_, _) => Dispatcher.UIThread.Post(async () =>
-            {
-                RestoreFromTray();
-                if (host.GetHomeState().IsSessionRunning)
-                    await host.TriggerPrimaryActionAsync();
-            });
+            trayEndSessionItem.Click += (_, _) => Dispatcher.UIThread.Post(async () => await HandleTraySessionActionAsync());
 
             var quitItem = new NativeMenuItem("Quit");
             quitItem.Click += (_, _) => Dispatcher.UIThread.Post(() =>
@@ -665,6 +660,17 @@ public sealed class ForgeShellWindow : Window
             WindowsTaskbar.BringToFront(this);
         }
         catch { }
+    }
+
+    internal async Task HandleTraySessionActionAsync()
+    {
+        RestoreFromTray();
+        var s = host.GetHomeState();
+        if (!s.IsSessionRunning || s.IsBusy) return;
+        if (string.Equals(s.SecondaryActionLabel, ForgeTacticalCopy.CancelLaunchButton, StringComparison.Ordinal))
+            await host.TriggerSecondaryActionAsync();
+        else if (s.PrimaryActionEnabled)
+            await host.TriggerPrimaryActionAsync();
     }
 
     internal void DisposeTrayIcon()
@@ -1685,7 +1691,7 @@ public sealed class ForgeShellWindow : Window
         var step4Specs = new[]
         {
             ("full", "Full (Ultra)", "12 GB+ VRAM · Sharpest"),
-            ("lighter", "Balanced (Streamed)", "8–11 GB VRAM · Streamed"),
+            ("lighter", "High (Streamed)", "8–11 GB VRAM · Streamed"),
             ("reduced1024", "1024px (Medium)", "6–8 GB VRAM · 1024px"),
             ("reduced512", "512px (Low / Deck)", "4–6 GB VRAM · 512px"),
             ("potato256", "256px + Decimated Meshes (Ultra-Potato)", "≤ 4 GB / iGPU · Fastest")
@@ -2290,7 +2296,13 @@ public sealed class ForgeShellWindow : Window
         ApplyBadgeTone(headerStatusBadge, headerStatusText, home.HeaderBadgeText, home.HeaderBadgeTone);
 
         if (trayEndSessionItem != null)
-            trayEndSessionItem.IsEnabled = home.IsSessionRunning;
+        {
+            bool canCancelLaunch = home.IsSessionRunning &&
+                !home.IsBusy &&
+                string.Equals(home.SecondaryActionLabel, ForgeTacticalCopy.CancelLaunchButton, StringComparison.Ordinal);
+            trayEndSessionItem.Header = canCancelLaunch ? ForgeTacticalCopy.CancelLaunchButton : "End Session";
+            trayEndSessionItem.IsEnabled = canCancelLaunch || (home.IsSessionRunning && home.PrimaryActionEnabled);
+        }
 
         var gameWindowActive = home.IsSessionRunning && !home.IsBusy && home.Progress == null;
         if (!host.IsPreview)

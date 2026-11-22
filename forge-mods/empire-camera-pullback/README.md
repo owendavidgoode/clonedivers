@@ -1,10 +1,10 @@
-# Empire & Clone Camera Pullback (`0.1.1`)
+# Empire & Clone Camera Pullback (`0.1.2`)
 
 Per-player third-person follow-camera framing mod for **Helldivers 2** (Steam build `25480438`, **HellForge Mod SDK 16**).
 
 `empire-camera-pullback` solves third-person dorsal-hull camera obstruction when piloting enlarged combat walkers (**Clonedivers AT-TE** and **EmpireDivers `2.28x` film-scale AT-ST**) and provides an optional, subtle third-person framing preset when wearing **Compact LEGO** armor kits—without altering weapon ballistics, projectile origin, or co-op simulation (`"gameplay": false`, `"coop": "per-player"`).
 
-## Key Features (`0.1.1`)
+## Key Features (`0.1.2`)
 
 - **O(1) Subject Resolution & `< 50 µs` Render-Thread Budget:**
   - Resolves the local player's Helldiver `Unit*` directly in **O(1)** via `LocalUser -> PlayerManager -> EntityManager` descriptor `unit_ref -> LOOKUP_UNIT` (zero `world->units` full-array scans, even in `65,672`-unit Difficulty-11 missions, and zero possibility of co-op teammate avatar hijack).

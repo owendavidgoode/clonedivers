@@ -72,6 +72,7 @@ typedef struct {
     uint32_t unit_index;
     uint8_t unit_gen;
     uintptr_t unit;
+    uint64_t resource_id;
     uintptr_t association;
     uintptr_t world;
     uint32_t graph_handle;
@@ -105,7 +106,7 @@ int at_read_unit_manager(
     void *read_user,
     at_unit_manager_view *out);
 
-/** Read & verify an S2c 106-node AT-ST Unit (79e4b3d2da5e45e3) at UnitManager index idx. */
+/** Read & verify an S2c 106-node AT-ST Unit (EXO-45/49/51/55) at UnitManager index idx. */
 int at_read_atst_unit(
     const at_walker_registry *reg,
     const at_unit_manager_view *mgr,

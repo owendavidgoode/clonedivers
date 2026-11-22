@@ -232,15 +232,15 @@ internal static class Milestone2Tests
             check(seenShas.Count == 5, $"r21/r49 {mode} selects 5 distinct base texture payloads across the 5 tiers");
         }
 
-        // Customize tier descriptions exact 5 labels
+        // Customize tier descriptions exact 5 labels (L1: Row 2 High -> "High (Streamed)")
         var desc = ForgeShellWindow.CustomizeTierDescriptions;
         check(desc.Count == 5 &&
               desc[PerformanceTierAdvisor.Ultra] == "Full (Ultra)" &&
-              desc[PerformanceTierAdvisor.High] == "Balanced (Streamed)" &&
+              desc[PerformanceTierAdvisor.High] == "High (Streamed)" &&
               desc[PerformanceTierAdvisor.Balanced] == "1024px (Medium)" &&
               desc[PerformanceTierAdvisor.Low512] == "512px (Low / Deck)" &&
               desc[PerformanceTierAdvisor.UltraPotato] == "256px + Decimated Meshes (Ultra-Potato)",
-              "ForgeShellWindow.CustomizeTierDescriptions exposes the exact 5 v2.1 tier labels");
+              "ForgeShellWindow.CustomizeTierDescriptions exposes the exact 5 v2.1 tier labels without Balanced ambiguity (L1)");
     }
 
     static void TestSquidSkinAndDeathTrooperVoice(string dir, Action<bool, string> check)
@@ -271,6 +271,22 @@ internal static class Milestone2Tests
         var loadedCovFalse = HellForgePreferences.Load(covFalsePath);
         check(loadedCovFalse.SquidSkin == "native-squids" && !loadedCovFalse.Covenant,
             "upgrading hellforge.json with Covenant=false (no SquidSkin) maps cleanly to SquidSkin='native-squids'");
+
+        // M4: Upgrading v2.0.3 manual PerformanceTier ('balanced' + 'lighter', 'ultra-potato' + 'reduced512') reconciles PerformanceTier to active Texture
+        var m4BalancedPath = Path.Combine(dir, "v203-manual-balanced.json");
+        File.WriteAllText(m4BalancedPath, """{"Format":1,"Mode":"clonedivers","AutoPerformanceTier":false,"PerformanceTier":"balanced","Texture":"lighter"}""");
+        var loadedM4Balanced = HellForgePreferences.Load(m4BalancedPath);
+        var m4PotatoPath = Path.Combine(dir, "v203-manual-potato.json");
+        File.WriteAllText(m4PotatoPath, """{"Format":1,"Mode":"empire","AutoPerformanceTier":false,"PerformanceTier":"ultra-potato","Texture":"reduced512"}""");
+        var loadedM4Potato = HellForgePreferences.Load(m4PotatoPath);
+        bool rejectedCorruptTierJson = false;
+        var m4CorruptPath = Path.Combine(dir, "v203-corrupt-tier.json");
+        File.WriteAllText(m4CorruptPath, """{"Format":1,"Mode":"empire","AutoPerformanceTier":false,"PerformanceTier":"bogus-tier","Texture":"full"}""");
+        try { HellForgePreferences.Load(m4CorruptPath); } catch (InvalidDataException) { rejectedCorruptTierJson = true; }
+        check(!loadedM4Balanced.AutoPerformanceTier && loadedM4Balanced.Texture == "lighter" && loadedM4Balanced.PerformanceTier == "high" &&
+              !loadedM4Potato.AutoPerformanceTier && loadedM4Potato.Texture == "reduced512" && loadedM4Potato.PerformanceTier == "low-512" &&
+              rejectedCorruptTierJson,
+              "M4: HellForgePreferences.Load reconciles v2.0.3 manual PerformanceTier with saved Texture while rejecting corrupt tier strings");
 
         // Explicit SquidSkin + DeathTrooperVoice JSON round-trip across all 3 SquidSkin values
         foreach (var sq in new[] { "mixed-covenant", "all-covenant", "native-squids" })
@@ -382,9 +398,10 @@ internal static class Milestone2Tests
               !r8.Artifacts.Any(a => a.Url.Contains("hf-mod.com", StringComparison.OrdinalIgnoreCase)),
               "forge-gameplay-build25480438-r8.json passes ValidateDraft with 17 artifacts, 20 ordered IDs, zero hf-mod.com URLs, and Bingus Shared Loader last");
 
-        // Verify all 5 updated/new v2.1 code-mod manifests match r8 IDs, versions, and co-op/gameplay flags
+        // Verify all 6 updated/new v2.1 code-mod manifests match r8 IDs, versions, and co-op/gameplay flags
         var expectedMods = new (string Resource, string Id, bool ExpectedGameplay, bool ExpectedOptional)[]
         {
+            ("Clonedivers.Tests.EmpireAtstWriter.json", HellForgePreset.EmpireAtstWriter, false, true),
             ("Clonedivers.Tests.EmpireCameraPullback.json", HellForgePreset.EmpireCameraPullback, false, true),
             ("Clonedivers.Tests.DedicatedMeleeSlot.json", HellForgePreset.DedicatedMeleeSlot, false, true),
             ("Clonedivers.Tests.FasterCorpseCleanup.json", HellForgePreset.FasterCorpseCleanup, true, false),
@@ -547,6 +564,52 @@ internal static class Milestone2Tests
         check(!fakeCmds.StrayEnabled &&
               fakeCmds.SwitchOffIds.Contains(strayDemo.Id),
               "ConfigureAsync disables stray demo EmpireDivers pack (pack.ef3458f5-f409-4f24-8933-05fdc10a2101) without deleting its custom folder (#66)");
+
+        // M1: StatusAsync ignores session.pid (runner PID) and only reports GameLaunched from gameLaunched / gamePid
+        fakeCmds.Running = true;
+        fakeCmds.SessionRunnerPid = 4242;
+        fakeCmds.SessionGamePid = null;
+        var stRunnerOnly = await client.StatusAsync();
+        fakeCmds.SessionGamePid = 9999;
+        var stGamePid = await client.StatusAsync();
+        fakeCmds.Running = false;
+        check(stRunnerOnly.Running && stRunnerOnly.GameLaunched == null &&
+              stGamePid.Running && stGamePid.GameLaunched == true,
+              "M1: HellForgeClient.StatusAsync ignores session.pid runner PID and sets GameLaunched=true only for gameLaunched/gamePid");
+
+        // M2: --classic HellForgeForm keeps marquee progress visible, guards OnFormClosing while awaitingGameWindow, and clears progress.Visible afterwards
+        using (var classicForm = new HellForgeForm(new HellForgePreferences { InstallRoot = install, Mode = "regular" }))
+        {
+            const BindingFlags fPriv = BindingFlags.Instance | BindingFlags.NonPublic;
+            typeof(HellForgeForm).GetField("lastStatus", fPriv)!.SetValue(classicForm,
+                new HellForgeStatus(install, "0.4.0-beta", HellForgePack.SupportedBuild, true, true, Running: true, true, true, null, null, GameLaunched: null));
+            typeof(HellForgeForm).GetField("awaitingGameWindow", fPriv)!.SetValue(classicForm, true);
+            var msgLbl = (System.Windows.Forms.Label)typeof(HellForgeForm).GetField("message", fPriv)!.GetValue(classicForm)!;
+            var progBar = (System.Windows.Forms.ProgressBar)typeof(HellForgeForm).GetField("progress", fPriv)!.GetValue(classicForm)!;
+            var actPanel = (System.Windows.Forms.Control)typeof(HellForgeForm).GetField("activity", fPriv)!.GetValue(classicForm)!;
+            var laterBtn = (System.Windows.Forms.Button)typeof(HellForgeForm).GetField("later", fPriv)!.GetValue(classicForm)!;
+            msgLbl.Text = ForgeTacticalCopy.LaunchingDetail;
+            typeof(HellForgeForm).GetMethod("UpdateView", fPriv)!.Invoke(classicForm, null);
+
+            static bool WinFormsVisible(System.Windows.Forms.Control ctrl) =>
+                (bool)typeof(System.Windows.Forms.Control).GetMethod("GetState", BindingFlags.Instance | BindingFlags.NonPublic)!.Invoke(ctrl, [2])!;
+
+            var closingEvt = new System.Windows.Forms.FormClosingEventArgs(System.Windows.Forms.CloseReason.UserClosing, false);
+            typeof(HellForgeForm).GetMethod("OnFormClosing", fPriv)!.Invoke(classicForm, [closingEvt]);
+
+            bool preWindowOk = WinFormsVisible(progBar) && WinFormsVisible(actPanel) && WinFormsVisible(laterBtn) &&
+                               laterBtn.Text == ForgeTacticalCopy.CancelLaunchButton && closingEvt.Cancel;
+
+            // Transition to gameLaunched = true -> progress.Visible & later.Visible clear cleanly
+            typeof(HellForgeForm).GetField("lastStatus", fPriv)!.SetValue(classicForm,
+                new HellForgeStatus(install, "0.4.0-beta", HellForgePack.SupportedBuild, true, true, Running: true, true, true, null, null, GameLaunched: true));
+            typeof(HellForgeForm).GetMethod("UpdateView", fPriv)!.Invoke(classicForm, null);
+            var closingAfter = new System.Windows.Forms.FormClosingEventArgs(System.Windows.Forms.CloseReason.UserClosing, false);
+            typeof(HellForgeForm).GetMethod("OnFormClosing", fPriv)!.Invoke(classicForm, [closingAfter]);
+
+            check(preWindowOk && !WinFormsVisible(progBar) && !WinFormsVisible(laterBtn) && !closingAfter.Cancel,
+                "M2: HellForgeForm keeps marquee progress visible, blocks closing while awaitingGameWindow, and clears progress.Visible once game launches");
+        }
     }
 
     static async Task TestPreWindowLaunchingUxAsync(string dir, Action<bool, string> check)
@@ -625,11 +688,86 @@ internal static class Milestone2Tests
         check(!runProgress.IsVisible && runHero.IsEnabled && runHero.Content?.ToString() == "END SESSION" && !runSecondary.IsVisible,
             "ForgeShellWindow hides indeterminate bar & Cancel Launch and enables primary END SESSION once game is running (#67)");
         runningWin.Close();
+
+        // M5: Tray session menu item routes pre-window click to TriggerSecondaryActionAsync (Cancel Launch) and active-game click to TriggerPrimaryActionAsync (End Session)
+        var trayMockHost = new TrayRoutingMockHost();
+        var trayTestWin = new ForgeShellWindow(trayMockHost);
+        var fakeTrayItem = new NativeMenuItem("End Session");
+        typeof(ForgeShellWindow).GetField("trayEndSessionItem", priv)!.SetValue(trayTestWin, fakeTrayItem);
+        typeof(ForgeShellWindow).GetMethod("RefreshAll", priv)!.Invoke(trayTestWin, null);
+        bool preWindowTrayHeaderOk = fakeTrayItem.Header == ForgeTacticalCopy.CancelLaunchButton && fakeTrayItem.IsEnabled;
+        await trayTestWin.HandleTraySessionActionAsync();
+
+        trayMockHost.GameLaunched = true;
+        typeof(ForgeShellWindow).GetMethod("RefreshAll", priv)!.Invoke(trayTestWin, null);
+        bool activeTrayHeaderOk = fakeTrayItem.Header == "End Session" && fakeTrayItem.IsEnabled;
+        await trayTestWin.HandleTraySessionActionAsync();
+        trayTestWin.Close();
+
+        check(preWindowTrayHeaderOk && activeTrayHeaderOk && trayMockHost.SecondaryCalls == 1 && trayMockHost.PrimaryCalls == 1,
+            "M5: System tray item displays 'Cancel Launch' and dispatches TriggerSecondaryActionAsync while staging, then 'End Session' -> TriggerPrimaryActionAsync once running");
+    }
+
+    sealed class TrayRoutingMockHost : IForgeUiHost
+    {
+        readonly PreviewForgeHost inner = new("home-clones");
+        public bool GameLaunched { get; set; }
+        public int PrimaryCalls { get; private set; }
+        public int SecondaryCalls { get; private set; }
+        public event Action? StateChanged { add => inner.StateChanged += value; remove => inner.StateChanged -= value; }
+        public event Action<bool>? SetupVisibilityChanged { add => inner.SetupVisibilityChanged += value; remove => inner.SetupVisibilityChanged -= value; }
+        public bool IsPreview => true;
+        public bool SupportsEmbeddedSetup => false;
+        public bool SupportsSelfUpdate => false;
+        public ForgeHomeState GetHomeState() => new PreviewForgeHost(GameLaunched ? "running" : "launching").GetHomeState();
+        public ForgeSetupState GetSetupState() => inner.GetSetupState();
+        public Task<ForgeDiagnosticsState> GetDiagnosticsAsync(CancellationToken ct = default) => inner.GetDiagnosticsAsync(ct);
+        public void AttachUiCallbacks(Func<ForgeConfirmRequest, Task<bool>> c, Func<string, Task<string?>> p, Func<string, string, Task<string?>> s, Action<OperationProgress?>? t = null, Action? r = null) { }
+        public Task InitializeAsync() => Task.CompletedTask;
+        public bool CanClose(out string? reason) { reason = null; return true; }
+        public Task SelectModeAsync(string mode) => Task.CompletedTask;
+        public Task UpdateCustomizationAsync(string enemySkin, bool deltaSquad, bool covenant, string texture, string? squidSkin = null, bool? deathTrooperVoice = null) => Task.CompletedTask;
+        public Task SetPerformanceTierAsync(string tierId) => Task.CompletedTask;
+        public Task UpdateHostMutatorsAsync(string chaosIntensity, string heavySeaf, bool fasterCorpseCleanup) => Task.CompletedTask;
+        public Task ApplyCustomizationNowAsync() => Task.CompletedTask;
+        public Task TriggerPrimaryActionAsync() { PrimaryCalls++; return Task.CompletedTask; }
+        public Task TriggerSecondaryActionAsync() { SecondaryCalls++; return Task.CompletedTask; }
+        public Task TriggerUpdateBannerActionAsync() => Task.CompletedTask;
+        public void DismissUpdateBanner() { }
+        public Task AcceptStepDownAsync() => Task.CompletedTask;
+        public void DismissStepDownBanner() { }
+        public Task InstallSelfShortcutsAsync() => Task.CompletedTask;
+        public void DismissSelfInstallBanner() { }
+        public Task<WhatsNewResult> FetchWhatsNewAsync(string? versionOrTag, CancellationToken ct = default) => inner.FetchWhatsNewAsync(versionOrTag, ct);
+        public void ToggleSoundEffects() { }
+        public void OpenSteamLibrary() { }
+        public Task EnterSetupAsync() => Task.CompletedTask;
+        public void ExitSetup() { }
+        public void SelectSetupDrive(string driveRoot) { }
+        public Task BrowseSetupFolderAsync(bool existing) => Task.CompletedTask;
+        public Task SetSetupTextureAsync(string texture) => Task.CompletedTask;
+        public Task TriggerSetupPrimaryActionAsync() => Task.CompletedTask;
+        public void CancelSetupWork() { }
+        public Task OpenOfficialSetupFallbackAsync() => Task.CompletedTask;
+        public Task LocateInstallAsync() => Task.CompletedTask;
+        public void OpenInstallFolder() { }
+        public Task OpenManagerAsync() => Task.CompletedTask;
+        public Task SyncAccountFromSettingsAsync() => Task.CompletedTask;
+        public Task CheckUpdatesAsync() => Task.CompletedTask;
+        public Task CleanCacheAsync() => Task.CompletedTask;
+        public Task VerifyAndRepairAsync() => Task.CompletedTask;
+        public void SetDiscordRpcEnabled(bool enabled) { }
+        public void SetMinimizeToTray(bool enabled) { }
+        public Task<string?> SaveSupportReportAsync() => Task.FromResult<string?>(null);
+        public ValueTask DisposeAsync() => ValueTask.CompletedTask;
     }
 
     sealed class StrayPackCommands(string installRoot, HellForgeMod initialStray) : IHellForgeCommands
     {
         public bool StrayEnabled { get; private set; } = true;
+        public bool Running { get; set; }
+        public int? SessionRunnerPid { get; set; }
+        public int? SessionGamePid { get; set; }
         public List<string> SwitchOffIds { get; } = [];
         bool multiplayer = true;
         bool localPlayFab = true;
@@ -639,6 +777,9 @@ internal static class Milestone2Tests
             string cmd = args[0];
             if (cmd == "status")
             {
+                var sessionObj = new Dictionary<string, object?> { ["running"] = Running };
+                if (SessionRunnerPid is { } rpid) sessionObj["pid"] = rpid;
+                if (SessionGamePid is { } gpid) sessionObj["gamePid"] = gpid;
                 return Task.FromResult(JsonDocument.Parse(JsonSerializer.Serialize(new
                 {
                     install = installRoot,
@@ -648,7 +789,7 @@ internal static class Milestone2Tests
                     gameBuild = HellForgePack.SupportedBuild,
                     networkBlock = "wfp",
                     ready = new { gameCopy = true, sessionRunner = true },
-                    session = new { running = false },
+                    session = sessionObj,
                     settings = new { sandbox = true, multiplayer, localPlayFab }
                 })).RootElement.Clone());
             }

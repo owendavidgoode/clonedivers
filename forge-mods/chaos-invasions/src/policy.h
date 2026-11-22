@@ -1,4 +1,4 @@
-/* Chaos Invasions 0.3.2 policy, native pins, geometry/cap/map guards, co-op sync packets, and faction helpers.
+/* Chaos Invasions 0.3.3 policy, native pins, geometry/cap/map guards, co-op sync packets, and faction helpers.
  * Pure C helpers here have no engine dependencies and are directly unit-tested offline. */
 #ifndef CHAOS_POLICY_H
 #define CHAOS_POLICY_H
@@ -516,6 +516,7 @@ static uint32_t ChaosNarrowIgnoreMask(uint32_t cur_ignore, uint32_t own_mask,
 
 #define CHAOS_MAX_PEERS            4
 #define CHAOS_LATE_JOIN_HELLO_S    10.0
+#define CHAOS_PEER_PREPARE_GRACE_S 120.0
 #define CHAOS_PEER_PRELOAD_GRACE_S 30.0
 
 enum {

@@ -1,4 +1,4 @@
-/* Comprehensive C11 unit & offline-capture verification suite for Dedicated Melee Slot 1.5.2-clonedivers.1.
+/* Comprehensive C11 unit & offline-capture verification suite for Dedicated Melee Slot 1.5.2-clonedivers.2.
  * Exercises ../src/melee_slot.c across:
  *   1. Offline PE pin verification against capture-game.dll-00001000.bin (0xFD9710, 0x12FE350, 0x8BF870).
  *   2. All 25 build-25480438 secondary weapon entity resources + HfContent modded secondary discovery,
@@ -47,9 +47,11 @@ static int g_spawn_calls = 0;
 static uint64_t g_last_spawn_res = 0ULL;
 static uint8_t g_last_spawn_info[0x60];
 static int g_corrupt_csr_in_spawn = 0;
+static int g_force_zero_clone_spawn = 0;
 static int g_attach_calls = 0;
 static int g_pkg_calls = 0;
 static uint64_t g_custom_mod_sec_ent = 0xCAFE000012345678ULL;
+static char g_mock_mod_folder[MAX_PATH + 128];
 
 static int MockRead(uintptr_t addr, void* out, size_t sz)
 {
@@ -82,6 +84,11 @@ static void MockLog(HfMod* m, const char* fmt, ...)
 }
 
 static const char* MockBuildId(void) { return "25480438"; }
+static const char* MockModFolder(HfMod* m)
+{
+    (void)m;
+    return g_mock_mod_folder[0] ? g_mock_mod_folder : NULL;
+}
 static uintptr_t MockModuleBase(const char* name, size_t* sz)
 {
     if (sz) *sz = sizeof(g_mock_game);
@@ -161,6 +168,11 @@ static uint64_t MockOrigSpawnReq(uint64_t a, uint64_t b, uint64_t c, uint64_t d,
     if (g_corrupt_csr_in_spawn) {
         SetLastError(0xBADF00Du);
     }
+    if (g_force_zero_clone_spawn && InterlockedCompareExchange(&g_spawningClone, 0, 0) != 0) {
+        uint32_t zero_eid = 0u;
+        memcpy((void*)(uintptr_t)a, &zero_eid, 4);
+        return a;
+    }
     uint32_t eid = g_next_spawn_id++;
     memcpy((void*)(uintptr_t)a, &eid, 4);
     return a;
@@ -224,6 +236,7 @@ static void SetupHarness(const char* cfg_dir, const char* weapon_choice)
     g_api.size = sizeof(HfApi);
     g_api.log = MockLog;
     g_api.build_id = MockBuildId;
+    g_api.mod_folder = MockModFolder;
     g_api.module_base = MockModuleBase;
     g_api.read = MockRead;
     g_api.write = MockWrite;
@@ -277,8 +290,12 @@ static void SetupHarness(const char* cfg_dir, const char* weapon_choice)
 
     g_next_spawn_id = 500u;
     g_spawn_calls = 0;
+    g_force_zero_clone_spawn = 0;
     g_attach_calls = 0;
     g_pkg_calls = 0;
+    g_mock_mod_folder[0] = '\0';
+    InterlockedExchange(&g_testSentKeyDowns, 0);
+    InterlockedExchange(&g_testSentKeyUps, 0);
 
     int rc = hellforge_mod_init(&g_api, (HfMod*)&g_mod_inst);
     if (rc != 0) abort();
@@ -424,6 +441,21 @@ static void test_coop_hotjoin_authority_netid_attach_and_swap(const char* dir)
     TEST_CHECK(g_probeEntity == 0u && g_armed == 1, "death dropped old melee and re-armed for reinforcement");
 }
 
+static void EnsureDirTree(const char* path)
+{
+    char tmp[MAX_PATH + 192];
+    snprintf(tmp, sizeof(tmp), "%s", path);
+    for (char* p = tmp + 3; *p; p++) {
+        if (*p == '\\' || *p == '/') {
+            char ch = *p;
+            *p = '\0';
+            CreateDirectoryA(tmp, NULL);
+            *p = ch;
+        }
+    }
+    CreateDirectoryA(tmp, NULL);
+}
+
 static void test_keybind_parser_and_clean_thread_shutdown(const char* dir)
 {
     SetupHarness(dir, "hatchet");
@@ -440,15 +472,157 @@ static void test_keybind_parser_and_clean_thread_shutdown(const char* dir)
     ParseSlotKeysText(""); /* Reset defaults */
     TEST_CHECK(g_keyScan[1] == 0x02 && g_keyScan[2] == 0x03, "restored default 1/2 scan codes");
 
-    /* Start InvThread and KeyThread and verify clean shutdown via hellforge_mod_unload! */
+    /* L3: Verify custom install root (<installRoot>\userdata\profiles\*\cloud\input_settings.config)
+     * derived from BOTH folder and .unpacked mod_folder layouts, plus USERPROFILE\Documents\HellForge fallback! */
+    char resolved_root[MAX_PATH + 128];
+    TEST_CHECK(ResolveInstallRootFromModFolder("D:\\HellForge\\mods\\dedicated-melee-slot", resolved_root, sizeof(resolved_root)) == 1 &&
+               strcmp(resolved_root, "D:\\HellForge") == 0,
+               "L3: resolved D:\\HellForge from folder install");
+    TEST_CHECK(ResolveInstallRootFromModFolder("D:/HellForge/mods/.unpacked/pkg999/dedicated-melee-slot/", resolved_root, sizeof(resolved_root)) == 1 &&
+               strcmp(resolved_root, "D:\\HellForge") == 0,
+               "L3: resolved D:\\HellForge from .unpacked zip install");
+
+    if (dir && *dir) {
+        char custom_cloud[MAX_PATH + 192], custom_cfg[MAX_PATH + 224];
+        char user_base[MAX_PATH + 64], docs_cloud[MAX_PATH + 192], docs_cfg[MAX_PATH + 224];
+        snprintf(custom_cloud, sizeof(custom_cloud), "%s\\CustomHF\\userdata\\profiles\\pilot1\\cloud", dir);
+        snprintf(custom_cfg, sizeof(custom_cfg), "%s\\input_settings.config", custom_cloud);
+        snprintf(user_base, sizeof(user_base), "%s\\FakeUser", dir);
+        snprintf(docs_cloud, sizeof(docs_cloud), "%s\\Documents\\HellForge\\userdata\\profiles\\default\\cloud", user_base);
+        snprintf(docs_cfg, sizeof(docs_cfg), "%s\\input_settings.config", docs_cloud);
+        EnsureDirTree(custom_cloud);
+        EnsureDirTree(docs_cloud);
+
+        const char* custom_text =
+            "ChangeEquipmentPrimary = [ { device_type = \"Keyboard\" input = \"f\" trigger = \"Press\" threshold = 0.0 } ]\n"
+            "ChangeEquipmentSecondary = [ { device_type = \"Keyboard\" input = \"v\" trigger = \"Hold\" threshold = 0.40 } ]\n";
+        const char* docs_text =
+            "ChangeEquipmentPrimary = [ { device_type = \"Keyboard\" input = \"z\" trigger = \"Press\" threshold = 0.0 } ]\n"
+            "ChangeEquipmentSecondary = [ { device_type = \"Keyboard\" input = \"x\" trigger = \"Press\" threshold = 0.0 } ]\n";
+        FILE* fc = fopen(custom_cfg, "wb");
+        if (fc) { fwrite(custom_text, 1, strlen(custom_text), fc); fclose(fc); }
+        FILE* fd = fopen(docs_cfg, "wb");
+        if (fd) { fwrite(docs_text, 1, strlen(docs_text), fd); fclose(fd); }
+
+        char old_userprofile[MAX_PATH];
+        DWORD had_up = GetEnvironmentVariableA("USERPROFILE", old_userprofile, sizeof(old_userprofile));
+        SetEnvironmentVariableA("USERPROFILE", user_base);
+
+        snprintf(g_mock_mod_folder, sizeof(g_mock_mod_folder),
+            "%s\\CustomHF\\mods\\.unpacked\\hash123\\dedicated-melee-slot", dir);
+        g_lastKeysPath[0] = '\0';
+        memset(&g_lastKeysWhen, 0, sizeof(g_lastKeysWhen));
+        LoadSlotKeys();
+        TEST_CHECK(g_keyScan[1] == 0x21 && g_keyScan[2] == 0x2F && g_keyMs[2] == 500,
+            "L3: LoadSlotKeys loaded custom F/V (500ms) keybinds from custom install root userdata");
+
+        /* Fallback to USERPROFILE\Documents\HellForge when custom install root has no userdata config */
+        snprintf(g_mock_mod_folder, sizeof(g_mock_mod_folder), "%s\\EmptyHF\\mods\\dedicated-melee-slot", dir);
+        g_lastKeysPath[0] = '\0';
+        memset(&g_lastKeysWhen, 0, sizeof(g_lastKeysWhen));
+        LoadSlotKeys();
+        TEST_CHECK(g_keyScan[1] == 0x2C && g_keyScan[2] == 0x2D,
+            "L3: LoadSlotKeys fell back cleanly to USERPROFILE\\Documents\\HellForge userdata");
+
+        if (had_up > 0 && had_up < sizeof(old_userprofile)) {
+            SetEnvironmentVariableA("USERPROFILE", old_userprofile);
+        }
+    }
+
+    /* H3b: Start KeyThread, enter a 1500ms LongPress hold, and verify hellforge_mod_unload wakes g_stopEvent
+     * immediately (< 250ms), emits KEYUP cleanly, and joins KeyThread within the 2000ms timeout! */
+    ParseSlotKeysText("");
+    InterlockedExchange(&g_keyMs[1], 1500);
     InterlockedExchange(&g_stopThreads, 0);
-    g_testForceFocused = 0; /* Never inject keys during test */
-    g_invThread = CreateThread(NULL, 0, InvThread, NULL, 0, NULL);
+    if (g_stopEvent == NULL) g_stopEvent = CreateEventW(NULL, TRUE, FALSE, NULL);
+    else ResetEvent(g_stopEvent);
+    InterlockedExchange(&g_testSentKeyDowns, 0);
+    InterlockedExchange(&g_testSentKeyUps, 0);
+    g_testForceFocused = 1; /* Safe: DMS_UNIT_TEST mocks DmsSendInputKey without calling Win32 SendInput! */
     g_keyThread = CreateThread(NULL, 0, KeyThread, NULL, 0, NULL);
-    TEST_CHECK(g_invThread != NULL && g_keyThread != NULL, "threads started");
-    Sleep(20);
-    TEST_CHECK(hellforge_mod_unload(&g_api, (HfMod*)&g_mod_inst, HF_UNLOAD_REMOVE) == 0, "clean unload stopped threads & freed scratch");
-    TEST_CHECK(g_invThread == NULL && g_keyThread == NULL && g_spawnScratch == NULL, "handles and scratch buffer cleaned");
+    TEST_CHECK(g_keyThread != NULL, "KeyThread started (H3a: no InvThread)");
+
+    InterlockedExchange(&g_injectSel, 1);
+    for (int wait_i = 0; wait_i < 50 && InterlockedCompareExchange(&g_testSentKeyDowns, 0, 0) == 0; wait_i++) {
+        Sleep(5);
+    }
+    TEST_CHECK(InterlockedCompareExchange(&g_testSentKeyDowns, 0, 0) == 1 &&
+               InterlockedCompareExchange(&g_testSentKeyUps, 0, 0) == 0,
+               "H3b: KeyThread entered 1500ms hold sleep after keydown");
+
+    ULONGLONG t_unload0 = GetTickCount64();
+    TEST_CHECK(hellforge_mod_unload(&g_api, (HfMod*)&g_mod_inst, HF_UNLOAD_REMOVE) == 0,
+               "H3b: clean unload signaled g_stopEvent & joined KeyThread");
+    ULONGLONG unload_ms = GetTickCount64() - t_unload0;
+    TEST_CHECK(unload_ms < 400ULL, "H3b: g_stopEvent woke 1500ms hold immediately on unload (< 400ms)");
+    TEST_CHECK(InterlockedCompareExchange(&g_testSentKeyUps, 0, 0) == 1,
+               "H3b: KeyThread emitted KEYUP cleanly before exiting on early wake");
+    TEST_CHECK(g_keyThread == NULL && g_stopEvent == NULL && g_spawnScratch == NULL,
+               "H3b: handles and scratch buffer cleaned");
+    g_testForceFocused = 0;
+}
+
+static void test_h3c_h3d_failed_spawn_and_failed_attach_recovery(const char* dir)
+{
+    /* 1. H3d: When g_spawnReq returns copy == 0 on drop, mod MUST NOT permanently disarm for the mission! */
+    SetupHarness(dir, "machete");
+    HfPlayerEvent pev = {{sizeof(pev), HF_ON_PLAYER_SPAWN, 1}, 0xAABBCCDDEEFF0011ULL, 0x9999u, 1u};
+    g_ls_pspawn((HfMod*)&g_mod_inst, (const HfEventInfo*)&pev, NULL);
+    TEST_CHECK(g_avatar == 0x7001u, "resolved initial avatar");
+
+    uint8_t local_info[0x200];
+    memset(local_info, 0, sizeof(local_info));
+    local_info[0] = 1;
+    uint32_t pistol_net = 0x333u, out_id = 0u;
+    memcpy(local_info + 4u, &pistol_net, 4);
+
+    g_force_zero_clone_spawn = 1;
+    SpawnReqDetour((uint64_t)(uintptr_t)&out_id, 0x8D3D52A3B2F19402ULL, (uint64_t)(uintptr_t)local_info, 0, 0, 0);
+    TEST_CHECK(g_probeEntity == 0u && g_probeOriginal == 0u && g_regDone == 1 && g_armed == 1,
+        "H3d: copy == 0 cleared probe state cleanly and stayed armed for next reinforcement/respawn");
+
+    /* Reinforce / respawn with g_force_zero_clone_spawn = 0 -> must succeed cleanly! */
+    g_force_zero_clone_spawn = 0;
+    SpawnReqDetour((uint64_t)(uintptr_t)&out_id, 0x8D3D52A3B2F19402ULL, (uint64_t)(uintptr_t)local_info, 0, 0, 0);
+    TEST_CHECK(g_probeOriginal == 501u && g_probeEntity == 502u && g_regDone == 0,
+        "H3d: reinforcement secondary spawned melee clone 502 cleanly after earlier copy == 0 failure");
+
+    /* 2. H3c: Simulate UnitOfEntity failure in AttachCopy (502 present in ENT_STATE_GLOBAL, but missing/corrupt in EM_ENTITY_MAP):
+     *    AttachCopy MUST validate UnitOfEntity BEFORE setting g_regDone = 1, clear g_probeEntity = 0, and NEVER allow DoSwap
+     *    to write unattached 502 into the secondary inventory slot (+4)! */
+    PutHashEntry(g_mock_es_buckets, 64u, 501u, 0u);
+    PutHashEntry(g_mock_es_buckets, 64u, 502u, 1u);
+    uint32_t owner_av = 0x7001u;
+    memcpy(g_mock_es_records + 0u * 0x30u + 4u, &owner_av, 4);
+
+    /* Deliberately register WRONG resource ID in EM_DESCRIPTORS for 502 so UnitOfEntity check fails! */
+    PutHashEntry(g_mock_em_buckets, 64u, 502u, 0u);
+    uint64_t wrong_res = 0xDEADDEADDEADDEADULL;
+    uint32_t clone_eid = 502u, clone_unit = 0x400099u;
+    memcpy(g_mock_em + EM_DESCRIPTORS + 0u, &wrong_res, 8);
+    memcpy(g_mock_em + EM_DESCRIPTORS + 8u, &clone_eid, 4);
+    memcpy(g_mock_em + EM_DESCRIPTORS + 12u, &clone_unit, 4);
+
+    PutHashEntry(g_mock_inv_buckets, 64u, 0x7001u, 0u);
+    uint32_t pri_eid = 499u, sec_eid = 501u, sel = 2u;
+    memcpy(g_mock_inv_records + 0u, &pri_eid, 4);
+    memcpy(g_mock_inv_records + 4u, &sec_eid, 4);
+    memcpy(g_mock_inv_records + 0x1Cu, &sel, 4);
+
+    g_probeTick = GetTickCount64() - 2000ULL;
+    g_cb_tick((HfMod*)&g_mod_inst, 0.016f, NULL);
+    TEST_CHECK(g_attach_calls == 0 && g_probeEntity == 0u && g_probeOriginal == 0u && g_armed == 1,
+        "H3c: failed UnitOfEntity aborted AttachCopy, cleared g_probeEntity=0, and re-armed");
+
+    /* Tap secondary key while drawn -> DoSwap MUST NOT trigger or corrupt secondary slot! */
+    InterlockedExchange(&g_tapFlag, 1);
+    g_cb_tick((HfMod*)&g_mod_inst, 0.016f, NULL);
+    uint32_t cur_sec = 0u;
+    memcpy(&cur_sec, g_mock_inv_records + 4u, 4);
+    TEST_CHECK(g_swapStage == 0 && cur_sec == 501u,
+        "H3c: DoSwap refused to swap after failed attach; original pistol 501 untouched in secondary slot");
+
+    TEST_CHECK(hellforge_mod_unload(&g_api, (HfMod*)&g_mod_inst, HF_UNLOAD_REMOVE) == 0, "clean unload after H3c/H3d");
 }
 
 int main(int argc, char** argv)
@@ -458,6 +632,7 @@ int main(int argc, char** argv)
     test_secondary_table_and_modded_weapons(temp_dir);
     test_coop_hotjoin_authority_netid_attach_and_swap(temp_dir);
     test_keybind_parser_and_clean_thread_shutdown(temp_dir);
+    test_h3c_h3d_failed_spawn_and_failed_attach_recovery(temp_dir);
 
     printf("dedicated-melee-slot C11 unit suite: %d checks run, %d failed\n", g_tests_run, g_tests_failed);
     return g_tests_failed == 0 ? 0 : 1;

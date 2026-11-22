@@ -290,7 +290,9 @@ internal sealed class LinuxForgeHost : IForgeUiHost
         if (preview) { reason = null; return true; }
         if (player?.SessionActive == true && !SyncGameProcessObserved(true, player.State?.Status))
         {
-            reason = "Helldivers 2 is still launching (usually 15–30 seconds). Wait for the game window, or click Cancel Launch first.";
+            reason = player.OwnsSession
+                ? "Helldivers 2 is still launching (usually 15–30 seconds). Wait for the game window, or click Cancel Launch first."
+                : "Helldivers 2 is still launching in another Forge window (usually 15–30 seconds). Wait for the game window before closing.";
             return false;
         }
         if (operations.Busy || player?.SessionActive == true)

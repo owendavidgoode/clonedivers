@@ -2,7 +2,7 @@
   "format": 1,
   "id": "vibeslacker.dedicated-melee-slot",
   "name": "Dedicated Melee Slot",
-  "version": "1.5.2-clonedivers.1",
+  "version": "1.5.2-clonedivers.2",
   "description": "Carry a pistol and a melee weapon at once (Clonedivers 4-player co-op hardened build of v1.5.2). Pick machete, stun-lance, saber, stun-baton, hatchet or shovel from the loadout card box (packed at non-colliding patch_920; requires Bingus Shared Loader v15+) or melee-slot-weapon.txt; tap your secondary key again while drawn to toggle.",
   "gameplay": false,
   "coop": "per-player",

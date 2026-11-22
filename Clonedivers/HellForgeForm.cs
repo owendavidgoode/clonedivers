@@ -575,7 +575,8 @@ public sealed class HellForgeForm : Form
         UpdateState();
         launch.AccessibleName = launch.Text;
         if (preview) return;
-        later.Visible = !working && lastStatus?.Running == true && awaitingGameWindow;
+        bool launchingPreWindow = !working && lastStatus?.Running == true && awaitingGameWindow;
+        later.Visible = launchingPreWindow;
         if (!working)
         {
             if (OfferUpdate) ShowUpdateOffer(launcherRelease!.Version, updateFailed);
@@ -598,8 +599,10 @@ public sealed class HellForgeForm : Form
                     detail.Text = message.Text;
             }
         }
+        progress.Visible = working || launchingPreWindow;
+        if (launchingPreWindow) progress.Style = ProgressBarStyle.Marquee;
         message.Visible = working || (!string.IsNullOrWhiteSpace(message.Text) && message.Text != detail.Text);
-        activity.Visible = working || message.Visible || Cancellable;
+        activity.Visible = working || launchingPreWindow || message.Visible || Cancellable;
     }
     void UpdateState()
     {
@@ -1233,8 +1236,17 @@ public sealed class HellForgeForm : Form
     }
     protected override void OnFormClosing(FormClosingEventArgs e)
     {
-        // An in-flight CLI import must be allowed to finish. Closing this window never stops a game.
-        if (working) { e.Cancel = true; message.Text = "Please wait for pack preparation or the CLI operation to finish."; }
+        // An in-flight CLI import or pre-window launch staging must be allowed to finish unless explicitly cancelled.
+        if (working)
+        {
+            e.Cancel = true;
+            message.Text = "Please wait for pack preparation or the CLI operation to finish.";
+        }
+        else if (awaitingGameWindow && lastStatus?.Running == true)
+        {
+            e.Cancel = true;
+            detail.Text = "Helldivers 2 is still launching (usually 15–30 seconds). Wait for the game window, or click Cancel Launch first.";
+        }
         base.OnFormClosing(e);
     }
     protected override void Dispose(bool disposing)

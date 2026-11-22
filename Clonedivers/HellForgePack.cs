@@ -37,6 +37,8 @@ public static class HellForgePack
     /// True for any official or stray/demo/legacy Clonedivers or EmpireDivers Star Wars overhaul pack
     /// (such as local test/demo exports like pack.ef3458f5-f409-4f24-8933-05fdc10a2101) so mode switches
     /// disable competing overhaul packs and launch guards reject overlapping Star Wars overhauls.
+    /// Note: reserves HellForge pack.* display-name prefixes "Clonedivers*" and "EmpireDivers*" for full
+    /// Star Wars visual overhaul packs (sub-addons or gameplay mods should use distinct names or non-pack IDs).
     /// </summary>
     public static bool IsStarWarsOverhaulMod(HellForgeMod mod)
     {

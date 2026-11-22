@@ -30,6 +30,17 @@ internal static class LinuxForgePlayerTests
         check(legacyLinuxCovTrue.SquidSkin == "all-covenant" && legacyLinuxCovTrue.Covenant && legacyLinuxCovTrue.DeathTrooperVoice,
             "existing Linux forge.json with Covenant=true (no SquidSkin) upgrades cleanly to SquidSkin='all-covenant'");
 
+        // M4: Upgrading v2.0.3 manual PerformanceTier ('balanced'+'lighter' and 'ultra-potato'+'reduced512') reconciles PerformanceTier on Linux
+        var linuxM4BalPath = Path.Combine(root, "linux-m4-balanced.json");
+        File.WriteAllText(linuxM4BalPath, """{"Format":1,"Mode":"clonedivers","AutoPerformanceTier":false,"PerformanceTier":"balanced","Texture":"lighter"}""");
+        var linuxM4Bal = LinuxForgePreferences.Load(linuxM4BalPath);
+        var linuxM4PotPath = Path.Combine(root, "linux-m4-potato.json");
+        File.WriteAllText(linuxM4PotPath, """{"Format":1,"Mode":"empire","AutoPerformanceTier":false,"PerformanceTier":"ultra-potato","Texture":"reduced512"}""");
+        var linuxM4Pot = LinuxForgePreferences.Load(linuxM4PotPath);
+        check(!linuxM4Bal.AutoPerformanceTier && linuxM4Bal.Texture == "lighter" && linuxM4Bal.PerformanceTier == "high" &&
+              !linuxM4Pot.AutoPerformanceTier && linuxM4Pot.Texture == "reduced512" && linuxM4Pot.PerformanceTier == "low-512",
+              "M4: LinuxForgePreferences.Load reconciles v2.0.3 manual PerformanceTier with saved Texture");
+
         // Milestone 2: all 5 texture profiles + 3-way SquidSkin + DeathTrooperVoice + SelectionCommand flags on Linux
         foreach (var tex in new[] { "full", "lighter", "reduced1024", "reduced512", "potato256" })
         {
@@ -78,6 +89,18 @@ internal static class LinuxForgePlayerTests
                   st.SecondaryActionLabel == null &&
                   st.Progress == null,
                   "LinuxForgeHost transitions to 'Helldivers 2 is running' + primary 'END SESSION' once game is running (#67)");
+        }
+
+        // L4: LinuxForgeHost.CanClose omits 'Cancel Launch' when attached to an unowned session (!OwnsSession)
+        await using (var unownedHost = new LinuxForgeHost(["--forge"], new LinuxForgePreferences { InstallRoot = root }) { IsGameProcessRunning = () => false })
+        {
+            var unownedConn = new Connection { Running = true };
+            var unownedPlayer = new LinuxForgePlayer(unownedConn, new LinuxForgePreferences { InstallRoot = root });
+            await unownedPlayer.RefreshAsync();
+            typeof(LinuxForgeHost).GetField("player", System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic)!.SetValue(unownedHost, unownedPlayer);
+            bool canCloseUnowned = unownedHost.CanClose(out var unownedReason);
+            check(!canCloseUnowned && unownedReason != null && !unownedReason.Contains("Cancel Launch", StringComparison.Ordinal),
+                  "L4: LinuxForgeHost.CanClose does not instruct user to click Cancel Launch when !OwnsSession");
         }
 
         var legacy512LinuxDir = Path.Combine(root, "legacy-linux-config-512");

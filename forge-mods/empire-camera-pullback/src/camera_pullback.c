@@ -1,16 +1,17 @@
-/* Empire & Clone Camera Pullback (clonedivers.empire-camera-pullback 0.1.1)
+/* Empire & Clone Camera Pullback (clonedivers.empire-camera-pullback 0.1.2)
  * Target: Helldivers 2 Steam build 25480438, HellForge Mod SDK 16.
  *
  * Per-player third-person follow-camera pullback and dorsal-hull clearance for occupied
  * AT-TE / AT-ST combat walkers and Compact LEGO 3P armor kits, clamped against walls,
  * ceilings, and bulkheads via the engine's synchronous Havok damage_los_query raycast.
  *
- * v0.1.1 Performance & Safety Hardening:
+ * v0.1.1-0.1.2 Performance & Concurrency Hardening:
  *   - ZERO full-world unit scans on the render thread (eliminates the 65,672-unit D11 FPS drop).
  *   - Direct O(1) local player avatar Unit* lookup via LocalUser -> PlayerManager -> EntityManager
  *     descriptor reference -> LOOKUP_UNIT (eliminates co-op teammate avatar hijack as well).
- *   - Direct O(1) walker tracking via HF_ON_SPAWN + EntityManager descriptors (with a QPC-capped
- *     <= 16-unit micro-sliced fallback for live-reload / synthetic scenes).
+ *   - SRWLOCK + monotonic generation walker registry (render-thread-private unit_ref cache in g_rt).
+ *   - Render-thread-exclusive g_rt / g_health / g_watchdog synchronized via atomic g_cacheEpoch.
+ *   - Fail-closed Stingray Unit vtable pin verification (ECP_EXE_UNIT_VTABLE) before indirect calls.
  *   - Direct <= 32-child attachment garment check (removes 65k world-link fallback scan).
  *   - Unoverwritten-pose guard preventing cumulative camera drift while paused or sub-ticking.
  *   - 30-second QPC health telemetry + hard 1000 us safety watchdog that fails closed on overrun. */
@@ -76,12 +77,18 @@ typedef struct EcpEntityDescriptor {
 } EcpEntityDescriptor;
 
 typedef struct EcpWalkerSlot {
-    volatile LONG state;      /* 0 = empty, 1 = writing, 2 = valid */
+    int valid;
+    uint32_t generation;
     uint32_t entity;
     uint32_t network;
-    uint32_t cached_unit_ref;
     uint64_t entity_res;
 } EcpWalkerSlot;
+
+typedef struct EcpWalkerRefCache {
+    uint32_t entity;
+    uint32_t generation;
+    uint32_t unit_ref;
+} EcpWalkerRefCache;
 
 static const HfApi* g_hf;
 static HfMod* g_mod;
@@ -91,6 +98,8 @@ static uintptr_t g_gameBase;
 static EcpOptions g_opts;
 static volatile LONG g_disarmed = 1;     /* Starts disarmed until entering an allowed game state. */
 static volatile LONG g_sessionEnded = 0; /* Latches 1 permanently on HF_EVENT_SESSION_END / unload. */
+static volatile LONG g_cacheEpoch = 1;   /* Incremented by lifecycle callbacks; consumed on render thread. */
+static volatile LONG g_transitionLogs = 0;
 static volatile LONG g_userToggledOff = 0;
 static int g_prevKeyDown = 0;
 
@@ -103,13 +112,15 @@ static EcpRaycastFn g_raycast;
 static int g_raycastState; /* 0 = unchecked, 1 = verified, -1 = unavailable (fail-closed) */
 static int g_hookInstalled;
 
-/* Lock-free HF_ON_SPAWN walker registry & modded walker entity resource table. */
+/* SRWLOCK-synchronized HF_ON_SPAWN walker registry & modded walker entity resource table. */
+static SRWLOCK g_walkerLock = SRWLOCK_INIT;
 static EcpWalkerSlot g_walkerSlots[ECP_MAX_TRACKED_WALKERS];
-static volatile LONG g_walkerWriteCursor = 0;
+static uint32_t g_walkerGeneration = 0u;
+static uint32_t g_walkerWriteCursor = 0u;
 static uint64_t g_customWalkerEntities[ECP_MAX_CUSTOM_WALKERS];
-static volatile LONG g_customWalkerCount = 0;
+static uint32_t g_customWalkerCount = 0u;
 
-/* QPC timing, 30-second health telemetry, and hard frame-budget watchdog. */
+/* QPC timing, 30-second health telemetry, and hard frame-budget watchdog (mutated strictly on render thread). */
 static uint64_t g_qpf = 0ULL;
 #ifdef ECP_UNIT_TEST
 static uint64_t g_testSyntheticUs = 0ULL;
@@ -129,11 +140,11 @@ static struct {
     uint64_t tick_count;
     ULONGLONG next_log_ms;
     uint32_t row;
-    uint32_t transition_logs;
 } g_health;
 
-/* Cached render-camera & subject state (single-threaded on render step; purged on disarm). */
+/* Cached render-camera & subject state (exclusively read & mutated on the render thread). */
 static struct {
+    LONG seen_epoch;
     uintptr_t world;
     uint32_t cam_ref;
     uint32_t cam_scan_step;
@@ -159,6 +170,7 @@ static struct {
     uint32_t walker_scan_cursor;
     uint32_t walker_bg_tick;
     int walker_bg_sweep_done;
+    EcpWalkerRefCache walker_slot_cache[ECP_MAX_TRACKED_WALKERS];
 
     int has_last_written;
     uintptr_t last_written_world;
@@ -267,18 +279,41 @@ static int EcpReadPtr(uintptr_t addr, uintptr_t* out)
 
 static void EcpClearWalkerSlots(void)
 {
+    AcquireSRWLockExclusive(&g_walkerLock);
     for (uint32_t i = 0; i < ECP_MAX_TRACKED_WALKERS; i++) {
-        InterlockedExchange(&g_walkerSlots[i].state, 0);
+        g_walkerSlots[i].valid = 0;
+        g_walkerSlots[i].generation = ++g_walkerGeneration;
+        g_walkerSlots[i].entity = 0u;
+        g_walkerSlots[i].network = 0u;
+        g_walkerSlots[i].entity_res = 0ULL;
     }
+    g_walkerWriteCursor = 0u;
+    ReleaseSRWLockExclusive(&g_walkerLock);
 }
 
 static void EcpForgetRuntimeCache(void)
 {
+    LONG saved_epoch = g_rt.seen_epoch;
     memset(&g_rt, 0, sizeof(g_rt));
+    g_rt.seen_epoch = saved_epoch;
     g_rt.head_node = -1;
     g_rt.walker_pelvis_node = -1;
     g_rt.cam_best_sq = 4.0f;
     g_rt.last_bypass = ECP_BYPASS_DISARMED;
+}
+
+/* Resets render-thread-private cache, telemetry window, and per-mission watchdog strictly on the render thread. */
+static void EcpSyncEpochOnRenderThread(LONG epoch)
+{
+    EcpForgetRuntimeCache();
+    g_rt.seen_epoch = epoch;
+    InterlockedExchange(&g_watchdog.tripped, 0);
+    g_watchdog.slow_score = 0u;
+    g_watchdog.last_slow_us = 0ULL;
+    g_health.tick_us_sum = 0ULL;
+    g_health.tick_us_max = 0ULL;
+    g_health.tick_count = 0ULL;
+    g_health.next_log_ms = EcpNowMs() + ECP_HEALTH_FIRST_MS;
 }
 
 /* ---- Stingray Unit & SceneGraph Readers ------------------------------------------------------------------------- */
@@ -286,7 +321,10 @@ static void EcpForgetRuntimeCache(void)
 static uintptr_t EcpUnitVtableMethod(uintptr_t unit, uint32_t slot_offset)
 {
     uintptr_t vtbl = 0, fn = 0;
-    if (!EcpReadPtr(unit, &vtbl) || !EcpReadPtr(vtbl + slot_offset, &fn)) return 0;
+    if (g_exeBase == 0 || !EcpReadPtr(unit, &vtbl) || vtbl != g_exeBase + ECP_EXE_UNIT_VTABLE) {
+        return 0;
+    }
+    if (!EcpReadPtr(vtbl + slot_offset, &fn)) return 0;
     return fn;
 }
 
@@ -512,30 +550,40 @@ static int EcpIsWalkerEntityResource(uint64_t res)
 {
     if (res == 0ULL) return 0;
     if (ecp_is_walker_resource(res)) return 1;
-    LONG n = InterlockedCompareExchange(&g_customWalkerCount, 0, 0);
-    for (LONG i = 0; i < n && i < (LONG)ECP_MAX_CUSTOM_WALKERS; i++) {
-        if (g_customWalkerEntities[i] == res) return 1;
+    int match = 0;
+    AcquireSRWLockShared(&g_walkerLock);
+    for (uint32_t i = 0; i < g_customWalkerCount && i < ECP_MAX_CUSTOM_WALKERS; i++) {
+        if (g_customWalkerEntities[i] == res) {
+            match = 1;
+            break;
+        }
     }
-    return 0;
+    ReleaseSRWLockShared(&g_walkerLock);
+    return match;
 }
 
 static void EcpRefreshCustomWalkerEntities(HfMod* mod)
 {
-    InterlockedExchange(&g_customWalkerCount, 0);
-    if (g_hf == NULL || mod == NULL) return;
-    if (g_hf->size < offsetof(HfApi, content) + sizeof(void*) || g_hf->content == NULL) return;
-
-    LONG added = 0;
-    for (uint32_t idx = 0; idx < 256u && added < (LONG)ECP_MAX_CUSTOM_WALKERS; idx++) {
-        HfContent c;
-        memset(&c, 0, sizeof(c));
-        c.size = (uint32_t)sizeof(c);
-        if (!g_hf->content(mod, idx, &c)) break;
-        if (c.kind == HF_KIND_ENTITY && c.id != 0ULL && ecp_is_walker_resource(c.base)) {
-            g_customWalkerEntities[added++] = c.id;
+    uint64_t tmp[ECP_MAX_CUSTOM_WALKERS];
+    uint32_t added = 0u;
+    if (g_hf != NULL && mod != NULL &&
+        g_hf->size >= offsetof(HfApi, content) + sizeof(void*) && g_hf->content != NULL) {
+        for (uint32_t idx = 0; idx < 256u && added < ECP_MAX_CUSTOM_WALKERS; idx++) {
+            HfContent c;
+            memset(&c, 0, sizeof(c));
+            c.size = (uint32_t)sizeof(c);
+            if (!g_hf->content(mod, idx, &c)) break;
+            if (c.kind == HF_KIND_ENTITY && c.id != 0ULL && ecp_is_walker_resource(c.base)) {
+                tmp[added++] = c.id;
+            }
         }
     }
-    InterlockedExchange(&g_customWalkerCount, added);
+    AcquireSRWLockExclusive(&g_walkerLock);
+    g_customWalkerCount = added;
+    if (added > 0u) {
+        memcpy(g_customWalkerEntities, tmp, (size_t)added * sizeof(uint64_t));
+    }
+    ReleaseSRWLockExclusive(&g_walkerLock);
 }
 
 /* Direct Stingray Unit child attachment walk (avatar + 0x1D8 -> child + 0x1E0, <= 32 children).
@@ -998,14 +1046,23 @@ static void EcpResolveWalkerSubject(
         }
     }
 
-    /* Tier 1: O(1) HF_ON_SPAWN walker table resolved via EntityManager descriptors. */
+    /* Tier 1: O(1) HF_ON_SPAWN walker table (SRWLOCK snapshot + render-thread-private unit_ref cache). */
     uintptr_t em = EcpGetEntityManager();
+    EcpWalkerSlot slots_snap[ECP_MAX_TRACKED_WALKERS];
+    AcquireSRWLockShared(&g_walkerLock);
+    memcpy(slots_snap, g_walkerSlots, sizeof(slots_snap));
+    ReleaseSRWLockShared(&g_walkerLock);
+
     for (uint32_t i = 0; i < ECP_MAX_TRACKED_WALKERS; i++) {
-        if (InterlockedCompareExchange(&g_walkerSlots[i].state, 0, 0) != 2) continue;
-        uint32_t ent = g_walkerSlots[i].entity;
-        uint32_t net = g_walkerSlots[i].network;
-        uint32_t uref = g_walkerSlots[i].cached_unit_ref;
-        if (InterlockedCompareExchange(&g_walkerSlots[i].state, 0, 0) != 2 || g_walkerSlots[i].entity != ent) continue;
+        if (!slots_snap[i].valid || slots_snap[i].entity == 0u) continue;
+        uint32_t ent = slots_snap[i].entity;
+        uint32_t net = slots_snap[i].network;
+        uint32_t gen = slots_snap[i].generation;
+
+        uint32_t uref = 0u;
+        if (g_rt.walker_slot_cache[i].entity == ent && g_rt.walker_slot_cache[i].generation == gen) {
+            uref = g_rt.walker_slot_cache[i].unit_ref;
+        }
 
         uintptr_t u = uref != 0u ? g_lookupUnit(uref) : 0;
         if (u == 0 || EcpUnitRef(u) != uref) {
@@ -1015,11 +1072,21 @@ static void EcpResolveWalkerSubject(
                 ok = EcpReadDescriptorByNetwork(em, net, &d) && d.entity == ent;
             }
             if (!ok) {
-                if (em != 0) InterlockedCompareExchange(&g_walkerSlots[i].state, 0, 2);
+                g_rt.walker_slot_cache[i].unit_ref = 0u;
+                if (em != 0) {
+                    AcquireSRWLockExclusive(&g_walkerLock);
+                    if (g_walkerSlots[i].valid && g_walkerSlots[i].generation == gen && g_walkerSlots[i].entity == ent) {
+                        g_walkerSlots[i].valid = 0;
+                        g_walkerSlots[i].generation = ++g_walkerGeneration;
+                    }
+                    ReleaseSRWLockExclusive(&g_walkerLock);
+                }
                 continue;
             }
             uref = d.reference;
-            g_walkerSlots[i].cached_unit_ref = uref;
+            g_rt.walker_slot_cache[i].entity = ent;
+            g_rt.walker_slot_cache[i].generation = gen;
+            g_rt.walker_slot_cache[i].unit_ref = uref;
             u = uref != 0u ? g_lookupUnit(uref) : 0;
         }
         if (u == 0 || uref == 0u || EcpUnitRef(u) != uref) continue;
@@ -1273,8 +1340,7 @@ static void EcpFinishFrameTelemetry(LARGE_INTEGER frame_t0, EcpBypassReason bypa
     g_rt.last_bypass = bypass;
 
     if (g_rt.active_profile != g_rt.logged_profile) {
-        if (g_hf && g_hf->log && g_mod && g_health.transition_logs < 128u) {
-            g_health.transition_logs++;
+        if (g_hf && g_hf->log && g_mod && InterlockedIncrement(&g_transitionLogs) <= 128) {
             g_hf->log(
                 g_mod,
                 "ECP_CAMERA profile_change from=%s to=%s bypass_reason=%s",
@@ -1358,10 +1424,16 @@ static int EcpStateAllowed(uint32_t state)
 static void EcpApplyFrame(void)
 {
     if (!g_opts.enabled) return;
+    LONG epoch = InterlockedCompareExchange(&g_cacheEpoch, 0, 0);
     if (InterlockedCompareExchange(&g_sessionEnded, 0, 0) != 0 ||
         InterlockedCompareExchange(&g_disarmed, 0, 0) != 0) {
-        if (g_rt.world != 0 || g_rt.blend > 0.0f) EcpForgetRuntimeCache();
+        if (g_rt.seen_epoch != epoch || g_rt.world != 0 || g_rt.blend > 0.0f) {
+            EcpSyncEpochOnRenderThread(epoch);
+        }
         return;
+    }
+    if (g_rt.seen_epoch != epoch) {
+        EcpSyncEpochOnRenderThread(epoch);
     }
     if (InterlockedCompareExchange(&g_watchdog.tripped, 0, 0) != 0) {
         g_rt.last_bypass = ECP_BYPASS_WATCHDOG;
@@ -1604,68 +1676,62 @@ static void EcpOnSpawn(HfMod* mod, const HfSpawnEvent* ev, void* user)
     (void)user;
     if (!ev || ev->entity == 0u || !EcpIsWalkerEntityResource(ev->resource)) return;
 
+    AcquireSRWLockExclusive(&g_walkerLock);
     for (uint32_t i = 0; i < ECP_MAX_TRACKED_WALKERS; i++) {
-        if (InterlockedCompareExchange(&g_walkerSlots[i].state, 0, 0) == 2 &&
-            g_walkerSlots[i].entity == ev->entity) {
-            InterlockedExchange(&g_walkerSlots[i].state, 1);
+        if (g_walkerSlots[i].valid && g_walkerSlots[i].entity == ev->entity) {
+            g_walkerSlots[i].generation = ++g_walkerGeneration;
             g_walkerSlots[i].network = ev->network;
-            g_walkerSlots[i].cached_unit_ref = 0u;
             g_walkerSlots[i].entity_res = ev->resource;
-            InterlockedExchange(&g_walkerSlots[i].state, 2);
+            ReleaseSRWLockExclusive(&g_walkerLock);
             return;
         }
     }
 
     for (uint32_t i = 0; i < ECP_MAX_TRACKED_WALKERS; i++) {
-        if (InterlockedCompareExchange(&g_walkerSlots[i].state, 1, 0) == 0) {
+        if (!g_walkerSlots[i].valid) {
+            g_walkerSlots[i].valid = 1;
+            g_walkerSlots[i].generation = ++g_walkerGeneration;
             g_walkerSlots[i].entity = ev->entity;
             g_walkerSlots[i].network = ev->network;
-            g_walkerSlots[i].cached_unit_ref = 0u;
             g_walkerSlots[i].entity_res = ev->resource;
-            InterlockedExchange(&g_walkerSlots[i].state, 2);
+            ReleaseSRWLockExclusive(&g_walkerLock);
             return;
         }
     }
 
-    uint32_t victim = ((uint32_t)InterlockedIncrement(&g_walkerWriteCursor)) & (ECP_MAX_TRACKED_WALKERS - 1u);
-    InterlockedExchange(&g_walkerSlots[victim].state, 1);
+    uint32_t victim = (g_walkerWriteCursor++) & (ECP_MAX_TRACKED_WALKERS - 1u);
+    g_walkerSlots[victim].valid = 1;
+    g_walkerSlots[victim].generation = ++g_walkerGeneration;
     g_walkerSlots[victim].entity = ev->entity;
     g_walkerSlots[victim].network = ev->network;
-    g_walkerSlots[victim].cached_unit_ref = 0u;
     g_walkerSlots[victim].entity_res = ev->resource;
-    InterlockedExchange(&g_walkerSlots[victim].state, 2);
+    ReleaseSRWLockExclusive(&g_walkerLock);
 }
 
 static void EcpUpdateArmForState(uint32_t to_state)
 {
     if (InterlockedCompareExchange(&g_sessionEnded, 0, 0) != 0) {
         InterlockedExchange(&g_disarmed, 1);
-        EcpForgetRuntimeCache();
+        InterlockedIncrement(&g_cacheEpoch);
         return;
     }
     if (EcpStateAllowed(to_state)) {
         LONG was_disarmed = InterlockedCompareExchange(&g_disarmed, 0, 0);
         if (was_disarmed != 0) {
-            EcpForgetRuntimeCache();
+            InterlockedIncrement(&g_cacheEpoch);
             InterlockedExchange(&g_watchdog.tripped, 0);
-            g_watchdog.slow_score = 0u;
-            g_health.tick_us_sum = 0ULL;
-            g_health.tick_us_max = 0ULL;
-            g_health.tick_count = 0ULL;
-            g_health.next_log_ms = EcpNowMs() + ECP_HEALTH_FIRST_MS;
             InterlockedExchange(&g_disarmed, 0);
-            if (g_hf && g_hf->log && g_mod && g_health.transition_logs < 128u) {
-                g_health.transition_logs++;
+            if (g_hf && g_hf->log && g_mod && InterlockedIncrement(&g_transitionLogs) <= 128) {
                 g_hf->log(g_mod, "ECP_CAMERA armed state=%u", to_state);
             }
         }
     } else {
-        /* Immediate atomic disarm on 4 -> 5 (MISSION -> PREPARE_SHIP) and any non-allowed state. */
+        /* Immediate atomic disarm on 4 -> 5 (MISSION -> PREPARE_SHIP) and any non-allowed state.
+         * Never mutate g_rt/g_health/g_watchdog off the render thread; bump g_cacheEpoch instead! */
         LONG was_disarmed = InterlockedExchange(&g_disarmed, 1);
-        EcpForgetRuntimeCache();
+        InterlockedIncrement(&g_cacheEpoch);
         EcpClearWalkerSlots();
-        if (was_disarmed == 0 && g_hf && g_hf->log && g_mod && g_health.transition_logs < 128u) {
-            g_health.transition_logs++;
+        if (was_disarmed == 0 && g_hf && g_hf->log && g_mod && InterlockedIncrement(&g_transitionLogs) <= 128) {
             g_hf->log(g_mod, "ECP_CAMERA disarmed state=%u", to_state);
         }
     }
@@ -1694,7 +1760,7 @@ static void EcpOnMissionEnd(HfMod* mod, const HfStateEvent* ev, void* user)
     (void)ev;
     (void)user;
     InterlockedExchange(&g_disarmed, 1);
-    EcpForgetRuntimeCache();
+    InterlockedIncrement(&g_cacheEpoch);
     EcpClearWalkerSlots();
 }
 
@@ -1780,10 +1846,10 @@ static void EcpOnGameLoaded(HfMod* mod, HfEvent event, void* user)
     EcpUpdateArmForState(cur_state);
 
     if (g_opts.allow_experimental_spring_arm && g_hf->log) {
-        g_hf->log(mod, "note: allow_experimental_spring_arm is set, but raw game.dll .data spring-arm writes remain disabled in 0.1.1; using verified post-solve Havok raycast clamp");
+        g_hf->log(mod, "note: allow_experimental_spring_arm is set, but raw game.dll .data spring-arm writes remain disabled in 0.1.2; using verified post-solve Havok raycast clamp");
     }
     if (g_hf->log) {
-        g_hf->log(mod, "ready v0.1.1 (O(1) lookup, watchdog=%lluus): walker=%.2fm/+%.2fm (AT-ST=%.2fm/+%.2fm), lego=%s (%.2fm/%+.2fm), margin=%.2fm",
+        g_hf->log(mod, "ready v0.1.2 (O(1) lookup, watchdog=%lluus): walker=%.2fm/+%.2fm (AT-ST=%.2fm/+%.2fm), lego=%s (%.2fm/%+.2fm), margin=%.2fm",
             (unsigned long long)ECP_WATCHDOG_WARN_US,
             g_opts.walker_pullback_distance, g_opts.walker_lift_z,
             g_opts.atst_scaled_pullback_distance, g_opts.atst_scaled_lift_z,
@@ -1807,9 +1873,14 @@ HF_MOD_EXPORT int hellforge_mod_init(const HfApi* api, HfMod* mod)
     memset(&g_health, 0, sizeof(g_health));
     InterlockedExchange(&g_sessionEnded, 0);
     InterlockedExchange(&g_disarmed, 1);
+    InterlockedExchange(&g_cacheEpoch, 1);
+    InterlockedExchange(&g_transitionLogs, 0);
     InterlockedExchange(&g_userToggledOff, 0);
-    InterlockedExchange(&g_customWalkerCount, 0);
+    AcquireSRWLockExclusive(&g_walkerLock);
+    g_customWalkerCount = 0u;
+    ReleaseSRWLockExclusive(&g_walkerLock);
     EcpClearWalkerSlots();
+    g_rt.seen_epoch = 0;
     EcpForgetRuntimeCache();
 
     char ini_path[1024];
@@ -1848,12 +1919,12 @@ HF_MOD_EXPORT int hellforge_mod_unload(const HfApi* api, HfMod* mod, uint32_t re
     (void)reason;
     InterlockedExchange(&g_sessionEnded, 1);
     InterlockedExchange(&g_disarmed, 1);
+    InterlockedIncrement(&g_cacheEpoch);
     if (g_hookInstalled && api != NULL && api->size >= offsetof(HfApi, unhook) + sizeof(void*) && api->unhook != NULL) {
         api->unhook(mod, g_exeBase + ECP_EXE_CAMERA_STEP);
     }
     g_hookInstalled = 0;
     EcpClearWalkerSlots();
-    EcpForgetRuntimeCache();
     return 0;
 }
 

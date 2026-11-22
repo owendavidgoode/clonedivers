@@ -532,16 +532,26 @@ static inline int cd_load_host_options_file(const char* utf8_path, CdHostOptions
         return -1;
     }
 
-    char buf[CD_HOST_OPTIONS_MAX_BYTES + 1u];
     DWORD want = bhfi.nFileSizeLow;
+    HANDLE heap = GetProcessHeap();
+    char* buf = heap ? (char*)HeapAlloc(heap, 0, (SIZE_T)want + 1u) : NULL;
+    if (!buf) {
+        CloseHandle(h);
+        return -1;
+    }
     DWORD got = 0;
     BOOL ok = ReadFile(h, buf, want, &got, NULL);
     CloseHandle(h);
-    if (!ok || got != want) return -1;
+    if (!ok || got != want) {
+        HeapFree(heap, 0, buf);
+        return -1;
+    }
     buf[got] = '\0';
 
     CdHostOptions parsed;
-    if (cd_parse_host_options_json(buf, (size_t)got, &parsed) != 1) {
+    int parse_rc = cd_parse_host_options_json(buf, (size_t)got, &parsed);
+    HeapFree(heap, 0, buf);
+    if (parse_rc != 1) {
         return -1;
     }
     parsed.mtime_100ns = ((uint64_t)bhfi.ftLastWriteTime.dwHighDateTime << 32) |

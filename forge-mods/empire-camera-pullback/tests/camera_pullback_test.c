@@ -1,4 +1,4 @@
-/* Comprehensive C11 unit, offline-capture & 65,672-unit D11 stress suite for empire-camera-pullback 0.1.1.
+/* Comprehensive C11 unit, offline-capture & 65,672-unit D11 stress suite for empire-camera-pullback 0.1.2.
  * Exercises the exact production implementation in ../src/camera_pullback.c across:
  *   1. INI parsing, defaults, UTF-8 BOM, clamping, and fail-closed allow_experimental_spring_arm.
  *   2. All 61 Compact LEGO (resource, expected_node_count) pairs + vanilla node-count rejection.
@@ -90,30 +90,30 @@ typedef struct MockPropUnit {
     MockSceneGraph graph;
 } MockPropUnit;
 
-static uintptr_t g_prop_vtable_addr = 0;
+#define MOCK_PROP_TAG 0x50524F50u
 
 static uintptr_t MockVtableGraph(uintptr_t u)
 {
-    if (*(const uintptr_t*)u == g_prop_vtable_addr) {
+    if (((const MockPropUnit*)u)->pad0C == MOCK_PROP_TAG) {
         return (uintptr_t)&((MockPropUnit*)u)->graph;
     }
     return (uintptr_t)&((MockUnit*)u)->graph;
 }
 static int MockVtableCamCount(uintptr_t u)
 {
-    if (*(const uintptr_t*)u == g_prop_vtable_addr) {
+    if (((const MockPropUnit*)u)->pad0C == MOCK_PROP_TAG) {
         return ((MockPropUnit*)u)->cam_count;
     }
     return ((MockUnit*)u)->cam_count;
 }
 static uintptr_t MockVtableCamera(uintptr_t u, uint32_t idx)
 {
-    if (*(const uintptr_t*)u == g_prop_vtable_addr) return 0;
+    if (((const MockPropUnit*)u)->pad0C == MOCK_PROP_TAG) return 0;
     return idx == 0 ? (uintptr_t)&((MockUnit*)u)->cam : 0;
 }
 
-static uint8_t g_mock_vtable[0x200];
-static uint8_t g_mock_prop_vtable[0x200];
+static uint8_t g_mock_exe_module[ECP_EXE_UNIT_VTABLE + 0x200];
+static uint8_t g_mock_rogue_vtable[0x200];
 static uint8_t g_mock_world[0x231000];
 static uintptr_t g_mock_unit_list[16];
 static uint32_t g_mock_unit_count;
@@ -133,10 +133,11 @@ static MockUnit g_cam_unit;
 static MockUnit g_diver_unit;
 static MockUnit g_garment_unit;
 static MockUnit g_walker_unit;
+static MockUnit g_walker_unit_b;
 static MockUnit g_teammate_unit;
 static MockUnit g_teammate_garment;
 
-static uint32_t g_mock_game_state = HF_STATE_MISSION;
+static volatile uint32_t g_mock_game_state = HF_STATE_MISSION;
 static uint32_t g_mock_browse_cam = HF_BROWSE_CAMERA_IDLE;
 static uint32_t g_mock_net_to_entity_id = 0x100055u;
 static uint32_t g_mock_net_to_entity_key = 0x42u;
@@ -144,6 +145,8 @@ static uint32_t g_mock_net_to_entity_key = 0x42u;
 static uint64_t g_hf_read_calls = 0;
 static int g_orig_step_calls = 0;
 static int g_set_pose_calls = 0;
+static volatile LONG g_invalid_pose_calls = 0;
+static volatile LONG g_rogue_vtable_calls = 0;
 static int g_update_unit_calls = 0;
 static int g_mutate_cam_pose_in_place = 0;
 static float g_last_set_pose[16];
@@ -261,6 +264,10 @@ static void MockOrigStep(void* app)
 
 static void MockSetLocalPose(uint32_t ref, int32_t node, const float pose[16])
 {
+    if (ref == 0u || pose == NULL || !isfinite(pose[0]) ||
+        (pose[0] == 0.0f && pose[1] == 0.0f && pose[2] == 0.0f)) {
+        InterlockedIncrement(&g_invalid_pose_calls);
+    }
     if (node == 0) {
         g_set_pose_calls++;
         memcpy(g_last_set_pose, pose, sizeof(g_last_set_pose));
@@ -283,6 +290,7 @@ static uintptr_t MockLookupUnit(uint32_t ref)
     if (ref == g_cam_unit.ref) return (uintptr_t)&g_cam_unit;
     if (ref == g_diver_unit.ref) return (uintptr_t)&g_diver_unit;
     if (ref == g_walker_unit.ref) return (uintptr_t)&g_walker_unit;
+    if (ref == g_walker_unit_b.ref) return (uintptr_t)&g_walker_unit_b;
     if (ref == g_teammate_unit.ref) return (uintptr_t)&g_teammate_unit;
     return 0;
 }
@@ -346,7 +354,7 @@ static void InitLocalPoseLookingPlusY(float p[16], float x, float y, float z)
 static void InitMockUnit(MockUnit* u, uint32_t ref, uint64_t res, uint32_t nodes, int cameras)
 {
     memset(u, 0, sizeof(*u));
-    u->vtable = (uintptr_t)g_mock_vtable;
+    u->vtable = (uintptr_t)(g_mock_exe_module + ECP_EXE_UNIT_VTABLE);
     u->ref = ref;
     u->resource_storage = res;
     u->res_ptr = (uintptr_t)&u->resource_storage;
@@ -509,20 +517,28 @@ static void ConfigureCoopPlayers(
 static HfApi g_mock_api;
 static struct { const HfApi* api; } g_mock_mod_obj;
 
+static uintptr_t RogueVtableTrap(uintptr_t u)
+{
+    (void)u;
+    InterlockedIncrement(&g_rogue_vtable_calls);
+    return 0;
+}
+
 static void ResetHarnessScene(void)
 {
-    memset(g_mock_vtable, 0, sizeof(g_mock_vtable));
-    memset(g_mock_prop_vtable, 0, sizeof(g_mock_prop_vtable));
-    g_prop_vtable_addr = (uintptr_t)g_mock_prop_vtable;
+    uint8_t* unit_vtbl = g_mock_exe_module + ECP_EXE_UNIT_VTABLE;
+    memset(unit_vtbl, 0, 0x200);
+    memset(g_mock_rogue_vtable, 0, sizeof(g_mock_rogue_vtable));
     uintptr_t fn_g = (uintptr_t)MockVtableGraph;
     uintptr_t fn_cc = (uintptr_t)MockVtableCamCount;
     uintptr_t fn_c = (uintptr_t)MockVtableCamera;
-    memcpy(g_mock_vtable + ECP_UNIT_VTABLE_GRAPH, &fn_g, sizeof(fn_g));
-    memcpy(g_mock_vtable + ECP_UNIT_VTABLE_CAM_COUNT, &fn_cc, sizeof(fn_cc));
-    memcpy(g_mock_vtable + ECP_UNIT_VTABLE_CAMERA, &fn_c, sizeof(fn_c));
-    memcpy(g_mock_prop_vtable + ECP_UNIT_VTABLE_GRAPH, &fn_g, sizeof(fn_g));
-    memcpy(g_mock_prop_vtable + ECP_UNIT_VTABLE_CAM_COUNT, &fn_cc, sizeof(fn_cc));
-    memcpy(g_mock_prop_vtable + ECP_UNIT_VTABLE_CAMERA, &fn_c, sizeof(fn_c));
+    uintptr_t fn_rogue = (uintptr_t)RogueVtableTrap;
+    memcpy(unit_vtbl + ECP_UNIT_VTABLE_GRAPH, &fn_g, sizeof(fn_g));
+    memcpy(unit_vtbl + ECP_UNIT_VTABLE_CAM_COUNT, &fn_cc, sizeof(fn_cc));
+    memcpy(unit_vtbl + ECP_UNIT_VTABLE_CAMERA, &fn_c, sizeof(fn_c));
+    memcpy(g_mock_rogue_vtable + ECP_UNIT_VTABLE_GRAPH, &fn_rogue, sizeof(fn_rogue));
+    memcpy(g_mock_rogue_vtable + ECP_UNIT_VTABLE_CAM_COUNT, &fn_rogue, sizeof(fn_rogue));
+    memcpy(g_mock_rogue_vtable + ECP_UNIT_VTABLE_CAMERA, &fn_rogue, sizeof(fn_rogue));
 
     memset(&g_mock_api, 0, sizeof(g_mock_api));
     g_mock_api.version = 16;
@@ -549,7 +565,10 @@ static void ResetHarnessScene(void)
     g_hf_read_calls = 0;
     g_orig_step_calls = 0;
     g_set_pose_calls = 0;
+    InterlockedExchange(&g_invalid_pose_calls, 0);
+    InterlockedExchange(&g_rogue_vtable_calls, 0);
     g_update_unit_calls = 0;
+    memset(&g_walker_unit_b, 0, sizeof(g_walker_unit_b));
     g_log_count = 0;
     memset(g_log_history, 0, sizeof(g_log_history));
     g_last_status[0] = '\0';
@@ -584,7 +603,7 @@ static void ResetHarnessScene(void)
     g_opts.blend_in_seconds = 0.0f; /* Instant 1.0 blend in deterministic tests unless testing ramp. */
     g_hookInstalled = 1;
     ecp_test_bind_engine_fns(
-        0x140000000ULL,
+        (uintptr_t)g_mock_exe_module,
         (uintptr_t)g_mock_game_module,
         MockOrigStep,
         MockSetLocalPose,
@@ -896,13 +915,16 @@ static void test_teardown_4_to_5_session_end_and_mxcsr_lasterror(void)
 
     g_set_pose_calls = 0;
     g_update_unit_calls = 0;
+    LONG epoch_before = InterlockedCompareExchange(&g_cacheEpoch, 0, 0);
     HfStateEvent sev = {{sizeof(sev), HF_ON_STATE, 10}, HF_STATE_MISSION, HF_STATE_PREPARE_SHIP};
     g_mock_game_state = HF_STATE_PREPARE_SHIP;
     if (g_sub_state) g_sub_state((HfMod*)&g_mock_mod_obj, &sev, NULL);
     TEST_CHECK(InterlockedCompareExchange(&g_disarmed, 0, 0) == 1, "4 -> 5 atomically disarmed");
-    TEST_CHECK(g_rt.world == 0 && g_rt.cam_ref == 0u, "cached world & unit handles purged on 4 -> 5");
+    TEST_CHECK(InterlockedCompareExchange(&g_cacheEpoch, 0, 0) != epoch_before && g_rt.cam_ref != 0u,
+        "H1: 4 -> 5 state callback bumps g_cacheEpoch without touching g_rt off the render thread");
 
     EcpStepDetour(NULL);
+    TEST_CHECK(g_rt.world == 0 && g_rt.cam_ref == 0u, "H1: render thread purges g_rt on g_cacheEpoch mismatch");
     TEST_CHECK(g_set_pose_calls == 0 && g_update_unit_calls == 0, "zero UPDATE_UNIT calls during 4 -> 5 teardown");
 
     EcpUpdateArmForState(HF_STATE_MISSION);
@@ -930,8 +952,9 @@ static void test_level11_65672_unit_stress_and_qpc_budget(void)
 
     ResetHarnessScene();
     for (uint32_t i = 0; i < kD11Units; i++) {
-        props[i].vtable = (uintptr_t)g_mock_prop_vtable;
+        props[i].vtable = (uintptr_t)(g_mock_exe_module + ECP_EXE_UNIT_VTABLE);
         props[i].ref = 0x500000u + i;
+        props[i].pad0C = MOCK_PROP_TAG;
         props[i].resource_storage = 0xDEAD000000000000ULL + (uint64_t)i;
         props[i].res_ptr = (uintptr_t)&props[i].resource_storage;
         props[i].cam_count = 0;
@@ -1200,6 +1223,141 @@ static void test_health_telemetry_and_hard_watchdog(void)
     EcpUpdateArmForState(HF_STATE_PREPARE_SHIP);
     EcpUpdateArmForState(HF_STATE_MISSION);
     TEST_CHECK(InterlockedCompareExchange(&g_watchdog.tripped, 0, 0) == 0, "watchdog resets cleanly for next mission");
+    EcpStepDetour(NULL);
+    TEST_CHECK(g_watchdog.slow_score == 0u && g_rt.seen_epoch == InterlockedCompareExchange(&g_cacheEpoch, 0, 0),
+        "H1: render thread resets g_watchdog.slow_score and syncs seen_epoch on new mission");
+}
+
+static volatile LONG g_churn_stop = 0;
+
+static DWORD WINAPI StateAndSpawnChurnThread(LPVOID param)
+{
+    (void)param;
+    for (uint32_t iter = 0; iter < 2000u && InterlockedCompareExchange(&g_churn_stop, 0, 0) == 0; iter++) {
+        g_mock_game_state = HF_STATE_PREPARE_SHIP;
+        EcpUpdateArmForState(HF_STATE_PREPARE_SHIP);
+        if ((iter & 3u) == 0u && g_sub_mend) {
+            HfStateEvent mend = {{sizeof(mend), HF_ON_MISSION_END, iter}, HF_STATE_MISSION, HF_STATE_PREPARE_SHIP};
+            g_sub_mend((HfMod*)&g_mock_mod_obj, &mend, NULL);
+        }
+        g_mock_game_state = HF_STATE_MISSION;
+        EcpUpdateArmForState(HF_STATE_MISSION);
+
+        HfSpawnEvent sp = {
+            {sizeof(sp), HF_ON_SPAWN, iter},
+            0x200010u + (iter % 20u),
+            0x90u + (iter % 20u),
+            kEcpWalkerResources[iter & 3u],
+            1u
+        };
+        if (g_sub_spawn) g_sub_spawn((HfMod*)&g_mock_mod_obj, &sp, NULL);
+        if ((iter % 17u) == 0u) EcpClearWalkerSlots();
+    }
+    return 0;
+}
+
+static void test_h1_h2_m3_concurrency_and_vtable_guards(void)
+{
+    /* 1. M3: Verify Unit vtable pin in offline capture (013F6000.bin) if present, and fail-closed rejection on mismatch. */
+    const char* rdata_path =
+        "D:\\ClaudeWork\\clonedivers-lab\\camera-evidence-astra\\camera-capture-mission\\capture-helldivers2.exe-013F6000.bin";
+    FILE* rf = fopen(rdata_path, "rb");
+    if (rf) {
+        uint64_t fn_graph = 0, fn_cam_count = 0, fn_cam = 0;
+        long base_off = (long)(ECP_EXE_UNIT_VTABLE - 0x013F6000u);
+        TEST_CHECK(fseek(rf, base_off + (long)ECP_UNIT_VTABLE_GRAPH, SEEK_SET) == 0 &&
+                   fread(&fn_graph, 1, 8, rf) == 8, "read Unit vtable +0xE8 in 013F6000.bin");
+        TEST_CHECK(fseek(rf, base_off + (long)ECP_UNIT_VTABLE_CAM_COUNT, SEEK_SET) == 0 &&
+                   fread(&fn_cam_count, 1, 8, rf) == 8, "read Unit vtable +0x160 in 013F6000.bin");
+        TEST_CHECK(fseek(rf, base_off + (long)ECP_UNIT_VTABLE_CAMERA, SEEK_SET) == 0 &&
+                   fread(&fn_cam, 1, 8, rf) == 8, "read Unit vtable +0x168 in 013F6000.bin");
+        /* PASS3.md: exe_base = 0x00007FF648DF0000; slots point to +0x2BD870, +0x2BD950, +0x2BD960 */
+        TEST_CHECK((fn_graph & 0xFFFFu) == 0xD870u &&
+                   (fn_cam_count - fn_graph) == (0x2BD950ULL - 0x2BD870ULL) &&
+                   (fn_cam - fn_graph) == (0x2BD960ULL - 0x2BD870ULL),
+                   "M3: offline capture confirms Stingray Unit vtable slots at exe+0x1676D80");
+        fclose(rf);
+    }
+
+    ResetHarnessScene();
+    g_garment_unit.vtable = (uintptr_t)g_mock_rogue_vtable;
+    EcpStepDetour(NULL);
+    TEST_CHECK(InterlockedCompareExchange(&g_rogue_vtable_calls, 0, 0) == 0 && g_set_pose_calls == 0,
+        "M3: non-Unit vtable on child attachment rejected with 0 indirect vtable calls");
+
+    ResetHarnessScene();
+    g_cam_unit.vtable = (uintptr_t)g_mock_rogue_vtable;
+    EcpStepDetour(NULL);
+    TEST_CHECK(InterlockedCompareExchange(&g_rogue_vtable_calls, 0, 0) == 0 && g_set_pose_calls == 0,
+        "M3: non-Unit vtable in world->units rejected with 0 indirect vtable calls");
+
+    /* 2. H2: Render-thread-private walker_slot_cache + generation counter prevents stale unit_ref leaks across slot reuse. */
+    ResetHarnessScene();
+    g_opts.lego_enabled = 0;
+    InitMockUnit(&g_walker_unit, 0x400010u, kEcpWalkerResources[0], 198u, 0);
+    g_walker_unit.node_names[13] = ECP_NODE_HASH_ATST_PELVIS;
+    InitIdentityWorldMatrix(g_walker_unit.world_poses[0], 0.0f, 3.0f, 0.0f);
+    InitIdentityWorldMatrix(g_walker_unit.world_poses[13], 0.0f, 3.0f, 2.06f);
+
+    InitMockUnit(&g_walker_unit_b, 0x400020u, kEcpWalkerResources[1], 106u, 0);
+    g_walker_unit_b.node_names[12] = ECP_NODE_HASH_ATST_PELVIS;
+    InitIdentityWorldMatrix(g_walker_unit_b.world_poses[0], 0.0f, 3.0f, 0.0f);
+    InitIdentityWorldMatrix(g_walker_unit_b.world_poses[12], 0.0f, 3.0f, 4.70f); /* Film-scale S2c EXO-49 AT-ST! */
+
+    InitLocalPoseLookingPlusY(g_cam_unit.local_poses[0], 0.0f, -2.5f, 2.4f);
+    InitIdentityWorldMatrix((float*)(g_mock_world + ECP_WORLD_RENDER_POSE), 0.0f, -2.5f, 2.4f);
+
+    RegisterMockEntityDescriptor(9u, kEcpWalkerResources[0], 0x200001u, g_walker_unit.ref, 0x91u, 1u);
+    HfSpawnEvent sp_a = {{sizeof(sp_a), HF_ON_SPAWN, 1}, 0x200001u, 0x91u, kEcpWalkerResources[0], 1u};
+    g_sub_spawn((HfMod*)&g_mock_mod_obj, &sp_a, NULL);
+    g_diver_unit.graph.link_parent = g_walker_unit.graph.world_poses;
+
+    EcpStepDetour(NULL);
+    TEST_CHECK(g_set_pose_calls == 1 && g_rt.active_profile == ECP_PROFILE_WALKER &&
+               g_rt.walker_slot_cache[0].unit_ref == g_walker_unit.ref,
+               "H2: slot 0 cached Walker A unit_ref privately in g_rt");
+
+    /* Recycle slot 0 via EcpClearWalkerSlots + new spawn of Walker B (EXO-49 S2c AT-ST) while stale Walker A still exists! */
+    EcpClearWalkerSlots();
+    RegisterMockEntityDescriptor(10u, kEcpWalkerResources[1], 0x200002u, g_walker_unit_b.ref, 0x92u, 1u);
+    HfSpawnEvent sp_b = {{sizeof(sp_b), HF_ON_SPAWN, 2}, 0x200002u, 0x92u, kEcpWalkerResources[1], 1u};
+    g_sub_spawn((HfMod*)&g_mock_mod_obj, &sp_b, NULL);
+    g_diver_unit.graph.link_parent = g_walker_unit_b.graph.world_poses;
+    g_rt.walker_ref = 0u; /* Force Tier-1 lookup from slot 0 */
+    g_set_pose_calls = 0;
+
+    EcpStepDetour(NULL);
+    TEST_CHECK(g_set_pose_calls == 1 && g_rt.active_profile == ECP_PROFILE_WALKER_ATST_SCALED &&
+               g_rt.walker_slot_cache[0].unit_ref == g_walker_unit_b.ref,
+               "H2: slot 0 generation bump invalidated stale Walker A ref and resolved Walker B cleanly");
+
+    /* Same-entity re-spawn update on 0x200002 -> bumps generation & refreshes unit_ref! */
+    g_walker_unit_b.ref = 0x400021u;
+    RegisterMockEntityDescriptor(10u, kEcpWalkerResources[1], 0x200002u, g_walker_unit_b.ref, 0x93u, 1u);
+    HfSpawnEvent sp_b2 = {{sizeof(sp_b2), HF_ON_SPAWN, 3}, 0x200002u, 0x93u, kEcpWalkerResources[1], 1u};
+    g_sub_spawn((HfMod*)&g_mock_mod_obj, &sp_b2, NULL);
+    g_rt.walker_ref = 0u;
+    g_set_pose_calls = 0;
+
+    EcpStepDetour(NULL);
+    TEST_CHECK(g_set_pose_calls == 1 && g_rt.walker_slot_cache[0].unit_ref == 0x400021u,
+               "H2: same-entity re-spawn bumped generation and refreshed unit_ref");
+
+    /* 3. H1 + H2 Multi-Threaded Stress Test: concurrent state/mission-end/spawn churn vs render-thread EcpStepDetour. */
+    ResetHarnessScene();
+    g_mutate_cam_pose_in_place = 1;
+    InterlockedExchange(&g_churn_stop, 0);
+    InterlockedExchange(&g_invalid_pose_calls, 0);
+    HANDLE worker = CreateThread(NULL, 0, StateAndSpawnChurnThread, NULL, 0, NULL);
+    TEST_CHECK(worker != NULL, "spawned concurrent H1/H2 churn thread");
+    for (uint32_t f = 0; f < 2000u; f++) {
+        EcpStepDetour(NULL);
+    }
+    InterlockedExchange(&g_churn_stop, 1);
+    WaitForSingleObject(worker, 5000);
+    CloseHandle(worker);
+    TEST_CHECK(InterlockedCompareExchange(&g_invalid_pose_calls, 0, 0) == 0,
+        "H1/H2: 0 invalid/zeroed cam_ref or base_pose writes across 2,000 concurrent state/teardown/spawn transitions");
 }
 
 int main(int argc, char** argv)
@@ -1218,7 +1376,8 @@ int main(int argc, char** argv)
     test_coop_teammate_hijack_and_walker_fail_closed();
     test_paused_unoverwritten_pose_drift_guard();
     test_health_telemetry_and_hard_watchdog();
+    test_h1_h2_m3_concurrency_and_vtable_guards();
 
-    printf("empire-camera-pullback v0.1.1 unit suite: %d checks run, %d failed\n", g_tests_run, g_tests_failed);
+    printf("empire-camera-pullback v0.1.2 unit suite: %d checks run, %d failed\n", g_tests_run, g_tests_failed);
     return g_tests_failed == 0 ? 0 : 1;
 }

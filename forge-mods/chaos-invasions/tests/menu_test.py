@@ -114,7 +114,7 @@ return checks
     proof = {
         'passed': True,
         'checks': count,
-        'version': '0.3.2',
+        'version': '0.3.3',
         'runtime': str(DLL),
         'runtime_sha256': hashlib.sha256(DLL.read_bytes()).hexdigest(),
         'source_sha256': hashlib.sha256(source.encode()).hexdigest(),
@@ -122,7 +122,7 @@ return checks
         'game_launched': False,
     }
     (ROOT / 'build/menu-tests.json').write_text(json.dumps(proof, indent=2) + '\n', encoding='utf-8')
-    print(f'PASS {count} LuaJIT menu checks (0.3.2); mocked IO; no game launch')
+    print(f'PASS {count} LuaJIT menu checks (0.3.3); mocked IO; no game launch')
     return 0
 
 

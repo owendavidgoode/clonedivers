@@ -89,7 +89,7 @@ internal static class Milestone1CoreTests
             DeltaSquad = false,
             AutoPerformanceTier = false,
             PerformanceTier = "ultra-potato",
-            Texture = "reduced512",
+            Texture = "potato256",
             SoundEffectsEnabled = false,
             DiscordRpcEnabled = false,
             MinimizeToTray = true,

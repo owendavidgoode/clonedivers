@@ -1,4 +1,4 @@
-/* Dedicated Melee Slot 1.5.2-clonedivers.1 (vibeslacker.dedicated-melee-slot).
+/* Dedicated Melee Slot 1.5.2-clonedivers.2 (vibeslacker.dedicated-melee-slot).
  * Original work Copyright (c) 2026 vibeslacker (MIT License, tag v1.5.2 + LoadSlotKeys from v1.6.3).
  * Clonedivers 4-player co-op & SDK-16 patches Copyright (c) 2026 Clonedivers Contributors (MIT License).
  *
@@ -69,10 +69,11 @@ static AttachFn g_attachFn;
 static PkgReqFn g_pkgReq;
 static int g_hookInstalled;
 
-static volatile uint32_t g_avatar;
-static volatile uint32_t g_weaponEventAvatar;
-static volatile uint32_t g_probeEntity;
-static volatile uint32_t g_probeOriginal;
+/* Avatar / probe / swap state: mutated strictly on the game thread (Tick / callbacks / SpawnReqDetour). */
+static volatile LONG g_avatar;
+static volatile LONG g_weaponEventAvatar;
+static volatile LONG g_probeEntity;
+static volatile LONG g_probeOriginal;
 static volatile LONG g_missionOn;
 static volatile LONG g_armed;          /* 1 = ready to clone beside the next local secondary spawn */
 static volatile LONG g_spawningClone;  /* recursion guard around our own g_spawnReq call */
@@ -95,8 +96,10 @@ static volatile uint64_t g_copyResource;
 static volatile uint64_t g_secondaryRes;
 
 static uint8_t* g_spawnScratch;
-static HANDLE g_invThread;
+static HANDLE g_stopEvent;
 static HANDLE g_keyThread;
+static FILETIME g_lastKeysWhen;
+static char g_lastKeysPath[MAX_PATH + 160];
 
 /* Configurable slot keys (defaults: 1 = scan 0x02 / VK '1', 2 = scan 0x03 / VK '2'). */
 static volatile LONG g_keyScan[3] = {0, 0x02, 0x03};
@@ -106,6 +109,8 @@ static volatile LONG g_keyMs[3]   = {0, 25,   25};
 #ifdef DMS_UNIT_TEST
 static char g_testConfigDir[MAX_PATH];
 static int g_testForceFocused = 1;
+static volatile LONG g_testSentKeyDowns = 0;
+static volatile LONG g_testSentKeyUps = 0;
 #endif
 
 /* Sorted table of all 25 build-25480438 armory-type-3 secondary weapon entity resource IDs (hellforge_content.h). */
@@ -303,13 +308,13 @@ static int QueryLocalPlayerAvatar(uintptr_t game, uint32_t* out_avatar)
 
 static void DropAttachedMeleeForRespawn(const char* reason)
 {
-    g_probeEntity = 0u;
-    g_probeOriginal = 0u;
-    g_regDone = 1;
-    g_pkgDone = 0;
-    g_swapStage = 0;
-    InterlockedExchange(&g_armed, 1);
-    if (g_hf && g_hf->log && reason) {
+    int had_probe = (InterlockedExchange(&g_probeEntity, 0) != 0);
+    InterlockedExchange(&g_probeOriginal, 0);
+    InterlockedExchange(&g_regDone, 1);
+    InterlockedExchange(&g_pkgDone, 0);
+    InterlockedExchange(&g_swapStage, 0);
+    LONG prev_armed = InterlockedExchange(&g_armed, 1);
+    if (g_hf && g_hf->log && reason && (had_probe || prev_armed == 0)) {
         g_hf->log(g_mod, "respawn (%s): dropped stale melee copy; re-armed for next secondary spawn", reason);
     }
 }
@@ -318,29 +323,39 @@ static void SyncLocalAvatarAndRespawn(uintptr_t game)
 {
     uint32_t resolved = 0u;
     int status = QueryLocalPlayerAvatar(game, &resolved);
+    uint32_t prev = (uint32_t)InterlockedCompareExchange(&g_avatar, 0, 0);
+    uint32_t probe = (uint32_t)InterlockedCompareExchange(&g_probeEntity, 0, 0);
+    LONG reg_done = InterlockedCompareExchange(&g_regDone, 0, 0);
+    LONG armed = InterlockedCompareExchange(&g_armed, 0, 0);
+
     if (status == 1 && resolved != 0u) {
-        uint32_t prev = g_avatar;
         if (prev != resolved) {
-            /* If an old melee was already attached to a previous avatar, drop and re-arm;
-             * if g_regDone == 0 and g_probeEntity != 0, the reinforcement secondary JUST spawned! */
-            if (g_missionOn && prev != 0u && g_probeEntity != 0u && g_regDone != 0) {
+            /* If an old melee was attached to a previous avatar (or a prior spawn failed and left g_armed == 0
+             * with no pending attach), drop and re-arm; if g_regDone == 0 && probe != 0, the reinforcement
+             * secondary JUST spawned on this exact avatar! */
+            if (g_missionOn && prev != 0u && ((probe != 0u && reg_done != 0) || (probe == 0u && armed == 0))) {
                 DropAttachedMeleeForRespawn("new Helldiver avatar");
             }
-            g_avatar = resolved;
+            InterlockedExchange(&g_avatar, (LONG)resolved);
         }
     } else if (status == 0) {
         /* Local player is dead / waiting to reinforce (lifecycle != 3). */
-        if (g_missionOn && g_probeEntity != 0u && g_regDone != 0) {
+        if (g_missionOn && ((probe != 0u && reg_done != 0) || (prev != 0u && probe == 0u && armed == 0))) {
             DropAttachedMeleeForRespawn("Helldiver down");
         }
-        g_avatar = 0u;
-    } else if (g_weaponEventAvatar != 0u && g_missionOn) {
-        g_avatar = g_weaponEventAvatar;
+        InterlockedExchange(&g_avatar, 0);
+    } else {
+        uint32_t wev = (uint32_t)InterlockedCompareExchange(&g_weaponEventAvatar, 0, 0);
+        if (wev != 0u && g_missionOn) {
+            InterlockedExchange(&g_avatar, (LONG)wev);
+        }
     }
 
     /* Also check emptied InventoryRecord on death before lifecycle transitions. */
-    uint32_t avatar = g_avatar;
-    if (g_missionOn && avatar != 0u && g_probeEntity != 0u && g_regDone != 0) {
+    uint32_t avatar = (uint32_t)InterlockedCompareExchange(&g_avatar, 0, 0);
+    probe = (uint32_t)InterlockedCompareExchange(&g_probeEntity, 0, 0);
+    reg_done = InterlockedCompareExchange(&g_regDone, 0, 0);
+    if (g_missionOn && avatar != 0u && probe != 0u && reg_done != 0) {
         uintptr_t inv = 0, rec = 0;
         uint32_t w[2] = {0, 0};
         if (InvRecord(game, avatar, &inv, &rec) && g_hf->read(rec, w, sizeof(w)) == 0) {
@@ -511,13 +526,13 @@ static void DumpResident(const char* why)
 
 static void ResetMissionState(int arm_mission)
 {
-    g_avatar = 0u;
-    g_weaponEventAvatar = 0u;
-    g_probeEntity = 0u;
-    g_probeOriginal = 0u;
-    g_regDone = 1;
-    g_pkgDone = 0;
-    g_swapStage = 0;
+    InterlockedExchange(&g_avatar, 0);
+    InterlockedExchange(&g_weaponEventAvatar, 0);
+    InterlockedExchange(&g_probeEntity, 0);
+    InterlockedExchange(&g_probeOriginal, 0);
+    InterlockedExchange(&g_regDone, 1);
+    InterlockedExchange(&g_pkgDone, 0);
+    InterlockedExchange(&g_swapStage, 0);
     g_secondaryRes = 0ULL;
     InterlockedExchange(&g_tapFlag, 0);
     InterlockedExchange(&g_injectSel, 0);
@@ -531,8 +546,8 @@ static void OnWeapon(HfMod* mod, const HfEventInfo* info, void* user)
     (void)user;
     const HfWeaponEvent* w = (const HfWeaponEvent*)info;
     if (w && w->avatar != 0u && g_missionOn) {
-        g_weaponEventAvatar = w->avatar;
-        if (g_avatar == 0u) g_avatar = w->avatar;
+        InterlockedExchange(&g_weaponEventAvatar, (LONG)w->avatar);
+        InterlockedCompareExchange(&g_avatar, (LONG)w->avatar, 0);
     }
 }
 
@@ -569,10 +584,13 @@ static void OnPlayer(HfMod* mod, const HfEventInfo* info, void* user)
     const HfPlayerEvent* p = (const HfPlayerEvent*)info;
     if (!p || !p->local || !g_missionOn) return;
     if (info->kind == HF_ON_PLAYER_DOWN) {
-        if (g_probeEntity != 0u && g_regDone != 0) {
+        uint32_t probe = (uint32_t)InterlockedCompareExchange(&g_probeEntity, 0, 0);
+        LONG reg_done = InterlockedCompareExchange(&g_regDone, 0, 0);
+        LONG armed = InterlockedCompareExchange(&g_armed, 0, 0);
+        if ((probe != 0u && reg_done != 0) || (probe == 0u && armed == 0)) {
             DropAttachedMeleeForRespawn("HF_ON_PLAYER_DOWN");
         }
-        g_avatar = 0u;
+        InterlockedExchange(&g_avatar, 0);
     } else if (info->kind == HF_ON_PLAYER_SPAWN) {
         /* Resolve the Helldiver AVATAR entity (never assign p->entity, which is the Player entity!). */
         uintptr_t game = HF_API(mod)->module_base("game.dll", NULL);
@@ -588,19 +606,9 @@ static void OnSessionEnd(HfMod* mod, HfEvent event, void* user)
     InterlockedExchange(&g_stopThreads, 1);
     InterlockedExchange(&g_missionOn, 0);
     InterlockedExchange(&g_armed, 0);
-}
-
-static DWORD WINAPI InvThread(LPVOID unused)
-{
-    (void)unused;
-    while (InterlockedCompareExchange(&g_stopThreads, 0, 0) == 0) {
-        Sleep(100);
-        if (InterlockedCompareExchange(&g_stopThreads, 0, 0) != 0) break;
-        if (!g_missionOn || g_hf == NULL) continue;
-        uintptr_t game = g_hf->module_base("game.dll", NULL);
-        if (game) SyncLocalAvatarAndRespawn(game);
+    if (g_stopEvent != NULL) {
+        SetEvent(g_stopEvent);
     }
-    return 0;
 }
 
 /* ---- Spawn Extra Melee Beside Authoritative Local Secondary ------------------------------------------------------- */
@@ -638,12 +646,14 @@ static uint64_t SpawnReqDetour(uint64_t a, uint64_t b, uint64_t c, uint64_t d, u
 
     uint64_t melee = ReadMeleeResource();
     if (melee == 0ULL) {
-        g_hf->log(g_mod, "no melee set in melee-slot-weapon.txt; staying idle");
+        InterlockedExchange(&g_armed, 1);
+        g_hf->log(g_mod, "no melee set in melee-slot-weapon.txt; staying armed for next respawn");
         _mm_setcsr(saved_csr);
         SetLastError(saved_err);
         return r;
     }
     if (melee == resource) {
+        InterlockedExchange(&g_armed, 1);
         g_hf->log(g_mod, "configured melee matches equipped secondary (%s); skipping duplicate clone",
             *g_meleeName ? g_meleeName : "same resource");
         _mm_setcsr(saved_csr);
@@ -694,7 +704,11 @@ static uint64_t SpawnReqDetour(uint64_t a, uint64_t b, uint64_t c, uint64_t d, u
     }
 
     if (ctxSize == 0u) {
-        g_hf->log(g_mod, "spawn skipped: spawn context unreadable");
+        InterlockedExchange(&g_probeEntity, 0);
+        InterlockedExchange(&g_probeOriginal, 0);
+        InterlockedExchange(&g_regDone, 1);
+        InterlockedExchange(&g_armed, 1);
+        g_hf->log(g_mod, "spawn skipped: spawn context unreadable; staying armed for next respawn");
         _mm_setcsr(saved_csr);
         SetLastError(saved_err);
         return r;
@@ -704,11 +718,24 @@ static uint64_t SpawnReqDetour(uint64_t a, uint64_t b, uint64_t c, uint64_t d, u
     g_spawnReq((uint64_t)(uintptr_t)&copy, melee, (uint64_t)(uintptr_t)data, d, e, f);
     InterlockedExchange(&g_spawningClone, 0);
 
-    g_probeEntity = copy;
-    g_probeOriginal = original;
+    if (copy == 0u || original == 0u) {
+        /* H3d: Never permanently disarm the mission if g_spawnReq returned copy == 0; re-arm cleanly for next respawn! */
+        InterlockedExchange(&g_probeEntity, 0);
+        InterlockedExchange(&g_probeOriginal, 0);
+        InterlockedExchange(&g_regDone, 1);
+        InterlockedExchange(&g_armed, 1);
+        g_hf->log(g_mod, "spawn failed: extra melee %s returned entity %u (orig %u); re-armed for next respawn",
+            *g_meleeName ? g_meleeName : "(by id)", copy, original);
+        _mm_setcsr(saved_csr);
+        SetLastError(saved_err);
+        return r;
+    }
+
+    InterlockedExchange(&g_probeOriginal, (LONG)original);
     g_probeTick = GetTickCount64();
-    g_regDone = 0;
     g_copyResource = melee;
+    InterlockedExchange(&g_regDone, 0);
+    InterlockedExchange(&g_probeEntity, (LONG)copy);
     g_hf->log(g_mod, "spawned extra melee %s (%08x%08x) as local entity %u beside secondary (%08x%08x, entity %u)",
         *g_meleeName ? g_meleeName : "(by id)",
         (unsigned)(melee >> 32), (unsigned)(melee & 0xFFFFFFFFu), copy,
@@ -742,15 +769,22 @@ static int UnitOfEntity(uintptr_t game, uint32_t entity, uint64_t* resource, uin
 static void AttachCopy(HfMod* mod)
 {
     const HfApi* hf = HF_API(mod);
-    uint32_t copy = g_probeEntity, avatar = g_avatar, owner = 0u, state = 2u;
+    uint32_t copy = (uint32_t)InterlockedCompareExchange(&g_probeEntity, 0, 0);
+    uint32_t avatar = (uint32_t)InterlockedCompareExchange(&g_avatar, 0, 0);
+    uint32_t owner = 0u, state = 2u;
     ULONGLONG now = GetTickCount64();
-    if (g_regDone || !copy || !avatar || !g_missionOn || !g_regOk || !g_attachFn) return;
+    if (InterlockedCompareExchange(&g_regDone, 0, 0) != 0 || !copy || !avatar || !g_missionOn || !g_regOk || !g_attachFn) {
+        return;
+    }
     if (now < g_probeTick + 1500ULL) return;
 
     uintptr_t game = hf->module_base("game.dll", NULL), tbl = 0, recs = 0, inv = 0, irec = 0;
-    uint32_t index = 0u, orig = g_probeOriginal, oindex = 0u;
+    uint32_t index = 0u, orig = (uint32_t)InterlockedCompareExchange(&g_probeOriginal, 0, 0), oindex = 0u;
     if (!game || !Ptr(game + ENT_STATE_GLOBAL, &tbl) || !MapGet(tbl + 0x20u, copy, &index) ||
         index >= 0x100000u || !Ptr(tbl + 0x40u, &recs)) {
+        if (now > g_probeTick + 8000ULL) {
+            DropAttachedMeleeForRespawn("melee entity missing from state table");
+        }
         return;
     }
 
@@ -764,12 +798,17 @@ static void AttachCopy(HfMod* mod)
         return;
     }
     if (!InvRecord(game, avatar, &inv, &irec)) return;
-    g_regDone = 1;
 
+    /* H3c: Validate UnitOfEntity BEFORE setting g_regDone = 1, and clear g_probeEntity = 0 on failure so DoSwap
+     * can NEVER write an unattached/invalid entity ID into the player's secondary weapon slot! */
     uint64_t have = 0ULL;
     uint32_t unit = 0u;
     if (!UnitOfEntity(game, copy, &have, &unit) || have != g_copyResource || !unit) {
-        hf->log(mod, "attach skipped: entity %u is not expected melee", copy);
+        InterlockedExchange(&g_probeEntity, 0);
+        InterlockedExchange(&g_probeOriginal, 0);
+        InterlockedExchange(&g_regDone, 1);
+        InterlockedExchange(&g_armed, 1);
+        hf->log(mod, "attach skipped: entity %u is not expected melee; cleared probe and re-armed", copy);
         return;
     }
 
@@ -801,6 +840,7 @@ static void AttachCopy(HfMod* mod)
     }
 
     hf->write(recs + (uintptr_t)index * 0x30u, &state, 4);
+    InterlockedExchange(&g_regDone, 1);
     hf->log(mod, "melee entity %u attached to local Helldiver avatar %u (%d player word(s) restored)",
         copy, avatar, restored);
 }
@@ -810,15 +850,15 @@ static void RequestPackages(HfMod* mod)
     static ULONGLONG nextCheck;
     static char requestedFor[40];
     ULONGLONG now = GetTickCount64();
-    if (!g_avatar || !g_pkgReq || now < nextCheck) return;
+    if (!InterlockedCompareExchange(&g_avatar, 0, 0) || !g_pkgReq || now < nextCheck) return;
     nextCheck = now + 500ULL;
 
     char text[2048], key[40];
     int fromFile = ReadConfig("melee-slot-package.txt", text, sizeof(text));
     ReadMeleeResource();
     snprintf(key, sizeof(key), "%s", fromFile ? "(file)" : g_meleeName);
-    if (g_pkgDone && strcmp(key, requestedFor) == 0) return;
-    g_pkgDone = 1;
+    if (InterlockedCompareExchange(&g_pkgDone, 0, 0) != 0 && strcmp(key, requestedFor) == 0) return;
+    InterlockedExchange(&g_pkgDone, 1);
     snprintf(requestedFor, sizeof(requestedFor), "%s", key);
     if (!fromFile) {
         if (!*g_meleePackages) return;
@@ -850,8 +890,14 @@ static void DoSwap(HfMod* mod)
 {
     const HfApi* hf = HF_API(mod);
     uintptr_t game = hf->module_base("game.dll", NULL), inv = 0, rec = 0;
-    uint32_t avatar = g_avatar, clone = g_probeEntity, orig = g_probeOriginal, cur = 0u, selection = 0u;
-    if (!g_missionOn || !game || !avatar || !clone || !orig || !g_regDone || g_swapStage) return;
+    uint32_t avatar = (uint32_t)InterlockedCompareExchange(&g_avatar, 0, 0);
+    uint32_t clone = (uint32_t)InterlockedCompareExchange(&g_probeEntity, 0, 0);
+    uint32_t orig = (uint32_t)InterlockedCompareExchange(&g_probeOriginal, 0, 0);
+    uint32_t cur = 0u, selection = 0u;
+    if (!g_missionOn || !game || !avatar || !clone || !orig ||
+        InterlockedCompareExchange(&g_regDone, 0, 0) == 0 || g_swapStage) {
+        return;
+    }
     if (!InvRecord(game, avatar, &inv, &rec) ||
         hf->read(rec + 4u, &cur, 4) != 0 ||
         hf->read(rec + 0x1Cu, &selection, 4) != 0) {
@@ -875,7 +921,7 @@ static void SwapStages(HfMod* mod)
     ULONGLONG now = GetTickCount64();
     if (!g_swapStage) return;
     uintptr_t game = hf->module_base("game.dll", NULL), inv = 0, rec = 0;
-    uint32_t avatar = g_avatar, selection = 0u;
+    uint32_t avatar = (uint32_t)InterlockedCompareExchange(&g_avatar, 0, 0), selection = 0u;
     if (!g_missionOn || !game || !avatar || !InvRecord(game, avatar, &inv, &rec) ||
         hf->read(rec + 0x1Cu, &selection, 4) != 0) {
         g_swapStage = 0;
@@ -902,7 +948,7 @@ static void SwapStages(HfMod* mod)
             return;
         }
         uint32_t target = g_swapTarget;
-        if (hf->write(rec + 4u, &target, 4) != 0) {
+        if (!target || hf->write(rec + 4u, &target, 4) != 0) {
             g_swapStage = 0;
             return;
         }
@@ -918,9 +964,10 @@ static void SwapStages(HfMod* mod)
     }
     if (selection == 2u || now > g_swapDeadline) {
         uint32_t after = 0u;
+        uint32_t clone = (uint32_t)InterlockedCompareExchange(&g_probeEntity, 0, 0);
         hf->read(rec + 4u, &after, 4);
         hf->log(mod, "swap to %s complete (%llu ms)",
-            after == g_probeEntity ? "melee" : "pistol",
+            (clone != 0u && after == clone) ? "melee" : "pistol",
             (unsigned long long)(now - g_swapStarted));
         g_swapStage = 0;
     }
@@ -1038,51 +1085,202 @@ static void ParseSlotKeysText(const char* text)
     }
 }
 
+static int DmsIsSep(char c)
+{
+    return c == '\\' || c == '/';
+}
+
+static int DmsAsciiIeqSpan(const char* a, size_t alen, const char* b)
+{
+    size_t blen = strlen(b);
+    if (alen != blen) return 0;
+    for (size_t i = 0; i < alen; i++) {
+        char ca = (a[i] >= 'A' && a[i] <= 'Z') ? (char)(a[i] + 32) : a[i];
+        char cb = (b[i] >= 'A' && b[i] <= 'Z') ? (char)(b[i] + 32) : b[i];
+        if (ca != cb) return 0;
+    }
+    return 1;
+}
+
+/* Derives <installRoot> from api->mod_folder(mod) for both folder installs (<installRoot>\mods\<mod>)
+ * and .unpacked zip installs (<installRoot>\mods\.unpacked\<hash>[\<submod>]). */
+static int ResolveInstallRootFromModFolder(const char* mod_folder, char* out_root, size_t out_cap)
+{
+    if (!out_root || out_cap == 0) return 0;
+    out_root[0] = '\0';
+    if (!mod_folder || !mod_folder[0]) return 0;
+
+    size_t len = strlen(mod_folder);
+    while (len > 0 && DmsIsSep(mod_folder[len - 1])) {
+        if (len == 3 && mod_folder[1] == ':') break;
+        if (len == 1) break;
+        --len;
+    }
+    if (len == 0) return 0;
+
+    size_t seg_start[64], seg_end[64], seg_count = 0, i = 0;
+    while (i < len) {
+        while (i < len && DmsIsSep(mod_folder[i])) ++i;
+        if (i >= len) break;
+        if (seg_count >= 64u) return 0;
+        size_t s = i;
+        while (i < len && !DmsIsSep(mod_folder[i])) ++i;
+        seg_start[seg_count] = s;
+        seg_end[seg_count] = i;
+        ++seg_count;
+    }
+    if (seg_count < 3u) return 0;
+
+    size_t mods_idx = (size_t)-1;
+    for (size_t k = seg_count; k > 0; --k) {
+        size_t idx = k - 1u;
+        if (DmsAsciiIeqSpan(mod_folder + seg_start[idx], seg_end[idx] - seg_start[idx], ".unpacked")) {
+            if (idx < 2u || idx + 1u >= seg_count) return 0;
+            mods_idx = idx - 1u;
+            break;
+        }
+    }
+    if (mods_idx == (size_t)-1) {
+        mods_idx = seg_count - 2u;
+    }
+    if (mods_idx == 0u || !DmsAsciiIeqSpan(mod_folder + seg_start[mods_idx], seg_end[mods_idx] - seg_start[mods_idx], "mods")) {
+        return 0;
+    }
+
+    size_t root_len = seg_end[mods_idx - 1u];
+    if (root_len == 0 || root_len + 1u > out_cap) return 0;
+    for (size_t p = 0; p < root_len; p++) {
+        out_root[p] = (mod_folder[p] == '/') ? '\\' : mod_folder[p];
+    }
+    out_root[root_len] = '\0';
+    return 1;
+}
+
+static int FindNewestInputSettingsInInstallRoot(
+    const char* install_root,
+    char* best_out,
+    size_t best_cap,
+    FILETIME* best_when_out)
+{
+    if (!install_root || !install_root[0] || !best_out || best_cap == 0 || !best_when_out) return 0;
+    char pattern[MAX_PATH + 192], candidate[MAX_PATH + 256];
+    snprintf(pattern, sizeof(pattern), "%s\\userdata\\profiles\\*", install_root);
+
+    WIN32_FIND_DATAA fd;
+    HANDLE f = FindFirstFileA(pattern, &fd);
+    if (f == INVALID_HANDLE_VALUE) return 0;
+
+    int found = 0;
+    FILETIME best_when = {0, 0};
+    do {
+        if (!(fd.dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY) || fd.cFileName[0] == '.') continue;
+        WIN32_FILE_ATTRIBUTE_DATA info;
+        snprintf(candidate, sizeof(candidate), "%s\\userdata\\profiles\\%s\\cloud\\input_settings.config",
+            install_root, fd.cFileName);
+        if (GetFileAttributesExA(candidate, GetFileExInfoStandard, &info) &&
+            !(info.dwFileAttributes & (FILE_ATTRIBUTE_DIRECTORY | FILE_ATTRIBUTE_REPARSE_POINT)) &&
+            (!found || CompareFileTime(&info.ftLastWriteTime, &best_when) > 0)) {
+            best_when = info.ftLastWriteTime;
+            snprintf(best_out, best_cap, "%s", candidate);
+            found = 1;
+        }
+    } while (FindNextFileA(f, &fd));
+    FindClose(f);
+
+    if (found) *best_when_out = best_when;
+    return found;
+}
+
 static void LoadSlotKeys(void)
 {
-    static FILETIME lastWhen;
-    static char lastPath[MAX_PATH + 160];
-    char root[MAX_PATH + 64], pattern[MAX_PATH + 160], candidate[MAX_PATH + 160], best[MAX_PATH + 160];
+    char best[MAX_PATH + 256];
     best[0] = '\0';
     FILETIME bestWhen = {0, 0};
 
-    DWORD n = GetEnvironmentVariableA("USERPROFILE", root, MAX_PATH);
-    if (n > 0 && n < MAX_PATH) {
-        snprintf(pattern, sizeof(pattern), "%s\\Documents\\HellForge\\userdata\\profiles\\*", root);
-        WIN32_FIND_DATAA fd;
-        HANDLE f = FindFirstFileA(pattern, &fd);
-        if (f != INVALID_HANDLE_VALUE) {
-            do {
-                if (!(fd.dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY) || fd.cFileName[0] == '.') continue;
-                WIN32_FILE_ATTRIBUTE_DATA info;
-                snprintf(candidate, sizeof(candidate), "%s\\Documents\\HellForge\\userdata\\profiles\\%s\\cloud\\input_settings.config",
-                    root, fd.cFileName);
-                if (GetFileAttributesExA(candidate, GetFileExInfoStandard, &info) &&
-                    CompareFileTime(&info.ftLastWriteTime, &bestWhen) > 0) {
-                    bestWhen = info.ftLastWriteTime;
-                    snprintf(best, sizeof(best), "%s", candidate);
-                }
-            } while (FindNextFileA(f, &fd));
-            FindClose(f);
+    /* L3: Prefer the active HellForge install root derived from api->mod_folder(mod) (e.g. D:\HellForge),
+     * falling back to %USERPROFILE%\Documents\HellForge when no custom-root profile config is present. */
+    const char* mod_folder = (g_hf != NULL && g_mod != NULL && g_hf->mod_folder != NULL) ? g_hf->mod_folder(g_mod) : NULL;
+    char install_root[MAX_PATH + 128];
+    if (ResolveInstallRootFromModFolder(mod_folder, install_root, sizeof(install_root))) {
+        FindNewestInputSettingsInInstallRoot(install_root, best, sizeof(best), &bestWhen);
+    }
+
+    if (!best[0]) {
+        char user_root[MAX_PATH + 64], docs_hf[MAX_PATH + 128];
+        DWORD n = GetEnvironmentVariableA("USERPROFILE", user_root, MAX_PATH);
+        if (n > 0 && n < MAX_PATH) {
+            snprintf(docs_hf, sizeof(docs_hf), "%s\\Documents\\HellForge", user_root);
+            FindNewestInputSettingsInInstallRoot(docs_hf, best, sizeof(best), &bestWhen);
         }
     }
-    if (!best[0]) return;
-    if (strcmp(best, lastPath) == 0 && CompareFileTime(&bestWhen, &lastWhen) == 0) return;
-    snprintf(lastPath, sizeof(lastPath), "%s", best);
-    lastWhen = bestWhen;
 
-    static char text[65536];
-    HANDLE h = CreateFileA(best, GENERIC_READ, FILE_SHARE_READ | FILE_SHARE_WRITE, NULL, OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, NULL);
+    if (!best[0]) return;
+    if (strcmp(best, g_lastKeysPath) == 0 && CompareFileTime(&bestWhen, &g_lastKeysWhen) == 0) return;
+    snprintf(g_lastKeysPath, sizeof(g_lastKeysPath), "%s", best);
+    g_lastKeysWhen = bestWhen;
+
+    HANDLE h = CreateFileA(best, GENERIC_READ, FILE_SHARE_READ | FILE_SHARE_WRITE, NULL, OPEN_EXISTING,
+                           FILE_ATTRIBUTE_NORMAL | FILE_FLAG_OPEN_REPARSE_POINT, NULL);
     if (h == INVALID_HANDLE_VALUE) {
-        lastWhen.dwLowDateTime = 0;
-        lastWhen.dwHighDateTime = 0;
+        g_lastKeysWhen.dwLowDateTime = 0;
+        g_lastKeysWhen.dwHighDateTime = 0;
+        return;
+    }
+    HANDLE heap = GetProcessHeap();
+    char* text = heap ? (char*)HeapAlloc(heap, HEAP_ZERO_MEMORY, 65536u) : NULL;
+    if (!text) {
+        CloseHandle(h);
         return;
     }
     DWORD got = 0;
-    memset(text, 0, sizeof(text));
-    ReadFile(h, text, sizeof(text) - 1u, &got, NULL);
+    ReadFile(h, text, 65535u, &got, NULL);
     CloseHandle(h);
+    text[got] = '\0';
     ParseSlotKeysText(text);
+    HeapFree(heap, 0, text);
+}
+
+/* Interruptible wait backed by g_stopEvent so KeyThread wakes in < 1 ms on session end or DLL unload. */
+static int WaitStopMs(DWORD ms)
+{
+    if (InterlockedCompareExchange(&g_stopThreads, 0, 0) != 0) return 1;
+    if (g_stopEvent != NULL) {
+        return WaitForSingleObject(g_stopEvent, ms) == WAIT_OBJECT_0 ? 1 : 0;
+    }
+    DWORD waited = 0u;
+    while (waited < ms) {
+        if (InterlockedCompareExchange(&g_stopThreads, 0, 0) != 0) return 1;
+        DWORD step = (ms - waited) < 16u ? (ms - waited) : 16u;
+        Sleep(step);
+        waited += step;
+    }
+    return InterlockedCompareExchange(&g_stopThreads, 0, 0) != 0;
+}
+
+static void DmsSendInputKey(WORD scan, DWORD flags)
+{
+#ifdef DMS_UNIT_TEST
+    (void)scan;
+    if (flags & KEYEVENTF_KEYUP) InterlockedIncrement(&g_testSentKeyUps);
+    else InterlockedIncrement(&g_testSentKeyDowns);
+#else
+    INPUT in;
+    memset(&in, 0, sizeof(in));
+    in.type = INPUT_KEYBOARD;
+    in.ki.wScan = scan;
+    in.ki.dwFlags = flags;
+    SendInput(1, &in, sizeof(in));
+#endif
+}
+
+static int DmsIsVkDown(int vk)
+{
+#ifdef DMS_UNIT_TEST
+    (void)vk;
+    return 0;
+#else
+    return vk != 0 ? ((GetAsyncKeyState(vk) & 0x8000) != 0) : 0;
+#endif
 }
 
 static DWORD WINAPI KeyThread(LPVOID unused)
@@ -1091,8 +1289,7 @@ static DWORD WINAPI KeyThread(LPVOID unused)
     int was2 = 0;
     ULONGLONG nextKeys = 0ULL;
     while (InterlockedCompareExchange(&g_stopThreads, 0, 0) == 0) {
-        Sleep(4);
-        if (InterlockedCompareExchange(&g_stopThreads, 0, 0) != 0) break;
+        if (WaitStopMs(16)) break;
 
         ULONGLONG now = GetTickCount64();
         if (now >= nextKeys) {
@@ -1107,21 +1304,15 @@ static DWORD WINAPI KeyThread(LPVOID unused)
             int vk2 = (int)InterlockedCompareExchange(&g_keyVk[2], 0, 0);
             DWORD hold_ms = (DWORD)InterlockedCompareExchange(&g_keyMs[sel], 0, 0);
             if (sel == 1 && vk2 != 0) {
-                for (int w = 0; w < 100 && (GetAsyncKeyState(vk2) & 0x8000); w++) {
-                    if (InterlockedCompareExchange(&g_stopThreads, 0, 0) != 0) break;
-                    Sleep(4);
+                for (int w = 0; w < 25 && DmsIsVkDown(vk2); w++) {
+                    if (WaitStopMs(16)) break;
                 }
             }
-            if (GameWindowFocused()) {
-                INPUT in;
-                memset(&in, 0, sizeof(in));
-                in.type = INPUT_KEYBOARD;
-                in.ki.wScan = scan;
-                in.ki.dwFlags = KEYEVENTF_SCANCODE;
-                SendInput(1, &in, sizeof(in));
-                Sleep(hold_ms >= 25u ? hold_ms : 25u);
-                in.ki.dwFlags = KEYEVENTF_SCANCODE | KEYEVENTF_KEYUP;
-                SendInput(1, &in, sizeof(in));
+            if (GameWindowFocused() && InterlockedCompareExchange(&g_stopThreads, 0, 0) == 0) {
+                DmsSendInputKey(scan, KEYEVENTF_SCANCODE);
+                WaitStopMs(hold_ms >= 25u ? hold_ms : 25u);
+                DmsSendInputKey(scan, KEYEVENTF_SCANCODE | KEYEVENTF_KEYUP);
+                if (InterlockedCompareExchange(&g_stopThreads, 0, 0) != 0) break;
             }
         }
 
@@ -1130,11 +1321,14 @@ static DWORD WINAPI KeyThread(LPVOID unused)
             continue;
         }
         int vk_sec = (int)InterlockedCompareExchange(&g_keyVk[2], 0, 0);
-        int down2 = vk_sec ? ((GetAsyncKeyState(vk_sec) & 0x8000) != 0) : 0;
-        if (down2 && !was2 && g_missionOn && g_avatar && g_probeEntity && g_regDone) {
+        int down2 = DmsIsVkDown(vk_sec);
+        uint32_t avatar = (uint32_t)InterlockedCompareExchange(&g_avatar, 0, 0);
+        uint32_t probe = (uint32_t)InterlockedCompareExchange(&g_probeEntity, 0, 0);
+        LONG reg_done = InterlockedCompareExchange(&g_regDone, 0, 0);
+        if (down2 && !was2 && g_missionOn && avatar != 0u && probe != 0u && reg_done != 0) {
             uintptr_t game = g_hf->module_base("game.dll", NULL), inv = 0, rec = 0;
             uint32_t selection = 0u;
-            if (game && InvRecord(game, g_avatar, &inv, &rec) &&
+            if (game && InvRecord(game, avatar, &inv, &rec) &&
                 g_hf->read(rec + 0x1Cu, &selection, 4) == 0 && selection == 2u) {
                 InterlockedExchange(&g_tapFlag, 1);
             }
@@ -1195,7 +1389,7 @@ static void GameLoaded(HfMod* mod, HfEvent event, void* user)
         hf->game_state(mod) == HF_STATE_MISSION) {
         ResetMissionState(1);
     }
-    hf->log(mod, "Dedicated Melee Slot 1.5.2-clonedivers.1 hooks ready");
+    hf->log(mod, "Dedicated Melee Slot 1.5.2-clonedivers.2 hooks ready");
 }
 
 HF_MOD_EXPORT int hellforge_mod_init(const HfApi* hf, HfMod* mod)
@@ -1204,7 +1398,14 @@ HF_MOD_EXPORT int hellforge_mod_init(const HfApi* hf, HfMod* mod)
     g_mod = mod;
     g_hf = hf;
     g_hookInstalled = 0;
+    memset(&g_lastKeysWhen, 0, sizeof(g_lastKeysWhen));
+    g_lastKeysPath[0] = '\0';
     InterlockedExchange(&g_stopThreads, 0);
+    if (g_stopEvent != NULL) {
+        CloseHandle(g_stopEvent);
+        g_stopEvent = NULL;
+    }
+    g_stopEvent = CreateEventW(NULL, TRUE, FALSE, NULL);
     ResetMissionState(0);
 
     int ok = hf->subscribe(mod, HF_ON_WEAPON, OnWeapon, NULL, 0);
@@ -1218,14 +1419,14 @@ HF_MOD_EXPORT int hellforge_mod_init(const HfApi* hf, HfMod* mod)
     }
     hf->on(mod, HF_EVENT_GAME_LOADED, GameLoaded, NULL);
 
-#ifndef DMS_UNIT_TEST
-    g_invThread = CreateThread(NULL, 0, InvThread, NULL, 0, NULL);
-    g_keyThread = CreateThread(NULL, 0, KeyThread, NULL, 0, NULL);
-#endif
     int tick = (hf->size >= offsetof(HfApi, on_game_thread) + sizeof(void*) && hf->on_game_thread != NULL)
                    ? hf->on_game_thread(mod, Tick, NULL)
                    : 0;
-    hf->log(mod, "Dedicated Melee Slot 1.5.2-clonedivers.1 loaded (weapon=%d, tick=%d)", ok, tick);
+#ifndef DMS_UNIT_TEST
+    /* H3a: No InvThread! SyncLocalAvatarAndRespawn runs strictly on the game thread via Tick & OnPlayer. */
+    g_keyThread = CreateThread(NULL, 0, KeyThread, NULL, 0, NULL);
+#endif
+    hf->log(mod, "Dedicated Melee Slot 1.5.2-clonedivers.2 loaded (weapon=%d, tick=%d)", ok, tick);
     return 0;
 }
 
@@ -1233,17 +1434,19 @@ HF_MOD_EXPORT int hellforge_mod_unload(const HfApi* hf, HfMod* mod, uint32_t rea
 {
     (void)reason;
     InterlockedExchange(&g_stopThreads, 1);
+    if (g_stopEvent != NULL) {
+        SetEvent(g_stopEvent);
+    }
     ResetMissionState(0);
 
-    if (g_invThread) {
-        WaitForSingleObject(g_invThread, 250);
-        CloseHandle(g_invThread);
-        g_invThread = NULL;
-    }
     if (g_keyThread) {
-        WaitForSingleObject(g_keyThread, 250);
+        WaitForSingleObject(g_keyThread, 2000);
         CloseHandle(g_keyThread);
         g_keyThread = NULL;
+    }
+    if (g_stopEvent != NULL) {
+        CloseHandle(g_stopEvent);
+        g_stopEvent = NULL;
     }
     if (g_hookInstalled && hf != NULL && hf->size >= offsetof(HfApi, unhook) + sizeof(void*) && hf->unhook != NULL) {
         uintptr_t game = hf->module_base ? hf->module_base("game.dll", NULL) : 0;

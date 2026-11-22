@@ -330,6 +330,8 @@ def verify_patch_920_archive(lua_bytes: bytes, counter: list[int]) -> None:
 
 def verify_source_hardening_and_slots(lua_text: str, counter: list[int]) -> None:
     check(lua_text.startswith("-- HD2-Addon: mods/jarvis/melee_picker\n"), "Bingus HD2-Addon header line", counter)
+    check('local REVISION = "Dedicated Melee Slot picker 1.5.2-clonedivers.2"' in lua_text,
+          "1.5.2-clonedivers.2 revision tag in melee_picker.built.lua", counter)
     check("--@SIGS@" not in lua_text, "--@SIGS@ placeholder expanded", counter)
     check("if not (globals and globals.manager and readable(globals.manager, 8)) then return nil end" in lua_text,
           "nil-safe globals.manager guard in find_card()", counter)

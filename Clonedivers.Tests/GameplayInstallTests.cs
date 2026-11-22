@@ -70,11 +70,6 @@ internal static class GameplayInstallTests
             check(manifest.RootElement.GetProperty("id").GetString() == yoda.Id && manifest.RootElement.GetProperty("version").GetString() == yoda.Version &&
                 !manifest.RootElement.GetProperty("gameplay").GetBoolean() && manifest.RootElement.GetProperty("coop").GetString() == "per-player",
                 "Empire LEGO Yoda Death declares 0.2.0, gameplay false and per-player co-op scope");
-        using (var stream = typeof(GameplayInstallTests).Assembly.GetManifestResourceStream("Clonedivers.Tests.EmpireAtstWriter.json")!)
-        using (var manifest = JsonDocument.Parse(stream))
-            check(manifest.RootElement.GetProperty("id").GetString() == atst.Id && manifest.RootElement.GetProperty("version").GetString() == atst.Version &&
-                !manifest.RootElement.GetProperty("gameplay").GetBoolean() && manifest.RootElement.GetProperty("coop").GetString() == "per-player",
-                "Empire AT-ST Writer declares 0.2.1, gameplay false and per-player co-op scope");
         using (var stream = typeof(GameplayInstallTests).Assembly.GetManifestResourceStream("Clonedivers.Tests.EmpireTieSwitch.json")!)
         using (var manifest = JsonDocument.Parse(stream))
             check(manifest.RootElement.GetProperty("id").GetString() == tieSwitch.Id && manifest.RootElement.GetProperty("version").GetString() == tieSwitch.Version &&
@@ -83,6 +78,16 @@ internal static class GameplayInstallTests
         using (var r8Stream = typeof(GameplayInstallTests).Assembly.GetManifestResourceStream("Clonedivers.Tests.Gameplay.R8.json")!)
         {
             var r8Catalog = JsonSerializer.Deserialize<HellForgeGameplayCatalog>(r8Stream, HellForgePack.Json)!;
+            var r8Atst = r8Catalog.Artifacts.Single(a => a.Id == HellForgePreset.EmpireAtstWriter);
+            using (var atstStream = typeof(GameplayInstallTests).Assembly.GetManifestResourceStream("Clonedivers.Tests.EmpireAtstWriter.json")!)
+            using (var atstManifest = JsonDocument.Parse(atstStream))
+            {
+                check(atstManifest.RootElement.GetProperty("id").GetString() == atst.Id &&
+                    atstManifest.RootElement.GetProperty("version").GetString() == r8Atst.Version &&
+                    !atstManifest.RootElement.GetProperty("gameplay").GetBoolean() &&
+                    atstManifest.RootElement.GetProperty("coop").GetString() == "per-player",
+                    "Empire AT-ST Writer source manifest matches staged r8 version (0.2.2), gameplay false and per-player co-op scope");
+            }
             var r8Chaos = r8Catalog.Artifacts.Single(a => a.Id == HellForgePreset.ChaosInvasions);
             using var stream = typeof(GameplayInstallTests).Assembly.GetManifestResourceStream("Clonedivers.Tests.ChaosInvasions.json")!;
             using var manifest = JsonDocument.Parse(stream);

@@ -147,6 +147,7 @@ typedef struct ChaosPeerSync {
     uint8_t in_mission;
     uint8_t active;
     double joined_age;
+    double mission_entered_age;
     double last_seen_age;
 } ChaosPeerSync;
 
@@ -154,6 +155,7 @@ static ChaosPeerSync g_peer_sync[CHAOS_MAX_PEERS];
 static uint32_t g_mission_epoch = 1u;
 static uint32_t g_wave_seq = 0u;
 static uint8_t g_last_sent_resident_mask = 0xFFu;
+static uint8_t g_last_sent_in_mission = 0xFFu;
 static double g_last_client_status_sent = -10.0;
 static float g_share_poll = 0.0f;
 static int g_shared_dirty = 0;
@@ -832,9 +834,10 @@ static void ReconcilePeers(uintptr_t gbase)
             g_peer_sync[free_slot].peer = remote[j];
             g_peer_sync[free_slot].resident_mask = 0u;
             g_peer_sync[free_slot].hello_seen = 0u;
-            g_peer_sync[free_slot].in_mission = 1u;
+            g_peer_sync[free_slot].in_mission = 0u;
             g_peer_sync[free_slot].active = 1u;
             g_peer_sync[free_slot].joined_age = clock_state.age;
+            g_peer_sync[free_slot].mission_entered_age = clock_state.age;
             g_peer_sync[free_slot].last_seen_age = clock_state.age;
             g_shared_dirty = 1;
             hf->log(self, "CHAOS_PEER_JOIN: peer=%llu age=%.1fs",
@@ -857,8 +860,16 @@ static int PeersReadyForFaction(uintptr_t gbase, int chosen)
             if (since_join < CHAOS_LATE_JOIN_HELLO_S) return 0;
             continue;
         }
+        if (!p->in_mission) {
+            /* H4: Joiner is still in HF_STATE_PREPARE_MISSION (e.g. slow D11 Mega City level gen > 30s):
+             * hold foreign spawns up to CHAOS_PEER_PREPARE_GRACE_S (120s safety cap). */
+            if (since_join < CHAOS_PEER_PREPARE_GRACE_S) return 0;
+            continue;
+        }
+        double since_mission = clock_state.age - p->mission_entered_age;
+        if (since_mission < 0.0) since_mission = 0.0;
         if (((p->resident_mask & (uint8_t)(1u << chosen)) == 0u) &&
-            since_join < CHAOS_PEER_PRELOAD_GRACE_S) {
+            since_mission < CHAOS_PEER_PRELOAD_GRACE_S) {
             return 0;
         }
     }
@@ -869,7 +880,9 @@ static void SendClientStatusIfNeeded(unsigned now, uint8_t required_mask)
 {
     if (Host() || !HasChannelSend()) return;
     uint8_t mask = CurrentForeignResidentMask();
+    uint8_t in_mission = (now == HF_STATE_MISSION) ? 1u : 0u;
     int need = (mask != g_last_sent_resident_mask) ||
+               (in_mission != g_last_sent_in_mission) ||
                (required_mask && ((mask & required_mask) != required_mask) &&
                 (clock_state.age - g_last_client_status_sent) >= 5.0);
     if (!need) return;
@@ -880,10 +893,11 @@ static void SendClientStatusIfNeeded(unsigned now, uint8_t required_mask)
     msg.version = CHAOS_SYNC_VERSION;
     msg.kind = CHAOS_MSG_PEER_STATUS;
     msg.resident_mask = mask;
-    msg.in_mission = (now == HF_STATE_MISSION) ? 1u : 0u;
+    msg.in_mission = in_mission;
     msg.epoch = g_mission_epoch;
     if (hf->send(self, HF_TO_HOST, &msg, sizeof msg) == 0) {
         g_last_sent_resident_mask = mask;
+        g_last_sent_in_mission = in_mission;
         g_last_client_status_sent = clock_state.age;
     }
 }
@@ -1591,6 +1605,7 @@ static void ResetMissionState(void)
     g_preload_deferred_logged = 0;
     g_last_player_mask = 0;
     g_last_sent_resident_mask = 0xFFu;
+    g_last_sent_in_mission = 0xFFu;
     g_last_client_status_sent = -10.0;
     g_share_poll = 0.0f;
     g_shared_dirty = 0;
@@ -1628,6 +1643,7 @@ static void HandleHostMigration(unsigned old_host, unsigned new_host)
         PublishSharedState(1);
     } else if (old_host && !new_host) {
         g_last_sent_resident_mask = 0xFFu;
+        g_last_sent_in_mission = 0xFFu;
         g_last_client_status_sent = -10.0;
     }
 
@@ -1659,6 +1675,7 @@ static void OnMessage(HfMod* mod, const HfEventInfo* info, void* user)
         g_peer_sync[slot].peer = m->from;
         g_peer_sync[slot].active = 1u;
         g_peer_sync[slot].joined_age = clock_state.age;
+        g_peer_sync[slot].mission_entered_age = clock_state.age;
     }
     int first_hello = !g_peer_sync[slot].hello_seen;
     uint8_t prev_mask = g_peer_sync[slot].resident_mask;
@@ -1666,9 +1683,9 @@ static void OnMessage(HfMod* mod, const HfEventInfo* info, void* user)
     g_peer_sync[slot].hello_seen = 1u;
     g_peer_sync[slot].resident_mask = pm.resident_mask;
     g_peer_sync[slot].in_mission = pm.in_mission;
-    if (!prev_in_mission && pm.in_mission) {
-        /* Late joiner just finished PrepareMission and entered HF_STATE_MISSION: grant full preload grace. */
-        g_peer_sync[slot].joined_age = clock_state.age;
+    if (pm.in_mission && (first_hello || !prev_in_mission)) {
+        /* H4: Joiner entered HF_STATE_MISSION (directly or after slow PrepareMission): grant full post-entry preload grace. */
+        g_peer_sync[slot].mission_entered_age = clock_state.age;
     }
     g_peer_sync[slot].last_seen_age = clock_state.age;
     if (first_hello || prev_mask != pm.resident_mask || prev_in_mission != pm.in_mission) {
@@ -1869,6 +1886,10 @@ static void Tick(HfMod* mod, float dt, void* user)
     int living_players = CollectLivingPlayers(gbase, living_pos, NULL);
 
     if (!host) {
+        /* H4: Transmit in_mission: 0 -> 1 immediately on Tick 1 in HF_STATE_MISSION (even if Director context is still settling). */
+        SendClientStatusIfNeeded(
+            now,
+            (g_native_faction >= 0 && g_native_faction < CHAOS_FACTIONS) ? ChaosRequiredForeignMask(g_native_faction) : 0u);
         /* Client / late-joiner: consume host state snapshot & keep clock aligned cleanly, NEVER spawn/mutate */
         if (landed) clock_state.age += (double)dt;
         g_share_poll -= dt;
@@ -2016,8 +2037,8 @@ HF_MOD_EXPORT int hellforge_mod_init(const HfApi* api, HfMod* mod)
     if (HasChannelSend()) api->subscribe(mod, HF_ON_MESSAGE, OnMessage, NULL, 0);
     if (HasChannelShare()) api->subscribe(mod, HF_ON_SHARE, OnShare, NULL, 0);
 
-    SetStatusOnce("Chaos Invasions 0.3.2 ready");
-    api->log(mod, "CHAOS_INIT: version=0.3.2 build=25480438 sdk=16 enabled=%d cooldown=%d grace=%d cap=%d faction_cap=%d squad=%d budget=%d",
+    SetStatusOnce("Chaos Invasions 0.3.3 ready");
+    api->log(mod, "CHAOS_INIT: version=0.3.3 build=25480438 sdk=16 enabled=%d cooldown=%d grace=%d cap=%d faction_cap=%d squad=%d budget=%d",
              config.enabled, config.cooldown, config.grace, config.total_cap, config.faction_cap,
              config.squad_size, config.mission_budget);
     return 0;
