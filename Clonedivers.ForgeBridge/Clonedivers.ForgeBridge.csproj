@@ -32,5 +32,13 @@
     <EmbeddedResource Include="../Clonedivers/Resources/forge-gameplay-build25480438-r7.json" LogicalName="Clonedivers.Forge.Gameplay.json" />
     <Compile Include="../Clonedivers/HellForgeGameplayCatalog.cs" Link="Core/HellForgeGameplayCatalog.cs" />
     <Compile Include="../Clonedivers/HellForgeGameplayInstall.cs" Link="Core/HellForgeGameplayInstall.cs" />
+    <Compile Include="../Clonedivers/PerformanceTierAdvisor.cs" Link="Core/PerformanceTierAdvisor.cs" />
+    <Compile Include="../Clonedivers/ForgeDiskManager.cs" Link="Core/ForgeDiskManager.cs" />
+    <Compile Include="../Clonedivers/SquadFingerprint.cs" Link="Core/SquadFingerprint.cs" />
+    <Compile Include="../Clonedivers/CrashTriage.cs" Link="Core/CrashTriage.cs" />
+    <Compile Include="../Clonedivers/ForgeVerifier.cs" Link="Core/ForgeVerifier.cs" />
+    <Compile Include="../Clonedivers/HostMutatorConfig.cs" Link="Core/HostMutatorConfig.cs" />
+    <Compile Include="../Clonedivers/SquadReportClient.cs" Link="Core/SquadReportClient.cs" />
+    <Compile Include="../Clonedivers/DiscordReportFormatter.cs" Link="Core/DiscordReportFormatter.cs" />
   </ItemGroup>
 </Project>

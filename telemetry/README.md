@@ -31,10 +31,13 @@ reuse the existing dedicated resources and preserve production secrets on update
 3. Create private R2 bucket `clonedivers-telemetry`, with a 90-day object-expiry
    lifecycle rule for orphaned objects. If R2 activation requires billing
    enrollment, have the owner complete that account setup.
-4. Apply migrations with `--remote`.
+4. Apply migrations with `--remote` (`0001_reports.sql` and `0002_squad_and_crashes.sql`).
 5. Generate separate random 256-bit owner/invitation secrets and store them via
    `wrangler secret put ADMIN_TOKEN` / `ENROLLMENT_TOKEN`, using stdin rather than
-   command arguments. Preserve them outside this repo. Never deploy local test keys.
+   command arguments. Optional squad integrations (`wrangler secret put DISCORD_WEBHOOK_URL`
+   and fine-grained issues-only `GITHUB_TOKEN` for `owendavidgoode/clonedivers`) enable
+   Discord embeds on `/session` and `/crash` plus 24h-deduplicated GitHub crash issues.
+   Preserve secrets outside this repo. Never deploy local test keys.
 6. Run `wrangler deploy --dry-run`, then `wrangler deploy`. Missing secrets fail
    authentication closed. The local `.dev.vars` file is not production configuration.
 7. Verify unauthenticated admin reads fail, enroll one test client, upload/read a

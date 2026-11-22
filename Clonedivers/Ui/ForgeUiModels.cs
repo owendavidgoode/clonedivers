@@ -9,6 +9,16 @@ public sealed record ForgeUpdateBannerState(
     bool IsFailed = false,
     bool IsRestartReady = false);
 
+public sealed record ForgeStepDownBannerState(
+    string Reason,
+    string NextTierId,
+    string NextTierDisplayName,
+    string ActionLabel);
+
+public sealed record ForgeSelfInstallBannerState(
+    string Message,
+    string ActionLabel);
+
 public sealed record ForgeHomeState(
     string PlatformTag,
     string AppVersion,
@@ -17,6 +27,14 @@ public sealed record ForgeHomeState(
     bool DeltaSquad,
     bool Covenant,
     string Texture,
+    bool AutoPerformanceTier,
+    string PerformanceTier,
+    HardwarePerformanceRecommendation Hardware,
+    string HostChaosIntensity,
+    string HostHeavySeaf,
+    bool HostFasterCorpseCleanup,
+    bool SoundEffectsEnabled,
+    string SquadMatchHash,
     string HeaderBadgeText,
     ForgeHeroTone HeaderBadgeTone,
     string Headline,
@@ -36,7 +54,10 @@ public sealed record ForgeHomeState(
     OperationProgress? Progress,
     ForgeUpdateBannerState? UpdateBanner,
     PackSizePreview SizePreview,
-    string? ToastNotice = null);
+    string? ToastNotice = null,
+    ForgeStepDownBannerState? StepDownBanner = null,
+    ForgeSelfInstallBannerState? SelfInstallBanner = null,
+    bool MinimizeToTray = false);
 
 public sealed record ForgeSetupState(
     int Step, // 1..4
@@ -73,12 +94,19 @@ public sealed record ForgeDiagnosticsState(
     string AccountSummary,
     IReadOnlyList<ForgeHealthItem> HealthChecks,
     string RawReportText,
+    string DiscordReportText,
+    string DiskUsageSummary,
     bool CanOpenManager,
     bool CanSyncAccount,
     bool CanCheckUpdates,
     bool CanOpenSetup,
+    bool CanCleanCache,
+    bool CanVerifyAndRepair,
     bool IsCheckingUpdates,
-    string? UpdateMessage);
+    string? UpdateMessage,
+    bool SoundEffectsEnabled,
+    bool DiscordRpcEnabled,
+    bool MinimizeToTray);
 
 public sealed record ForgeConfirmRequest(
     string Title,
@@ -111,13 +139,22 @@ public interface IForgeUiHost : IAsyncDisposable
     Task InitializeAsync();
     bool CanClose(out string? reason);
 
-    // Home actions
+    // Home & Customize actions
     Task SelectModeAsync(string mode);
     Task UpdateCustomizationAsync(string enemySkin, bool deltaSquad, bool covenant, string texture);
+    Task SetPerformanceTierAsync(string tierId);
+    Task UpdateHostMutatorsAsync(string chaosIntensity, string heavySeaf, bool fasterCorpseCleanup);
+    Task ApplyCustomizationNowAsync();
     Task TriggerPrimaryActionAsync();
     Task TriggerSecondaryActionAsync();
     Task TriggerUpdateBannerActionAsync();
     void DismissUpdateBanner();
+    Task AcceptStepDownAsync();
+    void DismissStepDownBanner();
+    Task InstallSelfShortcutsAsync();
+    void DismissSelfInstallBanner();
+    Task<WhatsNewResult> FetchWhatsNewAsync(string? versionOrTag, CancellationToken ct = default);
+    void ToggleSoundEffects();
     void OpenSteamLibrary();
 
     // Embedded guided setup actions (Windows; optional on Linux)
@@ -136,5 +173,9 @@ public interface IForgeUiHost : IAsyncDisposable
     Task OpenManagerAsync();
     Task SyncAccountFromSettingsAsync();
     Task CheckUpdatesAsync();
+    Task CleanCacheAsync();
+    Task VerifyAndRepairAsync();
+    void SetDiscordRpcEnabled(bool enabled);
+    void SetMinimizeToTray(bool enabled);
     Task<string?> SaveSupportReportAsync();
 }

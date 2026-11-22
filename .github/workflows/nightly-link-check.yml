@@ -1,0 +1,330 @@
+name: Nightly link health check
+on:
+  schedule:
+    - cron: '0 9 * * *'
+  workflow_dispatch:
+permissions:
+  contents: read
+  issues: write
+
+jobs:
+  link-health:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Verify manifests, r7 gameplay catalog and sampled pack URLs
+        shell: bash
+        env:
+          REPO_SLUG: ${{ github.repository }}
+          REPORT_PATH: ${{ runner.temp }}/link-check-report.json
+        run: |
+          python3 - <<'PY'
+          import json
+          import os
+          import re
+          import time
+          import urllib.error
+          import urllib.parse
+          import urllib.request
+          from pathlib import Path
+
+          repo_slug = os.environ.get("REPO_SLUG") or "owendavidgoode/clonedivers"
+          report_path = Path(os.environ["REPORT_PATH"])
+          summary_path = os.environ.get("GITHUB_STEP_SUMMARY")
+
+          ROOT_MANIFESTS = [
+              "manifest.json",
+              "manifest-v3.json",
+              "manifest-v3-current.json",
+          ]
+          GAMEPLAY_CATALOG = "Clonedivers/Resources/forge-gameplay-build25480438-r7.json"
+          PACK_MANIFESTS = [
+              "Clonedivers/Resources/hellforge-clones-r20.json",
+              "Clonedivers/Resources/hellforge-empire-r48.json",
+          ]
+
+          failures: list[str] = []
+          checked: list[dict] = []
+          probe_cache: dict[tuple[str, int | None], tuple[bool, str]] = {}
+
+          USER_AGENT = "Clonedivers-NightlyLinkCheck/1.0 (+https://github.com/owendavidgoode/clonedivers)"
+
+          def check_no_hf_mod(url: str, context: str) -> bool:
+              host = urllib.parse.urlparse(url).hostname or ""
+              if host == "hf-mod.com" or host.endswith(".hf-mod.com") or "hf-mod.com" in url.lower():
+                  failures.append(f"{context}: forbidden hf-mod.com URL detected ({url})")
+                  return False
+              return True
+
+          def probe_url(url: str, expected_bytes: int | None, context: str) -> None:
+              if not url or not url.startswith("https://"):
+                  failures.append(f"{context}: invalid or non-HTTPS URL ({url!r})")
+                  return
+              if not check_no_hf_mod(url, context):
+                  return
+
+              cache_key = (url, expected_bytes)
+              if cache_key in probe_cache:
+                  ok, detail = probe_cache[cache_key]
+                  checked.append({"context": context, "url": url, "expected": expected_bytes, "ok": ok, "detail": detail + " (cached)"})
+                  if not ok:
+                      failures.append(f"{context}: {detail} ({url})")
+                  return
+
+              last_err = ""
+              for attempt in range(1, 4):
+                  try:
+                      req = urllib.request.Request(
+                          url,
+                          method="HEAD",
+                          headers={"User-Agent": USER_AGENT, "Accept-Encoding": "identity"},
+                      )
+                      with urllib.request.urlopen(req, timeout=25) as resp:
+                          status = resp.status
+                          cl = resp.headers.get("Content-Length")
+                      if status == 200 and (expected_bytes is None or cl is not None):
+                          actual = int(cl) if cl is not None else None
+                          if expected_bytes is not None and actual != expected_bytes:
+                              detail = f"Content-Length mismatch: expected {expected_bytes}, got {actual}"
+                              probe_cache[cache_key] = (False, detail)
+                              checked.append({"context": context, "url": url, "expected": expected_bytes, "ok": False, "detail": detail})
+                              failures.append(f"{context}: {detail} ({url})")
+                              return
+                          detail = f"HTTP 200, Content-Length={actual}"
+                          probe_cache[cache_key] = (True, detail)
+                          checked.append({"context": context, "url": url, "expected": expected_bytes, "ok": True, "detail": detail})
+                          return
+                      last_err = f"HEAD returned HTTP {status} (Content-Length={cl})"
+                  except urllib.error.HTTPError as e:
+                      if e.code not in (403, 405) and e.code < 500 and e.code != 429:
+                          detail = f"HTTP {e.code} {e.reason}"
+                          probe_cache[cache_key] = (False, detail)
+                          checked.append({"context": context, "url": url, "expected": expected_bytes, "ok": False, "detail": detail})
+                          failures.append(f"{context}: {detail} ({url})")
+                          return
+                      last_err = f"HEAD HTTP {e.code} {e.reason}"
+                  except Exception as e:
+                      last_err = f"HEAD error: {e}"
+
+                  # Fallback to 1-byte Range GET when HEAD omits Content-Length or returns 403/405
+                  try:
+                      req = urllib.request.Request(
+                          url,
+                          method="GET",
+                          headers={
+                              "User-Agent": USER_AGENT,
+                              "Accept-Encoding": "identity",
+                              "Range": "bytes=0-0",
+                          },
+                      )
+                      with urllib.request.urlopen(req, timeout=25) as resp:
+                          status = resp.status
+                          cr = resp.headers.get("Content-Range", "")
+                          cl = resp.headers.get("Content-Length")
+                      if status == 206 and cr:
+                          m = re.search(r"/(\d+)$", cr)
+                          actual = int(m.group(1)) if m else None
+                          if expected_bytes is not None and actual != expected_bytes:
+                              detail = f"Content-Range total mismatch: expected {expected_bytes}, got {actual} ({cr})"
+                              probe_cache[cache_key] = (False, detail)
+                              checked.append({"context": context, "url": url, "expected": expected_bytes, "ok": False, "detail": detail})
+                              failures.append(f"{context}: {detail} ({url})")
+                              return
+                          detail = f"HTTP 206, total={actual}"
+                          probe_cache[cache_key] = (True, detail)
+                          checked.append({"context": context, "url": url, "expected": expected_bytes, "ok": True, "detail": detail})
+                          return
+                      if status == 200:
+                          actual = int(cl) if cl is not None else None
+                          if expected_bytes is not None and actual != expected_bytes:
+                              detail = f"GET Content-Length mismatch: expected {expected_bytes}, got {actual}"
+                              probe_cache[cache_key] = (False, detail)
+                              checked.append({"context": context, "url": url, "expected": expected_bytes, "ok": False, "detail": detail})
+                              failures.append(f"{context}: {detail} ({url})")
+                              return
+                          detail = f"HTTP 200 (GET), Content-Length={actual}"
+                          probe_cache[cache_key] = (True, detail)
+                          checked.append({"context": context, "url": url, "expected": expected_bytes, "ok": True, "detail": detail})
+                          return
+                      last_err = f"Range GET returned HTTP {status}"
+                  except urllib.error.HTTPError as e:
+                      if e.code < 500 and e.code != 429:
+                          detail = f"HTTP {e.code} {e.reason}"
+                          probe_cache[cache_key] = (False, detail)
+                          checked.append({"context": context, "url": url, "expected": expected_bytes, "ok": False, "detail": detail})
+                          failures.append(f"{context}: {detail} ({url})")
+                          return
+                      last_err = f"Range GET HTTP {e.code} {e.reason}"
+                  except Exception as e:
+                      last_err = f"Range GET error: {e}"
+
+                  if attempt < 3:
+                      time.sleep(attempt * 1.5)
+
+              probe_cache[cache_key] = (False, last_err)
+              checked.append({"context": context, "url": url, "expected": expected_bytes, "ok": False, "detail": last_err})
+              failures.append(f"{context}: {last_err} ({url})")
+
+          def check_pack_samples(label: str, files: list[dict]) -> None:
+              for idx, entry in enumerate(files):
+                  u = entry.get("url") or ""
+                  sz = int(entry.get("size") or 0)
+                  if u:
+                      check_no_hf_mod(u, f"{label} files[{idx}] ({entry.get('name')})")
+                  if sz > 0 and not u:
+                      failures.append(f"{label} files[{idx}] ({entry.get('name')}): size={sz} has empty URL")
+              downloadable = [f for f in files if int(f.get("size") or 0) > 0 and (f.get("url") or "").strip()]
+              if not downloadable:
+                  failures.append(f"{label}: no downloadable files found")
+                  return
+              picks = [
+                  ("first", downloadable[0]),
+                  ("middle", downloadable[len(downloadable) // 2]),
+                  ("last", downloadable[-1]),
+              ]
+              for pos, item in picks:
+                  probe_url(item["url"], int(item["size"]), f"{label} [{pos}: {item.get('name')}]")
+
+          # 1. Root manifest feeds (live raw feed HTTP 200 + valid JSON, app binary URL, and sampled pack files)
+          for manifest_name in ROOT_MANIFESTS:
+              raw_url = f"https://raw.githubusercontent.com/{repo_slug}/main/{manifest_name}"
+              try:
+                  req = urllib.request.Request(raw_url, headers={"User-Agent": USER_AGENT})
+                  with urllib.request.urlopen(req, timeout=25) as resp:
+                      if resp.status != 200:
+                          failures.append(f"{manifest_name} raw feed: expected HTTP 200, got {resp.status}")
+                      raw_json = json.loads(resp.read().decode("utf-8"))
+                      if "pack" not in raw_json or "app" not in raw_json:
+                          failures.append(f"{manifest_name} raw feed: missing 'pack' or 'app' keys")
+                      else:
+                          checked.append({"context": f"{manifest_name} [live raw feed]", "url": raw_url, "expected": None, "ok": True, "detail": "HTTP 200 valid JSON"})
+              except Exception as e:
+                  failures.append(f"{manifest_name} raw feed ({raw_url}): {e}")
+
+              data = json.loads(Path(manifest_name).read_text(encoding="utf-8"))
+              app = data.get("app") or {}
+              if not app.get("url") or not app.get("size"):
+                  failures.append(f"{manifest_name}: missing app.url or app.size")
+              else:
+                  probe_url(app["url"], int(app["size"]), f"{manifest_name} [app {app.get('version')}]")
+              check_pack_samples(manifest_name, (data.get("pack") or {}).get("files") or [])
+
+          # 2. All 14 forge-gameplay-build25480438-r7.json artifact URLs + 0 hf-mod.com check
+          r7 = json.loads(Path(GAMEPLAY_CATALOG).read_text(encoding="utf-8"))
+          artifacts = r7.get("Artifacts") or []
+          if r7.get("Id") != "build25480438-r7" or len(artifacts) != 14:
+              failures.append(f"{GAMEPLAY_CATALOG}: expected Id='build25480438-r7' and 14 artifacts, got Id={r7.get('Id')!r} count={len(artifacts)}")
+          for art in artifacts:
+              art_id = art.get("Id") or art.get("Name") or "unknown"
+              probe_url(art.get("Url") or "", int(art.get("Bytes") or 0), f"r7 [{art_id}]")
+
+          # 3. Sampled (first/middle/last) URLs of hellforge-clones-r20.json and hellforge-empire-r48.json
+          for pack_path in PACK_MANIFESTS:
+              pdata = json.loads(Path(pack_path).read_text(encoding="utf-8"))
+              check_pack_samples(Path(pack_path).name, (pdata.get("pack") or {}).get("files") or [])
+
+          report = {
+              "checkedCount": len(checked),
+              "uniqueUrlsProbed": len(probe_cache),
+              "failureCount": len(failures),
+              "failures": failures,
+          }
+          report_path.write_text(json.dumps(report, indent=2), encoding="utf-8")
+
+          md_lines = [
+              "## Nightly Link Health Summary",
+              f"- **Checks executed:** `{len(checked)}` (`{len(probe_cache)}` unique asset URLs probed)",
+              f"- **Failures:** `{len(failures)}`",
+              "",
+          ]
+          if failures:
+              md_lines.append("### Failures")
+              for f in failures:
+                  md_lines.append(f"- ❌ {f}")
+          else:
+              md_lines.append("All root feeds, all 14 `build25480438-r7` gameplay artifacts (0 `hf-mod.com` URLs), and sampled `r20`/`r48` pack URLs returned HTTP 200 with exact byte lengths.")
+
+          summary_md = "\n".join(md_lines) + "\n"
+          print(summary_md)
+          if summary_path:
+              with open(summary_path, "a", encoding="utf-8") as sf:
+                  sf.write(summary_md)
+
+          if failures:
+              raise SystemExit(1)
+          PY
+
+      - name: Open or update upstream-link-alert issue on scheduled failure
+        if: failure() && github.event_name == 'schedule'
+        uses: actions/github-script@v7
+        env:
+          REPORT_PATH: ${{ runner.temp }}/link-check-report.json
+        with:
+          script: |
+            const fs = require('fs');
+            const labelName = 'upstream-link-alert';
+            const owner = context.repo.owner;
+            const repo = context.repo.repo;
+            const runUrl = `${context.serverUrl}/${owner}/${repo}/actions/runs/${context.runId}`;
+            const nowUtc = new Date().toISOString();
+
+            let failures = ['Link health check job failed before writing a structured report.'];
+            try {
+              const raw = fs.readFileSync(process.env.REPORT_PATH, 'utf8');
+              const parsed = JSON.parse(raw);
+              if (Array.isArray(parsed.failures) && parsed.failures.length > 0) {
+                failures = parsed.failures;
+              }
+            } catch (_) {}
+
+            try {
+              await github.rest.issues.createLabel({
+                owner,
+                repo,
+                name: labelName,
+                color: 'd93f0b',
+                description: 'Automated nightly upstream/release link health alert'
+              });
+            } catch (e) {
+              if (e.status !== 422) console.warn('Label check notice:', e.message);
+            }
+
+            const body = [
+              `### Nightly Link Health Check Failed (${nowUtc})`,
+              '',
+              `Scheduled run: ${runUrl}`,
+              '',
+              '#### Failing URLs / Assertions',
+              ...failures.slice(0, 40).map(f => `- ${f}`),
+              '',
+              '_Automatically opened/updated by `.github/workflows/nightly-link-check.yml`._'
+            ].join('\n');
+
+            const existing = await github.rest.issues.listForRepo({
+              owner,
+              repo,
+              state: 'open',
+              labels: labelName,
+              per_page: 5
+            });
+
+            const openIssue = existing.data.find(i => !i.pull_request);
+            if (openIssue) {
+              await github.rest.issues.update({
+                owner,
+                repo,
+                issue_number: openIssue.number,
+                body
+              });
+              console.log(`Updated existing #${openIssue.number}`);
+            } else {
+              const created = await github.rest.issues.create({
+                owner,
+                repo,
+                title: '[Nightly Link Alert] Upstream or release asset check failed',
+                body,
+                labels: [labelName]
+              });
+              console.log(`Opened new issue #${created.data.number}`);
+            }

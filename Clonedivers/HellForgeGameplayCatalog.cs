@@ -18,6 +18,7 @@ public sealed class HellForgeGameplayCatalog
     public List<GameplayArtifact> Artifacts { get; set; } = [];
     public List<string> Order { get; set; } = [];
     public static HellForgeGameplayCatalog Pinned { get; } = Load();
+    public static HellForgeGameplayCatalog Current => Pinned;
     static HellForgeGameplayCatalog Load()
     {
         using var stream = typeof(HellForgeGameplayCatalog).Assembly.GetManifestResourceStream("Clonedivers.Forge.Gameplay.json")

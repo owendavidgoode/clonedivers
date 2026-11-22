@@ -38,22 +38,22 @@ Read [the migration and first-setup guide](docs/FORGE-MIGRATION.md). The launche
 update preserves settings and account data and keeps a verified previous Windows
 executable for rollback. It does not edit live Steam game files or close a running
 game. **Set up selected mode** obtains **14 gameplay downloads** automatically in
-the `build25480438-r6` catalog (**8 required** gameplay and author archives totaling
+the `build25480438-r7` catalog (**8 required** gameplay and author archives totaling
 `7,905,326` bytes / `~7.54 MiB` plus **6 optional** project-owned SDK-16 defaults:
-`Clonedivers Clean Exit` `0.2.0` at `8,192` B, `LEGO Compact Leaf Writer` `0.2.0` at
-`240,032` B, `Empire LEGO Yoda Death` `0.2.0` at `53,078` B, `Empire AT-ST Film-Scale
-Leaf Writer` `0.2.0` at `35,362` B, `Empire per-attack TIE` `0.3.0` at `22,644` B,
+`Clonedivers Clean Exit` `0.2.0` at `8,192` B, `LEGO Compact Leaf Writer` (`lego-compact-leaf-writer`) `0.2.1` at
+`254,245` B, `Empire LEGO Yoda Death` `0.2.0` at `53,078` B, `Empire AT-ST Film-Scale
+Leaf Writer` (`empire-atst-writer`) `0.2.1` at `36,187` B, `Empire per-attack TIE` `0.3.0` at `22,644` B,
 and host-authoritative `Chaos Invasions` `0.3.0` at `33,855` B), totaling
-**`8,298,489` bytes (`~7.91 MiB`)** before appearance assets. It verifies their
+**`8,313,527` bytes (`~7.93 MiB`)** before appearance assets. It verifies their
 archives and content, imports them through Forge, applies preset order/options and
 then prepares the appearance.
 
 The three official bundled mods plus those 14 downloads (8 required + 6 optional
-defaults enabled on fresh `r5` setup, with enabled `r4` defaults upgraded to `0.1.0`
-/ `0.2.0` / `0.3.0` and newly added `r5` optionals offered once while preserving
+defaults enabled on fresh `r7` setup, with enabled `r4`/`r5`/`r6` defaults upgraded to `0.2.0`
+/ `0.2.1` / `0.3.0` and newly added `r5` optionals offered once while preserving
 disabled/removed choices) and one selected appearance pack form the complete 18-mod
-Clones or Empire setup; Regular omits appearance packs. Ahead of the **19 November
-2026** `hf-mod.com` shutdown, `r5` uses **zero `hf-mod.com` URLs**: permissive `0BSD`
+Clones or Empire setup; Regular omits appearance packs. Following the **19 November
+2026** `hf-mod.com` shutdown, `r7` uses **zero `hf-mod.com` URLs**: permissive `0BSD`
 / `MIT` mirrors (`Vanilla Plus Megapack 0.2.1`, `Operation Reroller 0.1.6`, `Shared
 Callback Manager 0.1.0`) and owner-permitted MP-hardened SEAF packages (`Heavy SEAF
 1.2.0-clonedivers.4`, `SEAF Squad 0.1.4-clonedivers.3`) target
@@ -71,13 +71,13 @@ Every player needs their own Steam-owned HD2, official separate **HellForge
 0.4.0-beta / engine 0.1.47 / SDK 16 / game 25480438**, and permitted matching mods.
 Keep supported isolation and sandbox enabled. Linux requires a dedicated Proton
 prefix and the official namespace setup (`pasta` from `passt` on Ubuntu 24.04+ /
-Debian 13+ or equivalent). Complete Linux packages include the native UI (`0.9.0`)
+Debian 13+ or equivalent). Complete Linux packages include the native UI (`0.9.2`)
 and controller (`0.4.0`); no separate .NET install is needed. ARM64, Steam Deck, and
 Flatpak/Snap Forge are not qualified.
 
 ## Modes, Account, and Gameplay
 
-Regular, Clones and Empire are Forge appearance choices. In **2.0.0** / **0.9.0**,
+Regular, Clones and Empire are Forge appearance choices. In **2.0.2** / **0.9.2**,
 both **Clones (`2026.11.19-r20`)** and **Empire (`2026.11.19-r48`)** offer the full
 **3×3×2 variant matrix**: **Enemy skin** (`All CIS Droids`, `Mixed Bots + CIS Droids`
 keeping `32` Battlefront CIS `UNIT`s alongside `45` native Automaton Hulks/Devastators/
@@ -90,7 +90,7 @@ Berserkers/Factory Striders/7.0+ units, or `Native Automatons`), **Textures** (`
   `Full` on `All CIS`) delivers **`100%` build `25480438` Imperial wardrobe coverage**
   (`135/135` armors, `158/158` helmets, `1,939/1,939` `UNIT`s, `344` US text keys), the **S2c film-scale
   AT-ST** (`106` nodes `<= 128`, `[8,1,1]` palettes `<= 64`, `9` native `PHYSICS`
-  restored, `8` child weapons, paired with `empire-atst-writer 0.1.0`), E-Web UV
+  restored, `8` child weapons, paired with `empire-atst-writer 0.2.1`), E-Web UV
   repair, `18` green Imperial orbital turbolaser `PFX`s, Brawny+Lean **K-2SO** (`B-27`),
   global LEGO mid-back prop tuck, and **`5,266/5,266` Imperial VO sound slots** across
   all `18` VO banks (`4,624` 48 kHz PCM streams + `620` Fallen Order/Vader/PA Vorbis
@@ -99,11 +99,11 @@ Berserkers/Factory Striders/7.0+ units, or `Native Automatons`), **Textures** (`
   files `patch_0..33` for Native; `4.78 GB` `reduced512` vs `9.39 GB` `Full` on
   `Delta Squad + All CIS`) adds `6` isolated **Compact LEGO Clone** kits
   (`54` 3P `UNIT`s + `94` hiders across Phase I Shiny, 501st, 212th, Coruscant Guard,
-  Captain Rex, and Commander Cody, paired with `lego-compact-leaf-writer 0.1.0` and
+  Captain Rex, and Commander Cody, paired with `lego-compact-leaf-writer 0.2.1` and
   `empire-lego-yoda 0.2.0`), global LEGO mid-back prop tuck, and Forge `25480438`
   `3,246`-key US localization (`18` Clone strings) while preserving all 4 Delta Squad
   sets.
-See [v2.0.0 release notes](docs/releases/v2.0.0.md), [linux-0.9.0 notes](docs/releases/linux-0.9.0.md),
+See [v2.0.2 release notes](docs/releases/v2.0.2.md), [linux-0.9.2 notes](docs/releases/linux-0.9.2.md),
 and [JohnsonMode 512px notes](docs/JOHNSONMODE.md). Every mode uses
 the player's own verified **one-way HD2 → Forge account import**. Forge progression
 saves locally and does not count back in official HD2. Never share captures, profiles,

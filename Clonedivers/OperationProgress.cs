@@ -429,12 +429,13 @@ public sealed record PackSizePreview(
 
 public static class PackSizeEstimator
 {
-    /// <summary>Fast non-hashing estimate using exact size matching across known local cache/mod folders.</summary>
+    /// <summary>Fast non-hashing estimate using exact size matching across known local cache/mod folders, including resumable partial downloads.</summary>
     public static PackSizePreview Estimate(
         bool isRegular,
         HellForgePack.Selection? selection,
         IEnumerable<string> localSearchFolders,
-        bool isAlreadyApplied = false)
+        bool isAlreadyApplied = false,
+        string? cacheRoot = null)
     {
         if (isRegular || selection == null)
         {
@@ -480,6 +481,7 @@ public static class PackSizeEstimator
         long cachedBytes = 0;
         int cachedFiles = 0;
         var remaining = new Dictionary<long, int>(availableSizes);
+        var uncachedFiles = new List<PackFile>();
 
         foreach (var file in uniqueFiles)
         {
@@ -489,9 +491,63 @@ public static class PackSizeEstimator
                 cachedBytes += file.Size;
                 cachedFiles++;
             }
+            else
+            {
+                uncachedFiles.Add(file);
+            }
         }
 
-        long downloadBytes = Math.Max(0, totalBytes - cachedBytes);
+        long partialSavedBytes = 0;
+        bool hasInterruptedState = false;
+        if (!string.IsNullOrWhiteSpace(cacheRoot) && uncachedFiles.Count > 0)
+        {
+            try
+            {
+                var fullCache = Path.GetFullPath(cacheRoot);
+                if (Directory.Exists(fullCache) && (File.GetAttributes(fullCache) & FileAttributes.ReparsePoint) == 0)
+                {
+                    var dlDir = Path.Combine(fullCache, "appearance-downloads");
+                    if (Directory.Exists(dlDir) && (File.GetAttributes(dlDir) & FileAttributes.ReparsePoint) == 0)
+                    {
+                        foreach (var missing in uncachedFiles)
+                        {
+                            var partPath = Path.Combine(dlDir, missing.Sha256.ToLowerInvariant() + ".partial");
+                            if (!File.Exists(partPath)) continue;
+                            var fi = new FileInfo(partPath);
+                            if (fi.Attributes.HasFlag(FileAttributes.ReparsePoint)) continue;
+                            if (fi.Length > 0 && fi.Length <= missing.Size)
+                            {
+                                partialSavedBytes += fi.Length;
+                                hasInterruptedState = true;
+                            }
+                        }
+                    }
+
+                    var exportsDir = Path.Combine(fullCache, "exports");
+                    if (Directory.Exists(exportsDir) && (File.GetAttributes(exportsDir) & FileAttributes.ReparsePoint) == 0)
+                    {
+                        var selectionSizes = uniqueFiles.Select(f => f.Size).ToHashSet();
+                        foreach (var exp in new DirectoryInfo(exportsDir).EnumerateDirectories().Take(16))
+                        {
+                            if (exp.Attributes.HasFlag(FileAttributes.ReparsePoint) ||
+                                exp.Name.StartsWith("deleting-", StringComparison.OrdinalIgnoreCase) ||
+                                File.Exists(Path.Combine(exp.FullName, HellForgePack.ReceiptName)))
+                                continue;
+                            if (exp.EnumerateFiles("*", new EnumerationOptions { AttributesToSkip = FileAttributes.ReparsePoint, IgnoreInaccessible = true })
+                                   .Any(f => selectionSizes.Contains(f.Length)))
+                            {
+                                hasInterruptedState = true;
+                                break;
+                            }
+                        }
+                    }
+                }
+            }
+            catch (Exception e) when (e is IOException or UnauthorizedAccessException or ArgumentException) { }
+        }
+
+        long savedTotalBytes = Math.Min(totalBytes, cachedBytes + partialSavedBytes);
+        long downloadBytes = Math.Max(0, totalBytes - savedTotalBytes);
         int downloadFiles = Math.Max(0, uniqueFiles.Count - cachedFiles);
 
         string badge, detail;
@@ -504,6 +560,11 @@ public static class PackSizeEstimator
         {
             badge = "Ready — cached locally";
             detail = $"All {uniqueFiles.Count} files ({Pack.FormatBytes(totalBytes)}) found locally; switching needs no download.";
+        }
+        else if (hasInterruptedState && savedTotalBytes > 0)
+        {
+            badge = $"Resume: {Pack.FormatBytes(downloadBytes)} left ({Pack.FormatBytes(savedTotalBytes)} saved)";
+            detail = $"Paused download ready to resume — {Pack.FormatBytes(savedTotalBytes)} already saved locally.";
         }
         else if (cachedFiles > 0)
         {
@@ -519,7 +580,7 @@ public static class PackSizeEstimator
         return new PackSizePreview(
             IsRegular: false,
             TotalBytes: totalBytes,
-            CachedBytes: cachedBytes,
+            CachedBytes: savedTotalBytes,
             DownloadBytes: downloadBytes,
             TotalFiles: uniqueFiles.Count,
             CachedFiles: cachedFiles,
@@ -574,4 +635,122 @@ public static class PackSizeEstimator
         }
         return folders;
     }
+}
+
+/// <summary>Shared concise tactical status copy, loadout summaries, hardware labels, and disk usage lines across Windows and Linux.</summary>
+public static class ForgeTacticalCopy
+{
+    public static string ReadyDetail(string mode, bool firstLaunch = false)
+    {
+        var line = mode switch
+        {
+            "empire" => "Imperial garrison online · D1–11 ready · Steam co-op enabled",
+            "regular" => "Super Earth command online · D1–11 ready · Steam co-op enabled",
+            _ => "Venator in orbit · D1–11 ready · Steam co-op enabled"
+        };
+        return firstLaunch ? line + " · Windows may ask for network approval once" : line;
+    }
+
+    public static string FormatLoadoutSummary(
+        string mode,
+        string enemySkin,
+        bool deltaSquad,
+        bool covenant,
+        bool autoPerformanceTier,
+        string performanceTier,
+        HardwarePerformanceRecommendation? hardware,
+        string hostChaosIntensity = "standard",
+        string hostHeavySeaf = "standard",
+        bool hostFasterCorpseCleanup = true)
+    {
+        var hostNote = FormatHostMutatorNote(hostChaosIntensity, hostHeavySeaf, hostFasterCorpseCleanup);
+        if (string.Equals(mode, "regular", StringComparison.OrdinalIgnoreCase))
+        {
+            const string baseRegular = "Original Helldivers 2 visuals · Pinned gameplay preset";
+            return string.IsNullOrEmpty(hostNote) ? baseRegular : $"{baseRegular} · {hostNote}";
+        }
+
+        bool isDefaultFullMix = string.Equals(enemySkin, "mixed-droids", StringComparison.OrdinalIgnoreCase) &&
+                                covenant &&
+                                (!string.Equals(mode, "clonedivers", StringComparison.OrdinalIgnoreCase) || deltaSquad);
+
+        string mixPart;
+        if (isDefaultFullMix)
+        {
+            mixPart = "Full Star Wars Mix";
+        }
+        else
+        {
+            var segments = new List<string>(3)
+            {
+                enemySkin switch
+                {
+                    "mixed-droids" => "Mixed Bots + CIS",
+                    "native-automatons" => "Native Automatons",
+                    _ => "All CIS Droids"
+                }
+            };
+            if (string.Equals(mode, "clonedivers", StringComparison.OrdinalIgnoreCase))
+                segments.Add(deltaSquad ? "Delta Squad" : "Standard Clones");
+            if (covenant)
+                segments.Add("Covenant");
+            mixPart = string.Join(" · ", segments);
+        }
+
+        var resolvedTier = PerformanceTierAdvisor.GetTier(
+            autoPerformanceTier ? PerformanceTierAdvisor.Auto : performanceTier,
+            hardware);
+        var tierPart = autoPerformanceTier || string.Equals(performanceTier, PerformanceTierAdvisor.Auto, StringComparison.OrdinalIgnoreCase)
+            ? $"Auto ({resolvedTier.ShortLabel})"
+            : resolvedTier.DisplayName;
+
+        return string.IsNullOrEmpty(hostNote)
+            ? $"{mixPart} · {tierPart}"
+            : $"{mixPart} · {tierPart} · {hostNote}";
+    }
+
+    public static string FormatHostMutatorNote(string chaosIntensity, string heavySeaf, bool fasterCorpseCleanup)
+    {
+        var notes = new List<string>(3);
+        if (!string.Equals(chaosIntensity, "standard", StringComparison.OrdinalIgnoreCase))
+            notes.Add(chaosIntensity == "total-war" ? "Chaos: Total War" : "Chaos: Off");
+        if (!string.Equals(heavySeaf, "standard", StringComparison.OrdinalIgnoreCase))
+            notes.Add(heavySeaf == "constant" ? "SEAF: Constant" : "SEAF: Heavy");
+        if (!fasterCorpseCleanup)
+            notes.Add("Corpse Cleanup: Off");
+        return notes.Count <= 1 ? string.Join(" · ", notes) : "Custom Host Rules";
+    }
+
+    public static string FormatHardwareDetectionLine(HardwarePerformanceRecommendation hw)
+    {
+        var autoDef = PerformanceTierAdvisor.GetTier(hw.RecommendedTierId, hw);
+        var gpu = string.IsNullOrWhiteSpace(hw.GpuName) ? "System GPU" : hw.GpuName;
+        var mem = hw.VramGb > 0
+            ? $" ({hw.VramGb:0.#} GB)"
+            : hw.RamGb > 0
+                ? $" ({hw.RamGb:0.#} GB RAM)"
+                : "";
+        return $"Detected {gpu}{mem} · Auto → {autoDef.DisplayName}";
+    }
+
+    public static string FormatDiskUsageSummary(ForgeDiskAnalysis disk, bool hasInstallation)
+    {
+        if (!hasInstallation || disk.TotalBytes <= 0 && disk.GameCopyBytes <= 0 && disk.ActivePackBytes <= 0 && disk.DownloadCacheBytes <= 0 && disk.OldBackupsBytes <= 0)
+            return "No HellForge installation measured yet.";
+
+        var cacheTotal = disk.DownloadCacheBytes + disk.OldBackupsBytes;
+        var summary = $"Game {Pack.FormatBytes(disk.GameCopyBytes)} · Pack {Pack.FormatBytes(disk.ActivePackBytes)} · Cache {Pack.FormatBytes(cacheTotal)}";
+        if (disk.ReclaimableBytes > 0)
+            summary += $" ({Pack.FormatBytes(disk.ReclaimableBytes)} reclaimable)";
+        return summary;
+    }
+
+    public static string DiscordPresenceDetails(string mode, bool deltaSquad) => mode switch
+    {
+        "empire" => "Playing Clonedivers — Galactic Empire (HellForge)",
+        "regular" => "Playing Clonedivers — Super Earth (HellForge)",
+        _ => deltaSquad
+            ? "Playing Clonedivers — Republic Commandos (HellForge)"
+            : "Playing Clonedivers — Clone Wars (HellForge)"
+    };
 }

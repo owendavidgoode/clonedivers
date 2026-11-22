@@ -10,7 +10,7 @@ internal interface IForgeConnection : IAsyncDisposable
 }
 internal sealed class LinuxForgePreferences
 {
-    string enemySkin = "all-droids";
+    string enemySkin = "mixed-droids";
     public int Format { get; set; } = 1;
     public string? InstallRoot { get; set; }
     public string Mode { get; set; } = "clonedivers";
@@ -26,12 +26,74 @@ internal sealed class LinuxForgePreferences
         get => enemySkin;
         set => enemySkin = value;
     }
-    public bool Covenant { get; set; }
+    public bool Covenant { get; set; } = true;
+    public bool AutoPerformanceTier { get; set; } = true;
+    public string PerformanceTier { get; set; } = PerformanceTierAdvisor.Auto;
+    public bool SoundEffectsEnabled { get; set; } = true;
+    public bool DiscordRpcEnabled { get; set; } = true;
+    public bool MinimizeToTray { get; set; }
+    public string? LastStepDownSuggestedTier { get; set; }
+    public string? PendingStepDownReason { get; set; }
+    public string HostChaosIntensity { get; set; } = "standard";
+    public string HostHeavySeaf { get; set; } = "standard";
+    public bool HostFasterCorpseCleanup { get; set; } = true;
+    public string? PlayerLabel { get; set; }
     internal static string PathName => Path.Combine(PlatformPaths.ConfigDirectory, "forge.json");
+
+    internal void ApplyPerformanceTier(string tierId, HardwarePerformanceRecommendation? hardware = null)
+    {
+        if (!PerformanceTierAdvisor.IsValidPreferenceTier(tierId))
+            throw new ArgumentException($"Unsupported performance tier: {tierId}", nameof(tierId));
+        PerformanceTier = tierId;
+        AutoPerformanceTier = tierId == PerformanceTierAdvisor.Auto;
+        Texture = PerformanceTierAdvisor.ResolvePackTexture(tierId, hardware);
+    }
+
+    internal HostMutatorOptions ToHostMutatorOptions(DateTimeOffset? updatedUtc = null) => new()
+    {
+        Format = 1,
+        ChaosIntensity = HostChaosIntensity,
+        HeavySeaf = HostHeavySeaf,
+        FasterCorpseCleanup = HostFasterCorpseCleanup,
+        UpdatedUtc = updatedUtc ?? DateTimeOffset.UtcNow
+    };
+
+    static bool TryGetJsonProperty(JsonElement obj, string name, out JsonElement value)
+    {
+        if (obj.ValueKind == JsonValueKind.Object)
+        {
+            foreach (var prop in obj.EnumerateObject())
+            {
+                if (string.Equals(prop.Name, name, StringComparison.OrdinalIgnoreCase))
+                {
+                    value = prop.Value;
+                    return true;
+                }
+            }
+        }
+        value = default;
+        return false;
+    }
+
     internal void Validate()
     {
+        if (string.IsNullOrEmpty(PerformanceTier))
+            PerformanceTier = AutoPerformanceTier ? PerformanceTierAdvisor.Auto : PerformanceTierAdvisor.TierFromPackTexture(Texture);
+        if (string.IsNullOrEmpty(HostChaosIntensity)) HostChaosIntensity = "standard";
+        if (string.IsNullOrEmpty(HostHeavySeaf)) HostHeavySeaf = "standard";
+        if (string.IsNullOrWhiteSpace(LastStepDownSuggestedTier)) LastStepDownSuggestedTier = null;
+        if (string.IsNullOrWhiteSpace(PendingStepDownReason)) PendingStepDownReason = null;
+        if (string.IsNullOrWhiteSpace(PlayerLabel)) PlayerLabel = null;
+        else PlayerLabel = PlayerLabel.Trim();
+
         if (Format != 1 || Mode is not ("regular" or "clonedivers" or "empire") || Texture is not ("full" or "lighter" or "reduced512") ||
-            EnemySkin is not ("all-droids" or "mixed-droids" or "native-automatons"))
+            EnemySkin is not ("all-droids" or "mixed-droids" or "native-automatons") ||
+            !PerformanceTierAdvisor.IsValidPreferenceTier(PerformanceTier) ||
+            (LastStepDownSuggestedTier != null && !PerformanceTierAdvisor.IsConcreteTier(LastStepDownSuggestedTier)) ||
+            (PendingStepDownReason != null && PendingStepDownReason.Length > 512) ||
+            !HostMutatorConfig.IsValidChaosIntensity(HostChaosIntensity) ||
+            !HostMutatorConfig.IsValidHeavySeaf(HostHeavySeaf) ||
+            (PlayerLabel != null && PlayerLabel.Length > 40))
             throw new InvalidDataException("Unsupported Forge preferences; restore forge.json from backup.");
     }
     internal static LinuxForgePreferences Load(string? file = null)
@@ -39,13 +101,49 @@ internal sealed class LinuxForgePreferences
         file ??= PathName; FileSafety.RejectLink(file);
         if (!File.Exists(file))
         {
+            if (!LegacyAppearance.HasSavedConfigFor(file))
+                return new();
             var legacy = LegacyAppearance.ReadFor(file);
-            return new() { Mode = legacy.Options.GetValueOrDefault("empire") ? "empire" : "clonedivers",
-                DeltaSquad = legacy.Options.GetValueOrDefault("commandos", true), Droids = legacy.Options.GetValueOrDefault("droids", true),
-                Covenant = legacy.Options.GetValueOrDefault("covenant"), Texture = legacy.TextureProfile == "lighter" ? "lighter" : "full" };
+            var legacyTexture = legacy.TextureProfile?.Trim().ToLowerInvariant() switch
+            {
+                "reduced512" or "reduced-512" => "reduced512",
+                "lighter" or "skinny" => "lighter",
+                "full" => "full",
+                _ => null
+            };
+            var hasExplicitTexture = legacyTexture != null;
+            return new()
+            {
+                Mode = legacy.Options.GetValueOrDefault("empire") ? "empire" : "clonedivers",
+                DeltaSquad = legacy.Options.GetValueOrDefault("commandos", true),
+                EnemySkin = legacy.Options.TryGetValue("droids", out var legacyDroids) ? (legacyDroids ? "all-droids" : "native-automatons") : "mixed-droids",
+                Covenant = legacy.Options.TryGetValue("covenant", out var legacyCov) ? legacyCov : true,
+                Texture = legacyTexture ?? "full",
+                AutoPerformanceTier = !hasExplicitTexture,
+                PerformanceTier = !hasExplicitTexture ? PerformanceTierAdvisor.Auto : PerformanceTierAdvisor.TierFromPackTexture(legacyTexture)
+            };
         }
         if (new FileInfo(file).Length > 65536) throw new InvalidDataException("Forge preferences are oversized.");
-        var value = JsonSerializer.Deserialize<LinuxForgePreferences>(File.ReadAllText(file), HellForgePack.Json) ?? throw new InvalidDataException("Empty Forge preferences.");
+        var raw = File.ReadAllText(file);
+        using var doc = JsonDocument.Parse(raw);
+        var value = JsonSerializer.Deserialize<LinuxForgePreferences>(raw, HellForgePack.Json) ?? throw new InvalidDataException("Empty Forge preferences.");
+        if (doc.RootElement.ValueKind == JsonValueKind.Object)
+        {
+            if (!TryGetJsonProperty(doc.RootElement, "EnemySkin", out _))
+            {
+                value.EnemySkin = TryGetJsonProperty(doc.RootElement, "Droids", out var droidsProp) && droidsProp.ValueKind is JsonValueKind.True or JsonValueKind.False
+                    ? (droidsProp.GetBoolean() ? "all-droids" : "native-automatons")
+                    : "all-droids";
+            }
+            if (!TryGetJsonProperty(doc.RootElement, "Covenant", out _))
+                value.Covenant = false;
+            if (!TryGetJsonProperty(doc.RootElement, "AutoPerformanceTier", out _))
+            {
+                value.AutoPerformanceTier = false;
+                if (!TryGetJsonProperty(doc.RootElement, "PerformanceTier", out _))
+                    value.PerformanceTier = PerformanceTierAdvisor.TierFromPackTexture(value.Texture);
+            }
+        }
         value.Validate(); return value;
     }
     internal void Save(string? file = null)
@@ -205,9 +303,10 @@ internal sealed class LinuxForgePlayer(IForgeConnection connection, LinuxForgePr
         await connection.RunAsync(["recover-pack"], ct);
         await RefreshAsync(ct);
     }
-    internal async Task InstallGameplayAsync(IProgress<string>? progress = null, CancellationToken ct = default)
+    internal async Task InstallGameplayAsync(IProgress<string>? progress = null, CancellationToken ct = default, IProgress<OperationProgress>? richProgress = null)
     {
         if (SessionActive || Game.IsRunning()) throw new InvalidOperationException("End HD2 before installing the required gameplay preset.");
+        richProgress?.Report(new("Checking required gameplay mods", "Verifying installed 14-mod r7 preset…", IsIndeterminate: true, CanCancel: true));
         var missing = (await connection.RunAsync(["gameplay-status"], ct)).Deserialize<List<GameplayArtifact>>(HellForgePack.Json)
             ?? throw new InvalidDataException("Forge returned no gameplay installation plan.");
         var pinned = HellForgeGameplayCatalog.Pinned;
@@ -217,8 +316,9 @@ internal sealed class LinuxForgePlayer(IForgeConnection connection, LinuxForgePr
         var cache = Path.Combine(Path.GetDirectoryName(root)!, "Clonedivers-HellForge-cache", "gameplay", pinned.Id);
         var windows = connection.NativePaths ? cache : WindowsPath(root, cache);
         // HTTPS runs here in the native frontend, never in the isolated Wine bridge.
-        await HellForgeGameplayCatalog.StageAsync(cache, missing, progress, ct);
+        await HellForgeGameplayCatalog.StageAsync(cache, missing, progress, ct, richProgress: richProgress);
         if (SessionActive || Game.IsRunning()) throw new InvalidOperationException("HD2 started while downloading; keep the verified files and retry after closing it.");
+        richProgress?.Report(new("Installing gameplay mods", "Configuring pinned r7 load order and sharing…", IsIndeterminate: true, CanCancel: false));
         await connection.RunAsync(["install-gameplay", "--file", windows], ct);
         await RefreshAsync(ct);
     }
@@ -241,29 +341,40 @@ internal sealed class LinuxForgePlayer(IForgeConnection connection, LinuxForgePr
         await connection.RunAsync(["open-manager"], ct);
         ResumeAccountSync(request);
     }
-    internal async Task<HellForgePack.Plan> PlanAppearanceAsync(IProgress<string>? progress = null, CancellationToken ct = default)
+    internal async Task<HellForgePack.Plan> PlanAppearanceAsync(IProgress<string>? progress = null, CancellationToken ct = default, IProgress<OperationProgress>? richProgress = null)
     {
         if (SessionActive) throw new InvalidOperationException("End the current session before preparing this mode.");
         if (Preferences.Mode == "regular") throw new InvalidOperationException("Regular needs no appearance download.");
         var root = ResolvedInstallRoot ?? throw new InvalidOperationException("Choose a Forge installation.");
         var cache = Path.Combine(Path.GetDirectoryName(root)!, "Clonedivers-HellForge-cache", "exports");
-        FileSafety.RejectLink(cache);
-        var selection = Preferences.PackSelection();
-        var exports = Directory.Exists(cache) ? new DirectoryInfo(cache).EnumerateDirectories().OrderByDescending(d => d.LastWriteTimeUtc).Take(32).Select(d => d.FullName).ToList() : [];
-        if (await FindExportAsync(exports, selection, progress, ct) is { } prepared) return prepared;
         var mods = Path.Combine(root, "mods");
-        FileSafety.RejectLink(mods);
-        IEnumerable<string> sources = Directory.Exists(mods) ? exports.Prepend(mods) : exports;
-        return await HellForgePack.PlanAsync(selection, Path.Combine(cache, "linux-" + Guid.NewGuid().ToString("N")), sources, progress, ct);
+        var selection = Preferences.PackSelection();
+        return await Task.Run(async () =>
+        {
+            FileSafety.RejectLink(cache);
+            var exports = Directory.Exists(cache) ? new DirectoryInfo(cache).EnumerateDirectories().OrderByDescending(d => d.LastWriteTimeUtc).Take(32).Select(d => d.FullName).ToList() : [];
+            if (await FindExportAsync(exports, selection, progress, ct, richProgress) is { } prepared) return prepared;
+            FileSafety.RejectLink(mods);
+            IEnumerable<string> sources = Directory.Exists(mods) ? exports.Prepend(mods) : exports;
+            return await HellForgePack.PlanAsync(selection, Path.Combine(cache, "linux-" + Guid.NewGuid().ToString("N")), sources, progress, ct, richProgress: richProgress);
+        }, ct);
     }
     /// <summary>Like Windows, reuse a verified earlier export instead of writing another full copy; its plan needs no download or export.</summary>
-    internal static async Task<HellForgePack.Plan?> FindExportAsync(IEnumerable<string> exports, HellForgePack.Selection selection, IProgress<string>? progress = null, CancellationToken ct = default)
+    internal static async Task<HellForgePack.Plan?> FindExportAsync(IEnumerable<string> exports, HellForgePack.Selection selection, IProgress<string>? progress = null, CancellationToken ct = default, IProgress<OperationProgress>? richProgress = null)
     {
         foreach (var export in exports)
             try
             {
                 progress?.Report("Checking previously prepared pack files…");
-                await HellForgePack.VerifyAsync(export, selection, ct);
+                var speed = new SpeedTracker();
+                var byteProgress = richProgress == null
+                    ? null
+                    : new SyncProgress<(long Done, long Total)>(p =>
+                    {
+                        var (rate, eta) = speed.Update(p.Done, p.Total);
+                        richProgress.Report(new("Checking cached pack exports", Path.GetFileName(export), 0, 0, p.Done, p.Total, rate, eta, CanCancel: true));
+                    });
+                await HellForgePack.VerifyAsync(export, selection, byteProgress, ct);
                 Directory.SetLastWriteTimeUtc(export, DateTime.UtcNow); // most recent, so pruning keeps it
                 return new(selection, export, selection.Files.Where(f => f.Size > 0).DistinctBy(f => f.Sha256)
                     .ToDictionary(f => f.Sha256, f => FileSafety.Child(export, f.Name), StringComparer.OrdinalIgnoreCase));
@@ -279,10 +390,15 @@ internal sealed class LinuxForgePlayer(IForgeConnection connection, LinuxForgePr
             try { FileSafety.RejectLink(stale.FullName); Directory.Delete(stale.FullName, true); }
             catch (Exception error) when (error is IOException or UnauthorizedAccessException or InvalidDataException) { } // pruning never fails an applied pack
     }
-    internal async Task PrepareAppearanceAsync(HellForgePack.Plan? plan, bool allowDownloads, IProgress<string>? progress = null, CancellationToken ct = default)
+    internal async Task PrepareAppearanceAsync(HellForgePack.Plan? plan, bool allowDownloads, IProgress<string>? progress = null, CancellationToken ct = default, IProgress<OperationProgress>? richProgress = null)
     {
         if (SessionActive) throw new InvalidOperationException("End the current session before applying this mode.");
-        if (Preferences.Mode == "regular") { await SelectAsync(ct); await connection.RunAsync(["prepare-regular"], ct); }
+        if (Preferences.Mode == "regular")
+        {
+            richProgress?.Report(new("Applying Regular mode", "Disabling Star Wars packs while keeping gameplay mods…", IsIndeterminate: true, CanCancel: false));
+            await SelectAsync(ct);
+            await connection.RunAsync(["prepare-regular"], ct);
+        }
         else
         {
             ArgumentNullException.ThrowIfNull(plan);
@@ -291,12 +407,25 @@ internal sealed class LinuxForgePlayer(IForgeConnection connection, LinuxForgePr
                 plan.Selection.Options.Count != expected.Options.Count || expected.Options.Any(pair => !plan.Selection.Options.TryGetValue(pair.Key, out var on) || on != pair.Value))
                 throw new InvalidDataException("The selected mode/options changed after planning. Prepare the selection again.");
             var path = connection.NativePaths ? plan.Output : WindowsPath(ResolvedInstallRoot!, plan.Output);
-            // This code runs in the native frontend, outside the isolated Wine namespace.
-            if (Directory.Exists(plan.Output)) await HellForgePack.VerifyMetadataAsync(plan.Output, expected, ct); // reused export; the bridge re-hashes before import
-            else await HellForgePack.ExportAsync(plan, allowDownloads, progress, ct);
+            // Pure disk verification/export runs off-thread without touching LinuxForgePlayer state; bridge commands & RefreshAsync run on host context.
+            await Task.Run(async () =>
+            {
+                if (Directory.Exists(plan.Output))
+                {
+                    richProgress?.Report(new("Verifying cached pack", "Checking prepared export metadata…", IsIndeterminate: true, CanCancel: true));
+                    await HellForgePack.VerifyMetadataAsync(plan.Output, expected, ct); // reused export; the bridge re-hashes before import
+                }
+                else
+                {
+                    await HellForgePack.ExportAsync(plan, allowDownloads, progress, ct, richProgress: richProgress);
+                }
+            }, ct);
             await SelectAsync(ct);
+            richProgress?.Report(new("Installing Star Wars pack", "Importing verified pack into HellForge…", IsIndeterminate: true, CanCancel: false));
             await connection.RunAsync(["prepare-pack", "--file", path], ct);
-            PruneExports(Path.GetDirectoryName(Path.GetFullPath(plan.Output))!, plan.Output);
+            var pruneDir = Path.GetDirectoryName(Path.GetFullPath(plan.Output))!;
+            var pruneKeep = plan.Output;
+            await Task.Run(() => PruneExports(pruneDir, pruneKeep), CancellationToken.None);
         }
         await RefreshAsync(ct);
     }

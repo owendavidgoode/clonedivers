@@ -1,7 +1,11 @@
+using System.Diagnostics;
 using Avalonia;
 using Avalonia.Automation;
 using Avalonia.Controls;
+using Avalonia.Controls.ApplicationLifetimes;
 using Avalonia.Controls.Primitives;
+using Avalonia.Input;
+using Avalonia.Interactivity;
 using Avalonia.Layout;
 using Avalonia.Media;
 using Avalonia.Media.Imaging;
@@ -10,36 +14,48 @@ using Avalonia.Threading;
 
 namespace Clonedivers.Ui;
 
+using Application = Avalonia.Application;
 using Brushes = Avalonia.Media.Brushes;
 using Button = Avalonia.Controls.Button;
+using CheckBox = Avalonia.Controls.CheckBox;
 using Control = Avalonia.Controls.Control;
+using Cursor = Avalonia.Input.Cursor;
 using FontFamily = Avalonia.Media.FontFamily;
 using Grid = Avalonia.Controls.Grid;
 using HorizontalAlignment = Avalonia.Layout.HorizontalAlignment;
 using Image = Avalonia.Controls.Image;
+using KeyEventArgs = Avalonia.Input.KeyEventArgs;
 using Orientation = Avalonia.Layout.Orientation;
 using ProgressBar = Avalonia.Controls.ProgressBar;
-using RadioButton = Avalonia.Controls.RadioButton;
 using Size = Avalonia.Size;
 using TextBox = Avalonia.Controls.TextBox;
+using ToolTip = Avalonia.Controls.ToolTip;
 
-/// <summary>Unified modern Star Wars launcher window shared across Windows and Linux.</summary>
+/// <summary>Unified modern Star Wars holoterminal launcher window shared across Windows and Linux.</summary>
 public sealed class ForgeShellWindow : Window
 {
     readonly IForgeUiHost host;
     bool showingSetup;
     bool showingCustomize;
+    bool showingAdvanced;
     bool showingSettings;
+    bool showingWhatsNew;
     bool closingConfirmed;
     bool updatingControls;
+    bool wasSessionRunning;
+    bool minimizeToTrayActive;
+    string? hoveredModeId;
     TaskCompletionSource<bool>? pendingConfirm;
     WriteableBitmap? currentQrBitmap;
     string[]? lastQrRows;
+    TrayIcon? trayIcon;
+    NativeMenuItem? trayEndSessionItem;
 
-    // Header & update banner
+    // Header & contextual non-blocking banners
     readonly TextBlock headerSubtitle = ForgeTheme.Label("HellForge Edition", 12, ForgeTheme.TextSecondary);
     readonly Border headerStatusBadge = new() { CornerRadius = new CornerRadius(999), Padding = new Thickness(11, 4), BorderThickness = new Thickness(1), VerticalAlignment = VerticalAlignment.Center };
     readonly TextBlock headerStatusText = ForgeTheme.Label("Ready", 11.5, ForgeTheme.SuccessText, FontWeight.SemiBold, wrap: false);
+    readonly Button muteButton = ForgeTheme.GhostButton("🔊", 12.5, new Thickness(10, 6));
     readonly Button settingsButton = ForgeTheme.GhostButton("Settings", 12, new Thickness(13, 7));
 
     readonly Border updateBanner = new()
@@ -49,18 +65,61 @@ public sealed class ForgeShellWindow : Window
         BorderBrush = ForgeTheme.InfoBorder,
         BorderThickness = new Thickness(1),
         CornerRadius = new CornerRadius(10),
-        Padding = new Thickness(14, 9),
-        Margin = new Thickness(28, 0, 28, 10)
+        Padding = new Thickness(14, 8),
+        Margin = new Thickness(28, 0, 28, 8)
     };
     readonly TextBlock updateBannerText = ForgeTheme.Label("", 12.5, ForgeTheme.TextPrimary, FontWeight.Medium);
+    readonly Button updateBannerWhatsNew = ForgeTheme.LinkStyleButton("What's New", ForgeTheme.InfoText, 12);
     readonly Button updateBannerAction = ForgeTheme.GhostButton("Update & Restart", 12, new Thickness(12, 5));
     readonly Button updateBannerDismiss = ForgeTheme.LinkStyleButton("Later", ForgeTheme.TextSecondary, 12);
+
+    readonly Border stepDownBanner = new()
+    {
+        IsVisible = false,
+        Background = ForgeTheme.WarningBg,
+        BorderBrush = ForgeTheme.WarningBorder,
+        BorderThickness = new Thickness(1),
+        CornerRadius = new CornerRadius(10),
+        Padding = new Thickness(14, 8),
+        Margin = new Thickness(28, 0, 28, 8)
+    };
+    readonly TextBlock stepDownBannerText = ForgeTheme.Label("", 12, ForgeTheme.WarningText, FontWeight.Medium);
+    readonly Button stepDownAcceptButton = ForgeTheme.GhostButton("Drop Tier", 12, new Thickness(12, 5));
+    readonly Button stepDownDismissButton = ForgeTheme.LinkStyleButton("Dismiss", ForgeTheme.TextSecondary, 12);
+
+    readonly Border selfInstallBanner = new()
+    {
+        IsVisible = false,
+        Background = ForgeTheme.BgElevated,
+        BorderBrush = ForgeTheme.InfoBorder,
+        BorderThickness = new Thickness(1),
+        CornerRadius = new CornerRadius(10),
+        Padding = new Thickness(14, 8),
+        Margin = new Thickness(28, 0, 28, 8)
+    };
+    readonly TextBlock selfInstallBannerText = ForgeTheme.Label("", 12, ForgeTheme.TextPrimary, FontWeight.Medium);
+    readonly Button selfInstallAcceptButton = ForgeTheme.GhostButton("Install Shortcuts", 12, new Thickness(12, 5));
+    readonly Button selfInstallDismissButton = ForgeTheme.LinkStyleButton("Later", ForgeTheme.TextSecondary, 12);
+
+    // Floating visible UI unhandled-exception error toast (QA Bugfix #4)
+    readonly Border unhandledErrorBanner = new()
+    {
+        IsVisible = false,
+        VerticalAlignment = VerticalAlignment.Top,
+        Margin = new Thickness(28, 12, 28, 0),
+        Background = ForgeTheme.WarningBg,
+        BorderBrush = ForgeTheme.Warning,
+        BorderThickness = new Thickness(1.5),
+        CornerRadius = new CornerRadius(10),
+        Padding = new Thickness(14, 9)
+    };
+    readonly TextBlock unhandledErrorText = ForgeTheme.Label("", 12.5, ForgeTheme.WarningText, FontWeight.SemiBold);
 
     // Main content swap
     readonly Control homeView;
     readonly Control setupView;
 
-    // Home view controls (7 top-level elements)
+    // Home view controls (ultra-clean 7 top-level elements)
     readonly Dictionary<string, Border> modeCards = new();
     readonly Dictionary<string, Border> modeTopBars = new();
     readonly Dictionary<string, Button> modeButtons = new();
@@ -73,9 +132,9 @@ public sealed class ForgeShellWindow : Window
         BorderBrush = ForgeTheme.BorderSubtle,
         BorderThickness = new Thickness(1),
         CornerRadius = new CornerRadius(10),
-        Padding = new Thickness(16, 11)
+        Padding = new Thickness(16, 10)
     };
-    readonly TextBlock customizeSummaryTitle = ForgeTheme.Label("Loadout", 11.5, ForgeTheme.TextMuted, FontWeight.SemiBold);
+    readonly TextBlock customizeSummaryTitle = ForgeTheme.Label("CLONES LOADOUT", 11, ForgeTheme.TextMuted, FontWeight.Bold);
     readonly TextBlock customizeSummaryText = ForgeTheme.Label("", 13, ForgeTheme.TextPrimary, FontWeight.Medium);
     readonly Border customizeSizePill = new() { CornerRadius = new CornerRadius(999), Padding = new Thickness(10, 4), BorderThickness = new Thickness(1), VerticalAlignment = VerticalAlignment.Center };
     readonly TextBlock customizeSizePillText = ForgeTheme.Label("", 11.5, ForgeTheme.SuccessText, FontWeight.SemiBold, wrap: false);
@@ -88,9 +147,10 @@ public sealed class ForgeShellWindow : Window
         BorderBrush = ForgeTheme.BorderSubtle,
         BorderThickness = new Thickness(1),
         CornerRadius = new CornerRadius(12),
-        Padding = new Thickness(18, 14),
-        MinHeight = 96
+        Padding = new Thickness(18, 13),
+        MinHeight = 92
     };
+    readonly Border statusDeckTopLine = new() { Height = 2, CornerRadius = new CornerRadius(2), Margin = new Thickness(0, 0, 0, 8), Background = ForgeTheme.ClonesBarMuted };
     readonly Border statusDot = new() { Width = 10, Height = 10, CornerRadius = new CornerRadius(5), VerticalAlignment = VerticalAlignment.Center };
     readonly TextBlock statusHeadline = ForgeTheme.Label("Checking HellForge…", 16, ForgeTheme.TextPrimary, FontWeight.Bold);
     readonly TextBlock statusDetail = ForgeTheme.Label("", 12.5, ForgeTheme.TextSecondary);
@@ -114,26 +174,53 @@ public sealed class ForgeShellWindow : Window
     readonly Button steamFooterLink = ForgeTheme.LinkStyleButton("Official online game: Open Helldivers 2 in Steam", ForgeTheme.TextSecondary, 11.5);
     readonly TextBlock versionFooter = ForgeTheme.Label("", 11.5, ForgeTheme.TextMuted, wrap: false);
 
-    // Customize Slide-Over Drawer
+    // Radically Simplified Customize Slide-Over Drawer
     readonly Grid customizeOverlay = new() { IsVisible = false, Background = ForgeTheme.BgOverlay };
+    ScrollViewer? drawerScrollViewer;
     readonly TextBlock drawerTitle = ForgeTheme.Label("Customize Clones", 18, ForgeTheme.TextPrimary, FontWeight.Bold);
-    readonly TextBlock drawerSubtitle = ForgeTheme.Label("Changes preview download size immediately.", 12, ForgeTheme.TextSecondary);
+    readonly TextBlock drawerSubtitle = ForgeTheme.Label("Auto-tuned for your GPU, with optional overrides below.", 12, ForgeTheme.TextSecondary);
+
+    readonly StackPanel drawerPerfSection = new() { Spacing = 6 };
+    readonly TextBlock drawerHardwareText = ForgeTheme.Label("", 12, ForgeTheme.InfoText, FontWeight.SemiBold);
+    readonly ToggleSwitch autoTierToggle = new() { OnContent = "Auto", OffContent = "Manual" };
+    readonly Dictionary<string, Border> tierRows = new();
+    readonly Dictionary<string, Border> tierDots = new();
+    readonly Dictionary<string, Border> tierRecPills = new();
+
+    readonly Border advancedHeaderBorder = new()
+    {
+        Background = ForgeTheme.BgElevated,
+        BorderBrush = ForgeTheme.BorderSubtle,
+        BorderThickness = new Thickness(1),
+        CornerRadius = new CornerRadius(9),
+        Padding = new Thickness(12, 9),
+        Cursor = new Cursor(StandardCursorType.Hand)
+    };
+    readonly TextBlock advancedHeaderLabel = ForgeTheme.Label("Advanced ▸", 12.5, ForgeTheme.TextPrimary, FontWeight.Bold, wrap: false);
+    readonly TextBlock advancedHeaderHint = ForgeTheme.Label("Enemy Mix · Extras · Host Rules", 11, ForgeTheme.TextSecondary, wrap: false);
+    readonly StackPanel advancedBodyPanel = new() { Spacing = 10, IsVisible = false, Margin = new Thickness(0, 4, 0, 0) };
+
+    readonly StackPanel drawerVisualExtrasSection = new() { Spacing = 8 };
     readonly Dictionary<string, ToggleButton> enemyPills = new();
     readonly ToggleSwitch deltaToggle = new() { OnContent = "On", OffContent = "Off" };
     readonly Border deltaRow = new();
     readonly ToggleSwitch covenantToggle = new() { OnContent = "On", OffContent = "Off" };
-    readonly Dictionary<string, Border> textureCards = new();
-    readonly Dictionary<string, RadioButton> textureRadios = new();
+
+    // Host Gameplay Controls (#20)
+    readonly Dictionary<string, ToggleButton> chaosPills = new();
+    readonly Dictionary<string, ToggleButton> seafPills = new();
+    readonly ToggleSwitch corpseCleanupToggle = new() { OnContent = "On", OffContent = "Off" };
+
     readonly Border drawerPreviewBox = new()
     {
         Background = ForgeTheme.BgElevated,
         BorderBrush = ForgeTheme.BorderSubtle,
         BorderThickness = new Thickness(1),
         CornerRadius = new CornerRadius(10),
-        Padding = new Thickness(14, 11)
+        Padding = new Thickness(12, 9)
     };
     readonly TextBlock drawerPreviewBadge = ForgeTheme.Label("", 12.5, ForgeTheme.SuccessText, FontWeight.Bold);
-    readonly TextBlock drawerPreviewDetail = ForgeTheme.Label("", 12, ForgeTheme.TextSecondary);
+    readonly TextBlock drawerPreviewDetail = ForgeTheme.Label("", 11.5, ForgeTheme.TextSecondary);
     readonly Button drawerApplyButton = ForgeTheme.PrimaryButton("Done", 42, 14);
 
     // Embedded 4-Stage Guided Setup View
@@ -211,34 +298,50 @@ public sealed class ForgeShellWindow : Window
     readonly Button setupPrimaryButton = ForgeTheme.PrimaryButton("CONTINUE", 48, 15);
     readonly Button setupCancelWorkButton = ForgeTheme.GhostButton("Pause Download", 12.5, new Thickness(16, 12));
 
-    // Settings & Diagnostics Modal
+    // Settings & Diagnostics Modal (#3 Disk Usage, #13 Verify & Repair, #12 Discord Copy Report, #6/#7/#15 toggles)
     readonly Grid settingsOverlay = new() { IsVisible = false, Background = ForgeTheme.BgOverlay };
     readonly TextBlock settingsInstallPath = ForgeTheme.Label("Not configured", 12.5, ForgeTheme.TextPrimary);
-    readonly TextBlock settingsAccountSummary = ForgeTheme.Label("", 12.5, ForgeTheme.TextSecondary);
+    readonly TextBlock settingsDiskUsageText = ForgeTheme.Label("", 12, ForgeTheme.InfoText, FontWeight.SemiBold);
+    readonly TextBlock settingsAccountSummary = ForgeTheme.Label("", 12, ForgeTheme.TextSecondary);
     readonly TextBlock settingsUpdateNote = ForgeTheme.Label("", 12, ForgeTheme.InfoText);
     readonly WrapPanel settingsHealthWrap = new() { Orientation = Orientation.Horizontal };
+    readonly CheckBox settingsSfxCheck = new() { Content = "UI Sound Effects", FontSize = 12, Foreground = ForgeTheme.TextPrimary };
+    readonly CheckBox settingsDiscordCheck = new() { Content = "Discord Rich Presence", FontSize = 12, Foreground = ForgeTheme.TextPrimary };
+    readonly CheckBox settingsTrayCheck = new() { Content = "Minimize to tray while playing", FontSize = 12, Foreground = ForgeTheme.TextPrimary };
     readonly TextBox settingsReportBox = new()
     {
         IsReadOnly = true,
         AcceptsReturn = true,
         TextWrapping = TextWrapping.Wrap,
-        Height = 148,
+        Height = 96,
         FontFamily = new FontFamily("Consolas, Cascadia Mono, monospace"),
-        FontSize = 11.5,
+        FontSize = 11,
         Background = ForgeTheme.BgInput,
         Foreground = ForgeTheme.TextSecondary,
         BorderBrush = ForgeTheme.BorderSubtle,
         BorderThickness = new Thickness(1),
         CornerRadius = new CornerRadius(8)
     };
+    string latestDiscordReport = "";
     readonly Button settingsCopyReportButton = ForgeTheme.GhostButton("Copy Report", 12, new Thickness(13, 7));
     readonly Button settingsSaveReportButton = ForgeTheme.GhostButton("Save Report…", 12, new Thickness(13, 7));
-    readonly Button settingsOpenFolderButton = ForgeTheme.GhostButton("Open Folder", 12, new Thickness(12, 6));
-    readonly Button settingsLocateButton = ForgeTheme.GhostButton("Locate…", 12, new Thickness(12, 6));
-    readonly Button settingsManagerButton = ForgeTheme.GhostButton("Open HellForge", 12, new Thickness(12, 6));
-    readonly Button settingsGuidedSetupButton = ForgeTheme.GhostButton("Guided Setup…", 12, new Thickness(12, 6));
-    readonly Button settingsSyncAccountButton = ForgeTheme.GhostButton("Sync Account", 12, new Thickness(12, 6));
-    readonly Button settingsCheckUpdatesButton = ForgeTheme.GhostButton("Check Updates", 12, new Thickness(12, 6));
+    readonly Button settingsOpenFolderButton = ForgeTheme.GhostButton("Open Folder", 11.5, new Thickness(9, 5));
+    readonly Button settingsLocateButton = ForgeTheme.GhostButton("Locate…", 11.5, new Thickness(9, 5));
+    readonly Button settingsManagerButton = ForgeTheme.GhostButton("Open HellForge", 11.5, new Thickness(9, 5));
+    readonly Button settingsGuidedSetupButton = ForgeTheme.GhostButton("Guided Setup…", 11.5, new Thickness(9, 5));
+    readonly Button settingsCleanCacheButton = ForgeTheme.GhostButton("Clean Cache", 11.5, new Thickness(9, 5));
+    readonly Button settingsVerifyRepairButton = ForgeTheme.GhostButton("Verify & Repair", 11.5, new Thickness(10, 5));
+    readonly Button settingsSyncAccountButton = ForgeTheme.GhostButton("Sync Account", 11.5, new Thickness(11, 5));
+    readonly Button settingsCheckUpdatesButton = ForgeTheme.GhostButton("Check Updates", 11.5, new Thickness(11, 5));
+
+    // What's New Dark Overlay (#5)
+    readonly Grid whatsNewOverlay = new() { IsVisible = false, Background = ForgeTheme.BgOverlay };
+    readonly TextBlock whatsNewTitle = ForgeTheme.Label("What's New", 17, ForgeTheme.TextPrimary, FontWeight.Bold);
+    readonly TextBlock whatsNewSubtitle = ForgeTheme.Label("Highlights in this Clonedivers release", 12, ForgeTheme.TextSecondary);
+    readonly StackPanel whatsNewBulletsPanel = new() { Spacing = 8 };
+    readonly Button whatsNewOpenWebButton = ForgeTheme.LinkStyleButton("Full release notes on GitHub ↗", ForgeTheme.InfoText, 12);
+    readonly Button whatsNewCloseButton = ForgeTheme.PrimaryButton("Got It", 38, 13.5);
+    string? currentWhatsNewUrl;
 
     // Dark Confirm Modal
     readonly Grid confirmOverlay = new() { IsVisible = false, Background = ForgeTheme.BgOverlay };
@@ -247,11 +350,20 @@ public sealed class ForgeShellWindow : Window
     readonly Button confirmCancelButton = ForgeTheme.GhostButton("Cancel", 13, new Thickness(16, 9));
     readonly Button confirmOkButton = ForgeTheme.PrimaryButton("Continue", 38, 13.5);
 
+    internal bool IsErrorToastVisible => unhandledErrorBanner.IsVisible;
+    internal string ErrorToastMessage => unhandledErrorText.Text ?? "";
+    internal bool IsCustomizeOpen => showingCustomize;
+    internal bool IsAdvancedExpanded => showingAdvanced;
+    internal bool IsSettingsOpen => showingSettings;
+    internal bool IsWhatsNewOpen => showingWhatsNew;
+    internal bool IsConfirmOpen => confirmOverlay.IsVisible;
+
     public ForgeShellWindow(IForgeUiHost host, string? initialOverlay = null)
     {
         this.host = host;
 
         Title = "Clonedivers";
+        Icon = ForgeTheme.CreateWindowIcon();
         Width = 900;
         Height = 680;
         MinWidth = 760;
@@ -264,12 +376,17 @@ public sealed class ForgeShellWindow : Window
         setupView = BuildSetupView();
         BuildCustomizeOverlay();
         BuildSettingsOverlay();
+        BuildWhatsNewOverlay();
         BuildConfirmOverlay();
+        BuildUnhandledErrorBanner();
 
         var shell = new DockPanel { LastChildFill = true };
         var topDock = new StackPanel { Spacing = 0 };
         topDock.Children.Add(BuildHeaderBar());
+        topDock.Children.Add(ForgeTheme.HoloAccentLine(margin: new Thickness(28, 0, 28, 8)));
         topDock.Children.Add(BuildUpdateBanner());
+        topDock.Children.Add(BuildStepDownBanner());
+        topDock.Children.Add(BuildSelfInstallBanner());
         DockPanel.SetDock(topDock, Dock.Top);
         shell.Children.Add(topDock);
 
@@ -286,63 +403,347 @@ public sealed class ForgeShellWindow : Window
         rootLayers.Children.Add(shell);
         rootLayers.Children.Add(customizeOverlay);
         rootLayers.Children.Add(settingsOverlay);
+        rootLayers.Children.Add(whatsNewOverlay);
         rootLayers.Children.Add(confirmOverlay);
+        rootLayers.Children.Add(unhandledErrorBanner);
         Content = rootLayers;
+
+        // QA Bugfix #3: Keyboard shortcuts (Tunnel so Escape & Enter work reliably regardless of child focus)
+        AddHandler(InputElement.KeyDownEvent, OnWindowKeyDown, RoutingStrategies.Tunnel);
 
         host.AttachUiCallbacks(
             confirmAsync: ShowConfirmOverlayAsync,
             pickFolderAsync: PickFolderAsync,
             saveFileAsync: SaveFileAsync,
             taskbarProgress: p => Dispatcher.UIThread.Post(() => WindowsTaskbar.SetProgress(this, p)),
-            requestAttention: () => Dispatcher.UIThread.Post(() => WindowsTaskbar.FlashAttention(this)));
+            requestAttention: () => Dispatcher.UIThread.Post(HandleAttentionRequest));
 
         host.StateChanged += () => Dispatcher.UIThread.Post(RefreshAll);
         host.SetupVisibilityChanged += show => Dispatcher.UIThread.Post(() =>
         {
             showingSetup = show && host.SupportsEmbeddedSetup;
-            if (showingSetup) { showingCustomize = false; showingSettings = false; }
+            if (showingSetup) { showingCustomize = false; showingSettings = false; showingWhatsNew = false; }
             RefreshAll();
         });
+
+        PropertyChanged += (_, e) =>
+        {
+            if (e.Property == WindowStateProperty && WindowState == WindowState.Minimized && minimizeToTrayActive && wasSessionRunning && trayIcon != null)
+            {
+                Dispatcher.UIThread.Post(HideToTray);
+            }
+        };
 
         Opened += async (_, _) =>
         {
             WindowsTaskbar.ApplyDarkTitleBar(this);
+            InitializeTrayIconIfSupported();
             if (initialOverlay == "setup" && host.SupportsEmbeddedSetup) showingSetup = true;
-            else if (initialOverlay == "customize") showingCustomize = true;
+            else if (initialOverlay == "customize") { showingCustomize = true; showingAdvanced = false; }
+            else if (initialOverlay == "customize-advanced")
+            {
+                showingCustomize = true;
+                showingAdvanced = true;
+                RefreshAll();
+                Dispatcher.UIThread.Post(() => drawerScrollViewer?.ScrollToEnd(), DispatcherPriority.Loaded);
+            }
             else if (initialOverlay == "settings") { showingSettings = true; _ = LoadSettingsDiagnosticsAsync(); }
+            else if (initialOverlay == "whats-new") { _ = OpenWhatsNewAsync("2.0.3"); }
             RefreshAll();
             await host.InitializeAsync();
             RefreshAll();
         };
 
-        Closing += async (_, e) =>
-        {
-            if (host.IsPreview || closingConfirmed) return;
-            if (!host.CanClose(out var reason))
-            {
-                e.Cancel = true;
-                if (!string.IsNullOrWhiteSpace(reason))
-                {
-                    toastText.Text = reason;
-                    toastText.IsVisible = true;
-                }
-                return;
-            }
-            e.Cancel = true;
-            closingConfirmed = true;
-            await host.DisposeAsync();
-            Close();
-        };
+        Closing += async (_, e) => await HandleClosingCoreAsync(() => e.Cancel = true, Close);
+
+        Closed += (_, _) => DisposeTrayIcon();
 
         RefreshAll();
+    }
+
+    internal async Task HandleClosingCoreAsync(Action cancelClose, Action invokeClose)
+    {
+        if (host.IsPreview || closingConfirmed) return;
+        if (!host.CanClose(out var reason))
+        {
+            cancelClose();
+            if (!string.IsNullOrWhiteSpace(reason))
+            {
+                toastText.Text = reason;
+                toastText.IsVisible = true;
+            }
+            return;
+        }
+        cancelClose();
+        closingConfirmed = true;
+        DisposeTrayIcon();
+        try
+        {
+            await host.DisposeAsync();
+        }
+        catch (Exception ex)
+        {
+            Console.Error.WriteLine("Error disposing host during shutdown: " + ex);
+        }
+        finally
+        {
+            invokeClose();
+        }
+    }
+
+    void OnWindowKeyDown(object? sender, KeyEventArgs e)
+    {
+        if (HandleShortcutKey(e.Key))
+            e.Handled = true;
+    }
+
+    internal bool HandleShortcutKey(Key key)
+    {
+        if (key == Key.Escape)
+        {
+            if (confirmOverlay.IsVisible || pendingConfirm != null)
+            {
+                UiSoundEffects.PlayButtonBlip();
+                ResolveConfirm(false);
+                return true;
+            }
+            if (whatsNewOverlay.IsVisible || showingWhatsNew)
+            {
+                UiSoundEffects.PlayButtonBlip();
+                CloseWhatsNewOverlay();
+                return true;
+            }
+            if (settingsOverlay.IsVisible || showingSettings)
+            {
+                UiSoundEffects.PlayButtonBlip();
+                showingSettings = false;
+                settingsOverlay.IsVisible = false;
+                return true;
+            }
+            if (customizeOverlay.IsVisible || showingCustomize)
+            {
+                UiSoundEffects.PlayButtonBlip();
+                showingCustomize = false;
+                customizeOverlay.IsVisible = false;
+                return true;
+            }
+            return false;
+        }
+
+        if (key == Key.Enter && (confirmOverlay.IsVisible || pendingConfirm != null))
+        {
+            UiSoundEffects.PlayButtonBlip();
+            ResolveConfirm(!confirmCancelButton.IsFocused);
+            return true;
+        }
+
+        return false;
+    }
+
+    public void ShowUnhandledErrorToast(Exception exception)
+    {
+        var summary = exception?.Message;
+        if (string.IsNullOrWhiteSpace(summary)) summary = "An unexpected interface error occurred.";
+        ShowErrorToast("Launcher UI error: " + summary);
+    }
+
+    public void ShowErrorToast(string message)
+    {
+        void Apply()
+        {
+            unhandledErrorText.Text = message;
+            unhandledErrorBanner.IsVisible = true;
+        }
+        if (Dispatcher.UIThread.CheckAccess()) Apply();
+        else Dispatcher.UIThread.Post(Apply);
+    }
+
+    void BuildUnhandledErrorBanner()
+    {
+        var dismiss = ForgeTheme.GhostButton("✕", 11.5, new Thickness(8, 3));
+        AutomationProperties.SetName(dismiss, "Dismiss UI error notice");
+        dismiss.Click += (_, _) => unhandledErrorBanner.IsVisible = false;
+
+        var grid = new Grid { ColumnDefinitions = new ColumnDefinitions("*,Auto"), ColumnSpacing = 12 };
+        unhandledErrorText.VerticalAlignment = VerticalAlignment.Center;
+        grid.Children.Add(unhandledErrorText);
+        Grid.SetColumn(dismiss, 1);
+        grid.Children.Add(dismiss);
+        unhandledErrorBanner.Child = grid;
+    }
+
+    void InitializeTrayIconIfSupported()
+    {
+        if (host.IsPreview || trayIcon != null)
+            return;
+        try
+        {
+            var openItem = new NativeMenuItem("Open Clonedivers");
+            openItem.Click += (_, _) => Dispatcher.UIThread.Post(RestoreFromTray);
+
+            trayEndSessionItem = new NativeMenuItem("End Session") { IsEnabled = false };
+            trayEndSessionItem.Click += (_, _) => Dispatcher.UIThread.Post(async () =>
+            {
+                RestoreFromTray();
+                if (host.GetHomeState().IsSessionRunning)
+                    await host.TriggerPrimaryActionAsync();
+            });
+
+            var quitItem = new NativeMenuItem("Quit");
+            quitItem.Click += (_, _) => Dispatcher.UIThread.Post(() =>
+            {
+                if (host.CanClose(out _))
+                {
+                    RestoreFromTray();
+                    Close();
+                }
+                else
+                {
+                    RestoreFromTray();
+                    if (Application.Current?.ApplicationLifetime is IClassicDesktopStyleApplicationLifetime d && d.MainWindow != null)
+                        WindowsTaskbar.BringToFront(this);
+                }
+            });
+
+            var menu = new NativeMenu();
+            menu.Items.Add(openItem);
+            menu.Items.Add(trayEndSessionItem);
+            menu.Items.Add(new NativeMenuItemSeparator());
+            menu.Items.Add(quitItem);
+
+            trayIcon = new TrayIcon
+            {
+                Icon = ForgeTheme.CreateWindowIcon(),
+                ToolTipText = "Clonedivers",
+                Menu = menu,
+                IsVisible = true
+            };
+            trayIcon.Clicked += (_, _) => Dispatcher.UIThread.Post(RestoreFromTray);
+
+            if (Application.Current != null)
+            {
+                var icons = new TrayIcons { trayIcon };
+                TrayIcon.SetIcons(Application.Current, icons);
+            }
+        }
+        catch
+        {
+            trayIcon = null;
+        }
+    }
+
+    void HideToTray()
+    {
+        if (trayIcon == null) return;
+        try
+        {
+            ShowInTaskbar = false;
+            Hide();
+            trayIcon.ToolTipText = "Clonedivers — Session Running (click to open)";
+        }
+        catch { }
+    }
+
+    void RestoreFromTray()
+    {
+        try
+        {
+            ShowInTaskbar = true;
+            if (!IsVisible) Show();
+            WindowsTaskbar.BringToFront(this);
+        }
+        catch { }
+    }
+
+    internal void DisposeTrayIcon()
+    {
+        var icon = trayIcon;
+        trayIcon = null;
+        try
+        {
+            if (Application.Current != null)
+                TrayIcon.SetIcons(Application.Current, null);
+        }
+        catch { }
+        if (icon == null) return;
+        try
+        {
+            icon.IsVisible = false;
+            icon.Dispose();
+        }
+        catch { }
+    }
+
+    public static void DisposeApplicationTrayIcons()
+    {
+        void Cleanup()
+        {
+            try
+            {
+                var app = Application.Current;
+                if (app == null) return;
+                if (app.ApplicationLifetime is IClassicDesktopStyleApplicationLifetime { MainWindow: ForgeShellWindow shell })
+                    shell.DisposeTrayIcon();
+                var icons = TrayIcon.GetIcons(app);
+                if (icons != null)
+                {
+                    TrayIcon.SetIcons(app, null);
+                    foreach (var icon in icons)
+                    {
+                        try
+                        {
+                            icon.IsVisible = false;
+                            icon.Dispose();
+                        }
+                        catch { }
+                    }
+                }
+            }
+            catch { }
+        }
+
+        if (Dispatcher.UIThread.CheckAccess())
+        {
+            Cleanup();
+        }
+        else
+        {
+            try
+            {
+                if (!Dispatcher.UIThread.InvokeAsync(Cleanup).GetTask().Wait(TimeSpan.FromMilliseconds(500)))
+                    Cleanup();
+            }
+            catch
+            {
+                Cleanup();
+            }
+        }
+    }
+
+    void HandleAttentionRequest()
+    {
+        if (!IsVisible) RestoreFromTray();
+        WindowsTaskbar.FlashAttention(this);
     }
 
     Control BuildHeaderBar()
     {
         headerStatusBadge.Child = headerStatusText;
+
+        AutomationProperties.SetName(muteButton, "Toggle sound effects");
+        ToolTip.SetTip(muteButton, "Toggle Star Wars holoterminal UI sound effects");
+        muteButton.Click += (_, _) =>
+        {
+            host.ToggleSoundEffects();
+            if (host.GetHomeState().SoundEffectsEnabled)
+                UiSoundEffects.PlayButtonBlip();
+            RefreshAll();
+        };
+
         AutomationProperties.SetName(settingsButton, "Settings and diagnostics");
         settingsButton.Click += async (_, _) =>
         {
+            UiSoundEffects.PlayButtonBlip();
             showingSettings = true;
             settingsOverlay.IsVisible = true;
             await LoadSettingsDiagnosticsAsync();
@@ -355,14 +756,15 @@ public sealed class ForgeShellWindow : Window
         titles.Children.Add(headerSubtitle);
         left.Children.Add(titles);
 
-        var right = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 10, VerticalAlignment = VerticalAlignment.Center };
+        var right = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 8, VerticalAlignment = VerticalAlignment.Center };
         right.Children.Add(headerStatusBadge);
+        right.Children.Add(muteButton);
         right.Children.Add(settingsButton);
 
         var grid = new Grid
         {
             ColumnDefinitions = new ColumnDefinitions("*,Auto"),
-            Margin = new Thickness(28, 16, 28, 12)
+            Margin = new Thickness(28, 15, 28, 10)
         };
         grid.Children.Add(left);
         Grid.SetColumn(right, 1);
@@ -372,12 +774,27 @@ public sealed class ForgeShellWindow : Window
 
     Control BuildUpdateBanner()
     {
+        updateBannerWhatsNew.Click += async (_, _) =>
+        {
+            UiSoundEffects.PlayButtonBlip();
+            var version = host.GetHomeState().UpdateBanner?.Version;
+            await OpenWhatsNewAsync(version);
+        };
         updateBannerAction.Background = ForgeTheme.CtaBlue;
         updateBannerAction.BorderThickness = new Thickness(0);
-        updateBannerAction.Click += async (_, _) => await host.TriggerUpdateBannerActionAsync();
-        updateBannerDismiss.Click += (_, _) => host.DismissUpdateBanner();
+        updateBannerAction.Click += async (_, _) =>
+        {
+            UiSoundEffects.PlayButtonBlip();
+            await host.TriggerUpdateBannerActionAsync();
+        };
+        updateBannerDismiss.Click += (_, _) =>
+        {
+            UiSoundEffects.PlayButtonBlip();
+            host.DismissUpdateBanner();
+        };
 
         var buttons = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 8, VerticalAlignment = VerticalAlignment.Center };
+        buttons.Children.Add(updateBannerWhatsNew);
         buttons.Children.Add(updateBannerAction);
         buttons.Children.Add(updateBannerDismiss);
 
@@ -390,13 +807,72 @@ public sealed class ForgeShellWindow : Window
         return updateBanner;
     }
 
+    Control BuildStepDownBanner()
+    {
+        stepDownAcceptButton.Background = ForgeTheme.CtaPrimary;
+        stepDownAcceptButton.Foreground = ForgeTheme.TextOnAccent;
+        stepDownAcceptButton.BorderThickness = new Thickness(0);
+        stepDownAcceptButton.FontWeight = FontWeight.Bold;
+        stepDownAcceptButton.Click += async (_, _) =>
+        {
+            UiSoundEffects.PlayButtonBlip();
+            await host.AcceptStepDownAsync();
+        };
+        stepDownDismissButton.Click += (_, _) =>
+        {
+            UiSoundEffects.PlayButtonBlip();
+            host.DismissStepDownBanner();
+        };
+
+        var buttons = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 8, VerticalAlignment = VerticalAlignment.Center };
+        buttons.Children.Add(stepDownAcceptButton);
+        buttons.Children.Add(stepDownDismissButton);
+
+        var row = new Grid { ColumnDefinitions = new ColumnDefinitions("*,Auto"), ColumnSpacing = 12 };
+        stepDownBannerText.VerticalAlignment = VerticalAlignment.Center;
+        row.Children.Add(stepDownBannerText);
+        Grid.SetColumn(buttons, 1);
+        row.Children.Add(buttons);
+        stepDownBanner.Child = row;
+        return stepDownBanner;
+    }
+
+    Control BuildSelfInstallBanner()
+    {
+        selfInstallAcceptButton.BorderBrush = ForgeTheme.ClonesAccent;
+        selfInstallAcceptButton.Foreground = ForgeTheme.ClonesAccent;
+        selfInstallAcceptButton.Click += async (_, _) =>
+        {
+            UiSoundEffects.PlayButtonBlip();
+            await host.InstallSelfShortcutsAsync();
+        };
+        selfInstallDismissButton.Click += (_, _) =>
+        {
+            UiSoundEffects.PlayButtonBlip();
+            host.DismissSelfInstallBanner();
+        };
+
+        var buttons = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 8, VerticalAlignment = VerticalAlignment.Center };
+        buttons.Children.Add(selfInstallAcceptButton);
+        buttons.Children.Add(selfInstallDismissButton);
+
+        var row = new Grid { ColumnDefinitions = new ColumnDefinitions("*,Auto"), ColumnSpacing = 12 };
+        selfInstallBannerText.VerticalAlignment = VerticalAlignment.Center;
+        row.Children.Add(selfInstallBannerText);
+        Grid.SetColumn(buttons, 1);
+        row.Children.Add(buttons);
+        selfInstallBanner.Child = row;
+        return selfInstallBanner;
+    }
+
     Control BuildFooterBar()
     {
         steamFooterLink.Click += (_, _) => host.OpenSteamLibrary();
+        ToolTip.SetTip(versionFooter, "Squad Match Code · Co-op players with the same code can join each other across any Star Wars skin or texture tier.");
         var grid = new Grid
         {
             ColumnDefinitions = new ColumnDefinitions("*,Auto"),
-            Margin = new Thickness(28, 8, 28, 14)
+            Margin = new Thickness(28, 6, 28, 12)
         };
         steamFooterLink.HorizontalAlignment = HorizontalAlignment.Left;
         grid.Children.Add(steamFooterLink);
@@ -408,9 +884,9 @@ public sealed class ForgeShellWindow : Window
 
     Control BuildHomeView()
     {
-        var stack = new StackPanel { Spacing = 14, Margin = new Thickness(28, 4, 28, 8) };
+        var stack = new StackPanel { Spacing = 13, Margin = new Thickness(28, 2, 28, 6) };
 
-        // 1. Three Hero Universe Cards
+        // 1. Three Hero Universe Cards with Star Wars holoterminal faction bars & 150ms hover transitions
         var cardsGrid = new UniformGrid { Columns = 3, Rows = 1 };
         var specs = new[]
         {
@@ -427,8 +903,9 @@ public sealed class ForgeShellWindow : Window
             var topBar = new Border
             {
                 Height = 3,
-                CornerRadius = new CornerRadius(12, 12, 0, 0),
-                Background = Brushes.Transparent
+                CornerRadius = new CornerRadius(11, 11, 0, 0),
+                Background = ForgeTheme.MutedBarForMode(id),
+                Transitions = ForgeTheme.CreateSmoothTransitions(Border.BackgroundProperty, Border.BorderBrushProperty)
             };
             modeTopBars[id] = topBar;
 
@@ -447,11 +924,11 @@ public sealed class ForgeShellWindow : Window
 
             var body = new StackPanel
             {
-                Spacing = 7,
-                Margin = new Thickness(14, 14, 14, 14),
+                Spacing = 6,
+                Margin = new Thickness(14, 13, 14, 13),
                 HorizontalAlignment = HorizontalAlignment.Center
             };
-            body.Children.Add(ForgeTheme.FactionEmblem(id, 62));
+            body.Children.Add(ForgeTheme.FactionEmblem(id, 60));
             body.Children.Add(ForgeTheme.Label(title, 18, ForgeTheme.TextPrimary, FontWeight.Bold, TextAlignment.Center, wrap: false));
             body.Children.Add(ForgeTheme.Label(tag, 10, accent, FontWeight.Bold, TextAlignment.Center, wrap: false));
             body.Children.Add(ForgeTheme.Label(desc, 11.5, ForgeTheme.TextSecondary, FontWeight.Normal, TextAlignment.Center));
@@ -468,6 +945,8 @@ public sealed class ForgeShellWindow : Window
                 BorderBrush = ForgeTheme.BorderSubtle,
                 BorderThickness = new Thickness(2),
                 CornerRadius = new CornerRadius(12),
+                ClipToBounds = true,
+                Transitions = ForgeTheme.CreateSmoothTransitions(Border.BackgroundProperty, Border.BorderBrushProperty),
                 Child = cardGrid
             };
             modeCards[id] = cardBorder;
@@ -483,21 +962,42 @@ public sealed class ForgeShellWindow : Window
                 VerticalAlignment = VerticalAlignment.Stretch,
                 HorizontalContentAlignment = HorizontalAlignment.Stretch,
                 VerticalContentAlignment = VerticalAlignment.Stretch,
-                Cursor = new Avalonia.Input.Cursor(Avalonia.Input.StandardCursorType.Hand)
+                Cursor = new Cursor(StandardCursorType.Hand)
+            };
+            btn.PointerEntered += (_, _) =>
+            {
+                hoveredModeId = id;
+                ApplyModeCardVisuals(host.GetHomeState());
+            };
+            btn.PointerExited += (_, _) =>
+            {
+                if (hoveredModeId == id) hoveredModeId = null;
+                ApplyModeCardVisuals(host.GetHomeState());
             };
             AutomationProperties.SetName(btn, title);
-            btn.Click += async (_, _) => await host.SelectModeAsync(id);
+            btn.Click += async (_, _) =>
+            {
+                var prev = host.GetHomeState().Mode;
+                if (!string.Equals(prev, id, StringComparison.OrdinalIgnoreCase))
+                    UiSoundEffects.PlayModeSwitch();
+                else
+                    UiSoundEffects.PlayButtonBlip();
+                await host.SelectModeAsync(id);
+            };
             modeButtons[id] = btn;
             cardsGrid.Children.Add(btn);
         }
         stack.Children.Add(cardsGrid);
 
-        // 2. Compact Customize Summary Bar
+        // 2. Compact Loadout Summary Bar
         customizeSizePill.Child = customizeSizePillText;
         AutomationProperties.SetName(customizeOpenButton, "Customize loadout options");
         customizeOpenButton.Click += (_, _) =>
         {
+            UiSoundEffects.PlayButtonBlip();
             showingCustomize = true;
+            var s = host.GetHomeState();
+            showingAdvanced = string.Equals(s.Mode, "regular", StringComparison.OrdinalIgnoreCase);
             RefreshCustomizeDrawer();
             customizeOverlay.IsVisible = true;
         };
@@ -526,7 +1026,8 @@ public sealed class ForgeShellWindow : Window
         Grid.SetColumn(statusMetrics, 2);
         statusTop.Children.Add(statusMetrics);
 
-        var deckStack = new StackPanel { Spacing = 8 };
+        var deckStack = new StackPanel { Spacing = 6 };
+        deckStack.Children.Add(statusDeckTopLine);
         deckStack.Children.Add(statusTop);
         deckStack.Children.Add(statusDetail);
         deckStack.Children.Add(homeProgress);
@@ -537,10 +1038,22 @@ public sealed class ForgeShellWindow : Window
 
         // 4. Hero Primary CTA (+ optional contextual secondary button)
         AutomationProperties.SetName(heroButton, "Primary action");
-        heroButton.Click += async (_, _) => await host.TriggerPrimaryActionAsync();
+        heroButton.Click += async (_, _) =>
+        {
+            var label = heroButton.Content?.ToString() ?? "";
+            if (label.Contains("LAUNCH", StringComparison.OrdinalIgnoreCase))
+                UiSoundEffects.PlayLaunchConfirm();
+            else
+                UiSoundEffects.PlayButtonBlip();
+            await host.TriggerPrimaryActionAsync();
+        };
         secondaryButton.IsVisible = false;
         secondaryButton.Margin = new Thickness(10, 0, 0, 0);
-        secondaryButton.Click += async (_, _) => await host.TriggerSecondaryActionAsync();
+        secondaryButton.Click += async (_, _) =>
+        {
+            UiSoundEffects.PlayButtonBlip();
+            await host.TriggerSecondaryActionAsync();
+        };
 
         var ctaRow = new Grid { ColumnDefinitions = new ColumnDefinitions("*,Auto") };
         ctaRow.Children.Add(heroButton);
@@ -558,16 +1071,25 @@ public sealed class ForgeShellWindow : Window
 
     void BuildCustomizeOverlay()
     {
-        // Clicking backdrop dismisses the drawer
         var backdrop = new Border { Background = Brushes.Transparent };
-        backdrop.PointerPressed += (_, _) => { showingCustomize = false; customizeOverlay.IsVisible = false; };
+        backdrop.PointerPressed += (_, _) =>
+        {
+            UiSoundEffects.PlayButtonBlip();
+            showingCustomize = false;
+            customizeOverlay.IsVisible = false;
+        };
         customizeOverlay.Children.Add(backdrop);
 
         var closeBtn = ForgeTheme.GhostButton("✕", 13, new Thickness(10, 5));
         AutomationProperties.SetName(closeBtn, "Close customize drawer");
-        closeBtn.Click += (_, _) => { showingCustomize = false; customizeOverlay.IsVisible = false; };
+        closeBtn.Click += (_, _) =>
+        {
+            UiSoundEffects.PlayButtonBlip();
+            showingCustomize = false;
+            customizeOverlay.IsVisible = false;
+        };
 
-        var header = new Grid { ColumnDefinitions = new ColumnDefinitions("*,Auto") };
+        var header = new Grid { ColumnDefinitions = new ColumnDefinitions("*,Auto"), Margin = new Thickness(0, 0, 0, 8) };
         var titleStack = new StackPanel { Spacing = 2 };
         titleStack.Children.Add(drawerTitle);
         titleStack.Children.Add(drawerSubtitle);
@@ -576,30 +1098,160 @@ public sealed class ForgeShellWindow : Window
         closeBtn.VerticalAlignment = VerticalAlignment.Top;
         header.Children.Add(closeBtn);
 
-        // Enemy faction segmented pills
-        var enemyWrap = new UniformGrid { Columns = 3 };
-        foreach (var (id, label) in new[] { ("all-droids", "All CIS Droids"), ("mixed-droids", "Mixed Bots"), ("native-automatons", "Native Bots") })
+        // ── Top Section (Always Visible): Performance Preset Card ──
+        var hwDot = new Border
         {
-            var pill = new ToggleButton
+            Width = 7,
+            Height = 7,
+            CornerRadius = new CornerRadius(4),
+            Background = ForgeTheme.ClonesAccent,
+            VerticalAlignment = VerticalAlignment.Center
+        };
+        var hwRow = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 8, Children = { hwDot, drawerHardwareText } };
+
+        var autoSwitchRow = BuildSwitchRow(
+            "Auto (Recommended)",
+            "Matches texture memory to your detected GPU & RAM.",
+            autoTierToggle);
+        autoTierToggle.IsCheckedChanged += async (_, _) =>
+        {
+            if (updatingControls) return;
+            UiSoundEffects.PlayButtonBlip();
+            if (autoTierToggle.IsChecked == true)
             {
-                Content = label,
-                FontSize = 12,
-                FontWeight = FontWeight.SemiBold,
-                Foreground = ForgeTheme.TextPrimary,
-                Background = ForgeTheme.BgElevated,
+                await host.SetPerformanceTierAsync(PerformanceTierAdvisor.Auto);
+            }
+            else
+            {
+                var s = host.GetHomeState();
+                var currentConcrete = PerformanceTierAdvisor.NormalizeConcreteTier(s.PerformanceTier, s.Hardware);
+                await host.SetPerformanceTierAsync(currentConcrete);
+            }
+        };
+
+        var tierListStack = new StackPanel { Spacing = 4 };
+        var vramHints = new Dictionary<string, string>
+        {
+            [PerformanceTierAdvisor.Ultra] = "12 GB+ VRAM · Resident",
+            [PerformanceTierAdvisor.High] = "8–11 GB VRAM · Streamed",
+            [PerformanceTierAdvisor.Balanced] = "6–8 GB VRAM · Streamed",
+            [PerformanceTierAdvisor.Low512] = "4–6 GB VRAM · 512px",
+            [PerformanceTierAdvisor.UltraPotato] = "≤ 4 GB / iGPU · Lowest"
+        };
+
+        foreach (var tier in PerformanceTierAdvisor.Tiers)
+        {
+            var dot = new Border
+            {
+                Width = 10,
+                Height = 10,
+                CornerRadius = new CornerRadius(5),
+                BorderThickness = new Thickness(1.5),
+                BorderBrush = ForgeTheme.BorderStrong,
+                VerticalAlignment = VerticalAlignment.Center
+            };
+            tierDots[tier.Id] = dot;
+
+            var recPill = ForgeTheme.Pill("AUTO", ForgeTheme.InfoBg, ForgeTheme.InfoText, ForgeTheme.InfoBorder, 9.5);
+            recPill.Padding = new Thickness(7, 1);
+            recPill.IsVisible = false;
+            tierRecPills[tier.Id] = recPill;
+
+            var leftCluster = new StackPanel
+            {
+                Orientation = Orientation.Horizontal,
+                Spacing = 8,
+                VerticalAlignment = VerticalAlignment.Center,
+                Children =
+                {
+                    dot,
+                    ForgeTheme.Label(tier.DisplayName, 12.5, ForgeTheme.TextPrimary, FontWeight.SemiBold, wrap: false),
+                    recPill
+                }
+            };
+
+            var rightHint = ForgeTheme.Label(vramHints.GetValueOrDefault(tier.Id, ""), 11, ForgeTheme.TextSecondary, alignment: TextAlignment.Right, wrap: false);
+            rightHint.VerticalAlignment = VerticalAlignment.Center;
+
+            var rowGrid = new Grid { ColumnDefinitions = new ColumnDefinitions("*,Auto"), ColumnSpacing = 8 };
+            rowGrid.Children.Add(leftCluster);
+            Grid.SetColumn(rightHint, 1);
+            rowGrid.Children.Add(rightHint);
+
+            var rowBorder = new Border
+            {
+                Background = ForgeTheme.BgCanvas,
                 BorderBrush = ForgeTheme.BorderSubtle,
                 BorderThickness = new Thickness(1),
                 CornerRadius = new CornerRadius(8),
-                Padding = new Thickness(8, 8),
-                Margin = new Thickness(0, 0, id == "native-automatons" ? 0 : 6, 0),
-                HorizontalAlignment = HorizontalAlignment.Stretch,
-                HorizontalContentAlignment = HorizontalAlignment.Center,
-                Cursor = new Avalonia.Input.Cursor(Avalonia.Input.StandardCursorType.Hand)
+                Padding = new Thickness(10, 6),
+                Transitions = ForgeTheme.CreateSmoothTransitions(Border.BackgroundProperty, Border.BorderBrushProperty),
+                Cursor = new Cursor(StandardCursorType.Hand),
+                Child = rowGrid
             };
-            AutomationProperties.SetName(pill, label);
+            AutomationProperties.SetName(rowBorder, tier.DisplayName);
+            var tierIdCopy = tier.Id;
+            rowBorder.PointerPressed += async (_, _) =>
+            {
+                if (updatingControls || host.GetHomeState().ControlsLocked) return;
+                UiSoundEffects.PlayButtonBlip();
+                await host.SetPerformanceTierAsync(tierIdCopy);
+            };
+            tierRows[tier.Id] = rowBorder;
+            tierListStack.Children.Add(rowBorder);
+        }
+
+        var perfCard = new Border
+        {
+            Background = ForgeTheme.BgElevated,
+            BorderBrush = ForgeTheme.BorderSubtle,
+            BorderThickness = new Thickness(1),
+            CornerRadius = new CornerRadius(10),
+            Padding = new Thickness(12, 10),
+            Child = new StackPanel
+            {
+                Spacing = 8,
+                Children = { hwRow, ForgeTheme.HoloAccentLine(margin: new Thickness(0)), autoSwitchRow, tierListStack }
+            }
+        };
+        drawerPerfSection.Children.Add(ForgeTheme.Label("PERFORMANCE PRESET", 10.5, ForgeTheme.TextMuted, FontWeight.Bold));
+        drawerPerfSection.Children.Add(perfCard);
+
+        // ── Collapsible Advanced ▸ Expander (Collapsed by default!) ──
+        var advHeaderGrid = new Grid { ColumnDefinitions = new ColumnDefinitions("*,Auto"), ColumnSpacing = 8 };
+        advHeaderGrid.Children.Add(advancedHeaderLabel);
+        advancedHeaderHint.VerticalAlignment = VerticalAlignment.Center;
+        Grid.SetColumn(advancedHeaderHint, 1);
+        advHeaderGrid.Children.Add(advancedHeaderHint);
+        advancedHeaderBorder.Child = advHeaderGrid;
+        AutomationProperties.SetName(advancedHeaderBorder, "Toggle advanced customization");
+        advancedHeaderBorder.PointerPressed += (_, _) =>
+        {
+            UiSoundEffects.PlayButtonBlip();
+            showingAdvanced = !showingAdvanced;
+            RefreshCustomizeDrawer();
+            if (showingAdvanced)
+                Dispatcher.UIThread.Post(() => drawerScrollViewer?.ScrollToEnd(), DispatcherPriority.Loaded);
+            else
+                Dispatcher.UIThread.Post(() => drawerScrollViewer?.ScrollToHome(), DispatcherPriority.Loaded);
+        };
+
+        // Advanced 1: Enemy Skin segmented pills
+        var enemyWrap = new UniformGrid { Columns = 3 };
+        var enemySpecs = new[]
+        {
+            ("mixed-droids", "Mixed Bots + CIS"),
+            ("all-droids", "All CIS Droids"),
+            ("native-automatons", "Native Automatons")
+        };
+        for (int i = 0; i < enemySpecs.Length; i++)
+        {
+            var (id, label) = enemySpecs[i];
+            var pill = BuildSegmentedPill(label, i < enemySpecs.Length - 1);
             pill.Click += async (_, _) =>
             {
                 if (updatingControls) return;
+                UiSoundEffects.PlayButtonBlip();
                 var s = host.GetHomeState();
                 await host.UpdateCustomizationAsync(id, s.DeltaSquad, s.Covenant, s.Texture);
             };
@@ -607,16 +1259,17 @@ public sealed class ForgeShellWindow : Window
             enemyWrap.Children.Add(pill);
         }
 
-        // Extras switches
+        // Advanced 2: Delta Squad & Covenant Squids
         deltaRow.Background = ForgeTheme.BgElevated;
         deltaRow.BorderBrush = ForgeTheme.BorderSubtle;
         deltaRow.BorderThickness = new Thickness(1);
         deltaRow.CornerRadius = new CornerRadius(9);
         deltaRow.Padding = new Thickness(11, 7);
-        deltaRow.Child = BuildSwitchRow("Delta Squad Armor", "Republic Commandos replace standard Clone armor.", deltaToggle);
+        deltaRow.Child = BuildSwitchRow("Delta Squad", "Republic Commandos replace standard Clone armor.", deltaToggle);
         deltaToggle.IsCheckedChanged += async (_, _) =>
         {
             if (updatingControls) return;
+            UiSoundEffects.PlayButtonBlip();
             var s = host.GetHomeState();
             await host.UpdateCustomizationAsync(s.EnemySkin, deltaToggle.IsChecked == true, s.Covenant, s.Texture);
         };
@@ -633,77 +1286,109 @@ public sealed class ForgeShellWindow : Window
         covenantToggle.IsCheckedChanged += async (_, _) =>
         {
             if (updatingControls) return;
+            UiSoundEffects.PlayButtonBlip();
             var s = host.GetHomeState();
             await host.UpdateCustomizationAsync(s.EnemySkin, s.DeltaSquad, covenantToggle.IsChecked == true, s.Texture);
         };
 
-        // Texture Quality Cards
-        var texStack = new StackPanel { Spacing = 5 };
-        var texSpecs = new[]
+        drawerVisualExtrasSection.Children.Add(ForgeTheme.Label("ENEMY SKIN", 10.5, ForgeTheme.TextMuted, FontWeight.Bold));
+        drawerVisualExtrasSection.Children.Add(enemyWrap);
+        drawerVisualExtrasSection.Children.Add(ForgeTheme.Label("EXTRAS", 10.5, ForgeTheme.TextMuted, FontWeight.Bold));
+        drawerVisualExtrasSection.Children.Add(deltaRow);
+        drawerVisualExtrasSection.Children.Add(covenantCard);
+
+        // Advanced 3: Host Gameplay Controls (#20)
+        var chaosWrap = new UniformGrid { Columns = 3 };
+        var chaosSpecs = new[] { ("off", "Off"), ("standard", "Standard"), ("total-war", "Total War") };
+        for (int i = 0; i < chaosSpecs.Length; i++)
         {
-            ("full", "High (Full)", "Sharpest resident textures. Best for 12 GB+ VRAM GPUs."),
-            ("lighter", "Balanced (Streamed)", "Full-detail textures streamed on demand for lower VRAM."),
-            ("reduced512", "Low VRAM · 512px (Johnson Ultra-Potato)", "Lowest VRAM & fastest loads. Same meshes & audio.")
-        };
-        foreach (var (id, title, desc) in texSpecs)
-        {
-            var radio = new RadioButton { GroupName = "DrawerTextureTier", VerticalAlignment = VerticalAlignment.Top, Margin = new Thickness(0, 1, 0, 0) };
-            AutomationProperties.SetName(radio, title);
-            textureRadios[id] = radio;
-
-            var textCol = new StackPanel { Spacing = 1 };
-            textCol.Children.Add(ForgeTheme.Label(title, 12.5, ForgeTheme.TextPrimary, FontWeight.SemiBold));
-            textCol.Children.Add(ForgeTheme.Label(desc, 11, ForgeTheme.TextSecondary));
-
-            var row = new Grid { ColumnDefinitions = new ColumnDefinitions("Auto,*"), ColumnSpacing = 9 };
-            row.Children.Add(radio);
-            Grid.SetColumn(textCol, 1);
-            row.Children.Add(textCol);
-
-            var card = new Border
-            {
-                Background = ForgeTheme.BgElevated,
-                BorderBrush = ForgeTheme.BorderSubtle,
-                BorderThickness = new Thickness(1),
-                CornerRadius = new CornerRadius(9),
-                Padding = new Thickness(11, 7),
-                Cursor = new Avalonia.Input.Cursor(Avalonia.Input.StandardCursorType.Hand),
-                Child = row
-            };
-            card.PointerPressed += async (_, _) =>
+            var (id, label) = chaosSpecs[i];
+            var pill = BuildSegmentedPill(label, i < chaosSpecs.Length - 1);
+            pill.Click += async (_, _) =>
             {
                 if (updatingControls) return;
+                UiSoundEffects.PlayButtonBlip();
                 var s = host.GetHomeState();
-                await host.UpdateCustomizationAsync(s.EnemySkin, s.DeltaSquad, s.Covenant, id);
+                await host.UpdateHostMutatorsAsync(id, s.HostHeavySeaf, s.HostFasterCorpseCleanup);
             };
-            radio.IsCheckedChanged += async (_, _) =>
-            {
-                if (updatingControls || radio.IsChecked != true) return;
-                var s = host.GetHomeState();
-                await host.UpdateCustomizationAsync(s.EnemySkin, s.DeltaSquad, s.Covenant, id);
-            };
-            textureCards[id] = card;
-            texStack.Children.Add(card);
+            chaosPills[id] = pill;
+            chaosWrap.Children.Add(pill);
         }
 
+        var seafWrap = new UniformGrid { Columns = 3 };
+        var seafSpecs = new[] { ("standard", "Standard"), ("heavy", "Heavy"), ("constant", "Constant") };
+        for (int i = 0; i < seafSpecs.Length; i++)
+        {
+            var (id, label) = seafSpecs[i];
+            var pill = BuildSegmentedPill(label, i < seafSpecs.Length - 1);
+            pill.Click += async (_, _) =>
+            {
+                if (updatingControls) return;
+                UiSoundEffects.PlayButtonBlip();
+                var s = host.GetHomeState();
+                await host.UpdateHostMutatorsAsync(s.HostChaosIntensity, id, s.HostFasterCorpseCleanup);
+            };
+            seafPills[id] = pill;
+            seafWrap.Children.Add(pill);
+        }
+
+        corpseCleanupToggle.IsCheckedChanged += async (_, _) =>
+        {
+            if (updatingControls) return;
+            UiSoundEffects.PlayButtonBlip();
+            var s = host.GetHomeState();
+            await host.UpdateHostMutatorsAsync(s.HostChaosIntensity, s.HostHeavySeaf, corpseCleanupToggle.IsChecked == true);
+        };
+
+        var hostCard = new Border
+        {
+            Background = ForgeTheme.BgElevated,
+            BorderBrush = ForgeTheme.BorderSubtle,
+            BorderThickness = new Thickness(1),
+            CornerRadius = new CornerRadius(10),
+            Padding = new Thickness(11, 9),
+            Child = new StackPanel
+            {
+                Spacing = 8,
+                Children =
+                {
+                    ForgeTheme.Label("Applies when you host missions · Squad match code stays identical.", 11, ForgeTheme.TextSecondary),
+                    ForgeTheme.Label("Chaos Invasions", 11.5, ForgeTheme.TextPrimary, FontWeight.SemiBold),
+                    chaosWrap,
+                    ForgeTheme.Label("Heavy SEAF Reinforcements", 11.5, ForgeTheme.TextPrimary, FontWeight.SemiBold),
+                    seafWrap,
+                    BuildSwitchRow("Faster Corpse Cleanup", "Clears fallen bodies sooner to protect D10–11 FPS.", corpseCleanupToggle)
+                }
+            }
+        };
+
+        advancedBodyPanel.Children.Add(drawerVisualExtrasSection);
+        advancedBodyPanel.Children.Add(ForgeTheme.Label("HOST GAMEPLAY CONTROLS", 10.5, ForgeTheme.TextMuted, FontWeight.Bold));
+        advancedBodyPanel.Children.Add(hostCard);
+
+        // Smart Footer (#1)
         var previewStack = new StackPanel { Spacing = 2 };
         previewStack.Children.Add(drawerPreviewBadge);
         previewStack.Children.Add(drawerPreviewDetail);
-        drawerPreviewBox.Padding = new Thickness(12, 9);
         drawerPreviewBox.Child = previewStack;
 
-        drawerApplyButton.Click += (_, _) => { showingCustomize = false; customizeOverlay.IsVisible = false; };
+        drawerApplyButton.Click += async (_, _) =>
+        {
+            UiSoundEffects.PlayButtonBlip();
+            var s = host.GetHomeState();
+            bool needsApply = s.HasInstallation && !s.IsModeAppliedOnDisk && !s.ControlsLocked;
+            showingCustomize = false;
+            customizeOverlay.IsVisible = false;
+            if (needsApply)
+                await host.ApplyCustomizationNowAsync();
+        };
 
-        var drawerScrollBody = new StackPanel { Spacing = 10, Margin = new Thickness(0, 10, 6, 10) };
-        drawerScrollBody.Children.Add(ForgeTheme.Label("ENEMY FACTION", 10.5, ForgeTheme.TextMuted, FontWeight.Bold));
-        drawerScrollBody.Children.Add(enemyWrap);
-        drawerScrollBody.Children.Add(ForgeTheme.Label("EXTRAS", 10.5, ForgeTheme.TextMuted, FontWeight.Bold));
-        drawerScrollBody.Children.Add(deltaRow);
-        drawerScrollBody.Children.Add(covenantCard);
-        drawerScrollBody.Children.Add(ForgeTheme.Label("TEXTURE QUALITY", 10.5, ForgeTheme.TextMuted, FontWeight.Bold));
-        drawerScrollBody.Children.Add(texStack);
+        var drawerScrollBody = new StackPanel { Spacing = 10, Margin = new Thickness(0, 10, 12, 10) };
+        drawerScrollBody.Children.Add(drawerPerfSection);
+        drawerScrollBody.Children.Add(advancedHeaderBorder);
+        drawerScrollBody.Children.Add(advancedBodyPanel);
 
-        var drawerFooter = new StackPanel { Spacing = 10, Margin = new Thickness(0, 8, 0, 0) };
+        var drawerFooter = new StackPanel { Spacing = 9, Margin = new Thickness(0, 8, 0, 0) };
         drawerFooter.Children.Add(drawerPreviewBox);
         drawerFooter.Children.Add(drawerApplyButton);
 
@@ -712,16 +1397,17 @@ public sealed class ForgeShellWindow : Window
         drawerDock.Children.Add(header);
         DockPanel.SetDock(drawerFooter, Dock.Bottom);
         drawerDock.Children.Add(drawerFooter);
-        drawerDock.Children.Add(new ScrollViewer
+        drawerScrollViewer = new ScrollViewer
         {
             Content = drawerScrollBody,
             HorizontalScrollBarVisibility = ScrollBarVisibility.Disabled,
             VerticalScrollBarVisibility = ScrollBarVisibility.Auto
-        });
+        };
+        drawerDock.Children.Add(drawerScrollViewer);
 
         var drawerPanel = new Border
         {
-            Width = 420,
+            Width = 440,
             HorizontalAlignment = HorizontalAlignment.Right,
             VerticalAlignment = VerticalAlignment.Stretch,
             Background = ForgeTheme.BgSurface,
@@ -733,13 +1419,35 @@ public sealed class ForgeShellWindow : Window
         customizeOverlay.Children.Add(drawerPanel);
     }
 
+    static ToggleButton BuildSegmentedPill(string label, bool rightGap)
+    {
+        var pill = new ToggleButton
+        {
+            Content = label,
+            FontSize = 11.5,
+            FontWeight = FontWeight.SemiBold,
+            Foreground = ForgeTheme.TextPrimary,
+            Background = ForgeTheme.BgCanvas,
+            BorderBrush = ForgeTheme.BorderSubtle,
+            BorderThickness = new Thickness(1),
+            CornerRadius = new CornerRadius(8),
+            Padding = new Thickness(6, 7),
+            Margin = new Thickness(0, 0, rightGap ? 5 : 0, 0),
+            HorizontalAlignment = HorizontalAlignment.Stretch,
+            HorizontalContentAlignment = HorizontalAlignment.Center,
+            Cursor = new Cursor(StandardCursorType.Hand)
+        };
+        AutomationProperties.SetName(pill, label);
+        return pill;
+    }
+
     static Grid BuildSwitchRow(string title, string subtitle, ToggleSwitch toggle)
     {
         var text = new StackPanel { Spacing = 2, VerticalAlignment = VerticalAlignment.Center };
-        text.Children.Add(ForgeTheme.Label(title, 13, ForgeTheme.TextPrimary, FontWeight.SemiBold));
-        text.Children.Add(ForgeTheme.Label(subtitle, 11.5, ForgeTheme.TextSecondary));
+        text.Children.Add(ForgeTheme.Label(title, 12.5, ForgeTheme.TextPrimary, FontWeight.SemiBold));
+        text.Children.Add(ForgeTheme.Label(subtitle, 11, ForgeTheme.TextSecondary));
         toggle.VerticalAlignment = VerticalAlignment.Center;
-        var grid = new Grid { ColumnDefinitions = new ColumnDefinitions("*,Auto"), ColumnSpacing = 12 };
+        var grid = new Grid { ColumnDefinitions = new ColumnDefinitions("*,Auto"), ColumnSpacing = 10 };
         grid.Children.Add(text);
         Grid.SetColumn(toggle, 1);
         grid.Children.Add(toggle);
@@ -748,9 +1456,12 @@ public sealed class ForgeShellWindow : Window
 
     Control BuildSetupView()
     {
-        setupBackButton.Click += (_, _) => host.ExitSetup();
+        setupBackButton.Click += (_, _) =>
+        {
+            UiSoundEffects.PlayButtonBlip();
+            host.ExitSetup();
+        };
 
-        // Top Stepper Bar
         var stepper = new UniformGrid { Columns = 4 };
         string[] stepNames = ["1. Space & Steam", "2. Install & Copy", "3. Account Sync", "4. Mod Pack"];
         for (int i = 0; i < 4; i++)
@@ -771,7 +1482,6 @@ public sealed class ForgeShellWindow : Window
             stepper.Children.Add(pill);
         }
 
-        // Stage 1: Space, Expectations & Multi-Drive Picker
         var expectGrid = new UniformGrid { Columns = 4 };
         var expectItems = new[] { ("~70 GB", "Free disk space"), ("15–35 min", "First-time setup"), ("Steam App", "QR code sign-in"), ("2–3 Prompts", "Windows UAC") };
         for (int i = 0; i < expectItems.Length; i++)
@@ -822,7 +1532,6 @@ public sealed class ForgeShellWindow : Window
         setupStage1Panel.Children.Add(setupDrivesList);
         setupStage1Panel.Children.Add(folderActions);
 
-        // Stage 2: Sub-step checklist + fixed non-jumping QR card
         var substepsCard = new Border
         {
             Background = ForgeTheme.BgSurface,
@@ -881,7 +1590,6 @@ public sealed class ForgeShellWindow : Window
         setupStage2Panel.Children.Add(setupQrCard);
         setupStage2Panel.Children.Add(setupOfficialFallbackButton);
 
-        // Stage 3: Live Auto-Advancing 5-Step Account Sync Tracker
         for (int i = 0; i < 5; i++)
         {
             var badgeText = ForgeTheme.Label((i + 1).ToString(), 11.5, ForgeTheme.TextPrimary, FontWeight.Bold, TextAlignment.Center, wrap: false);
@@ -920,13 +1628,12 @@ public sealed class ForgeShellWindow : Window
             setupStage3Panel.Children.Add(card);
         }
 
-        // Stage 4: Pack Download with Texture Tier Choice BEFORE Downloading
         var step4TexGrid = new UniformGrid { Columns = 3 };
         foreach (var (id, title, sub) in new[]
         {
-            ("full", "High (Full)", "12 GB+ VRAM · Sharpest"),
-            ("lighter", "Balanced (Streamed)", "Streamed · Lower VRAM"),
-            ("reduced512", "Low VRAM (512px)", "Ultra-Potato · Fastest")
+            ("full", "Ultra (Full)", "12 GB+ VRAM · Sharpest"),
+            ("lighter", "Balanced (Streamed)", "6–11 GB VRAM · Streamed"),
+            ("reduced512", "Low VRAM (512px)", "≤ 6 GB VRAM · Fastest")
         })
         {
             var content = new StackPanel
@@ -949,9 +1656,13 @@ public sealed class ForgeShellWindow : Window
                 Margin = new Thickness(id == "full" ? 0 : 5, 0, id == "reduced512" ? 0 : 5, 0),
                 HorizontalAlignment = HorizontalAlignment.Stretch,
                 HorizontalContentAlignment = HorizontalAlignment.Center,
-                Cursor = new Avalonia.Input.Cursor(Avalonia.Input.StandardCursorType.Hand)
+                Cursor = new Cursor(StandardCursorType.Hand)
             };
-            btn.Click += async (_, _) => await host.SetSetupTextureAsync(id);
+            btn.Click += async (_, _) =>
+            {
+                UiSoundEffects.PlayButtonBlip();
+                await host.SetSetupTextureAsync(id);
+            };
             setupStep4TextureButtons[id] = btn;
             step4TexGrid.Children.Add(btn);
         }
@@ -961,15 +1672,22 @@ public sealed class ForgeShellWindow : Window
         setupStage4Panel.Children.Add(step4TexGrid);
         setupStage4Panel.Children.Add(setupStep4ConsentBox);
 
-        // Setup progress card
         var progTop = new Grid { ColumnDefinitions = new ColumnDefinitions("*,Auto"), ColumnSpacing = 10 };
         progTop.Children.Add(setupProgressStage);
         Grid.SetColumn(setupProgressMetrics, 1);
         progTop.Children.Add(setupProgressMetrics);
         setupProgressCard.Child = new StackPanel { Spacing = 7, Children = { progTop, setupProgressBar } };
 
-        setupPrimaryButton.Click += async (_, _) => await host.TriggerSetupPrimaryActionAsync();
-        setupCancelWorkButton.Click += (_, _) => host.CancelSetupWork();
+        setupPrimaryButton.Click += async (_, _) =>
+        {
+            UiSoundEffects.PlayButtonBlip();
+            await host.TriggerSetupPrimaryActionAsync();
+        };
+        setupCancelWorkButton.Click += (_, _) =>
+        {
+            UiSoundEffects.PlayButtonBlip();
+            host.CancelSetupWork();
+        };
         setupCancelWorkButton.IsVisible = false;
         setupCancelWorkButton.Margin = new Thickness(10, 0, 0, 0);
 
@@ -1021,31 +1739,95 @@ public sealed class ForgeShellWindow : Window
     void BuildSettingsOverlay()
     {
         var backdrop = new Border { Background = Brushes.Transparent };
-        backdrop.PointerPressed += (_, _) => { showingSettings = false; settingsOverlay.IsVisible = false; };
+        backdrop.PointerPressed += (_, _) =>
+        {
+            UiSoundEffects.PlayButtonBlip();
+            showingSettings = false;
+            settingsOverlay.IsVisible = false;
+        };
         settingsOverlay.Children.Add(backdrop);
 
         var closeBtn = ForgeTheme.GhostButton("✕", 13, new Thickness(10, 5));
-        closeBtn.Click += (_, _) => { showingSettings = false; settingsOverlay.IsVisible = false; };
+        closeBtn.Click += (_, _) =>
+        {
+            UiSoundEffects.PlayButtonBlip();
+            showingSettings = false;
+            settingsOverlay.IsVisible = false;
+        };
 
-        var header = new Grid { ColumnDefinitions = new ColumnDefinitions("*,Auto") };
+        var header = new Grid { ColumnDefinitions = new ColumnDefinitions("*,Auto"), Margin = new Thickness(0, 0, 0, 8) };
         header.Children.Add(ForgeTheme.Label("Settings & Diagnostics", 18, ForgeTheme.TextPrimary, FontWeight.Bold));
         Grid.SetColumn(closeBtn, 1);
         header.Children.Add(closeBtn);
+
+        settingsVerifyRepairButton.BorderBrush = ForgeTheme.ClonesAccent;
+        settingsVerifyRepairButton.Foreground = ForgeTheme.ClonesAccent;
 
         settingsOpenFolderButton.Click += (_, _) => host.OpenInstallFolder();
         settingsLocateButton.Click += async (_, _) => { await host.LocateInstallAsync(); await LoadSettingsDiagnosticsAsync(); };
         settingsManagerButton.Click += async (_, _) => await host.OpenManagerAsync();
         settingsGuidedSetupButton.Click += async (_, _) => { showingSettings = false; settingsOverlay.IsVisible = false; await host.EnterSetupAsync(); };
+        settingsCleanCacheButton.Click += async (_, _) =>
+        {
+            UiSoundEffects.PlayButtonBlip();
+            settingsCleanCacheButton.IsEnabled = false;
+            settingsCleanCacheButton.Content = "Cleaning…";
+            try
+            {
+                await host.CleanCacheAsync();
+                await LoadSettingsDiagnosticsAsync();
+            }
+            finally
+            {
+                settingsCleanCacheButton.Content = "Clean Cache";
+            }
+        };
+        settingsVerifyRepairButton.Click += async (_, _) =>
+        {
+            UiSoundEffects.PlayButtonBlip();
+            showingSettings = false;
+            settingsOverlay.IsVisible = false;
+            await host.VerifyAndRepairAsync();
+        };
         settingsSyncAccountButton.Click += async (_, _) => { showingSettings = false; settingsOverlay.IsVisible = false; await host.SyncAccountFromSettingsAsync(); };
         settingsCheckUpdatesButton.Click += async (_, _) => { await host.CheckUpdatesAsync(); await LoadSettingsDiagnosticsAsync(); };
+
+        settingsSfxCheck.IsCheckedChanged += (_, _) =>
+        {
+            if (updatingControls) return;
+            var desired = settingsSfxCheck.IsChecked == true;
+            if (host.GetHomeState().SoundEffectsEnabled != desired)
+            {
+                host.ToggleSoundEffects();
+                if (desired) UiSoundEffects.PlayButtonBlip();
+                RefreshAll();
+            }
+        };
+        settingsDiscordCheck.IsCheckedChanged += (_, _) =>
+        {
+            if (updatingControls) return;
+            UiSoundEffects.PlayButtonBlip();
+            host.SetDiscordRpcEnabled(settingsDiscordCheck.IsChecked == true);
+        };
+        settingsTrayCheck.IsCheckedChanged += (_, _) =>
+        {
+            if (updatingControls) return;
+            UiSoundEffects.PlayButtonBlip();
+            var on = settingsTrayCheck.IsChecked == true;
+            minimizeToTrayActive = on;
+            host.SetMinimizeToTray(on);
+        };
+
         settingsCopyReportButton.Click += async (_, _) =>
         {
+            UiSoundEffects.PlayButtonBlip();
             try
             {
                 if (Clipboard is { } cb)
                 {
-                    await cb.SetTextAsync(settingsReportBox.Text ?? "");
-                    settingsCopyReportButton.Content = "Copied!";
+                    var text = !string.IsNullOrWhiteSpace(latestDiscordReport) ? latestDiscordReport : (settingsReportBox.Text ?? "");
+                    await cb.SetTextAsync(text);
+                    settingsCopyReportButton.Content = "Copied for Discord!";
                     await Task.Delay(1600);
                     settingsCopyReportButton.Content = "Copy Report";
                 }
@@ -1054,6 +1836,7 @@ public sealed class ForgeShellWindow : Window
         };
         settingsSaveReportButton.Click += async (_, _) =>
         {
+            UiSoundEffects.PlayButtonBlip();
             try
             {
                 var saved = await host.SaveSupportReportAsync();
@@ -1069,26 +1852,40 @@ public sealed class ForgeShellWindow : Window
             BorderBrush = ForgeTheme.BorderSubtle,
             BorderThickness = new Thickness(1),
             CornerRadius = new CornerRadius(10),
-            Padding = new Thickness(14, 11),
+            Padding = new Thickness(14, 10),
             Child = new StackPanel
             {
-                Spacing = 8,
+                Spacing = 6,
                 Children =
                 {
-                    ForgeTheme.Label("HELLFORGE INSTALLATION", 11, ForgeTheme.TextMuted, FontWeight.Bold),
+                    ForgeTheme.Label("HELLFORGE INSTALLATION & STORAGE", 10.5, ForgeTheme.TextMuted, FontWeight.Bold),
                     settingsInstallPath,
+                    settingsDiskUsageText,
                     new WrapPanel
                     {
                         Orientation = Orientation.Horizontal,
                         Children =
                         {
-                            WithMargin(settingsOpenFolderButton, new Thickness(0, 0, 8, 4)),
-                            WithMargin(settingsLocateButton, new Thickness(0, 0, 8, 4)),
-                            WithMargin(settingsManagerButton, new Thickness(0, 0, 8, 4)),
-                            WithMargin(settingsGuidedSetupButton, new Thickness(0, 0, 0, 4))
+                            WithMargin(settingsOpenFolderButton, new Thickness(0, 0, 6, 4)),
+                            WithMargin(settingsLocateButton, new Thickness(0, 0, 6, 4)),
+                            WithMargin(settingsManagerButton, new Thickness(0, 0, 6, 4)),
+                            WithMargin(settingsGuidedSetupButton, new Thickness(0, 0, 6, 4)),
+                            WithMargin(settingsCleanCacheButton, new Thickness(0, 0, 6, 4)),
+                            WithMargin(settingsVerifyRepairButton, new Thickness(0, 0, 0, 4))
                         }
                     }
                 }
+            }
+        };
+
+        var prefsWrap = new WrapPanel
+        {
+            Orientation = Orientation.Horizontal,
+            Children =
+            {
+                WithMargin(settingsSfxCheck, new Thickness(0, 0, 18, 2)),
+                WithMargin(settingsDiscordCheck, new Thickness(0, 0, 18, 2)),
+                WithMargin(settingsTrayCheck, new Thickness(0, 0, 0, 2))
             }
         };
 
@@ -1098,13 +1895,13 @@ public sealed class ForgeShellWindow : Window
             BorderBrush = ForgeTheme.BorderSubtle,
             BorderThickness = new Thickness(1),
             CornerRadius = new CornerRadius(10),
-            Padding = new Thickness(14, 11),
+            Padding = new Thickness(14, 10),
             Child = new StackPanel
             {
-                Spacing = 8,
+                Spacing = 6,
                 Children =
                 {
-                    ForgeTheme.Label("ACCOUNT & LAUNCHER UPDATES", 11, ForgeTheme.TextMuted, FontWeight.Bold),
+                    ForgeTheme.Label("ACCOUNT, UPDATES & PREFERENCES", 10.5, ForgeTheme.TextMuted, FontWeight.Bold),
                     settingsAccountSummary,
                     settingsUpdateNote,
                     new WrapPanel
@@ -1115,7 +1912,8 @@ public sealed class ForgeShellWindow : Window
                             WithMargin(settingsSyncAccountButton, new Thickness(0, 0, 8, 4)),
                             WithMargin(settingsCheckUpdatesButton, new Thickness(0, 0, 0, 4))
                         }
-                    }
+                    },
+                    prefsWrap
                 }
             }
         };
@@ -1125,22 +1923,21 @@ public sealed class ForgeShellWindow : Window
             Orientation = Orientation.Horizontal,
             Spacing = 8,
             HorizontalAlignment = HorizontalAlignment.Right,
-            Margin = new Thickness(0, 10, 0, 0),
+            Margin = new Thickness(0, 8, 0, 0),
             Children = { settingsCopyReportButton, settingsSaveReportButton }
         };
 
-        settingsReportBox.Height = 108;
         var modalScrollBody = new StackPanel
         {
-            Spacing = 10,
-            Margin = new Thickness(0, 10, 6, 4),
+            Spacing = 8,
+            Margin = new Thickness(0, 8, 12, 4),
             Children =
             {
                 installCard,
                 accountUpdateCard,
                 ForgeTheme.Label("HEALTH CHECKS", 10.5, ForgeTheme.TextMuted, FontWeight.Bold),
                 settingsHealthWrap,
-                ForgeTheme.Label("SUPPORT DIAGNOSTICS", 10.5, ForgeTheme.TextMuted, FontWeight.Bold),
+                ForgeTheme.Label("DISCORD SUPPORT REPORT", 10.5, ForgeTheme.TextMuted, FontWeight.Bold),
                 settingsReportBox
             }
         };
@@ -1159,26 +1956,143 @@ public sealed class ForgeShellWindow : Window
 
         var modalCard = new Border
         {
-            Width = 660,
-            MaxHeight = 620,
+            Width = 684,
+            MaxHeight = 648,
             HorizontalAlignment = HorizontalAlignment.Center,
             VerticalAlignment = VerticalAlignment.Center,
             Background = ForgeTheme.BgSurface,
             BorderBrush = ForgeTheme.BorderStrong,
             BorderThickness = new Thickness(1),
             CornerRadius = new CornerRadius(14),
-            Padding = new Thickness(20, 16),
+            Padding = new Thickness(20, 14),
             Child = modalDock
         };
         settingsOverlay.Children.Add(modalCard);
     }
 
+    void BuildWhatsNewOverlay()
+    {
+        var backdrop = new Border { Background = Brushes.Transparent };
+        backdrop.PointerPressed += (_, _) =>
+        {
+            UiSoundEffects.PlayButtonBlip();
+            CloseWhatsNewOverlay();
+        };
+        whatsNewOverlay.Children.Add(backdrop);
+
+        var closeIconBtn = ForgeTheme.GhostButton("✕", 12, new Thickness(9, 4));
+        closeIconBtn.Click += (_, _) =>
+        {
+            UiSoundEffects.PlayButtonBlip();
+            CloseWhatsNewOverlay();
+        };
+
+        whatsNewOpenWebButton.Click += (_, _) =>
+        {
+            if (!string.IsNullOrWhiteSpace(currentWhatsNewUrl) &&
+                currentWhatsNewUrl.StartsWith("https://github.com/owendavidgoode/clonedivers/", StringComparison.Ordinal))
+            {
+                try { Process.Start(new ProcessStartInfo(currentWhatsNewUrl) { UseShellExecute = true }); }
+                catch { }
+            }
+        };
+
+        whatsNewCloseButton.Width = 120;
+        whatsNewCloseButton.HorizontalAlignment = HorizontalAlignment.Right;
+        whatsNewCloseButton.Click += (_, _) =>
+        {
+            UiSoundEffects.PlayButtonBlip();
+            CloseWhatsNewOverlay();
+        };
+
+        var topHeader = new Grid { ColumnDefinitions = new ColumnDefinitions("*,Auto") };
+        topHeader.Children.Add(new StackPanel { Spacing = 2, Children = { whatsNewTitle, whatsNewSubtitle } });
+        Grid.SetColumn(closeIconBtn, 1);
+        closeIconBtn.VerticalAlignment = VerticalAlignment.Top;
+        topHeader.Children.Add(closeIconBtn);
+
+        var bottomBar = new Grid { ColumnDefinitions = new ColumnDefinitions("*,Auto"), Margin = new Thickness(0, 6, 0, 0) };
+        whatsNewOpenWebButton.VerticalAlignment = VerticalAlignment.Center;
+        bottomBar.Children.Add(whatsNewOpenWebButton);
+        Grid.SetColumn(whatsNewCloseButton, 1);
+        bottomBar.Children.Add(whatsNewCloseButton);
+
+        var card = new Border
+        {
+            Width = 520,
+            HorizontalAlignment = HorizontalAlignment.Center,
+            VerticalAlignment = VerticalAlignment.Center,
+            Background = ForgeTheme.BgSurface,
+            BorderBrush = ForgeTheme.ClonesAccent,
+            BorderThickness = new Thickness(1),
+            CornerRadius = new CornerRadius(14),
+            Padding = new Thickness(22, 18),
+            Child = new StackPanel
+            {
+                Spacing = 12,
+                Children =
+                {
+                    topHeader,
+                    ForgeTheme.HoloAccentLine(ForgeTheme.ClonesBarMuted, new Thickness(0)),
+                    whatsNewBulletsPanel,
+                    bottomBar
+                }
+            }
+        };
+        whatsNewOverlay.Children.Add(card);
+    }
+
+    async Task OpenWhatsNewAsync(string? versionOrTag)
+    {
+        showingWhatsNew = true;
+        whatsNewTitle.Text = string.IsNullOrWhiteSpace(versionOrTag) ? "What's New" : $"What's New in {WhatsNewFetcher.NormalizeTag(versionOrTag)}";
+        whatsNewSubtitle.Text = "Loading release highlights…";
+        whatsNewBulletsPanel.Children.Clear();
+        whatsNewOverlay.IsVisible = true;
+
+        var result = await host.FetchWhatsNewAsync(versionOrTag);
+        if (!showingWhatsNew) return;
+
+        currentWhatsNewUrl = result.ReleaseUrl;
+        whatsNewTitle.Text = $"What's New in {result.Tag}";
+        whatsNewSubtitle.Text = result.IsFallback
+            ? "Key highlights included in this launcher update:"
+            : "Highlights from the official GitHub release:";
+
+        whatsNewBulletsPanel.Children.Clear();
+        foreach (var bullet in result.Bullets)
+        {
+            var marker = ForgeTheme.Label("◆", 10.5, ForgeTheme.ClonesAccent, FontWeight.Bold, wrap: false);
+            marker.Margin = new Thickness(0, 2, 0, 0);
+            var txt = ForgeTheme.Label(bullet, 12.5, ForgeTheme.TextPrimary);
+            var row = new Grid { ColumnDefinitions = new ColumnDefinitions("Auto,*"), ColumnSpacing = 10 };
+            row.Children.Add(marker);
+            Grid.SetColumn(txt, 1);
+            row.Children.Add(txt);
+            whatsNewBulletsPanel.Children.Add(row);
+        }
+    }
+
+    void CloseWhatsNewOverlay()
+    {
+        showingWhatsNew = false;
+        whatsNewOverlay.IsVisible = false;
+    }
+
     void BuildConfirmOverlay()
     {
-        confirmCancelButton.Click += (_, _) => ResolveConfirm(false);
+        confirmCancelButton.Click += (_, _) =>
+        {
+            UiSoundEffects.PlayButtonBlip();
+            ResolveConfirm(false);
+        };
         confirmOkButton.Width = 140;
         confirmOkButton.HorizontalAlignment = HorizontalAlignment.Right;
-        confirmOkButton.Click += (_, _) => ResolveConfirm(true);
+        confirmOkButton.Click += (_, _) =>
+        {
+            UiSoundEffects.PlayButtonBlip();
+            ResolveConfirm(true);
+        };
 
         var buttons = new StackPanel
         {
@@ -1219,6 +2133,7 @@ public sealed class ForgeShellWindow : Window
             confirmOkButton.Background = request.IsDanger ? ForgeTheme.CtaDanger : ForgeTheme.CtaPrimary;
             confirmOkButton.Foreground = request.IsDanger ? ForgeTheme.TextPrimary : ForgeTheme.TextOnAccent;
             confirmOverlay.IsVisible = true;
+            confirmOkButton.Focus();
         });
         return tcs.Task;
     }
@@ -1252,29 +2167,45 @@ public sealed class ForgeShellWindow : Window
     async Task LoadSettingsDiagnosticsAsync()
     {
         var diag = await host.GetDiagnosticsAsync();
-        settingsInstallPath.Text = diag.InstallRoot ?? "No HellForge folder selected";
-        settingsAccountSummary.Text = diag.AccountSummary;
-        settingsUpdateNote.Text = diag.UpdateMessage ?? $"Launcher v{diag.AppVersion}";
-        settingsUpdateNote.IsVisible = true;
-        settingsOpenFolderButton.IsEnabled = !string.IsNullOrWhiteSpace(diag.InstallRoot);
-        settingsManagerButton.IsEnabled = diag.CanOpenManager;
-        settingsGuidedSetupButton.IsVisible = host.SupportsEmbeddedSetup;
-        settingsGuidedSetupButton.IsEnabled = diag.CanOpenSetup;
-        settingsSyncAccountButton.IsEnabled = diag.CanSyncAccount;
-        settingsCheckUpdatesButton.IsEnabled = diag.CanCheckUpdates && !diag.IsCheckingUpdates;
-        settingsCheckUpdatesButton.Content = diag.IsCheckingUpdates ? "Checking…" : "Check Updates";
-
-        settingsHealthWrap.Children.Clear();
-        foreach (var item in diag.HealthChecks)
+        updatingControls = true;
+        try
         {
-            var bg = item.Healthy ? ForgeTheme.SuccessBg : item.Warning ? ForgeTheme.WarningBg : ForgeTheme.DangerBg;
-            var fg = item.Healthy ? ForgeTheme.SuccessText : item.Warning ? ForgeTheme.WarningText : ForgeTheme.DangerText;
-            var border = item.Healthy ? ForgeTheme.SuccessBorder : item.Warning ? ForgeTheme.WarningBorder : ForgeTheme.DangerBorder;
-            var pill = ForgeTheme.Pill($"{item.Name}: {item.Status}", bg, fg, border, 11.5);
-            pill.Margin = new Thickness(0, 0, 8, 6);
-            settingsHealthWrap.Children.Add(pill);
+            settingsInstallPath.Text = diag.InstallRoot ?? "No HellForge folder selected";
+            settingsDiskUsageText.Text = diag.DiskUsageSummary;
+            settingsDiskUsageText.IsVisible = !string.IsNullOrWhiteSpace(diag.DiskUsageSummary);
+            settingsAccountSummary.Text = diag.AccountSummary;
+            settingsUpdateNote.Text = diag.UpdateMessage ?? $"Launcher v{diag.AppVersion}";
+            settingsUpdateNote.IsVisible = true;
+            settingsOpenFolderButton.IsEnabled = !string.IsNullOrWhiteSpace(diag.InstallRoot);
+            settingsManagerButton.IsEnabled = diag.CanOpenManager;
+            settingsGuidedSetupButton.IsVisible = host.SupportsEmbeddedSetup;
+            settingsGuidedSetupButton.IsEnabled = diag.CanOpenSetup;
+            settingsCleanCacheButton.IsEnabled = diag.CanCleanCache;
+            settingsVerifyRepairButton.IsEnabled = diag.CanVerifyAndRepair;
+            settingsSyncAccountButton.IsEnabled = diag.CanSyncAccount;
+            settingsCheckUpdatesButton.IsEnabled = diag.CanCheckUpdates && !diag.IsCheckingUpdates;
+            settingsCheckUpdatesButton.Content = diag.IsCheckingUpdates ? "Checking…" : "Check Updates";
+
+            settingsSfxCheck.IsChecked = diag.SoundEffectsEnabled;
+            settingsDiscordCheck.IsChecked = diag.DiscordRpcEnabled;
+            settingsTrayCheck.IsChecked = diag.MinimizeToTray;
+            minimizeToTrayActive = diag.MinimizeToTray;
+
+            settingsHealthWrap.Children.Clear();
+            foreach (var item in diag.HealthChecks)
+            {
+                var bg = item.Healthy ? ForgeTheme.SuccessBg : item.Warning ? ForgeTheme.WarningBg : ForgeTheme.DangerBg;
+                var fg = item.Healthy ? ForgeTheme.SuccessText : item.Warning ? ForgeTheme.WarningText : ForgeTheme.DangerText;
+                var border = item.Healthy ? ForgeTheme.SuccessBorder : item.Warning ? ForgeTheme.WarningBorder : ForgeTheme.DangerBorder;
+                var pill = ForgeTheme.Pill($"{item.Name}: {item.Status}", bg, fg, border, 11.5);
+                pill.Margin = new Thickness(0, 0, 8, 6);
+                settingsHealthWrap.Children.Add(pill);
+            }
+
+            latestDiscordReport = diag.DiscordReportText;
+            settingsReportBox.Text = !string.IsNullOrWhiteSpace(diag.DiscordReportText) ? diag.DiscordReportText : diag.RawReportText;
         }
-        settingsReportBox.Text = diag.RawReportText;
+        finally { updatingControls = false; }
     }
 
     void RefreshAll()
@@ -1283,12 +2214,35 @@ public sealed class ForgeShellWindow : Window
         setupView.IsVisible = showingSetup;
         customizeOverlay.IsVisible = showingCustomize;
         settingsOverlay.IsVisible = showingSettings;
+        whatsNewOverlay.IsVisible = showingWhatsNew;
 
         var home = host.GetHomeState();
+        minimizeToTrayActive = home.MinimizeToTray;
         headerSubtitle.Text = home.PlatformTag;
-        versionFooter.Text = $"v{home.AppVersion}";
+        muteButton.Content = home.SoundEffectsEnabled ? "🔊" : "🔇";
+        muteButton.Foreground = home.SoundEffectsEnabled ? ForgeTheme.ClonesAccent : ForgeTheme.TextMuted;
+        versionFooter.Text = string.IsNullOrWhiteSpace(home.SquadMatchHash)
+            ? $"v{home.AppVersion}"
+            : $"{home.SquadMatchHash} · v{home.AppVersion}";
 
         ApplyBadgeTone(headerStatusBadge, headerStatusText, home.HeaderBadgeText, home.HeaderBadgeTone);
+
+        if (trayEndSessionItem != null)
+            trayEndSessionItem.IsEnabled = home.IsSessionRunning;
+
+        if (!host.IsPreview && home.IsSessionRunning != wasSessionRunning)
+        {
+            var becameRunning = home.IsSessionRunning;
+            wasSessionRunning = becameRunning;
+            if (becameRunning && minimizeToTrayActive)
+                HideToTray();
+            else if (!becameRunning && !IsVisible)
+                RestoreFromTray();
+        }
+        else
+        {
+            wasSessionRunning = home.IsSessionRunning;
+        }
 
         // Update banner (never hijacks Play!)
         if (home.UpdateBanner is { } banner && !showingSetup)
@@ -1299,6 +2253,7 @@ public sealed class ForgeShellWindow : Window
             updateBannerText.Text = banner.Message;
             updateBannerAction.Content = banner.ActionLabel;
             updateBannerAction.IsEnabled = !home.IsBusy;
+            updateBannerWhatsNew.IsVisible = !banner.IsRestartReady;
             updateBannerDismiss.IsVisible = !banner.IsRestartReady;
         }
         else
@@ -1306,27 +2261,57 @@ public sealed class ForgeShellWindow : Window
             updateBanner.IsVisible = false;
         }
 
+        // Step-Down Banner (#29)
+        if (home.StepDownBanner is { } stepDown && !showingSetup && !home.IsBusy && !home.IsSessionRunning)
+        {
+            stepDownBanner.IsVisible = true;
+            stepDownBannerText.Text = stepDown.Reason;
+            stepDownAcceptButton.Content = stepDown.ActionLabel;
+        }
+        else
+        {
+            stepDownBanner.IsVisible = false;
+        }
+
+        // Smart Self-Install Banner (#31)
+        if (home.SelfInstallBanner is { } selfInstall && !showingSetup && !home.IsBusy && !home.IsSessionRunning)
+        {
+            selfInstallBanner.IsVisible = true;
+            selfInstallBannerText.Text = selfInstall.Message;
+            selfInstallAcceptButton.Content = selfInstall.ActionLabel;
+        }
+        else
+        {
+            selfInstallBanner.IsVisible = false;
+        }
+
         RefreshHome(home);
         if (showingCustomize) RefreshCustomizeDrawer();
         if (showingSetup) RefreshSetup(host.GetSetupState());
     }
 
-    void RefreshHome(ForgeHomeState s)
+    void ApplyModeCardVisuals(ForgeHomeState s)
     {
         foreach (var (id, card) in modeCards)
         {
             bool selected = string.Equals(s.Mode, id, StringComparison.OrdinalIgnoreCase);
+            bool hovered = !s.ControlsLocked && string.Equals(hoveredModeId, id, StringComparison.OrdinalIgnoreCase);
             var accent = ForgeTheme.AccentForMode(id);
-            card.Background = selected ? ForgeTheme.BgSelected : ForgeTheme.BgSurface;
-            card.BorderBrush = selected ? accent : ForgeTheme.BorderSubtle;
-            modeTopBars[id].Background = selected ? accent : Brushes.Transparent;
+
+            card.Background = selected
+                ? ForgeTheme.BgSelected
+                : hovered ? ForgeTheme.BgSurfaceHover : ForgeTheme.BgSurface;
+            card.BorderBrush = selected
+                ? accent
+                : hovered ? ForgeTheme.BorderStrong : ForgeTheme.BorderSubtle;
+            modeTopBars[id].Background = selected || hovered ? accent : ForgeTheme.MutedBarForMode(id);
             modeButtons[id].IsEnabled = !s.ControlsLocked;
 
             var badge = modeBadges[id];
             var badgeText = modeBadgeTexts[id];
+            badge.IsVisible = true;
             if (selected)
             {
-                badge.IsVisible = true;
                 badge.Background = ForgeTheme.GlowForMode(id);
                 badge.BorderBrush = accent;
                 badgeText.Foreground = accent;
@@ -1334,50 +2319,45 @@ public sealed class ForgeShellWindow : Window
             }
             else
             {
-                badge.IsVisible = true;
                 badge.Background = Brushes.Transparent;
                 badge.BorderBrush = Brushes.Transparent;
-                badgeText.Foreground = ForgeTheme.TextMuted;
+                badgeText.Foreground = hovered ? ForgeTheme.TextSecondary : ForgeTheme.TextMuted;
                 badgeText.Text = "CLICK TO SELECT";
             }
         }
+    }
 
-        // Customize summary strip
-        if (s.Mode == "regular")
-        {
-            customizeSummaryTitle.Text = "STANDARD LOADOUT";
-            customizeSummaryText.Text = "Original Helldivers 2 visuals with required Forge gameplay mods";
-            customizeOpenButton.IsVisible = false;
-        }
-        else
-        {
-            customizeSummaryTitle.Text = s.Mode == "empire" ? "EMPIRE LOADOUT" : "CLONES LOADOUT";
-            var enemy = s.EnemySkin switch
-            {
-                "mixed-droids" => "Mixed Bots + CIS",
-                "native-automatons" => "Native Automatons",
-                _ => "All CIS Droids"
-            };
-            var tex = s.Texture switch
-            {
-                "reduced512" => "Low VRAM 512px",
-                "lighter" => "Balanced Streamed",
-                _ => "High Textures"
-            };
-            var parts = new List<string> { enemy };
-            if (s.Mode == "clonedivers" && s.DeltaSquad) parts.Add("Delta Squad");
-            if (s.Covenant) parts.Add("Covenant");
-            parts.Add(tex);
-            customizeSummaryText.Text = string.Join("  ·  ", parts);
-            customizeOpenButton.IsVisible = true;
-            customizeOpenButton.IsEnabled = !s.ControlsLocked;
-        }
+    void RefreshHome(ForgeHomeState s)
+    {
+        ApplyModeCardVisuals(s);
+
+        statusDeckTopLine.Background = ForgeTheme.MutedBarForMode(s.Mode);
+
+        // Concise Loadout summary strip (#1, #10, #25)
+        customizeSummaryTitle.Text = s.Mode == "regular"
+            ? "STANDARD LOADOUT"
+            : s.Mode == "empire" ? "EMPIRE LOADOUT" : "CLONES LOADOUT";
+        customizeSummaryText.Text = ForgeTacticalCopy.FormatLoadoutSummary(
+            s.Mode,
+            s.EnemySkin,
+            s.DeltaSquad,
+            s.Covenant,
+            s.AutoPerformanceTier,
+            s.PerformanceTier,
+            s.Hardware,
+            s.HostChaosIntensity,
+            s.HostHeavySeaf,
+            s.HostFasterCorpseCleanup);
+        customizeOpenButton.Content = s.Mode == "regular" ? "Host Rules ▸" : "Customize ▸";
+        customizeOpenButton.IsVisible = true;
+        customizeOpenButton.IsEnabled = !s.ControlsLocked;
 
         var preview = s.SizePreview;
+        bool isResume = preview.BadgeText.StartsWith("Resume:", StringComparison.OrdinalIgnoreCase);
         bool cached = preview.DownloadBytes == 0;
-        customizeSizePill.Background = cached ? ForgeTheme.SuccessBg : ForgeTheme.WarningBg;
-        customizeSizePill.BorderBrush = cached ? ForgeTheme.SuccessBorder : ForgeTheme.WarningBorder;
-        customizeSizePillText.Foreground = cached ? ForgeTheme.SuccessText : ForgeTheme.WarningText;
+        customizeSizePill.Background = cached ? ForgeTheme.SuccessBg : isResume ? ForgeTheme.InfoBg : ForgeTheme.WarningBg;
+        customizeSizePill.BorderBrush = cached ? ForgeTheme.SuccessBorder : isResume ? ForgeTheme.InfoBorder : ForgeTheme.WarningBorder;
+        customizeSizePillText.Foreground = cached ? ForgeTheme.SuccessText : isResume ? ForgeTheme.InfoText : ForgeTheme.WarningText;
         customizeSizePillText.Text = preview.BadgeText;
 
         // Fixed-height Status & Progress Deck
@@ -1395,7 +2375,10 @@ public sealed class ForgeShellWindow : Window
         }
         else
         {
-            statusDot.Background = ToneBrush(s.PrimaryActionTone);
+            var dotTone = s.HeaderBadgeTone is ForgeHeroTone.Warning or ForgeHeroTone.Danger
+                ? s.HeaderBadgeTone
+                : s.PrimaryActionTone;
+            statusDot.Background = ToneBrush(dotTone);
             statusHeadline.Text = s.Headline;
             statusDetail.Text = s.Detail;
             statusMetrics.IsVisible = false;
@@ -1429,12 +2412,53 @@ public sealed class ForgeShellWindow : Window
         try
         {
             var s = host.GetHomeState();
-            drawerTitle.Text = s.Mode == "empire" ? "Customize Empire" : "Customize Clones";
+            bool isRegular = string.Equals(s.Mode, "regular", StringComparison.OrdinalIgnoreCase);
+
+            drawerTitle.Text = isRegular ? "Host Gameplay Rules" : s.Mode == "empire" ? "Customize Empire" : "Customize Clones";
+            drawerSubtitle.Text = isRegular
+                ? "Configure mission intensity when you host HellForge co-op."
+                : "Auto-tuned for your GPU, with optional overrides below.";
+
+            drawerPerfSection.IsVisible = !isRegular;
+            drawerVisualExtrasSection.IsVisible = !isRegular;
+            advancedHeaderBorder.IsVisible = !isRegular;
+
+            drawerHardwareText.Text = ForgeTacticalCopy.FormatHardwareDetectionLine(s.Hardware);
+            autoTierToggle.IsChecked = s.AutoPerformanceTier;
+            autoTierToggle.IsEnabled = !s.ControlsLocked;
+
+            var activeConcreteTier = PerformanceTierAdvisor.NormalizeConcreteTier(
+                s.AutoPerformanceTier ? PerformanceTierAdvisor.Auto : s.PerformanceTier,
+                s.Hardware);
+
+            foreach (var tier in PerformanceTierAdvisor.Tiers)
+            {
+                bool selected = string.Equals(activeConcreteTier, tier.Id, StringComparison.OrdinalIgnoreCase);
+                bool isRecommended = string.Equals(s.Hardware.RecommendedTierId, tier.Id, StringComparison.OrdinalIgnoreCase);
+
+                var row = tierRows[tier.Id];
+                row.Background = selected ? ForgeTheme.BgSelected : ForgeTheme.BgCanvas;
+                row.BorderBrush = selected ? ForgeTheme.ClonesAccent : ForgeTheme.BorderSubtle;
+                row.Opacity = s.ControlsLocked ? 0.6 : 1.0;
+
+                var dot = tierDots[tier.Id];
+                dot.Background = selected ? ForgeTheme.ClonesAccent : Brushes.Transparent;
+                dot.BorderBrush = selected ? ForgeTheme.ClonesAccent : ForgeTheme.BorderStrong;
+
+                var rec = tierRecPills[tier.Id];
+                rec.IsVisible = isRecommended;
+            }
+
+            bool showAdv = isRegular || showingAdvanced;
+            advancedHeaderLabel.Text = showAdv ? "Advanced ▾" : "Advanced ▸";
+            advancedHeaderBorder.BorderBrush = showAdv ? ForgeTheme.ClonesAccent : ForgeTheme.BorderSubtle;
+            advancedBodyPanel.IsVisible = showAdv;
+
             foreach (var (id, pill) in enemyPills)
             {
                 bool on = string.Equals(s.EnemySkin, id, StringComparison.OrdinalIgnoreCase);
                 pill.IsChecked = on;
-                pill.Background = on ? ForgeTheme.BgSelected : ForgeTheme.BgElevated;
+                pill.Background = on ? ForgeTheme.BgSelected : ForgeTheme.BgCanvas;
                 pill.BorderBrush = on ? ForgeTheme.ClonesAccent : ForgeTheme.BorderSubtle;
                 pill.IsEnabled = !s.ControlsLocked;
             }
@@ -1446,14 +2470,26 @@ public sealed class ForgeShellWindow : Window
             covenantToggle.IsChecked = s.Covenant;
             covenantToggle.IsEnabled = !s.ControlsLocked;
 
-            foreach (var (id, card) in textureCards)
+            foreach (var (id, pill) in chaosPills)
             {
-                bool on = string.Equals(s.Texture, id, StringComparison.OrdinalIgnoreCase);
-                textureRadios[id].IsChecked = on;
-                textureRadios[id].IsEnabled = !s.ControlsLocked;
-                card.Background = on ? ForgeTheme.BgSelected : ForgeTheme.BgElevated;
-                card.BorderBrush = on ? ForgeTheme.ClonesAccent : ForgeTheme.BorderSubtle;
+                bool on = string.Equals(s.HostChaosIntensity, id, StringComparison.OrdinalIgnoreCase);
+                pill.IsChecked = on;
+                pill.Background = on ? ForgeTheme.BgSelected : ForgeTheme.BgCanvas;
+                pill.BorderBrush = on ? ForgeTheme.ClonesAccent : ForgeTheme.BorderSubtle;
+                pill.IsEnabled = !s.ControlsLocked;
             }
+
+            foreach (var (id, pill) in seafPills)
+            {
+                bool on = string.Equals(s.HostHeavySeaf, id, StringComparison.OrdinalIgnoreCase);
+                pill.IsChecked = on;
+                pill.Background = on ? ForgeTheme.BgSelected : ForgeTheme.BgCanvas;
+                pill.BorderBrush = on ? ForgeTheme.ClonesAccent : ForgeTheme.BorderSubtle;
+                pill.IsEnabled = !s.ControlsLocked;
+            }
+
+            corpseCleanupToggle.IsChecked = s.HostFasterCorpseCleanup;
+            corpseCleanupToggle.IsEnabled = !s.ControlsLocked;
 
             var p = s.SizePreview;
             bool cached = p.DownloadBytes == 0;
@@ -1462,6 +2498,29 @@ public sealed class ForgeShellWindow : Window
             drawerPreviewBadge.Foreground = cached ? ForgeTheme.SuccessText : ForgeTheme.WarningText;
             drawerPreviewBadge.Text = p.BadgeText;
             drawerPreviewDetail.Text = p.DetailText;
+
+            // Smart single primary button (#1)
+            string applyLabel;
+            ForgeHeroTone applyTone;
+            if (!s.HasInstallation || s.IsModeAppliedOnDisk)
+            {
+                applyLabel = "Done";
+                applyTone = ForgeHeroTone.Ready;
+            }
+            else if (!isRegular && p.DownloadBytes > 0)
+            {
+                applyLabel = $"Apply & Download (~{Pack.FormatBytes(p.DownloadBytes)})";
+                applyTone = ForgeHeroTone.Action;
+            }
+            else
+            {
+                applyLabel = "Apply Now";
+                applyTone = ForgeHeroTone.Action;
+            }
+
+            drawerApplyButton.Content = applyLabel;
+            drawerApplyButton.IsEnabled = !s.ControlsLocked;
+            ApplyCtaTone(drawerApplyButton, applyTone, s.Mode, !s.ControlsLocked);
         }
         finally { updatingControls = false; }
     }
@@ -1487,7 +2546,6 @@ public sealed class ForgeShellWindow : Window
         setupStage3Panel.IsVisible = st.Step == 3;
         setupStage4Panel.IsVisible = st.Step == 4;
 
-        // Stage 1: Space & Steam + Drive picker
         if (st.Step == 1)
         {
             ApplyBadgeTone(setupSteamPill, setupSteamPillText, st.SteamReady ? "Steam: Signed in" : "Steam: Sign in required", st.SteamReady ? ForgeHeroTone.Ready : ForgeHeroTone.Warning);
@@ -1530,16 +2588,15 @@ public sealed class ForgeShellWindow : Window
                     BorderThickness = new Thickness(selected ? 2 : 1),
                     CornerRadius = new CornerRadius(9),
                     Padding = new Thickness(12, 9),
-                    Cursor = new Avalonia.Input.Cursor(Avalonia.Input.StandardCursorType.Hand),
+                    Cursor = new Cursor(StandardCursorType.Hand),
                     Child = new StackPanel { Spacing = 6, Children = { top, bar } }
                 };
                 var rootCopy = d.Root;
-                card.PointerPressed += (_, _) => { if (!st.IsBusy) host.SelectSetupDrive(rootCopy); };
+                card.PointerPressed += (_, _) => { if (!st.IsBusy) { UiSoundEffects.PlayButtonBlip(); host.SelectSetupDrive(rootCopy); } };
                 setupDrivesList.Children.Add(card);
             }
         }
 
-        // Stage 2: Substeps + non-jumping QR card
         if (st.Step == 2)
         {
             bool s0Done = st.HasInstallation && !st.ForgeUpgradeAvailable;
@@ -1574,7 +2631,6 @@ public sealed class ForgeShellWindow : Window
             setupOfficialFallbackButton.IsVisible = st.ShowOfficialFallback;
         }
 
-        // Stage 3: Live 5-Step Account Sync Tracker
         if (st.Step == 3)
         {
             var steps = st.AccountSync.Steps;
@@ -1592,7 +2648,6 @@ public sealed class ForgeShellWindow : Window
             }
         }
 
-        // Stage 4: Texture Tier Choice + Consent Box
         if (st.Step == 4)
         {
             setupStep4ModeText.Text = st.SelectedModeSummary;
@@ -1610,7 +2665,6 @@ public sealed class ForgeShellWindow : Window
                     : "Click below to install the required gameplay mods and verify your selected Star Wars pack.";
         }
 
-        // Progress card
         if (st.IsBusy && st.Progress is { } p)
         {
             setupProgressCard.IsVisible = true;
@@ -1695,7 +2749,7 @@ public sealed class ForgeShellWindow : Window
     public async Task RenderSnapshotAsync(string outputDir, string namePrefix, double[]? scales = null)
     {
         await Dispatcher.UIThread.InvokeAsync(() => { }, DispatcherPriority.Loaded);
-        await Task.Delay(120);
+        await Task.Delay(140);
         Measure(new Size(Width, Height));
         Arrange(new Rect(0, 0, Width, Height));
         UpdateLayout();

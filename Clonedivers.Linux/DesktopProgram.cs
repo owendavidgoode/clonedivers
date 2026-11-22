@@ -48,12 +48,27 @@ internal sealed class LauncherApplication : Application
         RequestedThemeVariant = ThemeVariant.Dark;
         var theme = new FluentTheme();
         if (DesktopProgram.Arguments.Contains("--forge") || DesktopProgram.Arguments.Contains("--forge-preview"))
-            theme.Palettes[ThemeVariant.Dark] = new ColorPaletteResources { Accent = Color.Parse("#3476E6") };
+        {
+            theme.Palettes[ThemeVariant.Dark] = new ColorPaletteResources
+            {
+                Accent = Color.Parse("#38BDF8"),
+                RegionColor = Clonedivers.Ui.ForgeTheme.BgCanvasColor
+            };
+        }
         Styles.Add(theme);
+        if (DesktopProgram.Arguments.Contains("--forge") || DesktopProgram.Arguments.Contains("--forge-preview"))
+            Styles.Add(Clonedivers.Ui.ForgeTheme.BuildGlobalStyles());
     }
 
     public override void OnFrameworkInitializationCompleted()
     {
+        Clonedivers.Ui.ForgeShellWindow? activeForgeWindow = null;
+        Avalonia.Threading.Dispatcher.UIThread.UnhandledException += (_, e) =>
+        {
+            Console.Error.WriteLine("Unhandled UI exception: " + e.Exception);
+            try { activeForgeWindow?.ShowUnhandledErrorToast(e.Exception); } catch { }
+            e.Handled = true;
+        };
         if (ApplicationLifetime is IClassicDesktopStyleApplicationLifetime desktop)
         {
             if (DesktopProgram.Arguments.Contains("--forge") || DesktopProgram.Arguments.Contains("--forge-preview"))
@@ -64,6 +79,7 @@ internal sealed class LauncherApplication : Application
                     Width = host.PreviewWidth,
                     Height = host.PreviewHeight
                 };
+                activeForgeWindow = window;
                 if (host.RenderOutput is { } outDir)
                 {
                     window.Opened += async (_, _) =>

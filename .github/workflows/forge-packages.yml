@@ -26,7 +26,7 @@ jobs:
           dotnet publish Clonedivers -c Release -o artifacts/windows -p:DebugType=None -p:DebugSymbols=false
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
           $exe = Get-Item artifacts/windows/Clonedivers.exe
-          if ($exe.VersionInfo.FileVersion -ne '2.0.2.0') { throw 'Unexpected Windows version.' }
+          if ($exe.VersionInfo.FileVersion -ne '2.0.3.0') { throw 'Unexpected Windows version.' }
           Copy-Item LICENSE artifacts/windows/LICENSE-CLONEDIVERS.txt
           Copy-Item docs/FORGE-MIGRATION.md artifacts/windows/README.md
           Copy-Item docs/FORGE-0.4-TURNKEY-2026-11-05.md artifacts/windows/FORGE-0.4-INTEGRATION.md
@@ -42,8 +42,68 @@ jobs:
               if (Test-Path $source) { Copy-Item $source ("artifacts/windows/$package-$name") }
             }
           }
+      - name: Check Azure Trusted Signing configuration
+        id: check-signing
+        shell: pwsh
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+          AZURE_TENANT_ID: ${{ secrets.AZURE_TENANT_ID }}
+          AZURE_CLIENT_ID: ${{ secrets.AZURE_CLIENT_ID }}
+          AZURE_CLIENT_SECRET: ${{ secrets.AZURE_CLIENT_SECRET }}
+          AZURE_SIGNING_ENDPOINT: ${{ secrets.AZURE_SIGNING_ENDPOINT }}
+          AZURE_SIGNING_ACCOUNT: ${{ secrets.AZURE_SIGNING_ACCOUNT }}
+          AZURE_SIGNING_PROFILE: ${{ secrets.AZURE_SIGNING_PROFILE }}
+        run: |
+          if ($env:EVENT_NAME -eq 'pull_request') {
+            "enabled=false" | Out-File -FilePath $env:GITHUB_OUTPUT -Append -Encoding utf8
+            Write-Host "Skipping Windows Authenticode signing on pull_request event; CI stays green."
+            exit 0
+          }
+          $required = @(
+            'AZURE_TENANT_ID',
+            'AZURE_CLIENT_ID',
+            'AZURE_CLIENT_SECRET',
+            'AZURE_SIGNING_ENDPOINT',
+            'AZURE_SIGNING_ACCOUNT',
+            'AZURE_SIGNING_PROFILE'
+          )
+          $missing = @($required | Where-Object { [string]::IsNullOrWhiteSpace([Environment]::GetEnvironmentVariable($_)) })
+          if ($missing.Count -eq 0) {
+            "enabled=true" | Out-File -FilePath $env:GITHUB_OUTPUT -Append -Encoding utf8
+            Write-Host "Azure Trusted Signing secrets detected; signing artifacts/windows/Clonedivers.exe."
+          } else {
+            "enabled=false" | Out-File -FilePath $env:GITHUB_OUTPUT -Append -Encoding utf8
+            Write-Host "Skipping Windows Authenticode signing: secrets not configured ($($missing -join ', ')). Packaging unsigned binary; see docs/CODE-SIGNING-SETUP.md."
+          }
+      - name: Sign Clonedivers.exe with Azure Trusted Signing
+        if: steps.check-signing.outputs.enabled == 'true'
+        uses: Azure/trusted-signing-action@v2
+        with:
+          azure-tenant-id: ${{ secrets.AZURE_TENANT_ID }}
+          azure-client-id: ${{ secrets.AZURE_CLIENT_ID }}
+          azure-client-secret: ${{ secrets.AZURE_CLIENT_SECRET }}
+          endpoint: ${{ secrets.AZURE_SIGNING_ENDPOINT }}
+          signing-account-name: ${{ secrets.AZURE_SIGNING_ACCOUNT }}
+          certificate-profile-name: ${{ secrets.AZURE_SIGNING_PROFILE }}
+          files: ${{ github.workspace }}\artifacts\windows\Clonedivers.exe
+          file-digest: SHA256
+          timestamp-rfc3161: http://timestamp.acs.microsoft.com
+          timestamp-digest: SHA256
+          description: Clonedivers — Forge Launcher
+          description-url: https://github.com/owendavidgoode/clonedivers
+      - name: Verify Authenticode signature
+        if: steps.check-signing.outputs.enabled == 'true'
+        shell: pwsh
+        run: |
+          $sig = Get-AuthenticodeSignature -LiteralPath artifacts/windows/Clonedivers.exe
+          Write-Host "Authenticode status: $($sig.Status) ($($sig.StatusMessage))"
+          if ($sig.Status -ne 'Valid') { throw "Authenticode signature verification failed: $($sig.Status)" }
+      - name: Package Windows archive and checksums
+        shell: pwsh
+        run: |
+          $exe = Get-Item -LiteralPath artifacts/windows/Clonedivers.exe
           $files = @(Get-ChildItem artifacts/windows -File | Select-Object -ExpandProperty FullName)
-          Compress-Archive -LiteralPath $files -DestinationPath artifacts/windows/Clonedivers-windows-2.0.2.zip
+          Compress-Archive -LiteralPath $files -DestinationPath artifacts/windows/Clonedivers-windows-2.0.3.zip
           (Get-FileHash $exe.FullName).Hash.ToLowerInvariant() + '  Clonedivers.exe' | Set-Content artifacts/windows/SHA256SUMS -Encoding utf8
       - uses: actions/upload-artifact@v4
         with:
@@ -85,10 +145,10 @@ jobs:
             cp "$runtime/LICENSE.TXT" "dist/forge-stage/licenses/dotnet-$rid-LICENSE.TXT"
             cp "$runtime/THIRD-PARTY-NOTICES.TXT" "dist/forge-stage/licenses/dotnet-$rid-NOTICES.TXT"
           done
-          jq -n '{format:1,channel:"forge",architecture:"x64",gameBuild:"25480438",engine:"0.1.47",hellforge:"0.4.0-beta",versions:{windows:"2.0.2",linux:"0.9.2",bridge:"0.4.0"},qualification:"Launcher/package migration; actual Linux gameplay and multiplayer unqualified",includesGameOrThirdPartyMods:false}' > artifacts/linux/clonedivers-forge-channel.json
+          jq -n '{format:1,channel:"forge",architecture:"x64",gameBuild:"25480438",engine:"0.1.47",hellforge:"0.4.0-beta",versions:{windows:"2.0.3",linux:"0.9.3",bridge:"0.4.0"},qualification:"Launcher/package migration; actual Linux gameplay and multiplayer unqualified",includesGameOrThirdPartyMods:false}' > artifacts/linux/clonedivers-forge-channel.json
           cp artifacts/linux/clonedivers-forge-channel.json dist/forge-stage/clonedivers-forge-channel.json
           bash tools/package-forge-portable.sh dist/forge-stage artifacts/linux/Clonedivers-linux-x64.tar.gz
-          bash tools/package-forge-deb.sh dist/forge-stage 0.9.2 artifacts/linux/Clonedivers-linux-x64.deb
+          bash tools/package-forge-deb.sh dist/forge-stage 0.9.3 artifacts/linux/Clonedivers-linux-x64.deb
           cd artifacts/linux
           sha256sum Clonedivers-linux-x64.tar.gz Clonedivers-linux-x64.deb clonedivers-forge-channel.json > SHA256SUMS
       - uses: actions/upload-artifact@v4

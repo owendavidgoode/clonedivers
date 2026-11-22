@@ -90,7 +90,7 @@ internal sealed class PlayerCommands
             case "select-mode":
                 var values = args.Skip(1).Chunk(2).ToDictionary(p => p[0], p => p[1], StringComparer.Ordinal);
                 var requested = new HellForgePreferences { Mode = values["--mode"], DeltaSquad = values["--delta"] == "yes",
-                    Texture = values["--texture"], Droids = values["--droids"] == "yes", Covenant = values["--covenant"] == "yes" };
+                    Texture = values["--texture"], EnemySkin = values["--droids"] == "yes" ? "all-droids" : "native-automatons", Covenant = values["--covenant"] == "yes" };
                 if (values.TryGetValue("--enemy-skin", out var skin)) requested.EnemySkin = skin;
                 requested.Validate();
                 selection.Mode = requested.Mode; selection.DeltaSquad = requested.DeltaSquad;
