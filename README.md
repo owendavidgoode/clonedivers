@@ -1,28 +1,28 @@
 <p align="center"><img src="docs/banner.png" width="720" alt="Clonedivers"></p>
 
-# Clonedivers — Forge
+# Clonedivers â€” Forge
 
 Choose **Regular**, **Clones** or **Empire** in a separate HellForge installation.
 Play the official online Helldivers 2 game directly through Steam.
 
-[Windows launcher](https://github.com/owendavidgoode/clonedivers/releases/latest/download/Clonedivers.exe) · [Ubuntu/Debian x86-64 package](https://github.com/owendavidgoode/clonedivers/releases/download/linux-v0.9.2/Clonedivers-linux-x64.deb) · [Linux portable](https://github.com/owendavidgoode/clonedivers/releases/download/linux-v0.9.2/Clonedivers-linux-x64.tar.gz)
+[Windows launcher](https://github.com/owendavidgoode/clonedivers/releases/latest/download/Clonedivers.exe) Â· [Ubuntu/Debian x86-64 package](https://github.com/owendavidgoode/clonedivers/releases/download/linux-v0.9.3/Clonedivers-linux-x64.deb) Â· [Linux portable](https://github.com/owendavidgoode/clonedivers/releases/download/linux-v0.9.3/Clonedivers-linux-x64.tar.gz)
 
 ## Quick Start for Friends (Windows)
 
-1. **Download and run `Clonedivers.exe`** — because the launcher is self-published, Windows Defender SmartScreen may show **"Windows protected your PC"**. Click **More info** -> **Run anyway**.
-2. **Keep Helldivers 2 installed and updated in Steam** — Clonedivers uses your Steam ownership and HD2 install for Forge's game copy and mandatory account sync. Official online HD2 stays untouched in Steam.
+1. **Download and run `Clonedivers.exe`** â€” because the launcher is self-published, Windows Defender SmartScreen may show **"Windows protected your PC"**. Click **More info** -> **Run anyway**.
+2. **Keep Helldivers 2 installed and updated in Steam** â€” Clonedivers uses your Steam ownership and HD2 install for Forge's game copy and mandatory account sync. Official online HD2 stays untouched in Steam.
 3. **Allow ~70 GB free space** on a local folder outside OneDrive and Steam (for example `D:\HellForge`).
 4. **Pick your mode & visuals first**: choose **Regular**, **Clones**, or **Empire**, your **Enemy skin** (`All CIS Droids`, `Mixed Bots + CIS Droids`, or `Native Automatons`), and **Textures** (`Full`, `Lighter (Streamed)`, or `Johnson Ultra-Potato (512px)` if your GPU has limited VRAM or slow asset streaming).
 5. **Follow the 4-step Setup Wizard**:
-   - **Step 1 · Preflight Check**: confirms Steam is signed in and 70 GB is free.
-   - **Step 2 · Forge & Game Copy**: sign in with the **Steam Mobile App QR scanner**, or click **Official setup (fallback)** if you don't have the phone app. Windows will ask for administrator (UAC) approval two or three times.
-   - **Step 3 · Guided Steam Account Sync (Required)**: required once before your first Forge launch so your real HD2 warbonds, unlocks, and progression copy locally. Leave *Apply import* and *auto-apply* off — Clonedivers imports the sealed capture automatically when HD2 and HellForge close. *(Never share your account capture files with anyone else.)*
-   - **Step 4 · Pack Download & Ready**: downloads the gameplay preset and selected Star Wars pack with byte progress, then returns to **Ready to launch**.
+   - **Step 1 Â· Preflight Check**: confirms Steam is signed in and 70 GB is free.
+   - **Step 2 Â· Forge & Game Copy**: sign in with the **Steam Mobile App QR scanner**, or click **Official setup (fallback)** if you don't have the phone app. Windows will ask for administrator (UAC) approval two or three times.
+   - **Step 3 Â· Guided Steam Account Sync (Required)**: required once before your first Forge launch so your real HD2 warbonds, unlocks, and progression copy locally. Leave *Apply import* and *auto-apply* off â€” Clonedivers imports the sealed capture automatically when HD2 and HellForge close. *(Never share your account capture files with anyone else.)*
+   - **Step 4 Â· Pack Download & Ready**: downloads the gameplay preset and selected Star Wars pack with byte progress, then returns to **Ready to launch**.
 6. **First launch firewall prompt**: click **Allow access** if Windows asks for network approval on your first launch.
 
 ## Update or Install
 
-The current live public releases are **Windows 2.0.2** ([v2.0.2](https://github.com/owendavidgoode/clonedivers/releases/tag/v2.0.2)) and **Linux Forge 0.9.2** ([linux-v0.9.2](https://github.com/owendavidgoode/clonedivers/releases/tag/linux-v0.9.2)), featuring the unified cross-platform Avalonia 11 launcher UI, real download/install progress (files, GB, MB/s, ETA), embedded 4-stage guided setup with multi-drive free-space picker and live 5-step account sync tracker, and verified `R1` asset stores (**EmpireDivers `2026.11.19-r48`**, **Clonedivers `2026.11.19-r20`**, and **`build25480438-r7`** with D11-verified `0.2.1` leaf writers and `0` `hf-mod.com` URLs; attended `R2` multiplayer and Linux Proton checks remain in progress). Update Windows through the launcher. On Linux, install the complete `.deb` or extract the full portable archive.
+The current live public releases are **Windows 2.0.3** ([v2.0.3](https://github.com/owendavidgoode/clonedivers/releases/tag/v2.0.3)) and **Linux Forge 0.9.3** ([linux-v0.9.3](https://github.com/owendavidgoode/clonedivers/releases/tag/linux-v0.9.3)), featuring the simplified unified Star Wars Avalonia 11 launcher UI, GPU/RAM auto-detected performance presets, 1-click Apply & `UPDATE & LAUNCH`, `Verify & Repair`, Disk Usage cleaner, real download/install progress (files, GB, MB/s, ETA) on both Windows and Linux, embedded 4-stage guided setup with live 5-step account sync tracker, and verified `R1` asset stores (**EmpireDivers `2026.11.19-r48`**, **Clonedivers `2026.11.19-r20`**, and **`build25480438-r7`** with D11-verified `0.2.1` leaf writers and `0` `hf-mod.com` URLs; attended `R2` multiplayer and Linux Proton checks remain in progress). Update Windows through the launcher. On Linux, install the complete `.deb` or extract the full portable archive.
 
 New players press **Set up Clonedivers** on Windows or **Set up / update Forge**
 on Linux. Windows checks for at least **70 GB** (`70 GiB`) free on the Forge
@@ -71,15 +71,15 @@ Every player needs their own Steam-owned HD2, official separate **HellForge
 0.4.0-beta / engine 0.1.47 / SDK 16 / game 25480438**, and permitted matching mods.
 Keep supported isolation and sandbox enabled. Linux requires a dedicated Proton
 prefix and the official namespace setup (`pasta` from `passt` on Ubuntu 24.04+ /
-Debian 13+ or equivalent). Complete Linux packages include the native UI (`0.9.2`)
+Debian 13+ or equivalent). Complete Linux packages include the native UI (`0.9.3`)
 and controller (`0.4.0`); no separate .NET install is needed. ARM64, Steam Deck, and
 Flatpak/Snap Forge are not qualified.
 
 ## Modes, Account, and Gameplay
 
-Regular, Clones and Empire are Forge appearance choices. In **2.0.2** / **0.9.2**,
+Regular, Clones and Empire are Forge appearance choices. In **2.0.3** / **0.9.3**,
 both **Clones (`2026.11.19-r20`)** and **Empire (`2026.11.19-r48`)** offer the full
-**3×3×2 variant matrix**: **Enemy skin** (`All CIS Droids`, `Mixed Bots + CIS Droids`
+**3Ã—3Ã—2 variant matrix**: **Enemy skin** (`All CIS Droids`, `Mixed Bots + CIS Droids`
 keeping `32` Battlefront CIS `UNIT`s alongside `45` native Automaton Hulks/Devastators/
 Berserkers/Factory Striders/7.0+ units, or `Native Automatons`), **Textures** (`Full`,
 `Lighter (Streamed)`, or `Johnson Ultra-Potato (512px)` `reduced512` at `512 px` max /
@@ -103,9 +103,9 @@ Berserkers/Factory Striders/7.0+ units, or `Native Automatons`), **Textures** (`
   `empire-lego-yoda 0.2.0`), global LEGO mid-back prop tuck, and Forge `25480438`
   `3,246`-key US localization (`18` Clone strings) while preserving all 4 Delta Squad
   sets.
-See [v2.0.2 release notes](docs/releases/v2.0.2.md), [linux-0.9.2 notes](docs/releases/linux-0.9.2.md),
+See [v2.0.3 release notes](docs/releases/v2.0.3.md), [linux-0.9.3 notes](docs/releases/linux-0.9.3.md),
 and [JohnsonMode 512px notes](docs/JOHNSONMODE.md). Every mode uses
-the player's own verified **one-way HD2 → Forge account import**. Forge progression
+the player's own verified **one-way HD2 â†’ Forge account import**. Forge progression
 saves locally and does not count back in official HD2. Never share captures, profiles,
 receipts or keys or replay stale captures to test persistence.
 
@@ -137,8 +137,8 @@ checks), all `5` offline launcher/bridge/Linux/forge-lab test suites (`0` failur
 CHECKS PASSED`). Automated Wave 3 live verification additionally passed **`10/10`**
 serialized `helldivers2.exe` runs (`exitCode=0`, `0` crashes/dumps/writer failures/Chaos
 fallbacks, `118/118` screenshots verified across `Empire r48` Compact LEGO, K-2SO, Bad
-Batch, and unfolded E-Web; `Clones r20` 4 sampled Compact LEGO kits — Cody, Coruscant
-Guard, Rex, and 501st — plus `Mixed Bots + CIS` and `Covenant 1670`; `chaos-invasions
+Batch, and unfolded E-Web; `Clones r20` 4 sampled Compact LEGO kits â€” Cody, Coruscant
+Guard, Rex, and 501st â€” plus `Mixed Bots + CIS` and `Covenant 1670`; `chaos-invasions
 0.3.0`; `Heavy SEAF`; and live `empire-lego-yoda 0.2.0`), plus a 6-run `PresentMon
 2.5.1` benchmark on a single high-VRAM test PC (`1280x720`) proving `Johnson
 Ultra-Potato 512px` cuts Peak Dedicated VRAM `-40.6%` (`18,154.53 -> 10,784.25 MiB`),

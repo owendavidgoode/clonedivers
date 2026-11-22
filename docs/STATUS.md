@@ -1,6 +1,13 @@
 # Clonedivers Release and Project Status
 
-## November 21, 2026 (`v2.0.2` / `linux-v0.9.2` live; unified Avalonia 11 launcher + `build25480438-r7` D11 FPS fix)
+## November 21, 2026 (`v2.0.3` / `linux-v0.9.3` live; simplified Star Wars UX, auto GPU presets, QA fixes & ops)
+
+Live public feeds (`manifest.json`, `manifest-v3.json`, `manifest-v3-current.json` `"app"` blocks) and `releases/latest` now serve **Windows `2.0.3`** ([v2.0.3](https://github.com/owendavidgoode/clonedivers/releases/tag/v2.0.3), `Clonedivers.exe` `76,466,670` B, SHA-256 `2514ba2e7e5a8a6e2eaec15c02ca6a6a898aa94a37b983bcb8186144382c27c0`) alongside **Linux Forge `0.9.3`** ([linux-v0.9.3](https://github.com/owendavidgoode/clonedivers/releases/tag/linux-v0.9.3)):
+
+- **Simplified Launcher UX & QA Fixes (PR #33, `3d04ab1`):** Defaults new installs to the full-variety Star Wars mix with granular options tucked under a collapsed **Advanced** drawer, adds 1-click Apply inside Customize, 1-click `UPDATE & LAUNCH`, `Resume Download` progress pill, 5-tier GPU/RAM auto-detector + VRAM/FPS auto-stepdown banner, `Verify & Repair`, Disk Usage breakdown + safe cache auto-cleaner, plain-English Crash Triage + Cloudflare `/session` & `/crash` Squad Readiness Worker, Host Gameplay Controls (`clonedivers-host-options.json`), Star Wars holoterminal polish + procedural UI sound effects + mute toggle, clickable short What's New, `TrayIcon` + minimize-to-tray, Discord Rich Presence IPC, subtle `r7-xxxx` Squad Match Code, Smart Self-Install from `Downloads`, Linux deterministic `PrepareAsync` progress, `Esc`/`Enter` modal hotkeys, embedded cross-platform `WindowIcon`, visible UI error toast, conditional Azure Trusted Signing CI hook, and nightly upstream-link health check.
+- **Verification:** `2,377` automated tests passing (`1,846` Win + `213` Linux + `306` Bridge + `12` Worker), independent adversarial review `APPROVED` (`e596932`), `11/11` green CI on PR #33 and `main @ 3d04ab1` ([run 44979447304](https://github.com/owendavidgoode/clonedivers/actions/runs/44979447304)), and visual inspection of `34` rendered PNGs. See [v2.0.3](releases/v2.0.3.md) and [linux-0.9.3](releases/linux-0.9.3.md).
+
+## November 21, 2026 (`v2.0.2` / `linux-v0.9.2` superseded by `v2.0.3` / `linux-v0.9.3`; unified Avalonia 11 launcher + `build25480438-r7` D11 FPS fix)
 
 Live public feeds (`manifest.json`, `manifest-v3.json`, `manifest-v3-current.json` `"app"` blocks) and `releases/latest` now serve **Windows `2.0.2`** ([v2.0.2](https://github.com/owendavidgoode/clonedivers/releases/tag/v2.0.2), `Clonedivers.exe` `76,368,366` B, SHA-256 `a7150afd90cb6f76c3187b261c478dbc3d858b1688d3f24f1ca4f755d814042f`) alongside **Linux Forge `0.9.2`** ([linux-v0.9.2](https://github.com/owendavidgoode/clonedivers/releases/tag/linux-v0.9.2)):
 
