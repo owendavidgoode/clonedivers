@@ -161,9 +161,9 @@ internal static class ForgePolishTests
         check(ForgePresentation.FailureSummary("UnauthorizedAccessException: Access to '/home/pasta/forge' is denied").Contains("folder permissions"),
             "permission errors still map to folder permissions even if a path mentions pasta");
 
-        // QA Bugfix #2 & #4 + Version 0.9.3 checks on Linux
-        check(AppInfo.Version == (ForgeEntryPolicy.ForgeEdition ? "0.9.3" : "0.5.0"),
-            "Linux Forge assembly version is bumped to 0.9.3 (0.5.0 when ForgeEdition=false)");
+        // QA Bugfix #2 & #4 + Version 0.10.0 checks on Linux
+        check(AppInfo.Version == (ForgeEntryPolicy.ForgeEdition ? "0.10.0" : "0.5.0"),
+            "Linux Forge assembly version is bumped to 0.10.0 (0.5.0 when ForgeEdition=false)");
         using (var linuxIco = typeof(LinuxForgePlayer).Assembly.GetManifestResourceStream("Clonedivers.Icon.ico"))
         {
             check(linuxIco != null, "Clonedivers.Icon.ico is embedded in Clonedivers.Linux assembly");

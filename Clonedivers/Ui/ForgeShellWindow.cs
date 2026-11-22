@@ -460,7 +460,7 @@ public sealed class ForgeShellWindow : Window
                 Dispatcher.UIThread.Post(() => drawerScrollViewer?.ScrollToEnd(), DispatcherPriority.Loaded);
             }
             else if (initialOverlay == "settings") { showingSettings = true; _ = LoadSettingsDiagnosticsAsync(); }
-            else if (initialOverlay == "whats-new") { _ = OpenWhatsNewAsync("2.0.3"); }
+            else if (initialOverlay == "whats-new") { _ = OpenWhatsNewAsync("2.1.0"); }
             RefreshAll();
             await host.InitializeAsync();
             RefreshAll();

@@ -147,9 +147,9 @@ public static class ForgeVerifier
 
         steps.Add(new(2, "Hosts & capture cleanup", true, false, "Hosts file and capture proxy state are clean (saves & account untouched)."));
 
-        // ── Step 3/5: 14-mod r7 gameplay preset hash & order verification/repair ──
+        // ── Step 3/5: 17-mod r8 gameplay preset hash & order verification/repair ──
         ct.ThrowIfCancellationRequested();
-        progress?.Report(new("Verifying gameplay preset", "Checking 14-mod r7 hashes, options, and load order…", 3, 5, CanCancel: true));
+        progress?.Report(new("Verifying gameplay preset", "Checking 17-mod r8 hashes, options, and load order…", 3, 5, CanCancel: true));
         try
         {
             var modsBefore = await client.ModsAsync(ct);
@@ -177,24 +177,24 @@ public static class ForgeVerifier
                 var afterProblem = HellForgePreset.Problem(modsAfter, checkOrder: true) ?? modsAfter.HostingProblem;
                 if (afterProblem != null)
                 {
-                    steps.Add(new(3, "Gameplay preset (r7)", false, false, afterProblem));
+                    steps.Add(new(3, "Gameplay preset (r8)", false, false, afterProblem));
                     return FailEarly(steps, afterProblem, gameplayRepairedCount);
                 }
 
-                steps.Add(new(3, "Gameplay preset (r7)", true, true,
+                steps.Add(new(3, "Gameplay preset (r8)", true, true,
                     missing.Count > 0
-                        ? $"Repaired {missing.Count} gameplay archive(s) and restored pinned r7 order & options."
-                        : "Restored pinned r7 gameplay load order, Guard Dogs options, and sharing settings."));
+                        ? $"Repaired {missing.Count} gameplay archive(s) and restored pinned r8 order & options."
+                        : "Restored pinned r8 gameplay load order, Guard Dogs options, and sharing settings."));
             }
             else
             {
-                steps.Add(new(3, "Gameplay preset (r7)", true, false, "All r7 gameplay mods, hashes, options, and load order verified."));
+                steps.Add(new(3, "Gameplay preset (r8)", true, false, "All r8 gameplay mods, hashes, options, and load order verified."));
             }
         }
         catch (OperationCanceledException) { throw; }
         catch (Exception ex)
         {
-            steps.Add(new(3, "Gameplay preset (r7)", false, false, ex.Message));
+            steps.Add(new(3, "Gameplay preset (r8)", false, false, ex.Message));
             return FailEarly(steps, "Gameplay preset repair failed: " + ex.Message, gameplayRepairedCount);
         }
 
@@ -342,7 +342,7 @@ public static class ForgeVerifier
         if (packRepaired) actions.Add("repaired Star Wars pack");
         if (bytesReclaimed > 0) actions.Add($"freed {Pack.FormatBytes(bytesReclaimed)}");
         return actions.Count == 0
-            ? "All 5 checks passed — Forge, r7 gameplay preset, and active pack are healthy."
+            ? "All 5 checks passed — Forge, r8 gameplay preset, and active pack are healthy."
             : "Verified & repaired: " + string.Join(", ", actions) + ".";
     }
 }

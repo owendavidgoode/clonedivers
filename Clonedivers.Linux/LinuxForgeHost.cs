@@ -960,7 +960,7 @@ internal sealed class LinuxForgeHost : IForgeUiHost
                     await player.RecoverAppearanceAsync(ct);
             }
 
-            throttler.Report(new("Verifying gameplay preset", "Checking 14-mod r7 hashes and load order…", 2, 5, CanCancel: true));
+            throttler.Report(new("Verifying gameplay preset", "Checking 17-mod r8 hashes and load order…", 2, 5, CanCancel: true));
             await player.InstallGameplayAsync(null, ct, throttler.AsProgress());
             TrySyncHostMutatorFile();
 
@@ -982,8 +982,8 @@ internal sealed class LinuxForgeHost : IForgeUiHost
             UiSoundEffects.PlayCompletion();
             requestAttention?.Invoke();
             var summary = freed > 0
-                ? $"Verified Forge, r7 gameplay preset, and active pack; freed {Pack.FormatBytes(freed)}."
-                : "All checks passed — Forge, r7 gameplay preset, and active pack are healthy.";
+                ? $"Verified Forge, r8 gameplay preset, and active pack; freed {Pack.FormatBytes(freed)}."
+                : "All checks passed — Forge, r8 gameplay preset, and active pack are healthy.";
             toastNotice = summary;
             updateMessage = summary;
             ScheduleSizeEstimate();

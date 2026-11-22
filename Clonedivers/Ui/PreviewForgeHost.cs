@@ -314,7 +314,7 @@ public sealed class PreviewForgeHost : IForgeUiHost
             [
                 new ForgeHealthItem("HellForge", "0.4.0-beta · SDK 16", Healthy: true),
                 new ForgeHealthItem("Game Copy", "Build 25480438", Healthy: true),
-                new ForgeHealthItem("Gameplay Preset", $"14/14 ({matchCode})", Healthy: true),
+                new ForgeHealthItem("Gameplay Preset", $"17/17 ({matchCode})", Healthy: true),
                 new ForgeHealthItem("Account Sync", "Imported", Healthy: true),
                 new ForgeHealthItem("Co-op Network", "Sandbox + WFP OK", Healthy: true)
             ],
@@ -367,16 +367,16 @@ public sealed class PreviewForgeHost : IForgeUiHost
     public Task InstallSelfShortcutsAsync() { selfInstallDismissed = true; StateChanged?.Invoke(); return Task.CompletedTask; }
     public void DismissSelfInstallBanner() { selfInstallDismissed = true; StateChanged?.Invoke(); }
     public Task<WhatsNewResult> FetchWhatsNewAsync(string? versionOrTag, CancellationToken ct = default) => Task.FromResult(new WhatsNewResult(
-        Tag: WhatsNewFetcher.NormalizeTag(versionOrTag ?? "2.0.3", isLinux: false),
+        Tag: WhatsNewFetcher.NormalizeTag(versionOrTag ?? "2.1.0", isLinux: false),
         Bullets:
         [
-            "Smart 5-tier GPU performance advisor with automatic D3D12 low-VRAM protection.",
-            "True 1-click UPDATE & LAUNCH plus resumable download size tracking.",
-            "One-click Verify & Repair and safe background cache cleanup in Settings.",
-            "Squad Match Code (r7) and plain-English crash triage for co-op sessions."
+            "5 native Star Wars texture tiers (up to -80% VRAM & decimated meshes on Ultra-Potato).",
+            "Empire r49 & Clones r21: folded-wing HD Lambda, multi-exo AT-ST, 500+ rig fixes & Death Trooper voice.",
+            "3-way Mixed Covenant + Squids selector, O(1) camera pullback, Dedicated Melee Slot & D11 Chaos OOM fix.",
+            "Squad Match Code (r8), clear pre-window launch staging status, and overhaul-pack collision guard."
         ],
         IsFallback: false,
-        ReleaseUrl: "https://github.com/owendavidgoode/clonedivers/releases/tag/v2.0.3"));
+        ReleaseUrl: "https://github.com/owendavidgoode/clonedivers/releases/tag/v2.1.0"));
     public void ToggleSoundEffects() { soundEffectsEnabled = !soundEffectsEnabled; StateChanged?.Invoke(); }
     public void OpenSteamLibrary() { }
     public Task EnterSetupAsync() { SetupVisibilityChanged?.Invoke(true); return Task.CompletedTask; }

@@ -55,8 +55,8 @@ public sealed class HellForgePreferences
     string SquidKeySegment => squidSkin == "mixed-covenant" ? "mixed-covenant" : Covenant.ToString();
     string EmpireVoiceSuffix => DeathTrooperVoice ? "" : "/deathtrooper-off";
     public string SelectionKey => IsRegular ? $"regular/{HellForgePack.SupportedBuild}" :
-        Mode == "empire" ? $"r48/{HellForgePack.SupportedBuild}/empire/{Texture}/{EnemyKeySegment}/{SquidKeySegment}{EmpireVoiceSuffix}" :
-        $"r20/{HellForgePack.SupportedBuild}/{PackMode}/{Texture}/{EnemyKeySegment}/{SquidKeySegment}";
+        Mode == "empire" ? $"r49/{HellForgePack.SupportedBuild}/empire/{Texture}/{EnemyKeySegment}/{SquidKeySegment}{EmpireVoiceSuffix}" :
+        $"r21/{HellForgePack.SupportedBuild}/{PackMode}/{Texture}/{EnemyKeySegment}/{SquidKeySegment}";
     internal static string? CustomPreferencesPath()
     {
         var custom = Environment.GetEnvironmentVariable("CLONEDIVERS_FORGE_PREFS");

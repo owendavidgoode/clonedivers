@@ -34,7 +34,7 @@ public static class SquadFingerprint
         var match = Regex.Match(id, @"-(r\d+[a-z0-9]*)$", RegexOptions.IgnoreCase | RegexOptions.CultureInvariant);
         if (match.Success) return match.Groups[1].Value.ToLowerInvariant();
         var cleaned = Regex.Replace(id, @"[^a-zA-Z0-9]", "").ToLowerInvariant();
-        return string.IsNullOrEmpty(cleaned) ? "r7" : cleaned[..Math.Min(cleaned.Length, 6)];
+        return string.IsNullOrEmpty(cleaned) ? "r8" : cleaned[..Math.Min(cleaned.Length, 6)];
     }
 
     /// <summary>True when an enabled mod affects co-op gameplay state rather than local visuals/client-only rendering.</summary>

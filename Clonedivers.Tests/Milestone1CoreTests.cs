@@ -320,21 +320,21 @@ internal static class Milestone1CoreTests
         Directory.CreateDirectory(dir);
 
         var catalogCode = SquadFingerprint.Compute(HellForgeGameplayCatalog.Current);
-        check(System.Text.RegularExpressions.Regex.IsMatch(catalogCode, @"^r7-[0-9a-f]{4}$"),
-              $"SquadFingerprint.Compute(Current) produces short deterministic r7 match code ({catalogCode})");
+        check(System.Text.RegularExpressions.Regex.IsMatch(catalogCode, @"^r8-[0-9a-f]{4}$"),
+              $"SquadFingerprint.Compute(Current) produces short deterministic r8 match code ({catalogCode})");
 
         // Build two player mod lists:
-        // Player A: Clonedivers pack + all 5 gameplay:false client code mods enabled + r7 gameplay preset
-        // Player B: EmpireDivers pack + 0 gameplay:false client code mods enabled + r7 gameplay preset (reversed order)
+        // Player A: Clonedivers pack + all 7 gameplay:false client code mods enabled + r8 gameplay preset
+        // Player B: EmpireDivers pack + 0 gameplay:false client code mods enabled + r8 gameplay preset (reversed order)
         HellForgeMods BuildPlayerMods(string? starWarsMode, bool enableClientCodeMods, string difficultyVersion = "0.16.1", bool enableChaos = true)
         {
             var list = new List<HellForgeMod>();
             foreach (var req in HellForgePreset.Required)
                 list.Add(new(req.Id, req.Name, true, "fixture", ["gameplay"], req.Id == "skyeshade.hell-forge" ? difficultyVersion : req.Version));
             list.Add(new("skyeshade.vanilla-plus", "Vanilla Plus", true, "fixture", ["gameplay"], ""));
-            list.Add(new(HellForgePreset.ChaosInvasions, "Chaos Invasions", enableChaos, "fixture", ["gameplay", "code"], "0.3.0"));
+            list.Add(new(HellForgePreset.ChaosInvasions, "Chaos Invasions", enableChaos, "fixture", ["gameplay", "code"], "0.3.3"));
 
-            foreach (var clientId in new[] { HellForgePreset.CleanExit, HellForgePreset.LegoCompactLeafWriter, HellForgePreset.EmpireLegoYoda, HellForgePreset.EmpireAtstWriter, HellForgePreset.EmpireTieSwitch })
+            foreach (var clientId in new[] { HellForgePreset.CleanExit, HellForgePreset.LegoCompactLeafWriter, HellForgePreset.EmpireLegoYoda, HellForgePreset.EmpireAtstWriter, HellForgePreset.EmpireTieSwitch, HellForgePreset.EmpireCameraPullback, HellForgePreset.DedicatedMeleeSlot })
                 list.Add(new(clientId, clientId, enableClientCodeMods, "fixture", ["code"], "0.2.1"));
 
             if (starWarsMode != null)

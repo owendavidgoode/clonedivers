@@ -194,19 +194,49 @@ internal static class Milestone2Tests
               "PerformanceTierAdvisor maps all 5 tiers 1:1 with full, lighter, reduced1024, reduced512, and potato256");
 
         // r20 / r48 backwards-compatible fallback: reduced1024 -> lighter, potato256 -> reduced512
+        var r20Bytes = ReadResourceBytes("Clonedivers.Tests.Clones.R20.Manifest.json");
+        var r48Bytes = ReadResourceBytes("Clonedivers.Tests.Empire.R48.Manifest.json");
         foreach (var mode in new[] { "clonedivers", "commandos", "empire" })
         {
-            var sel1024 = HellForgePack.PinnedSelection(mode, "reduced1024");
-            var selLighter = HellForgePack.PinnedSelection(mode, "lighter");
-            var sel256 = HellForgePack.PinnedSelection(mode, "potato256");
-            var sel512 = HellForgePack.PinnedSelection(mode, "reduced512");
+            var manifestBytes = mode == "empire" ? r48Bytes : r20Bytes;
+            var sel1024 = HellForgePack.ResolveSelection(manifestBytes, null, mode, "reduced1024");
+            var selLighter = HellForgePack.ResolveSelection(manifestBytes, null, mode, "lighter");
+            var sel256 = HellForgePack.ResolveSelection(manifestBytes, null, mode, "potato256");
+            var sel512 = HellForgePack.ResolveSelection(manifestBytes, null, mode, "reduced512");
 
             check(sel1024.Texture == "lighter" &&
                   sel1024.Files.Select(f => f.Sha256).SequenceEqual(selLighter.Files.Select(f => f.Sha256)) &&
                   sel256.Texture == "reduced512" &&
                   sel256.Files.Select(f => f.Sha256).SequenceEqual(sel512.Files.Select(f => f.Sha256)),
-                  $"PinnedSelection({mode}) falls back seamlessly on r20/r48: reduced1024 -> lighter and potato256 -> reduced512");
+                  $"ResolveSelection({mode}) falls back seamlessly on r20/r48: reduced1024 -> lighter and potato256 -> reduced512");
         }
+
+        // Live embedded r21 & r49 180-combination PinnedSelection matrix (90 Clones r21 + 90 Empire r49)
+        int matrixChecked = 0;
+        foreach (var mode in new[] { "clonedivers", "commandos", "empire" })
+        foreach (var tex in allFive)
+        foreach (var enemy in new[] { "all-droids", "mixed-droids", "native-automatons" })
+        foreach (var squid in new[] { "mixed-covenant", "all-covenant", "native-squids" })
+        foreach (var dt in mode == "empire" ? new[] { true, false } : new[] { true })
+        {
+            var opts = new Dictionary<string, bool>
+            {
+                ["droids"] = enemy != "native-automatons",
+                ["mixed-droids"] = enemy == "mixed-droids",
+                ["covenant"] = squid != "native-squids",
+                ["mixed-covenant"] = squid == "mixed-covenant"
+            };
+            if (mode == "empire") opts["deathtrooper"] = dt;
+            var sel = HellForgePack.PinnedSelection(mode, tex, opts);
+            var expectedVer = mode == "empire" ? "2026.11.22-r49" : "2026.11.22-r21";
+            var expectedCount = mode == "empire"
+                ? (enemy == "native-automatons" ? 123 : 135)
+                : (enemy == "native-automatons" ? 111 : 123);
+            if (sel.Version != expectedVer || sel.Texture != tex || sel.Files.Count != expectedCount)
+                check(false, $"PinnedSelection {mode}/{tex}/{enemy}/{squid}/dt={dt} mismatch");
+            matrixChecked++;
+        }
+        check(matrixChecked == 180, "PinnedSelection resolves all 180 r21/r49 5-tier x 3-enemy x 3-squid x Delta/DeathTrooper combinations natively");
 
         // r19 / r47 fallback: both reduced1024 and potato256 fall back to lighter when reduced512 is absent
         var r19Bytes = ReadResourceBytes("Clonedivers.Tests.Clones.R19.Manifest.json");
@@ -319,11 +349,19 @@ internal static class Milestone2Tests
             "Clones SelectionKey ignores Empire-only DeathTrooperVoice");
 
         // r20 / r48 fallback: mixed-covenant falls back cleanly to covenant=true, and deathtrooper is a safe no-op on r48
-        var r20MixedCov = new HellForgePreferences { Mode = "clonedivers", SquidSkin = "mixed-covenant" }.Selection();
-        var r48MixedCovDtOff = new HellForgePreferences { Mode = "empire", SquidSkin = "mixed-covenant", DeathTrooperVoice = false }.Selection();
+        var r20Bytes = ReadResourceBytes("Clonedivers.Tests.Clones.R20.Manifest.json");
+        var r48Bytes = ReadResourceBytes("Clonedivers.Tests.Empire.R48.Manifest.json");
+        var r20MixedCov = HellForgePack.ResolveSelection(r20Bytes, null, "clonedivers", "full",
+            new Dictionary<string, bool> { ["droids"] = true, ["mixed-droids"] = true, ["covenant"] = true, ["mixed-covenant"] = true });
+        var r48MixedCovDtOff = HellForgePack.ResolveSelection(r48Bytes, null, "empire", "full",
+            new Dictionary<string, bool> { ["droids"] = true, ["mixed-droids"] = true, ["covenant"] = true, ["mixed-covenant"] = true, ["deathtrooper"] = false });
+        var r21Live = new HellForgePreferences { Mode = "clonedivers", SquidSkin = "mixed-covenant" }.Selection();
+        var r49LiveDtOff = new HellForgePreferences { Mode = "empire", SquidSkin = "mixed-covenant", DeathTrooperVoice = false }.Selection();
         check(r20MixedCov.Options["covenant"] && !r20MixedCov.Options.ContainsKey("mixed-covenant") &&
-              r48MixedCovDtOff.Options["covenant"] && !r48MixedCovDtOff.Options.ContainsKey("deathtrooper"),
-              "r20 and r48 manifests accept SquidSkin='mixed-covenant' (falling back to covenant=true) and strip unknown deathtrooper option cleanly");
+              r48MixedCovDtOff.Options["covenant"] && !r48MixedCovDtOff.Options.ContainsKey("deathtrooper") &&
+              r21Live.Options["mixed-covenant"] && r21Live.Options["covenant"] &&
+              r49LiveDtOff.Options["mixed-covenant"] && !r49LiveDtOff.Options["deathtrooper"],
+              "r20/r48 fall back cleanly while live embedded r21/r49 resolve mixed-covenant and deathtrooper natively");
 
         // Synthetic r49 3-way SquidSkin + DeathTrooperVoice verification (including PackProfiles.Validate -> CanCoexist!)
         var r49Bytes = BuildSyntheticV21ManifestBytes(isEmpire: true);
@@ -382,11 +420,12 @@ internal static class Milestone2Tests
 
     static void TestR8CatalogDraftAndSources(Action<bool, string> check)
     {
-        check(HellForgeGameplayCatalog.Pinned.Id == "build25480438-r7" &&
-              HellForgeGameplayCatalog.Current.Id == "build25480438-r7",
-              "HellForgeGameplayCatalog keeps r7 as the active pinned default until forge-mods-2026-11-22 release assets are uploaded");
+        check(HellForgeGameplayCatalog.Pinned.Id == "build25480438-r8" &&
+              HellForgeGameplayCatalog.Current.Id == "build25480438-r8" &&
+              HellForgeGameplayCatalog.Pinned.Artifacts.Count == 17,
+              "HellForgeGameplayCatalog activates build25480438-r8 (17 artifacts) as the pinned default");
 
-        var r8Json = Encoding.UTF8.GetString(ReadResourceBytes("Clonedivers.Tests.Gameplay.R8.json"));
+        var r8Json = Encoding.UTF8.GetString(ReadResourceBytes("Clonedivers.Forge.Gameplay.json"));
         var r8 = JsonSerializer.Deserialize<HellForgeGameplayCatalog>(r8Json, HellForgePack.Json)!;
         r8.ValidateDraft();
 
