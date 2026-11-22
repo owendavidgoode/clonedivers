@@ -94,16 +94,23 @@ public sealed class HellForgePreferences
             if (!LegacyAppearance.HasSavedConfigFor(path))
                 return new();
             var legacy = LegacyAppearance.ReadFor(path);
-            var hasExplicitTexture = !string.IsNullOrWhiteSpace(legacy.TextureProfile);
+            var legacyTexture = legacy.TextureProfile?.Trim().ToLowerInvariant() switch
+            {
+                "reduced512" or "reduced-512" => "reduced512",
+                "lighter" or "skinny" => "lighter",
+                "full" => "full",
+                _ => null
+            };
+            var hasExplicitTexture = legacyTexture != null;
             return new()
             {
                 Mode = legacy.Options.GetValueOrDefault("empire") ? "empire" : "clonedivers",
                 DeltaSquad = legacy.Options.GetValueOrDefault("commandos", true),
                 EnemySkin = legacy.Options.TryGetValue("droids", out var legacyDroids) ? (legacyDroids ? "all-droids" : "native-automatons") : "mixed-droids",
                 Covenant = legacy.Options.TryGetValue("covenant", out var legacyCov) ? legacyCov : true,
-                Texture = legacy.TextureProfile == "lighter" ? "lighter" : "full",
+                Texture = legacyTexture ?? "full",
                 AutoPerformanceTier = !hasExplicitTexture,
-                PerformanceTier = !hasExplicitTexture ? PerformanceTierAdvisor.Auto : (legacy.TextureProfile == "lighter" ? PerformanceTierAdvisor.Balanced : PerformanceTierAdvisor.Ultra)
+                PerformanceTier = !hasExplicitTexture ? PerformanceTierAdvisor.Auto : PerformanceTierAdvisor.TierFromPackTexture(legacyTexture)
             };
         }
         if (new FileInfo(path).Length > 64 * 1024) throw new InvalidDataException("HellForge preferences are oversized.");

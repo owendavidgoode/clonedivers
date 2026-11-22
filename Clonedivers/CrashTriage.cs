@@ -465,8 +465,8 @@ public static class CrashTriage
     {
         if (string.IsNullOrWhiteSpace(line)) return "";
         var clean = Regex.Replace(line, @"[\r\n\t\p{C}]+", " ").Trim();
-        clean = Regex.Replace(clean, @"(?i)[A-Z]:\\Users\\[^\\/\s]+", @"C:\Users\<user>");
-        clean = Regex.Replace(clean, @"/home/[^/\s]+", "/home/<user>");
+        clean = Regex.Replace(clean, @"(?i)([A-Z]:[\\/]+Users[\\/]+)[^\\/\s""']+", "$1<user>");
+        clean = Regex.Replace(clean, @"(?i)(/(?:home|Users)/)[^/\s""']+", "$1<user>");
         clean = Regex.Replace(clean, @"\b7656119\d{10}\b", "<steam-id>");
         return clean.Length > 240 ? clean[..240] + "…" : clean;
     }

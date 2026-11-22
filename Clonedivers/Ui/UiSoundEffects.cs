@@ -133,18 +133,33 @@ public static class UiSoundEffects
             {
                 UseShellExecute = false,
                 CreateNoWindow = true,
-                RedirectStandardOutput = true,
-                RedirectStandardError = true
+                RedirectStandardOutput = false,
+                RedirectStandardError = false
             };
             if (extraArg != null) psi.ArgumentList.Add(extraArg);
             psi.ArgumentList.Add(filePath);
 
-            using var proc = Process.Start(psi);
-            if (proc == null) continue;
-            using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(2));
-            try { await proc.WaitForExitAsync(cts.Token).ConfigureAwait(false); }
-            catch { try { proc.Kill(); } catch { } }
-            return;
+            try
+            {
+                using var proc = Process.Start(psi);
+                if (proc == null) continue;
+                using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(2));
+                try
+                {
+                    await proc.WaitForExitAsync(cts.Token).ConfigureAwait(false);
+                }
+                catch
+                {
+                    try { proc.Kill(); } catch { }
+                    continue;
+                }
+                if (proc.ExitCode == 0)
+                    return;
+            }
+            catch
+            {
+                // Try next fallback player (e.g. aplay when paplay fails or is unavailable).
+            }
         }
     }
 

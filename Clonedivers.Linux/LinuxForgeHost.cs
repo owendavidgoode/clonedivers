@@ -58,10 +58,10 @@ internal sealed class LinuxForgeHost : IForgeUiHost
     internal double PreviewWidth { get; } = 900;
     internal double PreviewHeight { get; } = 680;
 
-    internal LinuxForgeHost(string[] args)
+    internal LinuxForgeHost(string[] args, LinuxForgePreferences? preferencesOverride = null)
     {
         preview = args.Contains("--forge-preview", StringComparer.Ordinal);
-        preferences = preview ? new() : LinuxForgePreferences.Load();
+        preferences = preferencesOverride ?? (preview ? new() : LinuxForgePreferences.Load());
         resources = Path.Combine(AppContext.BaseDirectory, "forge");
 
         cachedHardware = preview
@@ -493,7 +493,8 @@ internal sealed class LinuxForgeHost : IForgeUiHost
             SizePreview: cachedSizePreview,
             ToastNotice: toastNotice,
             StepDownBanner: ResolveStepDownBanner(),
-            SelfInstallBanner: null);
+            SelfInstallBanner: null,
+            MinimizeToTray: preferences.MinimizeToTray);
     }
 
     public ForgeSetupState GetSetupState() => throw new NotSupportedException("Linux uses native official setup.");
@@ -807,7 +808,7 @@ internal sealed class LinuxForgeHost : IForgeUiHost
             return true;
         }
 
-        var plan = await Task.Run(() => player.PlanAppearanceAsync(null, ct, throttler.AsProgress()), ct);
+        var plan = await player.PlanAppearanceAsync(null, ct, throttler.AsProgress());
         if (plan.Missing.Count > 0)
         {
             var bytes = plan.Missing.Sum(f => f.Size);
@@ -819,7 +820,7 @@ internal sealed class LinuxForgeHost : IForgeUiHost
                 "Cancel"));
             if (!ok) return false;
         }
-        await Task.Run(() => player.PrepareAppearanceAsync(plan, true, null, ct, throttler.AsProgress()), ct);
+        await player.PrepareAppearanceAsync(plan, true, null, ct, throttler.AsProgress());
         await FinishAccountAsync(ct);
         ScheduleSizeEstimate();
         return true;
@@ -827,25 +828,32 @@ internal sealed class LinuxForgeHost : IForgeUiHost
 
     public async Task CleanCacheAsync()
     {
-        var root = player?.ResolvedInstallRoot ?? preferences.InstallRoot;
-        if (preview || operations.Busy || string.IsNullOrWhiteSpace(root) || player?.SessionActive == true)
+        var initialRoot = player?.ResolvedInstallRoot ?? preferences.InstallRoot;
+        if (preview || operations.Busy || string.IsNullOrWhiteSpace(initialRoot) || player?.SessionActive == true)
             return;
-        try
+        await RunOpAsync(async ct =>
         {
-            var freed = await ForgeDiskManager.CleanSafeFilesAsync(root, lifetime.Token);
-            var msg = freed > 0
-                ? $"Reclaimed {Pack.FormatBytes(freed)} of stale cache and completed backups."
-                : "Cache is already clean — nothing needed removal.";
-            updateMessage = msg;
-            toastNotice = msg;
-            ScheduleSizeEstimate();
-        }
-        catch (Exception e)
-        {
-            updateMessage = "Cache cleanup failed: " + e.Message;
-            toastNotice = updateMessage;
-        }
-        Notify();
+            var root = player?.ResolvedInstallRoot ?? preferences.InstallRoot;
+            if (string.IsNullOrWhiteSpace(root) || player?.SessionActive == true)
+                return;
+            SetProgress(new("Cleaning Forge cache", "Reclaiming disk space from stale cache and completed backups…", IsIndeterminate: true, CanCancel: false));
+            try
+            {
+                var freed = await ForgeDiskManager.CleanSafeFilesAsync(root, ct);
+                var msg = freed > 0
+                    ? $"Reclaimed {Pack.FormatBytes(freed)} of stale cache and completed backups."
+                    : "Cache is already clean — nothing needed removal.";
+                updateMessage = msg;
+                toastNotice = msg;
+                ScheduleSizeEstimate();
+            }
+            catch (Exception e) when (e is not OperationCanceledException)
+            {
+                updateMessage = "Cache cleanup failed: " + e.Message;
+                toastNotice = updateMessage;
+                throw;
+            }
+        });
     }
 
     public async Task VerifyAndRepairAsync()
@@ -877,8 +885,8 @@ internal sealed class LinuxForgeHost : IForgeUiHost
             }
             else
             {
-                var plan = await Task.Run(() => player.PlanAppearanceAsync(null, ct, throttler.AsProgress()), ct);
-                await Task.Run(() => player.PrepareAppearanceAsync(plan, true, null, ct, throttler.AsProgress()), ct);
+                var plan = await player.PlanAppearanceAsync(null, ct, throttler.AsProgress());
+                await player.PrepareAppearanceAsync(plan, true, null, ct, throttler.AsProgress());
             }
 
             var root = player.ResolvedInstallRoot ?? preferences.InstallRoot;

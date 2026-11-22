@@ -118,6 +118,19 @@ internal static class Milestone1CoreTests
         try { new HellForgePreferences { PlayerLabel = new string('x', 41) }.Validate(); } catch (InvalidDataException) { rejectedLabel = true; }
         check(rejectedTier && rejectedChaos && rejectedSeaf && rejectedLabel,
               "HellForgePreferences.Validate rejects unsupported tier, mutator enums, and oversized player labels");
+
+        // 6. L8: Legacy config.json with TextureProfile="reduced512" migrates cleanly to Texture="reduced512" / PerformanceTier="low-512"
+        var legacy512Dir = Path.Combine(dir, "legacy-reduced512");
+        Directory.CreateDirectory(legacy512Dir);
+        File.WriteAllText(Path.Combine(legacy512Dir, "config.json"),
+            """{"TextureProfile":"reduced512","Options":{"empire":true,"droids":true,"covenant":false}}""");
+        var migrated512 = HellForgePreferences.Load(Path.Combine(legacy512Dir, "hellforge.json"));
+        check(migrated512.Mode == "empire" &&
+              migrated512.Texture == "reduced512" &&
+              !migrated512.AutoPerformanceTier &&
+              migrated512.PerformanceTier == PerformanceTierAdvisor.Low512 &&
+              !migrated512.Covenant,
+              "legacy config.json TextureProfile='reduced512' migrates to Texture='reduced512' and PerformanceTier='low-512' (L8)");
     }
 
     static void TestPerformanceTierAdvisor(string dir, Action<bool, string> check)
@@ -232,6 +245,74 @@ internal static class Milestone1CoreTests
 
         var autoFreed = await ForgeDiskManager.AutoCleanStaleAsync(install);
         check(autoFreed == 0, "ForgeDiskManager.AutoCleanStaleAsync completes cleanly with 0 errors");
+
+        // H1 regressions: non-terminal backups, applied-tx-referenced backups, corrupt-tx fail-closed, and locked/fresh gameplay imports!
+        var h1Root = Path.Combine(dir, "h1-safety");
+        var h1Install = Path.Combine(h1Root, "HellForge");
+        var h1Cache = Path.Combine(h1Root, "Clonedivers-HellForge-cache");
+        Directory.CreateDirectory(Path.Combine(h1Install, "mods"));
+        var h1Backups = Path.Combine(h1Cache, "backups");
+        var h1Tx = Path.Combine(h1Cache, "transactions");
+        Directory.CreateDirectory(h1Backups);
+        Directory.CreateDirectory(h1Tx);
+
+        var unknownBackup = Path.Combine(h1Backups, "20261121-010000-outcome-unknown");
+        var recoveryNeededBackup = Path.Combine(h1Backups, "20261121-020000-recovery-needed");
+        var inProgressBackup = Path.Combine(h1Backups, "20261121-030000-in-progress");
+        var appliedTxBackup = Path.Combine(h1Backups, "20261121-040000-applied-tx");
+        var deletableCompleted = Path.Combine(h1Backups, "20261121-050000-unreferenced-completed");
+        foreach (var b in new[] { unknownBackup, recoveryNeededBackup, inProgressBackup, appliedTxBackup, deletableCompleted })
+        {
+            Directory.CreateDirectory(b);
+            File.WriteAllBytes(Path.Combine(b, "data.bin"), new byte[400]);
+        }
+        File.WriteAllText(Path.Combine(unknownBackup, "outcome.json"), """{"outcome":"outcome-unknown"}""");
+        File.WriteAllText(Path.Combine(recoveryNeededBackup, "outcome.json"), """{"outcome":"recovery-needed"}""");
+        File.WriteAllText(Path.Combine(appliedTxBackup, "outcome.json"), """{"outcome":"applied"}""");
+        File.WriteAllText(Path.Combine(deletableCompleted, "outcome.json"), """{"outcome":"restored"}""");
+        File.WriteAllText(Path.Combine(h1Tx, "applied.json"), JsonSerializer.Serialize(new { State = "applied", Backup = appliedTxBackup }));
+
+        // Corrupt transaction JSON -> fail-closed on ALL backups/ (even deletableCompleted stays kept!)
+        var corruptTxPath = Path.Combine(h1Tx, "corrupt.json");
+        File.WriteAllText(corruptTxPath, "{corrupt-json");
+        var failClosedAnalysis = ForgeDiskManager.Analyze(h1Install);
+        var failClosedFreed = await ForgeDiskManager.CleanSafeFilesAsync(h1Install);
+        check(failClosedAnalysis.ReclaimableBytes == 0 && failClosedFreed == 0 && Directory.Exists(deletableCompleted),
+              "ForgeDiskManager fails closed on backups/ when any transactions/*.json is corrupt or unreadable (H1)");
+
+        // Remove corrupt.json -> CleanSafeFilesAsync (staleOnly: false) deletes ONLY deletableCompleted, keeping non-terminal & tx-referenced backups!
+        File.Delete(corruptTxPath);
+        _ = await ForgeDiskManager.CleanSafeFilesAsync(h1Install);
+        check(!Directory.Exists(deletableCompleted) &&
+              Directory.Exists(unknownBackup) &&
+              Directory.Exists(recoveryNeededBackup) &&
+              Directory.Exists(inProgressBackup) &&
+              Directory.Exists(appliedTxBackup),
+              "CleanSafeFilesAsync preserves non-terminal (outcome-unknown, recovery-needed, missing outcome) and applied-tx backups (H1)");
+
+        // Gameplay imports age & transactions/*.lock synchronization check
+        var importsDir = Path.Combine(h1Cache, "gameplay", HellForgeGameplayCatalog.Pinned.Id, "imports");
+        Directory.CreateDirectory(importsDir);
+        var freshImport = Path.Combine(importsDir, "fresh.zip");
+        var staleImport = Path.Combine(importsDir, "stale.zip");
+        File.WriteAllBytes(freshImport, new byte[300]);
+        File.WriteAllBytes(staleImport, new byte[500]);
+        File.SetLastWriteTimeUtc(staleImport, DateTime.UtcNow.AddMinutes(-30));
+
+        // While transactions/*.lock is held, NEITHER AutoCleanStaleAsync NOR CleanSafeFilesAsync touches gameplay imports!
+        var txLockFile = Path.Combine(h1Tx, "active.json.lock");
+        using (new FileStream(txLockFile, FileMode.OpenOrCreate, FileAccess.ReadWrite, FileShare.None))
+        {
+            var lockedStale = await ForgeDiskManager.AutoCleanStaleAsync(h1Install);
+            var lockedClean = await ForgeDiskManager.CleanSafeFilesAsync(h1Install);
+            check(lockedStale == 0 && lockedClean == 0 && File.Exists(staleImport) && File.Exists(freshImport),
+                  "ForgeDiskManager skips gameplay imports while transactions/*.lock is held (H1)");
+        }
+
+        // Once unlocked, AutoCleanStaleAsync deletes staleImport (>15m) while keeping freshImport (<15m)!
+        var unlockedStaleFreed = await ForgeDiskManager.AutoCleanStaleAsync(h1Install);
+        check(unlockedStaleFreed == 500 && !File.Exists(staleImport) && File.Exists(freshImport),
+              "AutoCleanStaleAsync enforces staleCutoffUtc on gameplay/<id>/imports when unlocked (H1)");
     }
 
     static void TestSquadFingerprint(string dir, Action<bool, string> check)
@@ -527,6 +608,71 @@ internal static class Milestone1CoreTests
                   receivedFrames[2].Json.Contains("\"activity\":null", StringComparison.Ordinal),
                   "DiscordRpcClient exchanges valid LE-framed HANDSHAKE, SET_ACTIVITY, and ClearPresence frames over IPC pipe");
         }
+
+        // 3. M6 regression: WaitAsync timeout/cancellation does NOT call ResetConnection() outside gate, and generation counter drops superseded updates!
+        var pipeNameM6 = "clonedivers-rpc-m6-" + Guid.NewGuid().ToString("N");
+        var m6Frames = new List<(int Opcode, string Json)>();
+        var holdReply = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        var serverReceivedFirstSet = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        var serverReceivedFinalClear = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+
+        using var serverM6 = new NamedPipeServerStream(pipeNameM6, PipeDirection.InOut, 1, PipeTransmissionMode.Byte, PipeOptions.Asynchronous);
+        var serverM6Task = Task.Run(async () =>
+        {
+            await serverM6.WaitForConnectionAsync();
+            var hs = await DiscordRpcClient.ReadFrameAsync(serverM6);
+            if (hs != null) m6Frames.Add(hs.Value);
+            await DiscordRpcClient.WriteFrameAsync(serverM6, DiscordRpcClient.OpcodeFrame, """{"cmd":"DISPATCH","evt":"READY","data":{"v":1}}""");
+
+            // Hold Caller 1 inside ReadFrameAsync while Caller 2 times out on gate.WaitAsync AND fire-and-forget updates queue up!
+            var firstSet = await DiscordRpcClient.ReadFrameAsync(serverM6);
+            if (firstSet != null) m6Frames.Add(firstSet.Value);
+            serverReceivedFirstSet.TrySetResult();
+            await holdReply.Task;
+            await DiscordRpcClient.WriteFrameAsync(serverM6, DiscordRpcClient.OpcodeFrame, """{"cmd":"SET_ACTIVITY","evt":null,"data":{}}""");
+
+            // Next frame MUST be ClearPresence ("activity":null) because superseded SetPresence("Superseded") was dropped!
+            var nextFrame = await DiscordRpcClient.ReadFrameAsync(serverM6);
+            if (nextFrame != null) m6Frames.Add(nextFrame.Value);
+            await DiscordRpcClient.WriteFrameAsync(serverM6, DiscordRpcClient.OpcodeFrame, """{"cmd":"SET_ACTIVITY","evt":null,"data":null}""");
+            serverReceivedFinalClear.TrySetResult();
+        });
+
+        var rpcM6 = new DiscordRpcClient("123456789012345678", async ct =>
+        {
+            var clientPipe = new NamedPipeClientStream(".", pipeNameM6, PipeDirection.InOut, PipeOptions.Asynchronous);
+            await clientPipe.ConnectAsync(2000, ct);
+            return clientPipe;
+        });
+        {
+            var caller1Task = rpcM6.SetPresenceAsync("Initial Active", "In Mission");
+            await serverReceivedFirstSet.Task;
+
+            // Caller 2 times out waiting for gate while Caller 1 holds gate
+            using var shortCts = new CancellationTokenSource(TimeSpan.FromMilliseconds(60));
+            var caller2TimedOutOk = !await rpcM6.SetPresenceAsync("TimedOutCaller", "ShouldNotReset", ct: shortCts.Token);
+
+            // Queue fire-and-forget SetPresence followed immediately by ClearPresence while gate is STILL held by Caller 1
+            rpcM6.SetPresence("Superseded State", "Should Be Dropped");
+            rpcM6.ClearPresence();
+
+            // Release Caller 1's reply on the pipe
+            holdReply.TrySetResult();
+            var caller1Succeeded = await caller1Task;
+            await serverReceivedFinalClear.Task.WaitAsync(TimeSpan.FromSeconds(3));
+            await serverM6Task;
+
+            check(caller2TimedOutOk && caller1Succeeded && rpcM6.IsConnected &&
+                  m6Frames.Count == 3 &&
+                  m6Frames[1].Json.Contains("Initial Active", StringComparison.Ordinal) &&
+                  m6Frames[2].Json.Contains("\"activity\":null", StringComparison.Ordinal) &&
+                  m6Frames.All(f => !f.Json.Contains("Superseded State", StringComparison.Ordinal)),
+                  "DiscordRpcClient preserves active connection on gate timeout and drops superseded fire-and-forget updates (M6)");
+
+            // Atomic concurrent Dispose() safety
+            Parallel.For(0, 4, _ => rpcM6.Dispose());
+            check(!rpcM6.IsConnected, "DiscordRpcClient.Dispose is atomic and idempotent under concurrent calls (M6)");
+        }
     }
 
     static void TestSelfInstallHelper(string dir, Action<bool, string> check)
@@ -562,6 +708,29 @@ internal static class Milestone1CoreTests
 
         check(exeCopiedExact && result.ShortcutsCreated && desktopValidLnk && startMenuValidLnk,
               "SelfInstallHelper copies Clonedivers.exe to LocalAppData\\Clonedivers and creates valid Desktop & Start Menu .lnk shortcuts");
+
+        // H2 regression: PowerShell fallback resolves absolute System32\WindowsPowerShell\v1.0\powershell.exe, never redirects unread pipes, and ignores planted Downloads\powershell.exe!
+        var plantedMarker = Path.Combine(fakeDownloads, "planted-ran.txt");
+        var plantedPs = Path.Combine(fakeDownloads, "powershell.exe");
+        File.WriteAllBytes(plantedPs, Encoding.UTF8.GetBytes("not-a-real-pe-binary"));
+        var psShortcut = Path.Combine(fakeDesktop, "Clonedivers-PS.lnk");
+        var psi = SelfInstallHelper.CreatePowerShellShortcutStartInfo(psShortcut, result.InstalledExePath, Path.GetDirectoryName(result.InstalledExePath)!, "PS fallback test");
+        var expectedSysPs = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.System), @"WindowsPowerShell\v1.0\powershell.exe");
+        bool psCreated = SelfInstallHelper.TryCreateShortcutViaPowerShell(psShortcut, result.InstalledExePath, Path.GetDirectoryName(result.InstalledExePath)!, "PS fallback test");
+        bool missingSysRejected = !SelfInstallHelper.TryCreateShortcutViaPowerShell(
+            Path.Combine(fakeDesktop, "ShouldNotExist.lnk"),
+            result.InstalledExePath,
+            Path.GetDirectoryName(result.InstalledExePath)!,
+            "missing sys",
+            systemDirOverride: Path.Combine(dir, "nonexistent-system32"));
+        check(Path.IsPathFullyQualified(psi.FileName) &&
+              string.Equals(psi.FileName, expectedSysPs, StringComparison.OrdinalIgnoreCase) &&
+              !psi.RedirectStandardOutput &&
+              !psi.RedirectStandardError &&
+              psCreated && File.Exists(psShortcut) &&
+              !File.Exists(plantedMarker) &&
+              missingSysRejected,
+              "SelfInstallHelper resolves fully-qualified System32 powershell.exe without unread pipe redirection or Downloads hijacking (H2)");
     }
 
     static async Task TestSquadReportClientAsync(Action<bool, string> check)
@@ -779,6 +948,25 @@ internal static class Milestone1CoreTests
               crashReport.Contains("err 8", StringComparison.Ordinal) &&
               !crashReport.Contains("err 1", StringComparison.Ordinal),
               $"DiscordReportFormatter crash report caps tail lines to produce exactly {crashLines.Length} lines (within 10–14) and < 1900 chars");
+
+        // Case 3 (L9): Forward-slash Windows/macOS user paths (C:/Users/<user> and /Users/<user>) are redacted across all 3 formatters/scrubbers!
+        var fwdDiscord1 = DiscordReportFormatter.Format(
+            "2.0.3", "r7-a9c4", "clonedivers", "mixed-droids", true, true, "auto", "full", hw,
+            "C:/Users/ForwardAlice/HellForge", null);
+        var fwdDiscord2 = DiscordReportFormatter.Format(
+            "2.0.3", "r7-a9c4", "clonedivers", "mixed-droids", true, true, "auto", "full", hw,
+            "/Users/MacBob/HellForge", null);
+        var scrubbedSquad = SquadReportClient.ScrubSensitiveText("Failed loading C:/Users/ForwardAlice/AppData and /Users/MacBob/Library");
+        var scrubbedTriage = CrashTriage.SanitizeLogLine("Fault at C:/Users/ForwardAlice/HellForge and /Users/MacBob/HellForge");
+        check(fwdDiscord1.Contains("C:/Users/<user>/HellForge", StringComparison.Ordinal) &&
+              !fwdDiscord1.Contains("ForwardAlice", StringComparison.Ordinal) &&
+              fwdDiscord2.Contains("/Users/<user>/HellForge", StringComparison.Ordinal) &&
+              !fwdDiscord2.Contains("MacBob", StringComparison.Ordinal) &&
+              !scrubbedSquad.Contains("ForwardAlice", StringComparison.Ordinal) &&
+              !scrubbedSquad.Contains("MacBob", StringComparison.Ordinal) &&
+              !scrubbedTriage.Contains("ForwardAlice", StringComparison.Ordinal) &&
+              !scrubbedTriage.Contains("MacBob", StringComparison.Ordinal),
+              "SquadReportClient, DiscordReportFormatter, and CrashTriage redact both backslash and forward-slash user paths (L9)");
     }
 
     sealed class MockHttpHandler(Func<HttpRequestMessage, CancellationToken, Task<HttpResponseMessage>> handler) : HttpMessageHandler

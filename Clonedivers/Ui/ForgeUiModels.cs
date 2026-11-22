@@ -56,7 +56,8 @@ public sealed record ForgeHomeState(
     PackSizePreview SizePreview,
     string? ToastNotice = null,
     ForgeStepDownBannerState? StepDownBanner = null,
-    ForgeSelfInstallBannerState? SelfInstallBanner = null);
+    ForgeSelfInstallBannerState? SelfInstallBanner = null,
+    bool MinimizeToTray = false);
 
 public sealed record ForgeSetupState(
     int Step, // 1..4

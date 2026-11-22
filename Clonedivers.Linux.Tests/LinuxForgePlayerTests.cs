@@ -21,6 +21,19 @@ internal static class LinuxForgePlayerTests
         var legacyLinux = LinuxForgePreferences.Load(legacyLinuxPath);
         check(legacyLinux.EnemySkin == "all-droids" && !legacyLinux.Covenant && !legacyLinux.AutoPerformanceTier && legacyLinux.PerformanceTier == "balanced",
             "existing saved Linux forge.json files preserve legacy EnemySkin, Covenant=false, and AutoPerformanceTier=false");
+
+        var legacy512LinuxDir = Path.Combine(root, "legacy-linux-config-512");
+        Directory.CreateDirectory(legacy512LinuxDir);
+        File.WriteAllText(Path.Combine(legacy512LinuxDir, "config.json"), """{"TextureProfile":"reduced512","Options":{"empire":true}}""");
+        var migratedLinux512 = LinuxForgePreferences.Load(Path.Combine(legacy512LinuxDir, "forge.json"));
+        check(migratedLinux512.Mode == "empire" && migratedLinux512.Texture == "reduced512" &&
+              !migratedLinux512.AutoPerformanceTier && migratedLinux512.PerformanceTier == PerformanceTierAdvisor.Low512,
+            "Linux legacy config.json TextureProfile='reduced512' migrates cleanly to Texture='reduced512' and 'low-512' (L8)");
+
+        await using (var linuxHostH4 = new LinuxForgeHost(["--forge-preview", "ready"], new LinuxForgePreferences { MinimizeToTray = true }))
+        {
+            check(linuxHostH4.GetHomeState().MinimizeToTray, "LinuxForgeHost exposes MinimizeToTray in ForgeHomeState on startup (H4)");
+        }
         check(SquadFingerprint.Compute(HellForgeGameplayCatalog.Current).StartsWith("r7-", StringComparison.Ordinal) &&
             PerformanceTierAdvisor.Tiers.Count == 5 &&
             DiscordReportFormatter.Format("0.9.3", "r7-a9c4", "clonedivers", "mixed-droids", true, true, "auto", "lighter",

@@ -535,7 +535,8 @@ public sealed class WindowsForgeHost : IForgeUiHost
             SizePreview: cachedSizePreview,
             ToastNotice: toastNotice,
             StepDownBanner: ResolveStepDownBanner(),
-            SelfInstallBanner: ResolveSelfInstallBanner());
+            SelfInstallBanner: ResolveSelfInstallBanner(),
+            MinimizeToTray: preferences.MinimizeToTray);
     }
 
     (string Badge, ForgeHeroTone BadgeTone, string Headline, string Detail, string Cta, bool Enabled, ForgeHeroTone CtaTone, string? Secondary) ResolveHomePresentation()
@@ -1110,22 +1111,29 @@ public sealed class WindowsForgeHost : IForgeUiHost
     {
         if (working || preferences.InstallRoot == null || installationMissing || lastStatus?.Running == true)
             return;
-        try
+        await RunWorkAsync(async ct =>
         {
-            var freed = await ForgeDiskManager.CleanSafeFilesAsync(preferences.InstallRoot, lifetime.Token);
-            var msg = freed > 0
-                ? $"Reclaimed {Pack.FormatBytes(freed)} of stale cache and completed backups."
-                : "Cache is already clean — nothing needed removal.";
-            updateMessage = msg;
-            toastNotice = msg;
-            ScheduleSizeEstimate();
-        }
-        catch (Exception e)
-        {
-            updateMessage = "Cache cleanup failed: " + e.Message;
-            toastNotice = updateMessage;
-        }
-        Notify();
+            var root = preferences.InstallRoot;
+            if (string.IsNullOrWhiteSpace(root) || installationMissing || lastStatus?.Running == true)
+                return;
+            SetProgress(new("Cleaning Forge cache", "Reclaiming disk space from stale cache and completed backups…", IsIndeterminate: true, CanCancel: false));
+            try
+            {
+                var freed = await ForgeDiskManager.CleanSafeFilesAsync(root, ct);
+                var msg = freed > 0
+                    ? $"Reclaimed {Pack.FormatBytes(freed)} of stale cache and completed backups."
+                    : "Cache is already clean — nothing needed removal.";
+                updateMessage = msg;
+                toastNotice = msg;
+                ScheduleSizeEstimate();
+            }
+            catch (Exception e) when (e is not OperationCanceledException)
+            {
+                updateMessage = "Cache cleanup failed: " + e.Message;
+                toastNotice = updateMessage;
+                throw;
+            }
+        });
     }
 
     public async Task VerifyAndRepairAsync()
@@ -1215,9 +1223,16 @@ public sealed class WindowsForgeHost : IForgeUiHost
         });
     }
 
+    internal void PrepareForUpdatedLauncherExit()
+    {
+        try { ForgeShellWindow.DisposeApplicationTrayIcons(); } catch { }
+        try { discordRpc.Dispose(); } catch { }
+    }
+
     void RestartUpdatedLauncher(string version)
     {
         var exe = Environment.ProcessPath!;
+        PrepareForUpdatedLauncherExit();
         Program.ReleaseSingleInstance();
         Process.Start(new ProcessStartInfo(exe, "--updated " + version) { UseShellExecute = true, WorkingDirectory = Path.GetDirectoryName(exe) });
         Environment.Exit(0);

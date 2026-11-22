@@ -208,7 +208,8 @@ public sealed class PreviewForgeHost : IForgeUiHost
             SizePreview: previewSize,
             ToastNotice: preset == "home-clones" ? null : null,
             StepDownBanner: stepDown,
-            SelfInstallBanner: selfInstall);
+            SelfInstallBanner: selfInstall,
+            MinimizeToTray: minimizeToTray);
     }
 
     public ForgeSetupState GetSetupState()
