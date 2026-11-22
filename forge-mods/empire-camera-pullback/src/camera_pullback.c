@@ -915,11 +915,26 @@ static int EcpProbeCameraUnitCandidate(uintptr_t units, uint32_t index, const fl
 
 static uint32_t EcpStepFindRenderCameraSliced(uintptr_t world, LARGE_INTEGER frame_t0)
 {
+    (void)frame_t0;
     uintptr_t units = 0;
     uint32_t count = EcpWorldUnits(world, &units);
     float render_pose[16];
     if (count == 0 || !EcpRead(world + ECP_WORLD_RENDER_POSE, render_pose, sizeof(render_pose))) return 0u;
     if (!isfinite(render_pose[12]) || !isfinite(render_pose[13]) || !isfinite(render_pose[14])) return 0u;
+
+    /* Always probe the low-index hot prefix (units[0..7]) first: on build 25480438 the primary render
+     * camera is typically unit index 0 (ref 0x00000001), which would otherwise be missed for minutes
+     * if the scan cursor moved past index 0 during the Hellpod drop cutscene. */
+    uint32_t hot_limit = count < ECP_CAM_HOT_PREFIX_COUNT ? count : ECP_CAM_HOT_PREFIX_COUNT;
+    for (uint32_t h = 0u; h < hot_limit; h++) {
+        EcpProbeCameraUnitCandidate(units, h, render_pose);
+        if (g_rt.cam_best_ref != 0u && g_rt.cam_best_sq <= 0.25f) {
+            uint32_t found = g_rt.cam_best_ref;
+            g_rt.cam_best_ref = 0u;
+            g_rt.cam_best_sq = 4.0f;
+            return found;
+        }
+    }
 
     uint32_t half = (count + 1u) / 2u;
     if (g_rt.cam_scan_step >= half) {
@@ -928,21 +943,25 @@ static uint32_t EcpStepFindRenderCameraSliced(uintptr_t world, LARGE_INTEGER fra
         g_rt.cam_best_sq = 4.0f;
     }
 
-    uint32_t probed = 0u;
+    /* Measure slice budget locally so upstream O(1) avatar/health reads (~45-55 us) never starve discovery. */
+    LARGE_INTEGER slice_t0 = EcpQpcStart();
+    uint32_t probed = hot_limit;
     while (g_rt.cam_scan_step < half && probed < ECP_CAM_SCAN_SLICE_MAX) {
-        if (probed > 0u && EcpElapsedUs(frame_t0) >= ECP_SLICE_BUDGET_US) break;
+        if (probed > 0u && EcpElapsedUs(slice_t0) >= ECP_CAM_SLICE_BUDGET_US) break;
 
         uint32_t lo = g_rt.cam_scan_step;
         uint32_t hi = count - 1u - g_rt.cam_scan_step;
         g_rt.cam_scan_step++;
 
-        EcpProbeCameraUnitCandidate(units, lo, render_pose);
-        probed++;
-        if (g_rt.cam_best_ref != 0u && g_rt.cam_best_sq <= 0.25f) {
-            break; /* Exact viewport camera match within 0.5m — done immediately. */
+        if (lo >= hot_limit) {
+            EcpProbeCameraUnitCandidate(units, lo, render_pose);
+            probed++;
+            if (g_rt.cam_best_ref != 0u && g_rt.cam_best_sq <= 0.25f) {
+                break; /* Exact viewport camera match within 0.5m — done immediately. */
+            }
         }
 
-        if (hi > lo && probed < ECP_CAM_SCAN_SLICE_MAX) {
+        if (hi > lo && hi >= hot_limit && probed < ECP_CAM_SCAN_SLICE_MAX) {
             EcpProbeCameraUnitCandidate(units, hi, render_pose);
             probed++;
             if (g_rt.cam_best_ref != 0u && g_rt.cam_best_sq <= 0.25f) {
@@ -1846,10 +1865,10 @@ static void EcpOnGameLoaded(HfMod* mod, HfEvent event, void* user)
     EcpUpdateArmForState(cur_state);
 
     if (g_opts.allow_experimental_spring_arm && g_hf->log) {
-        g_hf->log(mod, "note: allow_experimental_spring_arm is set, but raw game.dll .data spring-arm writes remain disabled in 0.1.2; using verified post-solve Havok raycast clamp");
+        g_hf->log(mod, "note: allow_experimental_spring_arm is set, but raw game.dll .data spring-arm writes remain disabled in 0.1.3; using verified post-solve Havok raycast clamp");
     }
     if (g_hf->log) {
-        g_hf->log(mod, "ready v0.1.2 (O(1) lookup, watchdog=%lluus): walker=%.2fm/+%.2fm (AT-ST=%.2fm/+%.2fm), lego=%s (%.2fm/%+.2fm), margin=%.2fm",
+        g_hf->log(mod, "ready v0.1.3 (O(1) lookup + hot-prefix cam, watchdog=%lluus): walker=%.2fm/+%.2fm (AT-ST=%.2fm/+%.2fm), lego=%s (%.2fm/%+.2fm), margin=%.2fm",
             (unsigned long long)ECP_WATCHDOG_WARN_US,
             g_opts.walker_pullback_distance, g_opts.walker_lift_z,
             g_opts.atst_scaled_pullback_distance, g_opts.atst_scaled_lift_z,

@@ -12,7 +12,7 @@ internal static class GameplayInstallTests
     {
         var catalog = HellForgeGameplayCatalog.Pinned;
         catalog.Validate();
-        check(catalog.Id == "build25480438-r8" && catalog.Artifacts.Count == 17 && catalog.Artifacts.Sum(a => a.Bytes) == 8494004,
+        check(catalog.Id == "build25480438-r8" && catalog.Artifacts.Count == 17 && catalog.Artifacts.Sum(a => a.Bytes) == 8494544,
             "the r8 preset pairs eight optional SDK-16 mods with nine required gameplay and author archives");
         check(catalog.Artifacts.Count(a => a.Url.Contains("/owendavidgoode/clonedivers/")) == 14 && catalog.Artifacts.Count(a => !a.Url.Contains("/owendavidgoode/clonedivers/")) == 3 &&
             catalog.Artifacts.All(a => !a.Url.Contains("hf-mod.com", StringComparison.OrdinalIgnoreCase)) &&
@@ -55,11 +55,11 @@ internal static class GameplayInstallTests
             tieSwitch.ContentHash == "fe2c081780faecf75bc6f4d4a4e07df7ca9ddc332f32e4a148af4e460d2fbe7b" &&
             tieSwitch.Url == "https://github.com/owendavidgoode/clonedivers/releases/download/forge-mods-2026-11-19/empire-tie-switch-0.3.0.zip",
             "Empire per-attack TIE switch is optional with the exact 0.3.0 release pins");
-        check(cameraPullback.Name == "Empire & Clone Camera Pullback" && cameraPullback.Version == "0.1.2" && cameraPullback.Bytes == 31015 &&
-            cameraPullback.Sha256 == "7ecb795d2e0832e96ab63445e382beb484149fe2fde4fb65b27644c52de12d57" &&
-            cameraPullback.ContentHash == "3d24bab9eb3bd8e4654e1fcf0b8ecb375a683910a3082c25b18d8f314fec1926" &&
-            cameraPullback.Url == "https://github.com/owendavidgoode/clonedivers/releases/download/forge-mods-2026-11-22/empire-camera-pullback-0.1.2.zip",
-            "Empire & Clone Camera Pullback is optional with the exact 0.1.2 O(1) release pins");
+        check(cameraPullback.Name == "Empire & Clone Camera Pullback" && cameraPullback.Version == "0.1.3" && cameraPullback.Bytes == 31555 &&
+            cameraPullback.Sha256 == "b9acf9a83ef7b648e141f8ddceb447e5e9a69e54d155c8aeee6631af13c88c57" &&
+            cameraPullback.ContentHash == "ae866e1ee48c921160fbdfa98a6e660dba3c99d40d303df23e282a778c0d9b13" &&
+            cameraPullback.Url == "https://github.com/owendavidgoode/clonedivers/releases/download/forge-mods-2026-11-22/empire-camera-pullback-0.1.3.zip",
+            "Empire & Clone Camera Pullback is optional with the exact 0.1.3 O(1) hot-prefix release pins");
         check(dedicatedMelee.Name == "Dedicated Melee Slot" && dedicatedMelee.Version == "1.5.2-clonedivers.2" && dedicatedMelee.Bytes == 53146 &&
             dedicatedMelee.Sha256 == "3dfe28c02ae4db9f344e8368c1f8bd2b717a723c3ac871c608fb027ea4c00e07" &&
             dedicatedMelee.ContentHash == "814a5d993dbf5f9f7bb09c7e68636e1c80ba06a57c8b1d4efdc4815df7b1c9a4" &&

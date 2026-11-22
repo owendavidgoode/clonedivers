@@ -150,11 +150,11 @@
     {
       "Id": "clonedivers.empire-camera-pullback",
       "Name": "Empire & Clone Camera Pullback",
-      "Version": "0.1.2",
-      "ArchiveSha256": "7ecb795d2e0832e96ab63445e382beb484149fe2fde4fb65b27644c52de12d57",
-      "Source": "https://github.com/owendavidgoode/clonedivers/releases/download/forge-mods-2026-11-22/empire-camera-pullback-0.1.2.zip",
-      "License": "Project-owned client-only SDK-16 code mod (0.1.2 O(1) EntityManager lookup, render-thread epoch cache sync, SRWLOCK walker generation table, Havok wall-collision clamping, ADS/FPV/cutscene bypass + frame-budget watchdog; gameplay: false, coop: per-player, optional default)",
-      "NativeContentHash": "3d24bab9eb3bd8e4654e1fcf0b8ecb375a683910a3082c25b18d8f314fec1926",
+      "Version": "0.1.3",
+      "ArchiveSha256": "b9acf9a83ef7b648e141f8ddceb447e5e9a69e54d155c8aeee6631af13c88c57",
+      "Source": "https://github.com/owendavidgoode/clonedivers/releases/download/forge-mods-2026-11-22/empire-camera-pullback-0.1.3.zip",
+      "License": "Project-owned client-only SDK-16 code mod (0.1.3 hot-prefix camera discovery + local 250us slice budget fixing post-Hellpod D11 camera acquisition, O(1) EntityManager lookup, render-thread epoch cache sync, SRWLOCK walker generation table, Havok wall-collision clamping, ADS/FPV/cutscene bypass + frame-budget watchdog; gameplay: false, coop: per-player, optional default)",
+      "NativeContentHash": "ae866e1ee48c921160fbdfa98a6e660dba3c99d40d303df23e282a778c0d9b13",
       "Optional": true,
       "Options": []
     },
