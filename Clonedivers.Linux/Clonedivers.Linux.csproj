@@ -13,7 +13,7 @@
     <EnableCompressionInSingleFile>true</EnableCompressionInSingleFile>
   </PropertyGroup>
   <PropertyGroup Condition="'$(ForgeEdition)' == 'true'">
-    <Version>0.9.2</Version>
+    <Version>0.9.3</Version>
     <DefineConstants>$(DefineConstants);FORGE_DEFAULT</DefineConstants>
   </PropertyGroup>
   <ItemGroup>
@@ -22,6 +22,7 @@
     <InternalsVisibleTo Include="Clonedivers.Linux.Tests" />
     <InternalsVisibleTo Include="Clonedivers.ForgePreview" />
     <EmbeddedResource Include="clonedivers.svg" LogicalName="Clonedivers.desktop.svg" />
+    <EmbeddedResource Include="../Clonedivers/clonedivers.ico" LogicalName="Clonedivers.Icon.ico" />
     <Compile Include="../Clonedivers/PackCore.cs" Link="Core/PackCore.cs" />
     <Compile Include="../Clonedivers/ModeSelection.cs" Link="Core/ModeSelection.cs" />
     <Compile Include="../Clonedivers/LinuxPlatform.cs" Link="Core/LinuxPlatform.cs" />

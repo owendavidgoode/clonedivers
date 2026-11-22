@@ -1,21 +1,26 @@
+using System.Buffers.Binary;
 using Avalonia;
+using Avalonia.Animation;
 using Avalonia.Controls;
+using Avalonia.Controls.Primitives;
 using Avalonia.Layout;
 using Avalonia.Media;
 using Avalonia.Media.Imaging;
 using Avalonia.Platform;
+using Avalonia.Styling;
 using Brush = Avalonia.Media.Brush;
 using Brushes = Avalonia.Media.Brushes;
 using Button = Avalonia.Controls.Button;
 using Color = Avalonia.Media.Color;
 using Control = Avalonia.Controls.Control;
 using HorizontalAlignment = Avalonia.Layout.HorizontalAlignment;
+using ScrollBar = Avalonia.Controls.Primitives.ScrollBar;
 using ShapePath = Avalonia.Controls.Shapes.Path;
 using SolidColorBrush = Avalonia.Media.SolidColorBrush;
 
 namespace Clonedivers.Ui;
 
-/// <summary>Modern dark Star Wars launcher visual system shared across Windows and Linux.</summary>
+/// <summary>Modern dark Star Wars holoterminal visual system shared across Windows and Linux.</summary>
 public static class ForgeTheme
 {
     // Layered dark obsidian / republic-navy surfaces
@@ -23,20 +28,25 @@ public static class ForgeTheme
     public static readonly Color BgSurfaceColor = Color.Parse("#101728");
     public static readonly Color BgElevatedColor = Color.Parse("#151F36");
     public static readonly Color BgSelectedColor = Color.Parse("#182744");
-    public static readonly Color BgOverlayColor = Color.Parse("#CC04070F");
+    public static readonly Color BgOverlayColor = Color.Parse("#D604070F");
 
     public static readonly IBrush BgCanvas = new SolidColorBrush(BgCanvasColor);
     public static readonly IBrush BgSurface = new SolidColorBrush(BgSurfaceColor);
+    public static readonly IBrush BgSurfaceHover = Brush.Parse("#131D32");
     public static readonly IBrush BgElevated = new SolidColorBrush(BgElevatedColor);
+    public static readonly IBrush BgElevatedHover = Brush.Parse("#1B2846");
     public static readonly IBrush BgSelected = new SolidColorBrush(BgSelectedColor);
     public static readonly IBrush BgOverlay = new SolidColorBrush(BgOverlayColor);
     public static readonly IBrush BgInput = Brush.Parse("#0B1120");
     public static readonly IBrush BgPill = Brush.Parse("#1B2742");
     public static readonly IBrush BgTrack = Brush.Parse("#1D2842");
 
-    // Borders
+    // Borders & holoterminal hairlines
     public static readonly IBrush BorderSubtle = Brush.Parse("#22304D");
     public static readonly IBrush BorderStrong = Brush.Parse("#334770");
+    public static readonly IBrush HoloDivider = Brush.Parse("#1E2F4F");
+    public static readonly IBrush ScrollThumb = Brush.Parse("#2C3E63");
+    public static readonly IBrush ScrollThumbHover = Brush.Parse("#3E588A");
 
     // Typography hierarchy
     public static readonly IBrush TextPrimary = Brush.Parse("#F3F6FC");
@@ -44,13 +54,18 @@ public static class ForgeTheme
     public static readonly IBrush TextMuted = Brush.Parse("#657594");
     public static readonly IBrush TextOnAccent = Brush.Parse("#080C17");
 
-    // Faction & semantic accents
-    public static readonly IBrush RegularAccent = Brush.Parse("#F59E0B");     // Helldivers Super Earth Gold
+    // Faction & semantic accents (#F59E0B Super Earth Gold, #38BDF8 Republic Cyan, #EF4444 Imperial Crimson)
+    public static readonly IBrush RegularAccent = Brush.Parse("#F59E0B");
     public static readonly IBrush RegularGlow = Brush.Parse("#29F59E0B");
-    public static readonly IBrush ClonesAccent = Brush.Parse("#38BDF8");      // 501st Republic Sky Blue
+    public static readonly IBrush RegularBarMuted = Brush.Parse("#59F59E0B");
+
+    public static readonly IBrush ClonesAccent = Brush.Parse("#38BDF8");
     public static readonly IBrush ClonesGlow = Brush.Parse("#2938BDF8");
-    public static readonly IBrush EmpireAccent = Brush.Parse("#EF4444");      // Imperial Crimson
+    public static readonly IBrush ClonesBarMuted = Brush.Parse("#5938BDF8");
+
+    public static readonly IBrush EmpireAccent = Brush.Parse("#EF4444");
     public static readonly IBrush EmpireGlow = Brush.Parse("#29EF4444");
+    public static readonly IBrush EmpireBarMuted = Brush.Parse("#59EF4444");
 
     public static readonly IBrush CtaPrimary = Brush.Parse("#F59E0B");
     public static readonly IBrush CtaPrimaryHover = Brush.Parse("#FBBF24");
@@ -89,6 +104,163 @@ public static class ForgeTheme
         "empire" => EmpireGlow,
         _ => ClonesGlow
     };
+
+    public static IBrush MutedBarForMode(string mode) => mode switch
+    {
+        "regular" => RegularBarMuted,
+        "empire" => EmpireBarMuted,
+        _ => ClonesBarMuted
+    };
+
+    /// <summary>Smooth 150ms holoterminal brush transitions for cards and buttons.</summary>
+    public static Transitions CreateSmoothTransitions(AvaloniaProperty bgProp, AvaloniaProperty borderProp) =>
+    [
+        new BrushTransition { Property = bgProp, Duration = TimeSpan.FromMilliseconds(150) },
+        new BrushTransition { Property = borderProp, Duration = TimeSpan.FromMilliseconds(150) }
+    ];
+
+    /// <summary>Shared dark-slate custom scrollbar and smooth button styles across Windows and Linux.</summary>
+    public static Styles BuildGlobalStyles()
+    {
+        var styles = new Styles();
+
+        var scrollBarStyle = new Style(x => x.OfType<ScrollBar>());
+        scrollBarStyle.Setters.Add(new Setter(ScrollBar.AllowAutoHideProperty, false));
+        scrollBarStyle.Setters.Add(new Setter(TemplatedControl.BackgroundProperty, Brushes.Transparent));
+        scrollBarStyle.Setters.Add(new Setter(Layoutable.WidthProperty, 6d));
+        scrollBarStyle.Setters.Add(new Setter(Layoutable.MinWidthProperty, 6d));
+        styles.Add(scrollBarStyle);
+
+        var repeatBtnStyle = new Style(x => x.OfType<ScrollBar>().Descendant().OfType<RepeatButton>());
+        repeatBtnStyle.Setters.Add(new Setter(Visual.IsVisibleProperty, false));
+        styles.Add(repeatBtnStyle);
+
+        var thumbStyle = new Style(x => x.OfType<ScrollBar>().Descendant().OfType<Thumb>());
+        thumbStyle.Setters.Add(new Setter(TemplatedControl.BackgroundProperty, ScrollThumb));
+        thumbStyle.Setters.Add(new Setter(TemplatedControl.CornerRadiusProperty, new CornerRadius(3)));
+        thumbStyle.Setters.Add(new Setter(Layoutable.MinHeightProperty, 28d));
+        thumbStyle.Setters.Add(new Setter(Layoutable.WidthProperty, 6d));
+        styles.Add(thumbStyle);
+
+        var thumbHover = new Style(x => x.OfType<ScrollBar>().Descendant().OfType<Thumb>().Class(":pointerover"));
+        thumbHover.Setters.Add(new Setter(TemplatedControl.BackgroundProperty, ScrollThumbHover));
+        styles.Add(thumbHover);
+
+        return styles;
+    }
+
+    /// <summary>Subtle 1px Star Wars holoterminal horizontal accent rule.</summary>
+    public static Border HoloAccentLine(IBrush? brush = null, Thickness? margin = null) => new()
+    {
+        Height = 1,
+        Background = brush ?? HoloDivider,
+        Margin = margin ?? new Thickness(28, 0, 28, 8)
+    };
+
+    /// <summary>Loads the cross-platform Clone helmet WindowIcon for Windows, X11, Wayland, and TrayIcon.</summary>
+    public static WindowIcon CreateWindowIcon()
+    {
+        try
+        {
+            using var icoStream = typeof(ForgeTheme).Assembly.GetManifestResourceStream("Clonedivers.Icon.ico");
+            if (icoStream != null)
+            {
+                using var ms = new MemoryStream();
+                icoStream.CopyTo(ms);
+                var bytes = ms.ToArray();
+
+                // On Linux X11/Wayland, Skia decodes pure 256x256 PNG slices cleanly across all window managers.
+                if (OperatingSystem.IsLinux() && TryExtractLargestPngFromIco(bytes, out var linuxPng))
+                    return new WindowIcon(new MemoryStream(linuxPng, writable: false));
+
+                try
+                {
+                    return new WindowIcon(new MemoryStream(bytes, writable: false));
+                }
+                catch
+                {
+                    if (TryExtractLargestPngFromIco(bytes, out var fallbackPng))
+                        return new WindowIcon(new MemoryStream(fallbackPng, writable: false));
+                }
+            }
+        }
+        catch { }
+
+        return new WindowIcon(CreateFallbackHelmetBitmap(64));
+    }
+
+    internal static bool TryExtractLargestPngFromIco(byte[] icoBytes, out byte[] pngBytes)
+    {
+        pngBytes = [];
+        if (icoBytes.Length < 22 ||
+            BinaryPrimitives.ReadUInt16LittleEndian(icoBytes.AsSpan(0, 2)) != 0 ||
+            BinaryPrimitives.ReadUInt16LittleEndian(icoBytes.AsSpan(2, 2)) != 1)
+            return false;
+
+        int count = BinaryPrimitives.ReadUInt16LittleEndian(icoBytes.AsSpan(4, 2));
+        if (count <= 0 || 6 + count * 16 > icoBytes.Length) return false;
+
+        int bestScore = -1;
+        int bestOffset = 0;
+        int bestLen = 0;
+
+        for (int i = 0; i < count; i++)
+        {
+            int entry = 6 + i * 16;
+            int w = icoBytes[entry] == 0 ? 256 : icoBytes[entry];
+            int h = icoBytes[entry + 1] == 0 ? 256 : icoBytes[entry + 1];
+            uint size = BinaryPrimitives.ReadUInt32LittleEndian(icoBytes.AsSpan(entry + 8, 4));
+            uint offset = BinaryPrimitives.ReadUInt32LittleEndian(icoBytes.AsSpan(entry + 12, 4));
+            if (size < 8 || offset > (uint)icoBytes.Length || size > (uint)icoBytes.Length - offset) continue;
+
+            // PNG signature: 89 50 4E 47 0D 0A 1A 0A
+            if (icoBytes[offset] == 0x89 && icoBytes[offset + 1] == 0x50 && icoBytes[offset + 2] == 0x4E && icoBytes[offset + 3] == 0x47)
+            {
+                int score = w * h;
+                if (score > bestScore)
+                {
+                    bestScore = score;
+                    bestOffset = (int)offset;
+                    bestLen = (int)size;
+                }
+            }
+        }
+
+        if (bestLen <= 0) return false;
+        pngBytes = new byte[bestLen];
+        Buffer.BlockCopy(icoBytes, bestOffset, pngBytes, 0, bestLen);
+        return true;
+    }
+
+    static WriteableBitmap CreateFallbackHelmetBitmap(int dim)
+    {
+        var bmp = new WriteableBitmap(new PixelSize(dim, dim), new Vector(96, 96), PixelFormat.Bgra8888, AlphaFormat.Premul);
+        using var fb = bmp.Lock();
+        var stride = fb.RowBytes / 4;
+        var buf = new int[stride * dim];
+        for (int y = 0; y < dim; y++)
+        {
+            double ny = (y + 0.5) / dim * 100.0;
+            for (int x = 0; x < dim; x++)
+            {
+                double nx = (x + 0.5) / dim * 100.0;
+                uint px = 0x00000000u;
+                double dx = (nx - 50.0) / 36.0;
+                double dy = (ny - 50.0) / 42.0;
+                if (dx * dx + dy * dy <= 1.0)
+                {
+                    px = 0xFFF3F6FCu; // Clone white dome
+                    if (nx is >= 45 and <= 55 && ny is >= 10 and <= 35)
+                        px = 0xFF38BDF8u; // 501st cyan fin (ARGB in BGRA8888 LE: 0xAARRGGBB -> wait: Bgra8888 int LE is 0xAARRGGBB!)
+                    else if ((ny is >= 40 and <= 50 && nx is >= 24 and <= 76) || (nx is >= 45 and <= 55 && ny is >= 48 and <= 76))
+                        px = 0xFF0B1020u; // T-visor
+                }
+                buf[y * stride + x] = unchecked((int)px);
+            }
+        }
+        System.Runtime.InteropServices.Marshal.Copy(buf, 0, fb.Address, buf.Length);
+        return bmp;
+    }
 
     public static TextBlock Label(
         string text,
@@ -140,6 +312,7 @@ public static class ForgeTheme
         Padding = padding ?? new Thickness(14, 8),
         HorizontalContentAlignment = HorizontalAlignment.Center,
         VerticalContentAlignment = VerticalAlignment.Center,
+        Transitions = CreateSmoothTransitions(TemplatedControl.BackgroundProperty, TemplatedControl.BorderBrushProperty),
         Cursor = new Avalonia.Input.Cursor(Avalonia.Input.StandardCursorType.Hand)
     };
 
@@ -152,6 +325,7 @@ public static class ForgeTheme
         Background = Brushes.Transparent,
         BorderThickness = new Thickness(0),
         Padding = new Thickness(4, 2),
+        Transitions = CreateSmoothTransitions(TemplatedControl.BackgroundProperty, TemplatedControl.BorderBrushProperty),
         Cursor = new Avalonia.Input.Cursor(Avalonia.Input.StandardCursorType.Hand)
     };
 
@@ -168,6 +342,7 @@ public static class ForgeTheme
         HorizontalAlignment = HorizontalAlignment.Stretch,
         HorizontalContentAlignment = HorizontalAlignment.Center,
         VerticalContentAlignment = VerticalAlignment.Center,
+        Transitions = CreateSmoothTransitions(TemplatedControl.BackgroundProperty, TemplatedControl.BorderBrushProperty),
         Cursor = new Avalonia.Input.Cursor(Avalonia.Input.StandardCursorType.Hand)
     };
 
