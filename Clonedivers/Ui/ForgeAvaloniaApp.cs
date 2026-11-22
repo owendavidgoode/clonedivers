@@ -14,6 +14,7 @@ public sealed class ForgeAvaloniaApp : Application
     internal static Func<ForgeShellWindow>? WindowFactory;
     internal static string? RenderAllOutputDir;
     internal static Action<ForgeShellWindow>? OnWindowCreated;
+    internal static ForgeShellWindow? ActiveShellWindow;
 
     public override void Initialize()
     {
@@ -25,6 +26,7 @@ public sealed class ForgeAvaloniaApp : Application
             RegionColor = ForgeTheme.BgCanvasColor
         };
         Styles.Add(theme);
+        Styles.Add(ForgeTheme.BuildGlobalStyles());
     }
 
     public override void OnFrameworkInitializationCompleted()
@@ -32,15 +34,19 @@ public sealed class ForgeAvaloniaApp : Application
         Dispatcher.UIThread.UnhandledException += (_, e) =>
         {
             Console.Error.WriteLine("Unhandled UI exception: " + e.Exception);
+            try { ActiveShellWindow?.ShowUnhandledErrorToast(e.Exception); }
+            catch { }
             e.Handled = true;
         };
         if (ApplicationLifetime is IClassicDesktopStyleApplicationLifetime desktop)
         {
             if (!string.IsNullOrWhiteSpace(RenderAllOutputDir))
             {
+                UiSoundEffects.Enabled = false;
                 var outDir = RenderAllOutputDir!;
                 var firstHost = new PreviewForgeHost(PreviewForgeHost.AllPresets[0]);
                 var window = new ForgeShellWindow(firstHost, firstHost.InitialOverlay);
+                ActiveShellWindow = window;
                 desktop.MainWindow = window;
                 window.Opened += async (_, _) =>
                 {
@@ -53,6 +59,7 @@ public sealed class ForgeAvaloniaApp : Application
                             var preset = PreviewForgeHost.AllPresets[i];
                             var h = new PreviewForgeHost(preset);
                             var w = new ForgeShellWindow(h, h.InitialOverlay);
+                            ActiveShellWindow = w;
                             var shown = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
                             w.Opened += (_, _) => shown.TrySetResult();
                             w.Show();
@@ -73,6 +80,7 @@ public sealed class ForgeAvaloniaApp : Application
             else if (WindowFactory != null)
             {
                 var window = WindowFactory();
+                ActiveShellWindow = window;
                 desktop.MainWindow = window;
                 OnWindowCreated?.Invoke(window);
             }

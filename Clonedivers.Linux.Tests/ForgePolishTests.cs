@@ -160,6 +160,40 @@ internal static class ForgePolishTests
             "failure summary surfaces actionable pasta/distribution guidance on the main card");
         check(ForgePresentation.FailureSummary("UnauthorizedAccessException: Access to '/home/pasta/forge' is denied").Contains("folder permissions"),
             "permission errors still map to folder permissions even if a path mentions pasta");
+
+        // QA Bugfix #2 & #4 + Version 0.9.3 checks on Linux
+        check(AppInfo.Version == (ForgeEntryPolicy.ForgeEdition ? "0.9.3" : "0.5.0"),
+            "Linux Forge assembly version is bumped to 0.9.3 (0.5.0 when ForgeEdition=false)");
+        using (var linuxIco = typeof(LinuxForgePlayer).Assembly.GetManifestResourceStream("Clonedivers.Icon.ico"))
+        {
+            check(linuxIco != null, "Clonedivers.Icon.ico is embedded in Clonedivers.Linux assembly");
+            using var ms = new MemoryStream();
+            linuxIco!.CopyTo(ms);
+            check(Clonedivers.Ui.ForgeTheme.TryExtractLargestPngFromIco(ms.ToArray(), out var png) && png.Length > 4000,
+                "Linux assembly extracts embedded 256x256 PNG icon slice for X11/Wayland docks");
+        }
+
+        // Deterministic OperationProgress on LinuxForgePlayer.PlanAppearanceAsync & PrepareAppearanceAsync
+        var progArea = Path.Combine(root, "linux-det-progress");
+        var progInstall = Path.Combine(progArea, "pfx", "drive_c", "Forge");
+        Directory.CreateDirectory(Path.Combine(progInstall, "mods"));
+        var progConn = new Connection { Account = new(true, true, "Imported") };
+        var progPrefs = new LinuxForgePreferences { InstallRoot = progInstall, Mode = "clonedivers", Texture = "reduced512" };
+        var progPlayer = new LinuxForgePlayer(progConn, progPrefs, progInstall);
+        var richEvents = new List<OperationProgress>();
+        var wasRun2 = Game.IsRunningCheck;
+        try
+        {
+            Game.IsRunningCheck = () => false;
+            await progPlayer.InstallGameplayAsync(null, CancellationToken.None, new SyncProgress<OperationProgress>(richEvents.Add));
+            var detPlan = await progPlayer.PlanAppearanceAsync(null, CancellationToken.None, new SyncProgress<OperationProgress>(richEvents.Add));
+            check(detPlan.Selection.Files.Count > 0 &&
+                  richEvents.Any(e => e.Stage == "Checking required gameplay mods") &&
+                  richEvents.Any(e => e.Stage == "Verifying cached files" && !e.IsIndeterminate && e.ItemCount > 0 && e.BytesTotal > 0 && e.CanCancel),
+                "LinuxForgePlayer emits deterministic OperationProgress (files, bytes, CanCancel) during gameplay & pack planning");
+        }
+        finally { Game.IsRunningCheck = wasRun2; }
+
         await Links(root, check);
     }
 

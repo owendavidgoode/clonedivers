@@ -5,13 +5,30 @@ public sealed class PreviewForgeHost : IForgeUiHost
 {
     readonly string preset;
     string mode;
-    string enemySkin = "all-droids";
+    string enemySkin = "mixed-droids";
     bool deltaSquad = true;
-    bool covenant;
+    bool covenant = true;
     string texture = "full";
+    bool autoPerformanceTier = true;
+    string performanceTier = PerformanceTierAdvisor.Auto;
+    string hostChaos = "standard";
+    string hostSeaf = "standard";
+    bool hostCorpseCleanup = true;
+    bool soundEffectsEnabled = true;
+    bool discordRpcEnabled = true;
+    bool minimizeToTray;
     bool updateDismissed;
+    bool stepDownDismissed;
+    bool selfInstallDismissed;
     int setupStep = 1;
     string selectedDrive = @"D:\";
+
+    readonly HardwarePerformanceRecommendation demoHardware = new(
+        GpuName: "NVIDIA GeForce RTX 5090",
+        VramGb: 32.0,
+        RamGb: 64.0,
+        RecommendedTierId: PerformanceTierAdvisor.Ultra,
+        Reason: "Detected NVIDIA GeForce RTX 5090 with 32 GB VRAM — plenty of headroom for Ultra full-resolution textures.");
 
     public event Action? StateChanged;
     public event Action<bool>? SetupVisibilityChanged;
@@ -26,7 +43,11 @@ public sealed class PreviewForgeHost : IForgeUiHost
         "home-empire",
         "home-regular",
         "home-update",
+        "home-stepdown",
+        "home-resume",
         "customize",
+        "customize-advanced",
+        "whats-new",
         "downloading",
         "running",
         "error",
@@ -42,7 +63,7 @@ public sealed class PreviewForgeHost : IForgeUiHost
         this.preset = preset;
         mode = preset switch
         {
-            "home-empire" => "empire",
+            "home-empire" or "home-resume" => "empire",
             "home-regular" => "regular",
             _ => "clonedivers"
         };
@@ -53,12 +74,22 @@ public sealed class PreviewForgeHost : IForgeUiHost
             "setup-step4-pack" => 4,
             _ => 1
         };
-        if (preset == "home-empire") { texture = "reduced512"; covenant = true; }
+        if (preset == "customize-advanced")
+        {
+            autoPerformanceTier = false;
+            performanceTier = PerformanceTierAdvisor.Low512;
+            texture = "reduced512";
+            enemySkin = "all-droids";
+            hostChaos = "total-war";
+            hostSeaf = "heavy";
+        }
     }
 
     public string? InitialOverlay => preset switch
     {
         "customize" => "customize",
+        "customize-advanced" => "customize-advanced",
+        "whats-new" => "whats-new",
         "settings" => "settings",
         "setup-step1" or "setup-step2-qr" or "setup-step3-sync" or "setup-step4-pack" => "setup",
         _ => null
@@ -68,14 +99,37 @@ public sealed class PreviewForgeHost : IForgeUiHost
     {
         var isBusy = preset == "downloading";
         var isRunning = preset == "running";
-        var isError = preset == "error";
-        var hasUpdate = preset == "home-update" && !updateDismissed;
+        var hasUpdate = preset is "home-update" or "whats-new" && !updateDismissed;
+        var hasStepDown = preset == "home-stepdown" && !stepDownDismissed;
+        var hasResume = preset == "home-resume";
 
-        var previewSize = mode == "regular"
-            ? new PackSizePreview(true, 0, 0, 0, 0, 0, 0, true, "Active · No download", "Standard Helldivers 2 visuals with required Forge gameplay mods.")
-            : texture == "reduced512"
-                ? new PackSizePreview(false, 2_840_000_000, 1_120_000_000, 1_720_000_000, 294, 148, 146, false, "~1.6 GB download", "Downloads ~1.6 GB (146 files) and reuses ~1.0 GB locally.")
-                : new PackSizePreview(false, 10_920_000_000, 10_920_000_000, 0, 378, 378, 0, true, "Ready — cached locally", "All 378 files (10.2 GB) found locally; switching needs no download.");
+        PackSizePreview previewSize;
+        if (mode == "regular")
+        {
+            previewSize = new PackSizePreview(true, 0, 0, 0, 0, 0, 0, true, "Active · No download", "Standard Helldivers 2 visuals with required Forge gameplay mods.");
+        }
+        else if (hasResume)
+        {
+            previewSize = new PackSizePreview(
+                IsRegular: false,
+                TotalBytes: 9_341_553_868,
+                CachedBytes: 4_831_838_208,
+                DownloadBytes: 4_509_715_660,
+                TotalFiles: 378,
+                CachedFiles: 196,
+                DownloadFiles: 182,
+                IsAppliedOnDisk: false,
+                BadgeText: "Resume: 4.2 GB left (4.5 GB saved)",
+                DetailText: "Paused download ready to resume — 4.5 GB already saved locally.");
+        }
+        else if (texture == "reduced512")
+        {
+            previewSize = new PackSizePreview(false, 2_840_000_000, 1_120_000_000, 1_720_000_000, 294, 148, 146, false, "~1.6 GB download", "Downloads ~1.6 GB (146 files) and reuses ~1.0 GB locally.");
+        }
+        else
+        {
+            previewSize = new PackSizePreview(false, 10_920_000_000, 10_920_000_000, 0, 378, 378, 0, true, "Ready · Active", "All 378 files (10.2 GB) are active and ready.");
+        }
 
         var progress = isBusy
             ? new OperationProgress(
@@ -94,12 +148,28 @@ public sealed class PreviewForgeHost : IForgeUiHost
         var (badgeText, badgeTone, headline, detail, ctaLabel, ctaTone, secondary) = preset switch
         {
             "downloading" => ("Downloading · 53%", ForgeHeroTone.Running, "Downloading Star Wars pack", "Temporary connection errors retry automatically.", "CANCEL DOWNLOAD", ForgeHeroTone.Danger, (string?)null),
-            "running" => ("Session Running", ForgeHeroTone.Running, "HellForge session is running", "End the session here when you finish playing so cleanup completes cleanly.", "END SESSION", ForgeHeroTone.Running, (string?)null),
+            "running" => ("Session Active", ForgeHeroTone.Running, "HellForge session is running", "End the session here when you finish playing so cleanup completes cleanly.", "END SESSION", ForgeHeroTone.Running, (string?)null),
             "error" => ("Needs Attention", ForgeHeroTone.Danger, "Download service didn't respond", "GitHub timed out while fetching verified pack assets. Your saved files are intact.", "RETRY", ForgeHeroTone.Action, "View Diagnostics"),
-            _ => ("Forge 0.4.0 · Ready", ForgeHeroTone.Ready, "Ready to play", "Choose difficulties 1–11 at the war table. Steam co-op & local backend enabled.",
+            "home-stepdown" => ("Last Run Notice", ForgeHeroTone.Warning, "Last session ended unexpectedly", "GPU ran out of video memory or hung (D3D12) — try stepping down to High for smoother play.", "LAUNCH CLONEDIVERS", ForgeHeroTone.Ready, (string?)null),
+            "home-resume" => ("Update & Launch", ForgeHeroTone.Action, "Switch to EmpireDivers & launch", "Resumes the remaining 4.2 GB download, applies your loadout, and launches automatically.", "UPDATE & LAUNCH", ForgeHeroTone.Action, (string?)null),
+            _ => ("Forge 0.4.0 · Ready", ForgeHeroTone.Ready, "Ready to play", ForgeTacticalCopy.ReadyDetail(mode),
                 mode == "regular" ? "LAUNCH REGULAR HELLFORGE" : mode == "empire" ? "LAUNCH EMPIREDIVERS" : "LAUNCH CLONEDIVERS",
                 ForgeHeroTone.Ready, (string?)null)
         };
+
+        var stepDown = hasStepDown
+            ? new ForgeStepDownBannerState(
+                Reason: "Last session hit a D3D12 video-memory spike — step down to High streamed textures?",
+                NextTierId: PerformanceTierAdvisor.High,
+                NextTierDisplayName: "High",
+                ActionLabel: "Drop to High")
+            : null;
+
+        var selfInstall = hasResume && !selfInstallDismissed
+            ? new ForgeSelfInstallBannerState(
+                Message: "Running from Downloads — Pin Clonedivers to Start Menu & Desktop?",
+                ActionLabel: "Install Shortcuts")
+            : null;
 
         return new ForgeHomeState(
             PlatformTag: OperatingSystem.IsLinux() ? "HellForge · Linux" : "HellForge · Windows",
@@ -109,6 +179,14 @@ public sealed class PreviewForgeHost : IForgeUiHost
             DeltaSquad: deltaSquad,
             Covenant: covenant,
             Texture: texture,
+            AutoPerformanceTier: autoPerformanceTier,
+            PerformanceTier: performanceTier,
+            Hardware: demoHardware,
+            HostChaosIntensity: hostChaos,
+            HostHeavySeaf: hostSeaf,
+            HostFasterCorpseCleanup: hostCorpseCleanup,
+            SoundEffectsEnabled: soundEffectsEnabled,
+            SquadMatchHash: SquadFingerprint.Compute(HellForgeGameplayCatalog.Current),
             HeaderBadgeText: badgeText,
             HeaderBadgeTone: badgeTone,
             Headline: headline,
@@ -127,7 +205,10 @@ public sealed class PreviewForgeHost : IForgeUiHost
             IsModeAppliedOnDisk: previewSize.IsAppliedOnDisk,
             Progress: progress,
             UpdateBanner: hasUpdate ? new ForgeUpdateBannerState("2.1.0", "Clonedivers v2.1.0 is ready to install — game copy and saves stay untouched.", "Update & Restart") : null,
-            SizePreview: previewSize);
+            SizePreview: previewSize,
+            ToastNotice: preset == "home-clones" ? null : null,
+            StepDownBanner: stepDown,
+            SelfInstallBanner: selfInstall);
     }
 
     public ForgeSetupState GetSetupState()
@@ -179,7 +260,7 @@ public sealed class PreviewForgeHost : IForgeUiHost
             SpaceSummary: selected.MeetsBudget ? $"Space: {Pack.FormatBytes(selected.FreeBytes)} free (OK)" : $"Space: {Pack.FormatBytes(selected.FreeBytes)} free (Low)",
             SpaceOk: selected.MeetsBudget,
             AccountSync: syncSnap,
-            SelectedModeSummary: "Clonedivers (Delta Squad) · All CIS Droids · Build 25480438",
+            SelectedModeSummary: "Clonedivers (Full Star Wars Mix) · Auto (Ultra) · Build 25480438",
             SelectedTexture: texture,
             PendingDownloadBytes: texture == "reduced512" ? 1_720_000_000 : 5_798_205_849,
             PendingCachedFiles: 148,
@@ -192,41 +273,87 @@ public sealed class PreviewForgeHost : IForgeUiHost
             QrRows: qrRows);
     }
 
-    public Task<ForgeDiagnosticsState> GetDiagnosticsAsync(CancellationToken ct = default) => Task.FromResult(new ForgeDiagnosticsState(
-        InstallRoot: @"D:\HellForge",
-        AppVersion: AppInfo.Version,
-        AccountSummary: "HD2 account imported · Forge rewards save locally",
-        HealthChecks:
-        [
-            new ForgeHealthItem("HellForge", "0.4.0-beta · SDK 16", Healthy: true),
-            new ForgeHealthItem("Game Copy", "Build 25480438", Healthy: true),
-            new ForgeHealthItem("Gameplay Preset", "14/14 verified", Healthy: true),
-            new ForgeHealthItem("Account Sync", "Imported", Healthy: true),
-            new ForgeHealthItem("Co-op Network", "Sandbox + WFP OK", Healthy: true)
-        ],
-        RawReportText:
-            "Installation: D:\\HellForge\r\n" +
-            "Launcher: Clonedivers v" + AppInfo.Version + " (Preview)\r\n" +
-            "HellForge: 0.4.0-beta · Engine 0.1.47 · SDK 16 · Build 25480438\r\n" +
-            "Account: Imported (one-way HD2 -> Forge)\r\n" +
-            "Mods: 14 required gameplay mods verified · Clonedivers r20 active · 0 problems\r\n" +
-            "Last session: observed (clean exit)",
-        CanOpenManager: true,
-        CanSyncAccount: true,
-        CanCheckUpdates: true,
-        CanOpenSetup: true,
-        IsCheckingUpdates: false,
-        UpdateMessage: $"Up to date (v{AppInfo.Version})"));
+    public Task<ForgeDiagnosticsState> GetDiagnosticsAsync(CancellationToken ct = default)
+    {
+        var matchCode = SquadFingerprint.Compute(HellForgeGameplayCatalog.Current);
+        var triage = new CrashTriageResult(CrashKind.Clean, 0, "Last session exited cleanly.", null, false, null, false, []);
+        var discord = DiscordReportFormatter.Format(
+            appVersion: AppInfo.Version,
+            squadMatchCode: matchCode,
+            mode: mode,
+            enemySkin: enemySkin,
+            covenant: covenant,
+            deltaSquad: deltaSquad,
+            performanceTier: autoPerformanceTier ? PerformanceTierAdvisor.Auto : performanceTier,
+            packTexture: texture,
+            hardware: demoHardware,
+            installRoot: @"D:\HellForge",
+            triage: triage,
+            redactUserPaths: true);
+
+        return Task.FromResult(new ForgeDiagnosticsState(
+            InstallRoot: @"D:\HellForge",
+            AppVersion: AppInfo.Version,
+            AccountSummary: "HD2 account imported · Forge rewards save locally",
+            HealthChecks:
+            [
+                new ForgeHealthItem("HellForge", "0.4.0-beta · SDK 16", Healthy: true),
+                new ForgeHealthItem("Game Copy", "Build 25480438", Healthy: true),
+                new ForgeHealthItem("Gameplay Preset", $"14/14 ({matchCode})", Healthy: true),
+                new ForgeHealthItem("Account Sync", "Imported", Healthy: true),
+                new ForgeHealthItem("Co-op Network", "Sandbox + WFP OK", Healthy: true)
+            ],
+            RawReportText: discord,
+            DiscordReportText: discord,
+            DiskUsageSummary: "Game 70.2 GB · Pack 10.2 GB · Cache 1.2 GB (850 MB reclaimable)",
+            CanOpenManager: true,
+            CanSyncAccount: true,
+            CanCheckUpdates: true,
+            CanOpenSetup: true,
+            CanCleanCache: true,
+            CanVerifyAndRepair: true,
+            IsCheckingUpdates: false,
+            UpdateMessage: $"Up to date (v{AppInfo.Version})",
+            SoundEffectsEnabled: soundEffectsEnabled,
+            DiscordRpcEnabled: discordRpcEnabled,
+            MinimizeToTray: minimizeToTray));
+    }
 
     public void AttachUiCallbacks(Func<ForgeConfirmRequest, Task<bool>> confirmAsync, Func<string, Task<string?>> pickFolderAsync, Func<string, string, Task<string?>> saveFileAsync, Action<OperationProgress?>? taskbarProgress = null, Action? requestAttention = null) { }
     public Task InitializeAsync() => Task.CompletedTask;
     public bool CanClose(out string? reason) { reason = null; return true; }
     public Task SelectModeAsync(string newMode) { mode = newMode; StateChanged?.Invoke(); return Task.CompletedTask; }
     public Task UpdateCustomizationAsync(string skin, bool delta, bool cov, string tex) { enemySkin = skin; deltaSquad = delta; covenant = cov; texture = tex; StateChanged?.Invoke(); return Task.CompletedTask; }
+    public Task SetPerformanceTierAsync(string tierId)
+    {
+        performanceTier = tierId;
+        autoPerformanceTier = tierId == PerformanceTierAdvisor.Auto;
+        texture = PerformanceTierAdvisor.ResolvePackTexture(tierId, demoHardware);
+        StateChanged?.Invoke();
+        return Task.CompletedTask;
+    }
+    public Task UpdateHostMutatorsAsync(string chaos, string seaf, bool cleanup) { hostChaos = chaos; hostSeaf = seaf; hostCorpseCleanup = cleanup; StateChanged?.Invoke(); return Task.CompletedTask; }
+    public Task ApplyCustomizationNowAsync() => Task.CompletedTask;
     public Task TriggerPrimaryActionAsync() => Task.CompletedTask;
     public Task TriggerSecondaryActionAsync() => Task.CompletedTask;
     public Task TriggerUpdateBannerActionAsync() => Task.CompletedTask;
     public void DismissUpdateBanner() { updateDismissed = true; StateChanged?.Invoke(); }
+    public Task AcceptStepDownAsync() { stepDownDismissed = true; autoPerformanceTier = false; performanceTier = PerformanceTierAdvisor.High; texture = "lighter"; StateChanged?.Invoke(); return Task.CompletedTask; }
+    public void DismissStepDownBanner() { stepDownDismissed = true; StateChanged?.Invoke(); }
+    public Task InstallSelfShortcutsAsync() { selfInstallDismissed = true; StateChanged?.Invoke(); return Task.CompletedTask; }
+    public void DismissSelfInstallBanner() { selfInstallDismissed = true; StateChanged?.Invoke(); }
+    public Task<WhatsNewResult> FetchWhatsNewAsync(string? versionOrTag, CancellationToken ct = default) => Task.FromResult(new WhatsNewResult(
+        Tag: WhatsNewFetcher.NormalizeTag(versionOrTag ?? "2.0.3", isLinux: false),
+        Bullets:
+        [
+            "Smart 5-tier GPU performance advisor with automatic D3D12 low-VRAM protection.",
+            "True 1-click UPDATE & LAUNCH plus resumable download size tracking.",
+            "One-click Verify & Repair and safe background cache cleanup in Settings.",
+            "Squad Match Code (r7) and plain-English crash triage for co-op sessions."
+        ],
+        IsFallback: false,
+        ReleaseUrl: "https://github.com/owendavidgoode/clonedivers/releases/tag/v2.0.3"));
+    public void ToggleSoundEffects() { soundEffectsEnabled = !soundEffectsEnabled; StateChanged?.Invoke(); }
     public void OpenSteamLibrary() { }
     public Task EnterSetupAsync() { SetupVisibilityChanged?.Invoke(true); return Task.CompletedTask; }
     public void ExitSetup() => SetupVisibilityChanged?.Invoke(false);
@@ -241,6 +368,10 @@ public sealed class PreviewForgeHost : IForgeUiHost
     public Task OpenManagerAsync() => Task.CompletedTask;
     public Task SyncAccountFromSettingsAsync() => Task.CompletedTask;
     public Task CheckUpdatesAsync() => Task.CompletedTask;
+    public Task CleanCacheAsync() => Task.CompletedTask;
+    public Task VerifyAndRepairAsync() => Task.CompletedTask;
+    public void SetDiscordRpcEnabled(bool enabled) { discordRpcEnabled = enabled; StateChanged?.Invoke(); }
+    public void SetMinimizeToTray(bool enabled) { minimizeToTray = enabled; StateChanged?.Invoke(); }
     public Task<string?> SaveSupportReportAsync() => Task.FromResult<string?>(null);
     public ValueTask DisposeAsync() => ValueTask.CompletedTask;
 

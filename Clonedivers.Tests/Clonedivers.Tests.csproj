@@ -16,6 +16,7 @@
   <ItemGroup>
     <PackageReference Include="Avalonia.Desktop" Version="11.3.22" />
     <PackageReference Include="Avalonia.Themes.Fluent" Version="11.3.22" />
+    <EmbeddedResource Include="../Clonedivers/clonedivers.ico" LogicalName="Clonedivers.Icon.ico" />
     <EmbeddedResource Include="../Clonedivers/Resources/hellforge-clones-r20.json" LogicalName="Clonedivers.HellForge.Manifest.json" />
     <EmbeddedResource Include="../Clonedivers/Resources/hellforge-empire-r48.json" LogicalName="Clonedivers.HellForge.Empire.Manifest.json" />
     <EmbeddedResource Include="../Clonedivers/Resources/hellforge-r19.json" LogicalName="Clonedivers.Tests.Clones.R19.Manifest.json" />

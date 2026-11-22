@@ -296,9 +296,10 @@ internal sealed class LinuxForgePlayer(IForgeConnection connection, LinuxForgePr
         await connection.RunAsync(["recover-pack"], ct);
         await RefreshAsync(ct);
     }
-    internal async Task InstallGameplayAsync(IProgress<string>? progress = null, CancellationToken ct = default)
+    internal async Task InstallGameplayAsync(IProgress<string>? progress = null, CancellationToken ct = default, IProgress<OperationProgress>? richProgress = null)
     {
         if (SessionActive || Game.IsRunning()) throw new InvalidOperationException("End HD2 before installing the required gameplay preset.");
+        richProgress?.Report(new("Checking required gameplay mods", "Verifying installed 14-mod r7 preset…", IsIndeterminate: true, CanCancel: true));
         var missing = (await connection.RunAsync(["gameplay-status"], ct)).Deserialize<List<GameplayArtifact>>(HellForgePack.Json)
             ?? throw new InvalidDataException("Forge returned no gameplay installation plan.");
         var pinned = HellForgeGameplayCatalog.Pinned;
@@ -308,8 +309,9 @@ internal sealed class LinuxForgePlayer(IForgeConnection connection, LinuxForgePr
         var cache = Path.Combine(Path.GetDirectoryName(root)!, "Clonedivers-HellForge-cache", "gameplay", pinned.Id);
         var windows = connection.NativePaths ? cache : WindowsPath(root, cache);
         // HTTPS runs here in the native frontend, never in the isolated Wine bridge.
-        await HellForgeGameplayCatalog.StageAsync(cache, missing, progress, ct);
+        await HellForgeGameplayCatalog.StageAsync(cache, missing, progress, ct, richProgress: richProgress);
         if (SessionActive || Game.IsRunning()) throw new InvalidOperationException("HD2 started while downloading; keep the verified files and retry after closing it.");
+        richProgress?.Report(new("Installing gameplay mods", "Configuring pinned r7 load order and sharing…", IsIndeterminate: true, CanCancel: false));
         await connection.RunAsync(["install-gameplay", "--file", windows], ct);
         await RefreshAsync(ct);
     }
@@ -332,7 +334,7 @@ internal sealed class LinuxForgePlayer(IForgeConnection connection, LinuxForgePr
         await connection.RunAsync(["open-manager"], ct);
         ResumeAccountSync(request);
     }
-    internal async Task<HellForgePack.Plan> PlanAppearanceAsync(IProgress<string>? progress = null, CancellationToken ct = default)
+    internal async Task<HellForgePack.Plan> PlanAppearanceAsync(IProgress<string>? progress = null, CancellationToken ct = default, IProgress<OperationProgress>? richProgress = null)
     {
         if (SessionActive) throw new InvalidOperationException("End the current session before preparing this mode.");
         if (Preferences.Mode == "regular") throw new InvalidOperationException("Regular needs no appearance download.");
@@ -341,20 +343,28 @@ internal sealed class LinuxForgePlayer(IForgeConnection connection, LinuxForgePr
         FileSafety.RejectLink(cache);
         var selection = Preferences.PackSelection();
         var exports = Directory.Exists(cache) ? new DirectoryInfo(cache).EnumerateDirectories().OrderByDescending(d => d.LastWriteTimeUtc).Take(32).Select(d => d.FullName).ToList() : [];
-        if (await FindExportAsync(exports, selection, progress, ct) is { } prepared) return prepared;
+        if (await FindExportAsync(exports, selection, progress, ct, richProgress) is { } prepared) return prepared;
         var mods = Path.Combine(root, "mods");
         FileSafety.RejectLink(mods);
         IEnumerable<string> sources = Directory.Exists(mods) ? exports.Prepend(mods) : exports;
-        return await HellForgePack.PlanAsync(selection, Path.Combine(cache, "linux-" + Guid.NewGuid().ToString("N")), sources, progress, ct);
+        return await HellForgePack.PlanAsync(selection, Path.Combine(cache, "linux-" + Guid.NewGuid().ToString("N")), sources, progress, ct, richProgress: richProgress);
     }
     /// <summary>Like Windows, reuse a verified earlier export instead of writing another full copy; its plan needs no download or export.</summary>
-    internal static async Task<HellForgePack.Plan?> FindExportAsync(IEnumerable<string> exports, HellForgePack.Selection selection, IProgress<string>? progress = null, CancellationToken ct = default)
+    internal static async Task<HellForgePack.Plan?> FindExportAsync(IEnumerable<string> exports, HellForgePack.Selection selection, IProgress<string>? progress = null, CancellationToken ct = default, IProgress<OperationProgress>? richProgress = null)
     {
         foreach (var export in exports)
             try
             {
                 progress?.Report("Checking previously prepared pack files…");
-                await HellForgePack.VerifyAsync(export, selection, ct);
+                var speed = new SpeedTracker();
+                var byteProgress = richProgress == null
+                    ? null
+                    : new SyncProgress<(long Done, long Total)>(p =>
+                    {
+                        var (rate, eta) = speed.Update(p.Done, p.Total);
+                        richProgress.Report(new("Checking cached pack exports", Path.GetFileName(export), 0, 0, p.Done, p.Total, rate, eta, CanCancel: true));
+                    });
+                await HellForgePack.VerifyAsync(export, selection, byteProgress, ct);
                 Directory.SetLastWriteTimeUtc(export, DateTime.UtcNow); // most recent, so pruning keeps it
                 return new(selection, export, selection.Files.Where(f => f.Size > 0).DistinctBy(f => f.Sha256)
                     .ToDictionary(f => f.Sha256, f => FileSafety.Child(export, f.Name), StringComparer.OrdinalIgnoreCase));
@@ -370,10 +380,15 @@ internal sealed class LinuxForgePlayer(IForgeConnection connection, LinuxForgePr
             try { FileSafety.RejectLink(stale.FullName); Directory.Delete(stale.FullName, true); }
             catch (Exception error) when (error is IOException or UnauthorizedAccessException or InvalidDataException) { } // pruning never fails an applied pack
     }
-    internal async Task PrepareAppearanceAsync(HellForgePack.Plan? plan, bool allowDownloads, IProgress<string>? progress = null, CancellationToken ct = default)
+    internal async Task PrepareAppearanceAsync(HellForgePack.Plan? plan, bool allowDownloads, IProgress<string>? progress = null, CancellationToken ct = default, IProgress<OperationProgress>? richProgress = null)
     {
         if (SessionActive) throw new InvalidOperationException("End the current session before applying this mode.");
-        if (Preferences.Mode == "regular") { await SelectAsync(ct); await connection.RunAsync(["prepare-regular"], ct); }
+        if (Preferences.Mode == "regular")
+        {
+            richProgress?.Report(new("Applying Regular mode", "Disabling Star Wars packs while keeping gameplay mods…", IsIndeterminate: true, CanCancel: false));
+            await SelectAsync(ct);
+            await connection.RunAsync(["prepare-regular"], ct);
+        }
         else
         {
             ArgumentNullException.ThrowIfNull(plan);
@@ -383,9 +398,17 @@ internal sealed class LinuxForgePlayer(IForgeConnection connection, LinuxForgePr
                 throw new InvalidDataException("The selected mode/options changed after planning. Prepare the selection again.");
             var path = connection.NativePaths ? plan.Output : WindowsPath(ResolvedInstallRoot!, plan.Output);
             // This code runs in the native frontend, outside the isolated Wine namespace.
-            if (Directory.Exists(plan.Output)) await HellForgePack.VerifyMetadataAsync(plan.Output, expected, ct); // reused export; the bridge re-hashes before import
-            else await HellForgePack.ExportAsync(plan, allowDownloads, progress, ct);
+            if (Directory.Exists(plan.Output))
+            {
+                richProgress?.Report(new("Verifying cached pack", "Checking prepared export metadata…", IsIndeterminate: true, CanCancel: true));
+                await HellForgePack.VerifyMetadataAsync(plan.Output, expected, ct); // reused export; the bridge re-hashes before import
+            }
+            else
+            {
+                await HellForgePack.ExportAsync(plan, allowDownloads, progress, ct, richProgress: richProgress);
+            }
             await SelectAsync(ct);
+            richProgress?.Report(new("Installing Star Wars pack", "Importing verified pack into HellForge…", IsIndeterminate: true, CanCancel: false));
             await connection.RunAsync(["prepare-pack", "--file", path], ct);
             PruneExports(Path.GetDirectoryName(Path.GetFullPath(plan.Output))!, plan.Output);
         }
