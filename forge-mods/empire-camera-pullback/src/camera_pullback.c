@@ -1,4 +1,4 @@
-/* Empire & Clone Camera Pullback (clonedivers.empire-camera-pullback 0.1.2)
+/* Empire & Clone Camera Pullback (clonedivers.empire-camera-pullback 0.1.3)
  * Target: Helldivers 2 Steam build 25480438, HellForge Mod SDK 16.
  *
  * Per-player third-person follow-camera pullback and dorsal-hull clearance for occupied

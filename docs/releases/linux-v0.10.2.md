@@ -1,0 +1,3 @@
+# Clonedivers Forge Linux 0.10.2
+
+> **Paired with Windows `v2.1.2`:** Linux Forge `0.10.2` (`linux-v0.10.2`) ships in lockstep with [Windows `v2.1.2`](v2.1.2.md), upgrading EmpireDivers to **`2026.11.22-r50`** (deep armor/helmet/K-2SO overhaul, AAA JFO AT-ST, clean Imperial Lambda shuttles, British Imperial voices + 2,680 SEAF Stormtrooper lines, complete SEAF/weapon blasters & Star Destroyer orbital turbolasers, and Death Trooper voice opt-in OFF by default) and `build25480438-r9` (`18` archives, `8,505,056` B) with **`starwars-localization 0.1.0`** and **`chaos-invasions 0.3.4`**. See [v2.1.2](v2.1.2.md) for full verification details.

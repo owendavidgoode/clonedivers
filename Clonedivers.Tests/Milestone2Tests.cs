@@ -228,15 +228,15 @@ internal static class Milestone2Tests
             };
             if (mode == "empire") opts["deathtrooper"] = dt;
             var sel = HellForgePack.PinnedSelection(mode, tex, opts);
-            var expectedVer = mode == "empire" ? "2026.11.22-r49" : "2026.11.22-r21";
+            var expectedVer = mode == "empire" ? "2026.11.22-r50" : "2026.11.22-r21";
             var expectedCount = mode == "empire"
-                ? (enemy == "native-automatons" ? 123 : 135)
+                ? (enemy == "native-automatons" ? 132 : 144)
                 : (enemy == "native-automatons" ? 111 : 123);
             if (sel.Version != expectedVer || sel.Texture != tex || sel.Files.Count != expectedCount)
                 check(false, $"PinnedSelection {mode}/{tex}/{enemy}/{squid}/dt={dt} mismatch");
             matrixChecked++;
         }
-        check(matrixChecked == 180, "PinnedSelection resolves all 180 r21/r49 5-tier x 3-enemy x 3-squid x Delta/DeathTrooper combinations natively");
+        check(matrixChecked == 180, "PinnedSelection resolves all 180 r21/r50 5-tier x 3-enemy x 3-squid x Delta/DeathTrooper combinations natively");
 
         // r19 / r47 fallback: both reduced1024 and potato256 fall back to lighter when reduced512 is absent
         var r19Bytes = ReadResourceBytes("Clonedivers.Tests.Clones.R19.Manifest.json");
@@ -277,23 +277,23 @@ internal static class Milestone2Tests
     {
         // Brand-new defaults
         var fresh = HellForgePreferences.Load(Path.Combine(dir, "fresh-v21", "hellforge.json"));
-        check(fresh.SquidSkin == "mixed-covenant" && fresh.Covenant && fresh.DeathTrooperVoice && fresh.EnemySkin == "mixed-droids",
-            "brand-new HellForgePreferences defaults to SquidSkin='mixed-covenant', Covenant=true, and DeathTrooperVoice=true");
+        check(fresh.SquidSkin == "mixed-covenant" && fresh.Covenant && !fresh.DeathTrooperVoice && fresh.EnemySkin == "mixed-droids",
+            "brand-new HellForgePreferences defaults to SquidSkin='mixed-covenant', Covenant=true, and DeathTrooperVoice=false");
 
         var hw = new HardwarePerformanceRecommendation("NVIDIA GeForce RTX 4090", 24.0, 64.0, "ultra", "test");
         check(ForgeTacticalCopy.FormatLoadoutSummary("clonedivers", fresh.EnemySkin, fresh.DeltaSquad, fresh.Covenant,
                   true, "auto", hw, squidSkin: fresh.SquidSkin, deathTrooperVoice: fresh.DeathTrooperVoice) == "Full Star Wars Mix · Auto (Ultra)" &&
               ForgeTacticalCopy.FormatLoadoutSummary("empire", fresh.EnemySkin, false, fresh.Covenant,
-                  true, "auto", hw, squidSkin: fresh.SquidSkin, deathTrooperVoice: true) == "Full Star Wars Mix · Auto (Ultra)" &&
+                  true, "auto", hw, squidSkin: fresh.SquidSkin, deathTrooperVoice: false) == "Full Star Wars Mix · Auto (Ultra)" &&
               ForgeTacticalCopy.FormatLoadoutSummary("empire", fresh.EnemySkin, false, fresh.Covenant,
-                  true, "auto", hw, squidSkin: fresh.SquidSkin, deathTrooperVoice: false).Contains("Standard Voices", StringComparison.Ordinal),
-              "FormatLoadoutSummary treats mixed-droids + mixed-covenant (+ DeathTrooperVoice on Empire) as 'Full Star Wars Mix'");
+                  true, "auto", hw, squidSkin: fresh.SquidSkin, deathTrooperVoice: true).Contains("Death Trooper Voice", StringComparison.Ordinal),
+              "FormatLoadoutSummary treats mixed-droids + mixed-covenant (+ standard Imperial voices on Empire) as 'Full Star Wars Mix'");
 
         // Backwards-compatible legacy Covenant JSON loading (when SquidSkin is absent)
         var covTruePath = Path.Combine(dir, "legacy-cov-true.json");
         File.WriteAllText(covTruePath, """{"Format":1,"Mode":"clonedivers","Covenant":true}""");
         var loadedCovTrue = HellForgePreferences.Load(covTruePath);
-        check(loadedCovTrue.SquidSkin == "all-covenant" && loadedCovTrue.Covenant && loadedCovTrue.DeathTrooperVoice,
+        check(loadedCovTrue.SquidSkin == "all-covenant" && loadedCovTrue.Covenant && !loadedCovTrue.DeathTrooperVoice,
             "upgrading hellforge.json with Covenant=true (no SquidSkin) maps cleanly to SquidSkin='all-covenant'");
 
         var covFalsePath = Path.Combine(dir, "legacy-cov-false.json");
@@ -420,28 +420,29 @@ internal static class Milestone2Tests
 
     static void TestR8CatalogDraftAndSources(Action<bool, string> check)
     {
-        check(HellForgeGameplayCatalog.Pinned.Id == "build25480438-r8" &&
-              HellForgeGameplayCatalog.Current.Id == "build25480438-r8" &&
-              HellForgeGameplayCatalog.Pinned.Artifacts.Count == 17,
-              "HellForgeGameplayCatalog activates build25480438-r8 (17 artifacts) as the pinned default");
+        check(HellForgeGameplayCatalog.Pinned.Id == "build25480438-r9" &&
+              HellForgeGameplayCatalog.Current.Id == "build25480438-r9" &&
+              HellForgeGameplayCatalog.Pinned.Artifacts.Count == 18,
+              "HellForgeGameplayCatalog activates build25480438-r9 (18 artifacts) as the pinned default");
 
-        var r8Json = Encoding.UTF8.GetString(ReadResourceBytes("Clonedivers.Forge.Gameplay.json"));
-        var r8 = JsonSerializer.Deserialize<HellForgeGameplayCatalog>(r8Json, HellForgePack.Json)!;
-        r8.ValidateDraft();
+        var r9Json = Encoding.UTF8.GetString(ReadResourceBytes("Clonedivers.Forge.Gameplay.json"));
+        var r9 = JsonSerializer.Deserialize<HellForgeGameplayCatalog>(r9Json, HellForgePack.Json)!;
+        r9.ValidateDraft();
 
-        check(r8.Id == "build25480438-r8" &&
-              r8.GameBuild == HellForgePack.SupportedBuild &&
-              r8.Artifacts.Count == 17 &&
-              r8.Order.Count == 20 &&
-              r8.Order[^1] == HellForgePreset.BingusSharedLoader &&
-              !r8.Artifacts.Any(a => a.Url.Contains("hf-mod.com", StringComparison.OrdinalIgnoreCase)),
-              "forge-gameplay-build25480438-r8.json passes ValidateDraft with 17 artifacts, 20 ordered IDs, zero hf-mod.com URLs, and Bingus Shared Loader last");
+        check(r9.Id == "build25480438-r9" &&
+              r9.GameBuild == HellForgePack.SupportedBuild &&
+              r9.Artifacts.Count == 18 &&
+              r9.Order.Count == 21 &&
+              r9.Order[^1] == HellForgePreset.BingusSharedLoader &&
+              !r9.Artifacts.Any(a => a.Url.Contains("hf-mod.com", StringComparison.OrdinalIgnoreCase)),
+              "forge-gameplay-build25480438-r9.json passes ValidateDraft with 18 artifacts, 21 ordered IDs, zero hf-mod.com URLs, and Bingus Shared Loader last");
 
-        // Verify all 6 updated/new v2.1 code-mod manifests match r8 IDs, versions, and co-op/gameplay flags
+        // Verify all 7 updated/new v2.1/v2.1.2 code-mod manifests match r8 IDs, versions, and co-op/gameplay flags
         var expectedMods = new (string Resource, string Id, bool ExpectedGameplay, bool ExpectedOptional)[]
         {
             ("Clonedivers.Tests.EmpireAtstWriter.json", HellForgePreset.EmpireAtstWriter, false, true),
             ("Clonedivers.Tests.EmpireCameraPullback.json", HellForgePreset.EmpireCameraPullback, false, true),
+            ("Clonedivers.Tests.StarWarsLocalization.json", HellForgePreset.StarWarsLocalization, false, true),
             ("Clonedivers.Tests.DedicatedMeleeSlot.json", HellForgePreset.DedicatedMeleeSlot, false, true),
             ("Clonedivers.Tests.FasterCorpseCleanup.json", HellForgePreset.FasterCorpseCleanup, true, false),
             ("Clonedivers.Tests.HeavySeafPresence.json", "local.heavy-seaf-presence", true, false),
@@ -450,7 +451,7 @@ internal static class Milestone2Tests
 
         foreach (var (resName, id, expectedGameplay, expectedOptional) in expectedMods)
         {
-            var art = r8.Artifacts.Single(a => a.Id == id);
+            var art = r9.Artifacts.Single(a => a.Id == id);
             using var doc = JsonDocument.Parse(ReadResourceBytes(resName));
             var rootEl = doc.RootElement;
             check(rootEl.GetProperty("id").GetString() == id &&
@@ -461,17 +462,17 @@ internal static class Milestone2Tests
                   art.Bytes > 0 &&
                   FileSafety.IsSha256(art.Sha256) &&
                   FileSafety.IsSha256(art.ContentHash),
-                  $"r8 artifact '{id}' ({art.Version}) matches forge-mods hellforge-mod.json, targets forge-mods-2026-11-22, and pins valid hashes");
+                  $"r9 artifact '{id}' ({art.Version}) matches forge-mods hellforge-mod.json, targets forge-mods-2026-11-22, and pins valid hashes");
         }
 
-        // SquadFingerprint client-only vs gameplay classification for r8 mods
+        // SquadFingerprint client-only vs gameplay classification for r9 mods
         var camMod = new HellForgeMod(HellForgePreset.EmpireCameraPullback, "Empire & Clone Camera Pullback", true, "f", []);
         var meleeMod = new HellForgeMod(HellForgePreset.DedicatedMeleeSlot, "Dedicated Melee Slot", true, "f", []);
         var corpseMod = new HellForgeMod(HellForgePreset.FasterCorpseCleanup, "Faster Corpse Cleanup", true, "f", ["gameplay"]);
         check(!SquadFingerprint.IsGameplayMod(camMod) &&
               !SquadFingerprint.IsGameplayMod(meleeMod) &&
               SquadFingerprint.IsGameplayMod(corpseMod) &&
-              SquadFingerprint.Compute(r8).StartsWith("r8-", StringComparison.Ordinal),
+              SquadFingerprint.Compute(r9).StartsWith("r9-", StringComparison.Ordinal),
               "SquadFingerprint excludes per-player camera pullback & melee slot from squad hash while including gameplay corpse cleanup");
     }
 

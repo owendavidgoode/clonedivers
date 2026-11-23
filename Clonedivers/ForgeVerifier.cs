@@ -22,7 +22,7 @@ public sealed record ForgeVerifyReport(
 /// Deterministic 5-step 1-Click Verify &amp; Repair service:
 /// (1) Forge install &amp; build 25480438 check,
 /// (2) Hosts / capture cleanup check,
-/// (3) 14-mod r7 gameplay preset hash &amp; order verification/repair,
+/// (3) 18-mod r9 gameplay preset hash &amp; order verification/repair,
 /// (4) Active pack integrity check &amp; repair,
 /// (5) Stale cache cleanup — never touching saves, profiles, or account capture data.
 /// </summary>
@@ -147,13 +147,14 @@ public static class ForgeVerifier
 
         steps.Add(new(2, "Hosts & capture cleanup", true, false, "Hosts file and capture proxy state are clean (saves & account untouched)."));
 
-        // ── Step 3/5: 17-mod r8 gameplay preset hash & order verification/repair ──
+        // ── Step 3/5: 18-mod r9 gameplay preset hash & order verification/repair ──
         ct.ThrowIfCancellationRequested();
-        progress?.Report(new("Verifying gameplay preset", "Checking 17-mod r8 hashes, options, and load order…", 3, 5, CanCancel: true));
+        progress?.Report(new("Verifying gameplay preset", "Checking 18-mod r9 hashes, options, and load order…", 3, 5, CanCancel: true));
         try
         {
             var modsBefore = await client.ModsAsync(ct);
-            var missing = await client.MissingGameplayAsync(ct);
+            var activeMode = prefs.IsRegular ? "regular" : prefs.PackMode;
+            var missing = await client.MissingGameplayAsync(activeMode, ct);
             var presetProblem = HellForgePreset.Problem(modsBefore, checkOrder: true) ?? modsBefore.HostingProblem;
 
             if (missing.Count > 0 || presetProblem != null)
@@ -170,7 +171,7 @@ public static class ForgeVerifier
                     Directory.CreateDirectory(client.GameplayCache);
                 }
 
-                await client.InstallGameplayAsync(client.GameplayCache, null, progress, ct);
+                await client.InstallGameplayAsync(client.GameplayCache, null, progress, ct, activeMode);
                 gameplayRepairedCount = Math.Max(missing.Count, 1);
 
                 var modsAfter = await client.ModsAsync(ct);
@@ -208,6 +209,7 @@ public static class ForgeVerifier
             {
                 var currentStatus = await client.StatusAsync(ct);
                 bool regularClean = !catalog.Mods.Any(m => m.Enabled && HellForgePack.IsStarWarsOverhaulMod(m)) &&
+                                    HellForgePreset.ModeCompanionProblem(catalog, "regular") == null &&
                                     catalog.Mods.Any(m => m.Id == HellForgeClient.DifficultyId && m.Enabled) &&
                                     currentStatus.Multiplayer && currentStatus.LocalBackend;
                 if (!regularClean)
@@ -225,7 +227,8 @@ public static class ForgeVerifier
                 var expectedSelection = selectionOverride != null ? selectionOverride() : prefs.Selection();
                 var expectedPackId = HellForgePack.PackId(expectedSelection.Mode);
                 var activePack = catalog.Mods.SingleOrDefault(m => m.Enabled && m.Id == expectedPackId);
-                bool needsRepair = activePack == null || catalog.Mods.Count(m => m.Enabled && HellForgePack.IsStarWarsOverhaulMod(m)) != 1;
+                bool needsRepair = activePack == null || catalog.Mods.Count(m => m.Enabled && HellForgePack.IsStarWarsOverhaulMod(m)) != 1 ||
+                    HellForgePreset.ModeCompanionProblem(catalog, expectedSelection.Mode) != null;
 
                 if (!needsRepair && activePack != null)
                 {

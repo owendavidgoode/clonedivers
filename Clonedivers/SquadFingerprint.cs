@@ -6,7 +6,7 @@ using System.Text.RegularExpressions;
 namespace Clonedivers;
 
 /// <summary>
-/// Computes a deterministic short squad match code (e.g. "r7-a9c4") from the sorted (Id, Version)
+/// Computes a deterministic short squad match code (e.g. "r8-a9c4") from the sorted (Id, Version)
 /// of enabled gameplay mods, excluding client-only visual/cosmetic packs and gameplay:false client mods
 /// so co-op squads on different Star Wars skins or texture tiers share the exact same match code.
 /// </summary>
@@ -20,6 +20,7 @@ public static class SquadFingerprint
         HellForgePreset.EmpireAtstWriter,
         HellForgePreset.EmpireTieSwitch,
         HellForgePreset.EmpireCameraPullback,
+        HellForgePreset.StarWarsLocalization,
         HellForgePreset.DedicatedMeleeSlot
     };
 

@@ -342,10 +342,14 @@ public sealed class WindowsForgeHost : IForgeUiHost
     {
         if (lastStatus == null || lastMods == null) return false;
         var ours = lastMods.Mods.Where(m => m.Enabled && HellForgePack.IsStarWarsOverhaulMod(m)).ToArray();
-        if (preferences.IsRegular) return ours.Length == 0 && lastStatus.Multiplayer && lastStatus.LocalBackend;
+        if (preferences.IsRegular)
+            return ours.Length == 0
+                && HellForgePreset.ModeCompanionProblem(lastMods, "regular") == null
+                && lastStatus.Multiplayer && lastStatus.LocalBackend;
         return preferences.AppliedSelection == preferences.SelectionKey
             && ours.Length == 1
             && ours[0].Id == HellForgePack.PackId(preferences.PackMode)
+            && HellForgePreset.ModeCompanionProblem(lastMods, preferences.PackMode) == null
             && lastStatus.Multiplayer && lastStatus.LocalBackend;
     }
 
@@ -683,7 +687,7 @@ public sealed class WindowsForgeHost : IForgeUiHost
 
         if (NeedsGameplaySetup() || lastMods?.HostingProblem != null)
             return ("Mods Required", ForgeHeroTone.Action, "Install required gameplay mods",
-                "Installs and configures the pinned 14-mod gameplay preset and load order.",
+                "Installs and configures the pinned 18-mod gameplay preset and load order.",
                 "INSTALL REQUIRED MODS", true, ForgeHeroTone.Action, null);
         if (NeedsModeSetup())
         {
@@ -1029,11 +1033,12 @@ public sealed class WindowsForgeHost : IForgeUiHost
     async Task InstallGameplayWithProgressAsync(HellForgeClient client, Action<OperationProgress> report, CancellationToken ct)
     {
         var throttler = new ProgressThrottler(report);
-        report(new("Checking required gameplay mods", "Verifying installed 14-mod preset…", IsIndeterminate: true, CanCancel: true));
-        var missing = await client.MissingGameplayAsync(ct);
+        report(new("Checking required gameplay mods", "Verifying installed 18-mod preset…", IsIndeterminate: true, CanCancel: true));
+        var activeMode = preferences.IsRegular ? "regular" : preferences.PackMode;
+        var missing = await client.MissingGameplayAsync(activeMode, ct);
         if (missing.Count > 0)
             await HellForgeGameplayCatalog.StageAsync(client.GameplayCache, missing, null, ct, null, throttler.AsProgress());
-        await client.InstallGameplayAsync(client.GameplayCache, null, throttler.AsProgress(), ct);
+        await client.InstallGameplayAsync(client.GameplayCache, null, throttler.AsProgress(), ct, activeMode);
     }
 
     async Task PrepareSelectedModeAsync() => await RunWorkAsync(async ct =>
@@ -1458,7 +1463,7 @@ public sealed class WindowsForgeHost : IForgeUiHost
             syncRequested: syncRequested);
 
         var modeDesc = preferences.IsRegular
-            ? "Regular Helldivers 2 + 14 required gameplay mods"
+            ? "Regular Helldivers 2 + 18-mod gameplay preset"
             : $"{(preferences.Mode == "empire" ? "EmpireDivers" : preferences.DeltaSquad ? "Clonedivers (Delta Squad)" : "Clonedivers")} · Build {HellForgePack.SupportedBuild}";
 
         string headline, detail, cta;

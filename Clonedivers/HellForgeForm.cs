@@ -660,8 +660,8 @@ public sealed class HellForgeForm : Form
             if (previewState == "installing") { state.Text = "Installing mods"; detail.Text = "Preparing your selected mode for HellForge."; message.Text = "Downloading gameplay mods · 42%"; }
             if (previewState == "running") { state.Text = "Session running"; detail.Text = "End the session to close the game and finish cleanup."; launch.Text = "END SESSION"; }
             if (previewState == "error") { state.Text = "Needs attention"; detail.Text = FailureSummary("Fixture failure"); launch.Text = "RETRY"; }
-            if (previewState is "update-available" or "update-failed") ShowUpdateOffer("2.1.0", previewState == "update-failed");
-            if (previewState == "update-downloading") { state.Text = "Downloading update · v2.1.0"; detail.Text = "Temporary connection problems retry automatically until you cancel."; launch.Text = "DOWNLOADING…"; message.Text = "28 MB / 66 MB · 42%"; }
+            if (previewState is "update-available" or "update-failed") ShowUpdateOffer(AppInfo.Version, previewState == "update-failed");
+            if (previewState == "update-downloading") { state.Text = $"Downloading update · v{AppInfo.Version}"; detail.Text = "Temporary connection problems retry automatically until you cancel."; launch.Text = "DOWNLOADING…"; message.Text = "28 MB / 66 MB · 42%"; }
             if (previewState == "update-ready") { state.Text = "Update verified"; detail.Text = "The launcher is restarting with the new version."; launch.Text = "RESTARTING…"; launch.Enabled = false; }
             if (busy) { launch.Text = "CANCEL"; launch.Enabled = true; }
             activity.Visible = busy;
@@ -925,9 +925,10 @@ public sealed class HellForgeForm : Form
     bool NeedsModeSetup()
     {
         var ours = lastMods?.Mods.Where(m => m.Enabled && HellForgePack.IsStarWarsOverhaulMod(m)).ToArray() ?? [];
-        return preferences.IsRegular ? ours.Length != 0 || lastStatus is { Multiplayer: false } or { LocalBackend: false }
+        var companionIssue = lastMods == null ? null : HellForgePreset.ModeCompanionProblem(lastMods, preferences.IsRegular ? "regular" : preferences.PackMode);
+        return preferences.IsRegular ? ours.Length != 0 || companionIssue != null || lastStatus is { Multiplayer: false } or { LocalBackend: false }
             : preferences.AppliedSelection != preferences.SelectionKey || ours.Length != 1 || ours[0].Id != HellForgePack.PackId(preferences.PackMode) ||
-              lastStatus is { Multiplayer: false } or { LocalBackend: false };
+              companionIssue != null || lastStatus is { Multiplayer: false } or { LocalBackend: false };
     }
     async Task PrepareAsync() => await OperationAsync(PrepareSelectedCoreAsync);
     async Task PrepareSelectedCoreAsync()
@@ -953,7 +954,8 @@ public sealed class HellForgeForm : Form
     {
         var report = new Progress<string>(text => { if (!IsDisposed) message.Text = text; });
         message.Text = "Checking every required gameplay mod…";
-        var missing = await client.MissingGameplayAsync(WorkToken);
+        var activeMode = preferences.IsRegular ? "regular" : preferences.PackMode;
+        var missing = await client.MissingGameplayAsync(activeMode, WorkToken);
         Cancellable = true;
         state.Text = "Installing mods"; detail.Text = "Preparing your selected mode for HellForge.";
         var downloading = true;
@@ -962,7 +964,7 @@ public sealed class HellForgeForm : Form
         finally { downloading = false; }
         Cancellable = false;
         progress.Style = ProgressBarStyle.Marquee;
-        await client.InstallGameplayAsync(client.GameplayCache, report, WorkToken);
+        await client.InstallGameplayAsync(client.GameplayCache, report, WorkToken, activeMode);
     }
     async Task PrepareCoreAsync()
     {

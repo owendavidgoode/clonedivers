@@ -1,0 +1,10 @@
+{
+  "format": 1,
+  "id": "clonedivers.starwars-localization",
+  "name": "Star Wars Localization Bridge",
+  "version": "0.1.0",
+  "description": "Restores EmpireDivers and Clonedivers Armory, armor, helmet, and weapon names in memory when HellForge's Forge Credits patch overwrites the US English TEXT archive, while keeping all Forge Credits labels intact.",
+  "gameplay": false,
+  "coop": "per-player",
+  "code": { "dll": "starwars_localization.dll", "sdk": 16, "game": "25480438" }
+}

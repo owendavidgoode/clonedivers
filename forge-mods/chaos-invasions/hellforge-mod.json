@@ -2,7 +2,7 @@
   "format": 1,
   "id": "clonedivers.chaos-invasions",
   "name": "Chaos Invasions",
-  "version": "0.3.3",
+  "version": "0.3.4",
   "description": "Playable cross-faction Chaos Mode: spawns foreign Automaton Dropships, Illuminate Warp Ships, and Terminid Breaches with paced HF_STATE_MISSION foreign package preloading (D11 Mega City OOM-safe), mutual-hostility perception, and clonedivers-host-options.json (off / standard / total-war) support.",
   "gameplay": true,
   "code": { "dll": "chaos_invasions.dll", "sdk": 16, "game": "25480438" }

@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Prepare the private Lua archive and verify the chaos-invasions-0.3.3 ZIP artifact."""
+"""Prepare the private Lua archive and verify the chaos-invasions-0.3.4 ZIP artifact."""
 from __future__ import annotations
 
 import argparse
@@ -14,7 +14,7 @@ import zipfile
 
 ROOT = Path(__file__).resolve().parents[1]
 MIXING = Path('D:/ClaudeWork/mixing')
-ZIP = ROOT / 'dist/chaos-invasions-0.3.3.zip'
+ZIP = ROOT / 'dist/chaos-invasions-0.3.4.zip'
 REFERENCE = MIXING / 'heavy-seaf-src/heavy-seaf-presence'
 ROW = struct.Struct('<7Q6I')
 LUA_TYPE = 0xa14e8dfa2cd117e2
@@ -109,7 +109,7 @@ def verify() -> None:
     manifest = json.loads((ROOT / 'hellforge-mod.json').read_text(encoding='utf-8'))
     if (manifest.get('id') != 'clonedivers.chaos-invasions' or
             manifest.get('name') != 'Chaos Invasions' or
-            manifest.get('version') != '0.3.3' or
+            manifest.get('version') != '0.3.4' or
             manifest.get('gameplay') is not True or
             manifest.get('code') != {'dll': 'chaos_invasions.dll', 'sdk': 16, 'game': '25480438'}):
         raise ValueError(f'Invalid hellforge-mod.json metadata: {manifest}')

@@ -16,10 +16,34 @@ public static class HellForgePreset
     public const string EmpireAtstWriter = "clonedivers.empire-atst-writer";
     public const string EmpireTieSwitch = "clonedivers.empire-tie-switch";
     public const string EmpireCameraPullback = "clonedivers.empire-camera-pullback";
+    public const string StarWarsLocalization = "clonedivers.starwars-localization";
     public const string DedicatedMeleeSlot = "vibeslacker.dedicated-melee-slot";
     public const string FasterCorpseCleanup = "local.faster-corpse-cleanup";
     public const string ChaosInvasions = "clonedivers.chaos-invasions";
-    public static readonly string[] Optional = [CleanExit, LegoCompactLeafWriter, EmpireLegoYoda, EmpireAtstWriter, EmpireTieSwitch, EmpireCameraPullback, DedicatedMeleeSlot, ChaosInvasions];
+    public static readonly string[] Optional = [CleanExit, LegoCompactLeafWriter, EmpireLegoYoda, EmpireAtstWriter, EmpireTieSwitch, EmpireCameraPullback, StarWarsLocalization, DedicatedMeleeSlot, ChaosInvasions];
+    public static readonly string[] AllModeCompanions = [LegoCompactLeafWriter, EmpireLegoYoda, EmpireAtstWriter, EmpireTieSwitch, EmpireCameraPullback, StarWarsLocalization];
+    public static string[] RequiredCompanionsForMode(string mode) => mode switch
+    {
+        "empire" => [LegoCompactLeafWriter, EmpireLegoYoda, EmpireAtstWriter, EmpireTieSwitch, EmpireCameraPullback, StarWarsLocalization],
+        "clonedivers" or "commandos" => [LegoCompactLeafWriter, EmpireLegoYoda, EmpireCameraPullback, StarWarsLocalization],
+        "regular" => [],
+        _ => []
+    };
+    public static bool IsModeCompanion(string id) => AllModeCompanions.Contains(id, StringComparer.Ordinal);
+    public static string? ModeCompanionProblem(HellForgeMods catalog, string mode)
+    {
+        var issues = new List<string>();
+        foreach (var id in RequiredCompanionsForMode(mode))
+        {
+            var mod = catalog.Mods.SingleOrDefault(m => m.Id == id);
+            var artifact = HellForgeGameplayCatalog.Pinned.Artifacts.SingleOrDefault(a => a.Id == id);
+            if (mod == null) issues.Add("Install " + (artifact?.Name ?? id));
+            else if (artifact != null && artifact.Version.Length > 0 && mod.Version != artifact.Version)
+                issues.Add($"{artifact.Name} needs version {artifact.Version} (found {mod.Version.DefaultIfEmptyVersion()})");
+            else if (!mod.Enabled) issues.Add("Enable " + mod.Name);
+        }
+        return issues.Count == 0 ? null : "Mode companion setup: " + string.Join("; ", issues) + ". Use Set up selected mode to sync required runtime mods.";
+    }
     public static readonly (string Id, string Name, string Version)[] Required = [
         ("hellforge.editor", "HellForge Editor", "0.4.2"),
         ("skyeshade.hell-forge", "Hell Forge Difficulty", "0.16.1"),

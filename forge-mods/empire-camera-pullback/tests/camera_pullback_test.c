@@ -1,4 +1,4 @@
-/* Comprehensive C11 unit, offline-capture & 65,672-unit D11 stress suite for empire-camera-pullback 0.1.2.
+/* Comprehensive C11 unit, offline-capture & 65,672-unit D11 stress suite for empire-camera-pullback 0.1.3.
  * Exercises the exact production implementation in ../src/camera_pullback.c across:
  *   1. INI parsing, defaults, UTF-8 BOM, clamping, and fail-closed allow_experimental_spring_arm.
  *   2. All 61 Compact LEGO (resource, expected_node_count) pairs + vanilla node-count rejection.
@@ -1378,6 +1378,6 @@ int main(int argc, char** argv)
     test_health_telemetry_and_hard_watchdog();
     test_h1_h2_m3_concurrency_and_vtable_guards();
 
-    printf("empire-camera-pullback v0.1.2 unit suite: %d checks run, %d failed\n", g_tests_run, g_tests_failed);
+    printf("empire-camera-pullback v0.1.3 unit suite: %d checks run, %d failed\n", g_tests_run, g_tests_failed);
     return g_tests_failed == 0 ? 0 : 1;
 }

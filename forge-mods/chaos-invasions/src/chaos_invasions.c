@@ -161,6 +161,8 @@ static float g_share_poll = 0.0f;
 static int g_shared_dirty = 0;
 static int g_shared_applied = 0;
 static double g_last_foreign_spawn_age = -1000.0;
+static float g_last_wave_anchor[3] = {0.0f, 0.0f, 0.0f};
+static int g_has_last_wave_anchor = 0;
 
 /* Optional unit-test overrides cleanly compiled out for shipping DLL */
 #ifdef CHAOS_UNIT_TEST
@@ -1062,6 +1064,68 @@ static void PreloadForeignFactionPackages(uintptr_t gbase, uintptr_t ebase, size
 
 /* ---- Ground Anchor Finder -------------------------------------------------------------------------------------- */
 
+static int EntityHasHealthRecord(uintptr_t gbase, size_t gsize, uint32_t entity)
+{
+    if (!gbase || gsize < CHAOS_HEALTH_RVA + 8u || !entity || entity == 0xFFFFFFFFu) return 0;
+    uintptr_t hm = 0, records = 0;
+    uint32_t hidx = 0;
+    return ReadPtr(gbase + CHAOS_HEALTH_RVA, &hm) &&
+           HashFindU32(hm + 0x1030u, entity, &hidx) &&
+           hidx < ReadU32(hm + 0x1020u, 0u) &&
+           ReadPtr(hm + 0x1058u, &records);
+}
+
+static void PruneStaleTrackedUnits(uintptr_t gbase, size_t gsize,
+                                   const float (*living_pos)[3], int living_players,
+                                   double now_age)
+{
+    int changed = 0;
+    int check_health = 1;
+#ifdef CHAOS_UNIT_TEST
+    if (g_mock.alive_override) check_health = 0;
+#endif
+    for (int i = 0; i < CHAOS_MAX_TRACKED; i++) {
+        ChaosTrackedUnit* u = &g_tracker.units[i];
+        if (!u->active) continue;
+        double age = now_age - u->spawn_age;
+        if (age < 0.0) age = 0.0;
+
+        if (check_health && gbase && gsize >= CHAOS_HEALTH_RVA + 8u) {
+            if (EntityHasHealthRecord(gbase, gsize, u->entity)) {
+                u->saw_health = 1u;
+            } else if (!u->saw_health && age >= 5.0) {
+                hf->log(self, "CHAOS_PRUNE_NO_HEALTH: faction=%s entity=%u age=%.1fs",
+                        (u->faction < CHAOS_FACTIONS) ? chaos_faction_names[u->faction] : "unknown",
+                        u->entity, age);
+                u->active = 0u;
+                changed = 1;
+                continue;
+            }
+        }
+
+        if (living_players > 0 && age >= 180.0 && gbase) {
+            float pos[3] = {0.0f, 0.0f, 0.0f};
+            if (EntityPosition(gbase, u->entity, pos)) {
+                float min_d2 = 1e30f;
+                for (int p = 0; p < living_players; p++) {
+                    float dx = pos[0] - living_pos[p][0];
+                    float dy = pos[1] - living_pos[p][1];
+                    float d2 = dx * dx + dy * dy;
+                    if (d2 < min_d2) min_d2 = d2;
+                }
+                if (min_d2 > 150.0f * 150.0f) {
+                    hf->log(self, "CHAOS_PRUNE_STRANDED: faction=%s entity=%u age=%.1fs dist=%.1fm",
+                            (u->faction < CHAOS_FACTIONS) ? chaos_faction_names[u->faction] : "unknown",
+                            u->entity, age, sqrtf(min_d2));
+                    u->active = 0u;
+                    changed = 1;
+                }
+            }
+        }
+    }
+    if (changed) ChaosTrackerRecount(&g_tracker);
+}
+
 static int FindSafeGroundAnchor(uintptr_t gbase, float out_anchor[3], float out_player[3])
 {
     float players[4][3];
@@ -1070,7 +1134,9 @@ static int FindSafeGroundAnchor(uintptr_t gbase, float out_anchor[3], float out_
     if (living <= 0 || !ReadPtr(gbase + CHAOS_ENCOUNTER_RVA, &em)) return 0;
 
     int start_p = (int)(NextRand() % (uint32_t)living);
-    for (int attempt = 0; attempt < 12; attempt++) {
+    for (int attempt = 0; attempt < 16; attempt++) {
+        int strict = (attempt < 10);
+        float max_dz = strict ? 6.0f : 12.0f;
         int pi = (start_p + attempt) % living;
         float angle = (float)(NextRand() % 3600u) * (3.14159265f / 1800.0f);
         float radius = 40.0f + (float)(NextRand() % 200u) * 0.1f; /* 40..60m probe center */
@@ -1081,11 +1147,15 @@ static int FindSafeGroundAnchor(uintptr_t gbase, float out_anchor[3], float out_
         };
         float candidate[3] = {0.0f, 0.0f, 0.0f};
         CallProjectAnchor(gbase, (void*)em, candidate, seed);
-        if (ChaosAnchorValid(candidate, players[pi], players, living)) {
-            memcpy(out_anchor, candidate, 12);
-            memcpy(out_player, players[pi], 12);
-            return 1;
+        if (!ChaosAnchorValidEx(candidate, players[pi], players, living, max_dz)) continue;
+        if (strict && g_has_last_wave_anchor) {
+            float ldx = candidate[0] - g_last_wave_anchor[0];
+            float ldy = candidate[1] - g_last_wave_anchor[1];
+            if (ldx * ldx + ldy * ldy < 20.0f * 20.0f) continue;
         }
+        memcpy(out_anchor, candidate, 12);
+        memcpy(out_player, players[pi], 12);
+        return 1;
     }
     return 0;
 }
@@ -1245,7 +1315,7 @@ static void DispatchStaggeredRoster(uintptr_t gbase, uintptr_t director, int fac
                                         3u, flags, target, delay);
         uint32_t eid = 0;
         if (slot && ReadMem((uintptr_t)slot + 8u, &eid, 4) && eid != 0u && eid != 0xFFFFFFFFu &&
-            ChaosTrackerRecordSpawn(&g_tracker, faction, eid, 1)) {
+            ChaosTrackerRecordSpawnAt(&g_tracker, faction, eid, 1, clock_state.age)) {
             ++dispatched;
             if (g_pending.active && g_pending.faction == faction) ++g_pending.unloaded_count;
         }
@@ -1255,11 +1325,13 @@ static void DispatchStaggeredRoster(uintptr_t gbase, uintptr_t director, int fac
 }
 
 static void DispatchChaosWave(uintptr_t gbase, uintptr_t director, int faction, int diff,
-                              const float anchor[3], const float player_pos[3])
+                              int squad_count, const float anchor[3], const float player_pos[3])
 {
-    int sq = config.squad_size;
+    int sq = squad_count > 0 ? squad_count : config.squad_size;
     if (sq < 1) sq = 1;
     if (sq > 6) sq = 6;
+    memcpy(g_last_wave_anchor, anchor, 12);
+    g_has_last_wave_anchor = 1;
 
     if (g_pending.active) ChaosTrackerReleaseUnusedReservations(&g_tracker, g_pending.faction);
     memset(&g_pending, 0, sizeof g_pending);
@@ -1611,6 +1683,8 @@ static void ResetMissionState(void)
     g_shared_dirty = 0;
     g_shared_applied = 0;
     g_last_foreign_spawn_age = -1000.0;
+    memset(g_last_wave_anchor, 0, sizeof g_last_wave_anchor);
+    g_has_last_wave_anchor = 0;
     g_wave_seq = 0u;
     ++g_mission_epoch;
     ChaosReset(&clock_state, &config);
@@ -1726,7 +1800,7 @@ static void OnSpawn(HfMod* mod, const HfEventInfo* info, void* user)
             }
         }
         if (g_native_faction >= 0 && fam != g_native_faction) {
-            if (ChaosTrackerRecordSpawn(&g_tracker, fam, e->entity, 0)) {
+            if (ChaosTrackerRecordSpawnAt(&g_tracker, fam, e->entity, 0, clock_state.age)) {
                 if (!g_shared_applied && (clock_state.age - g_last_foreign_spawn_age) >= 15.0) {
                     g_last_foreign_spawn_age = clock_state.age;
                     ++clock_state.attempts;
@@ -1742,9 +1816,11 @@ static void OnSpawn(HfMod* mod, const HfEventInfo* info, void* user)
         return;
     }
 
+    if (ChaosIsKnownCorpseWrapper(e->resource)) return;
+
     if (!EntityAuthorityAllowed(e->entity, e->authority)) {
         if (g_pending.active && fam != g_native_faction && e->resource != CHAOS_ENTITY_AVATAR &&
-            g_pending.unmapped_logged < 12) {
+            g_pending.unmapped_logged < 2) {
             ++g_pending.unmapped_logged;
             hf->log(self, "CHAOS_SPAWN_UNMAPPED: faction=%s entity=%u resource=%016llx auth=0 pending_faction=%s elapsed=%.1fs",
                     (fam >= 0 && fam < CHAOS_FACTIONS) ? chaos_faction_names[fam] : "unknown",
@@ -1755,7 +1831,7 @@ static void OnSpawn(HfMod* mod, const HfEventInfo* info, void* user)
     }
 
     if (fam < 0) {
-        if (g_pending.active && e->resource != CHAOS_ENTITY_AVATAR && g_pending.unmapped_logged < 12) {
+        if (g_pending.active && e->resource != CHAOS_ENTITY_AVATAR && g_pending.unmapped_logged < 2) {
             ++g_pending.unmapped_logged;
             hf->log(self, "CHAOS_SPAWN_UNMAPPED: faction=unknown entity=%u resource=%016llx auth=1 pending_faction=%s elapsed=%.1fs",
                     e->entity, (unsigned long long)e->resource,
@@ -1787,7 +1863,7 @@ static void OnSpawn(HfMod* mod, const HfEventInfo* info, void* user)
     }
 
     if (g_pending.active && g_pending.faction == fam) {
-        if (ChaosTrackerRecordSpawn(&g_tracker, fam, e->entity, 1)) {
+        if (ChaosTrackerRecordSpawnAt(&g_tracker, fam, e->entity, 1, clock_state.age)) {
             ++g_pending.unloaded_count;
             g_shared_dirty = 1;
             hf->log(self,
@@ -1798,7 +1874,7 @@ static void OnSpawn(HfMod* mod, const HfEventInfo* info, void* user)
                     g_tracker.live[fam], g_tracker.mission_spawned);
         }
     } else if (g_native_faction >= 0 && fam != g_native_faction) {
-        if (ChaosTrackerRecordSpawn(&g_tracker, fam, e->entity, 0)) {
+        if (ChaosTrackerRecordSpawnAt(&g_tracker, fam, e->entity, 0, clock_state.age)) {
             g_shared_dirty = 1;
             hf->log(self,
                     "CHAOS_SPAWN: faction=%s entity=%u resource=%016llx mode=late wave_unloaded=0/0 elapsed=%.1fs live=%d mission_spawned=%d",
@@ -1908,6 +1984,7 @@ static void Tick(HfMod* mod, float dt, void* user)
     }
 
     /* Authoritative Host / Solo path below */
+    PruneStaleTrackedUnits(gbase, gsize, living_pos, living_players, clock_state.age);
     ReconcilePeers(gbase);
 
     /* 250ms Host/Solo mutual-hostility perception narrowing */
@@ -1961,12 +2038,35 @@ static void Tick(HfMod* mod, float dt, void* user)
     ev.mission_spawned = g_tracker.mission_spawned;
 
     const char* refuse_why = ChaosRefuse(&config, &ev, chosen);
+    if (refuse_why && chosen >= 0 && chosen < CHAOS_FACTIONS && native >= 0 && native < CHAOS_FACTIONS &&
+        (strcmp(refuse_why, "population_cap") == 0 ||
+         strcmp(refuse_why, "faction_packages_not_resident") == 0 ||
+         strcmp(refuse_why, "peer_and_late_join_barrier_unqualified") == 0)) {
+        int alt = 3 - native - chosen;
+        if (alt >= 0 && alt < CHAOS_FACTIONS && alt != native && alt != chosen &&
+            ChaosWeight(&config, alt, diff) > 0) {
+            ChaosEvidence alt_ev = ev;
+            alt_ev.closure = g_rosters_loaded[alt];
+            alt_ev.resident = g_faction_resident[alt];
+            alt_ev.peers = PeersReadyForFaction(gbase, alt);
+            if (ChaosRefuse(&config, &alt_ev, alt) == NULL) {
+                chosen = alt;
+                ev = alt_ev;
+                refuse_why = NULL;
+            }
+        }
+    }
     if (refuse_why) {
-        hf->log(self, "CHAOS_SKIP: attempt=%u event=%s reason=%s total=%d/%d spawned=%d/%d",
+        int fac_live = (chosen >= 0 && chosen < CHAOS_FACTIONS) ? ev.live[chosen] : 0;
+        hf->log(self, "CHAOS_SKIP: attempt=%u event=%s reason=%s faction_live=%d/%d total=%d/%d squad=%d spawned=%d/%d",
                 clock_state.attempts, (chosen >= 0 && chosen < 3) ? chaos_names[chosen] : "none",
-                refuse_why, ev.total_live, config.total_cap, ev.mission_spawned, config.mission_budget);
+                refuse_why, fac_live, config.faction_cap, ev.total_live, config.total_cap,
+                config.squad_size, ev.mission_spawned, config.mission_budget);
         return;
     }
+
+    int eff_sq = ChaosEffectiveSquadSize(&config, &ev, chosen);
+    if (eff_sq <= 0) return;
 
     float anchor[3], target[3];
     if (!FindSafeGroundAnchor(gbase, anchor, target)) {
@@ -1975,7 +2075,7 @@ static void Tick(HfMod* mod, float dt, void* user)
         return;
     }
 
-    DispatchChaosWave(gbase, director, chosen, diff, anchor, target);
+    DispatchChaosWave(gbase, director, chosen, diff, eff_sq, anchor, target);
 }
 
 HF_MOD_EXPORT int hellforge_mod_init(const HfApi* api, HfMod* mod)
@@ -2037,8 +2137,8 @@ HF_MOD_EXPORT int hellforge_mod_init(const HfApi* api, HfMod* mod)
     if (HasChannelSend()) api->subscribe(mod, HF_ON_MESSAGE, OnMessage, NULL, 0);
     if (HasChannelShare()) api->subscribe(mod, HF_ON_SHARE, OnShare, NULL, 0);
 
-    SetStatusOnce("Chaos Invasions 0.3.3 ready");
-    api->log(mod, "CHAOS_INIT: version=0.3.3 build=25480438 sdk=16 enabled=%d cooldown=%d grace=%d cap=%d faction_cap=%d squad=%d budget=%d",
+    SetStatusOnce("Chaos Invasions 0.3.4 ready");
+    api->log(mod, "CHAOS_INIT: version=0.3.4 build=25480438 sdk=16 enabled=%d cooldown=%d grace=%d cap=%d faction_cap=%d squad=%d budget=%d",
              config.enabled, config.cooldown, config.grace, config.total_cap, config.faction_cap,
              config.squad_size, config.mission_budget);
     return 0;

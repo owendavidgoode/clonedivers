@@ -18,7 +18,7 @@
     <PackageReference Include="Avalonia.Themes.Fluent" Version="11.3.22" />
     <EmbeddedResource Include="../Clonedivers/clonedivers.ico" LogicalName="Clonedivers.Icon.ico" />
     <EmbeddedResource Include="../Clonedivers/Resources/hellforge-clones-r21.json" LogicalName="Clonedivers.HellForge.Manifest.json" />
-    <EmbeddedResource Include="../Clonedivers/Resources/hellforge-empire-r49.json" LogicalName="Clonedivers.HellForge.Empire.Manifest.json" />
+    <EmbeddedResource Include="../Clonedivers/Resources/hellforge-empire-r50.json" LogicalName="Clonedivers.HellForge.Empire.Manifest.json" />
     <EmbeddedResource Include="../Clonedivers/Resources/hellforge-clones-r20.json" LogicalName="Clonedivers.Tests.Clones.R20.Manifest.json" />
     <EmbeddedResource Include="../Clonedivers/Resources/hellforge-empire-r48.json" LogicalName="Clonedivers.Tests.Empire.R48.Manifest.json" />
     <EmbeddedResource Include="../Clonedivers/Resources/hellforge-r19.json" LogicalName="Clonedivers.Tests.Clones.R19.Manifest.json" />
@@ -28,7 +28,7 @@
     <EmbeddedResource Include="../Clonedivers/Resources/hellforge-empire-r46.json" LogicalName="Clonedivers.Tests.Empire.R46.Manifest.json" />
     <EmbeddedResource Include="../Clonedivers/Resources/hellforge-empire-r46-lighter.json" LogicalName="Clonedivers.Tests.Empire.R46.Lighter.Manifest.json" />
     <EmbeddedResource Include="../Clonedivers/Resources/hellforge-empire-r45-v4-lighter.json" LogicalName="Clonedivers.Tests.Empire.R45.Lighter.Manifest.json" />
-    <EmbeddedResource Include="../Clonedivers/Resources/forge-gameplay-build25480438-r8.json" LogicalName="Clonedivers.Forge.Gameplay.json" />
+    <EmbeddedResource Include="../Clonedivers/Resources/forge-gameplay-build25480438-r9.json" LogicalName="Clonedivers.Forge.Gameplay.json" />
     <EmbeddedResource Include="../Clonedivers/Resources/forge-gameplay-build25480438-r7.json" LogicalName="Clonedivers.Tests.Gameplay.R7.json" />
     <EmbeddedResource Include="../forge-mods/clean-exit/hellforge-mod.json" LogicalName="Clonedivers.Tests.CleanExit.json" />
     <EmbeddedResource Include="../forge-mods/lego-compact-leaf-writer/hellforge-mod.json" LogicalName="Clonedivers.Tests.LegoCompactLeafWriter.json" />
@@ -39,6 +39,7 @@
     <EmbeddedResource Include="../forge-mods/faster-corpse-cleanup/hellforge-mod.json" LogicalName="Clonedivers.Tests.FasterCorpseCleanup.json" />
     <EmbeddedResource Include="../forge-mods/heavy-seaf-presence/hellforge-mod.json" LogicalName="Clonedivers.Tests.HeavySeafPresence.json" />
     <EmbeddedResource Include="../forge-mods/empire-camera-pullback/hellforge-mod.json" LogicalName="Clonedivers.Tests.EmpireCameraPullback.json" />
+    <EmbeddedResource Include="../forge-mods/starwars-localization/hellforge-mod.json" LogicalName="Clonedivers.Tests.StarWarsLocalization.json" />
     <EmbeddedResource Include="../forge-mods/dedicated-melee-slot/hellforge-mod.json" LogicalName="Clonedivers.Tests.DedicatedMeleeSlot.json" />
     <Compile Include="..\Clonedivers\*.cs" Link="%(Filename)%(Extension)" />
     <Compile Include="..\Clonedivers\Ui\*.cs" Link="Ui\%(Filename)%(Extension)" />

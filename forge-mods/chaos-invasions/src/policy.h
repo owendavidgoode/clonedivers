@@ -1,4 +1,4 @@
-/* Chaos Invasions 0.3.3 policy, native pins, geometry/cap/map guards, co-op sync packets, and faction helpers.
+/* Chaos Invasions 0.3.4 policy, native pins, geometry/cap/map guards, co-op sync packets, and faction helpers.
  * Pure C helpers here have no engine dependencies and are directly unit-tested offline. */
 #ifndef CHAOS_POLICY_H
 #define CHAOS_POLICY_H
@@ -46,7 +46,7 @@ static inline void ChaosApplyHostIntensity(ChaosConfig* out, const ChaosConfig* 
         out->cooldown = 75;
         out->grace = 30;
         out->total_cap = 20;
-        out->faction_cap = 10;
+        out->faction_cap = 12;
         out->squad_size = 6;
         out->mission_budget = 72;
         out->bots_weight = 100;
@@ -66,7 +66,7 @@ static int ChaosOption(ChaosConfig* c, const char* key, int n)
     OPTION("cooldown_seconds", cooldown, 30, 900)
     OPTION("landing_grace_seconds", grace, 15, 300)
     OPTION("total_cap", total_cap, 1, 24)
-    OPTION("faction_cap", faction_cap, 1, 12)
+    OPTION("faction_cap", faction_cap, 1, 16)
     OPTION("squad_size", squad_size, 1, 6)
     OPTION("mission_budget", mission_budget, 1, 96)
     OPTION("droid_weight", bots_weight, 0, 200)
@@ -145,6 +145,25 @@ static inline int ChaosChoose(const ChaosConfig* c, int native, int difficulty, 
     return -1;
 }
 
+static inline int ChaosMinWaveSize(const ChaosConfig* c)
+{
+    if (!c) return 1;
+    return (c->squad_size >= 2) ? 2 : 1;
+}
+
+static inline int ChaosEffectiveSquadSize(const ChaosConfig* c, const ChaosEvidence* e, int type)
+{
+    if (!c || !e || type < 0 || type >= CHAOS_FACTIONS) return 0;
+    int rem_total = c->total_cap - e->total_live;
+    int rem_fac = c->faction_cap - e->live[type];
+    int rem_budget = c->mission_budget - e->mission_spawned;
+    int sq = c->squad_size;
+    if (rem_total < sq) sq = rem_total;
+    if (rem_fac < sq) sq = rem_fac;
+    if (rem_budget < sq) sq = rem_budget;
+    return sq > 0 ? sq : 0;
+}
+
 static inline const char* ChaosRefuse(const ChaosConfig* c, const ChaosEvidence* e, int type)
 {
     if (!c->enabled) return "disabled";
@@ -157,11 +176,12 @@ static inline const char* ChaosRefuse(const ChaosConfig* c, const ChaosEvidence*
     if (!e->resident) return "faction_packages_not_resident";
     if (!e->peers) return "peer_and_late_join_barrier_unqualified";
     if (!e->population_known) return "owned_population_unknown";
+    int min_wave = ChaosMinWaveSize(c);
     if (e->total_live < 0 || e->live[type] < 0 || e->mission_spawned < 0 ||
-        e->total_live > c->total_cap - c->squad_size ||
-        e->live[type] > c->faction_cap - c->squad_size)
+        c->total_cap - e->total_live < min_wave ||
+        c->faction_cap - e->live[type] < min_wave)
         return "population_cap";
-    if (e->mission_spawned > c->mission_budget - c->squad_size) return "mission_budget";
+    if (c->mission_budget - e->mission_spawned < min_wave) return "mission_budget";
     if (!e->placement) return "all_player_clearance_and_navmesh_unqualified";
     if (!e->constructor) return "networked_enemy_constructor_unqualified";
     if (!e->arrival) return "faction_arrival_unqualified";
@@ -309,10 +329,12 @@ static int ChaosRefMapHasHeadroom(const uint8_t* entries, uint32_t capacity, uin
 
 /* ---- Ground anchor spatial guard (Z up in Helldivers 2 world space) ---- */
 
-static int ChaosAnchorValid(const float anchor[3], const float target_player[3],
-                            const float (*living_players)[3], int living_count)
+static int ChaosAnchorValidEx(const float anchor[3], const float target_player[3],
+                              const float (*living_players)[3], int living_count,
+                              float max_abs_dz)
 {
     if (!anchor || !target_player || !living_players || living_count <= 0) return 0;
+    if (!isfinite(max_abs_dz) || max_abs_dz <= 0.0f) max_abs_dz = 12.0f;
     for (int i = 0; i < 3; i++) {
         if (!isfinite(anchor[i]) || fabsf(anchor[i]) > 50000.0f) return 0;
         if (!isfinite(target_player[i]) || fabsf(target_player[i]) > 50000.0f) return 0;
@@ -322,7 +344,7 @@ static int ChaosAnchorValid(const float anchor[3], const float target_player[3],
     float dy = anchor[1] - target_player[1];
     float dz = anchor[2] - target_player[2];
     float d2 = dx * dx + dy * dy;
-    if (d2 < 38.0f * 38.0f || d2 > 62.0f * 62.0f || fabsf(dz) > 25.0f) return 0;
+    if (d2 < 38.0f * 38.0f || d2 > 62.0f * 62.0f || fabsf(dz) > max_abs_dz) return 0;
     for (int i = 0; i < living_count; i++) {
         float px = living_players[i][0], py = living_players[i][1], pz = living_players[i][2];
         if (!isfinite(px) || !isfinite(py) || !isfinite(pz)) continue;
@@ -331,6 +353,12 @@ static int ChaosAnchorValid(const float anchor[3], const float target_player[3],
         if (pdx * pdx + pdy * pdy < 28.0f * 28.0f) return 0;
     }
     return 1;
+}
+
+static inline int ChaosAnchorValid(const float anchor[3], const float target_player[3],
+                                   const float (*living_players)[3], int living_count)
+{
+    return ChaosAnchorValidEx(anchor, target_player, living_players, living_count, 12.0f);
 }
 
 /* ---- Enemy entity classifier (sorted 64-bit resource hashes -> CHAOS_BOTS/SQUIDS/BUGS) ---- */
@@ -349,7 +377,7 @@ static const ChaosEnemyEntry kChaosEnemies[] = {
     {0x282eb766c1ffa6a1ull, 0u}, {0x2a12104f2853ae16ull, 0u}, {0x2cf3488c4845f8bdull, 0u}, {0x30cf04b2ec8c9bd4ull, 0u},
     {0x30f2dee2333f227aull, 0u}, {0x31bae74d2f064d8dull, 0u}, {0x32541fc4ec7c9cdcull, 2u}, {0x32cdeada234fb8dfull, 0u},
     {0x33b3e0ce8d179eecull, 0u}, {0x36aa99cce5e60146ull, 2u}, {0x3aff5fd7d5450b99ull, 2u}, {0x3d0e03e2d574e1caull, 2u},
-    {0x3e0537d606438feaull, 0u}, {0x4019623142351cb6ull, 0u}, {0x426b3df007be9f18ull, 0u}, {0x44458a2c52b002fbull, 1u},
+    {0x3e0537d606438feaull, 0u}, {0x4019623142351cb6ull, 0u}, {0x44458a2c52b002fbull, 1u},
     {0x453fe22c634eb30full, 1u}, {0x49674794a165eda8ull, 0u}, {0x4e342031a9d5c4f9ull, 1u}, {0x4e97fb073bdc7a4bull, 2u},
     {0x51eea86bf6997e4eull, 2u}, {0x52018deb9ab6827eull, 0u}, {0x53d8919d7b8abd67ull, 0u}, {0x54e107dacf6929cbull, 0u},
     {0x57eed0eac346cd9dull, 0u}, {0x58b2b86c11369241ull, 0u}, {0x5ca832447445c0baull, 2u}, {0x5d142c3a73ebc634ull, 0u},
@@ -383,6 +411,13 @@ static const ChaosEnemyEntry kChaosEnemies[] = {
     {0xfeb484ee972469f7ull, 0u}, {0xff5cc825b9571052ull, 0u},
 };
 
+static int ChaosIsKnownCorpseWrapper(uint64_t resource)
+{
+    return resource == 0x62928899DAC02979ull ||
+           resource == 0xC6D5AF4610B26661ull ||
+           resource == 0x9C311C48F9609212ull;
+}
+
 static int ChaosIsTransportResource(uint64_t resource)
 {
     return resource == 0xDB90077E76FAA025ull || /* cyborg_dropship */
@@ -412,6 +447,9 @@ typedef struct ChaosTrackedUnit {
     uint32_t entity;
     uint8_t faction;
     uint8_t active;
+    uint8_t saw_health;
+    uint8_t pad;
+    double spawn_age;
 } ChaosTrackedUnit;
 
 typedef struct ChaosTracker {
@@ -429,22 +467,29 @@ static void ChaosTrackerReset(ChaosTracker* t)
     memset(t, 0, sizeof *t);
 }
 
-static void ChaosTrackerPrune(ChaosTracker* t, ChaosAliveFn alive_fn, void* ctx)
+static void ChaosTrackerRecount(ChaosTracker* t)
 {
     memset(t->live, 0, sizeof t->live);
     t->total_live = 0;
     for (int i = 0; i < CHAOS_MAX_TRACKED; i++) {
         if (!t->units[i].active) continue;
-        if (alive_fn && !alive_fn(t->units[i].entity, ctx)) {
-            t->units[i].active = 0;
-            continue;
-        }
         int f = (int)t->units[i].faction;
         if (f >= 0 && f < CHAOS_FACTIONS) {
             ++t->live[f];
             ++t->total_live;
         }
     }
+}
+
+static void ChaosTrackerPrune(ChaosTracker* t, ChaosAliveFn alive_fn, void* ctx)
+{
+    for (int i = 0; i < CHAOS_MAX_TRACKED; i++) {
+        if (!t->units[i].active) continue;
+        if (alive_fn && !alive_fn(t->units[i].entity, ctx)) {
+            t->units[i].active = 0;
+        }
+    }
+    ChaosTrackerRecount(t);
 }
 
 static int ChaosTrackerHasEntity(const ChaosTracker* t, uint32_t entity)
@@ -454,7 +499,7 @@ static int ChaosTrackerHasEntity(const ChaosTracker* t, uint32_t entity)
     return 0;
 }
 
-static int ChaosTrackerRecordSpawn(ChaosTracker* t, int faction, uint32_t entity, int consume_reservation)
+static int ChaosTrackerRecordSpawnAt(ChaosTracker* t, int faction, uint32_t entity, int consume_reservation, double now_age)
 {
     if (faction < 0 || faction >= CHAOS_FACTIONS || entity == 0 || entity == 0xFFFFFFFFu) return 0;
     if (ChaosTrackerHasEntity(t, entity)) return 0;
@@ -463,6 +508,8 @@ static int ChaosTrackerRecordSpawn(ChaosTracker* t, int faction, uint32_t entity
             t->units[i].entity = entity;
             t->units[i].faction = (uint8_t)faction;
             t->units[i].active = 1u;
+            t->units[i].saw_health = 0u;
+            t->units[i].spawn_age = now_age;
             ++t->live[faction];
             ++t->total_live;
             if (consume_reservation && t->reserved[faction] > 0) --t->reserved[faction];
@@ -471,6 +518,11 @@ static int ChaosTrackerRecordSpawn(ChaosTracker* t, int faction, uint32_t entity
         }
     }
     return 0;
+}
+
+static inline int ChaosTrackerRecordSpawn(ChaosTracker* t, int faction, uint32_t entity, int consume_reservation)
+{
+    return ChaosTrackerRecordSpawnAt(t, faction, entity, consume_reservation, 0.0);
 }
 
 static void ChaosTrackerReserveWave(ChaosTracker* t, int faction, int count)
