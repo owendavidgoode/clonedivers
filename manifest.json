@@ -8117,9 +8117,9 @@
   },
   "app": {
     "channel": "forge",
-    "version": "2.1.1",
-    "url": "https://github.com/owendavidgoode/clonedivers/releases/download/v2.1.1/Clonedivers.exe",
-    "size": 76503534,
-    "sha256": "c5467efd0b7fe1e73c1b8ca40fe89ba51652121399b97033c39f64b1d837254e"
+    "version": "2.1.2",
+    "url": "https://github.com/owendavidgoode/clonedivers/releases/download/v2.1.2/Clonedivers.exe",
+    "size": 76507630,
+    "sha256": "1ed477ddfb43783028a658ada4cc5c2957745867409e3ec588306946036f73e7"
   }
 }
