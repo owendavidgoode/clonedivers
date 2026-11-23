@@ -320,8 +320,8 @@ internal static class Milestone1CoreTests
         Directory.CreateDirectory(dir);
 
         var catalogCode = SquadFingerprint.Compute(HellForgeGameplayCatalog.Current);
-        check(System.Text.RegularExpressions.Regex.IsMatch(catalogCode, @"^r8-[0-9a-f]{4}$"),
-              $"SquadFingerprint.Compute(Current) produces short deterministic r8 match code ({catalogCode})");
+        check(System.Text.RegularExpressions.Regex.IsMatch(catalogCode, @"^r9-[0-9a-f]{4}$"),
+              $"SquadFingerprint.Compute(Current) produces short deterministic r9 match code ({catalogCode})");
 
         // Build two player mod lists:
         // Player A: Clonedivers pack + all 7 gameplay:false client code mods enabled + r8 gameplay preset
@@ -332,9 +332,9 @@ internal static class Milestone1CoreTests
             foreach (var req in HellForgePreset.Required)
                 list.Add(new(req.Id, req.Name, true, "fixture", ["gameplay"], req.Id == "skyeshade.hell-forge" ? difficultyVersion : req.Version));
             list.Add(new("skyeshade.vanilla-plus", "Vanilla Plus", true, "fixture", ["gameplay"], ""));
-            list.Add(new(HellForgePreset.ChaosInvasions, "Chaos Invasions", enableChaos, "fixture", ["gameplay", "code"], "0.3.3"));
+            list.Add(new(HellForgePreset.ChaosInvasions, "Chaos Invasions", enableChaos, "fixture", ["gameplay", "code"], "0.3.4"));
 
-            foreach (var clientId in new[] { HellForgePreset.CleanExit, HellForgePreset.LegoCompactLeafWriter, HellForgePreset.EmpireLegoYoda, HellForgePreset.EmpireAtstWriter, HellForgePreset.EmpireTieSwitch, HellForgePreset.EmpireCameraPullback, HellForgePreset.DedicatedMeleeSlot })
+            foreach (var clientId in new[] { HellForgePreset.CleanExit, HellForgePreset.LegoCompactLeafWriter, HellForgePreset.EmpireLegoYoda, HellForgePreset.EmpireAtstWriter, HellForgePreset.EmpireTieSwitch, HellForgePreset.EmpireCameraPullback, HellForgePreset.StarWarsLocalization, HellForgePreset.DedicatedMeleeSlot })
                 list.Add(new(clientId, clientId, enableClientCodeMods, "fixture", ["code"], "0.2.1"));
 
             if (starWarsMode != null)

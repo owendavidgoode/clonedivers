@@ -8,7 +8,7 @@ public sealed class PreviewForgeHost : IForgeUiHost
     string enemySkin = "mixed-droids";
     string squidSkin = "mixed-covenant";
     bool deltaSquad = true;
-    bool deathTrooperVoice = true;
+    bool deathTrooperVoice = false;
     string texture = "full";
     bool autoPerformanceTier = true;
     string performanceTier = PerformanceTierAdvisor.Auto;
@@ -214,7 +214,7 @@ public sealed class PreviewForgeHost : IForgeUiHost
             AccountImported: true,
             IsModeAppliedOnDisk: previewSize.IsAppliedOnDisk,
             Progress: progress,
-            UpdateBanner: hasUpdate ? new ForgeUpdateBannerState("2.1.0", "Clonedivers v2.1.0 is ready to install — game copy and saves stay untouched.", "Update & Restart") : null,
+            UpdateBanner: hasUpdate ? new ForgeUpdateBannerState(AppInfo.Version, $"Clonedivers v{AppInfo.Version} is ready to install — game copy and saves stay untouched.", "Update & Restart") : null,
             SizePreview: previewSize,
             ToastNotice: preset == "home-clones" ? null : null,
             StepDownBanner: stepDown,
@@ -367,16 +367,16 @@ public sealed class PreviewForgeHost : IForgeUiHost
     public Task InstallSelfShortcutsAsync() { selfInstallDismissed = true; StateChanged?.Invoke(); return Task.CompletedTask; }
     public void DismissSelfInstallBanner() { selfInstallDismissed = true; StateChanged?.Invoke(); }
     public Task<WhatsNewResult> FetchWhatsNewAsync(string? versionOrTag, CancellationToken ct = default) => Task.FromResult(new WhatsNewResult(
-        Tag: WhatsNewFetcher.NormalizeTag(versionOrTag ?? "2.1.0", isLinux: false),
+        Tag: WhatsNewFetcher.NormalizeTag(versionOrTag ?? AppInfo.Version, isLinux: false),
         Bullets:
         [
             "5 native Star Wars texture tiers (up to -80% VRAM & decimated meshes on Ultra-Potato).",
-            "Empire r49 & Clones r21: folded-wing HD Lambda, multi-exo AT-ST, 500+ rig fixes & Death Trooper voice.",
+            "Empire r50 & Clones r21: AAA AT-ST, closed-hull Lambdas, unstretched helmets, British Imperial voices & SEAF blasters.",
             "3-way Mixed Covenant + Squids selector, O(1) camera pullback, Dedicated Melee Slot & D11 Chaos OOM fix.",
             "Squad Match Code (r8), clear pre-window launch staging status, and overhaul-pack collision guard."
         ],
         IsFallback: false,
-        ReleaseUrl: "https://github.com/owendavidgoode/clonedivers/releases/tag/v2.1.0"));
+        ReleaseUrl: $"https://github.com/owendavidgoode/clonedivers/releases/tag/v{AppInfo.Version}"));
     public void ToggleSoundEffects() { soundEffectsEnabled = !soundEffectsEnabled; StateChanged?.Invoke(); }
     public void OpenSteamLibrary() { }
     public Task EnterSetupAsync() { SetupVisibilityChanged?.Invoke(true); return Task.CompletedTask; }

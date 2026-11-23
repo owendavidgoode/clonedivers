@@ -59,7 +59,7 @@ public sealed record ForgeHomeState(
     ForgeSelfInstallBannerState? SelfInstallBanner = null,
     bool MinimizeToTray = false,
     string SquidSkin = "mixed-covenant",
-    bool DeathTrooperVoice = true);
+    bool DeathTrooperVoice = false);
 
 public sealed record ForgeSetupState(
     int Step, // 1..4

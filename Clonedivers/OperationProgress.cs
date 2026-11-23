@@ -670,7 +670,7 @@ public static class ForgeTacticalCopy
         string hostHeavySeaf = "standard",
         bool hostFasterCorpseCleanup = true,
         string? squidSkin = null,
-        bool deathTrooperVoice = true)
+        bool deathTrooperVoice = false)
     {
         var hostNote = FormatHostMutatorNote(hostChaosIntensity, hostHeavySeaf, hostFasterCorpseCleanup);
         if (string.Equals(mode, "regular", StringComparison.OrdinalIgnoreCase))
@@ -685,7 +685,7 @@ public static class ForgeTacticalCopy
         bool isDefaultFullMix = string.Equals(enemySkin, "mixed-droids", StringComparison.OrdinalIgnoreCase) &&
                                 string.Equals(effectiveSquid, "mixed-covenant", StringComparison.OrdinalIgnoreCase) &&
                                 (!isClones || deltaSquad) &&
-                                (!isEmpire || deathTrooperVoice);
+                                (!isEmpire || !deathTrooperVoice);
 
         string mixPart;
         if (isDefaultFullMix)
@@ -716,8 +716,8 @@ public static class ForgeTacticalCopy
             {
                 segments.Add("Covenant");
             }
-            if (isEmpire && !deathTrooperVoice)
-                segments.Add("Standard Voices");
+            if (isEmpire && deathTrooperVoice)
+                segments.Add("Death Trooper Voice");
             mixPart = string.Join(" · ", segments);
         }
 

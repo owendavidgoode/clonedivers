@@ -1193,7 +1193,7 @@ static void TestMidMissionHostMigration(void)
     game_state = HF_STATE_SHIP;
     ResetMockCountersAndModState();
     config = ChaosDefaults(); config.grace = 45; config.cooldown = 40;
-    config.total_cap = 8; config.faction_cap = 6; config.squad_size = 4; config.mission_budget = 12;
+    config.total_cap = 8; config.faction_cap = 4; config.squad_size = 4; config.mission_budget = 10;
     config.bots_weight = 100; config.squids_weight = 0;
     Publish();
 
@@ -1242,18 +1242,18 @@ static void TestMidMissionHostMigration(void)
     CHECK(g_faction_resident[CHAOS_BOTS] && g_faction_resident[CHAOS_SQUIDS]);
     CHECK(g_tracker.live[CHAOS_BOTS] == 3 && g_tracker.mission_spawned == 8);
 
-    /* Advance remaining 10s of cooldown: 9s -> nothing spawns; at +1s -> refused by inherited live[BOTS]=3 (3+4 > faction_cap=6)! */
+    /* Advance remaining 10s of cooldown: 9s -> nothing spawns; at +1s -> refused by inherited live[BOTS]=3 (rem=1 < min_wave=2)! */
     Seconds(9);
     CHECK(g_transport_calls == 0);
     Seconds(1);
     CHECK(g_transport_calls == 0 && skipped_logs >= 1u);
 
-    /* Kill another inherited Bot (live=2 -> 2+4 <= faction_cap=6): next cooldown fires wave & hits mission_budget=12! */
+    /* Kill another inherited Bot (live=2 -> rem=2 >= min_wave=2): next cooldown fires partial 2-bot wave & hits mission_budget=10! */
     g_mock_dead_entities[g_mock_dead_count++] = 5002u;
     Seconds(40);
-    CHECK(g_transport_calls == 1 && g_tracker.mission_spawned == 12);
-    /* Complete Wave 2 dropship unload cleanly (4 Bots spawn -> live=6, mission_spawned=12) */
-    for (uint32_t s = 0; s < 4u; s++) {
+    CHECK(g_transport_calls == 1 && g_pending.squad_size == 2 && g_tracker.mission_spawned == 10);
+    /* Complete Wave 2 dropship unload cleanly (2 Bots spawn -> live=4, mission_spawned=10) */
+    for (uint32_t s = 0; s < 2u; s++) {
         HfSpawnEvent w2 = {0};
         w2.info.size = sizeof w2;
         w2.entity = 6000u + s;
@@ -1262,12 +1262,12 @@ static void TestMidMissionHostMigration(void)
         OnSpawn(self, (const HfEventInfo*)&w2, NULL);
     }
     Seconds(1);
-    CHECK(!g_pending.active && g_tracker.live[CHAOS_BOTS] == 6 && g_tracker.mission_spawned == 12);
-    /* Kill all live enemies so only mission_budget=12 (NOT population_cap) blocks next wave */
+    CHECK(!g_pending.active && g_tracker.live[CHAOS_BOTS] == 4 && g_tracker.mission_spawned == 10);
+    /* Kill all live enemies so only mission_budget=10 (NOT population_cap) blocks next wave */
     g_mock_dead_entities[g_mock_dead_count++] = 5000u;
     g_mock_dead_entities[g_mock_dead_count++] = 5001u;
-    for (uint32_t s = 0; s < 4u; s++) g_mock_dead_entities[g_mock_dead_count++] = 6000u + s;
-    /* Next cooldown triggers at t=96s (39 more 1s ticks) -> must refuse for mission_budget (12 > 12-4) */
+    for (uint32_t s = 0; s < 2u; s++) g_mock_dead_entities[g_mock_dead_count++] = 6000u + s;
+    /* Next cooldown triggers at t=96s (39 more 1s ticks) -> must refuse for mission_budget (rem=0 < 2) */
     Seconds(39);
     CHECK(g_transport_calls == 1 && skipped_logs >= 2u);
 
@@ -1350,7 +1350,7 @@ static void TestHostOptionsPresetsAndPrecedence(HfApi* api)
         t0 + 10000000ULL));
     Seconds(2);
     CHECK(config.enabled == 1 && config.cooldown == 75 && config.grace == 30 &&
-          config.total_cap == 20 && config.faction_cap == 10 &&
+          config.total_cap == 20 && config.faction_cap == 12 &&
           config.squad_size == 6 && config.mission_budget == 72 &&
           config.squids_weight == 100);
     /* Verify 30s grace triggers a 6-unit total-war wave! */
@@ -1568,6 +1568,85 @@ static void TestH4SlowD11JoinerBarrierAndImmediateMissionSync(void)
     CHECK(g_transport_calls == 1u);
 }
 
+static void TestV034BotDropDeadlockAndCityHardening(void)
+{
+    /* 1. Partial headroom & alternate-faction fallback on native Squids (total-war: faction_cap=12, squad_size=6) */
+    ChaosConfig tw = ChaosDefaults();
+    ChaosApplyHostIntensity(&tw, &tw, CD_CHAOS_TOTAL_WAR);
+    CHECK(tw.faction_cap == 12 && tw.total_cap == 20 && tw.squad_size == 6);
+    ChaosEvidence ev = {0};
+    ev.host = ev.mission = ev.players = ev.closure = ev.resident = ev.peers = 1;
+    ev.placement = ev.constructor = ev.arrival = ev.population_known = 1;
+    ev.native_faction = CHAOS_SQUIDS;
+    ev.difficulty = 11;
+    ev.live[CHAOS_BOTS] = 5; ev.total_live = 5; ev.mission_spawned = 26;
+    CHECK(ChaosRefuse(&tw, &ev, CHAOS_BOTS) == NULL);
+    CHECK(ChaosEffectiveSquadSize(&tw, &ev, CHAOS_BOTS) == 6);
+    ev.live[CHAOS_BOTS] = 8; ev.total_live = 8;
+    CHECK(ChaosRefuse(&tw, &ev, CHAOS_BOTS) == NULL);
+    CHECK(ChaosEffectiveSquadSize(&tw, &ev, CHAOS_BOTS) == 4);
+    ev.live[CHAOS_BOTS] = 11; ev.total_live = 11; /* rem=1 < min_wave=2 -> refuses Bots, allows Bugs */
+    CHECK(strcmp(ChaosRefuse(&tw, &ev, CHAOS_BOTS), "population_cap") == 0);
+    CHECK(ChaosRefuse(&tw, &ev, CHAOS_BUGS) == NULL);
+
+    /* Live Tick() fallback: Bots capped at 11/12 on native Squids with both weights>0 -> falls back to Bug breach! */
+    InitMockGameArenas(CHAOS_NATIVE_SQUIDS_BIT, 11u);
+    role = HF_SESSION_SOLO;
+    game_state = HF_STATE_MISSION;
+    ResetMockCountersAndModState();
+    ChaosApplyHostIntensity(&config, &g_ini_config, CD_CHAOS_TOTAL_WAR);
+    config.grace = 15; config.cooldown = 30;
+    config.bots_weight = 199; config.bugs_weight = 1; /* strongly favors Bots */
+    Publish();
+    ChaosReset(&clock_state, &config);
+    for (uint32_t i = 0; i < 11u; i++) {
+        CHECK(ChaosTrackerRecordSpawnAt(&g_tracker, CHAOS_BOTS, 8000u + i, 0, 10.0));
+    }
+    Seconds(16);
+    CHECK(g_fx_calls == 1 && g_roster_calls == 6 && g_transport_calls == 0);
+
+    /* 2. Paired sub-entity 0x426b3df007be9f18 is NOT double-counted & corpse wrapper 0x62928899dac02979 suppressed */
+    CHECK(ChaosEnemyFamily(0x426b3df007be9f18ull) == -1);
+    CHECK(ChaosIsKnownCorpseWrapper(0x62928899DAC02979ull) == 1);
+    InitMockGameArenas(CHAOS_NATIVE_SQUIDS_BIT, 11u);
+    role = HF_SESSION_SOLO;
+    game_state = HF_STATE_MISSION;
+    ResetMockCountersAndModState();
+    ChaosApplyHostIntensity(&config, &g_ini_config, CD_CHAOS_TOTAL_WAR);
+    config.grace = 15; config.cooldown = 30;
+    config.bots_weight = 100; config.bugs_weight = 0;
+    Publish();
+    ChaosReset(&clock_state, &config);
+    Seconds(16);
+    CHECK(g_transport_calls == 1 && g_pending.active && g_pending.squad_size == 6);
+    HfSpawnEvent corpse_ev = {0};
+    corpse_ev.info.size = sizeof corpse_ev;
+    corpse_ev.entity = 8500u; corpse_ev.resource = 0x62928899DAC02979ull; corpse_ev.authority = 1;
+    OnSpawn(self, (const HfEventInfo*)&corpse_ev, NULL);
+    CHECK(spawn_unmapped_logs == 0u);
+    HfSpawnEvent sub_ev = {0};
+    sub_ev.info.size = sizeof sub_ev;
+    sub_ev.entity = 8501u; sub_ev.resource = 0x426b3df007be9f18ull; sub_ev.authority = 1;
+    OnSpawn(self, (const HfEventInfo*)&sub_ev, NULL);
+    CHECK(g_pending.unloaded_count == 0 && g_tracker.live[CHAOS_BOTS] == 0);
+    for (uint32_t s = 0; s < 6u; s++) {
+        HfSpawnEvent b_ev = {0};
+        b_ev.info.size = sizeof b_ev;
+        b_ev.entity = 8600u + s; b_ev.resource = 0x0002ba767df856f3ull; b_ev.authority = 1;
+        OnSpawn(self, (const HfEventInfo*)&b_ev, NULL);
+    }
+    CHECK(g_pending.unloaded_count == 6 && g_tracker.live[CHAOS_BOTS] == 6 && g_tracker.mission_spawned == 6);
+
+    /* 3. Mega City tight |dz| anchor guard */
+    float player[3] = {100.0f, 200.0f, 5.0f};
+    float players[1][3] = {{100.0f, 200.0f, 5.0f}};
+    float roof[3] = {145.0f, 200.0f, 23.0f};   /* |dz| = 18m rooftop */
+    float street[3] = {145.0f, 200.0f, 9.0f};  /* |dz| = 4m street */
+    CHECK(!ChaosAnchorValidEx(roof, player, players, 1, 6.0f));
+    CHECK(!ChaosAnchorValid(roof, player, players, 1));
+    CHECK(ChaosAnchorValidEx(street, player, players, 1, 6.0f));
+}
+
 int main(int argc, char** argv)
 {
     CHECK(argc == 2 && strlen(argv[1]) < sizeof fixture);
@@ -1622,6 +1701,7 @@ int main(int argc, char** argv)
     TestHostOptionsPresetsAndPrecedence(&api);
     TestPrepareMissionZeroPreloadAndPacedMissionQueue();
     TestH4SlowD11JoinerBarrierAndImmediateMissionSync();
+    TestV034BotDropDeadlockAndCityHardening();
 
     /* Kill switch latch & token mismatch tests */
     FILE* f = fopen(bridge, "wb"); CHECK(f != NULL);
@@ -1637,7 +1717,7 @@ int main(int argc, char** argv)
     Seconds(5);
     CHECK(stopped == 1); /* latched until session restart */
 
-    printf("PASS %u checks; 0.3.3 co-op policy, %u code pins, PrepareMission 0-preload OOM guard, paced HF_STATE_MISSION preloader, H4 slow-D11 joiner barrier, host-options presets, mid-mission migration, and 3/4/5-way perception verified\n",
+    printf("PASS %u checks; 0.3.4 co-op policy, partial-headroom/fallback, Mega City anchor & stranded pruner, %u code pins verified\n",
            checks, (unsigned)CPIN_COUNT);
     return 0;
 }

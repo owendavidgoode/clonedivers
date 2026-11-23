@@ -35,7 +35,7 @@ public sealed class HellForgePreferences
         get => squidSkin;
         set { squidSkin = value; squidSkinExplicit = true; }
     }
-    public bool DeathTrooperVoice { get; set; } = true;
+    public bool DeathTrooperVoice { get; set; } = false;
     public bool AutoPerformanceTier { get; set; } = true;
     public string PerformanceTier { get; set; } = PerformanceTierAdvisor.Auto;
     public bool SoundEffectsEnabled { get; set; } = true;
@@ -53,9 +53,9 @@ public sealed class HellForgePreferences
     public string PackMode => IsRegular ? "regular" : Mode == "empire" ? "empire" : DeltaSquad ? "commandos" : "clonedivers";
     string EnemyKeySegment => enemySkin == "mixed-droids" ? "mixed-droids" : Droids.ToString();
     string SquidKeySegment => squidSkin == "mixed-covenant" ? "mixed-covenant" : Covenant.ToString();
-    string EmpireVoiceSuffix => DeathTrooperVoice ? "" : "/deathtrooper-off";
+    string EmpireVoiceSuffix => DeathTrooperVoice ? "/deathtrooper" : "";
     public string SelectionKey => IsRegular ? $"regular/{HellForgePack.SupportedBuild}" :
-        Mode == "empire" ? $"r49/{HellForgePack.SupportedBuild}/empire/{Texture}/{EnemyKeySegment}/{SquidKeySegment}{EmpireVoiceSuffix}" :
+        Mode == "empire" ? $"r50/{HellForgePack.SupportedBuild}/empire/{Texture}/{EnemyKeySegment}/{SquidKeySegment}{EmpireVoiceSuffix}" :
         $"r21/{HellForgePack.SupportedBuild}/{PackMode}/{Texture}/{EnemyKeySegment}/{SquidKeySegment}";
     internal static string? CustomPreferencesPath()
     {
@@ -907,7 +907,7 @@ public sealed partial class HellForgeClient(string root, IHellForgeCommands comm
             await commands.RunAsync(["mod-remove", "--id", id], ct);
         }
         current = await ModsAsync(ct);
-        foreach (var previous in before.Mods.Where(m => HellForgePack.IsStarWarsOverhaulMod(m) || m.Id == DifficultyId))
+        foreach (var previous in before.Mods.Where(m => HellForgePack.IsStarWarsOverhaulMod(m) || m.Id == DifficultyId || HellForgePreset.IsModeCompanion(m.Id)))
         {
             var now = current.Mods.SingleOrDefault(m => m.Id == previous.Id) ?? throw new InvalidDataException("A previous preset mod is missing during recovery: " + previous.Name);
             if (now.Enabled == previous.Enabled) continue;
@@ -988,10 +988,19 @@ public sealed partial class HellForgeClient(string root, IHellForgeCommands comm
     {
         var catalog = await ModsAsync(ct);
         var selectedId = selection == null ? null : HellForgePack.PackId(selection.Mode);
+        var mode = selection?.Mode ?? "regular";
+        var neededCompanions = HellForgePreset.RequiredCompanionsForMode(mode).ToHashSet(StringComparer.Ordinal);
         foreach (var mod in catalog.Mods.Where(HellForgePack.IsStarWarsOverhaulMod))
         {
             await RequireIdleAsync(ct);
             await commands.RunAsync(["mod-switch", "--id", mod.Id, "--on", mod.Id == selectedId ? "yes" : "no"], ct);
+        }
+        foreach (var mod in catalog.Mods.Where(m => HellForgePreset.IsModeCompanion(m.Id)))
+        {
+            var wantOn = neededCompanions.Contains(mod.Id);
+            if (mod.Enabled == wantOn) continue;
+            await RequireIdleAsync(ct);
+            await commands.RunAsync(["mod-switch", "--id", mod.Id, "--on", wantOn ? "yes" : "no"], ct);
         }
         // The built-in difficulty adds 11 without removing 1–10. Let official setup supply it.
         if (catalog.Mods.Any(m => m.Id == DifficultyId))
@@ -1017,7 +1026,8 @@ public sealed partial class HellForgeClient(string root, IHellForgeCommands comm
         var catalog = await ModsAsync(ct);
         var selected = RequireSelected(catalog, selection);
         if (HellForgePreset.Problem(catalog, checkOrder: true) is { } preset) throw new InvalidDataException(preset);
-        if ((await MissingGameplayAsync(ct)).Any(a => !a.Optional)) throw new InvalidDataException("Required gameplay content changed. Use Prepare Star Wars pack to verify and repair the preset before launching.");
+        if (HellForgePreset.ModeCompanionProblem(catalog, selection.Mode) is { } companionIssue) throw new InvalidDataException(companionIssue);
+        if ((await MissingGameplayAsync(selection.Mode, ct)).Any(a => !a.Optional || HellForgePreset.RequiredCompanionsForMode(selection.Mode).Contains(a.Id, StringComparer.Ordinal))) throw new InvalidDataException("Required gameplay or mode companion content changed. Use Prepare Star Wars pack to verify and repair the preset before launching.");
         if (!catalog.Mods.Any(m => m.Id == DifficultyId && m.Enabled)) throw new InvalidDataException("Open HellForge setup to install its built-in difficulty 11, then enable it on the Mods page.");
         ValidateModFolder(selected.Folder);
         progress?.Report($"Verifying {Pack.FormatBytes(selection.Files.Sum(f => f.Size))} of Star Wars files…");
@@ -1037,6 +1047,7 @@ public sealed partial class HellForgeClient(string root, IHellForgeCommands comm
         var catalog = await ModsAsync(ct);
         RequireRegular(catalog);
         if (HellForgePreset.Problem(catalog, checkOrder: true) is { } preset) throw new InvalidDataException(preset);
+        if (HellForgePreset.ModeCompanionProblem(catalog, "regular") is { } companionIssue) throw new InvalidDataException(companionIssue);
         if ((await MissingGameplayAsync(ct)).Any(a => !a.Optional)) throw new InvalidDataException("Required gameplay content changed. Use Prepare to verify and repair the preset before launching.");
         if (!catalog.Mods.Any(m => m.Id == DifficultyId && m.Enabled)) throw new InvalidDataException("Enable HellForge's bundled difficulty mod on its Mods page.");
         return await StartAsync(ct, profile);

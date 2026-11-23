@@ -209,8 +209,8 @@ internal static class PlayerReviewTests
                 DeathTrooperVoice = v21EmpResp.GetProperty("DeathTrooperVoice").GetBoolean()
             };
             var v21EmpSel = v21EmpPrefs.Selection();
-            check(v21EmpSel.Version == "2026.11.22-r49" && v21EmpSel.Texture == "potato256" && v21EmpSel.Options["mixed-covenant"] && v21EmpSel.Options["covenant"] && !v21EmpSel.Options["deathtrooper"] && v21EmpSel.Files.Count == 135,
-                "bridge select-mode resolves potato256, mixed-covenant, and deathtrooper=false natively against Empire r49");
+            check(v21EmpSel.Version == "2026.11.22-r50" && v21EmpSel.Texture == "potato256" && v21EmpSel.Options["mixed-covenant"] && v21EmpSel.Options["covenant"] && !v21EmpSel.Options["deathtrooper"] && v21EmpSel.Files.Count == 144,
+                "bridge select-mode resolves potato256, mixed-covenant, and deathtrooper=false natively against Empire r50");
             var backResp = await playPlayer.RunAsync(["select-mode", "--mode", "empire", "--delta", "no", "--texture", "lighter", "--droids", "no", "--covenant", "no"], CancellationToken.None);
             check(backResp.GetProperty("Mode").GetString() == "empire" && backResp.GetProperty("Texture").GetString() == "lighter" &&
                 !backResp.GetProperty("Droids").GetBoolean() && backResp.GetProperty("EnemySkin").GetString() == "native-automatons",

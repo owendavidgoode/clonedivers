@@ -12,9 +12,9 @@ internal static class GameplayInstallTests
     {
         var catalog = HellForgeGameplayCatalog.Pinned;
         catalog.Validate();
-        check(catalog.Id == "build25480438-r8" && catalog.Artifacts.Count == 17 && catalog.Artifacts.Sum(a => a.Bytes) == 8494544,
-            "the r8 preset pairs eight optional SDK-16 mods with nine required gameplay and author archives");
-        check(catalog.Artifacts.Count(a => a.Url.Contains("/owendavidgoode/clonedivers/")) == 14 && catalog.Artifacts.Count(a => !a.Url.Contains("/owendavidgoode/clonedivers/")) == 3 &&
+        check(catalog.Id == "build25480438-r9" && catalog.Artifacts.Count == 18 && catalog.Artifacts.Sum(a => a.Bytes) == 8505056,
+            "the r9 preset pairs nine optional SDK-16 mods with nine required gameplay and author archives");
+        check(catalog.Artifacts.Count(a => a.Url.Contains("/owendavidgoode/clonedivers/")) == 15 && catalog.Artifacts.Count(a => !a.Url.Contains("/owendavidgoode/clonedivers/")) == 3 &&
             catalog.Artifacts.All(a => !a.Url.Contains("hf-mod.com", StringComparison.OrdinalIgnoreCase)) &&
             catalog.Artifacts.All(a => !a.FileName.Contains("clear-skies", StringComparison.OrdinalIgnoreCase)),
             "r8 eliminates hf-mod.com dependencies via permissive mirrors, permitted SEAF packages, project/MIT code mods, and three direct author GitHub releases while excluding non-redistributable clear-skies");
@@ -25,6 +25,7 @@ internal static class GameplayInstallTests
         var atst = catalog.Artifacts.Single(a => a.Id == HellForgePreset.EmpireAtstWriter);
         var tieSwitch = catalog.Artifacts.Single(a => a.Id == HellForgePreset.EmpireTieSwitch);
         var cameraPullback = catalog.Artifacts.Single(a => a.Id == HellForgePreset.EmpireCameraPullback);
+        var swLoc = catalog.Artifacts.Single(a => a.Id == HellForgePreset.StarWarsLocalization);
         var dedicatedMelee = catalog.Artifacts.Single(a => a.Id == HellForgePreset.DedicatedMeleeSlot);
         var chaos = catalog.Artifacts.Single(a => a.Id == HellForgePreset.ChaosInvasions);
         var corpseCleanup = catalog.Artifacts.Single(a => a.Id == HellForgePreset.FasterCorpseCleanup);
@@ -65,11 +66,16 @@ internal static class GameplayInstallTests
             dedicatedMelee.ContentHash == "814a5d993dbf5f9f7bb09c7e68636e1c80ba06a57c8b1d4efdc4815df7b1c9a4" &&
             dedicatedMelee.Url == "https://github.com/owendavidgoode/clonedivers/releases/download/forge-mods-2026-11-22/dedicated-melee-slot-1.5.2-clonedivers.2.zip",
             "Dedicated Melee Slot is optional with the exact 1.5.2-clonedivers.2 co-op release pins");
-        check(chaos.Name == "Chaos Invasions" && chaos.Version == "0.3.3" && chaos.Bytes == 42092 &&
-            chaos.Sha256 == "1a4c3f992f270d40aafe7305947a84a6e326151847d27ece774165f24543e67a" &&
-            chaos.ContentHash == "be9dc1cf956c391c8fdf4c307d4177a44fe25a30981dd3c4d49182d7a81215c7" &&
-            chaos.Url == "https://github.com/owendavidgoode/clonedivers/releases/download/forge-mods-2026-11-22/chaos-invasions-0.3.3.zip",
-            "Chaos Invasions is optional with the exact 0.3.3 D11 OOM-safe release pins");
+        check(swLoc.Name == "Star Wars Localization Bridge" && swLoc.Version == "0.1.0" && swLoc.Bytes == 8754 &&
+            swLoc.Sha256 == "0cc5177c808dbde1aaa43b3cc0e6ccf311e73321c8fbe64a25cc4b27c436bf82" &&
+            swLoc.ContentHash == "5ec6ebb41b2ff4c1b88138452c40c1465a00e3d3b1cc3d91c33008a1c153477a" &&
+            swLoc.Url == "https://github.com/owendavidgoode/clonedivers/releases/download/forge-mods-2026-11-22/starwars-localization-0.1.0.zip",
+            "Star Wars Localization Bridge is optional with the exact 0.1.0 release pins");
+        check(chaos.Name == "Chaos Invasions" && chaos.Version == "0.3.4" && chaos.Bytes == 43850 &&
+            chaos.Sha256 == "98f60eef437b2bf4237f7c271a6fa230cfbdd7bd5f64a943127accdf9df79a3f" &&
+            chaos.ContentHash == "8b53e5e9f079da96ee16ad51e7f7702fd1ea7f8eb094f868e8e1024de964fe19" &&
+            chaos.Url == "https://github.com/owendavidgoode/clonedivers/releases/download/forge-mods-2026-11-22/chaos-invasions-0.3.4.zip",
+            "Chaos Invasions is optional with the exact 0.3.4 D11 Mega City bot-drop release pins");
         check(!corpseCleanup.Optional && corpseCleanup.Version == "1.0.6-clonedivers.1" && corpseCleanup.Bytes == 75523 &&
             !heavySeaf.Optional && heavySeaf.Version == "1.2.0-clonedivers.5" && heavySeaf.Bytes == 106285,
             "Faster Corpse Cleanup (1.0.6-clonedivers.1) and Heavy SEAF Presence (1.2.0-clonedivers.5) are required in r8");

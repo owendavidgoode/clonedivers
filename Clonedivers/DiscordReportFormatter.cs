@@ -19,7 +19,7 @@ public sealed record DiscordReportInput(
     CrashTriageResult? Triage,
     bool RedactUserPaths = true,
     string? SquidSkin = null,
-    bool DeathTrooperVoice = true);
+    bool DeathTrooperVoice = false);
 
 /// <summary>
 /// Formats a concise 10–14 line Discord markdown diagnostic snippet covering version,
@@ -111,7 +111,7 @@ public static class DiscordReportFormatter
         CrashTriageResult? triage,
         bool redactUserPaths = true,
         string? squidSkin = null,
-        bool deathTrooperVoice = true) =>
+        bool deathTrooperVoice = false) =>
         Format(new DiscordReportInput(
             AppVersion: appVersion,
             Platform: OperatingSystem.IsLinux() ? "Linux" : "Windows",

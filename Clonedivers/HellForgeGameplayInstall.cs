@@ -25,6 +25,9 @@ public sealed partial class HellForgeClient
             if (intent.Catalog == HellForgeGameplayCatalog.Pinned.Id)
                 foreach (var artifact in HellForgeGameplayCatalog.Pinned.Artifacts.Where(a => a.Optional))
                     applied.Add(artifact.Id);
+            else if (intent.Catalog == "build25480438-r8")
+                foreach (var id in new[] { HellForgePreset.CleanExit, HellForgePreset.LegoCompactLeafWriter, HellForgePreset.EmpireLegoYoda, HellForgePreset.EmpireAtstWriter, HellForgePreset.EmpireTieSwitch, HellForgePreset.EmpireCameraPullback, HellForgePreset.DedicatedMeleeSlot, HellForgePreset.ChaosInvasions })
+                    applied.Add(id);
             else if (intent.Catalog is "build25480438-r7" or "build25480438-r6" or "build25480438-r5")
                 foreach (var id in new[] { HellForgePreset.CleanExit, HellForgePreset.LegoCompactLeafWriter, HellForgePreset.EmpireLegoYoda, HellForgePreset.EmpireAtstWriter, HellForgePreset.EmpireTieSwitch, HellForgePreset.ChaosInvasions })
                     applied.Add(id);
@@ -40,8 +43,8 @@ public sealed partial class HellForgeClient
         (HellForgePreset.LegoCompactLeafWriter, "0.0.9" or "0.1.0" or "0.2.0") or
         (HellForgePreset.EmpireLegoYoda, "0.1.0" or "0.1.2") or
         (HellForgePreset.EmpireAtstWriter, "0.1.0" or "0.2.0" or "0.2.1") or
-        (HellForgePreset.ChaosInvasions, "0.2.0" or "0.3.0" or "0.3.1" or "0.3.2") or
-        (HellForgePreset.EmpireCameraPullback, "0.1.0" or "0.1.1") or
+        (HellForgePreset.ChaosInvasions, "0.2.0" or "0.3.0" or "0.3.1" or "0.3.2" or "0.3.3") or
+        (HellForgePreset.EmpireCameraPullback, "0.1.0" or "0.1.1" or "0.1.2") or
         (HellForgePreset.DedicatedMeleeSlot, "1.5.2" or "1.5.2-clonedivers.1");
     bool GameplayDefaultsApplied
     {
@@ -95,22 +98,30 @@ public sealed partial class HellForgeClient
         return await GameplayHashAsync(mod.Archive, ct);
     }
 
-    public async Task<List<GameplayArtifact>> MissingGameplayAsync(CancellationToken ct = default)
+    public Task<List<GameplayArtifact>> MissingGameplayAsync(CancellationToken ct = default) =>
+        MissingGameplayAsync(activeMode: null, ct);
+
+    public async Task<List<GameplayArtifact>> MissingGameplayAsync(string? activeMode, CancellationToken ct = default)
     {
         var catalog = await ModsAsync(ct);
         if (catalog.Problems.Length != 0) throw new InvalidDataException("Resolve the mod catalog errors first: " + string.Join("; ", catalog.Problems));
         var missing = new List<GameplayArtifact>();
         var intent = ReadGameplayIntent();
         var appliedDefaults = AppliedOptionalDefaults();
+        var requiredForMode = string.IsNullOrEmpty(activeMode)
+            ? new HashSet<string>(StringComparer.Ordinal)
+            : HellForgePreset.RequiredCompanionsForMode(activeMode).ToHashSet(StringComparer.Ordinal);
         foreach (var artifact in HellForgeGameplayCatalog.Pinned.Artifacts)
         {
             var found = catalog.Mods.SingleOrDefault(m => m.Id == artifact.Id);
-            // Offer each optional default once. Later removal, disabling or replacement
-            // belongs to the player, while enabled prior-catalog defaults upgrade cleanly.
-            var upgradingEnabledPriorDefault = artifact.Optional && intent != null &&
+            // Required mode companions for the active Star Wars mode (e.g. AT-ST writer in Empire)
+            // are always kept installed at their pinned version. Other optional defaults are offered once
+            // while enabled prior-catalog defaults upgrade cleanly.
+            var requiredCompanion = requiredForMode.Contains(artifact.Id);
+            var upgradingEnabledPriorDefault = artifact.Optional && !requiredCompanion && intent != null &&
                 intent.Catalog != HellForgeGameplayCatalog.Pinned.Id &&
                 found is { Enabled: true } && IsRetiredOptionalDefault(artifact.Id, found.Version);
-            if (artifact.Optional && !upgradingEnabledPriorDefault && (appliedDefaults.Contains(artifact.Id) || found is { Enabled: false })) continue;
+            if (artifact.Optional && !requiredCompanion && !upgradingEnabledPriorDefault && (appliedDefaults.Contains(artifact.Id) || found is { Enabled: false })) continue;
             if (found == null || artifact.Version.Length > 0 && found.Version != artifact.Version || artifact.Version.Length == 0 && found.Name != artifact.Name)
             { missing.Add(artifact); continue; }
             ValidateModFolder(found.Folder);
@@ -156,10 +167,10 @@ public sealed partial class HellForgeClient
         { return "Gameplay recovery needs review: " + error.Message; }
     }
 
-    public Task InstallGameplayAsync(string staged, IProgress<string>? progress = null, CancellationToken ct = default) =>
-        InstallGameplayAsync(staged, progress, null, ct);
+    public Task InstallGameplayAsync(string staged, IProgress<string>? progress = null, CancellationToken ct = default, string? activeMode = null) =>
+        InstallGameplayAsync(staged, progress, null, ct, activeMode);
 
-    public async Task InstallGameplayAsync(string staged, IProgress<string>? progress, IProgress<OperationProgress>? richProgress, CancellationToken ct = default)
+    public async Task InstallGameplayAsync(string staged, IProgress<string>? progress, IProgress<OperationProgress>? richProgress, CancellationToken ct = default, string? activeMode = null)
     {
         using var budget = CancellationTokenSource.CreateLinkedTokenSource(ct); budget.CancelAfter(TimeSpan.FromMinutes(20)); ct = budget.Token;
         if (!Path.GetFullPath(staged).Equals(Path.GetFullPath(GameplayCache), RecoveryPathComparison)) throw new InvalidDataException("Use this installation's verified gameplay staging cache.");
@@ -167,8 +178,9 @@ public sealed partial class HellForgeClient
         await RequireGameplayIdleAsync(ct);
         richProgress?.Report(new("Checking gameplay preset", "Inspecting installed gameplay mods…", IsIndeterminate: true, CanCancel: false));
         var before = await ModsAsync(ct);
-        var missing = await MissingGameplayAsync(ct);
-        if (missing.Count == 0 && GameplayDefaultsApplied && HellForgePreset.Problem(before, checkOrder: true) == null) { progress?.Report("Required gameplay preset already verified."); return; }
+        var missing = await MissingGameplayAsync(activeMode, ct);
+        var companionMissing = !string.IsNullOrEmpty(activeMode) && HellForgePreset.ModeCompanionProblem(before, activeMode) != null;
+        if (missing.Count == 0 && !companionMissing && GameplayDefaultsApplied && HellForgePreset.Problem(before, checkOrder: true) == null) { progress?.Report("Required gameplay preset already verified."); return; }
         for (int i = 0; i < missing.Count; i++)
         {
             var artifact = missing[i];
@@ -238,7 +250,7 @@ public sealed partial class HellForgeClient
                 var mod = imported.Mods.SingleOrDefault(m => m.Id == artifact.Id) ?? throw new InvalidDataException("Forge did not import " + artifact.Name);
                 if (await InstalledGameplayHashAsync(mod, artifact, ct) != artifact.ContentHash) throw new InvalidDataException("Installed content differs for " + artifact.Name);
             }
-            await ConfigureGameplayAsync(missing, ct, richProgress);
+            await ConfigureGameplayAsync(missing, ct, richProgress, activeMode);
             var after = await ModsAsync(ct);
             if (HellForgePreset.Problem(after with { HostingProblem = null }, checkOrder: true) is { } issue) throw new InvalidDataException(issue);
             WriteGameplayIntent(intent with
@@ -259,12 +271,15 @@ public sealed partial class HellForgeClient
         }
     }
 
-    async Task ConfigureGameplayAsync(List<GameplayArtifact> installed, CancellationToken ct, IProgress<OperationProgress>? richProgress = null)
+    async Task ConfigureGameplayAsync(List<GameplayArtifact> installed, CancellationToken ct, IProgress<OperationProgress>? richProgress = null, string? activeMode = null)
     {
         var catalog = await ModsAsync(ct);
         var wanted = HellForgeGameplayCatalog.Pinned.Order.ToHashSet(StringComparer.Ordinal);
+        var requiredForMode = string.IsNullOrEmpty(activeMode)
+            ? new HashSet<string>(StringComparer.Ordinal)
+            : HellForgePreset.RequiredCompanionsForMode(activeMode).ToHashSet(StringComparer.Ordinal);
         var switches = catalog.Mods.Where(mod =>
-            !(HellForgeGameplayCatalog.Pinned.Artifacts.Any(a => a.Id == mod.Id && a.Optional) && installed.All(a => a.Id != mod.Id)) &&
+            !(HellForgeGameplayCatalog.Pinned.Artifacts.Any(a => a.Id == mod.Id && a.Optional) && !requiredForMode.Contains(mod.Id) && installed.All(a => a.Id != mod.Id)) &&
             (wanted.Contains(mod.Id) || HellForgePreset.IsConflictingAlternative(mod)) &&
             mod.Enabled != wanted.Contains(mod.Id)).ToList();
         var dogOptions = new[] { "Smarter Guard Dogs and Sentries", "Guard Dogs", "Sentries", "Intelligence", "Safety", "Sentry Safety", "SEAF Safety", "Targeting Marker" };

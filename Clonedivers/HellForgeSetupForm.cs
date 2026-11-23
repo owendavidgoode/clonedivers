@@ -646,8 +646,9 @@ internal sealed class HellForgeSetupForm : Form
             }
 
             // Stage and install required gameplay preset
+            var activeMode = preferences.IsRegular ? "regular" : preferences.PackMode;
             detail.Text = "Checking required gameplay mods…";
-            var missingGameplay = await client.MissingGameplayAsync(ct);
+            var missingGameplay = await client.MissingGameplayAsync(activeMode, ct);
             if (missingGameplay.Count > 0)
             {
                 SetCanPause(true);
@@ -670,7 +671,7 @@ internal sealed class HellForgeSetupForm : Form
             progress.Visible = true;
             progress.Style = ProgressBarStyle.Marquee;
             var installReport = new Progress<string>(msg => { if (!IsDisposed) detail.Text = msg; });
-            await client.InstallGameplayAsync(client.GameplayCache, installReport, ct);
+            await client.InstallGameplayAsync(client.GameplayCache, installReport, ct, activeMode);
 
             if (preferences.IsRegular)
             {

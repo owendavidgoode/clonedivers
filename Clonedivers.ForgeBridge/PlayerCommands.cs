@@ -108,9 +108,9 @@ internal sealed class PlayerCommands
                 return JsonSerializer.SerializeToElement(new { prepared = true, selection = selection.SelectionKey });
             case "recover-pack":
                 await client.RecoverInterruptedPackAsync(ct); return JsonSerializer.SerializeToElement(new { recovered = true });
-            case "gameplay-status": return JsonSerializer.SerializeToElement(await client.MissingGameplayAsync(ct));
+            case "gameplay-status": return JsonSerializer.SerializeToElement(await client.MissingGameplayAsync(selection.IsRegular ? "regular" : selection.PackMode, ct));
             case "install-gameplay":
-                await client.InstallGameplayAsync(args[2], ct: ct); return JsonSerializer.SerializeToElement(new { installed = true });
+                await client.InstallGameplayAsync(args[2], ct: ct, activeMode: selection.IsRegular ? "regular" : selection.PackMode); return JsonSerializer.SerializeToElement(new { installed = true });
             case "recover-gameplay":
                 await client.RecoverGameplayAsync(ct); return JsonSerializer.SerializeToElement(new { recovered = true });
             case "player-status": return await StateAsync(ct);
@@ -196,6 +196,7 @@ internal sealed class PlayerCommands
                 await HellForgePack.VerifyMetadataAsync(chosen.Folder, selection.Selection(), ct);
             }
             if (HellForgePreset.Problem(catalog) is { } preset) throw new InvalidDataException(preset);
+            if (HellForgePreset.ModeCompanionProblem(catalog, selection.IsRegular ? "regular" : selection.PackMode) is { } companionIssue) throw new InvalidDataException(companionIssue);
             if (!status.Multiplayer || !status.LocalBackend) throw new InvalidDataException("Enable the official local backend and Steam multiplayer in HellForge.");
             if (!imported.Imported) throw new InvalidDataException(imported.Message);
         }
