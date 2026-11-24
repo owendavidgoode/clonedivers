@@ -41,6 +41,12 @@ public static class CrashTriage
     public const double LowFpsThreshold = 35.0;
     public const string HarmlessQuitMessage = "Harmless game-exit bug — your mission saved fine.";
 
+    internal static bool HasEngineCrashLine(string line) =>
+        line.Contains("Access violation", StringComparison.OrdinalIgnoreCase) ||
+        line.Contains("Crash report", StringComparison.OrdinalIgnoreCase) ||
+        line.Contains("[Crash]", StringComparison.OrdinalIgnoreCase) ||
+        line.Contains("c0000005", StringComparison.OrdinalIgnoreCase);
+
     static readonly Regex QuitCrashLine = new(
         @"helldivers2\.exe\+0x0*626296\b",
         RegexOptions.IgnoreCase | RegexOptions.CultureInvariant);
@@ -132,7 +138,12 @@ public static class CrashTriage
         var sessionId = Path.GetFileName(sessionDir);
         var (exitCode, completedUtc, resultText) = ReadResultJson(sessionDir);
         var logLines = ReadBoundedModloaderTail(sessionDir);
-        var combinedText = string.Join("\n", new[] { statusHints, resultText, string.Join("\n", logLines) }
+        var engineLines = ReadBoundedEngineLogTail(sessionDir);
+        var allSessionLines = logLines.Count > 0 && engineLines.Count > 0
+            ? logLines.Concat(engineLines).ToList()
+            : (logLines.Count > 0 ? logLines : engineLines);
+        bool hasCrashDump = HasCrashDumpFile(sessionDir);
+        var combinedText = string.Join("\n", new[] { statusHints, resultText, string.Join("\n", allSessionLines) }
             .Where(s => !string.IsNullOrWhiteSpace(s)));
 
         // 1. Missing Linux pasta / passt network helper
@@ -146,7 +157,7 @@ public static class CrashTriage
                 SuggestStepDown: false,
                 SuggestedTierId: null,
                 ShouldUploadCrash: false,
-                RelevantLogLines: ExtractRelevantLines(logLines.Count > 0 ? logLines : SplitLines(combinedText)),
+                RelevantLogLines: ExtractRelevantLines(allSessionLines.Count > 0 ? allSessionLines : SplitLines(combinedText)),
                 SessionId: sessionId,
                 CompletedUtc: completedUtc);
         }
@@ -154,11 +165,18 @@ public static class CrashTriage
         // 2. Co-op mod mismatch (ALAMO041)
         if (ModMismatchPattern.IsMatch(combinedText))
         {
-            return BuildModMismatch(exitCode, logLines.Count > 0 ? logLines : SplitLines(combinedText), sessionId, completedUtc);
+            return BuildModMismatch(exitCode, allSessionLines.Count > 0 ? allSessionLines : SplitLines(combinedText), sessionId, completedUtc);
         }
 
-        // 3. Clean exit (exitCode == 0 and no crash lines)
-        if (exitCode == 0)
+        // 3. Out of VRAM / D3D12 device hung / 700AFB (check before exitCode==0 so sandboxed GPU hangs with wrapper exit 0 are caught)
+        if (VramFaultPattern.IsMatch(combinedText))
+        {
+            return BuildOutOfVram(exitCode, currentTierId, allSessionLines.Count > 0 ? allSessionLines : SplitLines(combinedText), sessionId, completedUtc);
+        }
+
+        // 4. Clean exit (exitCode == 0 and no crash dump / engine crash lines)
+        bool hasEngineCrashLine = engineLines.Any(HasEngineCrashLine);
+        if (exitCode == 0 && !hasCrashDump && !hasEngineCrashLine)
         {
             return new(
                 Kind: CrashKind.Clean,
@@ -173,14 +191,8 @@ public static class CrashTriage
                 CompletedUtc: completedUtc);
         }
 
-        // 4. Out of VRAM / D3D12 device hung / 700AFB
-        if (VramFaultPattern.IsMatch(combinedText))
-        {
-            return BuildOutOfVram(exitCode, currentTierId, logLines.Count > 0 ? logLines : SplitLines(combinedText), sessionId, completedUtc);
-        }
-
         // 5. Harmless documented quit-time crash (helldivers2.exe+0x626296, exit 1)
-        if ((exitCode == 1 || exitCode == null) && IsHarmlessQuitCrash(logLines, status?.LastNotice))
+        if ((exitCode == 1 || exitCode == 0 || exitCode == null) && IsHarmlessQuitCrash(allSessionLines, status?.LastNotice))
         {
             return new(
                 Kind: CrashKind.HarmlessQuit,
@@ -190,13 +202,15 @@ public static class CrashTriage
                 SuggestStepDown: false,
                 SuggestedTierId: null,
                 ShouldUploadCrash: false,
-                RelevantLogLines: ExtractRelevantLines(logLines),
+                RelevantLogLines: ExtractRelevantLines(allSessionLines),
                 SessionId: sessionId,
                 CompletedUtc: completedUtc);
         }
 
-        // 6. Other non-zero unexpected crash
-        var codeLabel = exitCode is { } code ? $"exit {code}" : "abnormal exit";
+        // 6. Other non-zero or crash-dumped unexpected crash
+        var codeLabel = exitCode is { } code && code != 0
+            ? ((uint)code >= 0x10000u ? $"exit 0x{(uint)code:X8}" : $"exit {code}")
+            : (hasCrashDump ? "crash dump recorded" : "abnormal exit");
         return new(
             Kind: CrashKind.UnexpectedCrash,
             ExitCode: exitCode,
@@ -205,7 +219,7 @@ public static class CrashTriage
             SuggestStepDown: false,
             SuggestedTierId: null,
             ShouldUploadCrash: true,
-            RelevantLogLines: ExtractRelevantLines(logLines.Count > 0 ? logLines : SplitLines(combinedText)),
+            RelevantLogLines: ExtractRelevantLines(allSessionLines.Count > 0 ? allSessionLines : SplitLines(combinedText)),
             SessionId: sessionId,
             CompletedUtc: completedUtc);
     }
@@ -348,6 +362,56 @@ public static class CrashTriage
         }
     }
 
+    internal static int? ParseSessionExitCode(JsonElement json)
+    {
+        if (json.ValueKind != JsonValueKind.Object) return null;
+        int? fallbackZero = null;
+        if (json.TryGetProperty("exitCode", out var codeEl))
+        {
+            if (TryParseExitElement(codeEl, out var parsed))
+            {
+                if (parsed != 0) return parsed;
+                fallbackZero = 0;
+            }
+        }
+        if (json.TryGetProperty("gameExitCode", out var gameCodeEl) && TryParseExitElement(gameCodeEl, out var gameCode))
+        {
+            if (gameCode != 0) return gameCode;
+            fallbackZero = 0;
+        }
+        if (json.TryGetProperty("sandboxExit", out var sbEl) && sbEl.ValueKind == JsonValueKind.Object)
+        {
+            if (sbEl.TryGetProperty("exitCode", out var sbCodeEl) && TryParseExitElement(sbCodeEl, out var sbCode))
+            {
+                if (sbCode != 0) return sbCode;
+                fallbackZero = 0;
+            }
+            if (sbEl.TryGetProperty("signal", out var sigEl) && sigEl.TryGetInt32(out var sig) && sig > 0)
+                return 128 + sig;
+        }
+        return fallbackZero;
+    }
+
+    static bool TryParseExitElement(JsonElement el, out int code)
+    {
+        code = 0;
+        if (el.ValueKind == JsonValueKind.Number && el.TryGetInt32(out code))
+            return true;
+        if (el.ValueKind == JsonValueKind.String && el.GetString() is { Length: > 0 } text)
+        {
+            var trimmed = text.Trim();
+            if (trimmed.StartsWith("0x", StringComparison.OrdinalIgnoreCase) &&
+                uint.TryParse(trimmed[2..], System.Globalization.NumberStyles.HexNumber, System.Globalization.CultureInfo.InvariantCulture, out var hex))
+            {
+                code = unchecked((int)hex);
+                return true;
+            }
+            if (int.TryParse(trimmed, System.Globalization.NumberStyles.Integer, System.Globalization.CultureInfo.InvariantCulture, out code))
+                return true;
+        }
+        return false;
+    }
+
     static (int? ExitCode, DateTimeOffset? CompletedUtc, string RawSummary) ReadResultJson(string sessionDir)
     {
         var path = Path.Combine(sessionDir, "result.json");
@@ -363,9 +427,7 @@ public static class CrashTriage
             if (doc.RootElement.ValueKind != JsonValueKind.Object)
                 return (null, null, "");
 
-            int? exitCode = null;
-            if (doc.RootElement.TryGetProperty("exitCode", out var codeEl) && codeEl.TryGetInt32(out var code))
-                exitCode = code;
+            int? exitCode = ParseSessionExitCode(doc.RootElement);
 
             DateTimeOffset? completedUtc = null;
             if (doc.RootElement.TryGetProperty("completedUtc", out var compEl) &&
@@ -374,7 +436,7 @@ public static class CrashTriage
                 completedUtc = dt;
 
             var summaryBuilder = new StringBuilder();
-            foreach (var key in new[] { "error", "failure", "message", "status", "cleanupError" })
+            foreach (var key in new[] { "error", "failure", "message", "status", "cleanupError", "gameExitCode", "sandboxDomainState" })
             {
                 if (doc.RootElement.TryGetProperty(key, out var val) && val.ValueKind == JsonValueKind.String && val.GetString() is { Length: > 0 } str)
                     summaryBuilder.AppendLine($"{key}: {str}");
@@ -429,6 +491,69 @@ public static class CrashTriage
             {
                 if (!string.IsNullOrWhiteSpace(line))
                     lines.Add(SanitizeLogLine(line));
+            }
+            return lines;
+        }
+        catch (Exception e) when (e is IOException or UnauthorizedAccessException or InvalidDataException)
+        {
+            return [];
+        }
+    }
+
+    static bool HasCrashDumpFile(string sessionDir)
+    {
+        try
+        {
+            FileSafety.RejectLink(sessionDir);
+            foreach (var sub in new[] { Path.Combine(sessionDir, "game"), Path.Combine(sessionDir, "game", "userdata") })
+            {
+                if (!Directory.Exists(sub)) continue;
+                FileSafety.RejectLink(sub);
+                foreach (var dmp in Directory.EnumerateFiles(sub, "crash-*.dmp"))
+                {
+                    FileSafety.RejectLink(dmp);
+                    return true;
+                }
+            }
+        }
+        catch (Exception e) when (e is IOException or UnauthorizedAccessException or InvalidDataException) { }
+        return false;
+    }
+
+    static IReadOnlyList<string> ReadBoundedEngineLogTail(string sessionDir)
+    {
+        try
+        {
+            FileSafety.RejectLink(sessionDir);
+            var candidates = new List<string>();
+            var engineDir = Path.Combine(sessionDir, "engine-logs");
+            if (Directory.Exists(engineDir))
+            {
+                FileSafety.RejectLink(engineDir);
+                candidates.AddRange(Directory.EnumerateFiles(engineDir, "*.txt").OrderBy(p => p, StringComparer.Ordinal));
+            }
+            var userLogs = Path.Combine(sessionDir, "game", "userdata", "logs");
+            if (candidates.Count == 0 && Directory.Exists(userLogs))
+            {
+                FileSafety.RejectLink(userLogs);
+                candidates.AddRange(Directory.EnumerateFiles(userLogs, "*console*.txt").OrderBy(p => p, StringComparer.Ordinal));
+            }
+            if (candidates.Count == 0) return [];
+
+            var lines = new List<string>();
+            foreach (var file in candidates.TakeLast(2))
+            {
+                FileSafety.RejectLink(file);
+                using var stream = new FileStream(file, FileMode.Open, FileAccess.Read, FileShare.ReadWrite | FileShare.Delete);
+                var start = Math.Max(0L, stream.Length - MaxLogTailBytes);
+                stream.Position = start;
+                using var reader = new StreamReader(stream, Encoding.UTF8, detectEncodingFromByteOrderMarks: true);
+                if (start > 0) _ = reader.ReadLine();
+                while (reader.ReadLine() is { } line)
+                {
+                    if (!string.IsNullOrWhiteSpace(line))
+                        lines.Add(SanitizeLogLine(line));
+                }
             }
             return lines;
         }

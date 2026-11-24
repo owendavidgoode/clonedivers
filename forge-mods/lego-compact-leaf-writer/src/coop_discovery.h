@@ -20,10 +20,12 @@ typedef struct CoopGarmentUnit {
     uint32_t target_kind;
     uint32_t app_graph_handle;
     uint8_t generation;
+    uint8_t meshes_resolved;
     uintptr_t unit;
     uintptr_t association;
     uint64_t resource;
     uint64_t discovered_ms;
+    uintptr_t lod_meshes[4];
 } CoopGarmentUnit;
 
 typedef struct CoopSlotCache {
@@ -81,6 +83,8 @@ static void coop_reopen_garment_probe(uintptr_t child_unit, uint32_t child_gen) 
     for (uint32_t g = 0; g < coopGarmentCount; g++) {
         if (coopGarments[g].unit == child_unit && coopGarments[g].generation == (uint8_t)child_gen) {
             coopGarments[g].discovered_ms = nowMs;
+            coopGarments[g].meshes_resolved = 0u;
+            memset(coopGarments[g].lod_meshes, 0, sizeof coopGarments[g].lod_meshes);
         }
     }
 }
@@ -170,6 +174,36 @@ static void coop_fast_publish(void) {
             }
         }
     }
+    int preMeshOverflow = 0;
+    for (uint32_t g = 0; g < coopGarmentCount; g++) {
+        const CoopGarmentUnit *gu = &coopGarments[g];
+        if (!gu->meshes_resolved) continue;
+        for (uint32_t k = 0; k < 4u; k++) {
+            uintptr_t mobj = gu->lod_meshes[k];
+            if (!mobj) continue;
+            int exists = 0;
+            uint32_t idx = coop_hash_ptr(mobj);
+            for (uint32_t p = 0; p < COOP_FAST_HT_SIZE; p++) {
+                uint32_t slot = (idx + p) & COOP_FAST_HT_MASK;
+                if (!coopFast.mesh_ht[slot]) {
+                    if (mc < COOP_MAX_TARGETS) {
+                        coopFast.meshes[mc++] = mobj;
+                        coopFast.mesh_ht[slot] = mobj;
+                        coopFast.mesh_ht_slot[slot] = (uint16_t)COOP_MAX_TARGETS;
+                    } else {
+                        preMeshOverflow = 1;
+                    }
+                    exists = 1;
+                    break;
+                }
+                if (coopFast.mesh_ht[slot] == mobj) {
+                    exists = 1;
+                    break;
+                }
+            }
+            if (!exists) preMeshOverflow = 1;
+        }
+    }
     for (uint32_t i = 0; i < hc; i++) {
         uint32_t h = coopFast.handles[i];
         uint32_t idx = coop_hash_u32(h);
@@ -182,20 +216,13 @@ static void coop_fast_publish(void) {
         }
     }
     /* need_handle_probe:
-     *   2 = immediate full handle probe (garment <5s old or freshly evicted/refused & <4 admitted meshes)
-     *   1 = 1-in-64 TLS-sampled probe (garment >5s old still missing an ordinal, e.g. culled remote player / late LOD)
-     *   0 = zero hf->read() steady state (all live garments have all 4 ordinals admitted) */
+     *   2 = immediate full handle probe (garment <5s old whose LOD MeshObjects are not yet resolved)
+     *   1 = 1-in-64 TLS-sampled probe (garment >5s old whose LOD MeshObjects are still unresolved or overflowed)
+     *   0 = zero hf->read() steady state (all live garments have their LOD MeshObjects pre-published in mesh_ht) */
     uint64_t nowMs = GetTickCount64();
     uint32_t needProbe = 0u;
     for (uint32_t g = 0; g < coopGarmentCount; g++) {
-        uint32_t admittedCount = 0u;
-        for (uint32_t i = 0; i < COOP_MAX_TARGETS; i++) {
-            const coop_target_slot *ts = &coopReg.targets[i];
-            if (ts->active && ts->child_unit == coopGarments[g].unit && ts->child_gen == coopGarments[g].generation) {
-                admittedCount++;
-            }
-        }
-        if (admittedCount < 4u) {
+        if (!coopGarments[g].meshes_resolved || preMeshOverflow) {
             if ((nowMs - coopGarments[g].discovered_ms) < COOP_HANDLE_PROBE_WINDOW_MS) {
                 needProbe = 2u;
                 break;
@@ -240,8 +267,11 @@ static int coop_fast_may_match_skin(uintptr_t mesh, int sampled) {
                 doProbe = ((++tls_late_probe & 63u) == 0u);
             }
             if (doProbe) {
+                DWORD savedErr = GetLastError();
                 uint32_t m_handle = 0u;
-                if (!hf || !hf->read || hf->read(mesh + 0x34u, &m_handle, 4u) != 0) return 1;
+                int rdErr = (!hf || !hf->read || hf->read(mesh + 0x34u, &m_handle, 4u) != 0);
+                SetLastError(savedErr);
+                if (rdErr) return 1;
                 if (m_handle && m_handle != 0xFFFFFFu) {
                     uint32_t idx = coop_hash_u32(m_handle);
                     for (uint32_t p = 0; p < COOP_FAST_HT_SIZE; p++) {
@@ -385,12 +415,41 @@ static int coop_upsert_garment(uint32_t idx, uint32_t tk, uint32_t graphHandle,
                 gu->association == assoc && gu->resource == resId) {
                 return 0;
             }
-            *gu = (CoopGarmentUnit){idx, tk, graphHandle, gen, u, assoc, resId, nowMs};
+            *gu = (CoopGarmentUnit){idx, tk, graphHandle, gen, 0u, u, assoc, resId, nowMs, {0}};
             return 1;
         }
     }
     if (coopGarmentCount < COOP_GARMENT_CACHE_LIMIT) {
-        coopGarments[coopGarmentCount++] = (CoopGarmentUnit){idx, tk, graphHandle, gen, u, assoc, resId, nowMs};
+        coopGarments[coopGarmentCount++] = (CoopGarmentUnit){idx, tk, graphHandle, gen, 0u, u, assoc, resId, nowMs, {0}};
+        return 1;
+    }
+    return 0;
+}
+
+static int coop_resolve_garment_meshes(const Manager *m, CoopGarmentUnit *gu) {
+    if (!m || !gu || gu->meshes_resolved) return 0;
+    UnitMeta child;
+    RenderMeta rmeta;
+    memset(&child, 0, sizeof child);
+    if (!MetaRead(m, gu->index, &child, NODE_LIMIT) ||
+        child.id.unit != gu->unit || child.id.generation != gu->generation ||
+        child.id.resource != gu->resource || !RenderRead(&child, &rmeta) ||
+        rmeta.graphHandle != gu->app_graph_handle) {
+        return 0;
+    }
+    uintptr_t found[4] = {0};
+    uint32_t expected = 0u, got = 0u;
+    for (uint32_t ord = 1u; ord <= 4u; ord++) {
+        if (!lp_asset_find(gu->resource, ord)) continue;
+        expected++;
+        if (ord < rmeta.meshes && rmeta.mesh[ord].registered && rmeta.mesh[ord].resolved.object) {
+            found[ord - 1u] = rmeta.mesh[ord].resolved.object;
+            got++;
+        }
+    }
+    if (expected > 0u && got == expected) {
+        memcpy(gu->lod_meshes, found, sizeof found);
+        gu->meshes_resolved = 1u;
         return 1;
     }
     return 0;
@@ -469,7 +528,7 @@ static int coop_discover_player_garments(const Manager *m) {
     if (!m || !m->capacity || m->capacity > COOP_UNIT_CAPACITY_LIMIT) return 0;
     coop_sync_roster_if_changed(m, 0);
     int spawned_garment = 0;
-    unsigned char uhdr[112];
+    unsigned char uhdr[0x78];
     for (uint32_t p = 0; p < coopReg.player_count; p++) {
         uintptr_t avatar = coopReg.players[p].avatar_unit;
         if (!Address(avatar) || !Span(avatar, 0x1E8u)) continue;
@@ -493,9 +552,12 @@ static int coop_discover_player_garments(const Manager *m) {
                 uint32_t tk = 0;
                 if (Address(resPtr) && Span(resPtr, 8u) && Read(resPtr, &resId, 8u) &&
                     coop_is_compact_garment(resId, &tk)) {
+                    const cm_garment *cg = cm_garment_at(tk);
                     uintptr_t assoc = U64(uhdr + 0x68u);
                     uint32_t graphHandle = U32(uhdr + 0x64u);
-                    if (Address(assoc) && assoc >= 0x10010u && graphHandle && graphHandle != 0xFFFFFFu) {
+                    uint32_t nodes = U32(uhdr + 0x70u);
+                    if (cg && nodes == cg->count &&
+                        Address(assoc) && assoc >= 0x10010u && graphHandle && graphHandle != 0xFFFFFFu) {
                         uint32_t h = U32(uhdr + 8u);
                         uint32_t idx = h & 0x3FFFFFu;
                         Identity cid;
@@ -503,6 +565,12 @@ static int coop_discover_player_garments(const Manager *m) {
                             coop_prune_garments_if_full(m);
                             if (coop_upsert_garment(idx, tk, graphHandle, cid.generation, u, assoc, resId)) {
                                 spawned_garment = 1;
+                                for (uint32_t k = 0; k < coopGarmentCount; k++) {
+                                    if (coopGarments[k].index == idx && !coopGarments[k].meshes_resolved) {
+                                        coop_resolve_garment_meshes(m, &coopGarments[k]);
+                                        break;
+                                    }
+                                }
                             }
                         }
                     }
@@ -588,7 +656,7 @@ static int coop_refresh_units(const Manager *m, uintptr_t preserve_mesh) {
     }
     /* Retire any active slot whose UnitManager index changed pointer/gen using O(active_targets) point reads. */
     if (coop_retire_stale_targets(m, preserve_mesh)) filterDirty = 1;
-    unsigned char uhdr[112];
+    unsigned char uhdr[0x78];
     int spawned_garment = 0;
     /* Keep cached garment units' render association & graph handle fresh via O(coopGarmentCount) point reads. */
     for (uint32_t i = 0; i < coopGarmentCount;) {
@@ -616,10 +684,15 @@ static int coop_refresh_units(const Manager *m, uintptr_t preserve_mesh) {
             if (gu->association != assoc || gu->app_graph_handle != graphHandle) {
                 gu->association = assoc;
                 gu->app_graph_handle = graphHandle;
+                gu->meshes_resolved = 0u;
+                memset(gu->lod_meshes, 0, sizeof gu->lod_meshes);
                 gu->discovered_ms = GetTickCount64();
                 spawned_garment = 1;
                 filterDirty = 1;
             }
+        }
+        if (!gu->meshes_resolved && coop_resolve_garment_meshes(m, gu)) {
+            filterDirty = 1;
         }
         i++;
     }
@@ -688,6 +761,13 @@ static int coop_refresh_units(const Manager *m, uintptr_t preserve_mesh) {
             coopScannedGens[i] = g;
             continue;
         }
+        const cm_garment *cg = cm_garment_at(tk);
+        if (!cg || U32(uhdr + 0x70u) != cg->count) {
+            coop_remove_garment_index(i);
+            coopScannedSlots[i] = u;
+            coopScannedGens[i] = g;
+            continue;
+        }
         uintptr_t assoc = U64(uhdr + 0x68u);
         uint32_t graphHandle = U32(uhdr + 0x64u);
         if (!Address(assoc) || assoc < 0x10010u || !graphHandle || graphHandle == 0xFFFFFFu) {
@@ -702,6 +782,12 @@ static int coop_refresh_units(const Manager *m, uintptr_t preserve_mesh) {
         if (coop_upsert_garment(i, tk, graphHandle, g, u, assoc, resId)) {
             spawned_garment = 1;
             filterDirty = 1;
+        }
+        for (uint32_t k = 0; k < coopGarmentCount; k++) {
+            if (coopGarments[k].index == i && !coopGarments[k].meshes_resolved) {
+                if (coop_resolve_garment_meshes(m, &coopGarments[k])) filterDirty = 1;
+                break;
+            }
         }
         coopScannedSlots[i] = u;
         coopScannedGens[i] = g;
@@ -832,6 +918,8 @@ static void CoopRetireHandle(gw_state *s, uintptr_t world, uint32_t handle) {
         }
         for (uint32_t g = 0; g < coopGarmentCount; g++) {
             coopGarments[g].discovered_ms = nowMs;
+            coopGarments[g].meshes_resolved = 0u;
+            memset(coopGarments[g].lod_meshes, 0, sizeof coopGarments[g].lod_meshes);
         }
         coop_neg_advance_epoch();
         coop_fast_publish();
@@ -933,17 +1021,24 @@ static int CoopResolveTarget(gw_state *s, void *mesh_ptr, void *pool_ptr, void *
             coop_discover_player_garments(&mgr);
             if (existing->child_index < mgr.capacity) {
                 Identity abaId;
-                unsigned char abahdr[112];
+                unsigned char abahdr[0x78];
                 if (IdentityRead(&mgr, existing->child_index, &abaId) == 0 &&
                     Span(abaId.unit, sizeof abahdr) && Read(abaId.unit, abahdr, sizeof abahdr) &&
                     U64(abahdr) == engine + VTABLE_RVA) {
                     uint32_t tk = 0;
                     uintptr_t assoc = U64(abahdr + 0x68u);
                     uint32_t gh = U32(abahdr + 0x64u);
-                    if (coop_is_compact_garment(abaId.resource, &tk) &&
+                    const cm_garment *cg = coop_is_compact_garment(abaId.resource, &tk) ? cm_garment_at(tk) : NULL;
+                    if (cg && U32(abahdr + 0x70u) == cg->count &&
                         Address(assoc) && assoc >= 0x10010u && gh && gh != 0xFFFFFFu) {
                         coop_prune_garments_if_full(&mgr);
                         if (coop_upsert_garment(existing->child_index, tk, gh, abaId.generation, abaId.unit, assoc, abaId.resource)) {
+                            for (uint32_t k = 0; k < coopGarmentCount; k++) {
+                                if (coopGarments[k].index == existing->child_index && !coopGarments[k].meshes_resolved) {
+                                    coop_resolve_garment_meshes(&mgr, &coopGarments[k]);
+                                    break;
+                                }
+                            }
                             coop_neg_advance_epoch();
                             coop_fast_publish();
                         }
@@ -990,7 +1085,7 @@ static int CoopResolveTarget(gw_state *s, void *mesh_ptr, void *pool_ptr, void *
 
     /* Reverse-join matching compact garment unit in already-discovered UnitManager cache (never bulk-scan UnitManager on 512B80). */
     uintptr_t expectedAssoc = rhdr.manager + 0x10u;
-    const CoopGarmentUnit *foundGu = NULL;
+    CoopGarmentUnit *foundGu = NULL;
     uint32_t matchCount = 0;
     for (uint32_t i = 0; i < coopGarmentCount; i++) {
         if (coopGarments[i].association == expectedAssoc && coopGarments[i].app_graph_handle == normal.handle) {
@@ -1032,6 +1127,7 @@ static int CoopResolveTarget(gw_state *s, void *mesh_ptr, void *pool_ptr, void *
         rmeta.header.live != rhdr.live ||
         rmeta.graphHandle != normal.handle || rmeta.graph.object != normal.cache) {
         if (existing) coop_evict_slot(existing);
+        if (coopScanComplete) coop_neg_insert(mesh, normal.handle, normal.cache, skin, w);
         InterlockedIncrement64(&s->rej_meta);
         goto out;
     }
@@ -1044,6 +1140,7 @@ static int CoopResolveTarget(gw_state *s, void *mesh_ptr, void *pool_ptr, void *
     }
     if (mmatches != 1u || ordinal < 1u || ordinal > 4u || !lp_asset_find(foundGu->resource, ordinal)) {
         if (existing) coop_evict_slot(existing);
+        if (coopScanComplete) coop_neg_insert(mesh, normal.handle, normal.cache, skin, w);
         InterlockedIncrement64(&s->rej_meta);
         goto out;
     }
@@ -1051,6 +1148,7 @@ static int CoopResolveTarget(gw_state *s, void *mesh_ptr, void *pool_ptr, void *
     uintptr_t descSkin = 0;
     if (mm->skin != skin || !Read(mm->descriptor + 0x80u, &descSkin, 8) || descSkin != skin) {
         if (existing) coop_evict_slot(existing);
+        if (coopScanComplete) coop_neg_insert(mesh, normal.handle, normal.cache, skin, w);
         InterlockedIncrement64(&s->rej_meta);
         goto out;
     }
@@ -1146,6 +1244,9 @@ static int CoopResolveTarget(gw_state *s, void *mesh_ptr, void *pool_ptr, void *
         goto out;
     }
 
+    if (!foundGu->meshes_resolved) {
+        coop_resolve_garment_meshes(&mgr, foundGu);
+    }
     coop_fill_se_target(&admitted, out_target);
     coop_fast_publish();
     *out_kind = kind;

@@ -51,28 +51,32 @@ static uint64_t g_qpf = 0u;
 static uint64_t g_tick_us_sum = 0u;
 static uint64_t g_tick_us_max = 0u;
 static uint64_t g_tick_count = 0u;
+static uint64_t g_next_poll_ms = 0u;
 static uint64_t g_next_health_ms = 0u;
 static uint32_t g_health_row = 0u;
 
 static void WriterTick(HfMod *mod, float dt, void *user) {
     (void)dt;
     (void)user;
-    LARGE_INTEGER t0, t1;
-    if (!g_qpf) {
-        LARGE_INTEGER f;
-        QueryPerformanceFrequency(&f);
-        g_qpf = f.QuadPart ? (uint64_t)f.QuadPart : 1u;
-    }
-    QueryPerformanceCounter(&t0);
-    /* Smooth rolling differential slice: 2048 slots/frame (~2s full D11 sweep at 60 FPS). */
-    at_writer_tick(&g_writer, 2048u);
-    QueryPerformanceCounter(&t1);
-    uint64_t us = (uint64_t)((t1.QuadPart - t0.QuadPart) * 1000000LL / (LONGLONG)g_qpf);
-    g_tick_us_sum += us;
-    g_tick_count++;
-    if (us > g_tick_us_max) g_tick_us_max = us;
-
     uint64_t now = GetTickCount64();
+    if (now >= g_next_poll_ms) {
+        g_next_poll_ms = now + 200u;
+        LARGE_INTEGER t0, t1;
+        if (!g_qpf) {
+            LARGE_INTEGER f;
+            QueryPerformanceFrequency(&f);
+            g_qpf = f.QuadPart ? (uint64_t)f.QuadPart : 1u;
+        }
+        QueryPerformanceCounter(&t0);
+        /* 200ms (5 Hz) throttled 4096-slot differential slice: zero game-thread syscalls on >96% of frames. */
+        at_writer_tick(&g_writer, 4096u);
+        QueryPerformanceCounter(&t1);
+        uint64_t us = (uint64_t)((t1.QuadPart - t0.QuadPart) * 1000000LL / (LONGLONG)g_qpf);
+        g_tick_us_sum += us;
+        g_tick_count++;
+        if (us > g_tick_us_max) g_tick_us_max = us;
+    }
+
     if (now >= g_next_health_ms && g_hf && g_hf->log && mod && g_health_row < 600u) {
         g_next_health_ms = now + 30000u;
         g_health_row++;

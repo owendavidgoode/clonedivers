@@ -35,7 +35,6 @@ void gw_retire_handle(gw_state *s,uintptr_t world,uint32_t handle) {
 }
 uint32_t gw_dispatch(gw_state *s,void *mesh,void *pool,void *graph,uintptr_t caller) {
  if(!gw_current && s->fast_may_match && gw_load(&s->ready)) {
-  uint32_t fast_csr=_mm_getcsr();DWORD fast_err=GetLastError();
   if(!s->fast_may_match(s,mesh,pool)) {
    se_next_fn fast_next=(se_next_fn)gw_load_ptr(&s->binding->next);
    if((void*)fast_next==s->approved_next &&
@@ -46,11 +45,9 @@ uint32_t gw_dispatch(gw_state *s,void *mesh,void *pool,void *graph,uintptr_t cal
      InterlockedAdd64(&s->calls,4096);
      InterlockedAdd64(&s->unclassified,4096);
     }
-    SetLastError(fast_err);_mm_setcsr(fast_csr);
     return fast_next(mesh,pool,graph);
    }
   }
-  SetLastError(fast_err);_mm_setcsr(fast_csr);
  }
  if(!gw_current && s->fast_coop_run && gw_load(&s->ready) && gw_load(&s->diagnostics_closed)) {
   uint32_t entry_csr=_mm_getcsr();DWORD entry_error=GetLastError();

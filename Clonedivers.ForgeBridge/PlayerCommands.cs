@@ -54,6 +54,8 @@ internal sealed class PlayerCommands
             managedWindow.Dispose();
             managedWindow = null;
         }
+        if (HellForgeWarbonds.ManagerWindowOpen())
+            return true;
         var manager = Process.Start(ManagerStart(root)) ?? throw new IOException("Official HellForge manager did not start.");
         // The long-lived manager must not hold the frontend's protocol pipes (our stdio), or their EOF never arrives on close.
         manager.StandardInput.Close(); manager.StandardOutput.Close(); manager.StandardError.Close();
@@ -62,9 +64,12 @@ internal sealed class PlayerCommands
     }
     bool ManagerWindowOpen()
     {
-        if (managedWindow == null) return false;
-        try { return !managedWindow.HasExited; }
-        catch (InvalidOperationException) { return false; }
+        if (managedWindow != null)
+        {
+            try { if (!managedWindow.HasExited) return true; }
+            catch (InvalidOperationException) { }
+        }
+        return HellForgeWarbonds.ManagerWindowOpen();
     }
     internal static ProcessStartInfo ManagerStart(string root) =>
         new(OperatingSystem.IsLinux() ? Path.Combine(root, "app", "launcher-linux", "HellForge.Launcher") : Path.Combine(root, "HellForge.exe")) {
@@ -134,8 +139,8 @@ internal sealed class PlayerCommands
     {
         var status = await client.StatusAsync(ct);
         // Preserve a known running or starting status even if a later mod/account query fails
-        // or while HellForge has swapped game/bin/steam_api64.dll for session SDK shims.
-        if (status.Running || HellForgeAccount.SessionShimsActive(root, UtcNow()))
+        // or while HellForge has swapped game/bin/steam_api64.dll for session SDK shims (unless cleanup already reported a restore failure).
+        if (status.Running || (status.LastFailure == null && HellForgeAccount.SessionShimsActive(root, UtcNow())))
             return JsonSerializer.SerializeToElement(new { status, ready = false,
                 detail = status.Running ? "Session running. End session waits for official cleanup." : "Session starting. Waiting for HellForge to launch the game.",
                 account = (object?)null, mods = (object?)null });
@@ -181,8 +186,27 @@ internal sealed class PlayerCommands
                 imported = AccountMessage(imported);
             }
         }
-        catch (Exception error) when (error is IOException or InvalidDataException or JsonException or UnauthorizedAccessException)
-        { lastAccount = null; lastAccountFingerprint = null; imported = new(false, false, error.Message); }
+        catch (Exception error) when (error is IOException or InvalidDataException or JsonException or UnauthorizedAccessException or TimeoutException)
+        {
+            if (HellForgeAccount.IsTransientReviewError(error, root) &&
+                ComputeAccountCacheKey() != null &&
+                (lastAccount is { Imported: true } || account.HasLocalImportReceipt()))
+            {
+                // Transient Wine/SDK-shim/lock contention after a session: keep the verified local import state
+                // for UI presentation so we never falsely prompt "Sync account", while clearing fingerprint to retry next poll.
+                lastAccountFingerprint = null;
+                imported = lastAccount is { Imported: true } prev
+                    ? prev
+                    : new(true, true, "Your HD2 account is imported. Waiting for Wine/SDK cleanup to finish.");
+                imported = AccountMessage(imported);
+            }
+            else
+            {
+                lastAccount = null;
+                lastAccountFingerprint = null;
+                imported = new(false, false, error.Message);
+            }
+        }
         string? problem = null;
         try
         {

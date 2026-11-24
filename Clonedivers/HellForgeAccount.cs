@@ -14,8 +14,8 @@ public sealed record HellForgeAccountState(bool Captured, bool Imported, string 
 public sealed class HellForgeAccount
 {
     public const string Profile = "default";
-    const string ReceiptName = "clonedivers-account-import.json";
-    const string PendingName = "clonedivers-account-import.pending.json";
+    internal const string ReceiptName = "clonedivers-account-import.json";
+    internal const string PendingName = "clonedivers-account-import.pending.json";
     sealed record Receipt(
         [property: JsonPropertyName("policy")] string Policy,
         [property: JsonPropertyName("capture")] string Capture,
@@ -47,22 +47,72 @@ public sealed class HellForgeAccount
         return null;
     }
 
-    /// <summary>True while HellForge has freshly swapped game/bin DLLs (e.g. steam_api64.dll) for session SDK shims.</summary>
+    /// <summary>True while HellForge has swapped game/bin DLLs (e.g. steam_api64.dll) for session SDK shims.</summary>
     public static bool SessionShimsActive(string root, DateTime? utcNow = null)
     {
         if (string.IsNullOrWhiteSpace(root)) return false;
         try
         {
-            var shims = Path.Combine(Path.TrimEndingDirectorySeparator(Path.GetFullPath(root)), "temp", "sdk-shim-originals");
+            var normalized = Path.TrimEndingDirectorySeparator(Path.GetFullPath(root));
+            var cloudOrig = Path.Combine(normalized, "game", "bin", "steam_api64_hellforge.dll");
+            if (File.Exists(cloudOrig)) return true;
+
+            var shims = Path.Combine(normalized, "temp", "sdk-shim-originals");
             if (!Directory.Exists(shims)) return false;
             var files = Directory.GetFiles(shims);
             if (files.Length == 0) return false;
-            // Guard against orphaned files left after a crash: only suppress probes during the active startup window (<= 3 min).
+
+            // PlaySession.SwapStandIns uses File.Copy (preserving original Nov 4 mtime) and RestoreStandIns leaves
+            // temp/sdk-shim-originals on disk. When game/bin/steam_api64.dll exists, compare byte length & SHA-256 directly.
+            var savedSteam = Path.Combine(shims, "steam_api64.dll");
+            var liveSteam = Path.Combine(normalized, "game", "bin", "steam_api64.dll");
+            if (File.Exists(savedSteam) && File.Exists(liveSteam))
+            {
+                var savedInfo = new FileInfo(savedSteam);
+                var liveInfo = new FileInfo(liveSteam);
+                if (savedInfo.Length != liveInfo.Length) return true;
+                var savedHash = SHA256.HashData(File.ReadAllBytes(savedSteam));
+                var liveHash = SHA256.HashData(File.ReadAllBytes(liveSteam));
+                return !savedHash.AsSpan().SequenceEqual(liveHash);
+            }
+
+            // Fallback for bare test fixtures without game/bin/steam_api64.dll: check 3-minute freshness window.
             var newestUtc = files.Max(File.GetLastWriteTimeUtc);
             var now = utcNow ?? DateTime.UtcNow;
             return now - newestUtc < TimeSpan.FromMinutes(3);
         }
         catch (Exception error) when (error is IOException or UnauthorizedAccessException) { return false; }
+    }
+
+    internal static bool IsTransientReviewError(Exception error, string root)
+    {
+        if (error is TimeoutException) return true;
+        if (!string.IsNullOrWhiteSpace(root) && SessionShimsActive(root)) return true;
+        var msg = error.Message ?? "";
+        return msg.Contains("supported build's own steam_api64.dll", StringComparison.OrdinalIgnoreCase) ||
+               msg.Contains("still running in the Wine prefix", StringComparison.OrdinalIgnoreCase) ||
+               msg.Contains("Another launcher is reviewing", StringComparison.OrdinalIgnoreCase) ||
+               msg.Contains("being used by another process", StringComparison.OrdinalIgnoreCase) ||
+               msg.Contains("process cannot access the file", StringComparison.OrdinalIgnoreCase) ||
+               msg.Contains("profile.lock", StringComparison.OrdinalIgnoreCase) ||
+               msg.Contains("timed out", StringComparison.OrdinalIgnoreCase);
+    }
+
+    internal bool HasLocalImportReceipt()
+    {
+        try
+        {
+            if (ReadPending() != null) return false;
+            var receipt = ReadReceipt();
+            if (receipt == null || !File.Exists(Checked(profile, "profile.json"))) return false;
+            var key = CaptureKey();
+            if (key == null || receipt.Capture != key) return false;
+            return true;
+        }
+        catch (Exception error) when (error is IOException or UnauthorizedAccessException or JsonException or InvalidDataException)
+        {
+            return false;
+        }
     }
 
     public bool HasAutoApplyEnabled()

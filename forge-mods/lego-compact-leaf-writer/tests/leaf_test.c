@@ -128,5 +128,17 @@ int main(int argc,char **argv){CHECK(argc==2);for(unsigned i=0;i<37;i++){char pa
  CHECK(state.fault.state==2&&state.fault.reason==GW_CAPACITY&&!state.fault.record_owned&&state.fault.sequence==1);
  for(unsigned i=0;i<GW_SLOTS;i++)state.slots[i].state=0;refuse_capture=1;invoke();CHECK(state.fault.state==2&&!state.fault.record_owned);
  setup(0,0);skin[16]^=1;invoke();CHECK(state.fault.state==4&&state.fault.record.capture_status==-1002&&!state.fault.sampler_status&&state.fault.plan.trace.stage==15);
+ /* Regression test for Clonedivers 33bf1c45 leaf-fault-first.bin: valid near-zero float 8.3859653e-38f
+  * producing ~1.274e-57 double residuals and subnormal products must flush cleanly to 0.0f without CM_NUMERICAL. */
+ {setup(0,0);float tiny=8.3859653e-38f,sub=1.0e-40f;
+  cm_render48 *p0=(cm_render48*)(poses[0]),*p1=(cm_render48*)(poses[1]);
+  /* Perturb parent root (payload+13312+100*48) off-axis zero entry with 8.3859653e-38f while keeping rigid basis within tolerance. */
+  cm_render48 *par0=(cm_render48*)(payload+13312),*par1=(cm_render48*)(payload+18448);
+  par0[100].v[2]=tiny;par1[100].v[2]=tiny;
+  p0[0].v[2]=sub;p1[0].v[2]=sub;
+  invoke();CHECK(state.corrected==1&&!state.failed&&!state.fatal);
+  cm_render48 r_out;cm_render48 r_a={{1.f,0.f,tiny,-0.00914f, 0.f,1.f,0.f,0.f, 0.f,0.f,1.f,0.f}};
+  cm_render48 r_b={{1.f,0.f,0.f,0.f, 0.f,1.f,0.f,0.f, -0.00914f,0.f,1.f,0.f}};
+  _mm_setcsr(0x1f80);CHECK(cm_compose(&r_a,&r_b,&r_out)==CM_OK);}
  printf("leaf_checks=%ld retained_calls=74 native_game_calls=0\n",checks);return 0;
 }

@@ -666,7 +666,7 @@ static void test_options_parser_and_bounds(const char* temp_dir)
 
 static void test_all_61_lego_garments_and_vanilla_rejection(void)
 {
-    TEST_CHECK(ECP_LEGO_GARMENT_COUNT == 61u, "exact 61 garments");
+    TEST_CHECK(ECP_LEGO_GARMENT_COUNT == 79u, "exact 79 garments");
     for (size_t i = 0; i < ECP_LEGO_GARMENT_COUNT; i++) {
         if (i > 0) {
             TEST_CHECK(kEcpLegoGarments[i - 1].resource < kEcpLegoGarments[i].resource, "garment table strictly sorted");
@@ -712,6 +712,7 @@ static void test_offline_capture_pins_if_present(void)
 
     struct { uint32_t rva; const char* pin; const char* name; } checks[] = {
         {ECP_EXE_CAMERA_STEP, kEcpPinCameraStep, "CAMERA_STEP"},
+        {ECP_EXE_CAMERA_SUB_STEP, kEcpPinCameraSubStep, "CAMERA_SUB_STEP_PROTON_FALLBACK"},
         {ECP_EXE_SET_LOCAL_POSE, kEcpPinSetLocalPose, "SET_LOCAL_POSE"},
         {ECP_EXE_UPDATE_UNIT, kEcpPinUpdateUnit, "UPDATE_UNIT"},
         {ECP_EXE_LOOKUP_UNIT, kEcpPinLookupUnit, "LOOKUP_UNIT"},
@@ -719,11 +720,18 @@ static void test_offline_capture_pins_if_present(void)
         {ECP_EXE_PHYSICS_RAYCAST, kEcpPinRaycast, "PHYSICS_RAYCAST"},
     };
     for (size_t i = 0; i < sizeof(checks) / sizeof(checks[0]); i++) {
-        uint8_t buf[32];
+        uint8_t buf[40];
         long file_off = (long)(checks[i].rva - 0x1000u);
         TEST_CHECK(fseek(f, file_off, SEEK_SET) == 0, checks[i].name);
         TEST_CHECK(fread(buf, 1, sizeof(buf), f) == sizeof(buf), checks[i].name);
         TEST_CHECK(MatchPatternBytes(buf, checks[i].pin) == 1, checks[i].name);
+    }
+    /* Verify the callsite at exe+0x689BFB inside CAMERA_STEP is `E8 00 CD B3 FF` (call 0x1C6900, ret 0x689C00). */
+    {
+        uint8_t call_bytes[5] = {0};
+        TEST_CHECK(fseek(f, (long)(0x689BFBu - 0x1000u), SEEK_SET) == 0, "CAMERA_STEP_SUB_CALL_SEEK");
+        TEST_CHECK(fread(call_bytes, 1, sizeof(call_bytes), f) == sizeof(call_bytes), "CAMERA_STEP_SUB_CALL_READ");
+        TEST_CHECK(MatchPatternBytes(call_bytes, "E8 00 CD B3 FF") == 1, "CAMERA_STEP_CALLS_1C6900_RET_689C00");
     }
     fclose(f);
 }
@@ -1360,6 +1368,31 @@ static void test_h1_h2_m3_concurrency_and_vtable_guards(void)
         "H1/H2: 0 invalid/zeroed cam_ref or base_pose writes across 2,000 concurrent state/teardown/spawn transitions");
 }
 
+static uint32_t g_fake_sub_calls = 0;
+static uint64_t FakeOrigSub(void* a, void* b, void* c, uint64_t d, void* e)
+{
+    (void)a; (void)b; (void)c; (void)d; (void)e;
+    g_fake_sub_calls++;
+    return 0xCAFEBABEULL;
+}
+
+static void test_proton_fallback_substep_caller_filter(void)
+{
+    ResetHarnessScene();
+    g_origSubStep = FakeOrigSub;
+    g_fake_sub_calls = 0;
+    g_set_pose_calls = 0;
+    /* Non-matching caller (e.g. exe+0x68922A) -> delegates to g_origSubStep WITHOUT applying camera pullback! */
+    uint64_t r1 = EcpSubStepDetourWithCaller((void*)1, (void*)2, (void*)3, 4ULL, (void*)5, g_exeBase + 0x68922Au);
+    TEST_CHECK(r1 == 0xCAFEBABEULL && g_fake_sub_calls == 1u && g_set_pose_calls == 0,
+        "Proton SubStep ignores non-CAMERA_STEP callers");
+    /* Matching caller (exe+0x689C00) -> applies camera pullback AND delegates to g_origSubStep! */
+    uint64_t r2 = EcpSubStepDetourWithCaller((void*)1, (void*)2, (void*)3, 4ULL, (void*)5, g_exeBase + ECP_EXE_CAMERA_STEP_RET);
+    TEST_CHECK(r2 == 0xCAFEBABEULL && g_fake_sub_calls == 2u && g_set_pose_calls == 1,
+        "Proton SubStep applies pullback on exact exe+0x689C00 return address");
+    g_origSubStep = NULL;
+}
+
 int main(int argc, char** argv)
 {
     const char* temp_dir = argc > 1 ? argv[1] : NULL;
@@ -1377,6 +1410,7 @@ int main(int argc, char** argv)
     test_paused_unoverwritten_pose_drift_guard();
     test_health_telemetry_and_hard_watchdog();
     test_h1_h2_m3_concurrency_and_vtable_guards();
+    test_proton_fallback_substep_caller_filter();
 
     printf("empire-camera-pullback v0.1.3 unit suite: %d checks run, %d failed\n", g_tests_run, g_tests_failed);
     return g_tests_failed == 0 ? 0 : 1;

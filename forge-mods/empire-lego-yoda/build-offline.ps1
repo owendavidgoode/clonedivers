@@ -29,11 +29,17 @@ try {
     & "$Zig\zig.exe" cc -std=c11 -target x86_64-windows-gnu -O2 -Wall -Werror -Wno-unused-parameter -I $sdk "$mod\tests\yoda_test.c" -o "$mod\build\yoda_test.exe" -municode
     if ($LASTEXITCODE -ne 0) { throw 'Test host compilation failed' }
     $fixture = Join-Path $mod ('build\fixtures-' + [guid]::NewGuid().ToString('N'))
-    & "$mod\build\yoda_test.exe" $Candidate $fixture | Tee-Object -FilePath "$mod\build\tests.log"
-    if ($LASTEXITCODE -ne 0) { throw 'Offline regression checks failed' }
+    Push-Location $mod
+    try {
+        & "$mod\build\yoda_test.exe" $Candidate $fixture | Tee-Object -FilePath "$mod\build\tests.log"
+        if ($LASTEXITCODE -ne 0) { throw 'Offline regression checks failed' }
+    } finally {
+        Pop-Location
+    }
     & $Cli package-mod --mod $stage --out $Out | Tee-Object -FilePath "$mod\build\package.log"
     if ($LASTEXITCODE -ne 0) { throw 'package-mod failed' }
-    $zipPath = Join-Path $Out 'empire-lego-yoda-0.2.0.zip'
+    $modVer = (Get-Content -LiteralPath "$mod\hellforge-mod.json" -Raw | ConvertFrom-Json).version
+    $zipPath = Join-Path $Out "empire-lego-yoda-$modVer.zip"
     if (Test-Path -LiteralPath $zipPath) {
         $zipSha = (Get-FileHash -LiteralPath $zipPath -Algorithm SHA256).Hash.ToLowerInvariant()
         $zipLen = (Get-Item -LiteralPath $zipPath).Length

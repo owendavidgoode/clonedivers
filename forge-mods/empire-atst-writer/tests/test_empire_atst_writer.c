@@ -42,7 +42,10 @@ typedef struct {
     unsigned char hdr[0xD8];
     uint64_t resource_id;
     at_render48 worlds[AT_S2C_NODES];
-    uint16_t topology[AT_S2C_NODES];
+    struct {
+        uint16_t type;
+        uint16_t parent;
+    } topology[AT_S2C_NODES];
 } sim_unit;
 
 typedef struct {
@@ -173,7 +176,12 @@ static void bind_walker(
     w->handle = 64u | handle_idx; /* live bit (64) + slot idx (1..63) */
 
     w->unit.resource_id = AT_UNIT_RESOURCE_ID;
-    memcpy(w->unit.topology, AT_S2C_PARENT, sizeof(AT_S2C_PARENT));
+    w->unit.topology[0].type = 0u;
+    w->unit.topology[0].parent = AT_S2C_PARENT[0];
+    for (unsigned k = 1u; k < AT_S2C_NODES; k++) {
+        w->unit.topology[k].type = 1u;
+        w->unit.topology[k].parent = AT_S2C_PARENT[k];
+    }
     w_u64(w->unit.hdr, 0x00, (uint64_t)(eng_base + AT_RVA_UNIT_VTABLE));
     w_u64(w->unit.hdr, 0x30, (uint64_t)(uintptr_t)&w->unit.resource_id);
     w_u32(w->unit.hdr, 0x64, w->handle);
@@ -1223,6 +1231,63 @@ static void test_exo49_and_mixed_variant_walkers(at_writer_state *ws, sim_unit_m
     printf("[PASS] test_exo49_and_mixed_variant_walkers exo49_max_err=%.9e m\n", max_exo49_err);
 }
 
+static void test_stingray_4byte_topology_and_subnormal_resilience(at_writer_state *ws, sim_unit_mgr *um, sim_render_sys *rs) {
+    at_writer_shutdown(ws);
+    memset(um->slots, 0, sizeof(um->slots));
+    InterlockedExchange(&ws->ready, 1);
+
+    /* 1. Reject flat 2-byte topology layout; admit real 4-byte {type, parent} Stingray topology */
+    sim_walker w;
+    bind_walker(&w, um, rs, (uintptr_t)g_fake_engine, 0u, 1u, 11u, 0u);
+    uint16_t flat_2b[AT_S2C_NODES * 2u];
+    memset(flat_2b, 0, sizeof(flat_2b));
+    memcpy(flat_2b, AT_S2C_PARENT, sizeof(AT_S2C_PARENT));
+    w_u64(w.unit.hdr, 0x98, (uint64_t)(uintptr_t)flat_2b);
+    TEST_ASSERT(at_writer_tick(ws, 0u) == 0u, "flat 2-byte uint16_t[106] topology must fail admission");
+
+    w_u64(w.unit.hdr, 0x98, (uint64_t)(uintptr_t)w.unit.topology);
+    TEST_ASSERT(at_writer_tick(ws, 0u) == 1u, "4-byte {type, parent}[106] Stingray topology admitted");
+
+    /* 2. Subnormal / double-to-float underflow residuals (1.274e-57, 8.386e-38f * -0.00914f) flush cleanly to 0.0f */
+    at_mat4 near_axis = {{
+         1.0,  1.274474e-57, -5.829008e-58, -2.595067e-58,
+        -1.274474e-57, 1.0,   1.0e-42,       3.5,
+         5.829008e-58, -1.0e-42, 1.0,       -1.25,
+         0.0,  0.0,           0.0,           1.0
+    }};
+    at_render48 packed;
+    TEST_ASSERT(at_pack(&near_axis, &packed) == AT_OK, "at_pack flushes <FLT_MIN double residuals to 0.0f");
+    TEST_ASSERT(packed.v[1] == 0.0f && packed.v[2] == 0.0f && packed.v[3] == 0.0f, "tiny residuals flushed to exact 0.0f");
+
+    at_render48 tiny_rot = {{
+        1.0f, 8.3859653e-38f, 0.0f, 0.0f,
+        -8.3859653e-38f, 1.0f, 0.0f, 0.0f,
+        0.0f, 0.0f, 1.0f, 0.0f
+    }};
+    at_render48 rhs = {{
+        1.0f, 0.0f, 0.0f, -0.00914f,
+        0.0f, 1.0f, 0.0f, 0.0f,
+        0.0f, 0.0f, 1.0f, 0.0f
+    }};
+    at_render48 comp;
+    TEST_ASSERT(at_compose48(&tiny_rot, &rhs, &comp) == AT_OK, "at_compose48 flushes subnormal product <FLT_MIN to 0.0f");
+
+    /* Inject near-zero 8.3859653e-38f off-diagonal elements into live S2c graph and verify full 512B80->5B2990 pass */
+    at_mat4 id = {{1,0,0,0, 0,1,0,0, 0,0,1,0, 0,0,0,1}};
+    build_s2c_graph_from_clip(&ws->rig, AT_CLIP_POSES[0].native_local, &id, w.graph.cur);
+    build_s2c_graph_from_clip(&ws->rig, AT_CLIP_POSES[0].native_local, &id, w.graph.prev);
+    w.graph.cur[0].v[1] = 8.3859653e-38f;
+    w.graph.cur[0].v[4] = -8.3859653e-38f;
+    at_receipt rec;
+    at_writer_dispatch_512B80(
+        ws, &w.mesh, (void *)(rs->world + 0x318u), &w.graph,
+        (uintptr_t)g_fake_engine + AT_RVA_CALLER_NORMAL, &rec);
+    TEST_ASSERT(rec.seen == 6u && rec.replaced == 6u && rec.failure == 0u && ws->math_failures == 0u,
+                "live S2c solve with 8.386e-38f rotation off-diagonals succeeds with 0 math_failures");
+
+    printf("[PASS] test_stingray_4byte_topology_and_subnormal_resilience\n");
+}
+
 int main(void) {
     g_fake_engine = (uint8_t *)VirtualAlloc(NULL, 0x02000000u, MEM_COMMIT | MEM_RESERVE, PAGE_READWRITE);
     g_render_sys = (sim_render_sys *)calloc(1, sizeof(sim_render_sys));
@@ -1252,6 +1317,7 @@ int main(void) {
     test_concurrent_multi_pass_and_mid_leaf_retire(ws, um, g_render_sys);
     test_zero_walker_and_d11_fast_path(ws, um, g_render_sys);
     test_exo49_and_mixed_variant_walkers(ws, um, g_render_sys);
+    test_stingray_4byte_topology_and_subnormal_resilience(ws, um, g_render_sys);
 
     printf("ALL C TESTS PASSED (0 failures)\n");
     free(ws);

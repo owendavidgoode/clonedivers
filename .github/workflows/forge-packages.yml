@@ -26,13 +26,13 @@ jobs:
           dotnet publish Clonedivers -c Release -o artifacts/windows -p:DebugType=None -p:DebugSymbols=false
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
           $exe = Get-Item artifacts/windows/Clonedivers.exe
-          if ($exe.VersionInfo.FileVersion -ne '2.1.2.0') { throw 'Unexpected Windows version.' }
+          if ($exe.VersionInfo.FileVersion -ne '2.1.3.0') { throw 'Unexpected Windows version.' }
           Copy-Item LICENSE artifacts/windows/LICENSE-CLONEDIVERS.txt
           Copy-Item docs/FORGE-MIGRATION.md artifacts/windows/README.md
           Copy-Item docs/FORGE-0.4-TURNKEY-2026-11-05.md artifacts/windows/FORGE-0.4-INTEGRATION.md
           Copy-Item docs/SEAF-COMPATIBILITY-PERMISSION.md artifacts/windows/SEAF-COMPATIBILITY-PERMISSION.md
           Copy-Item docs/releases/pack-2026.11.09-r47-full.md artifacts/windows/EMPIREDIVERS-CREDITS.md
-          Copy-Item Clonedivers/Resources/forge-gameplay-build25480438-r9.json artifacts/windows/gameplay-catalog.json
+          Copy-Item Clonedivers/Resources/forge-gameplay-build25480438-r10.json artifacts/windows/gameplay-catalog.json
           Copy-Item Clonedivers/Licenses/PresentMon.txt artifacts/windows/LICENSE-PresentMon.txt
           Copy-Item Clonedivers.Linux/THIRD-PARTY-NOTICES.txt artifacts/windows/THIRD-PARTY-NOTICES-Avalonia.txt
           foreach ($package in @('microsoft.netcore.app.runtime.win-x64','microsoft.windowsdesktop.app.runtime.win-x64')) {
@@ -103,7 +103,7 @@ jobs:
         run: |
           $exe = Get-Item -LiteralPath artifacts/windows/Clonedivers.exe
           $files = @(Get-ChildItem artifacts/windows -File | Select-Object -ExpandProperty FullName)
-          Compress-Archive -LiteralPath $files -DestinationPath artifacts/windows/Clonedivers-windows-2.1.2.zip
+          Compress-Archive -LiteralPath $files -DestinationPath artifacts/windows/Clonedivers-windows-2.1.3.zip
           (Get-FileHash $exe.FullName).Hash.ToLowerInvariant() + '  Clonedivers.exe' | Set-Content artifacts/windows/SHA256SUMS -Encoding utf8
       - uses: actions/upload-artifact@v4
         with:
@@ -138,17 +138,17 @@ jobs:
           cp docs/forge-preset-build25480438.json dist/forge-stage/preset.json
           cp docs/SEAF-COMPATIBILITY-PERMISSION.md dist/forge-stage/SEAF-COMPATIBILITY-PERMISSION.md
           cp docs/releases/pack-2026.11.09-r47-full.md dist/forge-stage/EMPIREDIVERS-CREDITS.md
-          cp Clonedivers/Resources/forge-gameplay-build25480438-r9.json dist/forge-stage/gameplay-catalog.json
+          cp Clonedivers/Resources/forge-gameplay-build25480438-r10.json dist/forge-stage/gameplay-catalog.json
           cp Clonedivers.Linux/THIRD-PARTY-NOTICES.txt dist/forge-stage/licenses/Avalonia-Skia-HarfBuzz.txt
           for rid in linux-x64; do
             runtime=$(find "$HOME/.nuget/packages/microsoft.netcore.app.runtime.$rid" -mindepth 1 -maxdepth 1 -type d | sort -V | tail -n1)
             cp "$runtime/LICENSE.TXT" "dist/forge-stage/licenses/dotnet-$rid-LICENSE.TXT"
             cp "$runtime/THIRD-PARTY-NOTICES.TXT" "dist/forge-stage/licenses/dotnet-$rid-NOTICES.TXT"
           done
-          jq -n '{format:1,channel:"forge",architecture:"x64",gameBuild:"25480438",engine:"0.1.47",hellforge:"0.4.0-beta",versions:{windows:"2.1.2",linux:"0.10.2",bridge:"0.4.0"},qualification:"Launcher/package migration; actual Linux gameplay and multiplayer unqualified",includesGameOrThirdPartyMods:false}' > artifacts/linux/clonedivers-forge-channel.json
+          jq -n '{format:1,channel:"forge",architecture:"x64",gameBuild:"25480438",engine:"0.1.47",hellforge:"0.4.0-beta",versions:{windows:"2.1.3",linux:"0.10.3",bridge:"0.4.0"},qualification:"Launcher/package migration; actual Linux gameplay and multiplayer unqualified",includesGameOrThirdPartyMods:false}' > artifacts/linux/clonedivers-forge-channel.json
           cp artifacts/linux/clonedivers-forge-channel.json dist/forge-stage/clonedivers-forge-channel.json
           bash tools/package-forge-portable.sh dist/forge-stage artifacts/linux/Clonedivers-linux-x64.tar.gz
-          bash tools/package-forge-deb.sh dist/forge-stage 0.10.2 artifacts/linux/Clonedivers-linux-x64.deb
+          bash tools/package-forge-deb.sh dist/forge-stage 0.10.3 artifacts/linux/Clonedivers-linux-x64.deb
           cd artifacts/linux
           sha256sum Clonedivers-linux-x64.tar.gz Clonedivers-linux-x64.deb clonedivers-forge-channel.json > SHA256SUMS
       - uses: actions/upload-artifact@v4

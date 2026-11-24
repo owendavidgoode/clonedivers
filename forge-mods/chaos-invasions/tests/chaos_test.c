@@ -256,15 +256,28 @@ static void MockPkgRequest(void* sys, const uint64_t* ids, uint32_t count)
     for (uint32_t k = 0; k < count; k++) {
         uint64_t pkg = ids[k];
         int found = 0;
+        uint64_t new_ref = 0ULL;
         for (int i = 0; i < 256; i++) {
-            if (g_ref_slots[i].key == pkg) { ++g_ref_slots[i].ref; found = 1; break; }
+            if (g_ref_slots[i].key == pkg) {
+                new_ref = ++g_ref_slots[i].ref;
+                found = 1;
+                break;
+            }
         }
         if (!found) {
             for (int i = 0; i < 256; i++) {
-                if (g_ref_slots[i].key == 0ULL) { g_ref_slots[i].key = pkg; g_ref_slots[i].ref = 1ULL; break; }
+                if (g_ref_slots[i].key == 0ULL) {
+                    g_ref_slots[i].key = pkg;
+                    g_ref_slots[i].ref = 1ULL;
+                    new_ref = 1ULL;
+                    break;
+                }
             }
         }
-        AddExeResidentPkg(pkg, 2u, 4u);
+        /* Match RefcountedPackageRequest (game.dll+0x12fe47f): PackageManager->Load() runs ONLY when ref == 1! */
+        if (new_ref == 1ULL) {
+            AddExeResidentPkg(pkg, 2u, 4u);
+        }
     }
 }
 
@@ -641,6 +654,8 @@ static void ResetMockCountersAndModState(void)
     memset(g_preload_requested, 0, sizeof g_preload_requested);
     memset(g_preload_built, 0, sizeof g_preload_built);
     memset(g_faction_resident, 0, sizeof g_faction_resident);
+    memset(g_chaos_owned_pkgs, 0, sizeof g_chaos_owned_pkgs);
+    g_chaos_owned_pkg_count = 0u;
     g_bot_smoke_resident = 0;
     g_mock_smoke_state = 0;
     g_mock_explosion_calls = 0;
@@ -1172,9 +1187,9 @@ static void TestHostClientSplitAndLateJoin(HfApi* channel_api)
     memcpy(join_msg.data, &peer_ready, sizeof peer_ready);
     OnMessage(self, (const HfEventInfo*)&join_msg, NULL);
 
-    /* Advance to next cooldown check -> unblocked now that 2002 ready & 3003 pruned */
+    /* Advance to next cooldown check -> unblocked now that 2002 ready & 3003 pruned; co-op uses staggered roster */
     Seconds(30);
-    CHECK(peer_leave_logs >= 1u && g_transport_calls == 1u);
+    CHECK(peer_leave_logs >= 1u && g_transport_calls == 0u && g_roster_calls == 4u);
 
     /* Verify is_authority=0 on an entity prevents host cargo/tracker recording */
     g_mock_auth_deny_entity = 7777;
@@ -1540,8 +1555,8 @@ static void TestH4SlowD11JoinerBarrierAndImmediateMissionSync(void)
                                (uint8_t)(1u << CHAOS_BOTS), 1u, {0}, 1u};
     memcpy(peer_ev.data, &peer_ready, sizeof peer_ready);
     OnMessage(self, (const HfEventInfo*)&peer_ev, NULL);
-    Seconds(20); /* Passes t=90s cooldown check -> spawns! */
-    CHECK(g_transport_calls == 1u);
+    Seconds(20); /* Passes t=90s cooldown check -> spawns via co-op staggered roster! */
+    CHECK(g_transport_calls == 0u && g_roster_calls >= 4u);
 
     /* 3. H4 Safety Cap: A hung peer stuck in PrepareMission (in_mission=0) holds up to 120s, then unblocks past 120s! */
     game_state = HF_STATE_SHIP;
@@ -1563,9 +1578,9 @@ static void TestH4SlowD11JoinerBarrierAndImmediateMissionSync(void)
     OnMessage(self, (const HfEventInfo*)&peer_ev, NULL);
 
     Seconds(110); /* clock age ~114s, since_join ~114s < 120s -> still blocked across t=30, 60, 90! */
-    CHECK(g_transport_calls == 0u && skipped_logs >= 3u);
-    Seconds(15);  /* clock age ~129s > 120s safety cap -> t=120s / 129s unblocks! */
-    CHECK(g_transport_calls == 1u);
+    CHECK(g_transport_calls == 0u && g_roster_calls == 0u && skipped_logs >= 3u);
+    Seconds(15);  /* clock age ~129s > 120s safety cap -> t=120s / 129s unblocks via co-op staggered roster! */
+    CHECK(g_transport_calls == 0u && g_roster_calls >= 4u);
 }
 
 static void TestV034BotDropDeadlockAndCityHardening(void)
@@ -1647,6 +1662,106 @@ static void TestV034BotDropDeadlockAndCityHardening(void)
     CHECK(ChaosAnchorValidEx(street, player, players, 1, 6.0f));
 }
 
+static void TestV035Mission2PreloadRearmAndCoopSafeRoster(void)
+{
+    /* 1. ChaosRefMapInspect collision-chain & stale refcount inspection */
+    uint8_t entries[16 * 16];
+    memset(entries, 0xFF, sizeof entries);
+    const uint64_t empty_k = 0xFFFFFFFFFFFFFFFFULL;
+    const uint64_t pkg_a = 0xfdf011daecf24312ULL;
+    const uint64_t pkg_b = 0x9e430d763af434c1ULL;
+    const uint64_t one = 1ULL, zero = 0ULL;
+    memcpy(entries + 3u * 16u + 0u, &pkg_a, 8);
+    memcpy(entries + 3u * 16u + 8u, &one, 8);
+    memcpy(entries + 4u * 16u + 0u, &pkg_b, 8);
+    memcpy(entries + 4u * 16u + 8u, &one, 8);
+    uint32_t used = 0, slot_a = 0, slot_b = 0;
+    uint64_t rc_a = 0, rc_b = 0;
+    int pres_a = 0, pres_b = 0;
+    CHECK(ChaosRefMapInspect(entries, 16u, empty_k, pkg_a, &used, &pres_a, &slot_a, &rc_a));
+    CHECK(used == 2u && pres_a == 1 && slot_a == 3u && rc_a == 1ULL);
+    /* Resetting pkg_a.ref_count -> 0 in-place preserves key & collision slot_b */
+    memcpy(entries + (size_t)slot_a * 16u + 8u, &zero, 8);
+    CHECK(ChaosRefMapInspect(entries, 16u, empty_k, pkg_b, &used, &pres_b, &slot_b, &rc_b));
+    CHECK(used == 2u && pres_b == 1 && slot_b == 4u && rc_b == 1ULL);
+
+    /* 2. Full Mission-1 -> Ship teardown (unloading 6 packages behind RefcountedPackageSystem's back) -> Mission-2 re-arm */
+    InitMockGameArenas(CHAOS_NATIVE_SQUIDS_BIT, 11u);
+    role = HF_SESSION_SOLO;
+    game_state = HF_STATE_MISSION;
+    ResetMockCountersAndModState();
+    ChaosApplyHostIntensity(&config, &g_ini_config, CD_CHAOS_TOTAL_WAR);
+    Publish();
+    Seconds(6);
+    CHECK(g_faction_resident[CHAOS_BOTS] && g_faction_resident[CHAOS_BUGS]);
+    int bots_pkgs = g_preload_count[CHAOS_BOTS];
+    int bugs_pkgs = g_preload_count[CHAOS_BUGS];
+    CHECK(bots_pkgs >= 4 && bugs_pkgs >= 4);
+    uint64_t saved_unloaded[6] = {
+        g_preload_pkgs[CHAOS_BOTS][0], g_preload_pkgs[CHAOS_BOTS][1], g_preload_pkgs[CHAOS_BOTS][2],
+        g_preload_pkgs[CHAOS_BUGS][0], g_preload_pkgs[CHAOS_BUGS][1], g_preload_pkgs[CHAOS_BUGS][2]
+    };
+
+    /* Return to Ship: simulate Stingray PackageLoader unloading 3 Bots + 3 Bugs packages (pstate=0)
+     * WITHOUT releasing their g_ref_slots entries (ref remains 1ULL)! */
+    game_state = HF_STATE_SHIP;
+    Seconds(1);
+    CHECK(!g_faction_resident[CHAOS_BOTS] && !g_faction_resident[CHAOS_BUGS]);
+    for (int i = 0; i < 6; i++) {
+        AddExeResidentPkg(saved_unloaded[i], 2u, 0u); /* state 0 != 4 (unloaded!) */
+    }
+
+    /* Enter Mission 2: resident packages skip CallPkgRequest (0 tokens), while the 6 unloaded Chaos-owned ref==1 packages
+     * reset ref 1 -> 0 in-place and call CallPkgRequest (0 -> 1 -> Load()), restoring full residency! */
+    g_pkg_request_calls = 0;
+    g_pkg_requested_items = 0;
+    game_state = HF_STATE_MISSION;
+    Seconds(6);
+    CHECK(g_pkg_request_calls == 6u && g_pkg_requested_items == 6u);
+    CHECK(g_faction_resident[CHAOS_BOTS] && g_faction_resident[CHAOS_BUGS]);
+
+    /* 3. Safety guards: inconclusive PackageStateExe (-1), shared refcnt > 1, or unowned package must NEVER overwrite ref_count! */
+    game_state = HF_STATE_SHIP;
+    Seconds(1);
+    AddExeResidentPkg(saved_unloaded[0], 2u, 0u); /* unloaded */
+    AddExeResidentPkg(saved_unloaded[1], 2u, 0u); /* unloaded, shared ref=2 */
+    AddExeResidentPkg(saved_unloaded[2], 2u, 0u); /* unloaded, unowned */
+    for (uint32_t s = 0; s < 256u; s++) {
+        if (g_ref_slots[s].key == saved_unloaded[1]) g_ref_slots[s].ref = 2ULL;
+    }
+    /* Remove saved_unloaded[2] from g_chaos_owned_pkgs to simulate external engine owner */
+    for (uint32_t oi = 0; oi < g_chaos_owned_pkg_count; oi++) {
+        if (g_chaos_owned_pkgs[oi] == saved_unloaded[2]) {
+            g_chaos_owned_pkgs[oi] = g_chaos_owned_pkgs[--g_chaos_owned_pkg_count];
+            break;
+        }
+    }
+    /* Corrupt manager->resources pointer temporarily so PackageStateExe returns -1 (inconclusive read) */
+    uintptr_t saved_res_ptr = 0;
+    memcpy(&saved_res_ptr, g_exe_mgr_mem + 0x208u, 8);
+    uintptr_t zero_ptr = 0;
+    memcpy(g_exe_mgr_mem + 0x208u, &zero_ptr, 8);
+    CHECK(PackageStateExe((uintptr_t)g_arena_exe, sizeof g_arena_exe, saved_unloaded[0]) == -1);
+    g_pkg_request_calls = 0;
+    game_state = HF_STATE_MISSION;
+    Seconds(2);
+    /* Zero requests and zero ref_count clobbers while PackageStateExe == -1! */
+    CHECK(g_pkg_request_calls == 0u);
+    for (uint32_t s = 0; s < 256u; s++) {
+        if (g_ref_slots[s].key == saved_unloaded[0]) CHECK(g_ref_slots[s].ref == 1ULL);
+        if (g_ref_slots[s].key == saved_unloaded[1]) CHECK(g_ref_slots[s].ref == 2ULL);
+        if (g_ref_slots[s].key == saved_unloaded[2]) CHECK(g_ref_slots[s].ref == 1ULL);
+    }
+    /* Restore valid resources pointer: ONLY saved_unloaded[0] (Chaos-owned & ref==1) re-arms; ref==2 and unowned stay intact! */
+    memcpy(g_exe_mgr_mem + 0x208u, &saved_res_ptr, 8);
+    Seconds(3);
+    CHECK(g_pkg_request_calls == 1u);
+    for (uint32_t s = 0; s < 256u; s++) {
+        if (g_ref_slots[s].key == saved_unloaded[1]) CHECK(g_ref_slots[s].ref == 2ULL);
+        if (g_ref_slots[s].key == saved_unloaded[2]) CHECK(g_ref_slots[s].ref == 1ULL);
+    }
+}
+
 int main(int argc, char** argv)
 {
     CHECK(argc == 2 && strlen(argv[1]) < sizeof fixture);
@@ -1702,6 +1817,7 @@ int main(int argc, char** argv)
     TestPrepareMissionZeroPreloadAndPacedMissionQueue();
     TestH4SlowD11JoinerBarrierAndImmediateMissionSync();
     TestV034BotDropDeadlockAndCityHardening();
+    TestV035Mission2PreloadRearmAndCoopSafeRoster();
 
     /* Kill switch latch & token mismatch tests */
     FILE* f = fopen(bridge, "wb"); CHECK(f != NULL);

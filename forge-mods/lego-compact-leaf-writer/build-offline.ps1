@@ -53,7 +53,7 @@ try {
  }
  & $Cli package-mod --mod $stage --out $out | Set-Content -LiteralPath (Join-Path $PSScriptRoot 'build\package.log')
  if($LASTEXITCODE -ne 0){throw 'Package failed'}
- $zipPath=Join-Path $out 'lego-compact-leaf-writer-0.2.1.zip'
+ $zipPath=Join-Path $out 'lego-compact-leaf-writer-0.2.2.zip'
  $zipItem=Get-Item -LiteralPath $zipPath
  $zipSha=(Get-FileHash -LiteralPath $zipPath -Algorithm SHA256).Hash.ToLowerInvariant()
  $folderHash=($(& $Cli mod-hash --mod $stage) | ConvertFrom-Json).hash

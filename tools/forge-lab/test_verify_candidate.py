@@ -460,5 +460,90 @@ class LodDescriptorsValidationTests(unittest.TestCase):
         self.assertEqual(run_verify_with_unit(good_unit), 0)
 
 
+def _make_skinned_mesh_unit(mkeys: list[int], groups: list[tuple[int, int, int]], remap_counts: list[int] | None) -> tuple[bytes, bytes]:
+    """Construct a synthetic `(mod_raw, stock_raw)` pair exercising `empire_port.unit_safe()`."""
+    stock = bytearray(160)
+    raw = bytearray(stock)
+
+    if remap_counts is not None:
+        at88 = len(raw)
+        struct.pack_into('<I', raw, 88, at88)
+        # 1 SkinData object at rel offset 8
+        raw.extend(struct.pack('<2I', 1, 8))
+        sat = len(raw)
+        ro = 16
+        raw.extend(struct.pack('<4I', 0, 0, 0, ro))
+        raw.extend(struct.pack('<I', len(remap_counts)))
+        for rc in remap_counts:
+            raw.extend(struct.pack('<2I', 0, rc))
+
+    at100 = len(raw)
+    struct.pack_into('<I', raw, 100, at100)
+    raw.extend(struct.pack('<2I', 1, 8))  # mcount=1, mesh_rel=8
+    mh = len(raw)
+    raw.extend(bytes(128))
+    si = 0 if remap_counts is not None else -1
+    struct.pack_into('<i', raw, mh + 56, si)
+
+    mo = len(raw) - mh
+    struct.pack_into('<2I', raw, mh + 104, len(mkeys), mo)
+    if mkeys:
+        raw.extend(struct.pack(f'<{len(mkeys)}I', *mkeys))
+
+    go = len(raw) - mh
+    struct.pack_into('<2I', raw, mh + 120, len(groups), go)
+    for mat_i, icnt, skin_set in groups:
+        raw.extend(struct.pack('<6I', mat_i, 0, 0, 0, icnt, skin_set))
+
+    return bytes(raw), bytes(stock)
+
+
+class UnitSafeCrashInvariantsTests(unittest.TestCase):
+    def test_distinct_mkeys_and_64_bone_palette_passes(self) -> None:
+        raw, stock = _make_skinned_mesh_unit(
+            [0xD26571CC, 0x11223344],
+            [(0, 300, 0), (1, 180, 1)],
+            [64, 42],
+        )
+        self.assertTrue(P.unit_safe((raw, b'', b''), stock))
+
+    def test_duplicate_mkeys_fails_closed(self) -> None:
+        # Exact Crash 2 (`ef3a4136b21592cb`) bug: duplicate `0xd26571cc` at mkeys[0..1]
+        raw, stock = _make_skinned_mesh_unit(
+            [0xD26571CC, 0xD26571CC],
+            [(0, 300, 0), (1, 180, 0)],
+            [32],
+        )
+        self.assertFalse(P.unit_safe((raw, b'', b''), stock))
+
+    def test_palette_over_64_bones_fails_closed(self) -> None:
+        raw, stock = _make_skinned_mesh_unit(
+            [0xD26571CC],
+            [(0, 300, 0)],
+            [65],
+        )
+        self.assertFalse(P.unit_safe((raw, b'', b''), stock))
+
+    def test_out_of_bounds_mat_index_or_skin_set_fails_closed(self) -> None:
+        raw_mat, stock = _make_skinned_mesh_unit([0xD26571CC], [(1, 120, 0)], [16])
+        self.assertFalse(P.unit_safe((raw_mat, b'', b''), stock))
+
+        raw_skin, stock2 = _make_skinned_mesh_unit([0xD26571CC], [(0, 120, 2)], [16, 16])
+        self.assertFalse(P.unit_safe((raw_skin, b'', b''), stock2))
+
+    def test_out_of_range_skin_index_or_empty_remap_table_fails_closed(self) -> None:
+        # Counterexample 1: nonnegative mesh skin index `1` exceeding `len(skin_ptrs) == 1` on a 65-bone unit
+        raw_65, stock_65 = _make_skinned_mesh_unit([0xD26571CC], [(0, 300, 0)], [65])
+        mut_si = bytearray(raw_65)
+        at100 = struct.unpack_from('<I', mut_si, 100)[0]
+        mh = at100 + struct.unpack_from('<I', mut_si, at100 + 4)[0]
+        struct.pack_into('<i', mut_si, mh + 56, 1)
+        self.assertFalse(P.unit_safe((bytes(mut_si), b'', b''), stock_65))
+
+        # Counterexample 2: rendered skinned draw group indexing an empty remap table (`nr == 0`)
+        raw_empty, stock_empty = _make_skinned_mesh_unit([0xD26571CC], [(0, 300, 0)], [])
+        self.assertFalse(P.unit_safe((raw_empty, b'', b''), stock_empty))
+
+
 if __name__ == '__main__':
     unittest.main()

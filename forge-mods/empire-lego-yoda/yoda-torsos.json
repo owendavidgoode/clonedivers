@@ -85,6 +85,76 @@
       "unit": "0xC86087DDDF60D9DE",
       "main_sha256": "7142912ccb86b230b0586ff8d2374e538018a08399af655936684a9a0d24c05e",
       "gpu_sha256": "7526e9466514c331357666543259da260c1e9c421361206886de41aed9c0a1fc"
+    },
+    {
+      "kit": "0x940716D6",
+      "body": 0,
+      "unit": "0xBB11C8041C14C747",
+      "main_sha256": "7c9cb810b8fa044851d90adac9d5a8a093792467eb3a9a04ad9a6c48c998f4de",
+      "gpu_sha256": "7d0ad2e335f6a5f11cab6b37b6919976e70d80e08a4a837111e201d481de0e96"
+    },
+    {
+      "kit": "0x940716D6",
+      "body": 1,
+      "unit": "0x003CC8A527711DA5",
+      "main_sha256": "b73338ea30579df367359f46787592fb9227f73eb48162cedb0919ea759fbf1f",
+      "gpu_sha256": "796b9d936ff6564b0d0afeb13da59e92c283c6657802443726bbab5912a66dd4"
+    },
+    {
+      "kit": "0xE3AAA79D",
+      "body": 0,
+      "unit": "0xA4443F91278A5C5F",
+      "main_sha256": "a85914144e6aa92b204f827a4f301a7f6ba72e95f47d5e29669a3adc0209572c",
+      "gpu_sha256": "63063d7c83290a3fce2b08033f8f913eb486f2f108541b036c1b18efbb38954e"
+    },
+    {
+      "kit": "0xE3AAA79D",
+      "body": 1,
+      "unit": "0x088772986FCA2B13",
+      "main_sha256": "b4c31186e374faaf885ed78636d58ea4487715e7f152cb83fb15d163ce9bd111",
+      "gpu_sha256": "636d79110b7378e47c3a01f9b2e99675dd3ddcfb6c898d7323930a9c5c8a2f47"
+    },
+    {
+      "kit": "0xBC5CF836",
+      "body": 0,
+      "unit": "0x6FF15ACC991E8A9A",
+      "main_sha256": "923b60e388330d5f7205fcde77047c2f61b8534e7e0e74ff8271fead7086967c",
+      "gpu_sha256": "5dd7dbe101d8baa0bde763bf2cb537ce95fe32eb93eb0f748cad86064eda257a"
+    },
+    {
+      "kit": "0xBC5CF836",
+      "body": 1,
+      "unit": "0xC6F9903FD728206B",
+      "main_sha256": "c32e87f264dbaf8d2ebe6266b856a028ffc27897bcda7cd9377c477fc6dfbbc2",
+      "gpu_sha256": "f5f2eb30aa652b929881f6fc1864bdc18b8d6fce2fbd16df0f21e8be4011b3f7"
+    },
+    {
+      "kit": "0x1C6C05FA",
+      "body": 0,
+      "unit": "0xC1141B792C1B621A",
+      "main_sha256": "c8e20b20ce61415877e1f24ae303a863693dbaa6fa837075805a13e476efbc65",
+      "gpu_sha256": "594cfe1cb1e7f936fc6516b2437050380abdac4515d6f2dc53b5dea67072fbb1"
+    },
+    {
+      "kit": "0x7D96D0C6",
+      "body": 0,
+      "unit": "0xC1141B792C1B621A",
+      "main_sha256": "c8e20b20ce61415877e1f24ae303a863693dbaa6fa837075805a13e476efbc65",
+      "gpu_sha256": "594cfe1cb1e7f936fc6516b2437050380abdac4515d6f2dc53b5dea67072fbb1"
+    },
+    {
+      "kit": "0x1C6C05FA",
+      "body": 1,
+      "unit": "0x09AD5784B873E58F",
+      "main_sha256": "4abe6b85ceb5e16e87bfddc9eeef3ce1835b9e82f3187fabfbc70827affab78c",
+      "gpu_sha256": "17976f4fe30b26aa2d50d73861aea6f392dc4df887a1d3dc229e32701074647e"
+    },
+    {
+      "kit": "0x7D96D0C6",
+      "body": 1,
+      "unit": "0x09AD5784B873E58F",
+      "main_sha256": "4abe6b85ceb5e16e87bfddc9eeef3ce1835b9e82f3187fabfbc70827affab78c",
+      "gpu_sha256": "17976f4fe30b26aa2d50d73861aea6f392dc4df887a1d3dc229e32701074647e"
     }
   ]
 }

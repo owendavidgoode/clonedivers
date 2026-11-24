@@ -336,15 +336,17 @@ int wmain(int argc, wchar_t** argv)
 
         /* Validate production yoda-torsos.json (12 Wave 2A Clone torsos -> 20 total visuals) + real delta archives if present */
         {
-            const wchar_t* prodModDir = (GetFileAttributesW(L".\\yoda-torsos.json") != INVALID_FILE_ATTRIBUTES) ? L"." : L"..";
+            const wchar_t* prodModDir = (GetFileAttributesW(L".\\yoda-torsos.json") != INVALID_FILE_ATTRIBUTES) ? L"." :
+                                        (GetFileAttributesW(L"..\\yoda-torsos.json") != INVALID_FILE_ATTRIBUTES) ? L".." :
+                                        L"forge-mods\\empire-lego-yoda";
             LoadExtraTorsos(prodModDir);
-            CHECK(visualCount == YODA_BUILTIN_VISUALS + 12u);
+            CHECK(visualCount == YODA_BUILTIN_VISUALS + 22u);
             const wchar_t* cloneDelta = L"D:\\ClaudeWork\\workstreams-20261116-v2\\clonedivers-r20\\delta\\lego-clones";
             if (GetFileAttributesW(cloneDelta) != INVALID_FILE_ATTRIBUTES) {
                 CHECK(ScanVisuals(cloneDelta) == 12);
                 static Proof cloneProofs[YODA_MAX_VISUALS];
                 memcpy(cloneProofs, proofs, sizeof proofs);
-                for (size_t cv = YODA_BUILTIN_VISUALS; cv < visualCount; cv++) {
+                for (size_t cv = YODA_BUILTIN_VISUALS; cv < YODA_BUILTIN_VISUALS + 12u; cv++) {
                     CHECK(cloneProofs[cv].valid && cloneProofs[cv].row.d[1] == 0 && Unchanged(&cloneProofs[cv]));
                     memcpy(proofs, cloneProofs, sizeof proofs);
                     Reset();

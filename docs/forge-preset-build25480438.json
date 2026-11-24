@@ -4,9 +4,9 @@
   "HellForge": "0.4.0-beta",
   "Engine": "0.1.47",
   "Sdk": 16,
-  "GameplayCatalog": "build25480438-r8",
+  "GameplayCatalog": "build25480438-r10",
   "ContainsAccountData": false,
-  "Qualification": "Exact offline preset metadata (build25480438-r8 + 90-combination Empire r49 & 90-combination Clones r21 across Full/Lighter/reduced1024/reduced512/potato256, All-CIS/Mixed/Native, Mixed/All/Native Covenant, Delta Squad, and Death Trooper voice); R1 published, attended R2 live gameplay/multiplayer certification in progress",
+  "Qualification": "Exact offline preset metadata (build25480438-r10 + 90-combination Empire r51 & 90-combination Clones r22 across Full/Lighter/reduced1024/reduced512/potato256, All-CIS/Mixed/Native, Mixed/All/Native Covenant, Delta Squad, and Death Trooper voice); 12/12 verify_candidate.py scenarios passed",
   "Appearance": {
     "Mode": "empire",
     "Variants": [
@@ -29,16 +29,16 @@
     "CovenantOption": true,
     "SquidSkins": ["mixed-covenant", "all-covenant", "native-squids"],
     "DeathTrooperVoiceOption": true,
-    "Catalog": "2026.11.22-r49",
-    "CatalogSha256": "817d94b5a246a2408729239fe06a8402f820df5cda6556b7afd50c670bf7fd05",
+    "Catalog": "2026.11.23-r51",
+    "CatalogSha256": "3192106589a6b914a8fd1f8528f0eba9d0131928323c73756ee4654f520a766a",
     "ClonesCatalog": {
       "Modes": ["clonedivers", "commandos"],
       "TextureProfiles": ["full", "lighter", "reduced1024", "reduced512", "potato256"],
       "EnemySkins": ["all-droids", "mixed-droids", "native-automatons"],
       "CovenantOption": true,
       "SquidSkins": ["mixed-covenant", "all-covenant", "native-squids"],
-      "Catalog": "2026.11.22-r21",
-      "CatalogSha256": "39e3d1c6a90e99d71bdb202c19c96b7009ec6bdb709c82c24d6ee3c84a3637b7"
+      "Catalog": "2026.11.23-r22",
+      "CatalogSha256": "57423fb7ebe786ede8984a0aa055564e2eee42800ab62d9c00c9cf263d1ad833"
     }
   },
   "Order": [
@@ -48,6 +48,7 @@
     "clonedivers.empire-atst-writer",
     "clonedivers.empire-tie-switch",
     "clonedivers.empire-camera-pullback",
+    "clonedivers.starwars-localization",
     "vibeslacker.dedicated-melee-slot",
     "clonedivers.chaos-invasions",
     "local.hf-shared-dispatcher",
@@ -106,33 +107,33 @@
     {
       "Id": "clonedivers.lego-compact-leaf-writer",
       "Name": "LEGO Compact Leaf Writer",
-      "Version": "0.2.1",
-      "ArchiveSha256": "f41439f351f5c9230028e4e7d74335a5b68be8f392ca9c9010f449fb73bf552e",
-      "Source": "https://github.com/owendavidgoode/clonedivers/releases/download/forge-mods-2026-11-21/lego-compact-leaf-writer-0.2.1.zip",
-      "License": "Project-owned client-only SDK-16 code mod (0.2.1 O(1) zero-read non-LEGO hash filter, parallel CoopFastRun with rotating pool base + bit-for-bit parent-pose rig cache, bounded UnitManager slices + QPC health telemetry; gameplay: false, coop: per-player, optional default)",
-      "NativeContentHash": "1897c694632418df33a5ceb66706d4466f3acf0bf426ff0061f6f948fec86fef",
+      "Version": "0.2.2",
+      "ArchiveSha256": "40ac560a59ac46a84ccde01d55c11c6f5f1c1980e3625c09b0e8c9d2ca619a9f",
+      "Source": "https://github.com/owendavidgoode/clonedivers/releases/download/forge-mods-2026-11-23/lego-compact-leaf-writer-0.2.2.zip",
+      "License": "Project-owned client-only SDK-16 code mod (0.2.2 strict normal finite/magnitude guards fixing CM_NUMERICAL traps, pre-resolved LOD mesh pointer verification, cross-mode node_count signature checks, 79 Empire + Clone Compact LEGO garments across all body types, O(1) non-LEGO hash filter, parallel CoopFastRun; gameplay: false, coop: per-player, optional default)",
+      "NativeContentHash": "e2901d49390a47bc3f7ec60f64f1c37df4ee02f42869b64685a2ef2afb99434b",
       "Optional": true,
       "Options": []
     },
     {
       "Id": "clonedivers.empire-lego-yoda",
       "Name": "Empire LEGO Yoda Death",
-      "Version": "0.2.0",
-      "ArchiveSha256": "7ecf857d719e190574fc9fe13cfe7e6c0f11126f4465c8bb2796167d4b60056c",
-      "Source": "https://github.com/owendavidgoode/clonedivers/releases/download/forge-mods-2026-11-19/empire-lego-yoda-0.2.0.zip",
-      "License": "Project-owned client-only SDK-16 code mod (gameplay: false, coop: per-player, optional default; audio excluded from git source)",
-      "NativeContentHash": "d896384245eae48b4a883a8cb561daae75cd61a739c9ac20f85ea54be474b043",
+      "Version": "0.2.1",
+      "ArchiveSha256": "d6098b74f42bf23eb52a66c8b7474e520b6cb23f4f1773e28e4d23965d8d7d82",
+      "Source": "https://github.com/owendavidgoode/clonedivers/releases/download/forge-mods-2026-11-23/empire-lego-yoda-0.2.1.zip",
+      "License": "Project-owned client-only SDK-16 code mod (0.2.1 30 Empire + Clone Compact LEGO torso visuals + local death routing; gameplay: false, coop: per-player, optional default; audio excluded from git source)",
+      "NativeContentHash": "4c8859423f8bc9bfefdc752e61877a40c22bec42380f44a3b9c2ee1ef59ecc2c",
       "Optional": true,
       "Options": []
     },
     {
       "Id": "clonedivers.empire-atst-writer",
       "Name": "Empire AT-ST Film-Scale Leaf Writer",
-      "Version": "0.2.2",
-      "ArchiveSha256": "d807baff203a0f82238600d6b10ad1890e46d95804c2bc75fbc15046abe87401",
-      "Source": "https://github.com/owendavidgoode/clonedivers/releases/download/forge-mods-2026-11-22/empire-atst-writer-0.2.2.zip",
-      "License": "Project-owned client-only SDK-16 code mod (0.2.2 EXO-45/EXO-49/EXO-51/EXO-55 multi-walker registry + per-slot resource_id ABA guard, lock-free zero-walker fast filter, fast 5B2990 tail-call, bounded UnitManager slice probe budget + QPC health telemetry; gameplay: false, coop: per-player, optional default)",
-      "NativeContentHash": "1040b25ecf28f875e5df0ced10a490d953813869308422c5d5a1fa8a4bc45751",
+      "Version": "0.2.3",
+      "ArchiveSha256": "5d1f2562bba25fb1072a696315f1523063e4bf3998e6682dd94d80f494bcc4d8",
+      "Source": "https://github.com/owendavidgoode/clonedivers/releases/download/forge-mods-2026-11-23/empire-atst-writer-0.2.3.zip",
+      "License": "Project-owned client-only SDK-16 code mod (0.2.3 4-byte Stingray topology header parsing at uhdr+0x98 fixing walkers=0, throttled incremental UnitManager slice scanning eliminating 54ms full-table scan spikes, strict normal finite/magnitude guards fixing AT_NUMERIC traps, EXO-45/49/51/55 multi-walker registry; gameplay: false, coop: per-player, optional default)",
+      "NativeContentHash": "8e54a30188d78fb685f0ae8d58963842f75fd344978b3bd5f895146ae9311298",
       "Optional": true,
       "Options": []
     },
@@ -150,11 +151,22 @@
     {
       "Id": "clonedivers.empire-camera-pullback",
       "Name": "Empire & Clone Camera Pullback",
-      "Version": "0.1.3",
-      "ArchiveSha256": "b9acf9a83ef7b648e141f8ddceb447e5e9a69e54d155c8aeee6631af13c88c57",
-      "Source": "https://github.com/owendavidgoode/clonedivers/releases/download/forge-mods-2026-11-22/empire-camera-pullback-0.1.3.zip",
-      "License": "Project-owned client-only SDK-16 code mod (0.1.3 hot-prefix camera discovery + local 250us slice budget fixing post-Hellpod D11 camera acquisition, O(1) EntityManager lookup, render-thread epoch cache sync, SRWLOCK walker generation table, Havok wall-collision clamping, ADS/FPV/cutscene bypass + frame-budget watchdog; gameplay: false, coop: per-player, optional default)",
-      "NativeContentHash": "ae866e1ee48c921160fbdfa98a6e660dba3c99d40d303df23e282a778c0d9b13",
+      "Version": "0.1.4",
+      "ArchiveSha256": "b062c013f94adca066328fba4ace29a63668fea821d3587b6adac0594328847c",
+      "Source": "https://github.com/owendavidgoode/clonedivers/releases/download/forge-mods-2026-11-23/empire-camera-pullback-0.1.4.zip",
+      "License": "Project-owned client-only SDK-16 code mod (0.1.4 Linux/Proton MinHook MH_ERROR_MEMORY_ALLOC fallback hook on helldivers2.exe+0x1c6900 with single-apply per-frame guard, 79 Compact LEGO garment pins, hot-prefix D11 camera acquisition, O(1) EntityManager lookup, Havok wall-collision clamping, ADS/FPV/cutscene bypass; gameplay: false, coop: per-player, optional default)",
+      "NativeContentHash": "9aee365522984f2cc19344b6be1cdc0ac2cccdac64a776cc9b079ac2d40d99eb",
+      "Optional": true,
+      "Options": []
+    },
+    {
+      "Id": "clonedivers.starwars-localization",
+      "Name": "Star Wars Localization Bridge",
+      "Version": "0.1.0",
+      "ArchiveSha256": "0cc5177c808dbde1aaa43b3cc0e6ccf311e73321c8fbe64a25cc4b27c436bf82",
+      "Source": "https://github.com/owendavidgoode/clonedivers/releases/download/forge-mods-2026-11-22/starwars-localization-0.1.0.zip",
+      "License": "Project-owned client-only SDK-16 code mod (0.1.0 runtime US TEXT diff bridge restoring EmpireDivers and Clonedivers Armory/armor/helmet/weapon names when HellForge forge-credits stages last while keeping Forge Credits intact; gameplay: false, coop: per-player, optional default)",
+      "NativeContentHash": "5ec6ebb41b2ff4c1b88138452c40c1465a00e3d3b1cc3d91c33008a1c153477a",
       "Optional": true,
       "Options": []
     },
@@ -172,11 +184,11 @@
     {
       "Id": "clonedivers.chaos-invasions",
       "Name": "Chaos Invasions",
-      "Version": "0.3.3",
-      "ArchiveSha256": "1a4c3f992f270d40aafe7305947a84a6e326151847d27ece774165f24543e67a",
-      "Source": "https://github.com/owendavidgoode/clonedivers/releases/download/forge-mods-2026-11-22/chaos-invasions-0.3.3.zip",
-      "License": "Project-owned gameplay SDK-16 code mod (0.3.3 zero PrepareMission foreign preloading, 120s slow-joiner barrier, paced HF_STATE_MISSION preloads, clonedivers-host-options.json intensity presets + host-migration continuity; gameplay: true, optional default)",
-      "NativeContentHash": "be9dc1cf956c391c8fdf4c307d4177a44fe25a30981dd3c4d49182d7a81215c7",
+      "Version": "0.3.5",
+      "ArchiveSha256": "6fd51e5d3b54836cf4ee6d09585be7de94b8ab4cdb44451bab2e3472cb049fb7",
+      "Source": "https://github.com/owendavidgoode/clonedivers/releases/download/forge-mods-2026-11-23/chaos-invasions-0.3.5.zip",
+      "License": "Project-owned gameplay SDK-16 code mod (0.3.5 co-op ground-surge bypass eliminating foreign dropship cargo_faction joiner crashes at game.dll+0x684a70, ownership-verified RefcountedPackageSystem ref_count==1 reset + re-arm fixing Mission 2+ faction_packages_not_resident wave skips, total-war faction_cap 12, Mega City anchor anti-clustering; gameplay: true, optional default)",
+      "NativeContentHash": "7c87fa1a65e9909d3e9dc9748a9597430f1af9b4ba026e81d092315713571185",
       "Optional": true,
       "Options": []
     },
@@ -385,19 +397,19 @@
     },
     {
       "Id": "pack.ef3458f5-f409-4f24-8933-05fdc10a0061",
-      "Name": "EmpireDivers 2026.11.22-r49",
+      "Name": "EmpireDivers 2026.11.23-r51",
       "Version": "",
       "ArchiveSha256": null,
-      "Source": "Pinned r49 Empire / r21 Clones appearance catalogs; source hashes verified during preparation",
+      "Source": "Pinned r51 Empire / r22 Clones appearance catalogs; source hashes verified during preparation",
       "License": "Not included in launcher package; verified download during setup",
       "NativeContentHash": null,
       "Options": []
     }
   ],
   "RequiredHostingShare": false,
-  "InstallerQualification": "17-download build25480438-r8 preset (9 required + 8 optional SDK-16 defaults, zero hf-mod.com URLs, Bingus Shared Loader last) + Empire r49 & Clones r21 across 5 texture tiers verified offline; R1 published, attended R2 gameplay/multiplayer checks in progress",
+  "InstallerQualification": "18-download build25480438-r10 preset (9 required + 9 optional SDK-16 defaults, zero hf-mod.com URLs, Bingus Shared Loader last) + Empire r51 & Clones r22 across 5 texture tiers verified offline",
   "NonShippingBoundaries": [
-    "clear-skies-0.5.4: bundled ee6b1ba7e22d71ed.patch_0 not cleared for public redistribution; excluded from r5..r8",
+    "clear-skies-0.5.4: bundled ee6b1ba7e22d71ed.patch_0 not cleared for public redistribution; excluded from r5..r10",
     "simple-armor-passive-picker-1.4.2: read_cache() reads slot 0 / locals==1 only; excluded from default co-op preset",
     "empire-weapons: standalone E-11 / DLT-19 rifle .unit art remains shelved offline"
   ],

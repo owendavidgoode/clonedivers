@@ -12,6 +12,8 @@ internal sealed record ForgePresentation(string Headline, string Detail, string 
         if (busy) return new("Working…", "Keep this launcher open while the current step finishes.", "Working…", ForgeAction.None);
         if (disconnected) return new("Forge connection lost", "Reconnect to review the session and its cleanup before continuing.", "Reconnect", ForgeAction.Connect);
         if (active || ownsSession) return new("Forge session running", ownsSession ? "End the session here when you finish playing." : "End this session in the launcher that started it.", "End session", ownsSession ? ForgeAction.EndSession : ForgeAction.None);
+        if (state is { Account: null, Mods: null } && state.Detail.StartsWith("Session ", StringComparison.Ordinal))
+            return new("Forge session starting", state.Detail, "Check status", ForgeAction.Refresh);
         if (updateVersion != null) return new(updateFailed ? "Update couldn't open" : "Update available", updateFailed ? "Try again or review Session details in More options." : $"Launcher v{updateVersion} is ready. Open its release page to download the Linux package.", updateFailed ? "Try update again" : "View update", ForgeAction.Update);
         if (error != null) return new("Couldn't finish this step", FailureSummary(error), "Try again", retryAction);
         if (!connected) return new("Let’s get you ready", "Install HellForge, or connect an existing installation in More options.", "Set up Forge", ForgeAction.Setup);

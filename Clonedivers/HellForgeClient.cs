@@ -55,8 +55,8 @@ public sealed class HellForgePreferences
     string SquidKeySegment => squidSkin == "mixed-covenant" ? "mixed-covenant" : Covenant.ToString();
     string EmpireVoiceSuffix => DeathTrooperVoice ? "/deathtrooper" : "";
     public string SelectionKey => IsRegular ? $"regular/{HellForgePack.SupportedBuild}" :
-        Mode == "empire" ? $"r50/{HellForgePack.SupportedBuild}/empire/{Texture}/{EnemyKeySegment}/{SquidKeySegment}{EmpireVoiceSuffix}" :
-        $"r21/{HellForgePack.SupportedBuild}/{PackMode}/{Texture}/{EnemyKeySegment}/{SquidKeySegment}";
+        Mode == "empire" ? $"r51/{HellForgePack.SupportedBuild}/empire/{Texture}/{EnemyKeySegment}/{SquidKeySegment}{EmpireVoiceSuffix}" :
+        $"r22/{HellForgePack.SupportedBuild}/{PackMode}/{Texture}/{EnemyKeySegment}/{SquidKeySegment}";
     internal static string? CustomPreferencesPath()
     {
         var custom = Environment.GetEnvironmentVariable("CLONEDIVERS_FORGE_PREFS");
@@ -398,15 +398,22 @@ public sealed partial class HellForgeClient(string root, IHellForgeCommands comm
             var json = result.RootElement;
             if (json.ValueKind == JsonValueKind.Object && CleanupProblem(json) is { } cleanup)
                 return ($"HellForge did not finish cleaning up the last session ({cleanup}). Check HellForge's session logs before launching again.", null);
-            // "observed" describes runner completion, even when the game crashed with exit1.
+            // "observed" describes runner completion, even when the game crashed with exit1 or sandboxed hex gameExitCode.
             if (json.ValueKind == JsonValueKind.Object && json.TryGetProperty("completedUtc", out var completed) &&
-                completed.ValueKind == JsonValueKind.String && json.TryGetProperty("exitCode", out var code) &&
-                code.TryGetInt32(out var exit) && exit != 0) {
-                // The pinned upstream debugging guide documents this exact game's quit-time fault.
-                // Keep it visible, without treating it as evidence of a mission/mod failure.
-                if (exit == 1 && build == "25480438" && HasDocumentedQuitCrash(folder))
-                    return (null, "The last exit matches HellForge's documented quit-time crash (EXE+0x626296, code 1). This does not establish mission stability; details remain in the session logs.");
-                return ($"The last game exited unexpectedly (code {exit}). Check HellForge's session logs before retrying.", null);
+                completed.ValueKind == JsonValueKind.String) {
+                var exit = CrashTriage.ParseSessionExitCode(json);
+                var hasCrashArtifact = HasSessionCrashArtifacts(folder);
+                if (exit is { } nonZero && nonZero != 0)
+                {
+                    // The pinned upstream debugging guide documents this exact game's quit-time fault.
+                    // Keep it visible, without treating it as evidence of a mission/mod failure.
+                    if (nonZero == 1 && build == "25480438" && HasDocumentedQuitCrash(folder))
+                        return (null, "The last exit matches HellForge's documented quit-time crash (EXE+0x626296, code 1). This does not establish mission stability; details remain in the session logs.");
+                    var label = (uint)nonZero >= 0x10000u ? $"0x{(uint)nonZero:X8}" : nonZero.ToString(System.Globalization.CultureInfo.InvariantCulture);
+                    return ($"The last game exited unexpectedly (code {label}). Check HellForge's session logs before retrying.", null);
+                }
+                if (hasCrashArtifact && !(build == "25480438" && HasDocumentedQuitCrash(folder)))
+                    return ("The last game crashed during the session. Check HellForge's session logs before retrying.", null);
             }
         }
         catch (Exception e) when (e is IOException or UnauthorizedAccessException or JsonException or ArgumentException or InvalidOperationException)
@@ -414,6 +421,47 @@ public sealed partial class HellForgeClient(string root, IHellForgeCommands comm
             // Missing, pruned or partially written diagnostics must not prevent status checks.
         }
         return (null, null);
+    }
+
+    internal static int? ParseSessionExitCode(JsonElement json) => CrashTriage.ParseSessionExitCode(json);
+
+    internal static bool HasSessionCrashArtifacts(string sessionDir)
+    {
+        try
+        {
+            FileSafety.RejectLink(sessionDir);
+            foreach (var sub in new[] { Path.Combine(sessionDir, "game"), Path.Combine(sessionDir, "game", "userdata") })
+            {
+                if (!Directory.Exists(sub)) continue;
+                FileSafety.RejectLink(sub);
+                foreach (var dmp in Directory.EnumerateFiles(sub, "crash-*.dmp"))
+                {
+                    FileSafety.RejectLink(dmp);
+                    return true;
+                }
+            }
+            var engineLogs = Path.Combine(sessionDir, "engine-logs");
+            if (Directory.Exists(engineLogs))
+            {
+                FileSafety.RejectLink(engineLogs);
+                foreach (var file in Directory.EnumerateFiles(engineLogs, "*.txt"))
+                {
+                    FileSafety.RejectLink(file);
+                    using var stream = new FileStream(file, FileMode.Open, FileAccess.Read, FileShare.ReadWrite | FileShare.Delete);
+                    var start = Math.Max(0L, stream.Length - 64 * 1024);
+                    stream.Position = start;
+                    using var reader = new StreamReader(stream);
+                    if (start > 0) _ = reader.ReadLine();
+                    while (reader.ReadLine() is { } line)
+                    {
+                        if (CrashTriage.HasEngineCrashLine(line))
+                            return true;
+                    }
+                }
+            }
+        }
+        catch (Exception e) when (e is IOException or UnauthorizedAccessException or InvalidDataException) { }
+        return false;
     }
 
     // HellForge 0.4 never writes "cleanup_failed": PlaySession.CleanUp records each failed step under its own key while
@@ -467,13 +515,32 @@ public sealed partial class HellForgeClient(string root, IHellForgeCommands comm
             .OrderBy(p => p, StringComparer.Ordinal));
     }
     // Each account review starts HellForge.LocalBackend and re-hashes the capture. Its outcome depends only on the capture,
-    // the profile's receipt/journal/profile.json and its restore/import backups (plus the Steam user, added by the caller).
+    // the profile's receipt/journal/profile.json and its restore/import backups (excluding transient .bak, .lock, .tmp, launcher.json).
+    static readonly HashSet<string> RelevantProfileFiles = new(StringComparer.OrdinalIgnoreCase)
+    {
+        "profile.json",
+        "account-import.json",
+        HellForgeAccount.ReceiptName,
+        HellForgeAccount.PendingName
+    };
     internal string AccountFingerprint()
     {
+        var snapshot = Path.Combine(Root, "account-snapshot", HellForgeAccount.Profile);
         var profile = Path.Combine(Root, "profiles", HellForgeAccount.Profile);
-        return string.Join("\n", new[] { Path.Combine(Root, "account-snapshot", HellForgeAccount.Profile), profile, Path.Combine(profile, "backups") }
-            .Where(Directory.Exists).SelectMany(folder => new DirectoryInfo(folder).EnumerateFiles("*", new EnumerationOptions { AttributesToSkip = 0 }))
-            .Select(f => $"{f.FullName}|{f.Length}|{f.LastWriteTimeUtc.Ticks}").OrderBy(p => p, StringComparer.Ordinal));
+        var backups = Path.Combine(profile, "backups");
+        var entries = new List<FileInfo>();
+        if (Directory.Exists(snapshot))
+            entries.AddRange(new DirectoryInfo(snapshot).EnumerateFiles("*", new EnumerationOptions { AttributesToSkip = 0 }));
+        if (Directory.Exists(profile))
+            entries.AddRange(new DirectoryInfo(profile).EnumerateFiles("*", new EnumerationOptions { AttributesToSkip = 0 })
+                .Where(f => RelevantProfileFiles.Contains(f.Name)));
+        if (Directory.Exists(backups))
+            entries.AddRange(new DirectoryInfo(backups).EnumerateFiles("*.json", new EnumerationOptions { AttributesToSkip = 0 })
+                .Where(f => f.Name.EndsWith("-restore.json", StringComparison.OrdinalIgnoreCase) ||
+                            f.Name.EndsWith("-import.json", StringComparison.OrdinalIgnoreCase)));
+        return string.Join("\n", entries
+            .Select(f => $"{f.FullName}|{f.Length}|{f.LastWriteTimeUtc.Ticks}")
+            .OrderBy(p => p, StringComparer.Ordinal));
     }
     static readonly System.Text.RegularExpressions.Regex HashPartial = new(@"^\.zip-hashes\.json\.[0-9a-f]{8}\.partial$");
     internal int SweepHashPartials(DateTime olderThanUtc)
@@ -657,7 +724,7 @@ public sealed partial class HellForgeClient(string root, IHellForgeCommands comm
             var (rate, eta) = verifySpeed.Update(p.Done, p.Total);
             progress.Report(new("Verifying prepared pack", null, 0, 0, p.Done, p.Total, rate, eta, CanCancel: true));
         }), ct);
-        var before = await ModsAsync(ct);
+        var before = await ModsAsync(ct).ConfigureAwait(false);
         if (before.Problems.Length > 0) throw new InvalidDataException("Resolve HellForge's mod notices before installing: " + string.Join("; ", before.Problems));
         var beforeStatus = await StatusAsync(ct);
         // Preserve the previous selection and any pack about to be replaced, outside the installation.
@@ -758,6 +825,79 @@ public sealed partial class HellForgeClient(string root, IHellForgeCommands comm
     {
         var required = checked(bytes + HellForgePack.ExportReserve);
         if (AvailablePackBytes(output) is long free && free < required) throw new IOException($"Not enough space for the appearance backup and replacement reserve: {Pack.FormatBytes(required)} needed, {Pack.FormatBytes(Math.Max(0, free))} available.");
+    }
+
+    /// <summary>
+    /// Verifies upfront that the target volume(s) have enough free space for BOTH staging <paramref name="plan"/>
+    /// AND the subsequent <see cref="InstallPackAsync"/> backup + replacement reserve, reclaiming safe stale caches first
+    /// so low-space drives never fail halfway after stranding a 12 GiB export folder.
+    /// </summary>
+    public async Task EnsureExportAndInstallCapacityAsync(HellForgePack.Plan plan, CancellationToken ct = default)
+    {
+        ArgumentNullException.ThrowIfNull(plan);
+        ct.ThrowIfCancellationRequested();
+
+        long exportNeeded = Directory.Exists(plan.Output)
+            ? 0L
+            : checked(plan.Bytes + HellForgePack.ExportReserve + plan.Missing.Select(f => f.Size).DefaultIfEmpty().Max());
+
+        var before = await ModsAsync(ct).ConfigureAwait(false);
+        var old = before.Mods.SingleOrDefault(m => m.Id == HellForgePack.PackId(plan.Selection.Mode));
+        long oldBytes = 0;
+        if (old != null && Directory.Exists(old.Folder))
+        {
+            ValidateModFolder(old.Folder);
+            foreach (var file in Directory.EnumerateFiles(old.Folder, "*", SearchOption.AllDirectories))
+            {
+                FileSafety.RejectLink(file);
+                oldBytes = checked(oldBytes + new FileInfo(file).Length);
+            }
+        }
+
+        long replacementBytes = checked(plan.Bytes + 65536L);
+        long backupNeeded = checked(oldBytes + replacementBytes + HellForgePack.ExportReserve);
+        long modsNeeded = checked(replacementBytes + HellForgePack.ExportReserve);
+
+        var exportPath = Path.GetFullPath(plan.Output);
+        var backupPath = Path.Combine(CacheRoot, "backups");
+        var modsPath = Path.Combine(Root, "mods");
+
+        var exportVol = HellForgePack.VolumeKey(exportPath);
+        var backupVol = HellForgePack.VolumeKey(backupPath);
+        var modsVol = HellForgePack.VolumeKey(modsPath);
+
+        var volumeNeeds = new Dictionary<string, (string ProbePath, long Required)>(StringComparer.Ordinal);
+        void RequireOnVolume(string vol, string probe, long addBytes, bool additive)
+        {
+            if (addBytes <= 0) return;
+            if (volumeNeeds.TryGetValue(vol, out var cur))
+                volumeNeeds[vol] = (cur.ProbePath, additive ? checked(cur.Required + addBytes) : Math.Max(cur.Required, addBytes));
+            else
+                volumeNeeds[vol] = (probe, addBytes);
+        }
+
+        RequireOnVolume(backupVol, backupPath, backupNeeded, additive: false);
+        RequireOnVolume(modsVol, modsPath, modsNeeded, additive: false);
+        if (exportNeeded > 0)
+            RequireOnVolume(exportVol, exportPath, exportNeeded, additive: true);
+
+        bool cleanedOnce = false;
+        foreach (var (_, (probe, required)) in volumeNeeds)
+        {
+            if (AvailablePackBytes(probe) is not long free || free >= required) continue;
+            if (!cleanedOnce)
+            {
+                cleanedOnce = true;
+                try { ForgeDiskManager.CleanSafeFilesSync(Root, ct, plan.Local.Values); }
+                catch (Exception e) when (e is IOException or UnauthorizedAccessException or InvalidDataException) { }
+                if (AvailablePackBytes(probe) is not long freeAfter || freeAfter >= required) continue;
+                free = freeAfter;
+            }
+            throw new IOException(
+                $"Not enough space to prepare and install this Star Wars pack: {Pack.FormatBytes(required)} needed " +
+                $"({Pack.FormatBytes(exportNeeded)} staging + {Pack.FormatBytes(backupNeeded)} backup/install reserve), " +
+                $"{Pack.FormatBytes(Math.Max(0, free))} available. Free space on this drive or choose a lighter Performance Tier, then try again.");
+        }
     }
     static string PackState(HellForgeMods mods) => JsonSerializer.Serialize(mods.Mods.Select(m => new { m.Id, m.Enabled, m.Name, m.Version, m.Options }).OrderBy(m => m.Id, StringComparer.Ordinal));
     static void SavePackOutcome(string backup, string outcome)
@@ -946,7 +1086,7 @@ public sealed partial class HellForgeClient(string root, IHellForgeCommands comm
         using var operation = LockPackChange();
         RequireNoInterruptedPack();
         RequireCliQuiescent();
-        var before = await ModsAsync(ct);
+        var before = await ModsAsync(ct).ConfigureAwait(false);
         if (before.Problems.Length > 0) throw new InvalidDataException("Resolve HellForge's mod notices before changing modes: " + string.Join("; ", before.Problems));
         if (!before.Mods.Any(m => m.Id == DifficultyId)) throw new InvalidDataException("Finish official HellForge setup to install its bundled difficulty mod.");
         var backup = Path.Combine(CacheRoot, "backups", DateTimeOffset.UtcNow.ToString("yyyyMMdd-HHmmss") + "-regular-" + Guid.NewGuid().ToString("N"));

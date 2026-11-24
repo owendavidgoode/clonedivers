@@ -26,7 +26,6 @@ static cm_status finite64(const double *a,size_t n) {
 static cm_status finite32(const float *a,size_t n) {
  for(size_t i=0;i<n;i++) {
   if(!isfinite(a[i])) return CM_NONFINITE;
-  if(a[i]!=0 && fabsf(a[i])<FLT_MIN) return CM_NUMERICAL;
  }
  return CM_OK;
 }
@@ -104,19 +103,35 @@ static cm_status transformed(const cm_mat4 *frame,const cm_render48 *in,cm_mat4 
 static cm_status to_rows(const cm_mat4 *in,cm_render48 *out) {
  TRY(affine(in));
  for(int i=0;i<12;i++) {
-  if(fabs(in->v[i])>FLT_MAX) return CM_NONFINITE;
-  out->v[i]=(float)in->v[i];
-  if(in->v[i]!=0 && out->v[i]==0) return CM_NUMERICAL;
+  if(!isfinite(in->v[i]) || fabs(in->v[i])>FLT_MAX) return CM_NONFINITE;
+  float fv = (fabs(in->v[i])<(double)FLT_MIN) ? 0.f : (float)in->v[i];
+  if(!isfinite(fv)) return CM_NONFINITE;
+  if(fabsf(fv)<FLT_MIN) fv = 0.f;
+  out->v[i]=fv;
  }
  return finite32(out->v,12);
 }
 static cm_status op_mul(float a,float b,float *out) {
- volatile float v=a*b; *out=v;
- TRY(finite32(out,1));
- return a!=0 && b!=0 && v==0 ? CM_NUMERICAL : CM_OK;
+ if(!isfinite(a) || !isfinite(b)) return CM_NONFINITE;
+ if(fabsf(a)<FLT_MIN) a=0.f;
+ if(fabsf(b)<FLT_MIN) b=0.f;
+ volatile float v=a*b;
+ float fv=v;
+ if(!isfinite(fv)) return CM_NONFINITE;
+ if(fabsf(fv)<FLT_MIN) fv=0.f;
+ *out=fv;
+ return CM_OK;
 }
 static cm_status op_add(float a,float b,float *out) {
- volatile float v=a+b; *out=v; return finite32(out,1);
+ if(!isfinite(a) || !isfinite(b)) return CM_NONFINITE;
+ if(fabsf(a)<FLT_MIN) a=0.f;
+ if(fabsf(b)<FLT_MIN) b=0.f;
+ volatile float v=a+b;
+ float fv=v;
+ if(!isfinite(fv)) return CM_NONFINITE;
+ if(fabsf(fv)<FLT_MIN) fv=0.f;
+ *out=fv;
+ return CM_OK;
 }
 CM_API cm_status cm_compose(const cm_render48 *left,const cm_render48 *right,cm_render48 *out) {
  if(!left || !right || !out) return CM_ARGUMENT;

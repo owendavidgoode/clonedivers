@@ -1,4 +1,4 @@
-static uint64_t writerPollAt,writerHealthAt,writerDrainAt;
+static uint64_t writerPollAt,writerStopCheckAt,writerHealthAt,writerDrainAt;
 static uint64_t writerTickQpf,writerTickUsSum,writerTickUsMax,writerTickCount;
 static unsigned writerHealthRows,writerDiagnosticsDone;static LONG writerReportedFatal;
 static uint32_t writerLastAdmissions,writerLastRetires,writerLastAba,writerLastPlayers;
@@ -56,8 +56,12 @@ static void WriterTick(HfMod *mod,float dt,void *context) {
     if(InterlockedCompareExchange(&tickLock,1,0))return;
     uint64_t now=GetTickCount64();
     int pollDue=now>=writerPollAt;
-    if(pollDue){writerPollAt=now+250;if(RequestFile(stopPath)){
-        InterlockedExchange(&writer.diagnostics_closed,1);InterlockedExchange(&writer.teardown,1);}}
+    if(pollDue){
+        writerPollAt=now+250;
+        if((coopDiagnosticCapture || now>=writerStopCheckAt) && (writerStopCheckAt=now+5000, RequestFile(stopPath))){
+            InterlockedExchange(&writer.diagnostics_closed,1);InterlockedExchange(&writer.teardown,1);
+        }
+    }
     if(coopDynamicMode && pollDue && !Stopped()) {
         LARGE_INTEGER tk0,tk1;
         if(!writerTickQpf){LARGE_INTEGER f;QueryPerformanceFrequency(&f);writerTickQpf=f.QuadPart?(uint64_t)f.QuadPart:1u;}

@@ -345,7 +345,7 @@ internal sealed class LinuxForgePlayer(IForgeConnection connection, LinuxForgePr
     {
         if (SessionActive || Game.IsRunning()) throw new InvalidOperationException("End HD2 before installing the required gameplay preset.");
         await SelectAsync(ct);
-        richProgress?.Report(new("Checking required gameplay mods", "Verifying installed 18-mod r9 preset…", IsIndeterminate: true, CanCancel: true));
+        richProgress?.Report(new("Checking required gameplay mods", "Verifying installed 18-mod r10 preset…", IsIndeterminate: true, CanCancel: true));
         var missing = (await connection.RunAsync(["gameplay-status"], ct)).Deserialize<List<GameplayArtifact>>(HellForgePack.Json)
             ?? throw new InvalidDataException("Forge returned no gameplay installation plan.");
         var pinned = HellForgeGameplayCatalog.Pinned;
@@ -357,7 +357,7 @@ internal sealed class LinuxForgePlayer(IForgeConnection connection, LinuxForgePr
         // HTTPS runs here in the native frontend, never in the isolated Wine bridge.
         await HellForgeGameplayCatalog.StageAsync(cache, missing, progress, ct, richProgress: richProgress);
         if (SessionActive || Game.IsRunning()) throw new InvalidOperationException("HD2 started while downloading; keep the verified files and retry after closing it.");
-        richProgress?.Report(new("Installing gameplay mods", "Configuring pinned r9 load order and sharing…", IsIndeterminate: true, CanCancel: false));
+        richProgress?.Report(new("Installing gameplay mods", "Configuring pinned r10 load order and sharing…", IsIndeterminate: true, CanCancel: false));
         await connection.RunAsync(["install-gameplay", "--file", windows], ct);
         await RefreshAsync(ct);
     }
@@ -446,28 +446,145 @@ internal sealed class LinuxForgePlayer(IForgeConnection connection, LinuxForgePr
                 plan.Selection.Options.Count != expected.Options.Count || expected.Options.Any(pair => !plan.Selection.Options.TryGetValue(pair.Key, out var on) || on != pair.Value))
                 throw new InvalidDataException("The selected mode/options changed after planning. Prepare the selection again.");
             var path = connection.NativePaths ? plan.Output : WindowsPath(ResolvedInstallRoot!, plan.Output);
+            bool createdFreshExport = !Directory.Exists(plan.Output);
             // Pure disk verification/export runs off-thread without touching LinuxForgePlayer state; bridge commands & RefreshAsync run on host context.
             await Task.Run(async () =>
             {
-                if (Directory.Exists(plan.Output))
+                if (!createdFreshExport)
                 {
                     richProgress?.Report(new("Verifying cached pack", "Checking prepared export metadata…", IsIndeterminate: true, CanCancel: true));
                     await HellForgePack.VerifyMetadataAsync(plan.Output, expected, ct); // reused export; the bridge re-hashes before import
                 }
                 else
                 {
+                    await EnsureHostExportAndInstallCapacityAsync(ResolvedInstallRoot, plan, ct);
                     await HellForgePack.ExportAsync(plan, allowDownloads, progress, ct, richProgress: richProgress);
                 }
             }, ct);
-            await SelectAsync(ct);
-            richProgress?.Report(new("Installing Star Wars pack", "Importing verified pack into HellForge…", IsIndeterminate: true, CanCancel: false));
-            await connection.RunAsync(["prepare-pack", "--file", path], ct);
+            try
+            {
+                await SelectAsync(ct);
+                richProgress?.Report(new("Installing Star Wars pack", "Importing verified pack into HellForge…", IsIndeterminate: true, CanCancel: false));
+                await connection.RunAsync(["prepare-pack", "--file", path], ct);
+            }
+            catch (Exception ex)
+            {
+                if (createdFreshExport)
+                    HellForgePack.ReclaimFailedInstallExport(plan, ex);
+                throw;
+            }
             var pruneDir = Path.GetDirectoryName(Path.GetFullPath(plan.Output))!;
             var pruneKeep = plan.Output;
             await Task.Run(() => PruneExports(pruneDir, pruneKeep), CancellationToken.None);
         }
         await RefreshAsync(ct);
     }
+    static Task EnsureHostExportAndInstallCapacityAsync(string? installRoot, HellForgePack.Plan plan, CancellationToken ct)
+    {
+        if (string.IsNullOrWhiteSpace(installRoot) || !Directory.Exists(installRoot)) return Task.CompletedTask;
+        long existingInOutput = 0;
+        if (Directory.Exists(plan.Output))
+        {
+            try
+            {
+                foreach (var f in Directory.EnumerateFiles(plan.Output, "*", SearchOption.AllDirectories))
+                {
+                    FileSafety.RejectLink(f);
+                    existingInOutput = checked(existingInOutput + new FileInfo(f).Length);
+                }
+            }
+            catch (Exception e) when (e is IOException or UnauthorizedAccessException or InvalidDataException) { }
+        }
+        long exportNewBytes = Math.Max(0L, plan.Bytes - existingInOutput);
+        long exportNeeded = exportNewBytes > 0
+            ? checked(exportNewBytes + HellForgePack.ExportReserve + plan.Missing.Select(f => f.Size).DefaultIfEmpty().Max())
+            : 0L;
+
+        long oldBytes = 0;
+        var modsRoot = Path.Combine(installRoot, "mods");
+        if (Directory.Exists(modsRoot))
+        {
+            var expectedGuid = HellForgePack.PackId(plan.Selection.Mode)["pack.".Length..];
+            var prefix = plan.Selection.Mode + "-";
+            foreach (var dir in Directory.EnumerateDirectories(modsRoot))
+            {
+                bool matchesInstalledPack = Path.GetFileName(dir).StartsWith(prefix, StringComparison.OrdinalIgnoreCase);
+                if (!matchesInstalledPack)
+                {
+                    var manifestPath = Path.Combine(dir, "manifest.json");
+                    try
+                    {
+                        if (File.Exists(manifestPath) && new FileInfo(manifestPath).Length <= 65536)
+                        {
+                            FileSafety.RejectLink(manifestPath);
+                            using var doc = JsonDocument.Parse(File.ReadAllText(manifestPath));
+                            if (doc.RootElement.ValueKind == JsonValueKind.Object &&
+                                doc.RootElement.TryGetProperty("Guid", out var gEl) &&
+                                string.Equals(gEl.GetString(), expectedGuid, StringComparison.OrdinalIgnoreCase))
+                                matchesInstalledPack = true;
+                        }
+                    }
+                    catch { }
+                }
+                if (!matchesInstalledPack) continue;
+                try
+                {
+                    foreach (var f in Directory.EnumerateFiles(dir, "*", SearchOption.AllDirectories))
+                    {
+                        FileSafety.RejectLink(f);
+                        oldBytes = checked(oldBytes + new FileInfo(f).Length);
+                    }
+                }
+                catch (Exception e) when (e is IOException or UnauthorizedAccessException or InvalidDataException) { }
+            }
+        }
+        long replacementBytes = checked(plan.Bytes + 65536L);
+        long backupNeeded = checked(oldBytes + replacementBytes + HellForgePack.ExportReserve);
+        long modsNeeded = checked(replacementBytes + HellForgePack.ExportReserve);
+
+        var exportPath = Path.GetFullPath(plan.Output);
+        var cacheRoot = Path.Combine(Path.GetDirectoryName(Path.TrimEndingDirectorySeparator(Path.GetFullPath(installRoot)))!, "Clonedivers-HellForge-cache");
+        var backupPath = Path.Combine(cacheRoot, "backups");
+
+        var exportVol = HellForgePack.VolumeKey(exportPath);
+        var backupVol = HellForgePack.VolumeKey(backupPath);
+        var modsVol = HellForgePack.VolumeKey(modsRoot);
+
+        var volumeNeeds = new Dictionary<string, (string ProbePath, long Required)>(StringComparer.Ordinal);
+        void RequireOnVolume(string vol, string probe, long addBytes, bool additive)
+        {
+            if (addBytes <= 0) return;
+            if (volumeNeeds.TryGetValue(vol, out var cur))
+                volumeNeeds[vol] = (cur.ProbePath, additive ? checked(cur.Required + addBytes) : Math.Max(cur.Required, addBytes));
+            else
+                volumeNeeds[vol] = (probe, addBytes);
+        }
+
+        RequireOnVolume(backupVol, backupPath, backupNeeded, additive: false);
+        RequireOnVolume(modsVol, modsRoot, modsNeeded, additive: false);
+        if (exportNeeded > 0)
+            RequireOnVolume(exportVol, exportPath, exportNeeded, additive: true);
+
+        bool cleanedOnce = false;
+        foreach (var (_, (probe, required)) in volumeNeeds)
+        {
+            if (HellForgePack.AvailableExportBytes(probe) is not long free || free >= required) continue;
+            if (!cleanedOnce)
+            {
+                cleanedOnce = true;
+                try { ForgeDiskManager.CleanSafeFilesSync(installRoot, ct, plan.Local.Values); }
+                catch (Exception e) when (e is IOException or UnauthorizedAccessException or InvalidDataException) { }
+                if (HellForgePack.AvailableExportBytes(probe) is not long freeAfter || freeAfter >= required) continue;
+                free = freeAfter;
+            }
+            throw new IOException(
+                $"Not enough space to prepare and install this Star Wars pack: {Pack.FormatBytes(required)} needed " +
+                $"({Pack.FormatBytes(exportNeeded)} staging + {Pack.FormatBytes(backupNeeded)} backup/install reserve), " +
+                $"{Pack.FormatBytes(Math.Max(0, free))} available. Free space on this drive or choose a lighter Performance Tier, then try again.");
+        }
+        return Task.CompletedTask;
+    }
+
     internal static string WindowsPath(string install, string file)
     {
         for (var directory = new DirectoryInfo(Path.GetFullPath(install)); directory != null; directory = directory.Parent)

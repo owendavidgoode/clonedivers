@@ -1,0 +1,3 @@
+# Clonedivers Forge Linux 0.10.3
+
+> **Release candidate (`linux-v0.10.3`):** Pairs in lockstep with [Windows `v2.1.3`](v2.1.3.md), upgrading EmpireDivers to **`2026.11.23-r51`**, Clonedivers to **`2026.11.23-r22`**, and gameplay catalog **`build25480438-r10`** (`18` verified archives, `8,516,285` B), while resolving the Linux/Proton `empire-camera-pullback 0.1.4` `MinHook 9` hook failure, transient Wine/shim **Sync account** prompt regressions, duplicate `HellForge.Launcher` window spawns, unified hex crash exit & `engine-logs` reporting (`crash-*.dmp` + `Crash report` / `Access violation`), and multi-volume low-disk capacity checks + orphaned `exports/` cleanup (`#37`). See [v2.1.3](v2.1.3.md) for full change and verification details.
