@@ -12,7 +12,7 @@ internal static class GameplayInstallTests
     {
         var catalog = HellForgeGameplayCatalog.Pinned;
         catalog.Validate();
-        check(catalog.Id == "build25480438-r10" && catalog.Artifacts.Count == 18 && catalog.Artifacts.Sum(a => a.Bytes) == 8516285,
+        check(catalog.Id == "build25480438-r10" && catalog.Artifacts.Count == 18 && catalog.Artifacts.Sum(a => a.Bytes) == 8516435,
             "the r10 preset pairs nine optional SDK-16 mods with nine required gameplay and author archives");
         check(catalog.Artifacts.Count(a => a.Url.Contains("/owendavidgoode/clonedivers/")) == 15 && catalog.Artifacts.Count(a => !a.Url.Contains("/owendavidgoode/clonedivers/")) == 3 &&
             catalog.Artifacts.All(a => !a.Url.Contains("hf-mod.com", StringComparison.OrdinalIgnoreCase)) &&
@@ -46,9 +46,9 @@ internal static class GameplayInstallTests
             yoda.ContentHash == "4c8859423f8bc9bfefdc752e61877a40c22bec42380f44a3b9c2ee1ef59ecc2c" &&
             yoda.Url == "https://github.com/owendavidgoode/clonedivers/releases/download/forge-mods-2026-11-23/empire-lego-yoda-0.2.1.zip",
             "Empire LEGO Yoda Death is optional with the exact 0.2.1 30-visual co-op release pins");
-        check(atst.Name == "Empire AT-ST Film-Scale Leaf Writer" && atst.Version == "0.2.3" && atst.Bytes == 38043 &&
-            atst.Sha256 == "5d1f2562bba25fb1072a696315f1523063e4bf3998e6682dd94d80f494bcc4d8" &&
-            atst.ContentHash == "8e54a30188d78fb685f0ae8d58963842f75fd344978b3bd5f895146ae9311298" &&
+        check(atst.Name == "Empire AT-ST Film-Scale Leaf Writer" && atst.Version == "0.2.3" && atst.Bytes == 38193 &&
+            atst.Sha256 == "fd5ff823593d07d1f4abe4930794e633bdaf9d9bd40e16e9ca82a162cb09a94a" &&
+            atst.ContentHash == "4aabb331901901be0ae4a03dc23b91a6d7e919db3160f1a91351d6c4c00b2f03" &&
             atst.Url == "https://github.com/owendavidgoode/clonedivers/releases/download/forge-mods-2026-11-23/empire-atst-writer-0.2.3.zip",
             "Empire AT-ST Film-Scale Leaf Writer is optional with the exact 0.2.3 4B-topology zero-syscall release pins");
         check(tieSwitch.Name == "Empire per-attack TIE (lab candidate)" && tieSwitch.Version == "0.3.0" && tieSwitch.Bytes == 22644 &&

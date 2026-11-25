@@ -1248,6 +1248,34 @@ static void test_stingray_4byte_topology_and_subnormal_resilience(at_writer_stat
     w_u64(w.unit.hdr, 0x98, (uint64_t)(uintptr_t)w.unit.topology);
     TEST_ASSERT(at_writer_tick(ws, 0u) == 1u, "4-byte {type, parent}[106] Stingray topology admitted");
 
+    /* 1b. Live Pelican/Lambda dropship carrier link (type=2, parent=26) & post-unlink_unit landed state (type=0, parent=26) */
+    at_writer_shutdown(ws);
+    memset(um->slots, 0, sizeof(um->slots));
+    InterlockedExchange(&ws->ready, 1);
+    bind_walker(&w, um, rs, (uintptr_t)g_fake_engine, 0u, 2u, 11u, 0u);
+    w.unit.topology[0].type = 2u;
+    w.unit.topology[0].parent = 26u;
+    TEST_ASSERT(at_writer_tick(ws, 0u) == 1u, "mid-flight carrier-linked root (type=2, parent=26) admitted");
+
+    /* Transition from carrier-linked (type=2, parent=26) to landed unlinked (type=0, parent=26 retained by unlink_unit) */
+    w.unit.topology[0].type = 0u;
+    w.unit.topology[0].parent = 26u;
+    TEST_ASSERT(at_writer_tick(ws, 0u) == 0u && ws->reg.slots[0].occupied == 1u && ws->reg.scavenged == 0u,
+                "post-unlink landed root (type=0, parent=26) stays admitted without eviction");
+
+    /* Invalid root type (type=1 internal self-link or type=3 detached actor) must still fail closed! */
+    w.unit.topology[0].type = 1u;
+    TEST_ASSERT(at_writer_tick(ws, 0u) == 0u && ws->reg.slots[0].occupied == 0u && ws->reg.scavenged == 1u,
+                "invalid root type=1 evicted fail-closed");
+    w.unit.topology[0].type = 3u;
+    TEST_ASSERT(at_writer_tick(ws, 0u) == 0u && ws->reg.slots[0].occupied == 0u,
+                "invalid root type=3 rejected fail-closed");
+
+    /* Restore landed (type=0, parent=26) for downstream live S2c solve test */
+    w.unit.topology[0].type = 0u;
+    w.unit.topology[0].parent = 26u;
+    TEST_ASSERT(at_writer_tick(ws, 0u) == 1u, "re-admit landed walker (type=0, parent=26)");
+
     /* 2. Subnormal / double-to-float underflow residuals (1.274e-57, 8.386e-38f * -0.00914f) flush cleanly to 0.0f */
     at_mat4 near_axis = {{
          1.0,  1.274474e-57, -5.829008e-58, -2.595067e-58,
