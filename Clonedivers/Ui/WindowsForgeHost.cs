@@ -453,18 +453,33 @@ public sealed class WindowsForgeHost : IForgeUiHost
                 catch (Exception e) when (e is IOException or UnauthorizedAccessException) { accountKey = null; }
                 if (account == null || accountKey == null || accountKey != lastAccountFingerprint || DateTime.UtcNow - lastAccountReadUtc >= TimeSpan.FromMinutes(5))
                 {
-                    (account, var reviewed) = await HellForgeForm.ReviewAccountAsync(CreateAccount(root), lifetime.Token);
-                    if (reviewed && account.Imported && block == null)
+                    var accountHelper = CreateAccount(root);
+                    (var reviewedState, var reviewed, var reviewErr) = await HellForgeForm.ReviewAccountWithErrorAsync(accountHelper, lifetime.Token);
+                    if (!reviewed && reviewErr != null && HellForgeAccount.IsTransientReviewError(reviewErr, root) &&
+                        accountKey != null && (lastAccount is { Imported: true } || accountHelper.HasLocalImportReceipt()))
                     {
-                        var opened = await HellForgeForm.TryOpenWarbondsAction(client, lifetime.Token);
-                        if (opened > 0) { warbondsPending = false; toastNotice = $"Opened {opened} owned Warbonds."; }
-                        else if (HellForgeWarbonds.ManagerWindowOpen()) warbondsPending = true;
-                        else warbondsPending = false;
+                        account = lastAccount is { Imported: true } prev
+                            ? prev
+                            : new(true, true, "Your HD2 account is imported for all three modes.");
+                        accountReviewFailed = false;
+                        lastAccountFingerprint = null;
+                        lastAccountReadUtc = DateTime.UtcNow;
                     }
-                    else if (reviewed && !account.Imported) warbondsPending = false;
-                    accountReviewFailed = !reviewed;
-                    lastAccountFingerprint = reviewed ? accountKey : null;
-                    lastAccountReadUtc = DateTime.UtcNow;
+                    else
+                    {
+                        account = reviewedState;
+                        if (reviewed && account.Imported && block == null)
+                        {
+                            var opened = await HellForgeForm.TryOpenWarbondsAction(client, lifetime.Token);
+                            if (opened > 0) { warbondsPending = false; toastNotice = $"Opened {opened} owned Warbonds."; }
+                            else if (HellForgeWarbonds.ManagerWindowOpen()) warbondsPending = true;
+                            else warbondsPending = false;
+                        }
+                        else if (reviewed && !account.Imported) warbondsPending = false;
+                        accountReviewFailed = !reviewed;
+                        lastAccountFingerprint = reviewed ? accountKey : null;
+                        lastAccountReadUtc = DateTime.UtcNow;
+                    }
                 }
                 else if (warbondsPending && account.Imported && block == null && !HellForgeWarbonds.ManagerWindowOpen())
                 {
@@ -1093,6 +1108,7 @@ public sealed class WindowsForgeHost : IForgeUiHost
         }
 
         var selection = preferences.Selection();
+        HellForgePack.Plan? freshPlan = null;
         var prepared = await FindPreparedAsync(client, selection, throttler.AsProgress(), ct);
         if (prepared == null)
         {
@@ -1110,11 +1126,25 @@ public sealed class WindowsForgeHost : IForgeUiHost
                     "Cancel"));
                 if (!ok) throw new OperationCanceledException();
             }
+            await client.EnsureExportAndInstallCapacityAsync(plan, ct);
             await Task.Run(() => HellForgePack.ExportAsync(plan, true, null, ct, null, throttler.AsProgress()), ct);
+            freshPlan = plan;
             prepared = output;
         }
         preferences.PreparedPack = prepared; SavePrefs();
-        await Task.Run(() => client.InstallPackAsync(prepared, selection, throttler.AsProgress(), ct), ct);
+        try
+        {
+            await Task.Run(() => client.InstallPackAsync(prepared, selection, throttler.AsProgress(), ct), ct);
+        }
+        catch (Exception ex)
+        {
+            if (freshPlan != null)
+            {
+                HellForgePack.ReclaimFailedInstallExport(freshPlan, ex);
+                if (!Directory.Exists(prepared)) { preferences.PreparedPack = null; SavePrefs(); }
+            }
+            throw;
+        }
         preferences.AppliedSelection = preferences.SelectionKey; SavePrefs();
         toastNotice = "Star Wars loadout installed and verified.";
         return false;
@@ -1806,9 +1836,19 @@ public sealed class WindowsForgeHost : IForgeUiHost
 
             if (setupPendingPlan.Missing.Count > 0 && !allowDownload) return;
             var plan = setupPendingPlan;
+            await client.EnsureExportAndInstallCapacityAsync(plan, ct);
             await Task.Run(() => HellForgePack.ExportAsync(plan, true, null, ct, null, throttler.AsProgress()), ct);
             preferences.PreparedPack = plan.Output; SavePrefs();
-            await Task.Run(() => client.InstallPackAsync(plan.Output, selection, throttler.AsProgress(), ct), ct);
+            try
+            {
+                await Task.Run(() => client.InstallPackAsync(plan.Output, selection, throttler.AsProgress(), ct), ct);
+            }
+            catch (Exception ex)
+            {
+                HellForgePack.ReclaimFailedInstallExport(plan, ex);
+                if (!Directory.Exists(plan.Output)) { preferences.PreparedPack = null; SavePrefs(); }
+                throw;
+            }
             preferences.AppliedSelection = preferences.SelectionKey; SavePrefs();
             setupPendingPlan = null;
             setupPackReady = true;

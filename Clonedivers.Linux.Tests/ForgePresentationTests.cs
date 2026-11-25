@@ -13,6 +13,8 @@ internal static class ForgePresentationTests
             "End session takes priority over update offers and refresh failures");
         check(ForgePresentation.Resolve(state, connected: true, ownsSession: true, error: "broken").Action == ForgeAction.EndSession, "an owned session stays endable even with stale status");
         check(ForgePresentation.Resolve(state, connected: true, active: true).Action == ForgeAction.None, "a session owned by another launcher cannot be stopped here");
+        check(ForgePresentation.Resolve(new ForgePlayerState(status, false, "Session starting. Waiting for HellForge to launch the game.", null, null), connected: true).Action == ForgeAction.Refresh,
+            "#37 SDK-shim startup window offers Check status instead of Set up mode or Sync account");
         check(ForgePresentation.Resolve(state, disconnected: true, active: true, ownsSession: true).Action == ForgeAction.Connect, "a lost bridge offers reconnect instead of an unusable stop");
         check(ForgePresentation.Resolve(state with { Status = status with { GameCopyReady = false } }, connected: true).Action == ForgeAction.Manager, "an unfinished game copy continues in official setup");
         check(ForgePresentation.Resolve(state with { Status = status with { CompatibilityProblem = "wrong version" } }, connected: true).Action == ForgeAction.Manager, "compatibility problems continue in official setup");

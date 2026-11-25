@@ -488,29 +488,44 @@ public sealed class HellForgeForm : Form
                 // The review starts HellForge's backend; idle, rerun it when the capture/profile/Steam user change or every 5 minutes.
                 if (account == null || accountKey == null || accountKey != lastAccountFingerprint || DateTime.UtcNow - lastAccountReadUtc >= TimeSpan.FromMinutes(5))
                 {
-                    (account, var reviewed) = await ReviewAccountAsync(CreateAccount(root), lifetime.Token);
-                    if (reviewed && account.Imported && block == null)
+                    var accountHelper = CreateAccount(root);
+                    (var reviewedState, var reviewed, var reviewErr) = await ReviewAccountWithErrorAsync(accountHelper, lifetime.Token);
+                    if (!reviewed && reviewErr != null && HellForgeAccount.IsTransientReviewError(reviewErr, root) &&
+                        accountKey != null && (lastAccount is { Imported: true } || accountHelper.HasLocalImportReceipt()))
                     {
-                        var opened = await TryOpenWarbondsAction(client, lifetime.Token);
-                        if (opened > 0)
-                        {
-                            warbondsPending = false;
-                            message.Text = $"Opened {opened} owned Warbonds";
-                            if (startupNotice == null) headline = null;
-                        }
-                        else if (HellForgeWarbonds.ManagerWindowOpen())
-                            warbondsPending = true;
-                        else
-                        {
-                            warbondsPending = false;
-                            if (message.Text == DeferredWarbondsMessage || message.Text == CloseHellForgeToUnlockWarbondsMessage)
-                                message.Text = "Your HD2 account is imported for all three modes.";
-                        }
+                        account = lastAccount is { Imported: true } prev
+                            ? prev
+                            : new(true, true, "Your HD2 account is imported for all three modes.");
+                        accountReviewFailed = false;
+                        lastAccountFingerprint = null;
+                        lastAccountReadUtc = DateTime.UtcNow;
                     }
-                    else if (reviewed && !account.Imported)
-                        warbondsPending = false;
-                    accountReviewFailed = !reviewed;
-                    lastAccountFingerprint = reviewed ? accountKey : null; lastAccountReadUtc = DateTime.UtcNow;
+                    else
+                    {
+                        account = reviewedState;
+                        if (reviewed && account.Imported && block == null)
+                        {
+                            var opened = await TryOpenWarbondsAction(client, lifetime.Token);
+                            if (opened > 0)
+                            {
+                                warbondsPending = false;
+                                message.Text = $"Opened {opened} owned Warbonds";
+                                if (startupNotice == null) headline = null;
+                            }
+                            else if (HellForgeWarbonds.ManagerWindowOpen())
+                                warbondsPending = true;
+                            else
+                            {
+                                warbondsPending = false;
+                                if (message.Text == DeferredWarbondsMessage || message.Text == CloseHellForgeToUnlockWarbondsMessage)
+                                    message.Text = "Your HD2 account is imported for all three modes.";
+                            }
+                        }
+                        else if (reviewed && !account.Imported)
+                            warbondsPending = false;
+                        accountReviewFailed = !reviewed;
+                        lastAccountFingerprint = reviewed ? accountKey : null; lastAccountReadUtc = DateTime.UtcNow;
+                    }
                 }
                 else if (warbondsPending && account.Imported && block == null && !HellForgeWarbonds.ManagerWindowOpen())
                 {
@@ -550,8 +565,13 @@ public sealed class HellForgeForm : Form
     // A read-only review failure (timeout, missing backend) is an account state, never a refresh failure that drops the mods read.
     internal static async Task<(HellForgeAccountState State, bool Reviewed)> ReviewAccountAsync(HellForgeAccount account, CancellationToken ct)
     {
-        try { return (await account.ReadAsync(ct), true); }
-        catch (Exception error) when (error is not OperationCanceledException) { return (new(false, false, error.Message), false); }
+        var (state, reviewed, _) = await ReviewAccountWithErrorAsync(account, ct);
+        return (state, reviewed);
+    }
+    internal static async Task<(HellForgeAccountState State, bool Reviewed, Exception? Error)> ReviewAccountWithErrorAsync(HellForgeAccount account, CancellationToken ct)
+    {
+        try { return (await account.ReadAsync(ct), true, null); }
+        catch (Exception error) when (error is not OperationCanceledException) { return (new(false, false, error.Message), false, error); }
     }
     bool OfferUpdate => launcherRelease != null && !updateDeferred && updates.Enabled;
     void ShowUpdateOffer(string version, bool failed)
@@ -988,7 +1008,13 @@ public sealed class HellForgeForm : Form
         var selection = preferences.Selection();
         Cancellable = true;
         var report = new Progress<string>(text => { if (!IsDisposed) message.Text = text; });
-        var folder = await FindPreparedAsync(client, selection, report) ?? await ExportAsync(client, selection, report);
+        HellForgePack.Plan? freshPlan = null;
+        var folder = await FindPreparedAsync(client, selection, report);
+        if (folder == null)
+        {
+            freshPlan = await PlanAndExportAsync(client, selection, report);
+            folder = freshPlan.Output;
+        }
         preferences.PreparedPack = folder; Save();
         if (Game.IsRunning() || (await client.StatusAsync(WorkToken)).Running)
         {
@@ -998,7 +1024,19 @@ public sealed class HellForgeForm : Form
         message.Text = "Importing and verifying the pack in HellForge…";
         Cancellable = false;
         WorkToken.ThrowIfCancellationRequested();
-        await Task.Run(() => client.InstallPackAsync(folder, selection, WorkToken), WorkToken);
+        try
+        {
+            await Task.Run(() => client.InstallPackAsync(folder, selection, WorkToken), WorkToken);
+        }
+        catch (Exception ex)
+        {
+            if (freshPlan != null)
+            {
+                HellForgePack.ReclaimFailedInstallExport(freshPlan, ex);
+                if (!Directory.Exists(folder)) { preferences.PreparedPack = null; Save(); }
+            }
+            throw;
+        }
         preferences.AppliedSelection = preferences.SelectionKey; Save();
         message.Text = "Your Star Wars pack is installed.";
     }
@@ -1018,7 +1056,7 @@ public sealed class HellForgeForm : Form
         }
         return null;
     }
-    async Task<string> ExportAsync(HellForgeClient client, HellForgePack.Selection selection, IProgress<string> report)
+    async Task<HellForgePack.Plan> PlanAndExportAsync(HellForgeClient client, HellForgePack.Selection selection, IProgress<string> report)
     {
         var sources = new List<string>();
         var game = GameLocator.AutoDetect();
@@ -1034,11 +1072,12 @@ public sealed class HellForgeForm : Form
                 "Prepare Star Wars pack", MessageBoxButtons.OKCancel, MessageBoxIcon.Information) != DialogResult.OK)
                 throw new OperationCanceledException();
         }
+        await client.EnsureExportAndInstallCapacityAsync(plan, WorkToken);
         var downloading = plan.Missing.Count > 0;
         var bytes = downloading ? CreateByteProgress("Downloading Star Wars pack", () => downloading) : null;
         try { await Task.Run(() => HellForgePack.ExportAsync(plan, true, report, WorkToken, bytes), WorkToken); }
         finally { downloading = false; progress.Style = ProgressBarStyle.Marquee; }
-        return output;
+        return plan;
     }
     async Task LaunchAsync() => await OperationAsync(async () => {
         if (!SteamReadyCheck()) {

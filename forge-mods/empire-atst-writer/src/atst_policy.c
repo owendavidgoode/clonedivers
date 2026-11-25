@@ -113,38 +113,45 @@ at_status at_pack(const at_mat4 *m, at_render48 *out) {
     at_render48 p;
     at_mat4 check = mat4_identity();
     for (unsigned k = 0; k < 12; k++) {
+        if (!isfinite(m->v[k])) return AT_NONFINITE;
         if (fabs(m->v[k]) > (double)FLT_MAX) return AT_NUMERIC;
-        p.v[k] = (float)m->v[k];
-        if (!isfinite(p.v[k]) ||
-            (m->v[k] != 0.0 && p.v[k] == 0.0f) ||
-            (p.v[k] != 0.0f && fabsf(p.v[k]) < FLT_MIN)) {
-            return AT_NUMERIC;
-        }
-        check.v[k] = (double)p.v[k];
+        float fv = (fabs(m->v[k]) < (double)FLT_MIN) ? 0.0f : (float)m->v[k];
+        if (!isfinite(fv)) return AT_NONFINITE;
+        if (fabsf(fv) < FLT_MIN) fv = 0.0f;
+        p.v[k] = fv;
+        check.v[k] = (double)fv;
     }
     TRY(check_affine(&check));
     *out = p;
     return AT_OK;
 }
 
-static at_status number32(float x) {
-    if (!isfinite(x)) return AT_NONFINITE;
-    if (x != 0.0f && fabsf(x) < FLT_MIN) return AT_NUMERIC;
+static at_status number32(float *x) {
+    if (!isfinite(*x)) return AT_NONFINITE;
+    if (fabsf(*x) < FLT_MIN) *x = 0.0f;
     return AT_OK;
 }
 
 static at_status mul32(float a, float b, float *out) {
+    if (!isfinite(a) || !isfinite(b)) return AT_NONFINITE;
+    if (fabsf(a) < FLT_MIN) a = 0.0f;
+    if (fabsf(b) < FLT_MIN) b = 0.0f;
     volatile float v = a * b;
-    *out = v;
-    TRY(number32(v));
-    if (a != 0.0f && b != 0.0f && v == 0.0f) return AT_NUMERIC;
+    float fv = v;
+    TRY(number32(&fv));
+    *out = fv;
     return AT_OK;
 }
 
 static at_status add32(float a, float b, float *out) {
+    if (!isfinite(a) || !isfinite(b)) return AT_NONFINITE;
+    if (fabsf(a) < FLT_MIN) a = 0.0f;
+    if (fabsf(b) < FLT_MIN) b = 0.0f;
     volatile float v = a + b;
-    *out = v;
-    return number32(v);
+    float fv = v;
+    TRY(number32(&fv));
+    *out = fv;
+    return AT_OK;
 }
 
 at_status at_compose48(const at_render48 *a, const at_render48 *b, at_render48 *out) {
@@ -154,8 +161,7 @@ at_status at_compose48(const at_render48 *a, const at_render48 *b, at_render48 *
     }
     if (fegetround() != FE_TONEAREST) return AT_NUMERIC;
     for (unsigned i = 0; i < 12; i++) {
-        TRY(number32(a->v[i]));
-        TRY(number32(b->v[i]));
+        if (!isfinite(a->v[i]) || !isfinite(b->v[i])) return AT_NONFINITE;
     }
     at_render48 res;
     for (unsigned r = 0; r < 3; r++) {

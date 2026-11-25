@@ -726,11 +726,25 @@ internal sealed class HellForgeSetupForm : Form
             });
             var plan = pendingPackPlan;
             if (ExportPackOverride != null)
+            {
                 await ExportPackOverride(plan, true, installReport, ct, packBytes);
+            }
             else
+            {
+                await client.EnsureExportAndInstallCapacityAsync(plan, ct);
                 await Task.Run(() => HellForgePack.ExportAsync(plan, true, installReport, ct, packBytes), ct);
+            }
             SetCanPause(false);
-            await InstallPreparedPackAsync(client, plan.Output, selection, ct);
+            try
+            {
+                await InstallPreparedPackAsync(client, plan.Output, selection, ct);
+            }
+            catch (Exception ex)
+            {
+                HellForgePack.ReclaimFailedInstallExport(plan, ex);
+                if (!Directory.Exists(plan.Output)) { preferences.PreparedPack = null; SavePrefs(); }
+                throw;
+            }
             pendingPackPlan = null;
         }
         catch (OperationCanceledException)

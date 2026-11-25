@@ -1663,22 +1663,29 @@ int main(int argc, char **argv) {
             TCHECK(writer.fatal == 0 && shadowFail == 0 && leafFail == 0);
         }
 
-        /* Validate production lego-garments.json (54 Wave 2A Clone garments, 216 pinned descriptors) */
+        /* Validate production lego-garments.json (>=54 Compact LEGO garments, 4 LOD descriptors each) */
         {
             int prodFound = 0;
             uint32_t prodLoaded = 0;
-            const char *prodPath = "lego-garments.json";
-            FILE *probeProd = fopen(prodPath, "rb");
-            if (probeProd) {
-                fclose(probeProd);
-            } else {
-                prodPath = "../lego-garments.json";
+            const char *candidates[] = {
+                "lego-garments.json",
+                "../lego-garments.json",
+                "forge-mods/lego-compact-leaf-writer/lego-garments.json"
+            };
+            const char *prodPath = candidates[0];
+            for (size_t ci = 0; ci < sizeof(candidates) / sizeof(candidates[0]); ci++) {
+                FILE *probeProd = fopen(candidates[ci], "rb");
+                if (probeProd) {
+                    fclose(probeProd);
+                    prodPath = candidates[ci];
+                    break;
+                }
             }
             cm_reset_dynamic_garments();
             lp_reset_dynamic_assets();
             TCHECK(lg_load_garments_file(prodPath, &prodFound, &prodLoaded, err, sizeof err));
-            TCHECK(prodFound == 1 && prodLoaded == 54u && cm_garment_count() == 61u);
-            for (uint32_t gi = 7u; gi < 61u; gi++) {
+            TCHECK(prodFound == 1 && prodLoaded >= 54u && cm_garment_count() == 7u + prodLoaded);
+            for (uint32_t gi = 7u; gi < 7u + prodLoaded; gi++) {
                 const cm_garment *cg = cm_garment_at(gi);
                 TCHECK(cg != NULL && cg->count >= 1u && cg->count <= 128u);
                 uint64_t gRes = strtoull(cg->resource, NULL, 16);

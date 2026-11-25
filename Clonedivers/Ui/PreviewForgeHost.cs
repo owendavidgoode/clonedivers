@@ -371,9 +371,9 @@ public sealed class PreviewForgeHost : IForgeUiHost
         Bullets:
         [
             "5 native Star Wars texture tiers (up to -80% VRAM & decimated meshes on Ultra-Potato).",
-            "Empire r50 & Clones r21: AAA AT-ST, closed-hull Lambdas, unstretched helmets, British Imperial voices & SEAF blasters.",
-            "3-way Mixed Covenant + Squids selector, O(1) camera pullback, Dedicated Melee Slot & D11 Chaos OOM fix.",
-            "Squad Match Code (r8), clear pre-window launch staging status, and overhaul-pack collision guard."
+            "Empire r51 & Clones r22: K-2SO glowing eyes, walking JFO AT-ST, CIS vs Venators skybox & Stormtrooper radio VO.",
+            "Co-op crash fixes (Chaos ground surges, Extraction Lambda mkeys, Mission 2+ Chaos re-arm) & Compact LEGO.",
+            "Squad Match Code (r10), low-disk export cleanup, and Linux Proton camera/sync polish."
         ],
         IsFallback: false,
         ReleaseUrl: $"https://github.com/owendavidgoode/clonedivers/releases/tag/v{AppInfo.Version}"));

@@ -2,7 +2,7 @@
   "format": 1,
   "id": "clonedivers.empire-atst-writer",
   "name": "Empire AT-ST Film-Scale Leaf Writer",
-  "version": "0.2.2",
+  "version": "0.2.3",
   "description": "SDK-16 visual-only S2c joint-aware leaf writer for film-scale Patriot EXO-45 (79E4B3D2DA5E45E3), Emancipator EXO-49 (C2D449ECF7FACAB1), Lumberer EXO-51 (7B2326F6FD9C8069), and Breakthrough EXO-55 (35DBF54F016F3624), supporting up to 4 concurrent co-op walkers with lock-free zero-walker fast path on 512B80/1E7CD0, fast tail-call 5B2990 dispatch, differential UnitManager cache with 30s QPC health telemetry, RenderHandle 1E7CD0 retirement, and fail-closed passthrough.",
   "gameplay": false,
   "coop": "per-player",

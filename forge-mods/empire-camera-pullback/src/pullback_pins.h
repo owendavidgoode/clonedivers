@@ -10,6 +10,8 @@
 
 /* helldivers2.exe RVAs (verified in PASS3.md against camera-capture-mission & terminal_camera.c). */
 #define ECP_EXE_CAMERA_STEP       0x689BC0u
+#define ECP_EXE_CAMERA_SUB_STEP   0x1C6900u
+#define ECP_EXE_CAMERA_STEP_RET   0x689C00u
 #define ECP_EXE_SET_LOCAL_POSE    0x1FCAD0u
 #define ECP_EXE_UPDATE_UNIT       0x1B2DC0u
 #define ECP_EXE_LOOKUP_UNIT       0x09D8C0u
@@ -109,6 +111,8 @@
 /* First 32 bytes of each engine function in helldivers2.exe build 25480438. */
 static const char kEcpPinCameraStep[] =
     "48 83 EC 58 33 C0 4C 8D 05 EB 71 00 01 48 89 44 24 30 48 8D 54 24 40 89 44 24 38 48 81 C1 90 01";
+static const char kEcpPinCameraSubStep[] =
+    "48 89 5C 24 08 48 89 6C 24 10 44 89 4C 24 20 56 57 41 56 48 83 EC 40 4D 8B F0 48 8B EA 48 8B F1 E8";
 static const char kEcpPinSetLocalPose[] =
     "48 89 5C 24 08 48 89 74 24 10 57 48 83 EC 20 49 8B D8 48 63 FA E8 D6 0D EA FF 48 8B C8 48 8B F0";
 static const char kEcpPinUpdateUnit[] =
@@ -141,14 +145,20 @@ typedef struct EcpLegoGarmentPin {
     uint32_t expected_nodes;
 } EcpLegoGarmentPin;
 
-/* Sorted table of all 61 Compact LEGO 3P garments (7 Empire baked + 54 Clone dynamic). */
-#define ECP_LEGO_GARMENT_COUNT 61u
+/* Sorted table of all 79 Compact LEGO 3P garments (7 Empire baked + 54 Clone dynamic + 18 Empire dynamic). */
+#define ECP_LEGO_GARMENT_COUNT 79u
 static const EcpLegoGarmentPin kEcpLegoGarments[ECP_LEGO_GARMENT_COUNT] = {
     {0x001A106B352493D5ULL, 21u}, /* commander_cody_left_leg */
+    {0x003CC8A527711DA5ULL, 31u}, /* dp40_tr9_stormtrooper_torso_lean */
     {0x0208D1FFFB6C1675ULL, 21u}, /* captain_rex_helmet */
+    {0x0377EA04BCBD7319ULL, 43u}, /* cm09_af02_bikini_stormtrooper_left_arm */
+    {0x0506E669825C1648ULL, 21u}, /* o44_stormtrooper_helmet */
     {0x0593D8E403C51BC2ULL, 47u}, /* phase1_shiny_left_arm */
+    {0x088772986FCA2B13ULL, 27u}, /* dp11_stormtrooper_torso_lean */
+    {0x09AD5784B873E58FULL, 30u}, /* cm09_af02_bikini_stormtrooper_torso_lean */
     {0x0A09425DA11544D7ULL, 21u}, /* commander_cody_right_leg */
     {0x0ED7F5717E4DF15DULL, 18u}, /* phase2_501st_hips_bt1 */
+    {0x174D1DCEB75D16D4ULL, 17u}, /* cm09_af02_bikini_stormtrooper_hips_brawny */
     {0x1E25DAEB99B1A917ULL, 21u}, /* empire_baked_3 */
     {0x1FC7B7C36F0B1674ULL, 17u}, /* commander_cody_hips_bt1 */
     {0x24105347EBD202F4ULL, 17u}, /* phase2_212th_hips_bt1 */
@@ -163,9 +173,12 @@ static const EcpLegoGarmentPin kEcpLegoGarments[ECP_LEGO_GARMENT_COUNT] = {
     {0x3EBFC76341E98F39ULL, 21u}, /* phase2_212th_left_leg */
     {0x4185F04A2DD2FA90ULL, 18u}, /* phase2_501st_hips_bt0 */
     {0x4249A344A5268033ULL, 27u}, /* coruscant_guard_torso_bt1 */
+    {0x43840F40D7999C80ULL, 21u}, /* cm09_af02_bikini_stormtrooper_helmet_2 */
     {0x453B56313057297AULL, 17u}, /* phase1_shiny_hips_bt0 */
+    {0x48E63F84996BE394ULL, 21u}, /* dp11_stormtrooper_helmet */
     {0x4A1DE6A0D1FFC6A7ULL, 22u}, /* coruscant_guard_left_leg */
     {0x4AF7E6656DA96318ULL, 17u}, /* coruscant_guard_hips_bt0 */
+    {0x4B330E182EFA97D7ULL, 21u}, /* cm09_af02_bikini_stormtrooper_left_leg */
     {0x4D2F00B6C4929F00ULL, 17u}, /* empire_baked_5 */
     {0x512399E005614901ULL, 43u}, /* empire_baked_4 */
     {0x51E5214EAE73D316ULL, 22u}, /* phase1_shiny_left_leg */
@@ -173,14 +186,18 @@ static const EcpLegoGarmentPin kEcpLegoGarments[ECP_LEGO_GARMENT_COUNT] = {
     {0x572650ED5C6665CBULL, 25u}, /* captain_rex_hips_bt1 */
     {0x590D30736E66432CULL, 44u}, /* coruscant_guard_right_arm */
     {0x5A6301820AAAF66BULL, 22u}, /* phase2_501st_left_leg */
+    {0x69AD165D13A46FF1ULL, 17u}, /* cm09_af02_bikini_stormtrooper_hips_lean */
     {0x6B826D06AB7AF07CULL, 27u}, /* coruscant_guard_torso_bt0 */
+    {0x6FF15ACC991E8A9AULL, 27u}, /* o44_stormtrooper_torso_brawny */
     {0x7305FDF48136C05CULL, 21u}, /* empire_baked_1 */
     {0x7514090FA90DA6F0ULL, 43u}, /* phase2_212th_right_arm */
     {0x75548295338B975AULL, 22u}, /* phase1_shiny_right_leg */
     {0x7604826C8C96A881ULL, 17u}, /* commander_cody_hips_bt0 */
+    {0x9588C31DE55D589CULL, 21u}, /* cm09_af02_bikini_stormtrooper_right_leg */
     {0x95EC84B1EFA977B3ULL, 27u}, /* phase2_212th_torso_bt1 */
     {0x9E291E101E16DC4FULL, 27u}, /* phase2_212th_torso_bt0 */
     {0xA111DE5354035DD7ULL, 44u}, /* commander_cody_right_arm */
+    {0xA4443F91278A5C5FULL, 27u}, /* dp11_stormtrooper_torso_brawny */
     {0xA88278A6EA6B3E94ULL, 21u}, /* phase2_501st_helmet */
     {0xB26FA103A77BE3F9ULL, 21u}, /* captain_rex_left_leg */
     {0xB63D3C0BD23EE274ULL, 43u}, /* captain_rex_right_arm */
@@ -189,8 +206,10 @@ static const EcpLegoGarmentPin kEcpLegoGarments[ECP_LEGO_GARMENT_COUNT] = {
     {0xBB11C8041C14C747ULL, 29u}, /* empire_baked_6 */
     {0xBFDC0F01475D16C8ULL, 21u}, /* commander_cody_helmet */
     {0xC11416CC62AA026CULL, 47u}, /* phase1_shiny_right_arm */
+    {0xC1141B792C1B621AULL, 30u}, /* cm09_af02_bikini_stormtrooper_torso_brawny */
     {0xC5BCFEDD0D88A16BULL, 43u}, /* captain_rex_left_arm */
     {0xC6369F219C208C0DULL, 44u}, /* coruscant_guard_left_arm */
+    {0xC6F9903FD728206BULL, 27u}, /* o44_stormtrooper_torso_lean */
     {0xC86087DDDF60D9DEULL, 27u}, /* commander_cody_torso_bt1 */
     {0xCBB536EEDB3005EDULL, 44u}, /* phase2_501st_left_arm */
     {0xD184172E9096A6C2ULL, 27u}, /* phase1_shiny_torso_bt1 */
@@ -199,11 +218,14 @@ static const EcpLegoGarmentPin kEcpLegoGarments[ECP_LEGO_GARMENT_COUNT] = {
     {0xDAB5777BFBBD1A83ULL, 27u}, /* phase1_shiny_torso_bt0 */
     {0xDD25333BDF5F0143ULL, 43u}, /* empire_baked_2 */
     {0xDDCAF179A5CF81B4ULL, 29u}, /* captain_rex_torso_bt0 */
+    {0xDE118AD3932E0A23ULL, 21u}, /* cm09_bikini_stormtrooper_helmet_1 */
     {0xE0EEAE016DA8C9EDULL, 44u}, /* commander_cody_left_arm */
     {0xE25339F051883B91ULL, 22u}, /* phase2_501st_right_leg */
     {0xE79251F8F34D351AULL, 21u}, /* coruscant_guard_helmet */
+    {0xF19F70AF86F4CDB0ULL, 17u}, /* dp40_tr9_dp11_o44_stormtrooper_hips_lean */
     {0xF2EEF185355BAE5EULL, 27u}, /* phase2_501st_torso_bt1 */
     {0xF4AF05AD6D4D73A4ULL, 21u}, /* phase2_212th_helmet */
+    {0xF6F783E1679BA0FDULL, 43u}, /* cm09_af02_bikini_stormtrooper_right_arm */
     {0xFD1F3953E73C6DFBULL, 17u}, /* phase1_shiny_hips_bt1 */
 };
 

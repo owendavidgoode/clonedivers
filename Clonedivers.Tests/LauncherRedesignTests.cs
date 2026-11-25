@@ -126,10 +126,10 @@ internal static class LauncherRedesignTests
             check(!string.IsNullOrWhiteSpace(home.Headline) &&
                   !string.IsNullOrWhiteSpace(setup.Headline) &&
                   diag.HealthChecks.Count > 0 &&
-                  System.Text.RegularExpressions.Regex.IsMatch(home.SquadMatchHash, @"^r9-[0-9a-f]{4}$") &&
+                  System.Text.RegularExpressions.Regex.IsMatch(home.SquadMatchHash, @"^r10-[0-9a-f]{4}$") &&
                   !string.IsNullOrWhiteSpace(diag.DiscordReportText) &&
                   !string.IsNullOrWhiteSpace(diag.DiskUsageSummary),
-                $"PreviewForgeHost preset '{preset}' produces complete Home/Setup/Diagnostics state with r9 match hash and Discord report");
+                $"PreviewForgeHost preset '{preset}' produces complete Home/Setup/Diagnostics state with r10 match hash and Discord report");
         }
 
         var stepDownHome = new PreviewForgeHost("home-stepdown").GetHomeState();
@@ -143,7 +143,7 @@ internal static class LauncherRedesignTests
             "PreviewForgeHost 'home-resume' exposes UPDATE & LAUNCH CTA, Resume download pill, and Self-Install shortcuts banner");
 
         // 10. Version bump & cross-platform WindowIcon extraction (Deliverables 1 & 4)
-        check(AppInfo.Version == "2.1.2" || AppInfo.Version == "1.0.0", // Test runner assembly may be 1.0.0 unless Version set, verify Clonedivers.Icon.ico!
+        check(AppInfo.Version == "2.1.3" || AppInfo.Version == "1.0.0", // Test runner assembly may be 1.0.0 unless Version set, verify Clonedivers.Icon.ico!
             "AppInfo.Version resolves cleanly");
         using (var icoRes = typeof(ForgeTheme).Assembly.GetManifestResourceStream("Clonedivers.Icon.ico"))
         {

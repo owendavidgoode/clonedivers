@@ -408,14 +408,14 @@ internal static class TurnkeySetupTests
                 (await postRecovery.MissingGameplayAsync()).Select(a => a.Id).ToHashSet(StringComparer.Ordinal).SetEquals(expectedR4Upgrade),
                 "RecoverGameplayAsync after an interrupted r4->r8 upgrade restores 0.0.9/0.2.0 and still offers the enabled retired-default upgrades on retry");
             fake.Calls.Clear(); await postRecovery.InstallGameplayAsync(postRecovery.GameplayCache);
-            check(fake.Mods.Single(m => m.Id == leafWriter.Id) is { Enabled: true, Version: "0.2.1" } &&
-                fake.Mods.Single(m => m.Id == chaos.Id) is { Enabled: true, Version: "0.3.4" } &&
-                fake.Mods.Single(m => m.Id == atst.Id) is { Enabled: true, Version: "0.2.2" } &&
+            check(fake.Mods.Single(m => m.Id == leafWriter.Id) is { Enabled: true, Version: "0.2.2" } &&
+                fake.Mods.Single(m => m.Id == chaos.Id) is { Enabled: true, Version: "0.3.5" } &&
+                fake.Mods.Single(m => m.Id == atst.Id) is { Enabled: true, Version: "0.2.3" } &&
                 newInR5.All(id => fake.Mods.Single(m => m.Id == id).Enabled) &&
                 fake.Mods.Single(m => m.Id == yoda.Id) is { Enabled: false, Version: "0.1.2" } &&
                 fake.Mods.All(m => m.Id != cleanExit.Id) &&
                 fake.Calls.Count(c => c[0] == "mod-add") == expectedR4Upgrade.Count,
-                "r4->r8 retry after RecoverGameplayAsync imports 0.2.1/0.2.2/0.3.4 upgrades and new AT-ST/TIE Switch/Camera Pullback/Star Wars Localization/Dedicated Melee defaults while leaving disabled Yoda 0.1.2 and removed Clean Exit untouched");
+                "r4->r10 retry after RecoverGameplayAsync imports 0.2.2/0.2.3/0.3.5 upgrades and new AT-ST/TIE Switch/Camera Pullback/Star Wars Localization/Dedicated Melee defaults while leaving disabled Yoda 0.1.2 and removed Clean Exit untouched");
 
             // Upgrading from r5 upgrades enabled 0.1.0 LEGO leaf writer and AT-ST writer while offering Camera Pullback + Star Wars Localization + Dedicated Melee and preserving disabled/removed optionals.
             var r5OptionalIds = new[] { cleanExit.Id, leafWriter.Id, yoda.Id, atst.Id, tieSwitch.Id, chaos.Id };
@@ -448,7 +448,7 @@ internal static class TurnkeySetupTests
             check((await restarted.MissingGameplayAsync()).Select(a => a.Id).ToHashSet(StringComparer.Ordinal).SetEquals(expectedR7Upgrade),
                 "an r7 installation upgrades enabled AT-ST 0.2.1 and Chaos 0.3.0 and offers Camera Pullback + Star Wars Localization + Dedicated Melee while keeping disabled/removed optionals opted out");
 
-            // Upgrading from r8 (v2.1.0/v2.1.1) must upgrade enabled Chaos 0.3.3 -> 0.3.4 and Camera Pullback 0.1.2 -> 0.1.3 and offer Star Wars Localization while respecting disabled optionals.
+            // Upgrading from r8 (v2.1.0/v2.1.1) must upgrade enabled Chaos 0.3.3 -> 0.3.5 and Camera Pullback 0.1.2 -> 0.1.4 and offer Star Wars Localization while respecting disabled optionals.
             fake.Mods.RemoveAll(m => HellForgePreset.Optional.Contains(m.Id));
             fake.Mods.Add(new(chaos.Id, chaos.Name, true, MakeOldDir(chaos, "0.3.3"), ["code"], "0.3.3"));
             fake.Mods.Add(new(cameraPullback.Id, cameraPullback.Name, true, MakeOldDir(cameraPullback, "0.1.2"), ["code"], "0.1.2"));
@@ -457,6 +457,19 @@ internal static class TurnkeySetupTests
             var expectedR8Upgrade = new[] { chaos.Id, cameraPullback.Id, swLoc.Id }.ToHashSet(StringComparer.Ordinal);
             check((await restarted.MissingGameplayAsync()).Select(a => a.Id).ToHashSet(StringComparer.Ordinal).SetEquals(expectedR8Upgrade),
                 "an r8 (v2.1.0/v2.1.1) installation upgrades enabled Chaos 0.3.3 and Camera Pullback 0.1.2 and offers Star Wars Localization while keeping disabled/removed optionals opted out");
+
+            // Upgrading from r9 (v2.1.2) must upgrade all 5 enabled r9->r10 optionals (0.2.1->0.2.2, 0.2.0->0.2.1, 0.2.2->0.2.3, 0.1.3->0.1.4, 0.3.4->0.3.5) while keeping disabled/removed optionals opted out.
+            fake.Mods.RemoveAll(m => HellForgePreset.Optional.Contains(m.Id));
+            fake.Mods.Add(new(leafWriter.Id, leafWriter.Name, true, MakeOldDir(leafWriter, "0.2.1"), ["code"], "0.2.1"));
+            fake.Mods.Add(new(yoda.Id, yoda.Name, true, MakeOldDir(yoda, "0.2.0"), ["code"], "0.2.0"));
+            fake.Mods.Add(new(atst.Id, atst.Name, true, MakeOldDir(atst, "0.2.2"), ["code"], "0.2.2"));
+            fake.Mods.Add(new(cameraPullback.Id, cameraPullback.Name, true, MakeOldDir(cameraPullback, "0.1.3"), ["code"], "0.1.3"));
+            fake.Mods.Add(new(chaos.Id, chaos.Name, true, MakeOldDir(chaos, "0.3.4"), ["code"], "0.3.4"));
+            fake.Mods.Add(new(dedicatedMelee.Id, dedicatedMelee.Name, false, MakeOldDir(dedicatedMelee, "1.5.2-clonedivers.2"), ["code"], "1.5.2-clonedivers.2"));
+            WriteRecord("build25480438-r9", "applied", true, null);
+            var expectedR9Upgrade = new[] { leafWriter.Id, yoda.Id, atst.Id, cameraPullback.Id, chaos.Id }.ToHashSet(StringComparer.Ordinal);
+            check((await restarted.MissingGameplayAsync()).Select(a => a.Id).ToHashSet(StringComparer.Ordinal).SetEquals(expectedR9Upgrade),
+                "an r9 (v2.1.2) installation upgrades all 5 enabled r10 code mods while keeping disabled/removed optionals opted out");
 
             // Upgrading from an earlier record with partial OptionalDefaults offers newly added optionals while preserving prior opt-outs and player-kept versions across rollback.
             fake.Mods.RemoveAll(m => HellForgePreset.Optional.Contains(m.Id));
@@ -665,7 +678,7 @@ internal static class TurnkeySetupTests
                 await wiz.ContinueAsync();
                 check(exportCalls == 2 && nextBtn.Text == "FINISH & RETURN TO LAUNCHER" &&
                     fake.Mods.Any(m => m.Id == HellForgePack.PackId("clonedivers") && m.Enabled),
-                    "Step 4 retry after post-export import failure reuses the verified export via FindPreparedAsync and finishes setup");
+                    $"Step 4 retry after post-export import failure reuses the verified export via FindPreparedAsync and finishes setup (exportCalls={exportCalls}, next='{nextBtn.Text}', detail='{detailLbl.Text}')");
             }
         }
         finally { HellForgeForm.CreateCommands = prevCreate; SynchronizationContext.SetSynchronizationContext(prevSync); }

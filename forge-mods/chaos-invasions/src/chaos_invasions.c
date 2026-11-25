@@ -163,6 +163,25 @@ static int g_shared_applied = 0;
 static double g_last_foreign_spawn_age = -1000.0;
 static float g_last_wave_anchor[3] = {0.0f, 0.0f, 0.0f};
 static int g_has_last_wave_anchor = 0;
+static uint64_t g_chaos_owned_pkgs[128];
+static uint32_t g_chaos_owned_pkg_count = 0u;
+
+static int ChaosOwnsPkg(uint64_t pkg_id)
+{
+    if (!pkg_id) return 0;
+    for (uint32_t i = 0; i < g_chaos_owned_pkg_count; i++) {
+        if (g_chaos_owned_pkgs[i] == pkg_id) return 1;
+    }
+    return 0;
+}
+
+static void ChaosRecordOwnedPkg(uint64_t pkg_id)
+{
+    if (!pkg_id || ChaosOwnsPkg(pkg_id)) return;
+    if (g_chaos_owned_pkg_count < (uint32_t)(sizeof(g_chaos_owned_pkgs) / sizeof(g_chaos_owned_pkgs[0]))) {
+        g_chaos_owned_pkgs[g_chaos_owned_pkg_count++] = pkg_id;
+    }
+}
 
 /* Optional unit-test overrides cleanly compiled out for shipping DLL */
 #ifdef CHAOS_UNIT_TEST
@@ -515,34 +534,55 @@ static int CollectLivingPlayers(uintptr_t gbase, float positions_out[4][3], uint
     return living;
 }
 
-static int PackageResidentExe(uintptr_t ebase, size_t esize, uint64_t pkg_id)
+/* Returns: 2 = all parts resident (state 4), 1 = present in PackageManager (streaming state 1..3 or corrupt >1024),
+ *          0 = confirmed absent from PackageManager or confirmed unloaded (part state == 0),
+ *         -1 = unknown / transient read failure (callers must NOT treat as unloaded). */
+static int PackageStateExe(uintptr_t ebase, size_t esize, uint64_t pkg_id)
 {
     uintptr_t engine = 0, manager = 0, resources = 0, list = 0;
     uint32_t count = 0;
-    if (!ebase || esize < CHAOS_EXE_ENGINE_RVA + 8u || !g_exe_pins_ok || !pkg_id) return 0;
+    if (!ebase || esize < CHAOS_EXE_ENGINE_RVA + 8u || !g_exe_pins_ok || !pkg_id) return -1;
     if (!ReadPtr(ebase + CHAOS_EXE_ENGINE_RVA, &engine) ||
         !ReadPtr(engine + 0x400u, &manager) ||
         !ReadPtr(manager + 0x208u, &resources) ||
-        !ReadMem(resources + 0x80u, &count, 4) || count == 0 || count > 8192u ||
-        !ReadPtr(resources + 0x88u, &list))
-        return 0;
+        !ReadMem(resources + 0x80u, &count, 4) || count > 8192u)
+        return -1;
+    if (count == 0u) return 0;
+    if (!ReadPtr(resources + 0x88u, &list)) return -1;
 
+    int had_read_error = 0;
     for (uint32_t i = 0; i < count; i++) {
         uintptr_t pkg = 0, parts_arr = 0;
         uint64_t id = 0;
         uint32_t parts = 0;
-        if (!ReadPtr(list + (uintptr_t)i * 8u, &pkg)) continue;
-        if (!ReadMem(pkg + 0x10u, &id, 8)) continue;
+        if (!ReadPtr(list + (uintptr_t)i * 8u, &pkg) ||
+            !ReadMem(pkg + 0x10u, &id, 8) ||
+            !ReadMem(pkg + 0x18u, &parts, 4) || parts == 0) {
+            had_read_error = 1;
+            continue;
+        }
         int matched = (id == pkg_id);
-        if (!ReadMem(pkg + 0x18u, &parts, 4) || parts == 0 || parts > 1024u) continue;
-        if (!ReadPtr(pkg + 0x20u, &parts_arr)) continue;
+        if (parts > 1024u) {
+            if (matched) return 1;
+            had_read_error = 1;
+            continue;
+        }
+        if (!ReadPtr(pkg + 0x20u, &parts_arr)) {
+            if (matched) return -1;
+            had_read_error = 1;
+            continue;
+        }
 
         if (!matched) {
             for (uint32_t p = 0; p < parts; p++) {
                 uintptr_t part = 0;
                 uint64_t part_id = 0;
-                if (ReadPtr(parts_arr + (uintptr_t)p * 8u, &part) &&
-                    ReadMem(part + 0x10u, &part_id, 8) && part_id == pkg_id) {
+                if (!ReadPtr(parts_arr + (uintptr_t)p * 8u, &part) ||
+                    !ReadMem(part + 0x10u, &part_id, 8)) {
+                    had_read_error = 1;
+                    continue;
+                }
+                if (part_id == pkg_id) {
                     matched = 1;
                     break;
                 }
@@ -550,16 +590,24 @@ static int PackageResidentExe(uintptr_t ebase, size_t esize, uint64_t pkg_id)
         }
         if (!matched) continue;
 
+        int all_resident = 1;
         for (uint32_t p = 0; p < parts; p++) {
             uintptr_t part = 0;
             uint32_t pstate = 0;
             if (!ReadPtr(parts_arr + (uintptr_t)p * 8u, &part) ||
-                !ReadMem(part + 0x1Cu, &pstate, 4) || pstate != 4u)
-                return 0;
+                !ReadMem(part + 0x1Cu, &pstate, 4))
+                return -1;
+            if (pstate == 0u) return 0;
+            if (pstate != 4u) all_resident = 0;
         }
-        return 1;
+        return all_resident ? 2 : 1;
     }
-    return 0;
+    return had_read_error ? -1 : 0;
+}
+
+static int PackageResidentExe(uintptr_t ebase, size_t esize, uint64_t pkg_id)
+{
+    return PackageStateExe(ebase, esize, pkg_id) == 2;
 }
 
 static int ReadDirectorContext(uintptr_t gbase, uintptr_t* dir_out, int* faction_out, int* diff_out)
@@ -982,11 +1030,19 @@ static void PreloadForeignFactionPackagesPaced(
             if (map_buf && g_preload_built[f]) {
                 for (int i = 0; i < g_preload_count[f]; i++) {
                     if (g_preload_requested[f][i]) continue;
-                    if (pace_requests && req_budget <= 0) break;
                     uint64_t pkg_id = g_preload_pkgs[f][i];
-                    uint32_t used = 0;
+                    int pkg_state = PackageStateExe(ebase, esize, pkg_id);
+                    /* Already resident in Stingray PackageManager: no request or token needed. */
+                    if (pkg_state == 2) {
+                        g_preload_requested[f][i] = 1;
+                        continue;
+                    }
+                    if (pace_requests && req_budget <= 0) break;
+                    uint32_t used = 0, slot_idx = 0xFFFFFFFFu;
+                    uint64_t refcnt = 0ULL;
                     int already = 0;
-                    if (!ChaosRefMapHasHeadroom(map_buf, map_cap, empty_key, pkg_id, &used, &already)) {
+                    if (!ChaosRefMapInspect(map_buf, map_cap, empty_key, pkg_id,
+                                            &used, &already, &slot_idx, &refcnt)) {
                         if (!g_preload_refmap_warned[f]) {
                             g_preload_refmap_warned[f] = 1;
                             hf->log(self, "CHAOS_PRELOAD_REFUSED: faction=%s pkg=%016llx reason=refmap_75pct used=%u cap=%u",
@@ -994,7 +1050,8 @@ static void PreloadForeignFactionPackagesPaced(
                         }
                         break;
                     }
-                    if (!already) {
+                    if (!already || (pkg_state == 0 && refcnt == 0ULL)) {
+                        ChaosRecordOwnedPkg(pkg_id);
                         CallPkgRequest(gbase, (void*)pkg_sys, &pkg_id, 1u);
                         if (pace_requests) {
                             --req_budget;
@@ -1006,8 +1063,35 @@ static void PreloadForeignFactionPackagesPaced(
                             map_buf = NULL;
                             break;
                         }
+                        g_preload_requested[f][i] = 1;
+                    } else if (pkg_state == 0 && refcnt == 1ULL && ChaosOwnsPkg(pkg_id) && slot_idx < map_cap) {
+                        /* Confirmed unloaded (pkg_state == 0, zero read errors) AND exclusively held by Chaos's
+                         * own prior mission request (refcnt == 1 && ChaosOwnsPkg): reset ref_count -> 0 in-place
+                         * (preserving open-addressing probe chain) so RefcountedPackageRequest transitions 0 -> 1. */
+                        if (!WriteU64(map_entries_addr + (uintptr_t)slot_idx * 16u + 8u, 0ULL)) {
+                            break;
+                        }
+                        hf->log(self, "CHAOS_PRELOAD_REARM: faction=%s pkg=%016llx slot=%u stale_ref=%llu",
+                                chaos_faction_names[f], (unsigned long long)pkg_id, slot_idx,
+                                (unsigned long long)refcnt);
+                        CallPkgRequest(gbase, (void*)pkg_sys, &pkg_id, 1u);
+                        if (pace_requests) {
+                            --req_budget;
+                            g_preload_tokens -= 1.0f;
+                            if (g_preload_tokens < 0.0f) g_preload_tokens = 0.0f;
+                        }
+                        if (!ReadMem(map_entries_addr, map_buf, (size_t)map_cap * 16u)) {
+                            free(map_buf);
+                            map_buf = NULL;
+                            break;
+                        }
+                        g_preload_requested[f][i] = 1;
+                    } else if (pkg_state >= 1) {
+                        /* Streaming or resident in PackageManager with existing refmap entry; wait for residency. */
+                        g_preload_requested[f][i] = 1;
                     }
-                    g_preload_requested[f][i] = 1;
+                    /* When pkg_state == -1 (transient read failure) or refcnt > 1 / unowned, leave refmap untouched
+                     * and keep g_preload_requested[f][i] == 0 so a clean later tick re-evaluates safely. */
                 }
             }
         }
@@ -1348,7 +1432,22 @@ static void DispatchChaosWave(uintptr_t gbase, uintptr_t director, int faction, 
         uint32_t q_transports = 999u, orig_dir_faction = 0, prev_pass_active = 0u;
         uintptr_t scoped_roster = gbase + FactionRosterRva(faction);
         uint32_t cargo_faction = ChaosCargoFactionFromFaction(faction);
-        int can_transport = cargo_faction != 0u &&
+        int has_remote_peers = 0;
+        if (IsCoopHost()) {
+            ReconcilePeers(gbase);
+            for (int pi = 0; pi < CHAOS_MAX_PEERS; pi++) {
+                if (g_peer_sync[pi].active) { has_remote_peers = 1; break; }
+            }
+            if (!has_remote_peers) {
+                uint64_t remote_tmp[CHAOS_MAX_PEERS] = {0};
+                if (CollectRemotePeers(gbase, remote_tmp) > 0) has_remote_peers = 1;
+            }
+        }
+        /* In active co-op, foreign transport cargo_slot->cargo_faction is host-local and unreplicated while
+         * passenger seat row indices replicate, causing joiner PassengerSetupSlot (+0x684a70) to index the
+         * native roster and dereference NULL. DispatchStaggeredRoster replicates 64-bit entity hashes cleanly. */
+        int can_transport = !has_remote_peers &&
+                            cargo_faction != 0u &&
                             ReadPtr(gbase + CHAOS_ENCOUNTER_RVA, &em) &&
                             ReadMem(em + 0x918u, &q_transports, 4) && q_transports < 8u &&
                             ReadMem(director + 0x518BCu, &orig_dir_faction, 4) &&
@@ -2137,8 +2236,8 @@ HF_MOD_EXPORT int hellforge_mod_init(const HfApi* api, HfMod* mod)
     if (HasChannelSend()) api->subscribe(mod, HF_ON_MESSAGE, OnMessage, NULL, 0);
     if (HasChannelShare()) api->subscribe(mod, HF_ON_SHARE, OnShare, NULL, 0);
 
-    SetStatusOnce("Chaos Invasions 0.3.4 ready");
-    api->log(mod, "CHAOS_INIT: version=0.3.4 build=25480438 sdk=16 enabled=%d cooldown=%d grace=%d cap=%d faction_cap=%d squad=%d budget=%d",
+    SetStatusOnce("Chaos Invasions 0.3.5 ready");
+    api->log(mod, "CHAOS_INIT: version=0.3.5 build=25480438 sdk=16 enabled=%d cooldown=%d grace=%d cap=%d faction_cap=%d squad=%d budget=%d",
              config.enabled, config.cooldown, config.grace, config.total_cap, config.faction_cap,
              config.squad_size, config.mission_budget);
     return 0;

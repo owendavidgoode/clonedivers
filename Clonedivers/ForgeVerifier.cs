@@ -147,9 +147,9 @@ public static class ForgeVerifier
 
         steps.Add(new(2, "Hosts & capture cleanup", true, false, "Hosts file and capture proxy state are clean (saves & account untouched)."));
 
-        // ── Step 3/5: 18-mod r9 gameplay preset hash & order verification/repair ──
+        // ── Step 3/5: 18-mod r10 gameplay preset hash & order verification/repair ──
         ct.ThrowIfCancellationRequested();
-        progress?.Report(new("Verifying gameplay preset", "Checking 18-mod r9 hashes, options, and load order…", 3, 5, CanCancel: true));
+        progress?.Report(new("Verifying gameplay preset", "Checking 18-mod r10 hashes, options, and load order…", 3, 5, CanCancel: true));
         try
         {
             var modsBefore = await client.ModsAsync(ct);
@@ -251,21 +251,56 @@ public static class ForgeVerifier
                 {
                     var exportsRoot = Path.Combine(client.CacheRoot, "exports");
                     Directory.CreateDirectory(exportsRoot);
-                    var outputFolder = Path.Combine(exportsRoot, $"repair-{Guid.NewGuid():N}");
-                    var sources = new List<string>();
-                    var modsPath = Path.Combine(validatedRoot, "mods");
-                    if (Directory.Exists(modsPath)) sources.Add(modsPath);
-                    if (extraSearchFolders != null) sources.AddRange(extraSearchFolders.Where(Directory.Exists));
-                    else if (GameLocator.AutoDetect() is { } steamDir && Directory.Exists(Path.Combine(steamDir, "data")))
-                        sources.Add(Path.Combine(steamDir, "data"));
+                    string? reusedExport = null;
+                    if (exportPackOverride == null)
+                    {
+                        var candidates = new List<string>();
+                        if (prefs.PreparedPack is { } saved && Directory.Exists(saved)) candidates.Add(saved);
+                        FileSafety.RejectLink(exportsRoot);
+                        candidates.AddRange(new DirectoryInfo(exportsRoot).EnumerateDirectories()
+                            .OrderByDescending(d => d.LastWriteTimeUtc).Take(32).Select(d => d.FullName));
+                        foreach (var cand in candidates.Distinct(StringComparer.OrdinalIgnoreCase))
+                        {
+                            try { await HellForgePack.VerifyAsync(cand, expectedSelection, ct); reusedExport = cand; break; }
+                            catch (Exception ex) when (ex is IOException or InvalidDataException or JsonException or KeyNotFoundException) { }
+                        }
+                    }
 
-                    var plan = await HellForgePack.PlanAsync(expectedSelection, outputFolder, sources, null, ct, progress);
-                    if (exportPackOverride != null)
-                        await exportPackOverride(plan, true, progress, ct);
+                    if (reusedExport != null)
+                    {
+                        await client.InstallPackAsync(reusedExport, expectedSelection, progress, ct);
+                    }
                     else
-                        await HellForgePack.ExportAsync(plan, download: true, progress: null, ct: ct, richProgress: progress);
+                    {
+                        var outputFolder = Path.Combine(exportsRoot, $"repair-{Guid.NewGuid():N}");
+                        var sources = new List<string>();
+                        var modsPath = Path.Combine(validatedRoot, "mods");
+                        if (Directory.Exists(modsPath)) sources.Add(modsPath);
+                        if (extraSearchFolders != null) sources.AddRange(extraSearchFolders.Where(Directory.Exists));
+                        else if (GameLocator.AutoDetect() is { } steamDir && Directory.Exists(Path.Combine(steamDir, "data")))
+                            sources.Add(Path.Combine(steamDir, "data"));
 
-                    await client.InstallPackAsync(plan.Output, expectedSelection, progress, ct);
+                        var plan = await HellForgePack.PlanAsync(expectedSelection, outputFolder, sources, null, ct, progress);
+                        if (exportPackOverride != null)
+                        {
+                            await exportPackOverride(plan, true, progress, ct);
+                        }
+                        else
+                        {
+                            await client.EnsureExportAndInstallCapacityAsync(plan, ct);
+                            await HellForgePack.ExportAsync(plan, download: true, progress: null, ct: ct, richProgress: progress);
+                        }
+
+                        try
+                        {
+                            await client.InstallPackAsync(plan.Output, expectedSelection, progress, ct);
+                        }
+                        catch (Exception ex)
+                        {
+                            HellForgePack.ReclaimFailedInstallExport(plan, ex);
+                            throw;
+                        }
+                    }
                     prefs.AppliedSelection = prefs.SelectionKey;
                     packRepaired = true;
                 }

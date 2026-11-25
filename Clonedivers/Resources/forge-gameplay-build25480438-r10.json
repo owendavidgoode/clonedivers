@@ -1,0 +1,219 @@
+{
+  "Format": 1,
+  "Id": "build25480438-r10",
+  "GameBuild": "25480438",
+  "Artifacts": [
+    {
+      "Id": "clonedivers.clean-exit",
+      "Name": "Clonedivers Clean Exit",
+      "Version": "0.2.0",
+      "Url": "https://github.com/owendavidgoode/clonedivers/releases/download/forge-mods-2026-11-08/clean-exit-0.2.0.zip",
+      "Bytes": 8192,
+      "Sha256": "6835354fff8264c6f29c33dfac71a0b6e4c4da7a401920bb76e1b604d2435932",
+      "ContentHash": "0006a02101583cf05e3bd9fa4e431409c18ff4ac72f59ae1ece8c7d9831a888a",
+      "Source": "Project-owned client-only code mod; gameplay false excludes it from HellForge co-op matching",
+      "Optional": true
+    },
+    {
+      "Id": "clonedivers.lego-compact-leaf-writer",
+      "Name": "LEGO Compact Leaf Writer",
+      "Version": "0.2.2",
+      "Url": "https://github.com/owendavidgoode/clonedivers/releases/download/forge-mods-2026-11-23/lego-compact-leaf-writer-0.2.2.zip",
+      "Bytes": 261739,
+      "Sha256": "40ac560a59ac46a84ccde01d55c11c6f5f1c1980e3625c09b0e8c9d2ca619a9f",
+      "ContentHash": "e2901d49390a47bc3f7ec60f64f1c37df4ee02f42869b64685a2ef2afb99434b",
+      "Source": "Project-owned client-only code mod (0.2.2 strict normal finite/magnitude guards fixing CM_NUMERICAL traps, pre-resolved LOD mesh pointer verification, cross-mode node_count signature checks, 79 Empire + Clone Compact LEGO garments across all body types, O(1) non-LEGO hash filter, parallel CoopFastRun); gameplay false, coop per-player",
+      "Optional": true
+    },
+    {
+      "Id": "clonedivers.empire-lego-yoda",
+      "Name": "Empire LEGO Yoda Death",
+      "Version": "0.2.1",
+      "Url": "https://github.com/owendavidgoode/clonedivers/releases/download/forge-mods-2026-11-23/empire-lego-yoda-0.2.1.zip",
+      "Bytes": 54187,
+      "Sha256": "d6098b74f42bf23eb52a66c8b7474e520b6cb23f4f1773e28e4d23965d8d7d82",
+      "ContentHash": "4c8859423f8bc9bfefdc752e61877a40c22bec42380f44a3b9c2ee1ef59ecc2c",
+      "Source": "Project-owned client-only code mod (0.2.1 co-op Compact LEGO Empire + 12 Clone + 10 converted Empire LEGO torso visuals = 30 total visuals + local death routing); gameplay false, coop per-player",
+      "Optional": true
+    },
+    {
+      "Id": "clonedivers.empire-atst-writer",
+      "Name": "Empire AT-ST Film-Scale Leaf Writer",
+      "Version": "0.2.3",
+      "Url": "https://github.com/owendavidgoode/clonedivers/releases/download/forge-mods-2026-11-23/empire-atst-writer-0.2.3.zip",
+      "Bytes": 38193,
+      "Sha256": "fd5ff823593d07d1f4abe4930794e633bdaf9d9bd40e16e9ca82a162cb09a94a",
+      "ContentHash": "4aabb331901901be0ae4a03dc23b91a6d7e919db3160f1a91351d6c4c00b2f03",
+      "Source": "Project-owned client-only code mod (0.2.3 4-byte Stingray topology header + carrier-link/post-unlink root node admission fixing walkers=0, throttled incremental UnitManager slice scanning eliminating 54ms full-table scan spikes, strict normal finite/magnitude guards fixing AT_NUMERIC traps, EXO-45/49/51/55 multi-walker registry); gameplay false, coop per-player",
+      "Optional": true
+    },
+    {
+      "Id": "clonedivers.empire-tie-switch",
+      "Name": "Empire per-attack TIE (lab candidate)",
+      "Version": "0.3.0",
+      "Url": "https://github.com/owendavidgoode/clonedivers/releases/download/forge-mods-2026-11-19/empire-tie-switch-0.3.0.zip",
+      "Bytes": 22644,
+      "Sha256": "491f437bbed022aaf6899b259784156341e6acec80bf1ff5a6116f106da06f5b",
+      "ContentHash": "fe2c081780faecf75bc6f4d4a4e07df7ca9ddc332f32e4a148af4e460d2fbe7b",
+      "Source": "Project-owned client-only code mod (0.3.0 build-25480438 RefcountedPackageSystem eagle_base fallback + 4-player sortie tracking, fail-closed on non-TIE packs); gameplay false, coop per-player",
+      "Optional": true
+    },
+    {
+      "Id": "clonedivers.empire-camera-pullback",
+      "Name": "Empire & Clone Camera Pullback",
+      "Version": "0.1.4",
+      "Url": "https://github.com/owendavidgoode/clonedivers/releases/download/forge-mods-2026-11-23/empire-camera-pullback-0.1.4.zip",
+      "Bytes": 32585,
+      "Sha256": "b062c013f94adca066328fba4ace29a63668fea821d3587b6adac0594328847c",
+      "ContentHash": "9aee365522984f2cc19344b6be1cdc0ac2cccdac64a776cc9b079ac2d40d99eb",
+      "Source": "Project-owned client-only code mod (0.1.4 Linux/Proton MinHook MH_ERROR_MEMORY_ALLOC fallback hook on helldivers2.exe+0x1c6900 with single-apply per-frame guard, 79 Compact LEGO garment pins, hot-prefix D11 camera acquisition, O(1) EntityManager lookup, Havok wall-collision clamping, ADS/FPV/cutscene bypass); gameplay false, coop per-player",
+      "Optional": true
+    },
+    {
+      "Id": "clonedivers.starwars-localization",
+      "Name": "Star Wars Localization Bridge",
+      "Version": "0.1.0",
+      "Url": "https://github.com/owendavidgoode/clonedivers/releases/download/forge-mods-2026-11-22/starwars-localization-0.1.0.zip",
+      "Bytes": 8754,
+      "Sha256": "0cc5177c808dbde1aaa43b3cc0e6ccf311e73321c8fbe64a25cc4b27c436bf82",
+      "ContentHash": "5ec6ebb41b2ff4c1b88138452c40c1465a00e3d3b1cc3d91c33008a1c153477a",
+      "Source": "Project-owned client-only code mod (0.1.0 runtime US TEXT diff bridge restoring EmpireDivers and Clonedivers Armory/armor/helmet/weapon names when HellForge forge-credits stages last while keeping Forge Credits intact); gameplay false, coop per-player",
+      "Optional": true
+    },
+    {
+      "Id": "vibeslacker.dedicated-melee-slot",
+      "Name": "Dedicated Melee Slot",
+      "Version": "1.5.2-clonedivers.2",
+      "Url": "https://github.com/owendavidgoode/clonedivers/releases/download/forge-mods-2026-11-22/dedicated-melee-slot-1.5.2-clonedivers.2.zip",
+      "Bytes": 53146,
+      "Sha256": "3dfe28c02ae4db9f344e8368c1f8bd2b717a723c3ac871c608fb027ea4c00e07",
+      "ContentHash": "814a5d993dbf5f9f7bb09c7e68636e1c80ba06a57c8b1d4efdc4815df7b1c9a4",
+      "Source": "VibeSlacker; permissive MIT 4-player co-op hardened SDK-16 build (1.5.2-clonedivers.2 single-thread game-tick sync, event-signaled unload, UnitOfEntity validation, custom install-root keybind lookup, non-colliding patch_920 picker); gameplay false, coop per-player",
+      "Optional": true
+    },
+    {
+      "Id": "clonedivers.chaos-invasions",
+      "Name": "Chaos Invasions",
+      "Version": "0.3.5",
+      "Url": "https://github.com/owendavidgoode/clonedivers/releases/download/forge-mods-2026-11-23/chaos-invasions-0.3.5.zip",
+      "Bytes": 45174,
+      "Sha256": "6fd51e5d3b54836cf4ee6d09585be7de94b8ab4cdb44451bab2e3472cb049fb7",
+      "ContentHash": "7c87fa1a65e9909d3e9dc9748a9597430f1af9b4ba026e81d092315713571185",
+      "Source": "Project-owned gameplay code mod (0.3.5 co-op ground-surge bypass eliminating foreign dropship cargo_faction joiner crashes at game.dll+0x684a70, ownership-verified RefcountedPackageSystem ref_count==1 reset + re-arm fixing Mission 2+ faction_packages_not_resident wave skips, total-war faction_cap 12, Mega City anchor anti-clustering); optional default",
+      "Optional": true
+    },
+    {
+      "Id": "local.hf-shared-dispatcher",
+      "Name": "Shared Callback Manager",
+      "Version": "0.1.0",
+      "Url": "https://github.com/owendavidgoode/clonedivers/releases/download/forge-gameplay-build25480438-r5/shared-callback-manager-0.1.0.zip",
+      "Bytes": 105845,
+      "Sha256": "543c4f205cde3d4bc7846277c43365f6bd956c62f492effb9b219ecf2e0b5529",
+      "ContentHash": "46adab6cef76bb338aac609ac70bce3b458a4ed010ee633f4a40c772c8127f60",
+      "Source": "enochlophobianumerophobia; permissive MIT mirror (hf-mod.com shutdown preservation)"
+    },
+    {
+      "Id": "local.operation-reroller",
+      "Name": "Operation Reroller",
+      "Version": "0.1.6",
+      "Url": "https://github.com/owendavidgoode/clonedivers/releases/download/forge-gameplay-build25480438-r5/operation-reroller-0.1.6.zip",
+      "Bytes": 1792536,
+      "Sha256": "c085587ab32fe27970884dac03df1898496ecd0b633e201830a1c038616d9ebd",
+      "ContentHash": "71c1ea6214fb45c7f390d3d566103754f8d2b6224d84e5473945690a4d455842",
+      "Source": "enochlophobianumerophobia; permissive MIT mirror (host-gated HF_SESSION_JOINER safe; hf-mod.com shutdown preservation)"
+    },
+    {
+      "Id": "local.faster-corpse-cleanup",
+      "Name": "Faster Corpse Cleanup",
+      "Version": "1.0.6-clonedivers.1",
+      "Url": "https://github.com/owendavidgoode/clonedivers/releases/download/forge-mods-2026-11-22/faster-corpse-cleanup-1.0.6-clonedivers.1.zip",
+      "Bytes": 75523,
+      "Sha256": "6992c93ad5c714b74f8dd280f1bde8542875a2a0d1a9914243067b2a3bf73353",
+      "ContentHash": "5749a43f9199d876fe7d6c9781666eaec80407f95bfb087bfcb67a5f4af145c6",
+      "Source": "enochlophobianumerophobia; permissive MIT SDK-16 host-gated HF_SESSION_JOINER safe build + clonedivers-host-options.json integration"
+    },
+    {
+      "Id": "cowboybingus.vanilla-plus-megapack",
+      "Name": "Vanilla Plus Megapack",
+      "Version": "0.2.1",
+      "Url": "https://github.com/owendavidgoode/clonedivers/releases/download/forge-gameplay-build25480438-r5/vanilla-plus-megapack-0.2.1.zip",
+      "Bytes": 794057,
+      "Sha256": "5fbbd10e5bca3fe7e1ac226dbb5a2501833eb4adc81c924d1d5dccace49322a8",
+      "ContentHash": "7c470455f012d80b77111ce3ba89fd7e9be3adaeed4d7ecfaf49222bf774ab8f",
+      "Source": "CowboyBingus; permissive 0BSD mirror (0.2.1 HellForge 0.4.0 live-mod fix + integrated Mod Options Menu 1.2.1 & Mod Bindings Menu 2.3)"
+    },
+    {
+      "Id": "local.heavy-seaf-presence",
+      "Name": "Heavy SEAF Presence Everywhere",
+      "Version": "1.2.0-clonedivers.5",
+      "Url": "https://github.com/owendavidgoode/clonedivers/releases/download/forge-mods-2026-11-22/Clonedivers-Heavy-SEAF-1.2.0-clonedivers.5.zip",
+      "Bytes": 106285,
+      "Sha256": "9d1948e3854c4dc7c6dc8eff9d832de47700396f4d5007955f7f0ca5d8fd829c",
+      "ContentHash": "11a8b5f218efdea3776732676dabcb397daacded1d97470678d80b58f6119483",
+      "Source": "NontoxicKappa; MP-hardened host-gated compatibility package (1.2.0-clonedivers.5 10-arg ActivateStratagemBeacon fix, 15s mission-ground landing gate, 1-unit/tick equip pacing, clonedivers-host-options.json) permitted per owner written-permission confirmation"
+    },
+    {
+      "Id": "local.mod-9fd7880666f6",
+      "Name": "SEAF Squad Stratagems",
+      "Version": "0.1.4-clonedivers.3",
+      "Url": "https://github.com/owendavidgoode/clonedivers/releases/download/forge-gameplay-build25480438-r5/Clonedivers-SEAF-Squad-0.1.4-clonedivers.3.zip",
+      "Bytes": 330828,
+      "Sha256": "22b4ceffb155c540ce1d0124fb74cf00f737432fb97ad643ff29b7908b14310d",
+      "ContentHash": "d14f424ec4cb0b4c4459fe2cdb2408fd1fcb7167b8c39337348a6c7ff1fb8bdb",
+      "Source": "JohnnyGrease; MP-hardened host-gated compatibility package permitted per owner written-permission confirmation"
+    },
+    {
+      "Id": "pack.f7c3abbe-902c-41a7-8183-057a6ab15768",
+      "Name": "Smarter SEAF 1.0.4",
+      "Version": "",
+      "Url": "https://github.com/Th3chef/Smarter-SEAF/releases/download/v1.0.4/Smarter-SEAF-1.0.4.zip",
+      "Bytes": 915566,
+      "Sha256": "f393a03543642b5360c39dcfeb1c48ef34555126c9109a7ab06841d07feebb3a",
+      "ContentHash": "c7d181a91097a219b97e290d23b15280c84a4f8daedde9d4225ff826913f24f9",
+      "Source": "Direct author original on GitHub (All rights reserved; do not mirror; UPSTREAM-CONTINGENCY.json post-hf-mod.com shutdown fallback)"
+    },
+    {
+      "Id": "pack.6f1d2c8e-5a47-4b93-9e0a-3c7b1f4d8a21",
+      "Name": "Smarter Guard Dogs & Sentries 5.2.0",
+      "Version": "",
+      "Url": "https://github.com/Th3chef/Smarter-Guard-Dogs-and-Sentries/releases/download/v5.2.0/Smarter-Guard-Dogs-and-Sentries-5.2.0.zip",
+      "Bytes": 1267063,
+      "Sha256": "2ca28c425cffdef1d3e2bc6e7db44ab693ed3670d07e23fe6f332d6274d82cb3",
+      "ContentHash": "a79918ad021806ce2653984002e5f163911a224c3b23225b623c0d338f4bf018",
+      "Source": "Direct author original on GitHub (All rights reserved; do not mirror)"
+    },
+    {
+      "Id": "pack.612eaf70-d682-43c7-9efd-16dcc695f977",
+      "Name": "Bingus Shared Loader - v20",
+      "Version": "",
+      "Url": "https://github.com/CowboyBingus/BingusSharedLoader/releases/download/v20/Bingus-Shared-Loader-v20.zip",
+      "Bytes": 2604118,
+      "Sha256": "a42e43e7afe520d0ccd23fe25f9ac5d818c00419d9401de51e59553c87866742",
+      "ContentHash": "666a6247b6c9cd47c14fa2a13f9a80e021058fc085a1704049a5853f3c5c6954",
+      "Source": "Direct author original on GitHub; 0BSD plus separate resource notices"
+    }
+  ],
+  "Order": [
+    "clonedivers.clean-exit",
+    "clonedivers.lego-compact-leaf-writer",
+    "clonedivers.empire-lego-yoda",
+    "clonedivers.empire-atst-writer",
+    "clonedivers.empire-tie-switch",
+    "clonedivers.empire-camera-pullback",
+    "clonedivers.starwars-localization",
+    "vibeslacker.dedicated-melee-slot",
+    "clonedivers.chaos-invasions",
+    "local.hf-shared-dispatcher",
+    "local.operation-reroller",
+    "local.faster-corpse-cleanup",
+    "cowboybingus.vanilla-plus-megapack",
+    "local.heavy-seaf-presence",
+    "local.mod-9fd7880666f6",
+    "hellforge.editor",
+    "skyeshade.hell-forge",
+    "skyeshade.vanilla-plus",
+    "pack.f7c3abbe-902c-41a7-8183-057a6ab15768",
+    "pack.6f1d2c8e-5a47-4b93-9e0a-3c7b1f4d8a21",
+    "pack.612eaf70-d682-43c7-9efd-16dcc695f977"
+  ]
+}

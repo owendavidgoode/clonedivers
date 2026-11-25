@@ -960,7 +960,7 @@ internal sealed class LinuxForgeHost : IForgeUiHost
                     await player.RecoverAppearanceAsync(ct);
             }
 
-            throttler.Report(new("Verifying gameplay preset", "Checking 18-mod r9 hashes and load order…", 2, 5, CanCancel: true));
+            throttler.Report(new("Verifying gameplay preset", "Checking 18-mod r10 hashes and load order…", 2, 5, CanCancel: true));
             await player.InstallGameplayAsync(null, ct, throttler.AsProgress());
             TrySyncHostMutatorFile();
 

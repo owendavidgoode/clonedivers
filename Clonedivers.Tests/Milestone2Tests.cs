@@ -228,15 +228,15 @@ internal static class Milestone2Tests
             };
             if (mode == "empire") opts["deathtrooper"] = dt;
             var sel = HellForgePack.PinnedSelection(mode, tex, opts);
-            var expectedVer = mode == "empire" ? "2026.11.22-r50" : "2026.11.22-r21";
+            var expectedVer = mode == "empire" ? "2026.11.23-r51" : "2026.11.23-r22";
             var expectedCount = mode == "empire"
                 ? (enemy == "native-automatons" ? 132 : 144)
-                : (enemy == "native-automatons" ? 111 : 123);
+                : (enemy == "native-automatons" ? 117 : 129);
             if (sel.Version != expectedVer || sel.Texture != tex || sel.Files.Count != expectedCount)
                 check(false, $"PinnedSelection {mode}/{tex}/{enemy}/{squid}/dt={dt} mismatch");
             matrixChecked++;
         }
-        check(matrixChecked == 180, "PinnedSelection resolves all 180 r21/r50 5-tier x 3-enemy x 3-squid x Delta/DeathTrooper combinations natively");
+        check(matrixChecked == 180, "PinnedSelection resolves all 180 r22/r51 5-tier x 3-enemy x 3-squid x Delta/DeathTrooper combinations natively");
 
         // r19 / r47 fallback: both reduced1024 and potato256 fall back to lighter when reduced512 is absent
         var r19Bytes = ReadResourceBytes("Clonedivers.Tests.Clones.R19.Manifest.json");
@@ -420,24 +420,24 @@ internal static class Milestone2Tests
 
     static void TestR8CatalogDraftAndSources(Action<bool, string> check)
     {
-        check(HellForgeGameplayCatalog.Pinned.Id == "build25480438-r9" &&
-              HellForgeGameplayCatalog.Current.Id == "build25480438-r9" &&
+        check(HellForgeGameplayCatalog.Pinned.Id == "build25480438-r10" &&
+              HellForgeGameplayCatalog.Current.Id == "build25480438-r10" &&
               HellForgeGameplayCatalog.Pinned.Artifacts.Count == 18,
-              "HellForgeGameplayCatalog activates build25480438-r9 (18 artifacts) as the pinned default");
+              "HellForgeGameplayCatalog activates build25480438-r10 (18 artifacts) as the pinned default");
 
-        var r9Json = Encoding.UTF8.GetString(ReadResourceBytes("Clonedivers.Forge.Gameplay.json"));
-        var r9 = JsonSerializer.Deserialize<HellForgeGameplayCatalog>(r9Json, HellForgePack.Json)!;
-        r9.ValidateDraft();
+        var r10Json = Encoding.UTF8.GetString(ReadResourceBytes("Clonedivers.Forge.Gameplay.json"));
+        var r10 = JsonSerializer.Deserialize<HellForgeGameplayCatalog>(r10Json, HellForgePack.Json)!;
+        r10.ValidateDraft();
 
-        check(r9.Id == "build25480438-r9" &&
-              r9.GameBuild == HellForgePack.SupportedBuild &&
-              r9.Artifacts.Count == 18 &&
-              r9.Order.Count == 21 &&
-              r9.Order[^1] == HellForgePreset.BingusSharedLoader &&
-              !r9.Artifacts.Any(a => a.Url.Contains("hf-mod.com", StringComparison.OrdinalIgnoreCase)),
-              "forge-gameplay-build25480438-r9.json passes ValidateDraft with 18 artifacts, 21 ordered IDs, zero hf-mod.com URLs, and Bingus Shared Loader last");
+        check(r10.Id == "build25480438-r10" &&
+              r10.GameBuild == HellForgePack.SupportedBuild &&
+              r10.Artifacts.Count == 18 &&
+              r10.Order.Count == 21 &&
+              r10.Order[^1] == HellForgePreset.BingusSharedLoader &&
+              !r10.Artifacts.Any(a => a.Url.Contains("hf-mod.com", StringComparison.OrdinalIgnoreCase)),
+              "forge-gameplay-build25480438-r10.json passes ValidateDraft with 18 artifacts, 21 ordered IDs, zero hf-mod.com URLs, and Bingus Shared Loader last");
 
-        // Verify all 7 updated/new v2.1/v2.1.2 code-mod manifests match r8 IDs, versions, and co-op/gameplay flags
+        // Verify all 7 updated/new v2.1/v2.1.3 code-mod manifests match r10 IDs, versions, and co-op/gameplay flags
         var expectedMods = new (string Resource, string Id, bool ExpectedGameplay, bool ExpectedOptional)[]
         {
             ("Clonedivers.Tests.EmpireAtstWriter.json", HellForgePreset.EmpireAtstWriter, false, true),
@@ -451,28 +451,29 @@ internal static class Milestone2Tests
 
         foreach (var (resName, id, expectedGameplay, expectedOptional) in expectedMods)
         {
-            var art = r9.Artifacts.Single(a => a.Id == id);
+            var art = r10.Artifacts.Single(a => a.Id == id);
             using var doc = JsonDocument.Parse(ReadResourceBytes(resName));
             var rootEl = doc.RootElement;
             check(rootEl.GetProperty("id").GetString() == id &&
                   rootEl.GetProperty("version").GetString() == art.Version &&
                   rootEl.GetProperty("gameplay").GetBoolean() == expectedGameplay &&
                   art.Optional == expectedOptional &&
-                  art.Url.Contains("/releases/download/forge-mods-2026-11-22/", StringComparison.Ordinal) &&
+                  (art.Url.Contains("/releases/download/forge-mods-2026-11-22/", StringComparison.Ordinal) ||
+                   art.Url.Contains("/releases/download/forge-mods-2026-11-23/", StringComparison.Ordinal)) &&
                   art.Bytes > 0 &&
                   FileSafety.IsSha256(art.Sha256) &&
                   FileSafety.IsSha256(art.ContentHash),
-                  $"r9 artifact '{id}' ({art.Version}) matches forge-mods hellforge-mod.json, targets forge-mods-2026-11-22, and pins valid hashes");
+                  $"r10 artifact '{id}' ({art.Version}) matches forge-mods hellforge-mod.json, targets forge-mods-2026-11-22/23, and pins valid hashes");
         }
 
-        // SquadFingerprint client-only vs gameplay classification for r9 mods
+        // SquadFingerprint client-only vs gameplay classification for r10 mods
         var camMod = new HellForgeMod(HellForgePreset.EmpireCameraPullback, "Empire & Clone Camera Pullback", true, "f", []);
         var meleeMod = new HellForgeMod(HellForgePreset.DedicatedMeleeSlot, "Dedicated Melee Slot", true, "f", []);
         var corpseMod = new HellForgeMod(HellForgePreset.FasterCorpseCleanup, "Faster Corpse Cleanup", true, "f", ["gameplay"]);
         check(!SquadFingerprint.IsGameplayMod(camMod) &&
               !SquadFingerprint.IsGameplayMod(meleeMod) &&
               SquadFingerprint.IsGameplayMod(corpseMod) &&
-              SquadFingerprint.Compute(r9).StartsWith("r9-", StringComparison.Ordinal),
+              SquadFingerprint.Compute(r10).StartsWith("r10-", StringComparison.Ordinal),
               "SquadFingerprint excludes per-player camera pullback & melee slot from squad hash while including gameplay corpse cleanup");
     }
 

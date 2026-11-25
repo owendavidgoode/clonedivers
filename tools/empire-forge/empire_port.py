@@ -230,7 +230,61 @@ def unit_safe(parts: tuple[bytes, ...], stock: bytes) -> bool:
         if count > 10000 or end > len(stock):
             raise ValueError('Native material map bounds')
         normalized[start:end] = stock[start:end]
-    return bytes(normalized) == stock
+    if bytes(normalized) != stock:
+        return False
+    # Reject duplicate MeshGeometry material keys (Crash 2: Unit::BindMeshMaterials +0xf7032 NULL slot)
+    # and out-of-bounds group material indices or >64-bone GPU skinning sub-palettes.
+    at100 = struct.unpack_from('<I', raw, 100)[0]
+    if at100:
+        if at100 + 4 > len(raw):
+            return False
+        mcount = struct.unpack_from('<I', raw, at100)[0]
+        if mcount > 10000 or at100 + 4 + 4 * mcount > len(raw):
+            return False
+        at88 = struct.unpack_from('<I', raw, 88)[0]
+        skin_ptrs: list[int] = []
+        if at88:
+            if at88 + 4 > len(raw):
+                return False
+            scount = struct.unpack_from('<I', raw, at88)[0]
+            if scount > 10000 or at88 + 4 + 4 * scount > len(raw):
+                return False
+            skin_ptrs = [at88 + struct.unpack_from('<I', raw, at88 + 4 + 4 * i)[0] for i in range(scount)]
+        for mi in range(mcount):
+            mh = at100 + struct.unpack_from('<I', raw, at100 + 4 + 4 * mi)[0]
+            if mh + 128 > len(raw):
+                return False
+            si = struct.unpack_from('<i', raw, mh + 56)[0]
+            nm, mo = struct.unpack_from('<2I', raw, mh + 104)
+            ng, go = struct.unpack_from('<2I', raw, mh + 120)
+            if nm > 1024 or ng > 4096 or mh + mo + 4 * nm > len(raw) or mh + go + 24 * ng > len(raw):
+                return False
+            if nm > 1:
+                mkeys = struct.unpack_from(f'<{nm}I', raw, mh + mo)
+                if len(set(mkeys)) != nm:
+                    return False
+            remaps_n: list[int] = []
+            if si >= 0:
+                if si >= len(skin_ptrs):
+                    return False
+                sat = skin_ptrs[si]
+                if sat + 16 > len(raw):
+                    return False
+                ro = struct.unpack_from('<I', raw, sat + 12)[0]
+                if sat + ro + 4 > len(raw):
+                    return False
+                nr = struct.unpack_from('<I', raw, sat + ro)[0]
+                if nr > 4096 or sat + ro + 4 + 8 * nr > len(raw):
+                    return False
+                remaps_n = [struct.unpack_from('<I', raw, sat + ro + 8 + 8 * ri)[0] for ri in range(nr)]
+            for gi in range(ng):
+                mat_i, _, _, _, icnt, skin_set = struct.unpack_from('<6I', raw, mh + go + 24 * gi)
+                if nm > 0 and mat_i >= nm:
+                    return False
+                if icnt > 0 and si >= 0:
+                    if not remaps_n or skin_set >= len(remaps_n) or remaps_n[skin_set] == 0 or remaps_n[skin_set] > 64:
+                        return False
+    return True
 
 
 def write_archive(path: Path, header: bytes, resources: dict, stream_alignment: int = 16) -> None:

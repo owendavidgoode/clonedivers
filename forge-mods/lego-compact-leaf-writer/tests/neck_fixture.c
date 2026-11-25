@@ -62,7 +62,7 @@ int main(void){
   CHECK(cm_evaluate(&r,&each,&w,actual,128)==CM_OK);CHECK(cm_evaluate(&baseline,&each,&bw,expected,128)==CM_OK);
   CHECK(!memcmp(actual,expected,description->count*48)&&!memcmp(w.world,bw.world,sizeof w.world)&&!memcmp(w.local,bw.local,sizeof w.local));
  }
- cm_mat4 tiny;identity(&tiny);tiny.v[1]=-0x1.78p-155;cm_render48 packed;CHECK(to_rows(&tiny,&packed)==CM_NUMERICAL);
+ cm_mat4 tiny;identity(&tiny);tiny.v[1]=-0x1.78p-155;cm_render48 packed;CHECK(to_rows(&tiny,&packed)==CM_OK && packed.v[1]==0.0f);
  for(int policy=0;policy<3;policy++){r.policy=(cm_policy)policy;CHECK(cm_evaluate(&r,&frame,&w,out,21)==CM_OK);}
  memset(out,0xA5,sizeof out);memcpy(sentinel,out,sizeof out);reset(&r,&w);r.local[13].v[11]*=2;
  CHECK(cm_evaluate(&r,&frame,&w,out,21)==CM_POLICY);CHECK(!memcmp(out,sentinel,sizeof out));

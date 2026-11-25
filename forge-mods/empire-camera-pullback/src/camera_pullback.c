@@ -18,6 +18,7 @@
 
 #define WIN32_LEAN_AND_MEAN
 #include <windows.h>
+#include <intrin.h>
 #include <xmmintrin.h>
 
 #include <math.h>
@@ -32,6 +33,7 @@
 #include "pullback_math.h"
 
 typedef void (*EcpStepFn)(void* app);
+typedef uint64_t (*EcpSubStepFn)(void* rcx, void* rdx, void* r8, uint64_t r9, void* arg5);
 typedef void (*EcpSetLocalPoseFn)(uint32_t unit_ref, int32_t node, const float pose[16]);
 typedef void (*EcpUpdateUnitFn)(uintptr_t world, uintptr_t unit);
 typedef uintptr_t (*EcpLookupUnitFn)(uint32_t unit_ref);
@@ -104,6 +106,8 @@ static volatile LONG g_userToggledOff = 0;
 static int g_prevKeyDown = 0;
 
 static EcpStepFn g_origStep;
+static EcpSubStepFn g_origSubStep;
+static uint32_t g_hookedRva;
 static EcpSetLocalPoseFn g_setLocalPose;
 static EcpUpdateUnitFn g_updateUnit;
 static EcpLookupUnitFn g_lookupUnit;
@@ -1687,6 +1691,25 @@ static void EcpStepDetour(void* app)
     }
 }
 
+static uint64_t EcpSubStepDetourWithCaller(void* rcx, void* rdx, void* r8, uint64_t r9, void* arg5, uintptr_t caller_ret)
+{
+    if (caller_ret == g_exeBase + ECP_EXE_CAMERA_STEP_RET) {
+        DWORD saved_err = GetLastError();
+        unsigned int saved_csr = _mm_getcsr();
+
+        EcpApplyFrame();
+
+        _mm_setcsr(saved_csr);
+        SetLastError(saved_err);
+    }
+    return g_origSubStep != NULL ? g_origSubStep(rcx, rdx, r8, r9, arg5) : 0ULL;
+}
+
+static uint64_t EcpSubStepDetour(void* rcx, void* rdx, void* r8, uint64_t r9, void* arg5)
+{
+    return EcpSubStepDetourWithCaller(rcx, rdx, r8, r9, arg5, (uintptr_t)__builtin_return_address(0));
+}
+
 /* ---- HellForge Lifecycle, Spawn & Teardown Event Callbacks ------------------------------------------------------ */
 
 static void EcpOnSpawn(HfMod* mod, const HfSpawnEvent* ev, void* user)
@@ -1847,17 +1870,37 @@ static void EcpOnGameLoaded(HfMod* mod, HfEvent event, void* user)
     g_mainWorld = (EcpMainWorldFn)(g_exeBase + ECP_EXE_MAIN_WORLD);
 
     int rc = 1;
+    uint32_t hooked_rva = ECP_EXE_CAMERA_STEP;
     if (g_hf->size >= offsetof(HfApi, hook_ex) + sizeof(void*) && g_hf->hook_ex != NULL) {
         rc = g_hf->hook_ex(mod, g_exeBase + ECP_EXE_CAMERA_STEP, (void*)EcpStepDetour, (void**)&g_origStep, -10);
     } else if (g_hf->hook != NULL) {
         rc = g_hf->hook(mod, g_exeBase + ECP_EXE_CAMERA_STEP, (void*)EcpStepDetour, (void**)&g_origStep);
     }
+    if (rc != 0 && g_hf->code_matches(g_exeBase + ECP_EXE_CAMERA_SUB_STEP, kEcpPinCameraSubStep)) {
+        /* Proton 11.0 fallback: exe+0x689BC0 sits at fixed 0x140689BC0 where ±2 GB MinHook buffer alloc returns
+         * MH_ERROR_MEMORY_ALLOC (9) and the 14-byte FF 25 fallback hits lea r8,[rip+...] at byte +6.
+         * exe+0x1C6900 has a 23-byte RIP-free prologue (15-byte clean boundary) called from exe+0x689BFB (ret +0x689C00). */
+        if (g_hf->size >= offsetof(HfApi, hook_ex) + sizeof(void*) && g_hf->hook_ex != NULL) {
+            rc = g_hf->hook_ex(mod, g_exeBase + ECP_EXE_CAMERA_SUB_STEP, (void*)EcpSubStepDetour, (void**)&g_origSubStep, -10);
+        } else if (g_hf->hook != NULL) {
+            rc = g_hf->hook(mod, g_exeBase + ECP_EXE_CAMERA_SUB_STEP, (void*)EcpSubStepDetour, (void**)&g_origSubStep);
+        }
+        if (rc == 0) {
+            hooked_rva = ECP_EXE_CAMERA_SUB_STEP;
+            if (g_hf->log) {
+                g_hf->log(mod, "hooked Proton fallback exe+0x%X (caller ret exe+0x%X)",
+                    ECP_EXE_CAMERA_SUB_STEP, ECP_EXE_CAMERA_STEP_RET);
+            }
+        }
+    }
     if (rc != 0) {
-        if (g_hf->log) g_hf->log(mod, "off: could not hook render step exe+0x%X", ECP_EXE_CAMERA_STEP);
+        if (g_hf->log) g_hf->log(mod, "off: could not hook render step exe+0x%X or fallback exe+0x%X",
+            ECP_EXE_CAMERA_STEP, ECP_EXE_CAMERA_SUB_STEP);
         EcpSetStatus("off: render step hook failed");
         return;
     }
 
+    g_hookedRva = hooked_rva;
     g_hookInstalled = 1;
     uint32_t cur_state = (g_hf->size >= offsetof(HfApi, game_state) + sizeof(void*) && g_hf->game_state != NULL)
                              ? g_hf->game_state(mod)
@@ -1865,10 +1908,10 @@ static void EcpOnGameLoaded(HfMod* mod, HfEvent event, void* user)
     EcpUpdateArmForState(cur_state);
 
     if (g_opts.allow_experimental_spring_arm && g_hf->log) {
-        g_hf->log(mod, "note: allow_experimental_spring_arm is set, but raw game.dll .data spring-arm writes remain disabled in 0.1.3; using verified post-solve Havok raycast clamp");
+        g_hf->log(mod, "note: allow_experimental_spring_arm is set, but raw game.dll .data spring-arm writes remain disabled in 0.1.4; using verified post-solve Havok raycast clamp");
     }
     if (g_hf->log) {
-        g_hf->log(mod, "ready v0.1.3 (O(1) lookup + hot-prefix cam, watchdog=%lluus): walker=%.2fm/+%.2fm (AT-ST=%.2fm/+%.2fm), lego=%s (%.2fm/%+.2fm), margin=%.2fm",
+        g_hf->log(mod, "ready v0.1.4 (O(1) lookup + hot-prefix cam + Proton fallback, watchdog=%lluus): walker=%.2fm/+%.2fm (AT-ST=%.2fm/+%.2fm), lego=%s (%.2fm/%+.2fm), margin=%.2fm",
             (unsigned long long)ECP_WATCHDOG_WARN_US,
             g_opts.walker_pullback_distance, g_opts.walker_lift_z,
             g_opts.atst_scaled_pullback_distance, g_opts.atst_scaled_lift_z,
@@ -1886,6 +1929,9 @@ HF_MOD_EXPORT int hellforge_mod_init(const HfApi* api, HfMod* mod)
     g_hf = api;
     g_mod = mod;
     g_hookInstalled = 0;
+    g_hookedRva = 0u;
+    g_origStep = NULL;
+    g_origSubStep = NULL;
     g_raycastState = 0;
     g_raycast = NULL;
     memset(&g_watchdog, 0, sizeof(g_watchdog));
@@ -1940,9 +1986,10 @@ HF_MOD_EXPORT int hellforge_mod_unload(const HfApi* api, HfMod* mod, uint32_t re
     InterlockedExchange(&g_disarmed, 1);
     InterlockedIncrement(&g_cacheEpoch);
     if (g_hookInstalled && api != NULL && api->size >= offsetof(HfApi, unhook) + sizeof(void*) && api->unhook != NULL) {
-        api->unhook(mod, g_exeBase + ECP_EXE_CAMERA_STEP);
+        api->unhook(mod, g_exeBase + (g_hookedRva ? g_hookedRva : ECP_EXE_CAMERA_STEP));
     }
     g_hookInstalled = 0;
+    g_hookedRva = 0u;
     EcpClearWalkerSlots();
     return 0;
 }

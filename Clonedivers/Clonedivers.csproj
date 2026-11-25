@@ -11,7 +11,7 @@
     <ApplicationIcon>clonedivers.ico</ApplicationIcon>
 
     <!-- Metadata shown in the exe's Properties > Details -->
-    <Version>2.1.2</Version>
+    <Version>2.1.3</Version>
     <IncludeSourceRevisionInInformationalVersion>false</IncludeSourceRevisionInInformationalVersion>
     <Product>Clonedivers</Product>
     <Company>Clonedivers</Company>
@@ -33,9 +33,9 @@
     <PackageReference Include="Avalonia.Desktop" Version="11.3.22" />
     <PackageReference Include="Avalonia.Themes.Fluent" Version="11.3.22" />
     <EmbeddedResource Include="clonedivers.ico" LogicalName="Clonedivers.Icon.ico" />
-    <EmbeddedResource Include="Resources/hellforge-clones-r21.json" LogicalName="Clonedivers.HellForge.Manifest.json" />
-    <EmbeddedResource Include="Resources/hellforge-empire-r50.json" LogicalName="Clonedivers.HellForge.Empire.Manifest.json" />
-    <EmbeddedResource Include="Resources/forge-gameplay-build25480438-r9.json" LogicalName="Clonedivers.Forge.Gameplay.json" />
+    <EmbeddedResource Include="Resources/hellforge-clones-r22.json" LogicalName="Clonedivers.HellForge.Manifest.json" />
+    <EmbeddedResource Include="Resources/hellforge-empire-r51.json" LogicalName="Clonedivers.HellForge.Empire.Manifest.json" />
+    <EmbeddedResource Include="Resources/forge-gameplay-build25480438-r10.json" LogicalName="Clonedivers.Forge.Gameplay.json" />
     <EmbeddedResource Include="..\dist\PresentMon.exe" LogicalName="Clonedivers.PresentMon.exe" />
     <EmbeddedResource Include="Licenses\PresentMon.txt" LogicalName="Clonedivers.PresentMon.LICENSE.txt" />
   </ItemGroup>

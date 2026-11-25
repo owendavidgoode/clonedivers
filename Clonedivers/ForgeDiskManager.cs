@@ -292,6 +292,9 @@ public static class ForgeDiskManager
     public static Task<long> CleanSafeFilesAsync(string? installRoot, CancellationToken ct = default) =>
         Task.Run(() => CleanCore(installRoot, staleOnly: false, ct), ct);
 
+    internal static long CleanSafeFilesSync(string? installRoot, CancellationToken ct = default, IEnumerable<string>? preservePaths = null) =>
+        CleanCore(installRoot, staleOnly: false, ct, preservePaths);
+
     /// <summary>
     /// Non-blocking startup/post-install background sweep. Never throws, skips active downloads/sessions,
     /// and removes stale partial files, deleting-* remnants, and completed old backups.
@@ -313,12 +316,38 @@ public static class ForgeDiskManager
         }
     }
 
-    static long CleanCore(string? installRoot, bool staleOnly, CancellationToken ct)
+    static long CleanCore(string? installRoot, bool staleOnly, CancellationToken ct, IEnumerable<string>? preservePaths = null)
     {
         ct.ThrowIfCancellationRequested();
         if (string.IsNullOrWhiteSpace(installRoot)) return 0L;
         if (!staleOnly && Game.IsRunning())
             throw new InvalidOperationException("Close Helldivers 2 before cleaning Forge cache files.");
+
+        var pathComp = OperatingSystem.IsWindows() ? StringComparison.OrdinalIgnoreCase : StringComparison.Ordinal;
+        var preservedFiles = new HashSet<string>(OperatingSystem.IsWindows() ? StringComparer.OrdinalIgnoreCase : StringComparer.Ordinal);
+        var preservedDirs = new HashSet<string>(OperatingSystem.IsWindows() ? StringComparer.OrdinalIgnoreCase : StringComparer.Ordinal);
+        if (preservePaths != null)
+        {
+            foreach (var rawPath in preservePaths)
+            {
+                if (string.IsNullOrWhiteSpace(rawPath)) continue;
+                try
+                {
+                    var full = Path.TrimEndingDirectorySeparator(Path.GetFullPath(rawPath));
+                    preservedFiles.Add(full);
+                    for (var parent = Path.GetDirectoryName(full); !string.IsNullOrEmpty(parent); parent = Path.GetDirectoryName(parent))
+                        preservedDirs.Add(Path.TrimEndingDirectorySeparator(parent));
+                }
+                catch { }
+            }
+        }
+        bool IsPreservedTree(string dirFull)
+        {
+            var norm = Path.TrimEndingDirectorySeparator(Path.GetFullPath(dirFull));
+            if (preservedDirs.Contains(norm) || preservedFiles.Contains(norm)) return true;
+            var prefix = norm + Path.DirectorySeparatorChar;
+            return preservedFiles.Any(f => f.StartsWith(prefix, pathComp));
+        }
 
         var root = Path.TrimEndingDirectorySeparator(Path.GetFullPath(installRoot));
         FileSafety.RejectLink(root);
@@ -388,12 +417,13 @@ public static class ForgeDiskManager
                     if (entry is DirectoryInfo bDir)
                     {
                         var norm = Path.TrimEndingDirectorySeparator(Path.GetFullPath(bDir.FullName));
-                        if (protectedBackups.Contains(norm)) continue;
+                        if (protectedBackups.Contains(norm) || IsPreservedTree(norm)) continue;
                         if (!IsCompletedOrDeletingBackup(bDir)) continue;
                         freed += TryDeleteDirectorySafe(cacheRoot, bDir.FullName);
                     }
                     else if (entry is FileInfo bFile)
                     {
+                        if (preservedFiles.Contains(Path.GetFullPath(bFile.FullName))) continue;
                         if (staleOnly && bFile.LastWriteTimeUtc >= staleCutoffUtc) continue;
                         freed += TryDeleteFile(bFile);
                     }
@@ -410,6 +440,7 @@ public static class ForgeDiskManager
             {
                 ct.ThrowIfCancellationRequested();
                 if (f.Name.Equals("download.lock", StringComparison.OrdinalIgnoreCase)) continue;
+                if (preservedFiles.Contains(Path.GetFullPath(f.FullName))) continue;
                 if (!(f.Name.EndsWith(".partial", StringComparison.OrdinalIgnoreCase) || IsStaleTempFileName(f.Name) || IsBackupName(f.Name)))
                     continue;
                 if (staleOnly && f.LastWriteTimeUtc >= staleCutoffUtc) continue;
@@ -431,7 +462,7 @@ public static class ForgeDiskManager
                     if (entry is DirectoryInfo eDir)
                     {
                         var norm = Path.TrimEndingDirectorySeparator(Path.GetFullPath(eDir.FullName));
-                        if (!reclaimableExports.Contains(norm)) continue;
+                        if (!reclaimableExports.Contains(norm) || IsPreservedTree(norm)) continue;
                         if (staleOnly && !eDir.Name.StartsWith("deleting-", StringComparison.OrdinalIgnoreCase) && eDir.LastWriteTimeUtc >= staleCutoffUtc)
                             continue;
                         freed += TryDeleteDirectorySafe(cacheRoot, eDir.FullName);

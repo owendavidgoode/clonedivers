@@ -112,11 +112,22 @@ int at_read_atst_unit(
 
     if (!graph_handle || graph_handle == 0xFFFFFFu || !valid_addr(assoc) || assoc < 0x10010ULL) return 0;
     if (nodes != AT_S2C_NODES || meshes != AT_MESH_DESC_COUNT) return 0;
-    if (!valid_span(world_arr, (size_t)nodes * 48u) || !valid_span(topo, (size_t)nodes * 2u)) return 0;
+    if (!valid_span(world_arr, (size_t)nodes * 48u) || !valid_span(topo, (size_t)nodes * 4u)) return 0;
 
-    uint16_t topo_buf[AT_S2C_NODES];
+    /* Stingray Unit+0x98 stores struct { uint16_t type; uint16_t parent; }[nodes] (4 bytes/node).
+     * Root node 0 has type 0 when unlinked (World::unlink_unit leaves the prior carrier attach-node
+     * index such as 26 in .parent) or type 2 while linked under a carrier dropship via World::link_unit.
+     * Internal nodes 1..105 must all have type 1 and exact pinned AT_S2C_PARENT[k]. */
+    struct {
+        uint16_t type;
+        uint16_t parent;
+    } topo_buf[AT_S2C_NODES];
+    _Static_assert(sizeof(topo_buf) == AT_S2C_NODES * 4u, "Stingray 4-byte topology entry layout");
     if (read_fn(topo, topo_buf, sizeof(topo_buf), read_user) != 0) return 0;
-    if (memcmp(topo_buf, AT_S2C_PARENT, sizeof(topo_buf)) != 0) return 0;
+    if (topo_buf[0].type != 0u && topo_buf[0].type != 2u) return 0;
+    for (unsigned k = 1u; k < AT_S2C_NODES; k++) {
+        if (topo_buf[k].type != 1u || topo_buf[k].parent != AT_S2C_PARENT[k]) return 0;
+    }
 
     out->index = idx;
     out->generation = gen;
@@ -324,13 +335,14 @@ uint32_t at_registry_reconcile(
         }
     }
 
-    /* Step 2: Differential rolling-cursor bulk-chunk scan of UnitManager to admit new 79E4B3D2DA5E45E3 walkers. */
+    /* Step 2: Differential rolling-cursor bulk-chunk scan of UnitManager to admit new AT-ST walkers.
+     * Slot reuse and handle teardown are already tracked via unit_gen, unit_ptr, and 1E7CD0, so
+     * already-inspected non-walker units never need periodic full-table ReadProcessMemory re-probes. */
     uint32_t limit = (max_scan && max_scan < mgr.capacity) ? max_scan : mgr.capacity;
     uint32_t start = (max_scan && max_scan < mgr.capacity) ? (reg->scan_cursor % mgr.capacity) : 0u;
     uint32_t admitted = 0;
     uint32_t scanned = 0;
     uint32_t probed_new = 0;
-    int periodic_refresh = (max_scan && max_scan < mgr.capacity && (reg->sweep_count & 15u) == 15u);
     uintptr_t slot_chunk[512];
     uint8_t gen_chunk[512];
     while (scanned < limit) {
@@ -351,7 +363,7 @@ uint32_t at_registry_reconcile(
                     reg->scanned_gens[idx] = unit_gen;
                     continue;
                 }
-                if (!periodic_refresh && reg->scanned_slots[idx] == unit_ptr && reg->scanned_gens[idx] == unit_gen) {
+                if (reg->scanned_slots[idx] == unit_ptr && reg->scanned_gens[idx] == unit_gen) {
                     continue;
                 }
                 if (max_scan && max_scan < mgr.capacity && probed_new >= 96u) {
@@ -367,7 +379,12 @@ uint32_t at_registry_reconcile(
                 }
                 uintptr_t res_ptr = (uintptr_t)rd_u64(probe + 0x30u);
                 uint64_t res_id = 0;
-                if (!valid_span(res_ptr, 8u) || read_fn(res_ptr, &res_id, 8u, read_user) != 0) continue;
+                if (!valid_span(res_ptr, 8u)) {
+                    reg->scanned_slots[idx] = unit_ptr;
+                    reg->scanned_gens[idx] = unit_gen;
+                    continue;
+                }
+                if (read_fn(res_ptr, &res_id, 8u, read_user) != 0) continue;
                 if (!at_is_supported_atst_unit_id(res_id)) {
                     reg->scanned_slots[idx] = unit_ptr;
                     reg->scanned_gens[idx] = unit_gen;

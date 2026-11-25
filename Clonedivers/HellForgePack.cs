@@ -304,6 +304,65 @@ public static class HellForgePack
             return output.Equals(prefix, comparison) || output.StartsWith(prefix + separator, comparison);
         });
     }
+    internal static string VolumeKey(string output)
+    {
+        try
+        {
+            var full = Path.GetFullPath(output);
+            var volume = ContainingVolume(full, DriveInfo.GetDrives().Select(d => d.Name), OperatingSystem.IsWindows());
+            if (volume != null)
+                return OperatingSystem.IsWindows() ? volume.ToUpperInvariant() : volume;
+            var root = Path.GetPathRoot(full) ?? full;
+            return OperatingSystem.IsWindows() ? root.ToUpperInvariant() : root;
+        }
+        catch (Exception error) when (error is IOException or UnauthorizedAccessException or System.Security.SecurityException or ArgumentException)
+        {
+            return output;
+        }
+    }
+
+    /// <summary>
+    /// Reclaims a freshly created export folder if the subsequent <see cref="HellForgeClient.InstallPackAsync"/> step fails
+    /// due to low disk space, preserving any newly downloaded network files inside <c>appearance-downloads</c> so zero network
+    /// bytes are lost while reclaiming all ~12 GiB of duplicated local copies immediately.
+    /// </summary>
+    internal static void ReclaimFailedInstallExport(Plan plan, Exception error)
+    {
+        if (plan == null || error is OperationCanceledException) return;
+        if (error is not IOException io || !io.Message.Contains("Not enough", StringComparison.OrdinalIgnoreCase)) return;
+        try
+        {
+            var full = Path.TrimEndingDirectorySeparator(Path.GetFullPath(plan.Output));
+            if (!Directory.Exists(full)) return;
+            var parent = Path.GetDirectoryName(full);
+            if (parent == null || !string.Equals(Path.GetFileName(parent), "exports", StringComparison.OrdinalIgnoreCase)) return;
+            FileSafety.RejectLink(parent);
+            FileSafety.RejectLink(full);
+
+            if (plan.Missing.Count > 0)
+            {
+                var cache = DownloadCache(full);
+                FileSafety.RejectLink(cache);
+                Directory.CreateDirectory(cache);
+                foreach (var dl in plan.Missing.Where(f => f.Size > 0))
+                {
+                    var exported = FileSafety.Child(full, dl.Name);
+                    var cached = CachedAsset(cache, dl);
+                    if (File.Exists(exported) && !File.Exists(cached))
+                    {
+                        try { FileSafety.RejectLink(exported); File.Move(exported, cached, overwrite: false); }
+                        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException) { }
+                    }
+                }
+            }
+
+            foreach (var entry in Directory.EnumerateFileSystemEntries(full, "*", SearchOption.AllDirectories))
+                FileSafety.RejectLink(entry);
+            Directory.Delete(full, recursive: true);
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or InvalidDataException) { }
+    }
+
     internal static long? AvailableExportBytes(string output)
     {
         try
@@ -341,7 +400,7 @@ public static class HellForgePack
             RejectInstallationOutput(cache); FileSafety.RejectLink(cache); Directory.CreateDirectory(cache);
             using var lease = new FileStream(FileSafety.Child(cache, "download.lock"), FileMode.OpenOrCreate, FileAccess.ReadWrite, FileShare.None);
             PruneDownloadCache(cache, plan.Missing);
-            await ExportFilesAsync(plan, cache, progress, ct, target => unverified = target, downloadFile, bytes, downloadWithProgress, richProgress);
+            await ExportFilesAsync(plan, download, cache, progress, ct, target => unverified = target, availableBytes, downloadFile, bytes, downloadWithProgress, richProgress);
         }
         catch
         {
@@ -376,8 +435,8 @@ public static class HellForgePack
             catch (Exception error) when (error is IOException or UnauthorizedAccessException) { }
         }
     }
-    static async Task ExportFilesAsync(Plan plan, string cache, IProgress<string>? progress, CancellationToken ct, Action<string?> writing,
-        Func<PackFile, string, CancellationToken, Task>? downloadFile, IProgress<(long Done, long Total)>? bytes,
+    static async Task ExportFilesAsync(Plan plan, bool download, string cache, IProgress<string>? progress, CancellationToken ct, Action<string?> writing,
+        Func<string, long?> availableBytes, Func<PackFile, string, CancellationToken, Task>? downloadFile, IProgress<(long Done, long Total)>? bytes,
         Func<PackFile, string, IProgress<(long Done, long Total)>, CancellationToken, Task>? downloadWithProgress,
         IProgress<OperationProgress>? richProgress = null)
     {
@@ -393,7 +452,8 @@ public static class HellForgePack
             ct.ThrowIfCancellationRequested();
             var target = FileSafety.Child(plan.Output, file.Name); writing(target); string? cached = null;
             long reported = 0;
-            bool isDownload = file.Size > 0 && !exported.ContainsKey(file.Sha256) && !plan.Local.ContainsKey(file.Sha256);
+            bool hasLocal = plan.Local.TryGetValue(file.Sha256, out var source) && File.Exists(source);
+            bool isDownload = file.Size > 0 && !exported.ContainsKey(file.Sha256) && !hasLocal;
             string stage = isDownload ? "Downloading Star Wars pack" : "Preparing cached pack files";
             string subStep = isDownload ? $"Downloading {file.Name}" : $"Copying {file.Name}";
             void Report(long value)
@@ -409,9 +469,15 @@ public static class HellForgePack
             }
             if (file.Size == 0) await File.WriteAllBytesAsync(target, [], ct);
             else if (exported.TryGetValue(file.Sha256, out var prior)) await CopyLocalAsync(prior, target, file.Size, ct, Report);
-            else if (plan.Local.TryGetValue(file.Sha256, out var source)) await CopyLocalAsync(source, target, file.Size, ct, Report);
+            else if (hasLocal && source != null) await CopyLocalAsync(source, target, file.Size, ct, Report);
             else
             {
+                if (!download)
+                    throw new IOException($"Cached Star Wars pack source is missing: {file.Name}. Add source folders or allow verified downloads.");
+                long remainingExport = Math.Max(0L, plan.Bytes - completed);
+                long fallbackNeeded = checked(remainingExport + ExportReserve + file.Size);
+                if (availableBytes(plan.Output) is long fallbackFree && fallbackFree < fallbackNeeded)
+                    throw new IOException($"Not enough space to download missing pack file {file.Name}: {Pack.FormatBytes(fallbackNeeded)} needed, {Pack.FormatBytes(Math.Max(0L, fallbackFree))} available.");
                 progress?.Report($"Downloading {done + 1}/{plan.Selection.Files.Count}: {Pack.FormatBytes(file.Size)}");
                 if (!Uri.TryCreate(file.Url, UriKind.Absolute, out var uri) || uri.Scheme != "https" || uri.Host != "github.com" ||
                     !uri.AbsolutePath.StartsWith("/owendavidgoode/clonedivers/releases/download/", StringComparison.Ordinal))

@@ -303,13 +303,16 @@ static int ChaosVerifyCodePins(ChaosReadCodeFn read_code, uintptr_t game_base, s
 
 /* ---- Refcounted package map <75% guard & deduplication ---- */
 
-static int ChaosRefMapHasHeadroom(const uint8_t* entries, uint32_t capacity, uint64_t empty_key,
-                                  uint64_t pkg_id, uint32_t* used_out, int* already_present)
+static inline int ChaosRefMapInspect(const uint8_t* entries, uint32_t capacity, uint64_t empty_key,
+                                     uint64_t pkg_id, uint32_t* used_out, int* already_present,
+                                     uint32_t* slot_out, uint64_t* refcount_out)
 {
     uint32_t used = 0;
     int present = 0;
     if (used_out) *used_out = 0;
     if (already_present) *already_present = 0;
+    if (slot_out) *slot_out = 0xFFFFFFFFu;
+    if (refcount_out) *refcount_out = 0ULL;
     if (!entries || capacity < 16u || capacity > 65536u || (capacity & (capacity - 1u)) != 0u ||
         pkg_id == 0ULL || pkg_id == empty_key)
         return 0;
@@ -318,13 +321,25 @@ static int ChaosRefMapHasHeadroom(const uint8_t* entries, uint32_t capacity, uin
         memcpy(&key, entries + (size_t)i * 16u, sizeof key);
         if (key != empty_key && key != 0ULL) {
             ++used;
-            if (key == pkg_id) present = 1;
+            if (key == pkg_id && !present) {
+                uint64_t rc = 0;
+                memcpy(&rc, entries + (size_t)i * 16u + 8u, sizeof rc);
+                present = 1;
+                if (slot_out) *slot_out = i;
+                if (refcount_out) *refcount_out = rc;
+            }
         }
     }
     if (used_out) *used_out = used;
     if (already_present) *already_present = present;
     /* Keep ref map strictly <75% full after inserting a new package. */
     return present || ((uint64_t)(used + 1u) * 4ULL < (uint64_t)capacity * 3ULL);
+}
+
+static inline int ChaosRefMapHasHeadroom(const uint8_t* entries, uint32_t capacity, uint64_t empty_key,
+                                         uint64_t pkg_id, uint32_t* used_out, int* already_present)
+{
+    return ChaosRefMapInspect(entries, capacity, empty_key, pkg_id, used_out, already_present, NULL, NULL);
 }
 
 /* ---- Ground anchor spatial guard (Z up in Helldivers 2 world space) ---- */

@@ -197,8 +197,8 @@ internal static class PlayerReviewTests
             var v2Prefs = new HellForgePreferences { Mode = v2Resp.GetProperty("Mode").GetString()!, Texture = v2Resp.GetProperty("Texture").GetString()!, EnemySkin = v2Resp.GetProperty("EnemySkin").GetString()!, Droids = v2Resp.GetProperty("Droids").GetBoolean(), Covenant = v2Resp.GetProperty("Covenant").GetBoolean() };
             var v2Selected = v2Prefs.Selection();
             check(v2Prefs.Mode == "clonedivers" && v2Prefs.Texture == "reduced512" && v2Prefs.EnemySkin == "mixed-droids" && v2Prefs.Droids && v2Prefs.Covenant &&
-                v2Selected.Version == "2026.11.22-r21" && v2Selected.Texture == "reduced512" && v2Selected.Options["mixed-droids"] && v2Selected.Options["droids"] && v2Selected.Options["covenant"] && v2Selected.Files.Count == 123,
-                "bridge select-mode resolves reduced512, mixed-droids, and covenant natively against Clones r21");
+                v2Selected.Version == "2026.11.23-r22" && v2Selected.Texture == "reduced512" && v2Selected.Options["mixed-droids"] && v2Selected.Options["droids"] && v2Selected.Options["covenant"] && v2Selected.Files.Count == 129,
+                "bridge select-mode resolves reduced512, mixed-droids, and covenant natively against Clones r22");
             var v21EmpResp = await playPlayer.RunAsync(["select-mode", "--mode", "empire", "--delta", "no", "--texture", "potato256", "--droids", "yes", "--covenant", "yes", "--enemy-skin", "mixed-droids", "--squid-skin", "mixed-covenant", "--deathtrooper", "no"], CancellationToken.None);
             var v21EmpPrefs = new HellForgePreferences
             {
@@ -209,8 +209,8 @@ internal static class PlayerReviewTests
                 DeathTrooperVoice = v21EmpResp.GetProperty("DeathTrooperVoice").GetBoolean()
             };
             var v21EmpSel = v21EmpPrefs.Selection();
-            check(v21EmpSel.Version == "2026.11.22-r50" && v21EmpSel.Texture == "potato256" && v21EmpSel.Options["mixed-covenant"] && v21EmpSel.Options["covenant"] && !v21EmpSel.Options["deathtrooper"] && v21EmpSel.Files.Count == 144,
-                "bridge select-mode resolves potato256, mixed-covenant, and deathtrooper=false natively against Empire r50");
+            check(v21EmpSel.Version == "2026.11.23-r51" && v21EmpSel.Texture == "potato256" && v21EmpSel.Options["mixed-covenant"] && v21EmpSel.Options["covenant"] && !v21EmpSel.Options["deathtrooper"] && v21EmpSel.Files.Count == 144,
+                "bridge select-mode resolves potato256, mixed-covenant, and deathtrooper=false natively against Empire r51");
             var backResp = await playPlayer.RunAsync(["select-mode", "--mode", "empire", "--delta", "no", "--texture", "lighter", "--droids", "no", "--covenant", "no"], CancellationToken.None);
             check(backResp.GetProperty("Mode").GetString() == "empire" && backResp.GetProperty("Texture").GetString() == "lighter" &&
                 !backResp.GetProperty("Droids").GetBoolean() && backResp.GetProperty("EnemySkin").GetString() == "native-automatons",
@@ -248,6 +248,74 @@ internal static class PlayerReviewTests
             var afterShim = await playPlayer.RunAsync(["player-status"], CancellationToken.None);
             check(backendCalls == backendBeforeShim && afterShim.GetProperty("account").GetProperty("Imported").GetBoolean(),
                 "#28 cached account state survives the session startup shim window cleanly without reverting to Sync account");
+
+            // #37a: Mutable profile.json.bak / launcher.json / profile.lock writes do NOT invalidate AccountFingerprint.
+            var callsBeforeAux = backendCalls;
+            File.WriteAllText(Path.Combine(profile, "profile.json.bak"), """{"bak":1}""");
+            File.WriteAllText(Path.Combine(profile, "launcher.json"), """{"ui":1}""");
+            File.WriteAllText(Path.Combine(profile, "profile.lock"), "");
+            var afterAux = await playPlayer.RunAsync(["player-status"], CancellationToken.None);
+            check(backendCalls == callsBeforeAux && afterAux.GetProperty("account").GetProperty("Imported").GetBoolean(),
+                "#37 profile.json.bak, launcher.json, and profile.lock mutations do not re-trigger LocalBackend ownership probes");
+
+            // #37b: SessionShimsActive binary content/length comparison works even when sdk-shim-originals mtime is weeks old.
+            var binDir = Path.Combine(root, "game", "bin");
+            Directory.CreateDirectory(binDir);
+            Directory.CreateDirectory(shimDir);
+            var oldDate = new DateTime(2026, 11, 4, 0, 0, 0, DateTimeKind.Utc);
+            var savedDll = Path.Combine(shimDir, "steam_api64.dll");
+            var liveDll = Path.Combine(binDir, "steam_api64.dll");
+            File.WriteAllBytes(savedDll, Encoding.UTF8.GetBytes("stock-steam-api64-298384"));
+            File.SetLastWriteTimeUtc(savedDll, oldDate);
+            File.WriteAllBytes(liveDll, Encoding.UTF8.GetBytes("stock-steam-api64-298384"));
+            File.SetLastWriteTimeUtc(liveDll, oldDate);
+            check(!HellForgeAccount.SessionShimsActive(root, now),
+                "#37 SessionShimsActive is false when restored game/bin/steam_api64.dll matches sdk-shim-originals");
+            File.WriteAllBytes(liveDll, Encoding.UTF8.GetBytes("shim-255488"));
+            File.SetLastWriteTimeUtc(liveDll, oldDate);
+            check(HellForgeAccount.SessionShimsActive(root, now),
+                "#37 SessionShimsActive detects swapped shim DLL by length/hash even when mtime is weeks old");
+            File.WriteAllBytes(liveDll, Encoding.UTF8.GetBytes("stock-steam-api64-298384"));
+
+            // #37c: Transient Wine/SDK-shim review errors preserve Imported=true instead of flipping UI to Sync account, then re-verify cleanly.
+            var transientErr = false;
+            Task<string> TransientBackend(IReadOnlyList<string> args, CancellationToken ct)
+            {
+                backendCalls++;
+                if (transientErr) throw new InvalidDataException("The ownership check needs the supported build's own steam_api64.dll");
+                return Task.FromResult("""{"categories":{"level":{"vanilla":"12345 XP"}}}""");
+            }
+            var transientPlayer = new PlayerCommands(root, official, backend: TransientBackend, reviewWarbondsWithStatus: _ => Task.FromResult<int?>(0))
+            {
+                UtcNow = () => now, CaptureBlockCheck = () => null, SteamUserProbe = () => "active:111"
+            };
+            var tPrimed = await transientPlayer.RunAsync(["player-status"], CancellationToken.None);
+            check(tPrimed.GetProperty("account").GetProperty("Imported").GetBoolean(), "#37 transient player primed");
+            transientErr = true;
+            File.AppendAllText(Path.Combine(profile, "profile.json"), " ");
+            var tDuringWine = await transientPlayer.RunAsync(["player-status"], CancellationToken.None);
+            check(tDuringWine.GetProperty("account").GetProperty("Imported").GetBoolean(),
+                "#37 transient Wine/shim error after profile.json mutation preserves Imported=true instead of prompting Sync account");
+            transientErr = false;
+            var callsBeforeRecover = backendCalls;
+            var tRecovered = await transientPlayer.RunAsync(["player-status"], CancellationToken.None);
+            check(backendCalls == callsBeforeRecover + 1 && tRecovered.GetProperty("account").GetProperty("Imported").GetBoolean(),
+                "#37 cleared fingerprint after transient Wine error re-verifies on the very next poll");
+
+            // #37d: OS-wide ManagerWindowOpen prevents spawning duplicate HellForge.Launcher child windows.
+            var prevProcProbe = HellForgeWarbonds.AnyProcessNamed;
+            try
+            {
+                if (!OperatingSystem.IsLinux())
+                {
+                    HellForgeWarbonds.AnyProcessNamed = name => name == "HellForge.Launcher";
+                    var dupPlayer = new PlayerCommands(root, official, backend: TransientBackend, reviewWarbondsWithStatus: _ => Task.FromResult<int?>(0));
+                    var mgrReply = await dupPlayer.RunAsync(["open-manager"], CancellationToken.None);
+                    check(mgrReply.GetProperty("alreadyOpen").GetBoolean(),
+                        "#37 open-manager reuses an already-open OS HellForge.Launcher process instead of spawning duplicates");
+                }
+            }
+            finally { HellForgeWarbonds.AnyProcessNamed = prevProcProbe; }
         }
         finally { Directory.Delete(root, true); }
     }
