@@ -22,7 +22,7 @@ public sealed partial class HellForgeClient
             if (!string.IsNullOrEmpty(id)) applied.Add(id);
         if (intent.OptionalDefaults == null && (intent.State == "applied" || intent.OptionalDefaultsApplied))
         {
-            if (intent.Catalog is "build25480438-r11" or "build25480438-r10" or "build25480438-r9" || intent.Catalog == HellForgeGameplayCatalog.Pinned.Id)
+            if (intent.Catalog is "build25480438-r12" or "build25480438-r11" or "build25480438-r10" or "build25480438-r9" || intent.Catalog == HellForgeGameplayCatalog.Pinned.Id)
                 foreach (var artifact in HellForgeGameplayCatalog.Pinned.Artifacts.Where(a => a.Optional))
                     applied.Add(artifact.Id);
             else if (intent.Catalog == "build25480438-r8")
@@ -44,6 +44,7 @@ public sealed partial class HellForgeClient
         (HellForgePreset.LegoCompactLeafWriter, "0.0.9" or "0.1.0" or "0.2.0" or "0.2.1") or
         (HellForgePreset.EmpireLegoYoda, "0.1.0" or "0.1.2" or "0.2.0") or
         (HellForgePreset.EmpireAtstWriter, "0.1.0" or "0.2.0" or "0.2.1" or "0.2.2") or
+        (HellForgePreset.EmpireTieSwitch, "0.3.0") or
         (HellForgePreset.ChaosInvasions, "0.2.0" or "0.3.0" or "0.3.1" or "0.3.2" or "0.3.3" or "0.3.4") or
         (HellForgePreset.EmpireCameraPullback, "0.1.0" or "0.1.1" or "0.1.2" or "0.1.3") or
         (HellForgePreset.StarWarsLocalization, "0.1.0") or

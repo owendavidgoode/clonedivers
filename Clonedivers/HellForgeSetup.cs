@@ -39,6 +39,7 @@ internal static partial class HellForgeSetup
             var full = Path.GetFullPath(path);
             var root = Path.GetPathRoot(full);
             if (string.IsNullOrWhiteSpace(root)) return null;
+            if (LocalDriveCatalog.TestFreeBytesOverride() is long overrideFree) return overrideFree;
             var drive = new DriveInfo(root);
             return drive.IsReady ? drive.AvailableFreeSpace : null;
         }
@@ -84,7 +85,7 @@ internal static partial class HellForgeSetup
     internal static void RequireSpace(string root)
     {
         var drive = new DriveInfo(Path.GetPathRoot(root)!);
-        if (drive.IsReady) CheckSetupSpace(drive.AvailableFreeSpace, drive.Name);
+        if (drive.IsReady) CheckSetupSpace(LocalDriveCatalog.TestFreeBytesOverride() ?? drive.AvailableFreeSpace, drive.Name);
     }
     internal const long SetupBudget = 70L << 30;
     internal static void CheckSetupSpace(long free, string drive)

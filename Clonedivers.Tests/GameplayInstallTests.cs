@@ -12,8 +12,8 @@ internal static class GameplayInstallTests
     {
         var catalog = HellForgeGameplayCatalog.Pinned;
         catalog.Validate();
-        check(catalog.Id == "build25480438-r11" && catalog.Artifacts.Count == 18 && catalog.Artifacts.Sum(a => a.Bytes) == 8518467,
-            "the r11 preset pairs nine optional SDK-16 mods with nine required gameplay and author archives");
+        check(catalog.Id == "build25480438-r12" && catalog.Artifacts.Count == 18 && catalog.Artifacts.Sum(a => a.Bytes) == 8521273,
+            "the r12 preset pairs nine optional SDK-16 mods with nine required gameplay and author archives");
         check(catalog.Artifacts.Count(a => a.Url.Contains("/owendavidgoode/clonedivers/")) == 15 && catalog.Artifacts.Count(a => !a.Url.Contains("/owendavidgoode/clonedivers/")) == 3 &&
             catalog.Artifacts.All(a => !a.Url.Contains("hf-mod.com", StringComparison.OrdinalIgnoreCase)) &&
             catalog.Artifacts.All(a => !a.FileName.Contains("clear-skies", StringComparison.OrdinalIgnoreCase)),
@@ -51,11 +51,11 @@ internal static class GameplayInstallTests
             atst.ContentHash == "4aabb331901901be0ae4a03dc23b91a6d7e919db3160f1a91351d6c4c00b2f03" &&
             atst.Url == "https://github.com/owendavidgoode/clonedivers/releases/download/forge-mods-2026-11-23/empire-atst-writer-0.2.3.zip",
             "Empire AT-ST Film-Scale Leaf Writer is optional with the exact 0.2.3 4B-topology zero-syscall release pins");
-        check(tieSwitch.Name == "Empire per-attack TIE (lab candidate)" && tieSwitch.Version == "0.3.0" && tieSwitch.Bytes == 22644 &&
-            tieSwitch.Sha256 == "491f437bbed022aaf6899b259784156341e6acec80bf1ff5a6116f106da06f5b" &&
-            tieSwitch.ContentHash == "fe2c081780faecf75bc6f4d4a4e07df7ca9ddc332f32e4a148af4e460d2fbe7b" &&
-            tieSwitch.Url == "https://github.com/owendavidgoode/clonedivers/releases/download/forge-mods-2026-11-19/empire-tie-switch-0.3.0.zip",
-            "Empire per-attack TIE switch is optional with the exact 0.3.0 release pins");
+        check(tieSwitch.Name == "Empire per-attack TIE (lab candidate)" && tieSwitch.Version == "0.3.1" && tieSwitch.Bytes == 25450 &&
+            tieSwitch.Sha256 == "dd800b743546a5e6804eb8eb7a3416594c38f204a8f161e3cbda3699e4cbb952" &&
+            tieSwitch.ContentHash == "a2102818ff5a6eae5da6e2089ad849557da312638c9e18480150dd72cde98952" &&
+            tieSwitch.Url == "https://github.com/owendavidgoode/clonedivers/releases/download/forge-mods-2026-11-26/empire-tie-switch-0.3.1.zip",
+            "Empire per-attack TIE switch is optional with the exact 0.3.1 5-tier release pins");
         check(cameraPullback.Name == "Empire & Clone Camera Pullback" && cameraPullback.Version == "0.1.4" && cameraPullback.Bytes == 32585 &&
             cameraPullback.Sha256 == "b062c013f94adca066328fba4ace29a63668fea821d3587b6adac0594328847c" &&
             cameraPullback.ContentHash == "9aee365522984f2cc19344b6be1cdc0ac2cccdac64a776cc9b079ac2d40d99eb" &&
@@ -97,7 +97,7 @@ internal static class GameplayInstallTests
         using (var manifest = JsonDocument.Parse(stream))
             check(manifest.RootElement.GetProperty("id").GetString() == tieSwitch.Id && manifest.RootElement.GetProperty("version").GetString() == tieSwitch.Version &&
                 !manifest.RootElement.GetProperty("gameplay").GetBoolean() && manifest.RootElement.GetProperty("coop").GetString() == "per-player",
-                "Empire per-attack TIE switch declares 0.3.0, gameplay false and per-player co-op scope");
+                "Empire per-attack TIE switch declares 0.3.1, gameplay false and per-player co-op scope");
         using (var r8Stream = typeof(GameplayInstallTests).Assembly.GetManifestResourceStream("Clonedivers.Forge.Gameplay.json")!)
         {
             var r8Catalog = JsonSerializer.Deserialize<HellForgeGameplayCatalog>(r8Stream, HellForgePack.Json)!;

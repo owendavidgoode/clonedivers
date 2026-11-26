@@ -1,0 +1,3 @@
+# Clonedivers Forge Linux 0.10.5
+
+> **Release (`linux-v0.10.5`):** Pairs in lockstep with [Windows `v2.1.5`](v2.1.5.md), upgrading gameplay catalog **`build25480438-r12`** (`18` verified archives, `8,521,273` B, `0` `hf-mod.com` URLs, Squad Match Code `r12-2de0`) with **5-tier `clonedivers.empire-tie-switch 0.3.1`** (`full`, `lighter`, `reduced1024`, `reduced512`, `potato256` on **EmpireDivers `2026.11.25-r52`**), dynamic `18/18` & `r12` diagnostics and `Verify & Repair` status strings across `LinuxForgeHost` / `LinuxForgePlayer` / `ForgeVerifier`, Avalonia UIAutomation accessibility peers on shared `ForgeShellWindow` controls, and automatic `r11 -> r12` upgrades for enabled `empire-tie-switch`. See [v2.1.5](v2.1.5.md) for full change and verification details.

@@ -1939,7 +1939,7 @@ public sealed class WindowsForgeHost : IForgeUiHost
             new("Game Copy", lastStatus?.GameCopyReady == true ? $"Build {lastStatus.Build}" : "Not ready",
                 Healthy: lastStatus?.GameCopyReady == true && lastStatus.Build == HellForgePack.SupportedBuild,
                 Warning: lastStatus == null),
-            new("Gameplay Preset", lastMods == null ? "Unknown" : NeedsGameplaySetup() ? "Needs install" : $"14/14 ({matchHash})",
+            new("Gameplay Preset", lastMods == null ? "Unknown" : NeedsGameplaySetup() ? "Needs install" : $"{HellForgeGameplayCatalog.Current.Artifacts.Count}/{HellForgeGameplayCatalog.Current.Artifacts.Count} ({matchHash})",
                 Healthy: lastMods != null && !NeedsGameplaySetup(),
                 Warning: lastMods == null),
             new("Account Sync", lastAccount?.Imported == true ? "Imported" : lastAccount?.Captured == true ? "Captured" : "Not synced",

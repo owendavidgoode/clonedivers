@@ -119,7 +119,7 @@ internal static partial class HellForgeSetup
             foreach (var path in Directory.EnumerateFiles(game, "*", new EnumerationOptions { RecurseSubdirectories = true, AttributesToSkip = FileAttributes.ReparsePoint }))
                 saved = Math.Min(SetupBudget, saved + new FileInfo(path).Length);
         var drive = new DriveInfo(Path.GetPathRoot(game)!);
-        CheckGameSpace(drive.AvailableFreeSpace, saved, drive.Name);
+        CheckGameSpace(LocalDriveCatalog.TestFreeBytesOverride() ?? drive.AvailableFreeSpace, saved, drive.Name);
     }
     internal static void CheckGameSpace(long free, long saved, string drive = "Forge")
     {

@@ -209,9 +209,18 @@ public static class LocalDriveCatalog
 {
     public const long DefaultBudgetBytes = 70L << 30;
 
+    public static long? TestFreeBytesOverride()
+    {
+        if (string.IsNullOrWhiteSpace(Environment.GetEnvironmentVariable("CLONEDIVERS_FORGE_PREFS"))) return null;
+        return long.TryParse(Environment.GetEnvironmentVariable("CLONEDIVERS_FORGE_TEST_FREE_BYTES"), out var fakeFree) && fakeFree >= 0
+            ? fakeFree
+            : null;
+    }
+
     public static IReadOnlyList<LocalDriveOption> EnumerateLocalDrives(long budgetBytes = DefaultBudgetBytes, string? userProfile = null)
     {
         var drives = new List<(string Root, string Label, long Free, long Total)>();
+        var freeOverride = TestFreeBytesOverride();
         try
         {
             foreach (var d in DriveInfo.GetDrives())
@@ -221,7 +230,9 @@ public static class LocalDriveCatalog
                     if (!d.IsReady) continue;
                     if (OperatingSystem.IsWindows() && d.DriveType != DriveType.Fixed) continue;
                     if (!OperatingSystem.IsWindows() && d.TotalSize <= 0) continue;
-                    drives.Add((d.Name, d.VolumeLabel ?? "", d.AvailableFreeSpace, d.TotalSize));
+                    var free = freeOverride ?? d.AvailableFreeSpace;
+                    var total = Math.Max(d.TotalSize, free);
+                    drives.Add((d.Name, d.VolumeLabel ?? "", free, total));
                 }
                 catch (Exception e) when (e is IOException or UnauthorizedAccessException or System.Security.SecurityException) { }
             }

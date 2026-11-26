@@ -481,6 +481,15 @@ internal static class TurnkeySetupTests
             check((await restarted.MissingGameplayAsync()).Select(a => a.Id).ToHashSet(StringComparer.Ordinal).SetEquals(expectedR10Upgrade),
                 "an r10 (v2.1.3) installation upgrades enabled Clean Exit 0.2.0 -> 0.2.1 and Star Wars Localization 0.1.0 -> 0.1.1 while keeping disabled/removed optionals opted out");
 
+            // Upgrading from r11 (v2.1.4) must upgrade enabled Empire TIE Switch 0.3.0 -> 0.3.1 while keeping disabled/removed optionals opted out.
+            fake.Mods.RemoveAll(m => HellForgePreset.Optional.Contains(m.Id));
+            fake.Mods.Add(new(tieSwitch.Id, tieSwitch.Name, true, MakeOldDir(tieSwitch, "0.3.0"), ["code"], "0.3.0"));
+            fake.Mods.Add(new(dedicatedMelee.Id, dedicatedMelee.Name, false, MakeOldDir(dedicatedMelee, "1.5.2-clonedivers.2"), ["code"], "1.5.2-clonedivers.2"));
+            WriteRecord("build25480438-r11", "applied", true, null);
+            var expectedR11Upgrade = new[] { tieSwitch.Id }.ToHashSet(StringComparer.Ordinal);
+            check((await restarted.MissingGameplayAsync()).Select(a => a.Id).ToHashSet(StringComparer.Ordinal).SetEquals(expectedR11Upgrade),
+                "an r11 (v2.1.4) installation upgrades enabled Empire TIE Switch 0.3.0 -> 0.3.1 while keeping disabled/removed optionals opted out");
+
             // Upgrading from an earlier record with partial OptionalDefaults offers newly added optionals while preserving prior opt-outs and player-kept versions across rollback.
             fake.Mods.RemoveAll(m => HellForgePreset.Optional.Contains(m.Id));
             fake.Mods.Add(new(yoda.Id, yoda.Name, true, MakeOldDir(yoda, "0.1.2"), ["code"], "0.1.2"));

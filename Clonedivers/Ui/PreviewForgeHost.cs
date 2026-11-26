@@ -314,7 +314,7 @@ public sealed class PreviewForgeHost : IForgeUiHost
             [
                 new ForgeHealthItem("HellForge", "0.4.0-beta · SDK 16", Healthy: true),
                 new ForgeHealthItem("Game Copy", "Build 25480438", Healthy: true),
-                new ForgeHealthItem("Gameplay Preset", $"17/17 ({matchCode})", Healthy: true),
+                new ForgeHealthItem("Gameplay Preset", $"{HellForgeGameplayCatalog.Current.Artifacts.Count}/{HellForgeGameplayCatalog.Current.Artifacts.Count} ({matchCode})", Healthy: true),
                 new ForgeHealthItem("Account Sync", "Imported", Healthy: true),
                 new ForgeHealthItem("Co-op Network", "Sandbox + WFP OK", Healthy: true)
             ],
@@ -371,9 +371,9 @@ public sealed class PreviewForgeHost : IForgeUiHost
         Bullets:
         [
             "5 native Star Wars texture tiers (up to -80% VRAM & decimated meshes on Ultra-Potato).",
+            "5-tier Empire TIE Fighter & TIE Bomber sortie switching (empire-tie-switch 0.3.1 across Full through Potato256).",
             "Empire r52 & Clones r23: Front-Armory helmet/armor overhaul, 100% SEAF-free Imperial & GAR VO/text, AT-ST & CIS vs Venators.",
-            "Clean in-game Esc menu exit (clean-exit 0.2.1), Co-op crash fixes, and Compact LEGO.",
-            "Squad Match Code (r11), low-disk export cleanup, and Linux Proton camera/sync polish."
+            "Squad Match Code (r12), clean in-game Esc exit (clean-exit 0.2.1), and 1-Click Verify & Repair."
         ],
         IsFallback: false,
         ReleaseUrl: $"https://github.com/owendavidgoode/clonedivers/releases/tag/v{AppInfo.Version}"));

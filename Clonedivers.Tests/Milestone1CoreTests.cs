@@ -320,8 +320,8 @@ internal static class Milestone1CoreTests
         Directory.CreateDirectory(dir);
 
         var catalogCode = SquadFingerprint.Compute(HellForgeGameplayCatalog.Current);
-        check(System.Text.RegularExpressions.Regex.IsMatch(catalogCode, @"^r11-[0-9a-f]{4}$"),
-              $"SquadFingerprint.Compute(Current) produces short deterministic r11 match code ({catalogCode})");
+        check(System.Text.RegularExpressions.Regex.IsMatch(catalogCode, @"^r12-[0-9a-f]{4}$"),
+              $"SquadFingerprint.Compute(Current) produces short deterministic r12 match code ({catalogCode})");
 
         // Build two player mod lists:
         // Player A: Clonedivers pack + all 7 gameplay:false client code mods enabled + r10 gameplay preset
@@ -505,12 +505,14 @@ internal static class Milestone1CoreTests
             extraSearchFolders: [localSourceDir]);
 
         check(report.Healthy && report.Steps.Count == 5 && report.Steps.All(s => s.Passed) &&
+              report.Steps[2].Name == "Gameplay preset (r12)" &&
+              !report.Steps[2].Detail.Contains("r8", StringComparison.OrdinalIgnoreCase) &&
               report.GameplayModsRepaired >= 1 && report.PackVerified && report.PackRepaired &&
               report.BytesReclaimed >= 512 && !File.Exists(stalePartial) &&
               File.ReadAllText(profilePath) == profileBytes &&
               File.ReadAllText(sealPath) == sealBytes &&
               progressEvents.Count >= 5,
-              "ForgeVerifier runs all 5 check & repair steps, repairs drifted preset & pack, reclaims stale cache, and leaves saves/account untouched");
+              "ForgeVerifier runs all 5 check & repair steps, labels Step 3 with dynamic r12 tag, repairs drifted preset & pack, reclaims stale cache, and leaves saves/account untouched");
 
         // Second run when already healthy performs 0 repairs
         var second = await ForgeVerifier.VerifyAndRepairCoreAsync(
@@ -522,8 +524,10 @@ internal static class Milestone1CoreTests
             captureBlockCheck: () => null,
             selectionOverride: () => fixtureSelection,
             extraSearchFolders: [localSourceDir]);
-        check(second.Healthy && second.Steps.Count == 5 && second.GameplayModsRepaired == 0 && !second.PackRepaired,
-              "ForgeVerifier second pass confirms clean state with zero redundant repairs");
+        check(second.Healthy && second.Steps.Count == 5 && second.GameplayModsRepaired == 0 && !second.PackRepaired &&
+              second.Summary.Contains("r12 gameplay preset", StringComparison.Ordinal) &&
+              !second.Summary.Contains("r8", StringComparison.OrdinalIgnoreCase),
+              "ForgeVerifier second pass confirms clean state with zero redundant repairs and dynamic r12 summary");
 
         // Step 2 capture block stops safely before mutating mods
         var blocked = await ForgeVerifier.VerifyAndRepairCoreAsync(

@@ -1,6 +1,6 @@
 # JohnsonMode(tm)
 
-## Late November 2026 (`v2.1.0`–`v2.1.4` / `linux-v0.10.0`–`0.10.4`): 5-Tier Texture & Decimated-Mesh Matrix (`r52` & `r23`)
+## Late November 2026 (`v2.1.0`–`v2.1.5` / `linux-v0.10.0`–`0.10.5`): 5-Tier Texture & Decimated-Mesh Matrix (`r52` & `r23`)
 
 Starting in **Clonedivers 2.1**, both **EmpireDivers (`2026.11.25-r52`)** and **Clonedivers (`2026.11.25-r23`)** ship **five** native Format-3 `textureProfiles` across every enemy-skin (`All CIS Droids`, `Mixed Bots + CIS Droids`, `Native Automatons`) and `Covenant + Squids` (`Mixed Covenant + Squids`, `All Covenant`, `Native Squids`) combination, paired with automatic GPU VRAM/RAM tier detection in the launcher:
 
@@ -10,7 +10,7 @@ Starting in **Clonedivers 2.1**, both **EmpireDivers (`2026.11.25-r52`)** and **
 4. **`reduced512` (`512px (Low / Deck)`)**: `512 px` texture cap with `128 px` resident tails for `6–8 GB VRAM` GPUs and handhelds.
 5. **`potato256` (`256px + Decimated Meshes (Ultra-Potato)`)**: `256 px` texture cap (`64 px` resident tails) plus topology-safe mesh decimation on non-pinned world/enemy geometry while strictly pinning node/bone/LOD layouts required by runtime leaf writers (`79` Compact LEGO garments, K-2SO `B-27`, and `9.04 m` `EXO-45/49/51/55` AT-STs), cutting active GPU VRAM up to `-80%` (measured `~ -50%` whole-process Dedicated GPU VRAM and `-94%` Shared GPU spillover in live Direct3D sessions on `D:\HellForge`) and pack disk footprint up to `-66%`.
 
-See [STATUS.md](STATUS.md) and [v2.1.4 release notes](releases/v2.1.4.md) for current live Direct3D VRAM and `PresentMon 2.5.1` measurements.
+See [STATUS.md](STATUS.md) and [v2.1.5 release notes](releases/v2.1.5.md) for current live Direct3D VRAM and `PresentMon 2.5.1` measurements.
 
 ---
 

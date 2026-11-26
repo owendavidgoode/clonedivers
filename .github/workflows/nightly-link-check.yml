@@ -13,7 +13,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Verify manifests, r8 gameplay catalog and sampled pack URLs
+      - name: Verify manifests, r12 gameplay catalog and sampled pack URLs
         shell: bash
         env:
           REPO_SLUG: ${{ github.repository }}
@@ -38,7 +38,7 @@ jobs:
               "manifest-v3.json",
               "manifest-v3-current.json",
           ]
-          GAMEPLAY_CATALOG = "Clonedivers/Resources/forge-gameplay-build25480438-r11.json"
+          GAMEPLAY_CATALOG = "Clonedivers/Resources/forge-gameplay-build25480438-r12.json"
           PACK_MANIFESTS = [
               "Clonedivers/Resources/hellforge-clones-r23.json",
               "Clonedivers/Resources/hellforge-empire-r52.json",
@@ -210,14 +210,14 @@ jobs:
                   probe_url(app["url"], int(app["size"]), f"{manifest_name} [app {app.get('version')}]")
               check_pack_samples(manifest_name, (data.get("pack") or {}).get("files") or [])
 
-          # 2. All 18 forge-gameplay-build25480438-r11.json artifact URLs + 0 hf-mod.com check
-          r11 = json.loads(Path(GAMEPLAY_CATALOG).read_text(encoding="utf-8"))
-          artifacts = r11.get("Artifacts") or []
-          if r11.get("Id") != "build25480438-r11" or len(artifacts) != 18:
-              failures.append(f"{GAMEPLAY_CATALOG}: expected Id='build25480438-r11' and 18 artifacts, got Id={r11.get('Id')!r} count={len(artifacts)}")
+          # 2. All 18 forge-gameplay-build25480438-r12.json artifact URLs + 0 hf-mod.com check
+          r12 = json.loads(Path(GAMEPLAY_CATALOG).read_text(encoding="utf-8"))
+          artifacts = r12.get("Artifacts") or []
+          if r12.get("Id") != "build25480438-r12" or len(artifacts) != 18:
+              failures.append(f"{GAMEPLAY_CATALOG}: expected Id='build25480438-r12' and 18 artifacts, got Id={r12.get('Id')!r} count={len(artifacts)}")
           for art in artifacts:
               art_id = art.get("Id") or art.get("Name") or "unknown"
-              probe_url(art.get("Url") or "", int(art.get("Bytes") or 0), f"r11 [{art_id}]")
+              probe_url(art.get("Url") or "", int(art.get("Bytes") or 0), f"r12 [{art_id}]")
 
           # 3. Sampled (first/middle/last) URLs of hellforge-clones-r23.json and hellforge-empire-r52.json
           for pack_path in PACK_MANIFESTS:
@@ -243,7 +243,7 @@ jobs:
               for f in failures:
                   md_lines.append(f"- ❌ {f}")
           else:
-              md_lines.append("All root feeds, all 18 `build25480438-r11` gameplay artifacts (0 `hf-mod.com` URLs), and sampled `r23`/`r52` pack URLs returned HTTP 200 with exact byte lengths.")
+              md_lines.append("All root feeds, all 18 `build25480438-r12` gameplay artifacts (0 `hf-mod.com` URLs), and sampled `r23`/`r52` pack URLs returned HTTP 200 with exact byte lengths.")
 
           summary_md = "\n".join(md_lines) + "\n"
           print(summary_md)

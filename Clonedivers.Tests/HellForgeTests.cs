@@ -599,7 +599,7 @@ static class HellForgeTests
         commands.Mods.Add(new(HellForgePreset.LegoCompactLeafWriter, "LEGO Compact Leaf Writer", true, Path.Combine(install, "mods", "lego-compact-leaf-writer"), ["code"], "0.2.2"));
         commands.Mods.Add(new(HellForgePreset.EmpireLegoYoda, "Empire LEGO Yoda Death", true, Path.Combine(install, "mods", "empire-lego-yoda"), ["code"], "0.2.1"));
         commands.Mods.Add(new(HellForgePreset.EmpireAtstWriter, "Empire AT-ST Film-Scale Leaf Writer", true, Path.Combine(install, "mods", "empire-atst-writer"), ["code"], "0.2.3"));
-        commands.Mods.Add(new(HellForgePreset.EmpireTieSwitch, "Empire per-attack TIE (lab candidate)", true, Path.Combine(install, "mods", "empire-tie-switch"), ["code"], "0.3.0"));
+        commands.Mods.Add(new(HellForgePreset.EmpireTieSwitch, "Empire per-attack TIE (lab candidate)", true, Path.Combine(install, "mods", "empire-tie-switch"), ["code"], "0.3.1"));
         commands.Mods.Add(new(HellForgePreset.EmpireCameraPullback, "Empire & Clone Camera Pullback", true, Path.Combine(install, "mods", "empire-camera-pullback"), ["code"], "0.1.4"));
         commands.Mods.Add(new(HellForgePreset.StarWarsLocalization, "Star Wars Localization Bridge", true, Path.Combine(install, "mods", "starwars-localization"), ["code"], "0.1.1"));
         commands.Mods.Add(new(HellForgePreset.ChaosInvasions, "Chaos Invasions", true, Path.Combine(install, "mods", "chaos-invasions"), ["gameplay", "code"], "0.3.5"));

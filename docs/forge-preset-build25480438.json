@@ -4,9 +4,9 @@
   "HellForge": "0.4.0-beta",
   "Engine": "0.1.47",
   "Sdk": 16,
-  "GameplayCatalog": "build25480438-r11",
+  "GameplayCatalog": "build25480438-r12",
   "ContainsAccountData": false,
-  "Qualification": "Exact offline preset metadata (build25480438-r11 + 90-combination Empire r52 & 90-combination Clones r23 across Full/Lighter/reduced1024/reduced512/potato256, All-CIS/Mixed/Native, Mixed/All/Native Covenant, Delta Squad, and Death Trooper voice); 12/12 verify_candidate.py scenarios passed + 10-process live Windows Direct3D QA passed",
+  "Qualification": "Exact offline preset metadata (build25480438-r12 + 90-combination Empire r52 & 90-combination Clones r23 across Full/Lighter/reduced1024/reduced512/potato256, All-CIS/Mixed/Native, Mixed/All/Native Covenant, Delta Squad, and Death Trooper voice); 5-tier empire-tie-switch 0.3.1 (14,915 C11 checks + 5/5 135-part tier scans) + multi-tier Windows Direct3D closure, Eagle residency, and 8/8 delivery-assignment QA passed (interactive unlocked-desktop Eagle throws open)",
   "Appearance": {
     "Mode": "empire",
     "Variants": [
@@ -140,11 +140,11 @@
     {
       "Id": "clonedivers.empire-tie-switch",
       "Name": "Empire per-attack TIE (lab candidate)",
-      "Version": "0.3.0",
-      "ArchiveSha256": "491f437bbed022aaf6899b259784156341e6acec80bf1ff5a6116f106da06f5b",
-      "Source": "https://github.com/owendavidgoode/clonedivers/releases/download/forge-mods-2026-11-19/empire-tie-switch-0.3.0.zip",
-      "License": "Project-owned client-only SDK-16 code mod (gameplay: false, coop: per-player, optional default; fail-closed on non-TIE packs)",
-      "NativeContentHash": "fe2c081780faecf75bc6f4d4a4e07df7ca9ddc332f32e4a148af4e460d2fbe7b",
+      "Version": "0.3.1",
+      "ArchiveSha256": "dd800b743546a5e6804eb8eb7a3416594c38f204a8f161e3cbda3699e4cbb952",
+      "Source": "https://github.com/owendavidgoode/clonedivers/releases/download/forge-mods-2026-11-26/empire-tie-switch-0.3.1.zip",
+      "License": "Project-owned client-only SDK-16 code mod (0.3.1 5-tier Empire r52 Full/Lighter/reduced1024/reduced512/potato256 135-part lockstep SHA-256 TIE Fighter & TIE Bomber per-attack switching; gameplay: false, coop: per-player, optional default; fail-closed on non-TIE or cross-tier packs)",
+      "NativeContentHash": "a2102818ff5a6eae5da6e2089ad849557da312638c9e18480150dd72cde98952",
       "Optional": true,
       "Options": []
     },
@@ -407,9 +407,9 @@
     }
   ],
   "RequiredHostingShare": false,
-  "InstallerQualification": "18-download build25480438-r11 preset (9 required + 9 optional SDK-16 defaults, zero hf-mod.com URLs, Bingus Shared Loader last) + Empire r52 & Clones r23 across 5 texture tiers verified offline and played-through in Windows Direct3D",
+  "InstallerQualification": "18-download build25480438-r12 preset (9 required + 9 optional SDK-16 defaults, zero hf-mod.com URLs, Bingus Shared Loader last) + Empire r52 & Clones r23 across 5 texture tiers verified offline and played-through in Windows Direct3D",
   "NonShippingBoundaries": [
-    "clear-skies-0.5.4: bundled ee6b1ba7e22d71ed.patch_0 not cleared for public redistribution; excluded from r5..r11",
+    "clear-skies-0.5.4: bundled ee6b1ba7e22d71ed.patch_0 not cleared for public redistribution; excluded from r5..r12",
     "simple-armor-passive-picker-1.4.2: read_cache() reads slot 0 / locals==1 only; excluded from default co-op preset",
     "empire-weapons: standalone E-11 / DLT-19 rifle .unit art remains shelved offline"
   ],

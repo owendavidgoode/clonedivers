@@ -366,7 +366,7 @@ static void TestInitAndLazyBridgeRegistration(const wchar_t* stagedData, const w
     CHECK(registerCalls == 0 && fakeModCount == 2 && bridgeMod == NULL);
     CHECK(onReadyCalls == 1 && onTickCalls == 1 && onSpawnCalls == 1 && onStratagemCalls == 1);
     CHECK(registeredReady != NULL && registeredTick != NULL);
-    CHECK(strstr(lastLogLine, "qualified staged closure parts=135") != NULL);
+    CHECK(strstr(lastLogLine, "qualified staged closure parts=135") != NULL && strstr(lastLogLine, "(v0.3.1)") != NULL);
 
     /* 3. Tick() before Ready() must not register bridgeMod. */
     registeredTick((HfMod*)&mod, 0.016f, registeredTickUser);
@@ -690,33 +690,50 @@ static void VerifyMixedTierPartFailsClosed(const wchar_t* fullDir, const wchar_t
 
 static void TestMultiTierClosureAndSingleByteMutations(const wchar_t* stagedData, const wchar_t* fixtureRoot)
 {
-    /* 1. Multi-tier HashMask()/Hash() contract: [0]=full, [1]=lighter, [2]=reduced512. */
+    /* 1. Multi-tier Hash() contract: [0]=full, [1]=lighter, [2]=reduced1024, [3]=reduced512, [4]=potato256. */
     unsigned char bFull[16] = "full-tier-bytes";
     unsigned char bLighter[19] = "lighter-tier-bytes";
-    unsigned char bReduced[22] = "reduced512-tier-bytes";
-    char hFull[65], hLighter[65], hReduced[65], hEmpty[65];
+    unsigned char bRed1024[23] = "reduced1024-tier-bytes";
+    unsigned char bRed512[22] = "reduced512-tier-bytes";
+    unsigned char bPotato[21] = "potato256-tier-bytes";
+    char hFull[65], hLighter[65], hRed1024[65], hRed512[65], hPotato[65], hEmpty[65];
     HexDigest(bFull, sizeof bFull, hFull);
     HexDigest(bLighter, sizeof bLighter, hLighter);
-    HexDigest(bReduced, sizeof bReduced, hReduced);
+    HexDigest(bRed1024, sizeof bRed1024, hRed1024);
+    HexDigest(bRed512, sizeof bRed512, hRed512);
+    HexDigest(bPotato, sizeof bPotato, hPotato);
     HexDigest(NULL, 0, hEmpty);
 
-    const char* tieredList[3] = {hFull, hLighter, hReduced};
-    const char* invariantList[3] = {hFull, hFull, hFull};
-    const char* emptyAllowedList[3] = {hFull, hLighter, hEmpty};
+    const char* tieredList[TIE_TIER_COUNT] = {hFull, hLighter, hRed1024, hRed512, hPotato};
+    const char* invariantList[TIE_TIER_COUNT] = {hFull, hFull, hFull, hFull, hFull};
+    const char* emptyAllowedList[TIE_TIER_COUNT] = {hFull, hLighter, hRed1024, hRed512, hEmpty};
 
-    CHECK(Hash(bFull, sizeof bFull, tieredList) == 0x1u);
-    CHECK(Hash(bLighter, sizeof bLighter, tieredList) == 0x2u);
-    CHECK(Hash(bReduced, sizeof bReduced, tieredList) == 0x4u);
-    CHECK(Hash(bFull, sizeof bFull, invariantList) == 0x7u);
+    CHECK(Hash(bFull, sizeof bFull, tieredList) == 0x01u);
+    CHECK(Hash(bLighter, sizeof bLighter, tieredList) == 0x02u);
+    CHECK(Hash(bRed1024, sizeof bRed1024, tieredList) == 0x04u);
+    CHECK(Hash(bRed512, sizeof bRed512, tieredList) == 0x08u);
+    CHECK(Hash(bPotato, sizeof bPotato, tieredList) == 0x10u);
+    CHECK(Hash(bFull, sizeof bFull, invariantList) == TIE_ALL_TIERS_MASK && TIE_ALL_TIERS_MASK == 0x1Fu);
     CHECK(!Hash(NULL, 0, tieredList));
-    CHECK(Hash(NULL, 0, emptyAllowedList) == 0x4u);
+    CHECK(Hash(NULL, 0, emptyAllowedList) == 0x10u);
+
+    /* AssetError formats all 5 distinct SHA-256 digests without buffer truncation. */
+    Asset fiveDistinct = {0x047636f1b28544e4ull, 0xcd4238c6a0c69e32ull, 0u, {hFull, hLighter, hRed1024, hRed512, hPotato}};
+    CHECK(!AssetError("hash mismatch", &fiveDistinct, L"test.patch_0"));
+    CHECK(strstr(assetError, hFull) != NULL && strstr(assetError, hLighter) != NULL &&
+          strstr(assetError, hRed1024) != NULL && strstr(assetError, hRed512) != NULL &&
+          strstr(assetError, hPotato) != NULL && strstr(assetError, "file=test.patch_0") != NULL);
 
     bFull[0] ^= 0x01u;
     bLighter[5] ^= 0x01u;
-    bReduced[9] ^= 0x01u;
+    bRed1024[7] ^= 0x01u;
+    bRed512[9] ^= 0x01u;
+    bPotato[11] ^= 0x01u;
     CHECK(!Hash(bFull, sizeof bFull, tieredList));
     CHECK(!Hash(bLighter, sizeof bLighter, tieredList));
-    CHECK(!Hash(bReduced, sizeof bReduced, tieredList));
+    CHECK(!Hash(bRed1024, sizeof bRed1024, tieredList));
+    CHECK(!Hash(bRed512, sizeof bRed512, tieredList));
+    CHECK(!Hash(bPotato, sizeof bPotato, tieredList));
     bFull[0] ^= 0x01u;
     CHECK(Hash(bFull, sizeof bFull, invariantList));
     CHECK(!Hash(bLighter, sizeof bLighter, invariantList));
@@ -727,44 +744,94 @@ static void TestMultiTierClosureAndSingleByteMutations(const wchar_t* stagedData
     BuildCompactClosureBundle(stagedData, compactFull);
     VerifySingleByteMutationFailsAllParts(compactFull);
 
-    /* 3. Real EmpireDivers r48 full / lighter / reduced512 selection verification + mixed-tier rejection + tiered 1-byte mutation checks. */
-    const wchar_t* r48Tiers[3] = {
-        L"D:\\ClaudeWork\\workstreams-20261116-v2\\variants-potato\\selections\\empire-r48\\full__all-droids__cov-off",
-        L"D:\\ClaudeWork\\workstreams-20261116-v2\\variants-potato\\selections\\empire-r48\\lighter__all-droids__cov-off",
-        L"D:\\ClaudeWork\\workstreams-20261116-v2\\variants-potato\\selections\\empire-r48\\reduced512__all-droids__cov-off"
-    };
-    const wchar_t* r20ClonesNonTie =
-        L"D:\\ClaudeWork\\workstreams-20261116-v2\\variants-potato\\selections\\clones-r20\\clonedivers__full__all-droids__cov-off";
-    const wchar_t* r48TierNames[3] = {L"full", L"lighter", L"reduced512"};
-    int allThreeTiersPresent = 1;
-    for (int t = 0; t < 3; t++)
+    /* 2b. Unconditional deterministic 5-tier table, AssetError non-truncation, and cross-tier mask splice checks. */
+    CHECK(ASSET_COUNT == 135u);
+    for (size_t i = 0; i < ASSET_COUNT; i++)
     {
-        DWORD attr = GetFileAttributesW(r48Tiers[t]);
-        if (attr == INVALID_FILE_ATTRIBUTES || !(attr & FILE_ATTRIBUTE_DIRECTORY)) allThreeTiersPresent = 0;
-    }
-    if (allThreeTiersPresent)
-    {
-        for (int t = 0; t < 3; t++)
+        AssetError("tier_table_check", &assets[i], L"C:\\fixture\\9ba626afa44a3aa3.patch_1000");
+        for (unsigned t = 0; t < TIE_TIER_COUNT; t++)
         {
-            CHECK(ScanAssets(r48Tiers[t]));
+            CHECK(assets[i].hashes[t] != NULL && strlen(assets[i].hashes[t]) == 64u);
+            CHECK(strstr(assetError, assets[i].hashes[t]) != NULL);
+        }
+    }
+    {
+        unsigned char synthPayloads[TIE_TIER_COUNT][8];
+        char synthHex[TIE_TIER_COUNT][65];
+        const char* synthPtrs[TIE_TIER_COUNT];
+        for (unsigned t = 0; t < TIE_TIER_COUNT; t++)
+        {
+            for (unsigned b = 0; b < 8u; b++) synthPayloads[t][b] = (unsigned char)(0xA0u + t * 17u + b);
+            unsigned char d[32];
+            CHECK(hashBytes(sha, NULL, 0, synthPayloads[t], 8, d, sizeof d) >= 0);
+            for (int k = 0; k < 32; k++) snprintf(synthHex[t] + k * 2, 3, "%02x", d[k]);
+            synthPtrs[t] = synthHex[t];
+        }
+        for (unsigned t = 0; t < TIE_TIER_COUNT; t++)
+        {
+            CHECK(Hash(synthPayloads[t], 8, synthPtrs) == (uint8_t)(1u << t));
+            unsigned char mutated[8];
+            memcpy(mutated, synthPayloads[t], 8);
+            mutated[0] ^= 0x01u;
+            CHECK(Hash(mutated, 8, synthPtrs) == 0u);
+            for (unsigned u = t + 1u; u < TIE_TIER_COUNT; u++)
+                CHECK((Hash(synthPayloads[t], 8, synthPtrs) & Hash(synthPayloads[u], 8, synthPtrs)) == 0u);
+        }
+    }
+
+    /* 3. Real EmpireDivers r52 5-tier selection verification + mixed-tier rejection + tiered 1-byte mutation checks. */
+    const wchar_t* r52Tiers[TIE_TIER_COUNT] = {
+        L"D:\\ClaudeWork\\cache\\tmp\\tie-r52-tiers\\full",
+        L"D:\\ClaudeWork\\cache\\tmp\\tie-r52-tiers\\lighter",
+        L"D:\\ClaudeWork\\cache\\tmp\\tie-r52-tiers\\reduced1024",
+        L"D:\\ClaudeWork\\cache\\tmp\\tie-r52-tiers\\reduced512",
+        L"D:\\ClaudeWork\\cache\\tmp\\tie-r52-tiers\\potato256"
+    };
+    const wchar_t* r23ClonesNonTie =
+        L"D:\\ClaudeWork\\cache\\tmp\\tie-r52-tiers\\clones-r23-full";
+    const wchar_t* r52TierNames[TIE_TIER_COUNT] = {L"full", L"lighter", L"reduced1024", L"reduced512", L"potato256"};
+    int allFiveTiersPresent = 1;
+    for (unsigned t = 0; t < TIE_TIER_COUNT; t++)
+    {
+        DWORD attr = GetFileAttributesW(r52Tiers[t]);
+        if (attr == INVALID_FILE_ATTRIBUTES || !(attr & FILE_ATTRIBUTE_DIRECTORY)) allFiveTiersPresent = 0;
+    }
+    if (allFiveTiersPresent)
+    {
+        for (unsigned t = 0; t < TIE_TIER_COUNT; t++)
+        {
+            CHECK(ScanAssets(r52Tiers[t]));
             CHECK(AssetsUnchanged());
             if (t > 0)
             {
                 wchar_t compactTier[1200];
-                CHECK(swprintf(compactTier, 1200, L"%ls\\compact_%ls", fixtureRoot, r48TierNames[t]) > 0);
-                BuildCompactClosureBundle(r48Tiers[t], compactTier);
+                CHECK(swprintf(compactTier, 1200, L"%ls\\compact_%ls", fixtureRoot, r52TierNames[t]) > 0);
+                BuildCompactClosureBundle(r52Tiers[t], compactTier);
                 VerifySingleByteMutationFailsAllParts(compactTier);
             }
         }
-        wchar_t mixedTierDir[1200];
-        CHECK(swprintf(mixedTierDir, 1200, L"%ls\\mixed_full_and_512", fixtureRoot) > 0);
-        VerifyMixedTierPartFailsClosed(r48Tiers[0], r48Tiers[2], mixedTierDir);
+        static const struct { unsigned a, b; const wchar_t* label; } mixedPairs[] = {
+            {0u, 2u, L"mixed_full_and_1024"},
+            {0u, 3u, L"mixed_full_and_512"},
+            {0u, 4u, L"mixed_full_and_256"},
+            {2u, 4u, L"mixed_1024_and_256"}
+        };
+        for (size_t m = 0; m < sizeof mixedPairs / sizeof mixedPairs[0]; m++)
+        {
+            wchar_t mixedTierDir[1200];
+            CHECK(swprintf(mixedTierDir, 1200, L"%ls\\%ls", fixtureRoot, mixedPairs[m].label) > 0);
+            VerifyMixedTierPartFailsClosed(r52Tiers[mixedPairs[m].a], r52Tiers[mixedPairs[m].b], mixedTierDir);
+        }
 
-        DWORD clonesAttr = GetFileAttributesW(r20ClonesNonTie);
+        DWORD clonesAttr = GetFileAttributesW(r23ClonesNonTie);
         if (clonesAttr != INVALID_FILE_ATTRIBUTES && (clonesAttr & FILE_ATTRIBUTE_DIRECTORY))
         {
-            CHECK(!ScanAssets(r20ClonesNonTie));
+            CHECK(!ScanAssets(r23ClonesNonTie));
         }
+    }
+    else
+    {
+        printf("note: optional hydrated r52 5-tier directories not present; synthetic 5-tier table & splice checks ran above\n");
     }
     CHECK(ScanAssets(stagedData));
 }

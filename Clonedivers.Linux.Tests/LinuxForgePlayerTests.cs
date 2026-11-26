@@ -7,9 +7,9 @@ internal static class LinuxForgePlayerTests
     internal static async Task Run(string root, Action<bool, string> check)
     {
         const string hello = "{\"bridge\":\"clonedivers-forge\",\"format\":1}\n";
-        check(HellForgeGameplayCatalog.Pinned.Id == "build25480438-r11" && HellForgeGameplayCatalog.Pinned.Artifacts.Count == 18 &&
+        check(HellForgeGameplayCatalog.Pinned.Id == "build25480438-r12" && HellForgeGameplayCatalog.Pinned.Artifacts.Count == 18 &&
             HellForgeGameplayCatalog.Pinned.Artifacts.Where(a => a.Optional).Select(a => a.Id).ToHashSet(StringComparer.Ordinal).SetEquals(HellForgePreset.Optional),
-            "Linux embeds and validates the r11 gameplay catalog with all nine optional mods");
+            "Linux embeds and validates the r12 gameplay catalog with all nine optional mods");
         var brandNewLinux = LinuxForgePreferences.Load(Path.Combine(root, "brand-new-linux", "forge.json"));
         check(brandNewLinux.Mode == "clonedivers" && brandNewLinux.EnemySkin == "mixed-droids" && brandNewLinux.Covenant &&
             brandNewLinux.SquidSkin == "mixed-covenant" && !brandNewLinux.DeathTrooperVoice &&
@@ -117,7 +117,7 @@ internal static class LinuxForgePlayerTests
         {
             check(linuxHostH4.GetHomeState().MinimizeToTray, "LinuxForgeHost exposes MinimizeToTray in ForgeHomeState on startup (H4)");
         }
-        check(SquadFingerprint.Compute(HellForgeGameplayCatalog.Current).StartsWith("r11-", StringComparison.Ordinal) &&
+        check(SquadFingerprint.Compute(HellForgeGameplayCatalog.Current).StartsWith("r12-", StringComparison.Ordinal) &&
             PerformanceTierAdvisor.Tiers.Count == 5 &&
             DiscordReportFormatter.Format("0.10.0", "r8-d05d", "clonedivers", "mixed-droids", true, true, "auto", "lighter",
                 PerformanceTierAdvisor.Recommend("AMD Radeon GPU", 8.0, 16.0), "/home/deck/HellForge", null).Split('\n').Length is >= 10 and <= 14,

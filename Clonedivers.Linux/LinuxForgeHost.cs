@@ -960,7 +960,8 @@ internal sealed class LinuxForgeHost : IForgeUiHost
                     await player.RecoverAppearanceAsync(ct);
             }
 
-            throttler.Report(new("Verifying gameplay preset", "Checking 18-mod r11 hashes and load order…", 2, 5, CanCancel: true));
+            var presetTag = SquadFingerprint.ExtractCatalogPrefix();
+            throttler.Report(new("Verifying gameplay preset", $"Checking {HellForgeGameplayCatalog.Current.Artifacts.Count}-mod {presetTag} hashes and load order…", 2, 5, CanCancel: true));
             await player.InstallGameplayAsync(null, ct, throttler.AsProgress());
             TrySyncHostMutatorFile();
 
@@ -982,8 +983,8 @@ internal sealed class LinuxForgeHost : IForgeUiHost
             UiSoundEffects.PlayCompletion();
             requestAttention?.Invoke();
             var summary = freed > 0
-                ? $"Verified Forge, r8 gameplay preset, and active pack; freed {Pack.FormatBytes(freed)}."
-                : "All checks passed — Forge, r8 gameplay preset, and active pack are healthy.";
+                ? $"Verified Forge, {presetTag} gameplay preset, and active pack; freed {Pack.FormatBytes(freed)}."
+                : $"All checks passed — Forge, {presetTag} gameplay preset, and active pack are healthy.";
             toastNotice = summary;
             updateMessage = summary;
             ScheduleSizeEstimate();

@@ -23,11 +23,11 @@ now rejects that pattern. See `REPORT-r45.md` and `triage/TRIAGE.md`.
 
 ## Shipped Catalog vs Historical Staging Resources
 
-In `v2.1.4` / `linux-v0.10.4`, the shipping applications (`Clonedivers`,
+In `v2.1.5` / `linux-v0.10.5`, the shipping applications (`Clonedivers`,
 `Clonedivers.ForgeBridge`, and `Clonedivers.Linux`) embed:
 - **`Clonedivers/Resources/hellforge-empire-r52.json`** (`EmpireDivers 2026.11.25-r52`, `681` rows across `5` texture tiers × `3` droid skins × `3` Covenant/Squid skins × Encrypted Death Trooper voice)
 - **`Clonedivers/Resources/hellforge-clones-r23.json`** (`Clonedivers 2026.11.25-r23`, `640` rows across `clonedivers`/`commandos` × `5` texture tiers × `3` droid skins × `3` Covenant/Squid skins)
-- **`Clonedivers/Resources/forge-gameplay-build25480438-r11.json`** (`18` verified gameplay & SDK-16 code mod archives, `8,518,467` bytes)
+- **`Clonedivers/Resources/forge-gameplay-build25480438-r12.json`** (`18` verified gameplay & SDK-16 code mod archives, `8,521,273` bytes)
 
 Earlier `r45-v4`, `r46`, and `r47` manifests remain in `Clonedivers/Resources/` and `Clonedivers.Tests.csproj` for backwards-compatible receipt, option-gating, and migration tests. Historical `r47` notes follow below.
 

@@ -1,6 +1,10 @@
-/* Effective staged-patch reader, adapted from empire-lego-yoda's visual_gate.h. */
+/* Effective staged-patch reader, adapted from empire-lego-yoda's visual_gate.h.
+ * 0.3.1: Verifies all 5 EmpireDivers texture tiers ([0]=full, [1]=lighter, [2]=reduced1024, [3]=reduced512, [4]=potato256)
+ * with cross-part tier coherence (TIE_ALL_TIERS_MASK = 0x1Fu). */
 #pragma once
 #include <bcrypt.h>
+#define TIE_TIER_COUNT 5u
+#define TIE_ALL_TIERS_MASK ((uint8_t)((1u << TIE_TIER_COUNT) - 1u))
 typedef struct ArchiveRow { uint64_t q[7]; uint32_t d[6]; } ArchiveRow;
 _Static_assert(sizeof(ArchiveRow) == 80, "archive row");
 typedef struct Proof
@@ -18,8 +22,8 @@ static int AssetError(const char* why, const Asset* a, const wchar_t* path)
 {
     if (a)
     {
-        char expected[240]; size_t pos = 0; expected[0] = 0;
-        for (size_t i = 0; i < 3 && a->hashes[i]; i++)
+        char expected[384]; size_t pos = 0; expected[0] = 0;
+        for (size_t i = 0; i < TIE_TIER_COUNT && a->hashes[i]; i++)
         {
             int dup = 0;
             for (size_t j = 0; j < i; j++) if (a->hashes[j] && !strcmp(a->hashes[i], a->hashes[j])) dup = 1;
@@ -39,15 +43,16 @@ static NTSTATUS (WINAPI *openHash)(BCRYPT_ALG_HANDLE*, LPCWSTR, LPCWSTR, ULONG);
 static NTSTATUS (WINAPI *hashBytes)(BCRYPT_ALG_HANDLE, PUCHAR, ULONG, PUCHAR, ULONG, PUCHAR, ULONG);
 static BCRYPT_ALG_HANDLE sha;
 
-static uint8_t Hash(const void* bytes, uint32_t size, const char* const hashes[3])
+static uint8_t Hash(const void* bytes, uint32_t size, const char* const hashes[TIE_TIER_COUNT])
 {
     unsigned char digest[32]; char hex[65]; uint8_t mask = 0;
     static const unsigned char empty = 0;
     const unsigned char* input = size ? (const unsigned char*)bytes : &empty;
-    if (!sha || !hashes || !hashes[0] || !hashes[1] || !hashes[2] || !input) return 0;
+    if (!sha || !hashes || !input) return 0;
+    for (unsigned t = 0; t < TIE_TIER_COUNT; t++) if (!hashes[t]) return 0;
     if (hashBytes(sha, NULL, 0, (PUCHAR)input, size, digest, sizeof digest) < 0) return 0;
     for (int i = 0; i < 32; i++) snprintf(hex + i*2, 3, "%02x", digest[i]);
-    for (unsigned t = 0; t < 3u; t++)
+    for (unsigned t = 0; t < TIE_TIER_COUNT; t++)
         if (!strcmp(hex, hashes[t])) mask |= (uint8_t)(1u << t);
     return mask;
 }
@@ -152,7 +157,7 @@ static int ScanAssets(const wchar_t* directory)
     } while (ok && FindNextFileW(scan, &entry));
     if (ok && GetLastError() != ERROR_NO_MORE_FILES) ok = AssetError("archive enumeration failed", NULL, directory);
     FindClose(scan);
-    uint8_t tierMask = 0x7u;
+    uint8_t tierMask = TIE_ALL_TIERS_MASK;
     if (ok) for (size_t i = 0; i < ASSET_COUNT; i++)
     {
         if (!proofs[i].found) { ok = AssetError("missing staged resource", &assets[i], NULL); break; }
