@@ -1,0 +1,3 @@
+# Clonedivers Forge Linux 0.10.4
+
+> **Release (`linux-v0.10.4`):** Pairs in lockstep with [Windows `v2.1.4`](v2.1.4.md), upgrading EmpireDivers to **`2026.11.25-r52`**, Clonedivers to **`2026.11.25-r23`**, and gameplay catalog **`build25480438-r11`** (`18` verified archives, `8,518,467` B, `0` `hf-mod.com` URLs), adding **`clean-exit 0.2.1`** (In-Game Esc menu `HWND`-destruction + loop-stopped `WM_CLOSE` clean exit), **`starwars-localization 0.1.1`** (14-table US `TEXT` bridge with global `Forge Credits` / `WARBOND LOCKED` protection), `0xB7520003` (`CrashTriage.HellForgeStopExitCode`) session-stop triage + fallback `*console*.txt` crash-log parity, and automatic `r10 -> r11` code-mod upgrades. See [v2.1.4](v2.1.4.md) for full change and verification details.

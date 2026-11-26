@@ -1,11 +1,13 @@
-# Empire & Clone Camera Pullback (`0.1.2`)
+# Empire & Clone Camera Pullback (`0.1.4`)
 
 Per-player third-person follow-camera framing mod for **Helldivers 2** (Steam build `25480438`, **HellForge Mod SDK 16**).
 
 `empire-camera-pullback` solves third-person dorsal-hull camera obstruction when piloting enlarged combat walkers (**Clonedivers AT-TE** and **EmpireDivers `2.28x` film-scale AT-ST**) and provides an optional, subtle third-person framing preset when wearing **Compact LEGO** armor kits—without altering weapon ballistics, projectile origin, or co-op simulation (`"gameplay": false`, `"coop": "per-player"`).
 
-## Key Features (`0.1.2`)
+## Key Features (`0.1.4`)
 
+- **Linux / Proton Fallback Hook & Hot-Prefix Camera Acquisition (`0.1.3`–`0.1.4`):**
+  - Automatically falls back to `helldivers2.exe+0x1c6900` with a single-apply per-frame guard when `MinHook` returns `MH_ERROR_MEMORY_ALLOC (9)` at `+0x689bc0` under Proton, probes `units[0..7]` first with a local `250 µs` discovery budget for immediate post-Hellpod acquisition, and pins all `79` Empire & Clone Compact LEGO garments.
 - **O(1) Subject Resolution & `< 50 µs` Render-Thread Budget:**
   - Resolves the local player's Helldiver `Unit*` directly in **O(1)** via `LocalUser -> PlayerManager -> EntityManager` descriptor `unit_ref -> LOOKUP_UNIT` (zero `world->units` full-array scans, even in `65,672`-unit Difficulty-11 missions, and zero possibility of co-op teammate avatar hijack).
   - Tracks spawned combat walkers in **O(1)** via `HF_ON_SPAWN` + `EntityManager` descriptors, with a strictly QPC-bounded (`<= 16` units/frame, `< 35 µs`) micro-sliced fallback for live-reload scenes.

@@ -38,6 +38,7 @@ public sealed record CrashTriageResult(
 public static class CrashTriage
 {
     public const int MaxLogTailBytes = 64 * 1024;
+    public const int HellForgeStopExitCode = unchecked((int)0xB7520003);
     public const double LowFpsThreshold = 35.0;
     public const string HarmlessQuitMessage = "Harmless game-exit bug — your mission saved fine.";
 
@@ -174,13 +175,15 @@ public static class CrashTriage
             return BuildOutOfVram(exitCode, currentTierId, allSessionLines.Count > 0 ? allSessionLines : SplitLines(combinedText), sessionId, completedUtc);
         }
 
-        // 4. Clean exit (exitCode == 0 and no crash dump / engine crash lines)
+        // 4. Clean exit (exitCode == 0, or HellForge's own HostBoundedProcess.Stop 0xB7520003 job stop / stuckQuitting cleanup, with no crash dump or crash lines)
         bool hasEngineCrashLine = engineLines.Any(HasEngineCrashLine);
-        if (exitCode == 0 && !hasCrashDump && !hasEngineCrashLine)
+        bool hasModloaderCrashLine = logLines.Any(l => l.Contains(" crash: ", StringComparison.OrdinalIgnoreCase));
+        if ((exitCode == 0 && !hasCrashDump && !hasEngineCrashLine) ||
+            (exitCode == HellForgeStopExitCode && !hasCrashDump && !hasEngineCrashLine && !hasModloaderCrashLine))
         {
             return new(
                 Kind: CrashKind.Clean,
-                ExitCode: 0,
+                ExitCode: exitCode ?? 0,
                 Summary: "Last session exited cleanly.",
                 RecommendedAction: null,
                 SuggestStepDown: false,
@@ -520,24 +523,30 @@ public static class CrashTriage
         return false;
     }
 
+    internal static IReadOnlyList<string> FindEngineLogCandidates(string sessionDir)
+    {
+        FileSafety.RejectLink(sessionDir);
+        var candidates = new List<string>();
+        var engineDir = Path.Combine(sessionDir, "engine-logs");
+        if (Directory.Exists(engineDir))
+        {
+            FileSafety.RejectLink(engineDir);
+            candidates.AddRange(Directory.EnumerateFiles(engineDir, "*.txt").OrderBy(p => p, StringComparer.Ordinal));
+        }
+        var userLogs = Path.Combine(sessionDir, "game", "userdata", "logs");
+        if (candidates.Count == 0 && Directory.Exists(userLogs))
+        {
+            FileSafety.RejectLink(userLogs);
+            candidates.AddRange(Directory.EnumerateFiles(userLogs, "*console*.txt").OrderBy(p => p, StringComparer.Ordinal));
+        }
+        return candidates;
+    }
+
     static IReadOnlyList<string> ReadBoundedEngineLogTail(string sessionDir)
     {
         try
         {
-            FileSafety.RejectLink(sessionDir);
-            var candidates = new List<string>();
-            var engineDir = Path.Combine(sessionDir, "engine-logs");
-            if (Directory.Exists(engineDir))
-            {
-                FileSafety.RejectLink(engineDir);
-                candidates.AddRange(Directory.EnumerateFiles(engineDir, "*.txt").OrderBy(p => p, StringComparer.Ordinal));
-            }
-            var userLogs = Path.Combine(sessionDir, "game", "userdata", "logs");
-            if (candidates.Count == 0 && Directory.Exists(userLogs))
-            {
-                FileSafety.RejectLink(userLogs);
-                candidates.AddRange(Directory.EnumerateFiles(userLogs, "*console*.txt").OrderBy(p => p, StringComparer.Ordinal));
-            }
+            var candidates = FindEngineLogCandidates(sessionDir);
             if (candidates.Count == 0) return [];
 
             var lines = new List<string>();

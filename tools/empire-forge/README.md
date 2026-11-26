@@ -21,19 +21,15 @@ an external GeometryGroup do not survive being overridden from the consolidated 
 cape payloads do. **r45-v4** restores those two UNITs and passed 3 of 3 live D11 drops. The verifier
 now rejects that pattern. See `REPORT-r45.md` and `triage/TRIAGE.md`.
 
-## Shipped Catalog vs Test and Staging Resources
+## Shipped Catalog vs Historical Staging Resources
 
-On `main` and `claude/polish-20261115`, the shipping applications (`Clonedivers`,
-`Clonedivers.ForgeBridge`, and `Clonedivers.Linux`) embed ONLY **`hellforge-empire-r45-v4.json`**
-(`96` rows, `8,435,474,224` bytes, all hosted on `pack-2026.11.08-r45-v4-files`).
-`HellForgePack.SelectionProblem` and both UIs restrict Empire mode to `Full` textures
-with fixed CIS droids (`droids=true`, `covenant=false`).
+In `v2.1.4` / `linux-v0.10.4`, the shipping applications (`Clonedivers`,
+`Clonedivers.ForgeBridge`, and `Clonedivers.Linux`) embed:
+- **`Clonedivers/Resources/hellforge-empire-r52.json`** (`EmpireDivers 2026.11.25-r52`, `681` rows across `5` texture tiers × `3` droid skins × `3` Covenant/Squid skins × Encrypted Death Trooper voice)
+- **`Clonedivers/Resources/hellforge-clones-r23.json`** (`Clonedivers 2026.11.25-r23`, `640` rows across `clonedivers`/`commandos` × `5` texture tiers × `3` droid skins × `3` Covenant/Squid skins)
+- **`Clonedivers/Resources/forge-gameplay-build25480438-r11.json`** (`18` verified gameplay & SDK-16 code mod archives, `8,518,467` bytes)
 
-- `Clonedivers.Tests.csproj` additionally embeds `hellforge-empire-r45-v4-lighter.json`,
-  `hellforge-empire-r46.json`, and `hellforge-empire-r46-lighter.json` for receipt,
-  option-gating, and legacy migration tests.
-- `Clonedivers/Resources/hellforge-empire-r47.json` and `hellforge-empire-r47-lighter.json`
-  are retained unembedded staging catalogs in the repository.
+Earlier `r45-v4`, `r46`, and `r47` manifests remain in `Clonedivers/Resources/` and `Clonedivers.Tests.csproj` for backwards-compatible receipt, option-gating, and migration tests. Historical `r47` notes follow below.
 
 ## r47 Full and `r47-shuttles` Candidate
 

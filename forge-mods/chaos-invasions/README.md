@@ -1,5 +1,13 @@
-Chaos Invasions 0.3.4 (`clonedivers.chaos-invasions`) is playable cross-faction
+Chaos Invasions 0.3.5 (`clonedivers.chaos-invasions`) is playable cross-faction
 Chaos Mode for HellForge SDK 16 / Helldivers 2 build 25480438.
+
+Co-op Ground-Surge & Mission-2+ Preload Re-Arm (0.3.5):
+- Routes foreign Automaton waves in multi-player co-op (`player_count > 1`) through
+  ground surges (`SpawnUnit` RPCs) rather than foreign `BotDropship` transports
+  whose `cargo_faction` is unreplicated to joiners (`game.dll+0x684a70` crash fix).
+- Distinguishes inconclusive `PackageStateExe` reads (`-1`) from confirmed unloaded
+  packages (`0`) and resets Chaos-owned `ref_count == 1` slots in-place when
+  `PackageStateExe == 0` after level teardown so Mission 2+ re-arms foreign preloads.
 
 Bot Drop Deadlock & Mega City Hardening (0.3.4):
 - Dynamic partial-headroom wave sizing (`ChaosEffectiveSquadSize`, `total-war`

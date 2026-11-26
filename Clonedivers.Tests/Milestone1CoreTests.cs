@@ -320,8 +320,8 @@ internal static class Milestone1CoreTests
         Directory.CreateDirectory(dir);
 
         var catalogCode = SquadFingerprint.Compute(HellForgeGameplayCatalog.Current);
-        check(System.Text.RegularExpressions.Regex.IsMatch(catalogCode, @"^r10-[0-9a-f]{4}$"),
-              $"SquadFingerprint.Compute(Current) produces short deterministic r10 match code ({catalogCode})");
+        check(System.Text.RegularExpressions.Regex.IsMatch(catalogCode, @"^r11-[0-9a-f]{4}$"),
+              $"SquadFingerprint.Compute(Current) produces short deterministic r11 match code ({catalogCode})");
 
         // Build two player mod lists:
         // Player A: Clonedivers pack + all 7 gameplay:false client code mods enabled + r10 gameplay preset
@@ -386,11 +386,22 @@ internal static class Milestone1CoreTests
             return root;
         }
 
-        // 1. Clean exit
+        // 1. Clean exit (exit 0 and HellForge 0xB7520003 HostBoundedProcess.Stop / stuckQuitting cleanup without crash lines)
         var cleanRoot = WriteSession(dir, "clean", 0, "[info] session ended normally\n");
         var clean = CrashTriage.AnalyzeLastSession(cleanRoot, MakeStatus(cleanRoot), "ultra");
         check(clean.Kind == CrashKind.Clean && !clean.ShouldUploadCrash && !clean.SuggestStepDown,
               "CrashTriage classifies exit 0 as Clean with ShouldUploadCrash=false");
+
+        var stopRoot = WriteSession(dir, "hf-stop", CrashTriage.HellForgeStopExitCode, "[info] session ended via HellForge job stop\n");
+        var stopClean = CrashTriage.AnalyzeLastSession(stopRoot, MakeStatus(stopRoot), "ultra");
+        check(stopClean.Kind == CrashKind.Clean && !stopClean.ShouldUploadCrash && !stopClean.SuggestStepDown,
+              "CrashTriage classifies HellForge 0xB7520003 stop/stuckQuitting without crash artifacts as Clean");
+
+        var stopWithCrashRoot = WriteSession(dir, "hf-stop-crash", CrashTriage.HellForgeStopExitCode,
+            "2026-11-25 16:29:00 [error] crash: c0000005 on thread 100 at game.dll+0x123456\n");
+        var stopWithCrash = CrashTriage.AnalyzeLastSession(stopWithCrashRoot, MakeStatus(stopWithCrashRoot), "ultra");
+        check(stopWithCrash.Kind == CrashKind.UnexpectedCrash && stopWithCrash.ShouldUploadCrash,
+              "CrashTriage still flags 0xB7520003 as UnexpectedCrash when modloader.log recorded an actual crash");
 
         // 2. HarmlessQuit (helldivers2.exe+0x626296, exit 1)
         var quitRoot = WriteSession(dir, "quit", 1,

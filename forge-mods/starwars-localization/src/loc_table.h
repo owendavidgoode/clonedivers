@@ -1,5 +1,6 @@
-/* Star Wars Localization Bridge — Stingray 0xF0000011 + TEXT (0x0d972bab10b40fd3)
- * archive parser and ForgeCredits-preserving diff table. Pure C11 + Win32 FindFirstFileA. */
+/* Star Wars Localization Bridge (0.1.1) — Stingray 0xF0000011 + TEXT (0x0d972bab10b40fd3)
+ * multi-table US English archive parser and ForgeCredits-preserving diff table.
+ * Pure C11 + Win32 FindFirstFileA. */
 #ifndef SW_LOC_TABLE_H
 #define SW_LOC_TABLE_H
 
@@ -14,13 +15,17 @@
 #include <windows.h>
 #endif
 
-#define SW_LOC_ARCHIVE_MAGIC 0xF0000011u
-#define SW_LOC_US_TEXT_NAME  0x7C7587B563F10985ULL
-#define SW_LOC_TEXT_TYPE     0x0D972BAB10B40FD3ULL
-#define SW_LOC_MAX_TYPES     100000u
-#define SW_LOC_MAX_FILES     1000000u
-#define SW_LOC_MAX_TEXT_BYTES (16u * 1024u * 1024u)
-#define SW_LOC_ARCHIVE_PREFIX "9ba626afa44a3aa3.patch_"
+#define SW_LOC_ARCHIVE_MAGIC       0xF0000011u
+#define SW_LOC_US_TEXT_NAME        0x7C7587B563F10985ULL
+#define SW_LOC_TEXT_TYPE           0x0D972BAB10B40FD3ULL
+#define SW_LOC_US_LANG_ID          0x03F97B57u
+#define SW_LOC_SYNTH_LANG_ID       1u
+#define SW_LOC_WARBOND_LOCKED_ID   0xF8AD8A16u
+#define SW_LOC_MAX_TYPES           100000u
+#define SW_LOC_MAX_FILES           1000000u
+#define SW_LOC_MAX_US_TABLES       64u
+#define SW_LOC_MAX_TEXT_BYTES      (16u * 1024u * 1024u)
+#define SW_LOC_ARCHIVE_PREFIX      "9ba626afa44a3aa3.patch_"
 
 typedef enum SwLocStatus {
     SW_LOC_NO_PATCHES = 0,
@@ -54,6 +59,8 @@ typedef struct SwLocLoadReport {
 } SwLocLoadReport;
 
 typedef struct SwRawTextView {
+    uint64_t name_hash;
+    uint32_t language;
     uint8_t* blob;
     size_t size;
     uint32_t count;
@@ -61,6 +68,11 @@ typedef struct SwRawTextView {
     const uint32_t* offsets;
     int keys_sorted;
 } SwRawTextView;
+
+typedef struct SwRawTextSet {
+    SwRawTextView* views;
+    uint32_t count;
+} SwRawTextSet;
 
 static inline uint32_t SwLocReadU32(const uint8_t* p) {
     uint32_t v;
@@ -94,6 +106,15 @@ static inline void SwLocFreeView(SwRawTextView* view) {
     memset(view, 0, sizeof *view);
 }
 
+static inline void SwLocFreeSet(SwRawTextSet* set) {
+    if (set == NULL) return;
+    for (uint32_t i = 0; i < set->count; i++) {
+        SwLocFreeView(&set->views[i]);
+    }
+    free(set->views);
+    memset(set, 0, sizeof *set);
+}
+
 static inline void SwLocFreeTable(SwLocTable* tbl) {
     if (tbl == NULL) return;
     free(tbl->entries);
@@ -101,9 +122,40 @@ static inline void SwLocFreeTable(SwLocTable* tbl) {
     memset(tbl, 0, sizeof *tbl);
 }
 
-/* Extracts US English TEXT (0x7c7587b563f10985 / 0x0d972bab10b40fd3) from a Stingray 0xF0000011 patch file.
+static inline int SwLocParseBlobIntoView(uint64_t name_hash, uint8_t* blob, uint32_t main_size, SwRawTextView* out) {
+    memset(out, 0, sizeof *out);
+    if (main_size < 16u) return -1;
+
+    uint32_t count = SwLocReadU32(blob + 8);
+    uint32_t lang = SwLocReadU32(blob + 12);
+    uint64_t table_end = 16ULL + 8ULL * (uint64_t)count;
+    if (table_end > (uint64_t)main_size) return -1;
+
+    const uint32_t* keys = (const uint32_t*)(blob + 16);
+    const uint32_t* offsets = (const uint32_t*)(blob + 16 + 4u * count);
+    int sorted = 1;
+    for (uint32_t i = 0; i < count; i++) {
+        if (i > 0 && keys[i] < keys[i - 1]) sorted = 0;
+        uint32_t off = offsets[i];
+        if (off >= main_size) return -1;
+        const uint8_t* nul = (const uint8_t*)memchr(blob + off, 0, main_size - off);
+        if (nul == NULL) return -1;
+    }
+
+    out->name_hash = name_hash;
+    out->language = lang;
+    out->blob = blob;
+    out->size = main_size;
+    out->count = count;
+    out->keys = keys;
+    out->offsets = offsets;
+    out->keys_sorted = sorted;
+    return 1;
+}
+
+/* Extracts a specific TEXT resource (`target_name_hash` / 0x0d972bab10b40fd3) from a Stingray 0xF0000011 patch file.
  * Returns 1 if found and valid, 0 if not present, -1 on I/O or format error. */
-static inline int SwLocReadUsTextFromPatch(const char* patch_path, SwRawTextView* out) {
+static inline int SwLocReadNamedTextFromPatch(const char* patch_path, uint64_t target_name_hash, SwRawTextView* out) {
     memset(out, 0, sizeof *out);
     FILE* fp = fopen(patch_path, "rb");
     if (fp == NULL) return -1;
@@ -142,7 +194,7 @@ static inline int SwLocReadUsTextFromPatch(const char* patch_path, SwRawTextView
         if (fread(row, 1, sizeof row, fp) != sizeof row) { fclose(fp); return -1; }
         uint64_t name_hash = SwLocReadU64(row + 0);
         uint64_t type_hash = SwLocReadU64(row + 8);
-        if (name_hash == SW_LOC_US_TEXT_NAME && type_hash == SW_LOC_TEXT_TYPE) {
+        if (name_hash == target_name_hash && type_hash == SW_LOC_TEXT_TYPE) {
             main_off = SwLocReadU64(row + 16);
             main_size = SwLocReadU32(row + 56);
             found = 1;
@@ -171,37 +223,150 @@ static inline int SwLocReadUsTextFromPatch(const char* patch_path, SwRawTextView
     }
     fclose(fp);
 
-    uint32_t count = SwLocReadU32(blob + 8);
-    uint64_t table_end = 16ULL + 8ULL * (uint64_t)count;
-    if (table_end > (uint64_t)main_size) {
+    if (SwLocParseBlobIntoView(target_name_hash, blob, main_size, out) != 1) {
         free(blob);
         return -1;
     }
+    return 1;
+}
 
-    const uint32_t* keys = (const uint32_t*)(blob + 16);
-    const uint32_t* offsets = (const uint32_t*)(blob + 16 + 4u * count);
-    int sorted = 1;
-    for (uint32_t i = 0; i < count; i++) {
-        if (i > 0 && keys[i] < keys[i - 1]) sorted = 0;
-        uint32_t off = offsets[i];
-        if (off >= main_size) {
-            free(blob);
-            return -1;
-        }
-        /* Ensure NUL terminator exists within blob bounds. */
-        const uint8_t* nul = (const uint8_t*)memchr(blob + off, 0, main_size - off);
-        if (nul == NULL) {
-            free(blob);
-            return -1;
+/* Extracts primary US English TEXT (0x7c7587b563f10985 / 0x0d972bab10b40fd3). */
+static inline int SwLocReadUsTextFromPatch(const char* patch_path, SwRawTextView* out) {
+    return SwLocReadNamedTextFromPatch(patch_path, SW_LOC_US_TEXT_NAME, out);
+}
+
+/* Extracts ALL US English TEXT resources (language == 0x03F97B57, synthetic 0/1, or 0x7c7587b563f10985)
+ * from a Stingray 0xF0000011 patch file so multi-table ForgeCredits clobbers are fully restored.
+ * Returns 1 if >= 1 US TEXT found, 0 if none present, -1 on I/O or format error. */
+static inline int SwLocReadAllUsTextsFromPatch(const char* patch_path, SwRawTextSet* out_set) {
+    memset(out_set, 0, sizeof *out_set);
+    FILE* fp = fopen(patch_path, "rb");
+    if (fp == NULL) return -1;
+
+    if (fseek(fp, 0, SEEK_END) != 0) { fclose(fp); return -1; }
+    long fsize_long = ftell(fp);
+    if (fsize_long < 72L) { fclose(fp); return -1; }
+    uint64_t file_size = (uint64_t)fsize_long;
+    if (fseek(fp, 0, SEEK_SET) != 0) { fclose(fp); return -1; }
+
+    uint8_t header[72];
+    if (fread(header, 1, sizeof header, fp) != sizeof header) { fclose(fp); return -1; }
+
+    uint32_t magic = SwLocReadU32(header + 0);
+    uint32_t nt = SwLocReadU32(header + 4);
+    uint32_t nf = SwLocReadU32(header + 8);
+    if (magic != SW_LOC_ARCHIVE_MAGIC || nt > SW_LOC_MAX_TYPES || nf > SW_LOC_MAX_FILES) {
+        fclose(fp);
+        return -1;
+    }
+
+    uint64_t dir_off = 72ULL + 32ULL * (uint64_t)nt;
+    uint64_t dir_bytes = 80ULL * (uint64_t)nf;
+    if (dir_off > file_size || dir_bytes > file_size - dir_off) {
+        fclose(fp);
+        return -1;
+    }
+
+    if (fseek(fp, (long)dir_off, SEEK_SET) != 0) { fclose(fp); return -1; }
+
+    if (nf == 0) {
+        fclose(fp);
+        return 0;
+    }
+
+    typedef struct TextLoc { uint64_t name_hash; uint64_t main_off; uint32_t main_size; } TextLoc;
+    TextLoc* locs = (TextLoc*)calloc(nf, sizeof(TextLoc));
+    if (locs == NULL) { fclose(fp); return -1; }
+    uint32_t n_locs = 0;
+
+    uint8_t row[80];
+    for (uint32_t i = 0; i < nf; i++) {
+        if (fread(row, 1, sizeof row, fp) != sizeof row) { free(locs); fclose(fp); return -1; }
+        uint64_t name_hash = SwLocReadU64(row + 0);
+        uint64_t type_hash = SwLocReadU64(row + 8);
+        if (type_hash == SW_LOC_TEXT_TYPE) {
+            locs[n_locs].name_hash = name_hash;
+            locs[n_locs].main_off = SwLocReadU64(row + 16);
+            locs[n_locs].main_size = SwLocReadU32(row + 56);
+            n_locs++;
         }
     }
 
-    out->blob = blob;
-    out->size = main_size;
-    out->count = count;
-    out->keys = keys;
-    out->offsets = offsets;
-    out->keys_sorted = sorted;
+    if (n_locs == 0) {
+        free(locs);
+        fclose(fp);
+        return 0;
+    }
+
+    SwRawTextView* views = (SwRawTextView*)calloc(SW_LOC_MAX_US_TABLES, sizeof(SwRawTextView));
+    if (views == NULL) { free(locs); fclose(fp); return -1; }
+
+    uint32_t kept = 0;
+    for (uint32_t i = 0; i < n_locs; i++) {
+        uint64_t m_off = locs[i].main_off;
+        uint32_t m_sz = locs[i].main_size;
+        if (m_sz < 16u || m_sz > SW_LOC_MAX_TEXT_BYTES || m_off > file_size || (uint64_t)m_sz > file_size - m_off) {
+            for (uint32_t k = 0; k < kept; k++) SwLocFreeView(&views[k]);
+            free(views);
+            free(locs);
+            fclose(fp);
+            return -1;
+        }
+        uint8_t hdr16[16];
+        if (fseek(fp, (long)m_off, SEEK_SET) != 0 || fread(hdr16, 1, 16, fp) != 16) {
+            for (uint32_t k = 0; k < kept; k++) SwLocFreeView(&views[k]);
+            free(views);
+            free(locs);
+            fclose(fp);
+            return -1;
+        }
+        uint32_t lang = SwLocReadU32(hdr16 + 12);
+        int is_us = (locs[i].name_hash == SW_LOC_US_TEXT_NAME || lang == SW_LOC_US_LANG_ID || lang == SW_LOC_SYNTH_LANG_ID);
+        if (!is_us) continue;
+
+        if (kept >= SW_LOC_MAX_US_TABLES) {
+            for (uint32_t k = 0; k < kept; k++) SwLocFreeView(&views[k]);
+            free(views);
+            free(locs);
+            fclose(fp);
+            return -1;
+        }
+
+        uint8_t* blob = (uint8_t*)malloc(m_sz);
+        if (blob == NULL) {
+            for (uint32_t k = 0; k < kept; k++) SwLocFreeView(&views[k]);
+            free(views);
+            free(locs);
+            fclose(fp);
+            return -1;
+        }
+        if (fseek(fp, (long)m_off, SEEK_SET) != 0 || fread(blob, 1, m_sz, fp) != m_sz) {
+            free(blob);
+            for (uint32_t k = 0; k < kept; k++) SwLocFreeView(&views[k]);
+            free(views);
+            free(locs);
+            fclose(fp);
+            return -1;
+        }
+        if (SwLocParseBlobIntoView(locs[i].name_hash, blob, m_sz, &views[kept]) != 1) {
+            free(blob);
+            for (uint32_t k = 0; k < kept; k++) SwLocFreeView(&views[k]);
+            free(views);
+            free(locs);
+            fclose(fp);
+            return -1;
+        }
+        kept++;
+    }
+    free(locs);
+    fclose(fp);
+
+    if (kept == 0) {
+        free(views);
+        return 0;
+    }
+    out_set->views = views;
+    out_set->count = kept;
     return 1;
 }
 
@@ -224,11 +389,25 @@ static inline const char* SwLocRawLookup(const SwRawTextView* view, uint32_t id)
     return NULL;
 }
 
+static inline int SwLocIsProtectedHellForgeEntry(uint32_t id, const char* s) {
+    if (id == SW_LOC_WARBOND_LOCKED_ID) return 1;
+    if (s != NULL && SwLocContainsCI(s, "forge credit")) return 1;
+    return 0;
+}
+
 static inline int SwLocViewHasForgeCredits(const SwRawTextView* view) {
     if (view == NULL) return 0;
     for (uint32_t i = 0; i < view->count; i++) {
         const char* s = (const char*)(view->blob + view->offsets[i]);
-        if (SwLocContainsCI(s, "forge credit")) return 1;
+        if (SwLocIsProtectedHellForgeEntry(view->keys[i], s)) return 1;
+    }
+    return 0;
+}
+
+static inline int SwLocSetHasForgeCredits(const SwRawTextSet* set) {
+    if (set == NULL) return 0;
+    for (uint32_t i = 0; i < set->count; i++) {
+        if (SwLocViewHasForgeCredits(&set->views[i])) return 1;
     }
     return 0;
 }
@@ -241,33 +420,54 @@ static int SwLocCmpEntry(const void* a, const void* b) {
     return 0;
 }
 
-/* Builds sorted diff table (pack - base) while preserving every baseline string that mentions "forge credit". */
-static inline int SwLocBuildDiff(
-    const SwRawTextView* pack,
-    const SwRawTextView* base,
+static inline int SwLocIsProtectedAcrossBases(uint32_t id, const SwRawTextView* bases, uint32_t base_count) {
+    if (id == SW_LOC_WARBOND_LOCKED_ID) return 1;
+    if (bases == NULL) return 0;
+    for (uint32_t b = 0; b < base_count; b++) {
+        const char* bstr = SwLocRawLookup(&bases[b], id);
+        if (bstr != NULL && SwLocContainsCI(bstr, "forge credit")) return 1;
+    }
+    return 0;
+}
+
+/* Builds sorted diff table across N (pack_views[k] - base_views[k]) pairs while preserving every HellForge
+ * Forge Credits / WARBOND LOCKED baseline string across ALL baseline US tables. */
+static inline int SwLocBuildMultiDiffWithProtectedBases(
+    const SwRawTextView* pack_views,
+    const SwRawTextView* base_views,
+    uint32_t pair_count,
+    const SwRawTextView* protected_bases,
+    uint32_t protected_base_count,
     SwLocTable* out,
     uint32_t* out_preserved_fc)
 {
     memset(out, 0, sizeof *out);
     if (out_preserved_fc != NULL) *out_preserved_fc = 0;
-    if (pack == NULL || base == NULL || pack->count == 0) return 0;
+    if (pack_views == NULL || base_views == NULL || pair_count == 0) return 0;
+
+    const SwRawTextView* all_bases = protected_bases != NULL ? protected_bases : base_views;
+    uint32_t all_base_count = protected_bases != NULL ? protected_base_count : pair_count;
 
     uint32_t diff_count = 0;
     size_t pool_bytes = 0;
     uint32_t preserved_fc = 0;
 
-    for (uint32_t i = 0; i < pack->count; i++) {
-        uint32_t id = pack->keys[i];
-        const char* pstr = (const char*)(pack->blob + pack->offsets[i]);
-        if (pstr[0] == '\0') continue;
-        const char* bstr = SwLocRawLookup(base, id);
-        if (bstr != NULL && strcmp(pstr, bstr) == 0) continue;
-        if (bstr != NULL && SwLocContainsCI(bstr, "forge credit")) {
-            preserved_fc++;
-            continue;
+    for (uint32_t p = 0; p < pair_count; p++) {
+        const SwRawTextView* pack = &pack_views[p];
+        const SwRawTextView* base = &base_views[p];
+        for (uint32_t i = 0; i < pack->count; i++) {
+            uint32_t id = pack->keys[i];
+            const char* pstr = (const char*)(pack->blob + pack->offsets[i]);
+            if (pstr[0] == '\0') continue;
+            const char* bstr = SwLocRawLookup(base, id);
+            if (bstr != NULL && strcmp(pstr, bstr) == 0) continue;
+            if (SwLocIsProtectedAcrossBases(id, all_bases, all_base_count)) {
+                preserved_fc++;
+                continue;
+            }
+            diff_count++;
+            pool_bytes += strlen(pstr) + 1u;
         }
-        diff_count++;
-        pool_bytes += strlen(pstr) + 1u;
     }
 
     if (out_preserved_fc != NULL) *out_preserved_fc = preserved_fc;
@@ -283,24 +483,27 @@ static inline int SwLocBuildDiff(
 
     uint32_t idx = 0;
     size_t pos = 0;
-    for (uint32_t i = 0; i < pack->count; i++) {
-        uint32_t id = pack->keys[i];
-        const char* pstr = (const char*)(pack->blob + pack->offsets[i]);
-        if (pstr[0] == '\0') continue;
-        const char* bstr = SwLocRawLookup(base, id);
-        if (bstr != NULL && strcmp(pstr, bstr) == 0) continue;
-        if (bstr != NULL && SwLocContainsCI(bstr, "forge credit")) continue;
-        size_t len = strlen(pstr) + 1u;
-        memcpy(pool + pos, pstr, len);
-        entries[idx].id = id;
-        entries[idx].text = pool + pos;
-        idx++;
-        pos += len;
+    for (uint32_t p = 0; p < pair_count; p++) {
+        const SwRawTextView* pack = &pack_views[p];
+        const SwRawTextView* base = &base_views[p];
+        for (uint32_t i = 0; i < pack->count; i++) {
+            uint32_t id = pack->keys[i];
+            const char* pstr = (const char*)(pack->blob + pack->offsets[i]);
+            if (pstr[0] == '\0') continue;
+            const char* bstr = SwLocRawLookup(base, id);
+            if (bstr != NULL && strcmp(pstr, bstr) == 0) continue;
+            if (SwLocIsProtectedAcrossBases(id, all_bases, all_base_count)) continue;
+            size_t len = strlen(pstr) + 1u;
+            memcpy(pool + pos, pstr, len);
+            entries[idx].id = id;
+            entries[idx].text = pool + pos;
+            idx++;
+            pos += len;
+        }
     }
 
     qsort(entries, idx, sizeof(SwLocEntry), SwLocCmpEntry);
 
-    /* Deduplicate if the source TEXT had duplicate keys (keep last). */
     uint32_t unique = 0;
     for (uint32_t i = 0; i < idx; i++) {
         if (unique > 0 && entries[unique - 1].id == entries[i].id) {
@@ -315,6 +518,32 @@ static inline int SwLocBuildDiff(
     out->pool = pool;
     out->pool_size = pool_bytes;
     return 0;
+}
+
+static inline int SwLocBuildMultiDiff(
+    const SwRawTextView* pack_views,
+    const SwRawTextView* base_views,
+    uint32_t pair_count,
+    SwLocTable* out,
+    uint32_t* out_preserved_fc)
+{
+    return SwLocBuildMultiDiffWithProtectedBases(
+        pack_views, base_views, pair_count, base_views, pair_count, out, out_preserved_fc);
+}
+
+/* Single-view helper wrapper. */
+static inline int SwLocBuildDiff(
+    const SwRawTextView* pack,
+    const SwRawTextView* base,
+    SwLocTable* out,
+    uint32_t* out_preserved_fc)
+{
+    if (pack == NULL || base == NULL || pack->count == 0) {
+        memset(out, 0, sizeof *out);
+        if (out_preserved_fc != NULL) *out_preserved_fc = 0;
+        return 0;
+    }
+    return SwLocBuildMultiDiff(pack, base, 1u, out, out_preserved_fc);
 }
 
 static inline const char* SwLocLookup(const SwLocTable* tbl, uint32_t id) {
@@ -361,7 +590,7 @@ static int SwLocCmpPatch(const void* a, const void* b) {
     return pa->index - pb->index;
 }
 
-/* Scans <data_dir>\9ba626afa44a3aa3.patch_* and loads diff table if ForgeCredits clobbered a pack TEXT patch. */
+/* Scans <data_dir>\9ba626afa44a3aa3.patch_* and loads multi-table diff if ForgeCredits clobbered pack US TEXTs. */
 static inline int SwLocLoadFromDataDir(const char* data_dir, SwLocTable* out, SwLocLoadReport* report) {
     memset(out, 0, sizeof *out);
     memset(report, 0, sizeof *report);
@@ -422,11 +651,16 @@ static inline int SwLocLoadFromDataDir(const char* data_dir, SwLocTable* out, Sw
 
     qsort(list, (size_t)count, sizeof(SwPatchCandidate), SwLocCmpPatch);
 
-    /* Find topmost patch containing US TEXT. */
-    SwRawTextView base_view = {0};
+    /*Find topmost patch containing at least one US English TEXT resource; fail closed on corrupt/overflowed patch.*/
+    SwRawTextSet base_set = {0};
     int base_pos = -1;
     for (int i = count - 1; i >= 0; i--) {
-        int rc = SwLocReadUsTextFromPatch(list[i].path, &base_view);
+        int rc = SwLocReadAllUsTextsFromPatch(list[i].path, &base_set);
+        if (rc < 0) {
+            free(list);
+            report->status = SW_LOC_ERROR;
+            return -1;
+        }
         if (rc == 1) {
             base_pos = i;
             break;
@@ -440,44 +674,78 @@ static inline int SwLocLoadFromDataDir(const char* data_dir, SwLocTable* out, Sw
     }
 
     report->base_patch_index = list[base_pos].index;
-    report->base_string_count = base_view.count;
+    uint32_t base_total_strings = 0;
+    for (uint32_t b = 0; b < base_set.count; b++) {
+        base_total_strings += base_set.views[b].count;
+    }
+    report->base_string_count = base_total_strings;
 
-    if (!SwLocViewHasForgeCredits(&base_view)) {
-        SwLocFreeView(&base_view);
+    if (!SwLocSetHasForgeCredits(&base_set)) {
+        SwLocFreeSet(&base_set);
         free(list);
         report->status = SW_LOC_ALREADY_TOPMOST;
         return 0;
     }
 
-    /* Topmost US TEXT is ForgeCredits. Find highest non-ForgeCredits US TEXT patch underneath it. */
-    SwRawTextView pack_view = {0};
-    int pack_pos = -1;
-    for (int i = base_pos - 1; i >= 0; i--) {
-        SwRawTextView cand = {0};
-        int rc = SwLocReadUsTextFromPatch(list[i].path, &cand);
-        if (rc == 1) {
-            if (!SwLocViewHasForgeCredits(&cand)) {
-                pack_view = cand;
-                pack_pos = i;
-                break;
+    /* Topmost US TEXT patch is ForgeCredits. For each US TEXT resource in base_set, find highest non-ForgeCredits
+     * patch beneath it carrying the same name_hash so all 14 US TEXT tables are restored seamlessly! */
+    SwRawTextView* matched_packs = (SwRawTextView*)calloc(base_set.count, sizeof(SwRawTextView));
+    SwRawTextView* matched_bases = (SwRawTextView*)calloc(base_set.count, sizeof(SwRawTextView));
+    if (matched_packs == NULL || matched_bases == NULL) {
+        free(matched_packs);
+        free(matched_bases);
+        SwLocFreeSet(&base_set);
+        free(list);
+        report->status = SW_LOC_ERROR;
+        return -1;
+    }
+
+    uint32_t matched_pairs = 0;
+    int max_pack_patch_idx = -1;
+    uint32_t total_pack_strings = 0;
+
+    for (uint32_t b = 0; b < base_set.count; b++) {
+        uint64_t target_nh = base_set.views[b].name_hash;
+        for (int i = base_pos - 1; i >= 0; i--) {
+            SwRawTextView cand = {0};
+            int rc = SwLocReadNamedTextFromPatch(list[i].path, target_nh, &cand);
+            if (rc == 1) {
+                if (!SwLocViewHasForgeCredits(&cand)) {
+                    matched_packs[matched_pairs] = cand;
+                    matched_bases[matched_pairs] = base_set.views[b];
+                    matched_pairs++;
+                    if (list[i].index > max_pack_patch_idx) {
+                        max_pack_patch_idx = list[i].index;
+                    }
+                    total_pack_strings += cand.count;
+                    break;
+                }
+                SwLocFreeView(&cand);
             }
-            SwLocFreeView(&cand);
         }
     }
 
-    if (pack_pos < 0) {
-        SwLocFreeView(&base_view);
+    if (matched_pairs == 0) {
+        free(matched_packs);
+        free(matched_bases);
+        SwLocFreeSet(&base_set);
         free(list);
         report->status = SW_LOC_VANILLA_ONLY;
         return 0;
     }
 
-    report->pack_patch_index = list[pack_pos].index;
-    report->pack_string_count = pack_view.count;
+    report->pack_patch_index = max_pack_patch_idx;
+    report->pack_string_count = total_pack_strings;
 
-    int build_rc = SwLocBuildDiff(&pack_view, &base_view, out, &report->preserved_forge_credits);
-    SwLocFreeView(&pack_view);
-    SwLocFreeView(&base_view);
+    int build_rc = SwLocBuildMultiDiffWithProtectedBases(
+        matched_packs, matched_bases, matched_pairs, base_set.views, base_set.count, out, &report->preserved_forge_credits);
+
+    for (uint32_t m = 0; m < matched_pairs; m++) {
+        SwLocFreeView(&matched_packs[m]);
+    }
+    free(matched_packs);
+    free(matched_bases);
+    SwLocFreeSet(&base_set);
     free(list);
 
     if (build_rc != 0) {

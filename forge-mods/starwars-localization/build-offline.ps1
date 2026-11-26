@@ -1,10 +1,10 @@
 param(
-    [string]$CliPath = 'D:\HellForge\app\cli\HellForge.Cli.exe',
+    [string]$CliPath = '',
     [string]$ZigRoot = ''
 )
 $ErrorActionPreference='Stop'
 $mod=$PSScriptRoot
-$zigRoot = if ($ZigRoot) { $ZigRoot } elseif (Test-Path -LiteralPath 'D:\HellForge\tools\zig\zig.exe') { 'D:\HellForge\tools\zig' } else { 'D:\ClaudeWork\workstreams-v21\code-mods\tools\zig' }
+$zigRoot = if ($ZigRoot) { $ZigRoot } elseif (Test-Path -LiteralPath 'D:\ClaudeWork\workstreams-v21\code-mods\tools\zig\zig.exe') { 'D:\ClaudeWork\workstreams-v21\code-mods\tools\zig' } else { 'D:\HellForge\tools\zig' }
 $workspace=Join-Path $mod 'build\workspace'
 $stage=Join-Path $workspace 'mods\starwars-localization'
 $sdk=Join-Path $workspace 'app\sdk'
@@ -30,6 +30,10 @@ if (!(Test-Path -LiteralPath $compiler)) {
 
 Copy-Item -LiteralPath "$mod\src" -Destination $stage -Recurse -Force
 Copy-Item -LiteralPath "$mod\hellforge-mod.json","$mod\README.md" -Destination $stage -Force
+$manifest = Get-Content -LiteralPath "$stage\hellforge-mod.json" -Raw | ConvertFrom-Json
+$ver = $manifest.version
+$modId = $manifest.id
+$dllName = $manifest.code.dll
 
 $oldTemp=$env:TEMP; $oldTmp=$env:TMP; $oldGlobal=$env:ZIG_GLOBAL_CACHE_DIR; $oldLocal=$env:ZIG_LOCAL_CACHE_DIR
 try {
@@ -41,10 +45,16 @@ try {
     & "$compiler\zig.exe" cc -std=c11 -target x86_64-windows-gnu -shared -O2 -Wall -Werror -s -I $sdk -I "$stage\src" "$stage\src\starwars_localization.c" -o "$mod\build\strict_starwars_localization.dll"
     if ($LASTEXITCODE -ne 0) { throw 'Strict zig cc -Wall -Werror DLL build failed' }
 
-    # 2. Official HellForge.Cli build-mod
-    & $CliPath build-mod --mod $stage | Tee-Object "$mod\build\build.log"
-    if ($LASTEXITCODE -ne 0) { throw 'HellForge.Cli build-mod failed' }
-    Copy-Item -LiteralPath "$stage\starwars_localization.dll" -Destination $mod -Force
+    # 2. HellForge ModKit-exact DLL build (offline default without touching D:\HellForge, or explicit CliPath)
+    if ($CliPath -and (Test-Path -LiteralPath $CliPath)) {
+        & $CliPath build-mod --mod $stage | Tee-Object "$mod\build\build.log"
+        if ($LASTEXITCODE -ne 0) { throw 'HellForge.Cli build-mod failed' }
+    } else {
+        & "$compiler\zig.exe" cc -std=c11 -target x86_64-windows-gnu -shared -O2 -Wall -Werror -Wno-unused-parameter -s -I $sdk -I "$stage\src" "$stage\src\starwars_localization.c" -o "$stage\$dllName" | Tee-Object "$mod\build\build.log"
+        if ($LASTEXITCODE -ne 0) { throw 'Offline ModKit zig cc DLL build failed' }
+        Get-ChildItem -LiteralPath $stage -File -ErrorAction SilentlyContinue | Where-Object { $_.Extension -in '.lib','.pdb' } | Remove-Item -Force
+    }
+    Copy-Item -LiteralPath "$stage\$dllName" -Destination $mod -Force
 
     # 3. Full C11 unit & real-archive verification suite
     & "$compiler\zig.exe" cc -std=c11 -target x86_64-windows-gnu -O2 -Wall -Werror -I $sdk -I "$mod\src" "$mod\tests\starwars_localization_test.c" -o "$mod\build\starwars_localization_test.exe"
@@ -52,18 +62,60 @@ try {
     & "$mod\build\starwars_localization_test.exe" $fixture | Tee-Object "$mod\build\tests.log"
     if ($LASTEXITCODE -ne 0) { throw 'Unit test execution failed' }
 
-    # 4. Package & mod-hash
-    $zipPath=Join-Path $out 'starwars-localization-0.1.0.zip'
+    # 4. Package & mod-hash (byte-identical to ModPackage.Create & ModSets.ContentHash)
+    $zipPath=Join-Path $out ("starwars-localization-$ver.zip")
     if (Test-Path -LiteralPath $zipPath) { Remove-Item -LiteralPath $zipPath -Force }
-    & $CliPath package-mod --mod $stage --out $out | Tee-Object "$mod\build\package.log"
-    if ($LASTEXITCODE -ne 0) { throw 'HellForge.Cli package-mod failed' }
+    if ($CliPath -and (Test-Path -LiteralPath $CliPath)) {
+        & $CliPath package-mod --mod $stage --out $out | Tee-Object "$mod\build\package.log"
+        if ($LASTEXITCODE -ne 0) { throw 'HellForge.Cli package-mod failed' }
+        $folderHashJson=& $CliPath mod-hash --mod $stage
+        if ($LASTEXITCODE -ne 0) { throw 'HellForge.Cli mod-hash failed' }
+        $folderHash=($folderHashJson | ConvertFrom-Json).hash
+    } else {
+        Add-Type -AssemblyName System.IO.Compression
+        Add-Type -AssemblyName System.IO.Compression.FileSystem
+        $relFiles = Get-ChildItem -LiteralPath $stage -Recurse -File | ForEach-Object {
+            $rel = $_.FullName.Substring($stage.Length + 1).Replace('\', '/')
+            $parts = $rel.Split('/')
+            $isWs = ($parts | Where-Object { $_.StartsWith('.') -or $_.StartsWith('~$') }).Count -gt 0 -or $parts[0] -eq 'build' -or $rel.EndsWith('.user', [StringComparison]::OrdinalIgnoreCase) -or $rel.EndsWith('.tmp', [StringComparison]::OrdinalIgnoreCase)
+            $isSrcOut = ($rel -eq $dllName) -or $rel.EndsWith('.lib', [StringComparison]::OrdinalIgnoreCase) -or $rel.EndsWith('.pdb', [StringComparison]::OrdinalIgnoreCase)
+            if (-not $isWs -and -not $isSrcOut) { $rel }
+        }
+        $sortedList = [System.Collections.Generic.List[string]]::new()
+        foreach ($r in $relFiles) { [void]$sortedList.Add($r) }
+        $sortedList.Sort([System.StringComparer]::Ordinal)
+
+        $stamp = [DateTimeOffset]::new(2026, 1, 1, 0, 0, 0, [TimeSpan]::Zero)
+        $fs = [System.IO.File]::Open($zipPath, [System.IO.FileMode]::Create, [System.IO.FileAccess]::ReadWrite)
+        try {
+            $za = [System.IO.Compression.ZipArchive]::new($fs, [System.IO.Compression.ZipArchiveMode]::Create, $false)
+            try {
+                foreach ($rel in $sortedList) {
+                    $entry = $za.CreateEntry("starwars-localization/$rel", [System.IO.Compression.CompressionLevel]::Optimal)
+                    $entry.LastWriteTime = $stamp
+                    $inBytes = [System.IO.File]::ReadAllBytes((Join-Path $stage ($rel.Replace('/', '\'))))
+                    $es = $entry.Open()
+                    try { $es.Write($inBytes, 0, $inBytes.Length) } finally { $es.Dispose() }
+                }
+            } finally { $za.Dispose() }
+        } finally { $fs.Dispose() }
+
+        # Compute exact ModSets.ContentHash: SHA256_lower(UTF8("{id}|{version}\n" + "{rel}|{SHA256_UPPER}\n"...))
+        $sb = [System.Text.StringBuilder]::new()
+        [void]$sb.Append("$modId|$ver`n")
+        foreach ($rel in $sortedList) {
+            $fSha = (Get-FileHash -LiteralPath (Join-Path $stage ($rel.Replace('/', '\'))) -Algorithm SHA256).Hash.ToUpperInvariant()
+            [void]$sb.Append("$rel|$fSha`n")
+        }
+        $shaAlg = [System.Security.Cryptography.SHA256]::Create()
+        $blockBytes = [System.Text.Encoding]::UTF8.GetBytes($sb.ToString())
+        $folderHash = ([System.BitConverter]::ToString($shaAlg.ComputeHash($blockBytes)).Replace('-', '')).ToLowerInvariant()
+        Set-Content -LiteralPath "$mod\build\package.log" -Value (@{ id = $modId; version = $ver; zip = $zipPath; files = $sortedList.Count; hash = $folderHash } | ConvertTo-Json -Compress)
+    }
 
     if (!(Test-Path -LiteralPath $zipPath)) { throw "Expected package not found: $zipPath" }
     $zipItem=Get-Item -LiteralPath $zipPath
     $zipSha=(Get-FileHash -LiteralPath $zipPath -Algorithm SHA256).Hash.ToLowerInvariant()
-    $folderHashJson=& $CliPath mod-hash --mod $stage
-    if ($LASTEXITCODE -ne 0) { throw 'HellForge.Cli mod-hash failed' }
-    $folderHash=($folderHashJson | ConvertFrom-Json).hash
     Write-Host "ZIP=$zipPath"
     Write-Host "Bytes=$($zipItem.Length)"
     Write-Host "Sha256=$zipSha"
