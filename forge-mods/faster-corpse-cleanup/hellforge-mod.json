@@ -2,8 +2,8 @@
   "format": 1,
   "id": "local.faster-corpse-cleanup",
   "name": "Faster Corpse Cleanup",
-  "version": "1.0.6-clonedivers.1",
-  "description": "Host-gated enemy corpse cleanup for build 25480438 (SDK 16). Strict HF_SESSION_SOLO/HOST authority gate on entity removal and decay writes (fail-closed no-op on joiners), plus clonedivers-host-options.json integration.",
+  "version": "1.0.6-clonedivers.2",
+  "description": "Host-gated enemy corpse cleanup & Level 12 ULTRAKILL 0.0s Emergency Turbo-Reaper for build 25480438 (SDK 16). Eliminates the 128-wreck failure cliff, adds 2,048-slot O(1) lifecycle tracking + 1-syscall EntityManager occupancy gauge, and enforces strict HF_SESSION_SOLO/HOST authority.",
   "gameplay": true,
   "code": {
     "dll": "corpse_cleanup.dll",

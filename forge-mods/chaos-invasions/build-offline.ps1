@@ -24,6 +24,7 @@ if (!(Test-Path -LiteralPath $compiler)) {
 if ($LASTEXITCODE -ne 0) { throw 'Lua archive preparation failed' }
 
 Copy-Item "$mod\src","$mod\data" $stage -Recurse -Force
+Copy-Item "$mod\..\shared\clonedivers_host_options.h" "$stage\src\clonedivers_host_options.h" -Force
 Copy-Item "$mod\hellforge-mod.json","$mod\README.md","$mod\CREDITS.md","$mod\options.ini" $stage -Force
 
 $oldTemp=$env:TEMP; $oldTmp=$env:TMP; $oldGlobal=$env:ZIG_GLOBAL_CACHE_DIR; $oldLocal=$env:ZIG_LOCAL_CACHE_DIR
@@ -57,7 +58,7 @@ try {
     & 'C:\Users\goode\AppData\Local\Programs\Python\Python313\python.exe' "$mod\tools\delivery.py" verify | Tee-Object "$mod\build\verify.log"
     if ($LASTEXITCODE -ne 0) { throw 'Delivery verification failed' }
 
-    $zipPath=Join-Path $out 'chaos-invasions-0.3.5.zip'
+    $zipPath=Join-Path $out 'chaos-invasions-0.4.0.zip'
     $zipItem=Get-Item -LiteralPath $zipPath
     $zipSha=(Get-FileHash -LiteralPath $zipPath -Algorithm SHA256).Hash.ToLowerInvariant()
     $folderHashJson=& $CliPath mod-hash --mod $stage

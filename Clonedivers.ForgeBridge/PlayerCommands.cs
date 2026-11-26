@@ -27,6 +27,7 @@ internal sealed class PlayerCommands
     DateTime lastAccountReview;
     string? warbondMessage;
     bool warbondsPending;
+    bool companionSyncPending = true;
     internal PlayerCommands(string root, IHellForgeCommands official, Action? openManager = null,
         Func<IReadOnlyList<string>, CancellationToken, Task<string>>? backend = null,
         Func<CancellationToken, Task<int>>? reviewWarbonds = null,
@@ -93,17 +94,25 @@ internal sealed class PlayerCommands
                 // The frontend ignores the mutation reply and displays the following player-status account message.
                 return JsonSerializer.SerializeToElement(await account.ReadAsync(ct));
             case "select-mode":
+                var prevUltrakill = HostMutatorConfig.IsUltrakillTheater(selection.HostTheaterPreset, selection.HostChaosIntensity);
                 var values = args.Skip(1).Chunk(2).ToDictionary(p => p[0], p => p[1], StringComparer.Ordinal);
                 var requested = new HellForgePreferences { Mode = values["--mode"], DeltaSquad = values["--delta"] == "yes",
                     Texture = values["--texture"], EnemySkin = values["--droids"] == "yes" ? "all-droids" : "native-automatons", Covenant = values["--covenant"] == "yes" };
                 if (values.TryGetValue("--enemy-skin", out var skin)) requested.EnemySkin = skin;
                 if (values.TryGetValue("--squid-skin", out var squid)) requested.SquidSkin = squid;
                 if (values.TryGetValue("--deathtrooper", out var dt)) requested.DeathTrooperVoice = dt == "yes";
+                if (values.TryGetValue("--theater", out var th)) requested.HostTheaterPreset = th;
                 requested.Validate();
+                var nowUltrakill = HostMutatorConfig.IsUltrakillTheater(requested.HostTheaterPreset, requested.HostChaosIntensity);
+                if (prevUltrakill != nowUltrakill)
+                    companionSyncPending = true;
                 selection.Mode = requested.Mode; selection.DeltaSquad = requested.DeltaSquad;
                 selection.Texture = requested.Texture; selection.EnemySkin = requested.EnemySkin;
                 selection.SquidSkin = requested.SquidSkin; selection.DeathTrooperVoice = requested.DeathTrooperVoice;
-                return JsonSerializer.SerializeToElement(new { selection.Mode, selection.DeltaSquad, selection.Texture, selection.Droids, selection.EnemySkin, selection.Covenant, selection.SquidSkin, selection.DeathTrooperVoice });
+                selection.HostTheaterPreset = requested.HostTheaterPreset;
+                if (companionSyncPending && await SyncTheaterCompanionsIfReadyAsync(nowUltrakill, ct))
+                    companionSyncPending = false;
+                return JsonSerializer.SerializeToElement(new { selection.Mode, selection.DeltaSquad, selection.Texture, selection.Droids, selection.EnemySkin, selection.Covenant, selection.SquidSkin, selection.DeathTrooperVoice, selection.HostTheaterPreset });
             case "prepare-regular":
                 if (!selection.IsRegular) throw new InvalidOperationException("Select Regular before applying that mode.");
                 await client.PrepareRegularAsync(ct); return JsonSerializer.SerializeToElement(new { prepared = true });
@@ -115,7 +124,11 @@ internal sealed class PlayerCommands
                 await client.RecoverInterruptedPackAsync(ct); return JsonSerializer.SerializeToElement(new { recovered = true });
             case "gameplay-status": return JsonSerializer.SerializeToElement(await client.MissingGameplayAsync(selection.IsRegular ? "regular" : selection.PackMode, ct));
             case "install-gameplay":
-                await client.InstallGameplayAsync(args[2], ct: ct, activeMode: selection.IsRegular ? "regular" : selection.PackMode); return JsonSerializer.SerializeToElement(new { installed = true });
+                await client.InstallGameplayAsync(args[2], ct: ct, activeMode: selection.IsRegular ? "regular" : selection.PackMode);
+                var installUk = HostMutatorConfig.IsUltrakillTheater(selection.HostTheaterPreset, selection.HostChaosIntensity) || client.IsUltrakillHostTheaterActive();
+                if (await SyncTheaterCompanionsIfReadyAsync(installUk, ct))
+                    companionSyncPending = false;
+                return JsonSerializer.SerializeToElement(new { installed = true });
             case "recover-gameplay":
                 await client.RecoverGameplayAsync(ct); return JsonSerializer.SerializeToElement(new { recovered = true });
             case "player-status": return await StateAsync(ct);
@@ -126,6 +139,9 @@ internal sealed class PlayerCommands
                 try { profile = await (EnsureAccount ?? client.EnsureAccountAsync)(ct); }
                 catch { lastAccount = null; lastAccountFingerprint = null; throw; }
                 await RetryPendingWarbondsAsync(ct);
+                var playUk = HostMutatorConfig.IsUltrakillTheater(selection.HostTheaterPreset, selection.HostChaosIntensity) || client.IsUltrakillHostTheaterActive();
+                if (await SyncTheaterCompanionsIfReadyAsync(playUk, ct))
+                    companionSyncPending = false;
                 return selection.IsRegular ? await client.PlayRegularAsync(ct, profile) : await client.PlayAsync(selection.Selection(), ct, profile);
             }
             default:
@@ -216,10 +232,12 @@ internal sealed class PlayerCommands
             if (selection.IsRegular) HellForgeClient.RequireRegular(catalog);
             else
             {
-                var chosen = HellForgeClient.RequireSelected(catalog, selection.Selection());
-                await HellForgePack.VerifyMetadataAsync(chosen.Folder, selection.Selection(), ct);
+                var chosenSelection = selection.Selection();
+                var chosen = HellForgeClient.RequireSelected(catalog, chosenSelection);
+                await HellForgePack.VerifyMetadataAsync(chosen.Folder, chosenSelection, ct);
             }
-            if (HellForgePreset.Problem(catalog) is { } preset) throw new InvalidDataException(preset);
+            var ultrakillActive = HostMutatorConfig.IsUltrakillTheater(selection.HostTheaterPreset, selection.HostChaosIntensity) || client.IsUltrakillHostTheaterActive();
+            if (HellForgePreset.Problem(catalog, ultrakillTheaterActive: ultrakillActive) is { } preset) throw new InvalidDataException(preset);
             if (HellForgePreset.ModeCompanionProblem(catalog, selection.IsRegular ? "regular" : selection.PackMode) is { } companionIssue) throw new InvalidDataException(companionIssue);
             if (!status.Multiplayer || !status.LocalBackend) throw new InvalidDataException("Enable the official local backend and Steam multiplayer in HellForge.");
             if (!imported.Imported) throw new InvalidDataException(imported.Message);
@@ -232,6 +250,15 @@ internal sealed class PlayerCommands
     {
         var message = warbondMessage; warbondMessage = null;
         return message == null ? state : state with { Message = message + " " + state.Message };
+    }
+    async Task<bool> SyncTheaterCompanionsIfReadyAsync(bool enableUltrakill, CancellationToken ct)
+    {
+        UltrakillRuntimeProfile.SyncEngineFiles(root, enableUltrakill);
+        if (!File.Exists(Path.Combine(root, "mods", "hellforge-mods.json"))) return false;
+        var status = await client.StatusAsync(ct);
+        if (status.Running) return false;
+        await client.SyncUltrakillCompanionOptionsAsync(enableUltrakill, ct);
+        return true;
     }
     async Task<int?> TryOpenOwnedWarbondsOrDeferAsync(CancellationToken ct)
     {

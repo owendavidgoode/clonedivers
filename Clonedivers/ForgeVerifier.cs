@@ -156,8 +156,11 @@ public static class ForgeVerifier
         {
             var modsBefore = await client.ModsAsync(ct);
             var activeMode = prefs.IsRegular ? "regular" : prefs.PackMode;
+            var ultrakillActive = HostMutatorConfig.IsUltrakillTheater(prefs.HostTheaterPreset, prefs.HostChaosIntensity);
+            HostMutatorConfig.Write(validatedRoot, prefs.ToHostMutatorOptions());
+            UltrakillRuntimeProfile.SyncEngineFiles(validatedRoot, ultrakillActive);
             var missing = await client.MissingGameplayAsync(activeMode, ct);
-            var presetProblem = HellForgePreset.Problem(modsBefore, checkOrder: true) ?? modsBefore.HostingProblem;
+            var presetProblem = HellForgePreset.Problem(modsBefore, checkOrder: true, ultrakillTheaterActive: ultrakillActive) ?? modsBefore.HostingProblem;
 
             if (missing.Count > 0 || presetProblem != null)
             {
@@ -177,7 +180,7 @@ public static class ForgeVerifier
                 gameplayRepairedCount = Math.Max(missing.Count, 1);
 
                 var modsAfter = await client.ModsAsync(ct);
-                var afterProblem = HellForgePreset.Problem(modsAfter, checkOrder: true) ?? modsAfter.HostingProblem;
+                var afterProblem = HellForgePreset.Problem(modsAfter, checkOrder: true, ultrakillTheaterActive: ultrakillActive) ?? modsAfter.HostingProblem;
                 if (afterProblem != null)
                 {
                     steps.Add(new(3, $"Gameplay preset ({presetTag})", false, false, afterProblem));

@@ -212,7 +212,8 @@ public sealed class ForgeShellWindow : Window
     readonly ToggleSwitch deathTrooperToggle = new() { OnContent = "On", OffContent = "Off" };
     readonly Border deathTrooperRow = new();
 
-    // Host Gameplay Controls (#20)
+    // Host Gameplay Controls (#20 + v2.2 Level 12 ULTRAKILL Theater Scale)
+    readonly Dictionary<string, ToggleButton> theaterPills = new();
     readonly Dictionary<string, ToggleButton> chaosPills = new();
     readonly Dictionary<string, ToggleButton> seafPills = new();
     readonly ToggleSwitch corpseCleanupToggle = new() { OnContent = "On", OffContent = "Off" };
@@ -1364,7 +1365,30 @@ public sealed class ForgeShellWindow : Window
         drawerVisualExtrasSection.Children.Add(deltaRow);
         drawerVisualExtrasSection.Children.Add(deathTrooperRow);
 
-        // Advanced 3: Host Gameplay Controls (#20)
+        // Advanced 3: Host Gameplay Controls (#20 + v2.2 Level 12 ULTRAKILL Theater Scale)
+        var theaterWrap = new UniformGrid { Columns = 2 };
+        var theaterSpecs = new[]
+        {
+            ("standard", "Standard (D1–11)"),
+            ("clone-wars", "L12 ULTRAKILL · Clone Wars")
+        };
+        for (int i = 0; i < theaterSpecs.Length; i++)
+        {
+            var (id, label) = theaterSpecs[i];
+            var pill = BuildSegmentedPill(label, i < theaterSpecs.Length - 1);
+            pill.FontSize = 11;
+            AutomationProperties.SetAutomationId(pill, $"TheaterPill-{id}");
+            pill.Click += async (_, _) =>
+            {
+                if (updatingControls) return;
+                UiSoundEffects.PlayButtonBlip();
+                var s = host.GetHomeState();
+                await host.UpdateHostMutatorsAsync(s.HostChaosIntensity, s.HostHeavySeaf, s.HostFasterCorpseCleanup, id);
+            };
+            theaterPills[id] = pill;
+            theaterWrap.Children.Add(pill);
+        }
+
         var chaosWrap = new UniformGrid { Columns = 3 };
         var chaosSpecs = new[] { ("off", "Off"), ("standard", "Standard"), ("total-war", "Total War") };
         for (int i = 0; i < chaosSpecs.Length; i++)
@@ -1376,7 +1400,7 @@ public sealed class ForgeShellWindow : Window
                 if (updatingControls) return;
                 UiSoundEffects.PlayButtonBlip();
                 var s = host.GetHomeState();
-                await host.UpdateHostMutatorsAsync(id, s.HostHeavySeaf, s.HostFasterCorpseCleanup);
+                await host.UpdateHostMutatorsAsync(id, s.HostHeavySeaf, s.HostFasterCorpseCleanup, s.HostTheaterPreset);
             };
             chaosPills[id] = pill;
             chaosWrap.Children.Add(pill);
@@ -1393,7 +1417,7 @@ public sealed class ForgeShellWindow : Window
                 if (updatingControls) return;
                 UiSoundEffects.PlayButtonBlip();
                 var s = host.GetHomeState();
-                await host.UpdateHostMutatorsAsync(s.HostChaosIntensity, id, s.HostFasterCorpseCleanup);
+                await host.UpdateHostMutatorsAsync(s.HostChaosIntensity, id, s.HostFasterCorpseCleanup, s.HostTheaterPreset);
             };
             seafPills[id] = pill;
             seafWrap.Children.Add(pill);
@@ -1404,7 +1428,7 @@ public sealed class ForgeShellWindow : Window
             if (updatingControls) return;
             UiSoundEffects.PlayButtonBlip();
             var s = host.GetHomeState();
-            await host.UpdateHostMutatorsAsync(s.HostChaosIntensity, s.HostHeavySeaf, corpseCleanupToggle.IsChecked == true);
+            await host.UpdateHostMutatorsAsync(s.HostChaosIntensity, s.HostHeavySeaf, corpseCleanupToggle.IsChecked == true, s.HostTheaterPreset);
         };
 
         var hostCard = new Border
@@ -1420,11 +1444,14 @@ public sealed class ForgeShellWindow : Window
                 Children =
                 {
                     ForgeTheme.Label("Applies when you host missions · Squad match code stays identical.", 11, ForgeTheme.TextSecondary),
+                    ForgeTheme.Label("Theater Scale (Experimental)", 11.5, ForgeTheme.ClonesAccent, FontWeight.SemiBold),
+                    theaterWrap,
+                    ForgeTheme.Label("L12 ULTRAKILL unlocks a 2.79 km² map, 2–3k hybrid Clone Wars battalions, and 0.0s turbo corpse cleanup.", 10.5, ForgeTheme.TextSecondary),
                     ForgeTheme.Label("Chaos Invasions", 11.5, ForgeTheme.TextPrimary, FontWeight.SemiBold),
                     chaosWrap,
                     ForgeTheme.Label("Heavy SEAF Reinforcements", 11.5, ForgeTheme.TextPrimary, FontWeight.SemiBold),
                     seafWrap,
-                    BuildSwitchRow("Faster Corpse Cleanup", "Clears fallen bodies sooner to protect D10–11 FPS.", corpseCleanupToggle)
+                    BuildSwitchRow("Faster Corpse Cleanup", "Clears fallen bodies sooner to protect D10–12 FPS.", corpseCleanupToggle)
                 }
             }
         };
@@ -2449,7 +2476,8 @@ public sealed class ForgeShellWindow : Window
             s.HostHeavySeaf,
             s.HostFasterCorpseCleanup,
             s.SquidSkin,
-            s.DeathTrooperVoice);
+            s.DeathTrooperVoice,
+            s.HostTheaterPreset);
         customizeOpenButton.Content = s.Mode == "regular" ? "Host Rules ▸" : "Customize ▸";
         customizeOpenButton.IsVisible = true;
         customizeOpenButton.IsEnabled = !s.ControlsLocked;
@@ -2583,6 +2611,16 @@ public sealed class ForgeShellWindow : Window
             deathTrooperRow.IsVisible = s.Mode == "empire";
             deathTrooperToggle.IsChecked = s.DeathTrooperVoice;
             deathTrooperToggle.IsEnabled = !s.ControlsLocked;
+
+            bool isUltrakillTheater = HostMutatorConfig.IsUltrakillTheater(s.HostTheaterPreset, s.HostChaosIntensity);
+            foreach (var (id, pill) in theaterPills)
+            {
+                bool on = id == "clone-wars" ? isUltrakillTheater : !isUltrakillTheater;
+                pill.IsChecked = on;
+                pill.Background = on ? ForgeTheme.BgSelected : ForgeTheme.BgCanvas;
+                pill.BorderBrush = on ? ForgeTheme.ClonesAccent : ForgeTheme.BorderSubtle;
+                pill.IsEnabled = !s.ControlsLocked;
+            }
 
             foreach (var (id, pill) in chaosPills)
             {

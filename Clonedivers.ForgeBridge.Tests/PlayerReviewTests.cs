@@ -316,18 +316,82 @@ internal static class PlayerReviewTests
                 }
             }
             finally { HellForgeWarbonds.AnyProcessNamed = prevProcProbe; }
+
+            // v2.2.0 Linux theater switching synchronizes Smarter SEAF & Guard Dogs SEAF Safety companion options symmetrically.
+            official.IncludeGameplayMods = true;
+            official.SmarterSeafAllOn = true;
+            official.GuardDogsSeafSafetyOn = true;
+            official.ModPackCalls.Clear();
+            var ukPlayer = new PlayerCommands(root, official, backend: Backend, reviewWarbondsWithStatus: _ => Task.FromResult<int?>(0))
+            {
+                UtcNow = () => now, CaptureBlockCheck = () => null, SteamUserProbe = () => "active:111"
+            };
+            await ukPlayer.RunAsync(["select-mode", "--mode", "regular", "--delta", "yes", "--texture", "full", "--droids", "yes", "--covenant", "no", "--theater", "clone-wars"], CancellationToken.None);
+            var ukStatus = await ukPlayer.RunAsync(["player-status"], CancellationToken.None);
+            check(!official.SmarterSeafAllOn && !official.GuardDogsSeafSafetyOn &&
+                  official.ModPackCalls.Contains($"mod-pack --id {HellForgePreset.SmarterSeaf} --all no") &&
+                  official.ModPackCalls.Contains($"mod-pack --id {HellForgePreset.GuardDogs} --option SEAF Safety --on no") &&
+                  ukStatus.GetProperty("ready").GetBoolean(),
+                  "v2.2.0 Linux select-mode --theater clone-wars suppresses Smarter SEAF & Guard Dogs SEAF Safety and stays ready");
+
+            official.ModPackCalls.Clear();
+            await ukPlayer.RunAsync(["select-mode", "--mode", "regular", "--delta", "yes", "--texture", "full", "--droids", "yes", "--covenant", "no"], CancellationToken.None);
+            var stdStatus = await ukPlayer.RunAsync(["player-status"], CancellationToken.None);
+            check(official.SmarterSeafAllOn && official.GuardDogsSeafSafetyOn &&
+                  official.ModPackCalls.Contains($"mod-pack --id {HellForgePreset.SmarterSeaf} --all yes") &&
+                  official.ModPackCalls.Contains($"mod-pack --id {HellForgePreset.GuardDogs} --option SEAF Safety --on yes") &&
+                  stdStatus.GetProperty("ready").GetBoolean(),
+                  "v2.2.0 Linux select-mode returning to Standard restores Smarter SEAF & Guard Dogs SEAF Safety and stays ready");
+
+            // Injected failure during Clone Wars -> Standard restoration retries cleanly on repeated Standard select-mode AND across fresh bridge restart + play!
+            await ukPlayer.RunAsync(["select-mode", "--mode", "regular", "--delta", "yes", "--texture", "full", "--droids", "yes", "--covenant", "no", "--theater", "clone-wars"], CancellationToken.None);
+            official.FailModPackRemaining = 1;
+            var failedDisarm = false;
+            try { await ukPlayer.RunAsync(["select-mode", "--mode", "regular", "--delta", "yes", "--texture", "full", "--droids", "yes", "--covenant", "no"], CancellationToken.None); }
+            catch (IOException) { failedDisarm = true; }
+            check(failedDisarm && !official.GuardDogsSeafSafetyOn, "injected mod-pack failure leaves Standard companion restoration incomplete");
+            await ukPlayer.RunAsync(["select-mode", "--mode", "regular", "--delta", "yes", "--texture", "full", "--droids", "yes", "--covenant", "no"], CancellationToken.None);
+            check(official.SmarterSeafAllOn && official.GuardDogsSeafSafetyOn,
+                "repeating Standard select-mode after failed disarm retries companion restoration until reconciled");
+
+            // Simulate bridge restart while companions are still suppressed on disk -> Standard play repairs before PlayRegularAsync!
+            official.SmarterSeafAllOn = false;
+            official.GuardDogsSeafSafetyOn = false;
+            var restartedBridge = new PlayerCommands(root, official, backend: Backend, reviewWarbondsWithStatus: _ => Task.FromResult<int?>(0))
+            {
+                UtcNow = () => now, CaptureBlockCheck = () => null, SteamUserProbe = () => "active:111",
+                EnsureAccount = _ => Task.FromResult(HellForgeAccount.Profile)
+            };
+            await restartedBridge.RunAsync(["select-mode", "--mode", "regular", "--delta", "yes", "--texture", "full", "--droids", "yes", "--covenant", "no"], CancellationToken.None);
+            await restartedBridge.RunAsync(["play", "--profile", "default"], CancellationToken.None);
+            check(official.SmarterSeafAllOn && official.GuardDogsSeafSafetyOn && official.Running,
+                "fresh bridge restart in Standard mode repairs suppressed ULTRAKILL companions during play before preset validation");
+            official.Running = false;
+            official.IncludeGameplayMods = false;
         }
         finally { Directory.Delete(root, true); }
     }
 
     sealed class Commands(string root) : IHellForgeCommands
     {
-        internal bool Running, BadProfile, IncludeGameplayMods;
+        internal bool Running, BadProfile, IncludeGameplayMods, SmarterSeafAllOn = true, GuardDogsSeafSafetyOn = true;
+        internal int FailModPackRemaining;
+        internal readonly List<string> ModPackCalls = [];
         internal int Calls, StatusCalls, PlayCalls, StatusRunningOnCall;
         public Task<JsonElement> RunAsync(IReadOnlyList<string> args, CancellationToken ct = default)
         {
             Calls++;
             if (args[0] == "play") { PlayCalls++; Running = true; return Task.FromResult(JsonSerializer.SerializeToElement(new { @event = "started" })); }
+            if (args[0] == "mod-pack")
+            {
+                if (FailModPackRemaining > 0) { FailModPackRemaining--; throw new IOException("injected mod-pack failure"); }
+                ModPackCalls.Add(string.Join(" ", args));
+                if (args.Count >= 5 && args[2] == HellForgePreset.SmarterSeaf && args[3] == "--all")
+                    SmarterSeafAllOn = args[4] == "yes";
+                else if (args.Count >= 7 && args[2] == HellForgePreset.GuardDogs && args[4] == "SEAF Safety")
+                    GuardDogsSeafSafetyOn = args[6] == "yes";
+                return Task.FromResult(JsonSerializer.SerializeToElement(new { ok = true }));
+            }
             if (args[0] == "profiles")
                 return Task.FromResult(JsonSerializer.SerializeToElement(new { profiles = new[] { new { name = "default", template = BadProfile ? "unlock-all" : "starter" } } }));
             if (args[0] == "settings")
@@ -370,9 +434,11 @@ internal static class PlayerReviewTests
                     new { name = "Intelligence", on = true },
                     new { name = "Safety", on = true },
                     new { name = "Sentry Safety", on = true },
-                    new { name = "SEAF Safety", on = true }
+                    new { name = "SEAF Safety", on = GuardDogsSeafSafetyOn }
                 }
-                : null;
+                : id == HellForgePreset.SmarterSeaf
+                    ? new object[] { new { name = "Smarter SEAF", on = SmarterSeafAllOn } }
+                    : null;
             return (object)new { id, name, enabled = true, folder, tags = new[] { "gameplay" }, version, options };
         }).ToArray();
     }

@@ -440,6 +440,62 @@ public sealed record PackSizePreview(
 
 public static class PackSizeEstimator
 {
+    static readonly System.Collections.Concurrent.ConcurrentDictionary<string, (long ExpiresUtcTicks, PackSizePreview Preview)> MemoCache = new(StringComparer.Ordinal);
+
+    /// <summary>Directory-stamp memoized wrapper around <see cref="Estimate"/> for 5s UI background polls.</summary>
+    public static PackSizePreview EstimateMemoized(
+        bool isRegular,
+        HellForgePack.Selection? selection,
+        IEnumerable<string> localSearchFolders,
+        bool isAlreadyApplied = false,
+        string? cacheRoot = null)
+    {
+        if (isRegular || selection == null)
+            return Estimate(isRegular, selection, localSearchFolders, isAlreadyApplied, cacheRoot);
+
+        var foldersList = localSearchFolders.ToList();
+        var key = BuildMemoKey(selection, foldersList, isAlreadyApplied, cacheRoot);
+        var nowTicks = DateTime.UtcNow.Ticks;
+        if (MemoCache.TryGetValue(key, out var hit) && nowTicks < hit.ExpiresUtcTicks)
+            return hit.Preview;
+
+        var computed = Estimate(false, selection, foldersList, isAlreadyApplied, cacheRoot);
+        if (MemoCache.Count > 64) MemoCache.Clear();
+        MemoCache[key] = (DateTime.UtcNow.AddSeconds(5).Ticks, computed);
+        return computed;
+    }
+
+    static string BuildMemoKey(HellForgePack.Selection selection, IReadOnlyList<string> folders, bool applied, string? cacheRoot)
+    {
+        var sb = new System.Text.StringBuilder(256);
+        sb.Append(selection.Mode).Append('|').Append(selection.Texture).Append('|').Append(selection.ManifestSha256).Append('|').Append(selection.Files.Count).Append('|').Append(applied);
+        foreach (var opt in selection.Options.OrderBy(o => o.Key, StringComparer.Ordinal))
+            if (opt.Value) sb.Append('|').Append(opt.Key);
+        foreach (var folder in folders)
+        {
+            if (string.IsNullOrWhiteSpace(folder)) continue;
+            try
+            {
+                var di = new DirectoryInfo(folder);
+                sb.Append('|').Append(di.FullName).Append(':').Append(di.Exists ? di.LastWriteTimeUtc.Ticks : -1L);
+            }
+            catch { }
+        }
+        if (!string.IsNullOrWhiteSpace(cacheRoot))
+        {
+            foreach (var sub in new[] { "appearance-downloads", "exports", "backups" })
+            {
+                try
+                {
+                    var di = new DirectoryInfo(Path.Combine(cacheRoot, sub));
+                    sb.Append('|').Append(sub).Append(':').Append(di.Exists ? di.LastWriteTimeUtc.Ticks : -1L);
+                }
+                catch { }
+            }
+        }
+        return sb.ToString();
+    }
+
     /// <summary>Fast non-hashing estimate using exact size matching across known local cache/mod folders, including resumable partial downloads.</summary>
     public static PackSizePreview Estimate(
         bool isRegular,
@@ -651,13 +707,14 @@ public static class PackSizeEstimator
 /// <summary>Shared concise tactical status copy, loadout summaries, hardware labels, and disk usage lines across Windows and Linux.</summary>
 public static class ForgeTacticalCopy
 {
-    public static string ReadyDetail(string mode, bool firstLaunch = false)
+    public static string ReadyDetail(string mode, bool firstLaunch = false, string? hostTheaterPreset = null)
     {
+        var dRange = HostMutatorConfig.IsUltrakillTheater(hostTheaterPreset) ? "D12 ULTRAKILL ready" : "D1–11 ready";
         var line = mode switch
         {
-            "empire" => "Imperial garrison online · D1–11 ready · Steam co-op enabled",
-            "regular" => "Super Earth command online · D1–11 ready · Steam co-op enabled",
-            _ => "Venator in orbit · D1–11 ready · Steam co-op enabled"
+            "empire" => $"Imperial garrison online · {dRange} · Steam co-op enabled",
+            "regular" => $"Super Earth command online · {dRange} · Steam co-op enabled",
+            _ => $"Venator in orbit · {dRange} · Steam co-op enabled"
         };
         return firstLaunch ? line + " · Windows may ask for network approval once" : line;
     }
@@ -681,9 +738,10 @@ public static class ForgeTacticalCopy
         string hostHeavySeaf = "standard",
         bool hostFasterCorpseCleanup = true,
         string? squidSkin = null,
-        bool deathTrooperVoice = false)
+        bool deathTrooperVoice = false,
+        string? hostTheaterPreset = null)
     {
-        var hostNote = FormatHostMutatorNote(hostChaosIntensity, hostHeavySeaf, hostFasterCorpseCleanup);
+        var hostNote = FormatHostMutatorNote(hostChaosIntensity, hostHeavySeaf, hostFasterCorpseCleanup, hostTheaterPreset);
         if (string.Equals(mode, "regular", StringComparison.OrdinalIgnoreCase))
         {
             const string baseRegular = "Original Helldivers 2 visuals · Pinned gameplay preset";
@@ -744,8 +802,11 @@ public static class ForgeTacticalCopy
             : $"{mixPart} · {tierPart} · {hostNote}";
     }
 
-    public static string FormatHostMutatorNote(string chaosIntensity, string heavySeaf, bool fasterCorpseCleanup)
+    public static string FormatHostMutatorNote(string chaosIntensity, string heavySeaf, bool fasterCorpseCleanup, string? theaterPreset = null)
     {
+        if (HostMutatorConfig.IsUltrakillTheater(theaterPreset, chaosIntensity))
+            return "L12 ULTRAKILL · Clone Wars (2–3k)";
+
         var notes = new List<string>(3);
         if (!string.Equals(chaosIntensity, "standard", StringComparison.OrdinalIgnoreCase))
             notes.Add(chaosIntensity == "total-war" ? "Chaos: Total War" : "Chaos: Off");

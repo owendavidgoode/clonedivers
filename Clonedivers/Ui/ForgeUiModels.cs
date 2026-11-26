@@ -59,7 +59,8 @@ public sealed record ForgeHomeState(
     ForgeSelfInstallBannerState? SelfInstallBanner = null,
     bool MinimizeToTray = false,
     string SquidSkin = "mixed-covenant",
-    bool DeathTrooperVoice = false);
+    bool DeathTrooperVoice = false,
+    string HostTheaterPreset = "standard");
 
 public sealed record ForgeSetupState(
     int Step, // 1..4
@@ -145,7 +146,7 @@ public interface IForgeUiHost : IAsyncDisposable
     Task SelectModeAsync(string mode);
     Task UpdateCustomizationAsync(string enemySkin, bool deltaSquad, bool covenant, string texture, string? squidSkin = null, bool? deathTrooperVoice = null);
     Task SetPerformanceTierAsync(string tierId);
-    Task UpdateHostMutatorsAsync(string chaosIntensity, string heavySeaf, bool fasterCorpseCleanup);
+    Task UpdateHostMutatorsAsync(string chaosIntensity, string heavySeaf, bool fasterCorpseCleanup, string? theaterPreset = null);
     Task ApplyCustomizationNowAsync();
     Task TriggerPrimaryActionAsync();
     Task TriggerSecondaryActionAsync();

@@ -2,8 +2,8 @@
   "format": 1,
   "id": "clonedivers.chaos-invasions",
   "name": "Chaos Invasions",
-  "version": "0.3.5",
-  "description": "Playable cross-faction Chaos Mode (0.3.5): multi-mission foreign package refcount re-arm, co-op joiner-safe foreign squad replication, paced HF_STATE_MISSION preloading (D11 Mega City OOM-safe), mutual-hostility perception, and clonedivers-host-options.json support.",
+  "version": "0.4.0",
+  "description": "Playable cross-faction Chaos Mode & Level 12 ULTRAKILL Clone Wars Theater (0.4.0): Havok ragdoll/body pool uncap, Wwise 512-voice uncap, 942m playable battlefield radius, 2,000-3,000 unit Hybrid Real+Virtual Battalion theater, O(1) bulk perception/tracker, and multi-mission refcount re-arm.",
   "gameplay": true,
   "code": { "dll": "chaos_invasions.dll", "sdk": 16, "game": "25480438" }
 }

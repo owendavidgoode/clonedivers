@@ -79,6 +79,10 @@ static __declspec(noinline) uint32_t LeafObserved(void *dst,const void *factor,c
 }
 static __declspec(noinline) uint32_t RenderRemoveObserved(void *world,const void *packet,void *a3)
 {
+    if(coopDynamicMode && __atomic_load_n(&coopFast.retire_handle_count,__ATOMIC_ACQUIRE)==0u) {
+        gw_remove_fn fast_next=(gw_remove_fn)InterlockedCompareExchangePointer(&writer.remove_next,NULL,NULL);
+        return fast_next ? fast_next(world,packet,a3) : 0u;
+    }
     uint32_t entry_csr=_mm_getcsr();
     DWORD entry_error=GetLastError();
     uint32_t handle=0;

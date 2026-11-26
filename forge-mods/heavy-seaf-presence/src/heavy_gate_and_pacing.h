@@ -68,12 +68,19 @@ static inline int HeavyLandingGateStep(HeavyLandingGate* g, uint32_t state, int 
     return g->grace_ready ? 1 : 0;
 }
 
-/* Maps clonedivers-host-options.json "heavySeaf" mode ("standard" / "heavy" / "constant")
- * onto Heavy SEAF runtime parameters. Constant drops ALWAYS default to 0 unless "constant" is selected! */
+/* Maps clonedivers-host-options.json "heavySeaf" mode ("standard" / "heavy" / "constant" / "clone-wars")
+ * onto Heavy SEAF runtime parameters. Constant drops ALWAYS default to 0 unless "constant" or "clone-wars" is selected! */
 static inline void HeavyApplyHostMode(CdHeavySeafMode mode, int* out_constant, int* out_support_squads,
                                       int* out_interval_seconds, int* out_squads_per_wave, int* out_extra_squads)
 {
-    if (mode == CD_HEAVY_SEAF_CONSTANT) {
+    if (mode == CD_HEAVY_SEAF_CLONE_WARS) {
+        if (out_constant) *out_constant = 1;
+        /* Use 1-slot zero-maintenance native 116u Clone Trooper squads bounded inside the 1,024 GwNav::Bot budget. */
+        if (out_support_squads) *out_support_squads = 0;
+        if (out_interval_seconds) *out_interval_seconds = 24;
+        if (out_squads_per_wave) *out_squads_per_wave = 2;
+        if (out_extra_squads) *out_extra_squads = 10;
+    } else if (mode == CD_HEAVY_SEAF_CONSTANT) {
         if (out_constant) *out_constant = 1;
         if (out_support_squads) *out_support_squads = 1;
         if (out_interval_seconds) *out_interval_seconds = 90;

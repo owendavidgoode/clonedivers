@@ -2,7 +2,7 @@
   "format": 1,
   "id": "clonedivers.empire-lego-yoda",
   "name": "Empire LEGO Yoda Death",
-  "version": "0.2.1",
+  "version": "0.2.2",
   "description": "4-player co-op per-slot local WAV death detection on confirmed Empire LEGO Stormtrooper or Clonedivers LEGO Clone torso assets; build 25480438.",
   "gameplay": false,
   "coop": "per-player",

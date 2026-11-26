@@ -101,6 +101,12 @@ static int LocalSlot(HfMod* mod, Snapshot* out, uint32_t* lifecycle, int* slotOu
     return found == 1 && matchedSlot >= 0 && out->player && out->player != UINT32_MAX;
 }
 
+static uintptr_t s_kitCacheMgr;
+static uint32_t s_kitCacheCount;
+static uint32_t s_kitCacheId;
+static uintptr_t s_kitCachePtr;
+static int s_kitCacheValid;
+
 static int Armor(Snapshot* out)
 {
     uintptr_t manager, slots, descriptor, kits;
@@ -125,16 +131,36 @@ static int Armor(Snapshot* out)
         if (out->kit == visuals[v].kit && out->body == visuals[v].body && proofs[v].valid)
         { out->visual = (int)v; break; }
     if (out->visual < 0 || !Pointer(manager, &kits) || !Read(manager + 8, &kitCount, 4) || !kitCount || kitCount > 2048) return 0;
+    if (s_kitCacheValid && saved.avatar != 0 && saved.kit == out->kit &&
+        s_kitCacheMgr == kits && s_kitCacheCount == kitCount && s_kitCacheId == out->kit)
+    {
+        uint32_t cachedId = 0, cachedType = 0;
+        if (Read(s_kitCachePtr, &cachedId, 4) && cachedId == out->kit &&
+            Read(s_kitCachePtr + 40, &cachedType, 4) && cachedType == 0)
+            return 1;
+        s_kitCacheValid = 0;
+    }
     int matches = 0;
+    uintptr_t matchedKit = 0;
     for (uint32_t i = 0; i < kitCount; i++)
     {
         uintptr_t kit; uint32_t id, type;
         if (!Pointer(kits + 8u * i, &kit) || !Read(kit, &id, 4)) return 0;
         if (id != out->kit) continue;
         if (!Read(kit + 40, &type, 4) || type != 0) return 0;
+        matchedKit = kit;
         matches++;
     }
-    return matches == 1;
+    if (matches == 1)
+    {
+        s_kitCacheMgr = kits;
+        s_kitCacheCount = kitCount;
+        s_kitCacheId = out->kit;
+        s_kitCachePtr = matchedKit;
+        s_kitCacheValid = 1;
+        return 1;
+    }
+    return 0;
 }
 
 static int Life(HfMod* mod, uint32_t avatar, uint32_t* life)
@@ -149,6 +175,35 @@ static int Life(HfMod* mod, uint32_t avatar, uint32_t* life)
         uintptr_t descriptor; uint32_t entity;
         if (Pointer(descriptors + 8u * lastIndex, &descriptor) && Read(descriptor + 8, &entity, 4) && entity == avatar)
             return Read(records + 0x1B8u * lastIndex + 0x19C, life, 4);
+    }
+    /* Fast O(1) HealthManager + 0x1030 hash-map lookup when populated (3,000-unit safe), falling back cleanly if unpopulated. */
+    uintptr_t buckets = 0;
+    uint32_t hcap = 0, hempty = 0, hmult = 0;
+    if (count > 0 && Pointer(health + 0x1030, &buckets) &&
+        Read(health + 0x1038, &hcap, 4) && hcap > 0 && hcap <= 262144u && (hcap & (hcap - 1u)) == 0u &&
+        Read(health + 0x103C, &hempty, 4) && Read(health + 0x1040, &hmult, 4))
+    {
+        uint32_t start = avatar * hmult;
+        uint32_t probes = hcap < 256u ? hcap : 256u;
+        for (uint32_t p = 0; p < probes; p++)
+        {
+            uint32_t entry[2];
+            if (!Read(buckets + (uintptr_t)((start + p) & (hcap - 1u)) * 8u, entry, 8)) break;
+            if (entry[0] == avatar)
+            {
+                uint32_t idx = entry[1];
+                uintptr_t descriptor; uint32_t entity;
+                if (idx < count && Pointer(descriptors + 8u * idx, &descriptor) &&
+                    Read(descriptor + 8, &entity, 4) && entity == avatar &&
+                    Read(records + 0x1B8u * idx + 0x19C, life, 4))
+                {
+                    lastHealth = health; lastAvatar = avatar; lastIndex = idx;
+                    return 1;
+                }
+                break;
+            }
+            if (entry[0] == hempty) break;
+        }
     }
     int found = 0;
     for (uint32_t i = 0; i < count; i++)
@@ -195,6 +250,7 @@ static void SyncActiveSlotState(int sidx, const Snapshot* now)
 static void ClearSavedState(void)
 {
     memset(&saved, 0, sizeof saved);
+    s_kitCacheValid = 0;
     if (activeSlot >= 0 && (unsigned)activeSlot < YODA_SLOTS)
     {
         slotStates[activeSlot].active = 0;
@@ -313,10 +369,11 @@ static void Down(HfMod* mod, const HfPlayerEvent* event, void* user)
 
 static void State(HfMod* mod, const HfStateEvent* event, void* user)
 {
-    (void)user;
+    (void)mod; (void)user;
     if (event->to != HF_STATE_MISSION)
     {
         memset(&saved, 0, sizeof saved);
+        s_kitCacheValid = 0;
         memset(slotStates, 0, sizeof slotStates);
         memset(consumedRing, 0, sizeof consumedRing);
         consumedRingCursor = 0; activeSlot = -1;
@@ -358,7 +415,7 @@ HF_MOD_EXPORT int hellforge_mod_init(const HfApi* api, HfMod* mod)
     if (hf_on_game_loaded(mod, Loaded, NULL) || hf_on_player_down(mod, Down, NULL, 0) ||
         hf_on_state(mod, State, NULL, 0) || hf_on_game_thread(mod, Tick, NULL)) return 1;
     ready = 1;
-    hf->log(mod, "armed: version=0.2.0 LEGO torso variants=%d/%zu; 4-player co-op per-slot local death only", qualified, visualCount);
+    hf->log(mod, "armed: version=0.2.2 LEGO torso variants=%d/%zu; 4-player co-op per-slot local death only", qualified, visualCount);
     hf->set_status(mod, "waiting for a confirmed local LEGO death (Empire / Clonedivers)");
     return 0;
 }

@@ -16,11 +16,19 @@ inline void require(bool value,const char* why){if(!value)throw std::runtime_err
 template<class T> T read(uintptr_t at){T v{};require(at>=65536&&!api->read(at,&v,sizeof v),"unreadable game data");return v;}
 inline uintptr_t ptr(uintptr_t at){auto p=read<uintptr_t>(at);require(p>=65536&&p<0x800000000000ull,"invalid game pointer");return p;}
 inline std::vector<unsigned char> bytes(uintptr_t at,size_t n){std::vector<unsigned char> b(n);require(!api->read(at,b.data(),n),"unreadable record");return b;}
-inline bool writable(uintptr_t at,size_t size){MEMORY_BASIC_INFORMATION m{};return VirtualQuery((void*)at,&m,sizeof m)==sizeof m&&m.State==MEM_COMMIT&&m.Type==MEM_PRIVATE&&m.Protect==PAGE_READWRITE&&at+size<=(uintptr_t)m.BaseAddress+m.RegionSize;}
+inline bool writable(uintptr_t at,size_t size){
+ static thread_local uintptr_t cached_base=0,cached_end=0;
+ if(at>=cached_base&&at+size<=cached_end)return true;
+ MEMORY_BASIC_INFORMATION m{};
+ if(VirtualQuery((void*)at,&m,sizeof m)==sizeof m&&m.State==MEM_COMMIT&&m.Type==MEM_PRIVATE&&m.Protect==PAGE_READWRITE&&at+size<=(uintptr_t)m.BaseAddress+m.RegionSize){
+  cached_base=(uintptr_t)m.BaseAddress;cached_end=cached_base+m.RegionSize;return true;
+ }
+ return false;
+}
 inline void data_write(uintptr_t at,const void* data,size_t size){
  require(writable(at,size),"target is not private writable data");
- SIZE_T done=0;require(WriteProcessMemory(GetCurrentProcess(),(void*)at,data,size,&done)&&done==size,"instance write failed");
- auto actual=bytes(at,size);require(!memcmp(actual.data(),data,size),"instance write readback failed");
+ memcpy((void*)at,data,size);
+ require(!memcmp((const void*)at,data,size),"instance write readback failed");
 }
 struct Change{uintptr_t at;std::vector<unsigned char> before,after;};
 inline void transaction(const std::vector<Change>& changes){

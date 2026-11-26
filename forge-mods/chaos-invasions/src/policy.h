@@ -1,5 +1,5 @@
-/* Chaos Invasions 0.3.4 policy, native pins, geometry/cap/map guards, co-op sync packets, and faction helpers.
- * Pure C helpers here have no engine dependencies and are directly unit-tested offline. */
+/* Chaos Invasions 0.4.0 policy, native pins, geometry/cap/map guards, co-op sync packets, and faction helpers.
+ * Pure C helpers have no engine dependencies and are directly unit-tested offline. */
 #ifndef CHAOS_POLICY_H
 #define CHAOS_POLICY_H
 
@@ -33,8 +33,8 @@ static ChaosConfig ChaosDefaults(void)
     return c;
 }
 
-/* Applies Clonedivers Launcher host intensity preset ("off" / "standard" / "total-war")
- * within bounded ChaosOption / menu_bridge.lua invariants while keeping mod ContentHash identical. */
+/* Applies Clonedivers Launcher host intensity preset ("off" / "standard" / "total-war" / "ultrakill" / "clone-wars")
+ * while keeping mod ContentHash identical across presets. */
 static inline void ChaosApplyHostIntensity(ChaosConfig* out, const ChaosConfig* base_ini, CdChaosIntensity mode)
 {
     ChaosConfig base = base_ini ? *base_ini : ChaosDefaults();
@@ -52,6 +52,17 @@ static inline void ChaosApplyHostIntensity(ChaosConfig* out, const ChaosConfig* 
         out->bots_weight = 100;
         out->squids_weight = 100;
         out->bugs_weight = 100;
+    } else if (mode == CD_CHAOS_ULTRAKILL || mode == CD_CHAOS_CLONE_WARS) {
+        out->enabled = 1;
+        out->cooldown = 12;
+        out->grace = 15;
+        out->total_cap = 820;
+        out->faction_cap = 620;
+        out->squad_size = 6;
+        out->mission_budget = 15000;
+        out->bots_weight = (mode == CD_CHAOS_CLONE_WARS) ? 200 : 140;
+        out->squids_weight = (mode == CD_CHAOS_CLONE_WARS) ? 60 : 120;
+        out->bugs_weight = (mode == CD_CHAOS_CLONE_WARS) ? 60 : 140;
     } else {
         out->enabled = 1;
     }
@@ -128,12 +139,12 @@ static int ChaosWeight(const ChaosConfig* c, int type, int difficulty)
     return base[type] * factors[difficulty <= 3 ? 0 : difficulty <= 6 ? 1 : 2][type] / 100;
 }
 
-static inline int ChaosChoose(const ChaosConfig* c, int native, int difficulty, uint32_t draw)
+static inline int ChaosChooseEx(const ChaosConfig* c, int native, int difficulty, int allow_native, uint32_t draw)
 {
     int weights[3], total = 0;
     if (native < 0 || native >= 3) return -1;
     for (int i = 0; i < 3; i++) {
-        weights[i] = (i == native) ? 0 : ChaosWeight(c, i, difficulty);
+        weights[i] = (!allow_native && i == native) ? 0 : ChaosWeight(c, i, difficulty);
         total += weights[i];
     }
     if (!total) return -1;
@@ -143,6 +154,11 @@ static inline int ChaosChoose(const ChaosConfig* c, int native, int difficulty, 
         at -= weights[i];
     }
     return -1;
+}
+
+static inline int ChaosChoose(const ChaosConfig* c, int native, int difficulty, uint32_t draw)
+{
+    return ChaosChooseEx(c, native, difficulty, 0, draw);
 }
 
 static inline int ChaosMinWaveSize(const ChaosConfig* c)
@@ -344,11 +360,15 @@ static inline int ChaosRefMapHasHeadroom(const uint8_t* entries, uint32_t capaci
 
 /* ---- Ground anchor spatial guard (Z up in Helldivers 2 world space) ---- */
 
-static int ChaosAnchorValidEx(const float anchor[3], const float target_player[3],
-                              const float (*living_players)[3], int living_count,
-                              float max_abs_dz)
+static int ChaosAnchorValidRange(const float anchor[3], const float target_player[3],
+                                 const float (*living_players)[3], int living_count,
+                                 float min_target_r, float max_target_r,
+                                 float min_all_r, float max_abs_dz)
 {
     if (!anchor || !target_player || !living_players || living_count <= 0) return 0;
+    if (!isfinite(min_target_r) || min_target_r <= 0.0f) min_target_r = 38.0f;
+    if (!isfinite(max_target_r) || max_target_r < min_target_r) max_target_r = 62.0f;
+    if (!isfinite(min_all_r) || min_all_r <= 0.0f) min_all_r = 28.0f;
     if (!isfinite(max_abs_dz) || max_abs_dz <= 0.0f) max_abs_dz = 12.0f;
     for (int i = 0; i < 3; i++) {
         if (!isfinite(anchor[i]) || fabsf(anchor[i]) > 50000.0f) return 0;
@@ -359,15 +379,23 @@ static int ChaosAnchorValidEx(const float anchor[3], const float target_player[3
     float dy = anchor[1] - target_player[1];
     float dz = anchor[2] - target_player[2];
     float d2 = dx * dx + dy * dy;
-    if (d2 < 38.0f * 38.0f || d2 > 62.0f * 62.0f || fabsf(dz) > max_abs_dz) return 0;
+    if (d2 < min_target_r * min_target_r || d2 > max_target_r * max_target_r || fabsf(dz) > max_abs_dz) return 0;
     for (int i = 0; i < living_count; i++) {
         float px = living_players[i][0], py = living_players[i][1], pz = living_players[i][2];
         if (!isfinite(px) || !isfinite(py) || !isfinite(pz)) continue;
         float pdx = anchor[0] - px;
         float pdy = anchor[1] - py;
-        if (pdx * pdx + pdy * pdy < 28.0f * 28.0f) return 0;
+        if (pdx * pdx + pdy * pdy < min_all_r * min_all_r) return 0;
     }
     return 1;
+}
+
+static int ChaosAnchorValidEx(const float anchor[3], const float target_player[3],
+                              const float (*living_players)[3], int living_count,
+                              float max_abs_dz)
+{
+    return ChaosAnchorValidRange(anchor, target_player, living_players, living_count,
+                                 38.0f, 62.0f, 28.0f, max_abs_dz);
 }
 
 static inline int ChaosAnchorValid(const float anchor[3], const float target_player[3],
@@ -454,9 +482,10 @@ static int ChaosEnemyFamily(uint64_t resource)
     return -1;
 }
 
-/* ---- Bounded Chaos population & reservation tracker ---- */
+/* ---- Bounded Chaos population & reservation tracker (O(1) hash-indexed for 3,000-unit theater) ---- */
 
-#define CHAOS_MAX_TRACKED 96
+#define CHAOS_MAX_TRACKED    4096
+#define CHAOS_TRACKED_HT_CAP 8192u
 
 typedef struct ChaosTrackedUnit {
     uint32_t entity;
@@ -469,6 +498,9 @@ typedef struct ChaosTrackedUnit {
 
 typedef struct ChaosTracker {
     ChaosTrackedUnit units[CHAOS_MAX_TRACKED];
+    uint16_t entity_ht[CHAOS_TRACKED_HT_CAP]; /* 0 = empty; slot + 1 when occupied */
+    int high_water;
+    int free_hint;
     int live[CHAOS_FACTIONS];
     int total_live;
     int reserved[CHAOS_FACTIONS];
@@ -476,6 +508,39 @@ typedef struct ChaosTracker {
 } ChaosTracker;
 
 typedef int (*ChaosAliveFn)(uint32_t entity, void* ctx);
+
+static inline uint32_t ChaosTrackHash_(uint32_t entity)
+{
+    uint32_t h = entity * 0x9E3779B1u;
+    h ^= h >> 16;
+    return h & (CHAOS_TRACKED_HT_CAP - 1u);
+}
+
+static inline void ChaosTrackerRebuildHt_(ChaosTracker* t)
+{
+    memset(t->entity_ht, 0, sizeof t->entity_ht);
+    int max_slot = -1;
+    int first_free = -1;
+    int limit = (t->high_water > 0 && t->high_water <= CHAOS_MAX_TRACKED) ? t->high_water : CHAOS_MAX_TRACKED;
+    for (int i = 0; i < limit; i++) {
+        if (!t->units[i].active) {
+            if (first_free < 0) first_free = i;
+            continue;
+        }
+        max_slot = i;
+        uint32_t mask = CHAOS_TRACKED_HT_CAP - 1u;
+        uint32_t idx = ChaosTrackHash_(t->units[i].entity);
+        for (uint32_t p = 0; p < CHAOS_TRACKED_HT_CAP; p++) {
+            uint32_t s = (idx + p) & mask;
+            if (t->entity_ht[s] == 0u) {
+                t->entity_ht[s] = (uint16_t)(i + 1);
+                break;
+            }
+        }
+    }
+    t->high_water = max_slot + 1;
+    t->free_hint = (first_free >= 0) ? first_free : t->high_water;
+}
 
 static void ChaosTrackerReset(ChaosTracker* t)
 {
@@ -486,7 +551,8 @@ static void ChaosTrackerRecount(ChaosTracker* t)
 {
     memset(t->live, 0, sizeof t->live);
     t->total_live = 0;
-    for (int i = 0; i < CHAOS_MAX_TRACKED; i++) {
+    int limit = (t->high_water > 0 && t->high_water <= CHAOS_MAX_TRACKED) ? t->high_water : CHAOS_MAX_TRACKED;
+    for (int i = 0; i < limit; i++) {
         if (!t->units[i].active) continue;
         int f = (int)t->units[i].faction;
         if (f >= 0 && f < CHAOS_FACTIONS) {
@@ -494,23 +560,34 @@ static void ChaosTrackerRecount(ChaosTracker* t)
             ++t->total_live;
         }
     }
+    ChaosTrackerRebuildHt_(t);
 }
 
 static void ChaosTrackerPrune(ChaosTracker* t, ChaosAliveFn alive_fn, void* ctx)
 {
-    for (int i = 0; i < CHAOS_MAX_TRACKED; i++) {
+    int changed = 0;
+    int limit = (t->high_water > 0 && t->high_water <= CHAOS_MAX_TRACKED) ? t->high_water : CHAOS_MAX_TRACKED;
+    for (int i = 0; i < limit; i++) {
         if (!t->units[i].active) continue;
         if (alive_fn && !alive_fn(t->units[i].entity, ctx)) {
             t->units[i].active = 0;
+            changed = 1;
         }
     }
-    ChaosTrackerRecount(t);
+    if (changed) ChaosTrackerRecount(t);
 }
 
 static int ChaosTrackerHasEntity(const ChaosTracker* t, uint32_t entity)
 {
-    for (int i = 0; i < CHAOS_MAX_TRACKED; i++)
-        if (t->units[i].active && t->units[i].entity == entity) return 1;
+    if (!t || entity == 0 || entity == 0xFFFFFFFFu || t->total_live <= 0) return 0;
+    uint32_t mask = CHAOS_TRACKED_HT_CAP - 1u;
+    uint32_t idx = ChaosTrackHash_(entity);
+    for (uint32_t p = 0; p < CHAOS_TRACKED_HT_CAP; p++) {
+        uint16_t v = t->entity_ht[(idx + p) & mask];
+        if (v == 0u) return 0;
+        const ChaosTrackedUnit* u = &t->units[(unsigned)v - 1u];
+        if (u->active && u->entity == entity) return 1;
+    }
     return 0;
 }
 
@@ -518,13 +595,26 @@ static int ChaosTrackerRecordSpawnAt(ChaosTracker* t, int faction, uint32_t enti
 {
     if (faction < 0 || faction >= CHAOS_FACTIONS || entity == 0 || entity == 0xFFFFFFFFu) return 0;
     if (ChaosTrackerHasEntity(t, entity)) return 0;
-    for (int i = 0; i < CHAOS_MAX_TRACKED; i++) {
+    int start = (t->free_hint >= 0 && t->free_hint < CHAOS_MAX_TRACKED) ? t->free_hint : 0;
+    for (int step = 0; step < CHAOS_MAX_TRACKED; step++) {
+        int i = (start + step) % CHAOS_MAX_TRACKED;
         if (!t->units[i].active) {
             t->units[i].entity = entity;
             t->units[i].faction = (uint8_t)faction;
             t->units[i].active = 1u;
             t->units[i].saw_health = 0u;
             t->units[i].spawn_age = now_age;
+            if (i + 1 > t->high_water) t->high_water = i + 1;
+            t->free_hint = i + 1;
+            uint32_t mask = CHAOS_TRACKED_HT_CAP - 1u;
+            uint32_t idx = ChaosTrackHash_(entity);
+            for (uint32_t p = 0; p < CHAOS_TRACKED_HT_CAP; p++) {
+                uint32_t s = (idx + p) & mask;
+                if (t->entity_ht[s] == 0u) {
+                    t->entity_ht[s] = (uint16_t)(i + 1);
+                    break;
+                }
+            }
             ++t->live[faction];
             ++t->total_live;
             if (consume_reservation && t->reserved[faction] > 0) --t->reserved[faction];

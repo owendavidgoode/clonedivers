@@ -37,6 +37,7 @@ void at_registry_init(at_walker_registry *reg, uintptr_t engine_base) {
     memset(reg, 0, sizeof(*reg));
     reg->engine_base = engine_base;
     reg->rmanager_vtable_graph = engine_base ? (engine_base + 0x16880B0ULL) : 0ULL;
+    reg->rmanager_vtable_mesh = engine_base ? (engine_base + 0x1688950ULL) : 0ULL;
     for (unsigned i = 0; i < AT_MAX_WALKERS; i++) {
         reg->slots[i].epoch = 1u;
     }
@@ -46,8 +47,10 @@ void at_registry_reset(at_walker_registry *reg) {
     if (!reg) return;
     uintptr_t eng = reg->engine_base;
     uintptr_t vt = reg->rmanager_vtable_graph;
+    uintptr_t mvt = reg->rmanager_vtable_mesh;
     at_registry_init(reg, eng);
     reg->rmanager_vtable_graph = vt;
+    reg->rmanager_vtable_mesh = mvt;
 }
 
 int at_read_unit_manager(
@@ -141,6 +144,7 @@ int at_read_atst_unit(
     out->meshes = meshes;
     out->world_array = world_arr;
     out->topology = topo;
+    out->mesh_entries = (uintptr_t)rd_u64(uhdr + 0xD0u);
     return 1;
 }
 
@@ -251,6 +255,92 @@ int at_resolve_render_graph(
     return 1;
 }
 
+static int at_resolve_render_mesh_obj(
+    const at_walker_registry *reg,
+    const at_render_header *hdr,
+    uint32_t handle,
+    at_safe_read_fn read_fn,
+    void *read_user,
+    uintptr_t *out_obj) {
+    if (!reg || !hdr || !read_fn || !out_obj) return 0;
+    *out_obj = 0u;
+    uint32_t slot_i = handle & hdr->mask;
+    if (!handle || handle == 0xFFFFFFu || !slot_i || slot_i >= hdr->capacity || slot_i >= hdr->map.length) {
+        return 0;
+    }
+    if (!(handle & hdr->live)) return 0;
+
+    uint32_t slot_val = 0, obj_idx = 0, rtype = 0;
+    uintptr_t obj = 0;
+    if (read_fn(hdr->handles + (uintptr_t)slot_i * 4u, &slot_val, 4u, read_user) != 0 || slot_val != handle) return 0;
+    if (read_fn(hdr->map.data + (uintptr_t)slot_i * 4u, &obj_idx, 4u, read_user) != 0) return 0;
+    if (obj_idx >= hdr->objects.length || obj_idx >= hdr->types.length) return 0;
+    if (read_fn(hdr->types.data + (uintptr_t)obj_idx * 4u, &rtype, 4u, read_user) != 0 || rtype != 3u) return 0;
+    if (read_fn(hdr->objects.data + (uintptr_t)obj_idx * 8u, &obj, 8u, read_user) != 0) return 0;
+    if (!valid_span(obj, 0xD0u)) return 0;
+
+    unsigned char mhead[16];
+    if (read_fn(obj, mhead, sizeof(mhead), read_user) != 0) return 0;
+    uintptr_t vtable = (uintptr_t)rd_u64(mhead + 0x00u);
+    uint32_t hdr_type = rd_u32(mhead + 0x08u);
+    if (hdr_type != 3u || (reg->rmanager_vtable_mesh && vtable != reg->rmanager_vtable_mesh)) return 0;
+    *out_obj = obj;
+    return 1;
+}
+
+static int at_resolve_walker_meshes(
+    at_walker_registry *reg,
+    const at_unit_view *uv,
+    const at_render_header *rhdr,
+    const at_resolved_graph *rgraph,
+    at_safe_read_fn read_fn,
+    void *read_user,
+    at_walker_slot *slot) {
+    if (!reg || !uv || !rhdr || !rgraph || !read_fn || !slot) return 0;
+    if (!uv->mesh_entries || uv->meshes != AT_MESH_DESC_COUNT ||
+        !valid_span(uv->mesh_entries, (size_t)AT_MESH_DESC_COUNT * 16u)) {
+        return 0;
+    }
+    unsigned char raw_entries[AT_MESH_DESC_COUNT * 16u];
+    if (read_fn(uv->mesh_entries, raw_entries, sizeof(raw_entries), read_user) != 0) return 0;
+
+    uintptr_t found[AT_MESH_DESC_COUNT];
+    memset(found, 0, sizeof(found));
+    uint8_t count = 0u;
+    for (unsigned i = 0; i < AT_MESH_DESC_COUNT; i++) {
+        uintptr_t desc = (uintptr_t)rd_u64(raw_entries + i * 16u);
+        if (!valid_span(desc, 0xDCu)) return 0;
+        unsigned char d[16];
+        if (read_fn(desc, d, sizeof(d), read_user) != 0) return 0;
+        uint32_t handle = rd_u32(d + 4u);
+        uintptr_t assoc = (uintptr_t)rd_u64(d + 8u);
+        if (assoc == uv->association && handle != 0xFFFFFFu) {
+            uintptr_t mobj = 0u;
+            if (!at_resolve_render_mesh_obj(reg, rhdr, handle, read_fn, read_user, &mobj)) return 0;
+            unsigned char mref[16];
+            if (read_fn(mobj + 0x30u, mref, sizeof(mref), read_user) != 0) return 0;
+            uint32_t m_node = rd_u32(mref + 0u);
+            uint32_t m_gh = rd_u32(mref + 4u);
+            uintptr_t m_cache = (uintptr_t)rd_u64(mref + 8u);
+            if (m_gh != uv->graph_handle || m_cache != rgraph->object) return 0;
+            int node_ok = 0;
+            for (unsigned k = 0; k < AT_MESH_DESC_COUNT; k++) {
+                if (m_node == AT_DESC_NODES[k]) { node_ok = 1; break; }
+            }
+            if (!node_ok) return 0;
+            found[count++] = mobj;
+        } else if (handle != 0xFFFFFFu || assoc != 0u) {
+            return 0;
+        }
+    }
+    if (count == 0u) return 0;
+    memcpy(slot->meshes, found, sizeof(found));
+    slot->mesh_count = count;
+    slot->meshes_resolved = 1u;
+    reg->mesh_resolutions++;
+    return 1;
+}
+
 static int find_slot_by_unit(const at_walker_registry *reg, uint32_t unit_idx, uint8_t gen, uintptr_t unit_ptr) {
     for (unsigned i = 0; i < AT_MAX_WALKERS; i++) {
         const at_walker_slot *s = &reg->slots[i];
@@ -301,6 +391,7 @@ static int admit_unit_into_lowest_free(
     slot->world = rhdr->world;
     slot->graph_handle = uv->graph_handle;
     slot->normal_graph = rgraph->object;
+    at_resolve_walker_meshes(reg, uv, rhdr, rgraph, reg ? NULL : NULL, NULL, slot);
     reg->admissions++;
     return free_idx;
 }
@@ -332,6 +423,8 @@ uint32_t at_registry_reconcile(
             rgraph.object != s->normal_graph) {
             evict_slot(reg, s);
             reg->scavenged++;
+        } else if (!s->meshes_resolved) {
+            at_resolve_walker_meshes(reg, &uv, &rhdr, &rgraph, read_fn, read_user, s);
         }
     }
 
@@ -412,7 +505,9 @@ uint32_t at_registry_reconcile(
                 evict_slot(reg, &reg->slots[stale]);
                 reg->scavenged++;
             }
-            if (admit_unit_into_lowest_free(reg, &uv, &rhdr, &rgraph) >= 0) {
+            int slot_i = admit_unit_into_lowest_free(reg, &uv, &rhdr, &rgraph);
+            if (slot_i >= 0) {
+                at_resolve_walker_meshes(reg, &uv, &rhdr, &rgraph, read_fn, read_user, &reg->slots[slot_i]);
                 if (bulk_ok) {
                     reg->scanned_slots[idx] = uv.unit;
                     reg->scanned_gens[idx] = uv.generation;

@@ -52,15 +52,24 @@ typedef struct {
     uint32_t environment_ok;
 } at_receipt;
 
+#define AT_FAST_MESH_HT_SIZE 64u
+#define AT_FAST_MESH_HT_MASK (AT_FAST_MESH_HT_SIZE - 1u)
+#define AT_NEG_MESH_HT_SIZE 4096u
+#define AT_NEG_MESH_HT_MASK (AT_NEG_MESH_HT_SIZE - 1u)
+
 typedef struct __attribute__((aligned(64))) {
     volatile uint32_t seq; /* seqlock: even = stable, odd = updating */
     uint32_t count;
+    uint32_t all_meshes_resolved;
+    uint32_t filter_epoch;
     uint32_t handles[AT_MAX_WALKERS];
     uintptr_t worlds[AT_MAX_WALKERS];
+    uintptr_t mesh_ht[AT_FAST_MESH_HT_SIZE];
 } at_fast_filter;
 
 typedef struct at_writer_state {
     at_fast_filter fast;
+    volatile uint64_t neg_mesh_ht[AT_NEG_MESH_HT_SIZE] __attribute__((aligned(64)));
     SRWLOCK lock __attribute__((aligned(64)));
     volatile LONG ready;
     uintptr_t engine_base;

@@ -58,7 +58,10 @@ typedef struct {
     unsigned char hdr[0xD8];
     uint64_t resource_id;
     at_render48 worlds[AT_S2C_NODES];
-    uint16_t topology[AT_S2C_NODES];
+    struct {
+        uint16_t type;
+        uint16_t parent;
+    } topology[AT_S2C_NODES];
     bench_graph graph;
     bench_mesh mesh;
     uint32_t handle;
@@ -176,7 +179,12 @@ static void bind_walker(bench_walker *w, bench_unit_mgr *um, bench_render_sys *r
     w->unit_slot = slot;
     w->handle = 64u | hidx;
     w->resource_id = AT_UNIT_RESOURCE_ID;
-    memcpy(w->topology, AT_S2C_PARENT, sizeof(AT_S2C_PARENT));
+    w->topology[0].type = 0u;
+    w->topology[0].parent = AT_S2C_PARENT[0];
+    for (unsigned k = 1u; k < AT_S2C_NODES; k++) {
+        w->topology[k].type = 1u;
+        w->topology[k].parent = AT_S2C_PARENT[k];
+    }
     w_u64(w->hdr, 0x00, eng + AT_RVA_UNIT_VTABLE);
     w_u64(w->hdr, 0x30, (uintptr_t)&w->resource_id);
     w_u32(w->hdr, 0x64, w->handle);
@@ -322,7 +330,7 @@ int main(void) {
         walkers[i].resource_id = variant_ids[i];
     }
     at_writer_tick(ws, 0u); /* full admit */
-    int ok2 = run_case("CaseB_4Walkers_262k", ws, rs, foreign, caller, 2048u);
+    int ok2 = (ws->fast.count == 4u) && run_case("CaseB_4Walkers_262k", ws, rs, foreign, caller, 2048u);
 
     printf("ATST_TIER0_SUMMARY: %s\n", (ok1 && ok2) ? "ALL_PASS" : "GATE_FAIL");
     free(walkers); free(ws); free(foreign); free(enemies);

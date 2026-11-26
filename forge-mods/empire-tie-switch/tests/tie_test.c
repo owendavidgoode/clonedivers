@@ -366,7 +366,7 @@ static void TestInitAndLazyBridgeRegistration(const wchar_t* stagedData, const w
     CHECK(registerCalls == 0 && fakeModCount == 2 && bridgeMod == NULL);
     CHECK(onReadyCalls == 1 && onTickCalls == 1 && onSpawnCalls == 1 && onStratagemCalls == 1);
     CHECK(registeredReady != NULL && registeredTick != NULL);
-    CHECK(strstr(lastLogLine, "qualified staged closure parts=135") != NULL && strstr(lastLogLine, "(v0.3.1)") != NULL);
+    CHECK(strstr(lastLogLine, "qualified staged closure parts=135") != NULL && strstr(lastLogLine, "(v0.3.2)") != NULL);
 
     /* 3. Tick() before Ready() must not register bridgeMod. */
     registeredTick((HfMod*)&mod, 0.016f, registeredTickUser);

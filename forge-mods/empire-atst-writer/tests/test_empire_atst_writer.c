@@ -1123,7 +1123,48 @@ static void test_zero_walker_and_d11_fast_path(at_writer_state *ws, sim_unit_mgr
             (uintptr_t)g_fake_engine + AT_RVA_CALLER_NORMAL, &rec);
         TEST_ASSERT(rec.replaced == 0u, "foreign mesh rejected lock-free");
     }
-    TEST_ASSERT(g_counted_reads == 1000, "exact 1 handle read per foreign mesh (zero UnitManager scans)");
+    TEST_ASSERT(g_counted_reads == 1, "exact 1 one-time negative-cache probe per unresolved foreign mesh, then 0 reads");
+
+    /* 3. Pre-resolved uhdr+0xD0 walker mesh descriptor table -> all_meshes_resolved == 1 -> ZERO foreign reads even on first sight! */
+    struct {
+        unsigned char desc[AT_MESH_DESC_COUNT][0xE0];
+        unsigned char entries[AT_MESH_DESC_COUNT * 16u];
+    } resolved_tbl;
+    memset(&resolved_tbl, 0, sizeof(resolved_tbl));
+    uint32_t m_hidx = 31u;
+    uint32_t m_handle = 64u | m_hidx;
+    w_u64(w_active.mesh.bytes, 0x00u, (uint64_t)((uintptr_t)g_fake_engine + 0x1688950ULL));
+    w_u32(w_active.mesh.bytes, 0x08u, 3u);
+    rs->handles[m_hidx] = m_handle;
+    rs->map[m_hidx] = m_hidx;
+    rs->objects[m_hidx] = (uintptr_t)&w_active.mesh;
+    rs->types[m_hidx] = 3u;
+    for (unsigned d = 0; d < AT_MESH_DESC_COUNT; d++) {
+        w_u64(resolved_tbl.entries, d * 16u, (uint64_t)(uintptr_t)resolved_tbl.desc[d]);
+        if (d == 0u) {
+            w_u32(resolved_tbl.desc[d], 4u, m_handle);
+            w_u64(resolved_tbl.desc[d], 8u, (uint64_t)((uintptr_t)rs->mgr + 0x10u));
+        } else {
+            w_u32(resolved_tbl.desc[d], 4u, 0xFFFFFFu);
+            w_u64(resolved_tbl.desc[d], 8u, 0u);
+        }
+    }
+    w_u64(w_active.unit.hdr, 0xD0u, (uint64_t)(uintptr_t)resolved_tbl.entries);
+    at_writer_tick(ws, 16u);
+    TEST_ASSERT(ws->fast.all_meshes_resolved == 1u, "uhdr+0xD0 pre-resolves walker MeshObjects into mesh_ht");
+
+    sim_walker w_brand_new_foreign;
+    bind_walker(&w_brand_new_foreign, um, rs, (uintptr_t)g_fake_engine, 4u, 1u, 60u, 0u);
+    um->slots[4] = 0u;
+    InterlockedExchange(&g_counted_reads, 0);
+    for (unsigned i = 0; i < 1000u; i++) {
+        at_receipt rec;
+        at_writer_dispatch_512B80(
+            ws, &w_brand_new_foreign.mesh, (void *)(rs->world + 0x318u), &w_brand_new_foreign.graph,
+            (uintptr_t)g_fake_engine + AT_RVA_CALLER_NORMAL, &rec);
+        TEST_ASSERT(rec.replaced == 0u, "pre-resolved mesh_ht rejects brand-new foreign mesh lock-free");
+    }
+    TEST_ASSERT(g_counted_reads == 0, "ZERO read_fn calls on foreign meshes when walker MeshObjects are pre-resolved");
 
     ws->read_fn = orig_read;
     printf("[PASS] test_zero_walker_and_d11_fast_path\n");

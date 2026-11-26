@@ -22,7 +22,7 @@ public sealed partial class HellForgeClient
             if (!string.IsNullOrEmpty(id)) applied.Add(id);
         if (intent.OptionalDefaults == null && (intent.State == "applied" || intent.OptionalDefaultsApplied))
         {
-            if (intent.Catalog is "build25480438-r12" or "build25480438-r11" or "build25480438-r10" or "build25480438-r9" || intent.Catalog == HellForgeGameplayCatalog.Pinned.Id)
+            if (intent.Catalog is "build25480438-r13" or "build25480438-r12" or "build25480438-r11" or "build25480438-r10" or "build25480438-r9" || intent.Catalog == HellForgeGameplayCatalog.Pinned.Id)
                 foreach (var artifact in HellForgeGameplayCatalog.Pinned.Artifacts.Where(a => a.Optional))
                     applied.Add(artifact.Id);
             else if (intent.Catalog == "build25480438-r8")
@@ -41,14 +41,14 @@ public sealed partial class HellForgeClient
     }
     static bool IsRetiredOptionalDefault(string id, string version) => (id, version) is
         (HellForgePreset.CleanExit, "0.1.0" or "0.2.0") or
-        (HellForgePreset.LegoCompactLeafWriter, "0.0.9" or "0.1.0" or "0.2.0" or "0.2.1") or
-        (HellForgePreset.EmpireLegoYoda, "0.1.0" or "0.1.2" or "0.2.0") or
-        (HellForgePreset.EmpireAtstWriter, "0.1.0" or "0.2.0" or "0.2.1" or "0.2.2") or
-        (HellForgePreset.EmpireTieSwitch, "0.3.0") or
-        (HellForgePreset.ChaosInvasions, "0.2.0" or "0.3.0" or "0.3.1" or "0.3.2" or "0.3.3" or "0.3.4") or
+        (HellForgePreset.LegoCompactLeafWriter, "0.0.9" or "0.1.0" or "0.2.0" or "0.2.1" or "0.2.2") or
+        (HellForgePreset.EmpireLegoYoda, "0.1.0" or "0.1.2" or "0.2.0" or "0.2.1") or
+        (HellForgePreset.EmpireAtstWriter, "0.1.0" or "0.2.0" or "0.2.1" or "0.2.2" or "0.2.3") or
+        (HellForgePreset.EmpireTieSwitch, "0.3.0" or "0.3.1") or
+        (HellForgePreset.ChaosInvasions, "0.2.0" or "0.3.0" or "0.3.1" or "0.3.2" or "0.3.3" or "0.3.4" or "0.3.5") or
         (HellForgePreset.EmpireCameraPullback, "0.1.0" or "0.1.1" or "0.1.2" or "0.1.3") or
         (HellForgePreset.StarWarsLocalization, "0.1.0") or
-        (HellForgePreset.DedicatedMeleeSlot, "1.5.2" or "1.5.2-clonedivers.1");
+        (HellForgePreset.DedicatedMeleeSlot, "1.5.2" or "1.5.2-clonedivers.1" or "1.5.2-clonedivers.2");
     bool GameplayDefaultsApplied
     {
         get
@@ -178,12 +178,14 @@ public sealed partial class HellForgeClient
         using var budget = CancellationTokenSource.CreateLinkedTokenSource(ct); budget.CancelAfter(TimeSpan.FromMinutes(20)); ct = budget.Token;
         if (!Path.GetFullPath(staged).Equals(Path.GetFullPath(GameplayCache), RecoveryPathComparison)) throw new InvalidDataException("Use this installation's verified gameplay staging cache.");
         using var operation = LockPackChange(); RequireCliQuiescent(); RequireNoInterruptedPack();
+        using var batch = BeginCliBatch();
         await RequireGameplayIdleAsync(ct);
+        bool ultrakillActive = IsUltrakillHostTheaterActive();
         richProgress?.Report(new("Checking gameplay preset", "Inspecting installed gameplay mods…", IsIndeterminate: true, CanCancel: false));
         var before = await ModsAsync(ct);
         var missing = await MissingGameplayAsync(activeMode, ct);
         var companionMissing = !string.IsNullOrEmpty(activeMode) && HellForgePreset.ModeCompanionProblem(before, activeMode) != null;
-        if (missing.Count == 0 && !companionMissing && GameplayDefaultsApplied && HellForgePreset.Problem(before, checkOrder: true) == null) { progress?.Report("Required gameplay preset already verified."); return; }
+        if (missing.Count == 0 && !companionMissing && GameplayDefaultsApplied && HellForgePreset.Problem(before, checkOrder: true, ultrakillTheaterActive: ultrakillActive) == null) { progress?.Report("Required gameplay preset already verified."); return; }
         for (int i = 0; i < missing.Count; i++)
         {
             var artifact = missing[i];
@@ -253,9 +255,9 @@ public sealed partial class HellForgeClient
                 var mod = imported.Mods.SingleOrDefault(m => m.Id == artifact.Id) ?? throw new InvalidDataException("Forge did not import " + artifact.Name);
                 if (await InstalledGameplayHashAsync(mod, artifact, ct) != artifact.ContentHash) throw new InvalidDataException("Installed content differs for " + artifact.Name);
             }
-            await ConfigureGameplayAsync(missing, ct, richProgress, activeMode);
+            await ConfigureGameplayAsync(missing, ct, richProgress, activeMode, ultrakillActive);
             var after = await ModsAsync(ct);
-            if (HellForgePreset.Problem(after with { HostingProblem = null }, checkOrder: true) is { } issue) throw new InvalidDataException(issue);
+            if (HellForgePreset.Problem(after with { HostingProblem = null }, checkOrder: true, ultrakillTheaterActive: ultrakillActive) is { } issue) throw new InvalidDataException(issue);
             WriteGameplayIntent(intent with
             {
                 State = "applied",
@@ -274,7 +276,7 @@ public sealed partial class HellForgeClient
         }
     }
 
-    async Task ConfigureGameplayAsync(List<GameplayArtifact> installed, CancellationToken ct, IProgress<OperationProgress>? richProgress = null, string? activeMode = null)
+    async Task ConfigureGameplayAsync(List<GameplayArtifact> installed, CancellationToken ct, IProgress<OperationProgress>? richProgress = null, string? activeMode = null, bool ultrakillActive = false)
     {
         var catalog = await ModsAsync(ct);
         var wanted = HellForgeGameplayCatalog.Pinned.Order.ToHashSet(StringComparer.Ordinal);
@@ -300,13 +302,16 @@ public sealed partial class HellForgeClient
         foreach (var id in new[] { HellForgePreset.BingusSharedLoader, HellForgePreset.SmarterSeaf })
         {
             ReportStep("Configuring " + id);
-            await RequireGameplayIdleAsync(ct); await commands.RunAsync(["mod-pack", "--id", id, "--all", "yes"], ct);
+            await RequireGameplayIdleAsync(ct);
+            var wantAllOn = !(ultrakillActive && id == HellForgePreset.SmarterSeaf);
+            await commands.RunAsync(["mod-pack", "--id", id, "--all", wantAllOn ? "yes" : "no"], ct);
         }
         foreach (var option in dogOptions)
         {
             ReportStep("Configuring Guard Dogs: " + option);
             await RequireGameplayIdleAsync(ct);
-            await commands.RunAsync(["mod-pack", "--id", HellForgePreset.GuardDogs, "--option", option, "--on", option == "Targeting Marker" ? "no" : "yes"], ct);
+            bool wantDogOption = option != "Targeting Marker" && !(ultrakillActive && option == "SEAF Safety");
+            await commands.RunAsync(["mod-pack", "--id", HellForgePreset.GuardDogs, "--option", option, "--on", wantDogOption ? "yes" : "no"], ct);
         }
         ReportStep("Applying gameplay load order");
         var ordered = HellForgeGameplayCatalog.Pinned.Order.Where(id => catalog.Mods.Any(m => m.Id == id)).Concat(catalog.Mods.Select(m => m.Id).Where(id => !wanted.Contains(id))).ToArray();
@@ -352,8 +357,8 @@ public sealed partial class HellForgeClient
         var imports = Path.Combine(GameplayCache, "imports"); RejectAncestors(imports); Directory.CreateDirectory(imports);
         var copy = FileSafety.Child(imports, Guid.NewGuid().ToString("N") + ".zip");
         var expected = await HellForgePack.HashAsync(source, ct);
-        await HellForgePack.CopyLocalAsync(source, copy, new FileInfo(source).Length, ct);
-        if (await HellForgePack.HashAsync(copy, ct) != expected) throw new InvalidDataException("Gameplay import copy changed during preparation.");
+        var copiedHash = await PackArtifactEngine.CopyAndHashAsync(source, copy, new FileInfo(source).Length, ct);
+        if (copiedHash != expected) throw new InvalidDataException("Gameplay import copy changed during preparation.");
         using var locked = new FileStream(copy, FileMode.Open, FileAccess.Read, FileShare.Read);
         await RequireGameplayIdleAsync(ct); await commands.RunAsync(["mod-add", "--file", copy], ct);
     }

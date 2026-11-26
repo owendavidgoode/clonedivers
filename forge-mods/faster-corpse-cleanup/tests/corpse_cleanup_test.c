@@ -31,8 +31,8 @@ static uint8_t g_health_record[CC_STRIDE];
 static uintptr_t g_fake_game_base = 0x0000018000000000ULL;
 static uint8_t g_fake_registry[0xF40000];
 static uint8_t g_fake_buckets[64 * 8];
-static uint32_t g_fake_pending_rows[16];
-static uint8_t g_fake_queue[0x2000];
+static uint32_t g_fake_pending_rows[64];
+static uint8_t g_fake_queue[0x22000];
 
 static void mock_log(HfMod* m, const char* fmt, ...)
 {
@@ -427,7 +427,48 @@ int main(int argc, char** argv)
     cc_tick(self, 0.016f, NULL);
     CHECK(config.enabled == 0, "newer Launcher Apply mtime overrides earlier session edit");
 
-    /* 7. HF_EVENT_SESSION_END disarms cleanly */
+    /* 7. >128 wreck-row cliff fix + Level 12 ULTRAKILL 0.0s multi-removal Turbo-Reaper */
+    CHECK(write_text_with_mtime(
+              host_json,
+              "{\"format\":1,\"chaosIntensity\":\"total-war\",\"heavySeaf\":\"constant\",\"theaterPreset\":\"level12-ultrakill\",\"fasterCorpseCleanup\":true}",
+              t_base + 400000000ULL),
+          "write level12-ultrakill host options");
+    g_next_host_opts_poll = 0;
+    run_all_target_sweeps((int)CC_COUNT(cc_targets) + 4);
+    CHECK(config.enabled == 1 && g_corpse_turbo_reaper == 1, "level12-ultrakill enables turbo reaper");
+    memcpy(&current_decay, g_health_record + CC_DECAY_OFFSET, sizeof current_decay);
+    CHECK(fabsf(current_decay.minimum - 0.15f) < 1e-4f && fabsf(current_decay.maximum - 0.15f) < 1e-4f,
+          "level12-ultrakill sets 0.15s rapid phase-1->phase-2 decay");
+
+    /* Populate 300 wrecks (> old 128 cliff!), placing 4 owned phase-2 corpses at indices 250..253 */
+    setup_corpse_in_queue(0x101u, 0x202u, 2u, 1u);
+    memset(g_fake_queue + 0x18u, 0, 32u * 64u);
+    uint32_t big_count = 300u;
+    memcpy(g_fake_queue + 0x818u, &big_count, 4);
+    for (uint32_t k = 0; k < 4u; ++k) {
+        uint32_t uid = 0x500u + k;
+        uint32_t eid = 0x900u + k;
+        uint32_t kind = 2u;
+        float rem = 45.0f;
+        uint32_t didx = 10u + k;
+        uint8_t* desc = g_fake_registry + 0xF32F18u + 24u * didx;
+        uint64_t res = cc_targets[0].resource;
+        memcpy(desc + 0, &res, 8);
+        memcpy(desc + 8, &eid, 4);
+        memcpy(desc + 12, &uid, 4);
+        desc[20] = 1u;
+        uint8_t* row = g_fake_queue + 0x820u + (size_t)(250u + k) * 64u;
+        memcpy(row + 0, &uid, 4);
+        memcpy(row + 4, &eid, 4);
+        memcpy(row + 8, &kind, 4);
+        memcpy(row + 12, &rem, 4);
+    }
+    unsigned before_turbo_removes = g_mock_remove_calls;
+    cc_factory_update((uintptr_t)g_fake_queue, 0.016f);
+    CHECK(g_mock_remove_calls >= before_turbo_removes + 4u,
+          "count=300 (>128) + level12-ultrakill reaps all 4 phase-2 corpses in 1 frame at 0.0s delay");
+
+    /* 8. HF_EVENT_SESSION_END disarms cleanly */
     g_on_session_end_cb(fake_mod, HF_EVENT_SESSION_END, NULL);
     CHECK(cc_stopped() == 1, "SESSION_END stops tick & hook observation");
 

@@ -9,11 +9,11 @@
 #define COOP_GARMENT_CACHE_LIMIT 256u
 #define COOP_NEG_CACHE_LIMIT 2048u
 #define COOP_BULK_CHUNK 4096u
-#define COOP_SCAN_SLICE_LIMIT 2048u
+#define COOP_SCAN_SLICE_LIMIT 4096u
 #define COOP_NEW_UNIT_PROBE_BUDGET 96u
 #define COOP_FAST_HT_SIZE 512u
 #define COOP_FAST_HT_MASK (COOP_FAST_HT_SIZE - 1u)
-#define COOP_HANDLE_PROBE_WINDOW_MS 5000ull
+#define COOP_HANDLE_PROBE_WINDOW_MS 500ull
 
 typedef struct CoopGarmentUnit {
     uint32_t index;
@@ -223,7 +223,8 @@ static void coop_fast_publish(void) {
     uint32_t needProbe = 0u;
     for (uint32_t g = 0; g < coopGarmentCount; g++) {
         if (!coopGarments[g].meshes_resolved || preMeshOverflow) {
-            if ((nowMs - coopGarments[g].discovered_ms) < COOP_HANDLE_PROBE_WINDOW_MS) {
+            uint64_t windowMs = (mc > 0u) ? 250ull : COOP_HANDLE_PROBE_WINDOW_MS;
+            if ((nowMs - coopGarments[g].discovered_ms) < windowMs) {
                 needProbe = 2u;
                 break;
             }
@@ -917,9 +918,11 @@ static void CoopRetireHandle(gw_state *s, uintptr_t world, uint32_t handle) {
             }
         }
         for (uint32_t g = 0; g < coopGarmentCount; g++) {
-            coopGarments[g].discovered_ms = nowMs;
-            coopGarments[g].meshes_resolved = 0u;
-            memset(coopGarments[g].lod_meshes, 0, sizeof coopGarments[g].lod_meshes);
+            if (coopGarments[g].app_graph_handle == handle) {
+                coopGarments[g].discovered_ms = nowMs;
+                coopGarments[g].meshes_resolved = 0u;
+                memset(coopGarments[g].lod_meshes, 0, sizeof coopGarments[g].lod_meshes);
+            }
         }
         coop_neg_advance_epoch();
         coop_fast_publish();
@@ -1102,7 +1105,8 @@ static int CoopResolveTarget(gw_state *s, void *mesh_ptr, void *pool_ptr, void *
     }
     if (matchCount != 1u || !foundGu) {
         if (existing) coop_evict_slot(existing);
-        if (matchCount == 0u && coopScanComplete) coop_neg_insert(mesh, normal.handle, normal.cache, skin, w);
+        if (matchCount == 0u && (coopScanComplete || coopReg.player_count > 0u))
+            coop_neg_insert(mesh, normal.handle, normal.cache, skin, w);
         InterlockedIncrement64(&s->rej_nomatch);
         goto out;
     }

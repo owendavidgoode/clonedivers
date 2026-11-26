@@ -8,7 +8,7 @@ param(
 )
 $ErrorActionPreference = 'Stop'
 $mod = $PSScriptRoot
-$workspace = Join-Path $BuildRoot 'workspace-0.3.1'
+$workspace = Join-Path $BuildRoot 'workspace-0.3.2'
 $stage = Join-Path $workspace 'mods\empire-tie-switch'
 $sdk = Join-Path $workspace 'app\sdk'
 $tools = Join-Path $workspace 'tools'
@@ -63,7 +63,7 @@ try {
     if (Test-Path -LiteralPath (Join-Path $stage 'data')) { throw 'Code-only package unexpectedly holds data' }
     & $Cli package-mod --mod $stage --out $Out | Tee-Object -FilePath "$BuildRoot\package.log"
     if ($LASTEXITCODE -ne 0) { throw 'package-mod failed' }
-    $zipPath = Join-Path $Out 'empire-tie-switch-0.3.1.zip'
+    $zipPath = Join-Path $Out 'empire-tie-switch-0.3.2.zip'
     if (Test-Path -LiteralPath $zipPath) {
         $zipSha = (Get-FileHash -LiteralPath $zipPath -Algorithm SHA256).Hash.ToLowerInvariant()
         $zipLen = (Get-Item -LiteralPath $zipPath).Length

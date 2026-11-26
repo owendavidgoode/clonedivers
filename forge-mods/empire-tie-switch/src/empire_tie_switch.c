@@ -400,7 +400,9 @@ static void Tick(HfMod* mod, float dt, void* user)
     }
     if (!package) { Fail(mod, "Eagle package request failed"); return; }
     if (package != HF_PACKAGE_RESIDENT) return;
-    if (!AssetsUnchanged()) { Fail(mod, assetError); return; }
+    int inMission = armed && hf->size >= offsetof(HfApi, game_state) + sizeof hf->game_state &&
+                    hf->game_state && hf->game_state(mod) == HF_STATE_MISSION;
+    if (!inMission && !AssetsUnchanged()) { Fail(mod, assetError); return; }
     if (!armed) { Apply(mod); return; }
     Snapshot current[DELIVERY_COUNT];
     if (!SnapshotAll(current) || !ModelsCorrect(current)) Fail(mod, "delivery model ownership lost");
@@ -529,6 +531,6 @@ HF_MOD_EXPORT int hellforge_mod_init(const HfApi* api, HfMod* mod)
     if (hf_on_entities_ready(mod, Ready, NULL) || hf_on_game_thread(mod, Tick, NULL) ||
         hf_on_spawn(mod, Spawn, NULL, 0) || hf_on_stratagem(mod, Stratagem, NULL, 0)) return 1;
     hf_on_state(mod, StateChange, NULL, 0);
-    hf->log(mod, "qualified staged closure parts=%zu; waiting for Eagle package residency (v0.3.1)", ASSET_COUNT);
+    hf->log(mod, "qualified staged closure parts=%zu; waiting for Eagle package residency (v0.3.2)", ASSET_COUNT);
     return 0;
 }

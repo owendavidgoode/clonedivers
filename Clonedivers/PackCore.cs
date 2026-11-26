@@ -1385,15 +1385,8 @@ public static class Pack
     /// <summary>Lower-case SHA-256 of a file. Opened with FileShare.Delete so a rename by someone else never fails because we are reading.</summary>
     public static async Task<string> Sha256Async(string path, CancellationToken ct) => await Sha256Async(path, null, ct);
 
-    public static async Task<string> Sha256Async(string path, IProgress<long>? bytes, CancellationToken ct)
-    {
-        using var fs = new FileStream(path, FileMode.Open, FileAccess.Read, FileShare.Read | FileShare.Delete, 1 << 20, FileOptions.Asynchronous | FileOptions.SequentialScan);
-        using var sha = IncrementalHash.CreateHash(HashAlgorithmName.SHA256);
-        var buffer = new byte[1 << 20];
-        long done = 0; int n;
-        while ((n = await fs.ReadAsync(buffer, ct)) > 0) { sha.AppendData(buffer, 0, n); done += n; bytes?.Report(done); }
-        return Convert.ToHexString(sha.GetHashAndReset()).ToLowerInvariant();
-    }
+    public static async Task<string> Sha256Async(string path, IProgress<long>? bytes, CancellationToken ct) =>
+        await PackArtifactEngine.HashFileAsync(path, ct, bytes);
 
     public static string FormatBytes(long b) =>
         b >= 1L << 30 ? $"{b / (double)(1L << 30):0.0} GB" :
