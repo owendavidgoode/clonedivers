@@ -1,94 +1,70 @@
-# Updating Clonedivers to Forge
+# Setting Up and Updating Clonedivers — Forge
 
-Windows 1.14.1 and Linux x86-64 0.8.1 target official HellForge 0.4.0-beta,
-engine 0.1.47, SDK 16, game 25480438. Use Regular, Clones or Empire here; start the
-official online game directly through Steam. Progress imports HD2 → Forge only.
+**Clonedivers 2.1.4** (Windows) and **Clonedivers Forge 0.10.4** (Linux x86-64, with native
+controller `0.4.0` `HellForge.Launcher.ClonediversBridge`) target official **HellForge
+`0.4.0-beta` / engine `0.1.47` / SDK `16` / game `25480438`**. Choose **Regular**, **Clones**,
+or **Empire** in Clonedivers; launch official online Helldivers 2 directly through Steam.
+Account progression imports one-way (**HD2 → Forge**) only.
 
 ## Windows
 
-Close HD2 and the official Forge manager, then update Clonedivers through its
-existing Check updates action. All three old update feeds preserve their Steam
-pack data and offer the same verified new executable.
+Close Helldivers 2 and the official HellForge manager before updating. Existing Clonedivers
+installations update in one click from the launcher banner (**Update & Launch** / **Check
+updates**), keeping a verified previous `Clonedivers.exe` for rollback and preserving all
+settings, profiles, and Steam files.
 
-An existing0.3 installation offers **Update HellForge**. Clonedivers verifies the
-new author installer and retains the verified previous installer, snapshots
-account/profile/settings files privately, and runs the official supported
-`--unpack` update. Failed known outcomes restore the previous official application;
-an unknown outcome stays pending for explicit recovery. A profile backup is never
-replayed automatically. The supported game copy, account and mods are retained.
+For a new installation, run `Clonedivers.exe`, pick your mode (**Regular**, **Clones**, or
+**Empire**) and **Texture Quality** (`Full (Ultra)`, `High (Streamed)`, `1024px (Medium)`,
+`512px (Low / Deck)`, or `256px + Decimated Meshes (Ultra-Potato)`), and follow the in-window
+**4-Step Setup Wizard**:
+1. **Step 1 · Preflight Check**: confirms Steam is signed in and at least **70 GB (`70 GiB`)** is free on your chosen local folder outside OneDrive and Steam (for example `D:\HellForge`).
+2. **Step 2 · Forge & Game Copy**: downloads and verifies the official HellForge installer and copies build `25480438` from Steam or downloads it via the in-app **Steam Mobile QR** flow (with **Official setup (fallback)** available). Steam sign-in and Windows UAC prompts remain player actions.
+3. **Step 3 · Guided Steam Account Sync (Required)**: guides your one-time mandatory HD2 → Forge account capture so your real Warbonds, unlocks, and XP copy locally. Leave *Apply import* and *auto-apply* off — Clonedivers imports the sealed capture automatically as soon as Helldivers 2 and HellForge close, and automatically opens owned premium Warbonds. *(Never share account captures, seal keys, profiles, or import receipts.)*
+4. **Step 4 · Pack Download & Ready**: downloads and verifies the `build25480438-r11` gameplay preset (`18` archives, `8,518,467` B) and your selected Star Wars pack (`Clonedivers 2026.11.25-r23` or `EmpireDivers 2026.11.25-r52`) with resumable `.partial` byte progress and multi-volume space checks.
 
-For a new player, **Set up Clonedivers** downloads and verifies the author app,
-opens official game setup, detects completion and continues automatically into
-the gameplay preset and appearance. Steam sign-in/QR approval and Windows system
-approval remain player actions. No manual engine download, Locate or mod import
-is part of the standard path.
+An existing HellForge `0.3.0-beta` installation offers **Update HellForge**, snapshotting
+profile/settings privately and running the supported `--unpack` upgrade with automatic
+rollback on known failures.
 
 ## Linux
 
-Install the complete .deb, or extract the entire portable archive including its
-forge/ folder. The package replaces the same application/menu entry. Linux update
-notices still require package installation; close the old launcher first.
+Install the complete `.deb` (`Clonedivers-linux-x64.deb`) or extract the entire portable
+archive (`Clonedivers-linux-x64.tar.gz`, keeping its `forge/` folder adjacent). Close any
+running launcher before upgrading.
 
-Press **Set up Forge** in 0.8.1. Clonedivers installs missing Ubuntu/Debian tools
-through desktop approval, downloads/verifies the author's native Linux installer,
-and opens it. Keep an existing player's prefix selected; the default prefix is
-found automatically. Pick Proton and continue the official game/ownership setup.
-Clonedivers reconnects and continues the selected preset when game setup is ready.
-A custom existing installation can be selected with Locate; it is never silently
-replaced with a new character in another prefix.
+Press **Set up / update Forge** in `0.10.4`. Clonedivers offers installation of missing
+Ubuntu/Debian networking tools (`pasta` from `passt` and `python3`, required on Ubuntu
+24.04+ / Debian 13+ or equivalent for the network namespace and Valve relay whitelist),
+downloads and verifies the official native Linux HellForge installer, and connects to your
+selected dedicated Proton prefix once game/ownership setup finishes. Existing custom
+installations can be chosen with **Locate** and are never silently replaced.
 
-The0.7 controller uses the installed native CLI, native account verifier and
-native manager. The official SessionRunner starts Proton, the network namespace,
-Valve relay whitelist and sandbox supervisor. No 0.3 scripts are copied over the
-new runtime, and neither a signed-in account nor namespace entry is invented with
-environment values. `pasta` (package passt) and Python3 are required for this squad
-build; missing relay tools block readiness. The .deb recommends passt and the
-setup action requests it explicitly. On distributions without it, co-op remains
-unqualified and blocked rather than silently falling back to solo operation.
+## First Forge Setup
 
-## First Forge setup
+**Set up selected mode** installs the pinned **`build25480438-r11`** catalog (`9` required
+gameplay/author archives + `9` optional SDK-16 defaults enabled once on fresh setup, zero
+`hf-mod.com` URLs) alongside HellForge's `3` bundled baseline mods and your chosen Star Wars
+pack (`22` active mods in Clones/Empire, `21` in Regular). Both **Clones (`2026.11.25-r23`)**
+and **Empire (`2026.11.25-r52`)** provide all **5 texture tiers**, **3 Enemy Skins** (`All CIS
+Droids`, `Mixed Bots + CIS Droids`, `Native Automatons`), and **3-way Covenant + Squids**
+(`Mixed Covenant + Squids` default, `All Covenant`, `Native Squids`), plus **Delta Squad** in
+Clones and opt-in **Encrypted Death Trooper Voice** (OFF by default) in Empire. Regular installs
+only the gameplay preset without Star Wars appearance packs.
 
-**Set up selected mode** obtains eight additional pinned gameplay archives:
-Heavy SEAF, Squad Stratagems, native Smarter SEAF, Operation Reroller, Bingus Shared
-Loader, Mod Options Menu, Smarter Guard Dogs and optional Clean Exit. Three baseline mods come from
-Forge. Appearance assets are verified and reused/downloaded separately with the
-large-download prompt. Credits and permission scope are retained.
+Setup applies load order, loader/menu options, Guard Dogs AI/safety `ON` with `Targeting Marker`
+`OFF`, and `clonedivers-host-options.json` defaults. It automatically disables conflicting
+alternatives and retired mods (`chef.smarter-seaf`, standalone `Mod Options Menu`, and
+`local.clonedivers-mine-boundary`, which engine `0.1.47` provides natively), and sets automatic
+host mod sharing `OFF` so every squad member runs their own verified setup.
 
-Empire retains the published r45-v4 Full appearance with fixed enemy models.
-It does not offer the experimental Lighter or enemy switches. Saved unavailable
-options are retained: choose **Use published Empire appearance** explicitly to
-apply the supported configuration, or return to Clones to use the saved choices.
-Clones retains r19, its Full/Lighter textures and optional skins. Regular has no
-appearance pack. Interrupted exports reuse verified files, and existing public
-Empire receipts remain compatible. This launcher update does not include r47
-appearance changes or a LEGO proportion fix.
+## Steam Cleanup and Recovery
 
-Setup applies load order, loader/menu options, Guard Dogs AI/safety ON and target
-markers OFF. It disables known conflicting alternatives and the retired private
-mine-boundary fix: engine 0.1.47 now supplies that fix. The old fix is kept disabled
-for recovery rather than deleted. Automatic host gameplay-mod sharing is set OFF
-through the author's documented atomic preferences-file contract, preserving
-other fields. Each player acquires their own matching preset through setup.
+Updating Clonedivers to Forge does not modify your live Steam `Helldivers 2\data` folder. If you
+previously enabled mods in a 1.x Steam-era Clonedivers installation, run `Clonedivers.exe --steam`
+once and switch to **Regular (Vanilla)** (or verify integrity in Steam) before treating your Steam
+install as clean. Hidden `--steam` and `--classic` flags remain recovery tools only.
 
-For account sync, the default profile is selected automatically. Use official
-Forge's Profile > Account sync > Sync Inventory, approve the system helper,
-pass the HD2 title screen, and then quit Helldivers 2 yourself; HellForge
-finishes capture cleanup once the game closes. Keep
-Clonedivers open: it finishes a requested, verified one-way import after cleanup.
-An old snapshot is never replayed at startup. A character previously imported in
-native Forge needs a fresh verified capture when first linked; its earned Forge
-progress is merged forward rather than reset or refunded from an old snapshot.
-Never share account snapshots, seal keys, profiles or import receipts.
-
-## Recovery and testing
-
-A pending application update offers **Recover Forge upgrade**. Gameplay and
-appearance transactions have their own recovery actions. End sessions through the
-launcher that started them; an active staged gameCopy=false is never a repair
-request. Ordinary HD2 and its Steam fallback files remain separate.
-
-Windows update/profile-preservation tests, real official-CLI preset imports and
-initialization, and Linux source/package checks are distinct qualifications.
-Extraction/rewards and real two/three/four-PC Windows/Linux squads still need
-acceptance tests. See [the 0.4 integration record](FORGE-0.4-TURNKEY-2026-11-05.md)
-and [squad acceptance](HELLFORGE-SQUAD-ACCEPTANCE.md).
+Pending Forge upgrades, interrupted gameplay installs, and interrupted appearance exports each
+provide dedicated **Verify & Repair** / recovery actions and automatically reclaim orphaned
+temporary `exports/` directories on low-disk failures. For multiplayer verification steps, see
+[the squad acceptance checklist](https://github.com/owendavidgoode/clonedivers/blob/main/docs/HELLFORGE-SQUAD-ACCEPTANCE.md).

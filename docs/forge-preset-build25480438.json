@@ -4,9 +4,9 @@
   "HellForge": "0.4.0-beta",
   "Engine": "0.1.47",
   "Sdk": 16,
-  "GameplayCatalog": "build25480438-r10",
+  "GameplayCatalog": "build25480438-r11",
   "ContainsAccountData": false,
-  "Qualification": "Exact offline preset metadata (build25480438-r10 + 90-combination Empire r51 & 90-combination Clones r22 across Full/Lighter/reduced1024/reduced512/potato256, All-CIS/Mixed/Native, Mixed/All/Native Covenant, Delta Squad, and Death Trooper voice); 12/12 verify_candidate.py scenarios passed",
+  "Qualification": "Exact offline preset metadata (build25480438-r11 + 90-combination Empire r52 & 90-combination Clones r23 across Full/Lighter/reduced1024/reduced512/potato256, All-CIS/Mixed/Native, Mixed/All/Native Covenant, Delta Squad, and Death Trooper voice); 12/12 verify_candidate.py scenarios passed + 10-process live Windows Direct3D QA passed",
   "Appearance": {
     "Mode": "empire",
     "Variants": [
@@ -29,16 +29,16 @@
     "CovenantOption": true,
     "SquidSkins": ["mixed-covenant", "all-covenant", "native-squids"],
     "DeathTrooperVoiceOption": true,
-    "Catalog": "2026.11.23-r51",
-    "CatalogSha256": "3192106589a6b914a8fd1f8528f0eba9d0131928323c73756ee4654f520a766a",
+    "Catalog": "2026.11.25-r52",
+    "CatalogSha256": "878347bbdc3a9ea5493d28c04523f81244b983659b3cc1423e5231dd0b5a2006",
     "ClonesCatalog": {
       "Modes": ["clonedivers", "commandos"],
       "TextureProfiles": ["full", "lighter", "reduced1024", "reduced512", "potato256"],
       "EnemySkins": ["all-droids", "mixed-droids", "native-automatons"],
       "CovenantOption": true,
       "SquidSkins": ["mixed-covenant", "all-covenant", "native-squids"],
-      "Catalog": "2026.11.23-r22",
-      "CatalogSha256": "57423fb7ebe786ede8984a0aa055564e2eee42800ab62d9c00c9cf263d1ad833"
+      "Catalog": "2026.11.25-r23",
+      "CatalogSha256": "7c63e43f7e43e71889f2b01098b924586a2845daca1a3e9e6b9aa77fd3beafd5"
     }
   },
   "Order": [
@@ -96,11 +96,11 @@
     {
       "Id": "clonedivers.clean-exit",
       "Name": "Clonedivers Clean Exit",
-      "Version": "0.2.0",
-      "ArchiveSha256": "6835354fff8264c6f29c33dfac71a0b6e4c4da7a401920bb76e1b604d2435932",
-      "Source": "https://github.com/owendavidgoode/clonedivers/releases/download/forge-mods-2026-11-08/clean-exit-0.2.0.zip",
-      "License": "MIT; project-owned client-only code mod (gameplay: false, optional default)",
-      "NativeContentHash": "0006a02101583cf05e3bd9fa4e431409c18ff4ac72f59ae1ece8c7d9831a888a",
+      "Version": "0.2.1",
+      "ArchiveSha256": "f74153f38726cd440368daf1574c11d2ad4616518a47cf9fb23001d34dd792df",
+      "Source": "https://github.com/owendavidgoode/clonedivers/releases/download/forge-mods-2026-11-25/clean-exit-0.2.1.zip",
+      "License": "MIT; project-owned client-only code mod (0.2.1 In-Game Esc menu HWND-destruction & loop-stopped WM_CLOSE teardown detection + +0x626296 teardown fault suppression + 1500ms post-window-destruction loop-idle watchdog; gameplay: false, optional default)",
+      "NativeContentHash": "0eadc6cc748a4b7d1ef87fbf704fb0bf1c62fd0fdbfe146a09cf161ec3c9b8f4",
       "Optional": true,
       "Options": []
     },
@@ -162,11 +162,11 @@
     {
       "Id": "clonedivers.starwars-localization",
       "Name": "Star Wars Localization Bridge",
-      "Version": "0.1.0",
-      "ArchiveSha256": "0cc5177c808dbde1aaa43b3cc0e6ccf311e73321c8fbe64a25cc4b27c436bf82",
-      "Source": "https://github.com/owendavidgoode/clonedivers/releases/download/forge-mods-2026-11-22/starwars-localization-0.1.0.zip",
-      "License": "Project-owned client-only SDK-16 code mod (0.1.0 runtime US TEXT diff bridge restoring EmpireDivers and Clonedivers Armory/armor/helmet/weapon names when HellForge forge-credits stages last while keeping Forge Credits intact; gameplay: false, coop: per-player, optional default)",
-      "NativeContentHash": "5ec6ebb41b2ff4c1b88138452c40c1465a00e3d3b1cc3d91c33008a1c153477a",
+      "Version": "0.1.1",
+      "ArchiveSha256": "b0ff55d0464ee6fa3b72693bd04b0bc28384773af04d21740e4e1f5a5ee9ddba",
+      "Source": "https://github.com/owendavidgoode/clonedivers/releases/download/forge-mods-2026-11-25/starwars-localization-0.1.1.zip",
+      "License": "Project-owned client-only SDK-16 code mod (0.1.1 runtime US TEXT diff bridge across all 14 US tables restoring EmpireDivers and Clonedivers Armory/armor/helmet/weapon/SEAF-free Imperial & GAR strings when HellForge forge-credits stages last while keeping Forge Credits and WARBOND LOCKED intact; gameplay: false, coop: per-player, optional default)",
+      "NativeContentHash": "1590c83d7907fbc033d62e3a896d2dda2bddc2c935d3e6acd7715d9bf0dc3362",
       "Optional": true,
       "Options": []
     },
@@ -397,19 +397,19 @@
     },
     {
       "Id": "pack.ef3458f5-f409-4f24-8933-05fdc10a0061",
-      "Name": "EmpireDivers 2026.11.23-r51",
+      "Name": "EmpireDivers 2026.11.25-r52",
       "Version": "",
       "ArchiveSha256": null,
-      "Source": "Pinned r51 Empire / r22 Clones appearance catalogs; source hashes verified during preparation",
+      "Source": "Pinned r52 Empire / r23 Clones appearance catalogs; source hashes verified during preparation",
       "License": "Not included in launcher package; verified download during setup",
       "NativeContentHash": null,
       "Options": []
     }
   ],
   "RequiredHostingShare": false,
-  "InstallerQualification": "18-download build25480438-r10 preset (9 required + 9 optional SDK-16 defaults, zero hf-mod.com URLs, Bingus Shared Loader last) + Empire r51 & Clones r22 across 5 texture tiers verified offline",
+  "InstallerQualification": "18-download build25480438-r11 preset (9 required + 9 optional SDK-16 defaults, zero hf-mod.com URLs, Bingus Shared Loader last) + Empire r52 & Clones r23 across 5 texture tiers verified offline and played-through in Windows Direct3D",
   "NonShippingBoundaries": [
-    "clear-skies-0.5.4: bundled ee6b1ba7e22d71ed.patch_0 not cleared for public redistribution; excluded from r5..r10",
+    "clear-skies-0.5.4: bundled ee6b1ba7e22d71ed.patch_0 not cleared for public redistribution; excluded from r5..r11",
     "simple-armor-passive-picker-1.4.2: read_cache() reads slot 0 / locals==1 only; excluded from default co-op preset",
     "empire-weapons: standalone E-11 / DLT-19 rifle .unit art remains shelved offline"
   ],

@@ -1,9 +1,11 @@
-Offline native mod (v0.2.0) for HellForge 0.4.0-beta / SDK 16 / build 25480438.
+# Empire & Clone LEGO Yoda Death (`clonedivers.empire-lego-yoda` `0.2.1`)
+
+Offline native mod (`v0.2.1`) for HellForge `0.4.0-beta` / SDK 16 / build `25480438`.
 Client only (`gameplay: false`, `coop: per-player`); no Lua loader or HD2Runtime dependency.
 
-Reads applied category-0 armor, never menu selection or helmet. Built-in torso pairs cover both
-Empire Stormtrooper LEGO packs (`r47-lego-compact`, `r45`/`r47-shuttles`) and Clonedivers LEGO
-Clone packs (`clonedivers-r19-full`), plus optional extensible pairs from `<mod_folder>\yoda-torsos.json`.
+Reads applied category-0 armor, never menu selection or helmet. Built-in and `yoda-torsos.json` pairs cover
+all `30` Empire & Clone Compact LEGO torso visuals (including the `12` Clone Compact LEGO torsos and `10`
+converted legacy Empire LEGO body variants in `r51`/`r52`).
 Scans staged patch directories at startup respecting numeric patch order within a family; ambiguous
 cross-family providers refuse the gate. Never changes game memory, patches, banks, statistics or network state.
 

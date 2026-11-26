@@ -4,24 +4,25 @@ Current state: [STATUS.md](STATUS.md). Team instructions: [TEAM-SETUP.md](TEAM-S
 Release workflow: [PUBLISHING.md](PUBLISHING.md). Older preflight details are
 [archived](archive/2026-09-12-session/DEVELOPING.md).
 
-The Windows launcher is .NET 8 WinForms. `Clonedivers/PackCore.cs` implements pack
-verification and recovery; `Clonedivers/Program.cs` contains the main Windows UI.
-`Clonedivers/ModeSelection.cs` provides shared selection rules and
-`Clonedivers/LauncherModes.cs` contains the Windows mode controls. The native console
-test project compiles those same sources. `Clonedivers.Linux` links the shared core
-into a terminal launcher; see [Linux setup and checks](LINUX.md).
+The launcher targets **.NET 8** with a shared **Avalonia 11** dark Star Wars UI across
+Windows (`Clonedivers`, `net8.0-windows` with `--classic` WinForms and `--steam` recovery
+fallbacks retained) and Linux (`Clonedivers.Linux` + `Clonedivers.ForgeBridge` native
+controller `HellForge.Launcher.ClonediversBridge`). Embedded catalogs live under
+`Clonedivers/Resources/` (`hellforge-empire-r52.json`, `hellforge-clones-r23.json`, and
+`forge-gameplay-build25480438-r11.json`), and project-owned HellForge SDK-16 C11 mods live
+under `forge-mods/`. See [Linux setup and checks](LINUX.md) and [mod coverage](FORGE-MOD-COVERAGE.md).
 
 ```powershell
-./dist/dotnet-sdk/dotnet.exe run --project Clonedivers.Tests
-./dist/dotnet-sdk/dotnet.exe publish Clonedivers -c Release -p:PublishDir=<separate-build-folder>
-./dist/dotnet-sdk/dotnet.exe run --project tools/Launcher.Preview -- --render <preview.png>
+dotnet run --project Clonedivers.Tests -c Release
+dotnet run --project Clonedivers.Linux.Tests -c Release
+dotnet run --project Clonedivers.ForgeBridge.Tests -c Release
+dotnet publish Clonedivers/Clonedivers.csproj -c Release -p:PublishDir=<separate-build-folder>
 ```
 
-The preview uses the actual controls without writing settings, installing mods or
-launching the game. The combined roster shows two helmet cards, one launch button,
-JohnsonPotatoMode™ and Droid skins. Delta Squad and restored walker weapons are
-always enabled in that roster. Legacy manifests retain three modes. The current
-candidate replaces the old scope removers with the tested ADS fix.
+Preview and UIA smoke workflows render and exercise the actual launcher controls in isolated
+temp directories without touching real `%APPDATA%`, `D:\HellForge`, or launching `helldivers2.exe`.
+Both Clones and Empire offer the 5-tier texture matrix (`Full` down to `256px + Decimated Meshes`),
+3 Enemy Skins (`All CIS Droids`, `Mixed Bots + CIS`, `Native Automatons`), and 3-way Covenant + Squids.
 
 Before shipping, check version metadata, preview layout, keyboard navigation, mode
 isolation, mode changes from parked installs, interrupted-install recovery and download

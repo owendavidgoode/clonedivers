@@ -55,8 +55,8 @@ public sealed class HellForgePreferences
     string SquidKeySegment => squidSkin == "mixed-covenant" ? "mixed-covenant" : Covenant.ToString();
     string EmpireVoiceSuffix => DeathTrooperVoice ? "/deathtrooper" : "";
     public string SelectionKey => IsRegular ? $"regular/{HellForgePack.SupportedBuild}" :
-        Mode == "empire" ? $"r51/{HellForgePack.SupportedBuild}/empire/{Texture}/{EnemyKeySegment}/{SquidKeySegment}{EmpireVoiceSuffix}" :
-        $"r22/{HellForgePack.SupportedBuild}/{PackMode}/{Texture}/{EnemyKeySegment}/{SquidKeySegment}";
+        Mode == "empire" ? $"r52/{HellForgePack.SupportedBuild}/empire/{Texture}/{EnemyKeySegment}/{SquidKeySegment}{EmpireVoiceSuffix}" :
+        $"r23/{HellForgePack.SupportedBuild}/{PackMode}/{Texture}/{EnemyKeySegment}/{SquidKeySegment}";
     internal static string? CustomPreferencesPath()
     {
         var custom = Environment.GetEnvironmentVariable("CLONEDIVERS_FORGE_PREFS");
@@ -409,6 +409,10 @@ public sealed partial class HellForgeClient(string root, IHellForgeCommands comm
                     // Keep it visible, without treating it as evidence of a mission/mod failure.
                     if (nonZero == 1 && build == "25480438" && HasDocumentedQuitCrash(folder))
                         return (null, "The last exit matches HellForge's documented quit-time crash (EXE+0x626296, code 1). This does not establish mission stability; details remain in the session logs.");
+                    // HellForge's own HostBoundedProcess.Stop (user Stop or QuitWatch stuckQuitting cleanup) terminates the job with 0xB7520003;
+                    // match HellForge.Session.SessionEnd.Crashed by treating it as a normal session end unless crash artifacts or modloader crash lines exist.
+                    if (nonZero == CrashTriage.HellForgeStopExitCode && !hasCrashArtifact && !HasAnyModloaderCrashLine(folder))
+                        return (null, null);
                     var label = (uint)nonZero >= 0x10000u ? $"0x{(uint)nonZero:X8}" : nonZero.ToString(System.Globalization.CultureInfo.InvariantCulture);
                     return ($"The last game exited unexpectedly (code {label}). Check HellForge's session logs before retrying.", null);
                 }
@@ -440,23 +444,18 @@ public sealed partial class HellForgeClient(string root, IHellForgeCommands comm
                     return true;
                 }
             }
-            var engineLogs = Path.Combine(sessionDir, "engine-logs");
-            if (Directory.Exists(engineLogs))
+            foreach (var file in CrashTriage.FindEngineLogCandidates(sessionDir).TakeLast(2))
             {
-                FileSafety.RejectLink(engineLogs);
-                foreach (var file in Directory.EnumerateFiles(engineLogs, "*.txt"))
+                FileSafety.RejectLink(file);
+                using var stream = new FileStream(file, FileMode.Open, FileAccess.Read, FileShare.ReadWrite | FileShare.Delete);
+                var start = Math.Max(0L, stream.Length - CrashTriage.MaxLogTailBytes);
+                stream.Position = start;
+                using var reader = new StreamReader(stream, System.Text.Encoding.UTF8, detectEncodingFromByteOrderMarks: true);
+                if (start > 0) _ = reader.ReadLine();
+                while (reader.ReadLine() is { } line)
                 {
-                    FileSafety.RejectLink(file);
-                    using var stream = new FileStream(file, FileMode.Open, FileAccess.Read, FileShare.ReadWrite | FileShare.Delete);
-                    var start = Math.Max(0L, stream.Length - 64 * 1024);
-                    stream.Position = start;
-                    using var reader = new StreamReader(stream);
-                    if (start > 0) _ = reader.ReadLine();
-                    while (reader.ReadLine() is { } line)
-                    {
-                        if (CrashTriage.HasEngineCrashLine(line))
-                            return true;
-                    }
+                    if (CrashTriage.HasEngineCrashLine(line))
+                        return true;
                 }
             }
         }
@@ -474,6 +473,9 @@ public sealed partial class HellForgeClient(string root, IHellForgeCommands comm
             if (result.TryGetProperty(key, out var value) && value.ValueKind == JsonValueKind.False) return key + " = false";
         return null;
     }
+
+    static bool HasAnyModloaderCrashLine(string folder) =>
+        CrashTriage.ReadBoundedModloaderTail(folder).Any(l => l.Contains(" crash: ", StringComparison.OrdinalIgnoreCase));
 
     static bool HasDocumentedQuitCrash(string folder)
     {

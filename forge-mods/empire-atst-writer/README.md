@@ -1,6 +1,6 @@
-# Empire AT-ST Film-Scale Leaf Writer (`clonedivers.empire-atst-writer` v0.2.2)
+# Empire AT-ST Film-Scale Leaf Writer (`clonedivers.empire-atst-writer` v0.2.3)
 
-`clonedivers.empire-atst-writer` (`0.2.2`) is a visual-only HellForge SDK-16 native C leaf writer for Helldivers 2 build `25480438` (`gameplay: false`, `coop: per-player`).
+`clonedivers.empire-atst-writer` (`0.2.3`) is a visual-only HellForge SDK-16 native C leaf writer for Helldivers 2 build `25480438` (`gameplay: false`, `coop: per-player`).
 
 ## Overview
 

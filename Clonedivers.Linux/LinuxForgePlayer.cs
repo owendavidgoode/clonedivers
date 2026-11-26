@@ -345,7 +345,7 @@ internal sealed class LinuxForgePlayer(IForgeConnection connection, LinuxForgePr
     {
         if (SessionActive || Game.IsRunning()) throw new InvalidOperationException("End HD2 before installing the required gameplay preset.");
         await SelectAsync(ct);
-        richProgress?.Report(new("Checking required gameplay mods", "Verifying installed 18-mod r10 preset…", IsIndeterminate: true, CanCancel: true));
+        richProgress?.Report(new("Checking required gameplay mods", "Verifying installed 18-mod r11 preset…", IsIndeterminate: true, CanCancel: true));
         var missing = (await connection.RunAsync(["gameplay-status"], ct)).Deserialize<List<GameplayArtifact>>(HellForgePack.Json)
             ?? throw new InvalidDataException("Forge returned no gameplay installation plan.");
         var pinned = HellForgeGameplayCatalog.Pinned;
@@ -357,7 +357,7 @@ internal sealed class LinuxForgePlayer(IForgeConnection connection, LinuxForgePr
         // HTTPS runs here in the native frontend, never in the isolated Wine bridge.
         await HellForgeGameplayCatalog.StageAsync(cache, missing, progress, ct, richProgress: richProgress);
         if (SessionActive || Game.IsRunning()) throw new InvalidOperationException("HD2 started while downloading; keep the verified files and retry after closing it.");
-        richProgress?.Report(new("Installing gameplay mods", "Configuring pinned r10 load order and sharing…", IsIndeterminate: true, CanCancel: false));
+        richProgress?.Report(new("Installing gameplay mods", "Configuring pinned r11 load order and sharing…", IsIndeterminate: true, CanCancel: false));
         await connection.RunAsync(["install-gameplay", "--file", windows], ct);
         await RefreshAsync(ct);
     }

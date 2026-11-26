@@ -147,9 +147,9 @@ public static class ForgeVerifier
 
         steps.Add(new(2, "Hosts & capture cleanup", true, false, "Hosts file and capture proxy state are clean (saves & account untouched)."));
 
-        // ── Step 3/5: 18-mod r10 gameplay preset hash & order verification/repair ──
+        // ── Step 3/5: 18-mod r11 gameplay preset hash & order verification/repair ──
         ct.ThrowIfCancellationRequested();
-        progress?.Report(new("Verifying gameplay preset", "Checking 18-mod r10 hashes, options, and load order…", 3, 5, CanCancel: true));
+        progress?.Report(new("Verifying gameplay preset", "Checking 18-mod r11 hashes, options, and load order…", 3, 5, CanCancel: true));
         try
         {
             var modsBefore = await client.ModsAsync(ct);

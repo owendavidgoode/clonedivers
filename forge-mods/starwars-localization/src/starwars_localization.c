@@ -1,10 +1,10 @@
-/* Star Wars Localization Bridge (clonedivers.starwars-localization 0.1.0)
+/* Star Wars Localization Bridge (clonedivers.starwars-localization 0.1.1)
  * Target: Helldivers 2 Steam build 25480438, HellForge Mod SDK 16.
  *
  * Restores EmpireDivers / Clonedivers US English TEXT overrides in memory whenever
- * HellForge's auto-generated forge-credits patch stages last and overwrites
- * 0x7c7587b563f10985, while keeping every Forge Credits string intact and never
- * touching HellForge's engine-API text vtable slot (table + 1000). */
+ * HellForge's auto-generated forge-credits patch stages last and overwrites US English
+ * TEXT resources in 9ba626afa44a3aa3, while keeping every Forge Credits string intact and
+ * never touching HellForge's engine-API text vtable slot (table + 1000). */
 
 #define WIN32_LEAN_AND_MEAN
 #include <windows.h>

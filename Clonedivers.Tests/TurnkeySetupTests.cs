@@ -471,6 +471,16 @@ internal static class TurnkeySetupTests
             check((await restarted.MissingGameplayAsync()).Select(a => a.Id).ToHashSet(StringComparer.Ordinal).SetEquals(expectedR9Upgrade),
                 "an r9 (v2.1.2) installation upgrades all 5 enabled r10 code mods while keeping disabled/removed optionals opted out");
 
+            // Upgrading from r10 (v2.1.3) must upgrade enabled Clean Exit 0.2.0 -> 0.2.1 and Star Wars Localization 0.1.0 -> 0.1.1 while keeping disabled/removed optionals opted out.
+            fake.Mods.RemoveAll(m => HellForgePreset.Optional.Contains(m.Id));
+            fake.Mods.Add(new(cleanExit.Id, cleanExit.Name, true, MakeOldDir(cleanExit, "0.2.0"), ["code"], "0.2.0"));
+            fake.Mods.Add(new(swLoc.Id, swLoc.Name, true, MakeOldDir(swLoc, "0.1.0"), ["code"], "0.1.0"));
+            fake.Mods.Add(new(dedicatedMelee.Id, dedicatedMelee.Name, false, MakeOldDir(dedicatedMelee, "1.5.2-clonedivers.2"), ["code"], "1.5.2-clonedivers.2"));
+            WriteRecord("build25480438-r10", "applied", true, null);
+            var expectedR10Upgrade = new[] { cleanExit.Id, swLoc.Id }.ToHashSet(StringComparer.Ordinal);
+            check((await restarted.MissingGameplayAsync()).Select(a => a.Id).ToHashSet(StringComparer.Ordinal).SetEquals(expectedR10Upgrade),
+                "an r10 (v2.1.3) installation upgrades enabled Clean Exit 0.2.0 -> 0.2.1 and Star Wars Localization 0.1.0 -> 0.1.1 while keeping disabled/removed optionals opted out");
+
             // Upgrading from an earlier record with partial OptionalDefaults offers newly added optionals while preserving prior opt-outs and player-kept versions across rollback.
             fake.Mods.RemoveAll(m => HellForgePreset.Optional.Contains(m.Id));
             fake.Mods.Add(new(yoda.Id, yoda.Name, true, MakeOldDir(yoda, "0.1.2"), ["code"], "0.1.2"));

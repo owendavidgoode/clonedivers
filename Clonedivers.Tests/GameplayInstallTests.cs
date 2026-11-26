@@ -12,8 +12,8 @@ internal static class GameplayInstallTests
     {
         var catalog = HellForgeGameplayCatalog.Pinned;
         catalog.Validate();
-        check(catalog.Id == "build25480438-r10" && catalog.Artifacts.Count == 18 && catalog.Artifacts.Sum(a => a.Bytes) == 8516435,
-            "the r10 preset pairs nine optional SDK-16 mods with nine required gameplay and author archives");
+        check(catalog.Id == "build25480438-r11" && catalog.Artifacts.Count == 18 && catalog.Artifacts.Sum(a => a.Bytes) == 8518467,
+            "the r11 preset pairs nine optional SDK-16 mods with nine required gameplay and author archives");
         check(catalog.Artifacts.Count(a => a.Url.Contains("/owendavidgoode/clonedivers/")) == 15 && catalog.Artifacts.Count(a => !a.Url.Contains("/owendavidgoode/clonedivers/")) == 3 &&
             catalog.Artifacts.All(a => !a.Url.Contains("hf-mod.com", StringComparison.OrdinalIgnoreCase)) &&
             catalog.Artifacts.All(a => !a.FileName.Contains("clear-skies", StringComparison.OrdinalIgnoreCase)),
@@ -32,10 +32,10 @@ internal static class GameplayInstallTests
         var heavySeaf = catalog.Artifacts.Single(a => a.Id == "local.heavy-seaf-presence");
         check(catalog.Artifacts.Where(a => a.Optional).Select(a => a.Id).ToHashSet(StringComparer.Ordinal).SetEquals(HellForgePreset.Optional) &&
             HellForgePreset.Required.All(r => !HellForgePreset.Optional.Contains(r.Id)) &&
-            cleanExit.Version == "0.2.0" && cleanExit.Bytes == 8192 && cleanExit.Sha256 == "6835354fff8264c6f29c33dfac71a0b6e4c4da7a401920bb76e1b604d2435932" &&
-            cleanExit.ContentHash == "0006a02101583cf05e3bd9fa4e431409c18ff4ac72f59ae1ece8c7d9831a888a" &&
-            cleanExit.Url == "https://github.com/owendavidgoode/clonedivers/releases/download/forge-mods-2026-11-08/clean-exit-0.2.0.zip",
-            "Clean Exit stays optional with the exact independently verified 0.2.0 release pins");
+            cleanExit.Version == "0.2.1" && cleanExit.Bytes == 8401 && cleanExit.Sha256 == "f74153f38726cd440368daf1574c11d2ad4616518a47cf9fb23001d34dd792df" &&
+            cleanExit.ContentHash == "0eadc6cc748a4b7d1ef87fbf704fb0bf1c62fd0fdbfe146a09cf161ec3c9b8f4" &&
+            cleanExit.Url == "https://github.com/owendavidgoode/clonedivers/releases/download/forge-mods-2026-11-25/clean-exit-0.2.1.zip",
+            "Clean Exit stays optional with the exact independently verified 0.2.1 In-Game Esc menu release pins");
         check(leafWriter.Name == "LEGO Compact Leaf Writer" && leafWriter.Version == "0.2.2" && leafWriter.Bytes == 261739 &&
             leafWriter.Sha256 == "40ac560a59ac46a84ccde01d55c11c6f5f1c1980e3625c09b0e8c9d2ca619a9f" &&
             leafWriter.ContentHash == "e2901d49390a47bc3f7ec60f64f1c37df4ee02f42869b64685a2ef2afb99434b" &&
@@ -66,11 +66,11 @@ internal static class GameplayInstallTests
             dedicatedMelee.ContentHash == "814a5d993dbf5f9f7bb09c7e68636e1c80ba06a57c8b1d4efdc4815df7b1c9a4" &&
             dedicatedMelee.Url == "https://github.com/owendavidgoode/clonedivers/releases/download/forge-mods-2026-11-22/dedicated-melee-slot-1.5.2-clonedivers.2.zip",
             "Dedicated Melee Slot is optional with the exact 1.5.2-clonedivers.2 co-op release pins");
-        check(swLoc.Name == "Star Wars Localization Bridge" && swLoc.Version == "0.1.0" && swLoc.Bytes == 8754 &&
-            swLoc.Sha256 == "0cc5177c808dbde1aaa43b3cc0e6ccf311e73321c8fbe64a25cc4b27c436bf82" &&
-            swLoc.ContentHash == "5ec6ebb41b2ff4c1b88138452c40c1465a00e3d3b1cc3d91c33008a1c153477a" &&
-            swLoc.Url == "https://github.com/owendavidgoode/clonedivers/releases/download/forge-mods-2026-11-22/starwars-localization-0.1.0.zip",
-            "Star Wars Localization Bridge is optional with the exact 0.1.0 release pins");
+        check(swLoc.Name == "Star Wars Localization Bridge" && swLoc.Version == "0.1.1" && swLoc.Bytes == 10577 &&
+            swLoc.Sha256 == "b0ff55d0464ee6fa3b72693bd04b0bc28384773af04d21740e4e1f5a5ee9ddba" &&
+            swLoc.ContentHash == "1590c83d7907fbc033d62e3a896d2dda2bddc2c935d3e6acd7715d9bf0dc3362" &&
+            swLoc.Url == "https://github.com/owendavidgoode/clonedivers/releases/download/forge-mods-2026-11-25/starwars-localization-0.1.1.zip",
+            "Star Wars Localization Bridge is optional with the exact 0.1.1 SEAF-free release pins");
         check(chaos.Name == "Chaos Invasions" && chaos.Version == "0.3.5" && chaos.Bytes == 45174 &&
             chaos.Sha256 == "6fd51e5d3b54836cf4ee6d09585be7de94b8ab4cdb44451bab2e3472cb049fb7" &&
             chaos.ContentHash == "7c87fa1a65e9909d3e9dc9748a9597430f1af9b4ba026e81d092315713571185" &&
