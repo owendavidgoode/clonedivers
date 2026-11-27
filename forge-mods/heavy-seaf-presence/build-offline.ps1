@@ -56,7 +56,7 @@ try {
 
     $cliZip = Get-ChildItem -LiteralPath $out -Filter '*.zip' | Sort-Object LastWriteTime -Descending | Select-Object -First 1
     if (!$cliZip) { throw 'Packaged zip not found' }
-    $zipPath = Join-Path $out 'Clonedivers-Heavy-SEAF-1.2.0-clonedivers.6.zip'
+    $zipPath = Join-Path $out 'Clonedivers-Heavy-SEAF-1.2.0-clonedivers.7.zip'
     if ($cliZip.FullName -ne $zipPath) {
         Copy-Item -LiteralPath $cliZip.FullName -Destination $zipPath -Force
     }

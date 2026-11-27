@@ -259,17 +259,20 @@ internal static class Milestone1CoreTests
         var unknownBackup = Path.Combine(h1Backups, "20261121-010000-outcome-unknown");
         var recoveryNeededBackup = Path.Combine(h1Backups, "20261121-020000-recovery-needed");
         var inProgressBackup = Path.Combine(h1Backups, "20261121-030000-in-progress");
+        var pendingTxBackup = Path.Combine(h1Backups, "20261121-035000-pending-tx");
         var appliedTxBackup = Path.Combine(h1Backups, "20261121-040000-applied-tx");
         var deletableCompleted = Path.Combine(h1Backups, "20261121-050000-unreferenced-completed");
-        foreach (var b in new[] { unknownBackup, recoveryNeededBackup, inProgressBackup, appliedTxBackup, deletableCompleted })
+        foreach (var b in new[] { unknownBackup, recoveryNeededBackup, inProgressBackup, pendingTxBackup, appliedTxBackup, deletableCompleted })
         {
             Directory.CreateDirectory(b);
             File.WriteAllBytes(Path.Combine(b, "data.bin"), new byte[400]);
         }
         File.WriteAllText(Path.Combine(unknownBackup, "outcome.json"), """{"outcome":"outcome-unknown"}""");
         File.WriteAllText(Path.Combine(recoveryNeededBackup, "outcome.json"), """{"outcome":"recovery-needed"}""");
+        File.WriteAllText(Path.Combine(pendingTxBackup, "outcome.json"), """{"outcome":"applied"}""");
         File.WriteAllText(Path.Combine(appliedTxBackup, "outcome.json"), """{"outcome":"applied"}""");
         File.WriteAllText(Path.Combine(deletableCompleted, "outcome.json"), """{"outcome":"restored"}""");
+        File.WriteAllText(Path.Combine(h1Tx, "pending.json"), JsonSerializer.Serialize(new { State = "pending", Backup = pendingTxBackup }));
         File.WriteAllText(Path.Combine(h1Tx, "applied.json"), JsonSerializer.Serialize(new { State = "applied", Backup = appliedTxBackup }));
 
         // Corrupt transaction JSON -> fail-closed on ALL backups/ (even deletableCompleted stays kept!)
@@ -280,15 +283,16 @@ internal static class Milestone1CoreTests
         check(failClosedAnalysis.ReclaimableBytes == 0 && failClosedFreed == 0 && Directory.Exists(deletableCompleted),
               "ForgeDiskManager fails closed on backups/ when any transactions/*.json is corrupt or unreadable (H1)");
 
-        // Remove corrupt.json -> CleanSafeFilesAsync (staleOnly: false) deletes ONLY deletableCompleted, keeping non-terminal & tx-referenced backups!
+        // Remove corrupt.json -> CleanSafeFilesAsync (staleOnly: false) reclaims terminal backups (restored & applied-tx) while keeping non-terminal & pending-tx backups!
         File.Delete(corruptTxPath);
         _ = await ForgeDiskManager.CleanSafeFilesAsync(h1Install);
         check(!Directory.Exists(deletableCompleted) &&
+              !Directory.Exists(appliedTxBackup) &&
               Directory.Exists(unknownBackup) &&
               Directory.Exists(recoveryNeededBackup) &&
               Directory.Exists(inProgressBackup) &&
-              Directory.Exists(appliedTxBackup),
-              "CleanSafeFilesAsync preserves non-terminal (outcome-unknown, recovery-needed, missing outcome) and applied-tx backups (H1)");
+              Directory.Exists(pendingTxBackup),
+              "CleanSafeFilesAsync reclaims terminal applied/restored backups while preserving non-terminal (outcome-unknown, recovery-needed, missing outcome) and pending-tx backups (H1)");
 
         // Gameplay imports age & transactions/*.lock synchronization check
         var importsDir = Path.Combine(h1Cache, "gameplay", HellForgeGameplayCatalog.Pinned.Id, "imports");
@@ -320,19 +324,19 @@ internal static class Milestone1CoreTests
         Directory.CreateDirectory(dir);
 
         var catalogCode = SquadFingerprint.Compute(HellForgeGameplayCatalog.Current);
-        check(System.Text.RegularExpressions.Regex.IsMatch(catalogCode, @"^r13-[0-9a-f]{4}$"),
-              $"SquadFingerprint.Compute(Current) produces short deterministic r13 match code ({catalogCode})");
+        check(System.Text.RegularExpressions.Regex.IsMatch(catalogCode, @"^r14-[0-9a-f]{4}$"),
+              $"SquadFingerprint.Compute(Current) produces short deterministic r14 match code ({catalogCode})");
 
         // Build two player mod lists:
-        // Player A: Clonedivers pack + all gameplay:false client code mods enabled + r13 gameplay preset
-        // Player B: EmpireDivers pack + 0 gameplay:false client code mods enabled + r13 gameplay preset (reversed order)
+        // Player A: Clonedivers pack + all gameplay:false client code mods enabled + r14 gameplay preset
+        // Player B: EmpireDivers pack + 0 gameplay:false client code mods enabled + r14 gameplay preset (reversed order)
         HellForgeMods BuildPlayerMods(string? starWarsMode, bool enableClientCodeMods, string difficultyVersion = "0.16.1", bool enableChaos = true)
         {
             var list = new List<HellForgeMod>();
             foreach (var req in HellForgePreset.Required)
                 list.Add(new(req.Id, req.Name, true, "fixture", ["gameplay"], req.Id == "skyeshade.hell-forge" ? difficultyVersion : req.Version));
             list.Add(new("skyeshade.vanilla-plus", "Vanilla Plus", true, "fixture", ["gameplay"], ""));
-            list.Add(new(HellForgePreset.ChaosInvasions, "Chaos Invasions", enableChaos, "fixture", ["gameplay", "code"], "0.4.0"));
+            list.Add(new(HellForgePreset.ChaosInvasions, "Chaos Invasions", enableChaos, "fixture", ["gameplay", "code"], "0.5.0"));
 
             foreach (var clientId in new[] { HellForgePreset.CleanExit, HellForgePreset.LegoCompactLeafWriter, HellForgePreset.EmpireLegoYoda, HellForgePreset.EmpireAtstWriter, HellForgePreset.EmpireTieSwitch, HellForgePreset.EmpireCameraPullback, HellForgePreset.StarWarsLocalization, HellForgePreset.DedicatedMeleeSlot })
                 list.Add(new(clientId, clientId, enableClientCodeMods, "fixture", ["code"], "0.2.1"));
@@ -505,14 +509,14 @@ internal static class Milestone1CoreTests
             extraSearchFolders: [localSourceDir]);
 
         check(report.Healthy && report.Steps.Count == 5 && report.Steps.All(s => s.Passed) &&
-              report.Steps[2].Name == "Gameplay preset (r13)" &&
+              report.Steps[2].Name == "Gameplay preset (r14)" &&
               !report.Steps[2].Detail.Contains("r8", StringComparison.OrdinalIgnoreCase) &&
               report.GameplayModsRepaired >= 1 && report.PackVerified && report.PackRepaired &&
               report.BytesReclaimed >= 512 && !File.Exists(stalePartial) &&
               File.ReadAllText(profilePath) == profileBytes &&
               File.ReadAllText(sealPath) == sealBytes &&
               progressEvents.Count >= 5,
-              "ForgeVerifier runs all 5 check & repair steps, labels Step 3 with dynamic r13 tag, repairs drifted preset & pack, reclaims stale cache, and leaves saves/account untouched");
+              "ForgeVerifier runs all 5 check & repair steps, labels Step 3 with dynamic r14 tag, repairs drifted preset & pack, reclaims stale cache, and leaves saves/account untouched");
 
         // Second run when already healthy performs 0 repairs
         var second = await ForgeVerifier.VerifyAndRepairCoreAsync(
@@ -525,9 +529,9 @@ internal static class Milestone1CoreTests
             selectionOverride: () => fixtureSelection,
             extraSearchFolders: [localSourceDir]);
         check(second.Healthy && second.Steps.Count == 5 && second.GameplayModsRepaired == 0 && !second.PackRepaired &&
-              second.Summary.Contains("r13 gameplay preset", StringComparison.Ordinal) &&
+              second.Summary.Contains("r14 gameplay preset", StringComparison.Ordinal) &&
               !second.Summary.Contains("r8", StringComparison.OrdinalIgnoreCase),
-              "ForgeVerifier second pass confirms clean state with zero redundant repairs and dynamic r13 summary");
+              "ForgeVerifier second pass confirms clean state with zero redundant repairs and dynamic r14 summary");
 
         // Step 2 capture block stops safely before mutating mods
         var blocked = await ForgeVerifier.VerifyAndRepairCoreAsync(
@@ -1120,6 +1124,11 @@ internal static class Milestone1CoreTests
                         if (oi >= 0) opts[oi] = new(optName, on);
                         else opts.Add(new(optName, on));
                         Mods[idx] = Mods[idx] with { Options = opts.ToArray() };
+                    }
+                    else if (idx >= 0 && args[3] == "--all" && Mods[idx].Options != null)
+                    {
+                        var on = args[4] == "yes";
+                        Mods[idx] = Mods[idx] with { Options = Mods[idx].Options!.Select(o => new HellForgeOption(o.Name, on)).ToArray() };
                     }
                     response = new { ok = true };
                     break;

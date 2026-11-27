@@ -28,10 +28,33 @@ static int g_wave_ceiling = 24;
 static int g_clone_wars = 0;
 static int g_registered;
 
+enum {
+    MENU_EDIT_CONSTANT     = 1u << 0,
+    MENU_EDIT_SUPPORT      = 1u << 1,
+    MENU_EDIT_TANK_HUNTERS = 1u << 2,
+    MENU_EDIT_INTERVAL     = 1u << 3,
+    MENU_EDIT_SQUADS       = 1u << 4,
+};
+
+static int g_ini_constant = 0;
+static int g_ini_support_squads = 0;
+static int g_ini_interval = 120;
+static int g_ini_squads = 1;
+
+static unsigned g_session_edit_mask = 0u;
+static int g_sess_constant = 0;
+static int g_sess_support_squads = 0;
+static int g_sess_interval = 120;
+static int g_sess_squads = 1;
+
+static int g_bridge_vals[5] = { 0, 0, 0, 120, 1 };
+static int g_bridge_vals_valid = 0;
+
 static char g_host_opts_path[CD_HOST_OPTIONS_MAX_PATH];
 static uint64_t g_host_opts_mtime;
 static uint64_t g_session_edit_mtime;
 static int g_host_opts_loaded;
+static CdHostOptions g_last_host_opts;
 
 static int MenuIsHostOrSolo(void)
 {
@@ -83,6 +106,10 @@ static void Load(void)
     g_extra_squads = 0;
     g_wave_ceiling = 24;
     g_clone_wars = 0;
+    g_ini_constant = 0;
+    g_ini_support_squads = 0;
+    g_ini_interval = 120;
+    g_ini_squads = 1;
     if (folder == NULL) return;
     snprintf(path, sizeof path, "%s\\options.ini", folder);
     file = fopen(path, "r");
@@ -103,6 +130,29 @@ static void Load(void)
         }
     }
     fclose(file);
+    g_ini_constant = g_constant;
+    g_ini_support_squads = g_support_squads;
+    g_ini_interval = g_interval;
+    g_ini_squads = g_squads;
+}
+
+static void RecordSessionBoolEdit(int row, int on)
+{
+    int b = on ? 1 : 0;
+    if (row == 0) { g_sess_constant = b; g_session_edit_mask |= MENU_EDIT_CONSTANT; }
+    else if (row == 1) { g_sess_support_squads = b; g_session_edit_mask |= MENU_EDIT_SUPPORT; }
+    else if (row == 2) { g_session_edit_mask |= MENU_EDIT_TANK_HUNTERS; }
+}
+
+static void RecordSessionNumEdit(int row, int value)
+{
+    if (row == 3 && value >= 10 && value <= 900) {
+        g_sess_interval = value;
+        g_session_edit_mask |= MENU_EDIT_INTERVAL;
+    } else if (row == 4 && value >= 1 && value <= 6) {
+        g_sess_squads = value;
+        g_session_edit_mask |= MENU_EDIT_SQUADS;
+    }
 }
 
 /* ------------------------------------------------------------- Lua bridge */
@@ -131,6 +181,12 @@ static void BridgeLocate(void)
 static void BridgeWrite(void)
 {
     FILE* file;
+    g_bridge_vals[0] = g_constant ? 1 : 0;
+    g_bridge_vals[1] = g_support_squads ? 1 : 0;
+    g_bridge_vals[2] = g_tank_hunters ? 1 : 0;
+    g_bridge_vals[3] = g_interval;
+    g_bridge_vals[4] = g_squads;
+    g_bridge_vals_valid = 1;
     if (g_bridge_path[0] == 0) return;
     snprintf(g_bridge_seen, sizeof g_bridge_seen,
         "constant=%d\nsupport_squads=%d\ntank_hunters=%d\ninterval_seconds=%d\nsquads_per_wave=%d\n",
@@ -150,6 +206,7 @@ static void BridgePoll(void)
     char text[192];
     size_t n;
     int constant, support, tank, interval, squads;
+    int prev[5];
     if (g_bridge_path[0] == 0) return;
     file = fopen(g_bridge_path, "rb");
     if (file == NULL) return;
@@ -161,6 +218,15 @@ static void BridgePoll(void)
             "constant=%d\nsupport_squads=%d\ntank_hunters=%d\ninterval_seconds=%d\nsquads_per_wave=%d",
             &constant, &support, &tank, &interval, &squads) != 5)
         return;
+    if (g_bridge_vals_valid) {
+        memcpy(prev, g_bridge_vals, sizeof prev);
+    } else {
+        prev[0] = g_ini_constant ? 1 : 0;
+        prev[1] = g_ini_support_squads ? 1 : 0;
+        prev[2] = g_tank_hunters ? 1 : 0;
+        prev[3] = g_ini_interval;
+        prev[4] = g_ini_squads;
+    }
     memcpy(g_bridge_seen, text, n + 1);
     {
         uint64_t bm = 0ULL;
@@ -169,11 +235,22 @@ static void BridgePoll(void)
         else
             g_session_edit_mtime = MenuNowFileTime100ns();
     }
+    if ((constant ? 1 : 0) != prev[0]) RecordSessionBoolEdit(0, constant != 0);
+    if ((support ? 1 : 0) != prev[1]) RecordSessionBoolEdit(1, support != 0);
+    if ((tank ? 1 : 0) != prev[2]) RecordSessionBoolEdit(2, tank != 0);
+    if (interval != prev[3]) RecordSessionNumEdit(3, interval);
+    if (squads != prev[4]) RecordSessionNumEdit(4, squads);
     ApplyNumber(3, interval, "MODS page");
     ApplyNumber(4, squads, "MODS page");
     Apply(0, constant, "MODS page");
     Apply(1, support, "MODS page");
     Apply(2, tank, "MODS page");
+    g_bridge_vals[0] = g_constant ? 1 : 0;
+    g_bridge_vals[1] = g_support_squads ? 1 : 0;
+    g_bridge_vals[2] = g_tank_hunters ? 1 : 0;
+    g_bridge_vals[3] = g_interval;
+    g_bridge_vals[4] = g_squads;
+    g_bridge_vals_valid = 1;
 }
 
 static void LoadHostOptions(int is_poll)
@@ -190,6 +267,8 @@ static void LoadHostOptions(int is_poll)
     if (cd_load_host_options_file(g_host_opts_path, &ho) != 1) return;
 
     g_host_opts_loaded = 1;
+    g_last_host_opts = ho;
+    g_session_edit_mask = 0u;
     CdHeavySeafMode eff_seaf = cd_effective_heavy_seaf(&ho);
     int cw = (eff_seaf == CD_HEAVY_SEAF_CLONE_WARS) ? 1 : 0;
     int wc = (ho.seaf_wave_ceiling > 0) ? ho.seaf_wave_ceiling : (cw ? 180 : 24);
@@ -345,11 +424,15 @@ static int OnChange(umm_callback* callback, int argc, umm_value* argv, umm_arena
     if (argc < 1) return 0;
     g_session_edit_mtime = MenuNowFileTime100ns();
     if (row >= 3) {
+        int v;
         if (argv[0].type != UMM_NUM) return 0;
-        ApplyNumber(row, (int)(argv[0].u.n + 0.5), "MODS page");
+        v = (int)(argv[0].u.n + 0.5);
+        RecordSessionNumEdit(row, v);
+        ApplyNumber(row, v, "MODS page");
         return 0;
     }
     if (argv[0].type != UMM_BOOL) return 0;
+    RecordSessionBoolEdit(row, argv[0].u.b != 0);
     Apply(row, argv[0].u.b != 0, "MODS page");
     return 0;
 }
@@ -488,6 +571,10 @@ static int Register(const umm_api* api)
             count = Call(get, 1, args, &out, rets);
             if (count >= 1 && row < 3 && rets[0].type == UMM_BOOL) Apply(row, rets[0].u.b != 0, "MODS page");
             else if (count >= 1 && row >= 3 && rets[0].type == UMM_NUM) ApplyNumber(row, (int)(rets[0].u.n + 0.5), "MODS page");
+            g_ini_constant = g_constant;
+            g_ini_support_squads = g_support_squads;
+            g_ini_interval = g_interval;
+            g_ini_squads = g_squads;
             ArenaFree(&out);
         }
         row_ready[row] = 1;
@@ -505,7 +592,10 @@ void OptionsMenuStart(const HfApi* api, HfMod* mod)
     g_host_opts_path[0] = 0;
     g_host_opts_mtime = 0ULL;
     g_session_edit_mtime = 0ULL;
+    g_session_edit_mask = 0u;
+    g_bridge_vals_valid = 0;
     g_host_opts_loaded = 0;
+    g_last_host_opts = cd_host_options_defaults();
     Load();
     folder = g_hf ? g_hf->mod_folder(mod) : NULL;
     if (folder != NULL) {
@@ -580,4 +670,112 @@ int OptionsWaveCeiling(void)
 int OptionsCloneWars(void)
 {
     return g_clone_wars;
+}
+
+static CdHeavySeafMode OptionsEffectiveModeForDifficulty(int live_diff)
+{
+    int eff_diff = (live_diff >= 1) ? live_diff : 1;
+    CdHeavySeafMode mode = cd_effective_heavy_seaf_for_difficulty(&g_last_host_opts, eff_diff);
+    if (cd_host_options_active_for_difficulty(&g_last_host_opts, eff_diff) &&
+        (g_last_host_opts.heavy_seaf == CD_HEAVY_SEAF_CLONE_WARS ||
+         g_last_host_opts.heavy_seaf == CD_HEAVY_SEAF_CONSTANT)) {
+        mode = CD_HEAVY_SEAF_CLONE_WARS;
+    }
+    return mode;
+}
+
+static void OptionsComputeEffective(
+    int live_diff,
+    int* out_clone_wars,
+    int* out_constant,
+    int* out_support,
+    int* out_squads,
+    int* out_interval_ms,
+    int* out_extra_squads,
+    int* out_ceiling)
+{
+    int cw = 0;
+    int constant = g_ini_constant;
+    int sup = g_ini_support_squads;
+    int iv = g_ini_interval;
+    int squads = g_ini_squads;
+    int ex = 0;
+    int ceiling = 24;
+
+    if (g_host_opts_loaded) {
+        CdHeavySeafMode mode = OptionsEffectiveModeForDifficulty(live_diff);
+        cw = (mode == CD_HEAVY_SEAF_CLONE_WARS) ? 1 : 0;
+        HeavyApplyHostMode(mode, &constant, &sup, &iv, &squads, &ex);
+        if (g_last_host_opts.seaf_wave_ceiling > 0) {
+            ceiling = cw ? g_last_host_opts.seaf_wave_ceiling : 24;
+        } else {
+            ceiling = cw ? ((live_diff >= 12 || g_last_host_opts.theater_preset != CD_THEATER_CLONE_WARS) ? 180 : 78) : 24;
+        }
+    } else if (live_diff >= 12) {
+        cw = 1;
+        constant = 1;
+        sup = 0;
+        iv = 24;
+        squads = 2;
+        ex = 10;
+        ceiling = 78;
+    }
+
+    if (g_session_edit_mask != 0u &&
+        (!g_host_opts_loaded || cd_session_override_is_newer(g_host_opts_mtime, g_session_edit_mtime))) {
+        if (g_session_edit_mask & MENU_EDIT_CONSTANT) {
+            constant = g_sess_constant;
+            if (!constant) cw = 0;
+        }
+        if (g_session_edit_mask & MENU_EDIT_SUPPORT) {
+            sup = g_sess_support_squads;
+            if (sup) cw = 0;
+        }
+        if (g_session_edit_mask & MENU_EDIT_INTERVAL) {
+            iv = g_sess_interval;
+        }
+        if (g_session_edit_mask & MENU_EDIT_SQUADS) {
+            squads = g_sess_squads;
+        }
+    }
+
+    if (out_clone_wars) *out_clone_wars = cw;
+    if (out_constant) *out_constant = constant;
+    if (out_support) *out_support = sup;
+    if (out_squads) *out_squads = squads;
+    if (out_interval_ms) *out_interval_ms = iv * 1000;
+    if (out_extra_squads) *out_extra_squads = ex;
+    if (out_ceiling) *out_ceiling = ceiling;
+}
+
+int OptionsEffectiveExtraSquads(int live_diff)
+{
+    int ex = 0;
+    OptionsComputeEffective(live_diff, NULL, NULL, NULL, NULL, NULL, &ex, NULL);
+    return ex;
+}
+
+int OptionsEffectiveSupportSquads(int live_diff)
+{
+    int sup = 0;
+    OptionsComputeEffective(live_diff, NULL, NULL, &sup, NULL, NULL, NULL, NULL);
+    return sup;
+}
+
+int OptionsEffectiveCloneWars(int live_diff)
+{
+    int cw = 0;
+    OptionsComputeEffective(live_diff, &cw, NULL, NULL, NULL, NULL, NULL, NULL);
+    return cw;
+}
+
+void OptionsResolveForDifficulty(
+    int live_diff,
+    int* out_clone_wars,
+    int* out_constant,
+    int* out_squads,
+    int* out_interval_ms,
+    int* out_ceiling)
+{
+    OptionsComputeEffective(live_diff, out_clone_wars, out_constant, NULL, out_squads, out_interval_ms, NULL, out_ceiling);
 }

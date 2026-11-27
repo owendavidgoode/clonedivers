@@ -500,7 +500,9 @@ uint32_t at_writer_dispatch_512B80(
 
     tls_active_frame = prev_tls;
 
-    frame.receipt.environment_ok = (delegate_csr == entry_csr && return_csr == entry_csr) ? 1u : 0u;
+    /* Mask sticky x86 SSE exception status bits (0x3Fu: IE..PE) while strictly enforcing rounding/FTZ/DAZ/mask control bits. */
+    frame.receipt.environment_ok = (((delegate_csr ^ entry_csr) & ~0x3Fu) == 0u &&
+                                    ((return_csr ^ entry_csr) & ~0x3Fu) == 0u) ? 1u : 0u;
     frame.receipt.allocation_ok = (frame.reservation >= plan.pool_base &&
                                    frame.reservation - plan.pool_base == (uint64_t)result * 16ULL)
                                       ? 1u
@@ -600,7 +602,7 @@ uint32_t at_writer_leaf_5B2990(
     tls_active_frame = f;
 
     if (f && f->active && f->state == s) {
-        if (exit_csr != entry_csr) f->receipt.failure = 2u;
+        if (((exit_csr ^ entry_csr) & ~0x3Fu) != 0u) f->receipt.failure = 2u;
         if (replace) f->receipt.replaced++;
     }
 

@@ -9,7 +9,7 @@
 #include <stdint.h>
 
 #define AT_MAX_WALKERS 4u
-#define AT_UNIT_CAP_LIMIT 262144u
+#define AT_UNIT_CAP_LIMIT 524288u
 #define AT_RENDER_HANDLE_LIMIT (1u << 22)
 #define AT_RENDER_VEC_LIMIT (1u << 22)
 

@@ -54,13 +54,40 @@ static uint64_t g_tick_count = 0u;
 static uint64_t g_next_poll_ms = 0u;
 static uint64_t g_next_health_ms = 0u;
 static uint32_t g_health_row = 0u;
+static volatile LONG g_burst_frames = 120;
+static uint32_t g_prev_game_state = 0u;
+
+static void OnSpawn(HfMod *mod, const HfEventInfo *event, void *user) {
+    (void)mod;
+    (void)event;
+    (void)user;
+    /* Burst-scan immediately on any unit spawn so newly dropped EXO-45/49/51/55 walkers on
+     * 126k-unit Mega City maps admit on frame 0-3 (<50 ms) instead of waiting on a 5 Hz sweep. */
+    InterlockedExchange(&g_burst_frames, 90);
+}
 
 static void WriterTick(HfMod *mod, float dt, void *user) {
     (void)dt;
     (void)user;
+    if (g_hf && g_hf->size >= offsetof(HfApi, game_state) + sizeof(g_hf->game_state) && g_hf->game_state && mod) {
+        uint32_t st = g_hf->game_state(mod);
+        if (st != g_prev_game_state) {
+            g_prev_game_state = st;
+            if (st == HF_STATE_MISSION || st == HF_STATE_PREPARE_MISSION) {
+                InterlockedExchange(&g_burst_frames, 120);
+            }
+        }
+    }
+    int run_burst = 0;
+    if (InterlockedCompareExchange(&g_burst_frames, 0, 0) > 0) {
+        InterlockedDecrement(&g_burst_frames);
+        run_burst = 1;
+    }
     uint64_t now = GetTickCount64();
-    if (now >= g_next_poll_ms) {
-        g_next_poll_ms = now + 200u;
+    if (run_burst || now >= g_next_poll_ms) {
+        if (!run_burst) {
+            g_next_poll_ms = now + 200u;
+        }
         LARGE_INTEGER t0, t1;
         if (!g_qpf) {
             LARGE_INTEGER f;
@@ -68,8 +95,8 @@ static void WriterTick(HfMod *mod, float dt, void *user) {
             g_qpf = f.QuadPart ? (uint64_t)f.QuadPart : 1u;
         }
         QueryPerformanceCounter(&t0);
-        /* 200ms (5 Hz) throttled 4096-slot differential slice: zero game-thread syscalls on >96% of frames. */
-        at_writer_tick(&g_writer, 4096u);
+        /* Burst mode (on mission entry & HF_ON_SPAWN): 32,768-slot slice at 60 Hz; steady state: 5 Hz 4,096-slot slice. */
+        at_writer_tick(&g_writer, run_burst ? 32768u : 4096u);
         QueryPerformanceCounter(&t1);
         uint64_t us = (uint64_t)((t1.QuadPart - t0.QuadPart) * 1000000LL / (LONGLONG)g_qpf);
         g_tick_us_sum += us;
@@ -163,14 +190,19 @@ static void OnGameLoaded(HfMod *mod, HfEvent event, void *user) {
         hf->log(mod, "ATST_WRITER refused: tick_registration_failed");
         return;
     }
+    int spawn_sub = 0;
+    if (hf->size >= offsetof(HfApi, subscribe) + sizeof(hf->subscribe) && hf->subscribe != NULL) {
+        spawn_sub = hf->subscribe(mod, HF_ON_SPAWN, OnSpawn, NULL, 0) ? 1 : 0;
+    }
+    InterlockedExchange(&g_burst_frames, 120);
 
     uintptr_t init_peer_base = (uintptr_t)InterlockedCompareExchangePointer(
         (PVOID *)&g_writer.peer_leaf_base, NULL, NULL);
     size_t init_peer_size = (size_t)InterlockedCompareExchangePointer(
         (PVOID *)&g_writer.peer_leaf_size, NULL, NULL);
     InterlockedExchange(&g_writer.ready, 1);
-    hf->log(mod, "ATST_WRITER ready build=%s s2c_nodes=%u max_walkers=%u units=79E4B3D2DA5E45E3,C2D449ECF7FACAB1,7B2326F6FD9C8069,35DBF54F016F3624 engine=0x%llX peer_leaf=0x%llX peer_size=0x%llX hook_priority=%d",
-            AT_EXPECTED_BUILD, AT_S2C_NODES, AT_MAX_WALKERS,
+    hf->log(mod, "ATST_WRITER ready version=0.2.5 build=%s s2c_nodes=%u max_walkers=%u spawn_sub=%d units=79E4B3D2DA5E45E3,C2D449ECF7FACAB1,7B2326F6FD9C8069,35DBF54F016F3624 engine=0x%llX peer_leaf=0x%llX peer_size=0x%llX hook_priority=%d",
+            AT_EXPECTED_BUILD, AT_S2C_NODES, AT_MAX_WALKERS, spawn_sub,
             (unsigned long long)engine,
             (unsigned long long)init_peer_base,
             (unsigned long long)init_peer_size,

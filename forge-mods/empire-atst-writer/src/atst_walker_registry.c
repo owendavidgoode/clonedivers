@@ -459,7 +459,8 @@ uint32_t at_registry_reconcile(
                 if (reg->scanned_slots[idx] == unit_ptr && reg->scanned_gens[idx] == unit_gen) {
                     continue;
                 }
-                if (max_scan && max_scan < mgr.capacity && probed_new >= 96u) {
+                uint32_t probe_cap = (max_scan >= 16384u) ? 4096u : 512u;
+                if (max_scan && max_scan < mgr.capacity && probed_new >= probe_cap) {
                     break;
                 }
                 probed_new++;

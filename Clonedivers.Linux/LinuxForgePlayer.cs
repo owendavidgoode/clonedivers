@@ -49,7 +49,8 @@ internal sealed class LinuxForgePreferences
     public string HostChaosIntensity { get; set; } = "standard";
     public string HostHeavySeaf { get; set; } = "standard";
     public bool HostFasterCorpseCleanup { get; set; } = true;
-    public string HostTheaterPreset { get; set; } = "standard";
+    public string HostTheaterPreset { get; set; } = "clone-wars";
+    public int HostTheaterDefaultVersion { get; set; } = 2;
     public string? PlayerLabel { get; set; }
     internal static string PathName => Path.Combine(PlatformPaths.ConfigDirectory, "forge.json");
 
@@ -88,7 +89,7 @@ internal sealed class LinuxForgePreferences
             PerformanceTier = AutoPerformanceTier ? PerformanceTierAdvisor.Auto : PerformanceTierAdvisor.TierFromPackTexture(Texture);
         if (string.IsNullOrEmpty(HostChaosIntensity)) HostChaosIntensity = "standard";
         if (string.IsNullOrEmpty(HostHeavySeaf)) HostHeavySeaf = "standard";
-        if (string.IsNullOrEmpty(HostTheaterPreset)) HostTheaterPreset = "standard";
+        if (string.IsNullOrEmpty(HostTheaterPreset)) HostTheaterPreset = "clone-wars";
         if (string.IsNullOrWhiteSpace(LastStepDownSuggestedTier)) LastStepDownSuggestedTier = null;
         if (string.IsNullOrWhiteSpace(PendingStepDownReason)) PendingStepDownReason = null;
         if (string.IsNullOrWhiteSpace(PlayerLabel)) PlayerLabel = null;
@@ -166,6 +167,18 @@ internal sealed class LinuxForgePreferences
             }
             if (!value.AutoPerformanceTier)
                 value.PerformanceTier = PerformanceTierAdvisor.ReconcileManualTier(value.PerformanceTier, value.Texture);
+            if (!TryGetJsonProperty(doc.RootElement, "HostTheaterDefaultVersion", out var thVerProp) ||
+                thVerProp.ValueKind != JsonValueKind.Number ||
+                !thVerProp.TryGetInt32(out var thVer) ||
+                thVer < 2)
+            {
+                if (string.IsNullOrWhiteSpace(value.HostTheaterPreset) ||
+                    string.Equals(value.HostTheaterPreset, "standard", StringComparison.OrdinalIgnoreCase))
+                {
+                    value.HostTheaterPreset = "clone-wars";
+                }
+                value.HostTheaterDefaultVersion = 2;
+            }
         }
         value.Validate(); return value;
     }
@@ -178,13 +191,11 @@ internal sealed class LinuxForgePreferences
         File.WriteAllText(file + ".tmp", JsonSerializer.Serialize(this, HellForgePack.Json));
         File.Move(file + ".tmp", file, true);
     }
-    internal string[] SelectionCommand() => !HostMutatorConfig.IsUltrakillTheater(HostTheaterPreset, HostChaosIntensity)
-        ? ["select-mode", "--mode", Mode, "--delta", DeltaSquad ? "yes" : "no", "--texture", Texture,
+    internal string[] SelectionCommand() =>
+        ["select-mode", "--mode", Mode, "--delta", DeltaSquad ? "yes" : "no", "--texture", Texture,
             "--droids", Droids ? "yes" : "no", "--covenant", Covenant ? "yes" : "no", "--enemy-skin", EnemySkin,
-            "--squid-skin", SquidSkin, "--deathtrooper", DeathTrooperVoice ? "yes" : "no"]
-        : ["select-mode", "--mode", Mode, "--delta", DeltaSquad ? "yes" : "no", "--texture", Texture,
-            "--droids", Droids ? "yes" : "no", "--covenant", Covenant ? "yes" : "no", "--enemy-skin", EnemySkin,
-            "--squid-skin", SquidSkin, "--deathtrooper", DeathTrooperVoice ? "yes" : "no", "--theater", "clone-wars"];
+            "--squid-skin", SquidSkin, "--deathtrooper", DeathTrooperVoice ? "yes" : "no",
+            "--theater", HostMutatorConfig.IsUltrakillTheater(HostTheaterPreset, HostChaosIntensity) ? "clone-wars" : "standard"];
     internal HellForgePack.Selection PackSelection()
     {
         var options = new Dictionary<string, bool>

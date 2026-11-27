@@ -40,16 +40,14 @@ New-Item -ItemType Directory -Force $Cache | Out-Null
 try {
     $env:ZIG_GLOBAL_CACHE_DIR = $Cache
     $env:ZIG_LOCAL_CACHE_DIR = $Cache
-    if (!(Test-Path -LiteralPath (Join-Path $BuildDir 'empire_atst_writer.dll'))) {
-        $DllSources = @(
-            (Join-Path $WriterSrc 'atst_mod_main.c'),
-            (Join-Path $WriterSrc 'atst_policy.c'),
-            (Join-Path $WriterSrc 'atst_walker_registry.c'),
-            (Join-Path $WriterSrc 'atst_writer_core.c')
-        )
-        & $Zig cc -std=c11 -target x86_64-windows-gnu -shared -O2 -ffp-contract=off -fno-fast-math -Wall -Werror -I $WriterSdk -I $WriterSrc @DllSources -o (Join-Path $BuildDir 'empire_atst_writer.dll')
-        if ($LASTEXITCODE -ne 0) { throw "DLL compile failed with -Wall -Werror" }
-    }
+    $DllSources = @(
+        (Join-Path $WriterSrc 'atst_mod_main.c'),
+        (Join-Path $WriterSrc 'atst_policy.c'),
+        (Join-Path $WriterSrc 'atst_walker_registry.c'),
+        (Join-Path $WriterSrc 'atst_writer_core.c')
+    )
+    & $Zig cc -std=c11 -target x86_64-windows-gnu -shared -O2 -ffp-contract=off -fno-fast-math -Wall -Werror -I $WriterSdk -I $WriterSrc @DllSources -o (Join-Path $BuildDir 'empire_atst_writer.dll')
+    if ($LASTEXITCODE -ne 0) { throw "DLL compile failed with -Wall -Werror" }
     & $Zig cc -std=c11 -target x86_64-windows-gnu -O2 -ffp-contract=off -fno-fast-math -Wall -Werror -I $WriterSdk -I $WriterSrc -I $TestsDir @Sources -lm -o $OutExe
     if ($LASTEXITCODE -ne 0) { throw "C test compile failed with -Wall -Werror" }
     & $Zig cc -std=c11 -target x86_64-windows-gnu -O2 -ffp-contract=off -fno-fast-math -Wall -Werror -I $WriterSdk -I $WriterSrc -I $TestsDir @BenchSources -lm -o $BenchExe

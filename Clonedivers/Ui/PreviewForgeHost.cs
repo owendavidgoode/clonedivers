@@ -15,7 +15,7 @@ public sealed class PreviewForgeHost : IForgeUiHost
     string hostChaos = "standard";
     string hostSeaf = "standard";
     bool hostCorpseCleanup = true;
-    string hostTheater = "standard";
+    string hostTheater = "clone-wars";
     bool soundEffectsEnabled = true;
     bool discordRpcEnabled = true;
     bool minimizeToTray;
@@ -380,10 +380,10 @@ public sealed class PreviewForgeHost : IForgeUiHost
         Tag: WhatsNewFetcher.NormalizeTag(versionOrTag ?? AppInfo.Version, isLinux: false),
         Bullets:
         [
-            "Level 12 ULTRAKILL · Full Clone Wars Theater: 2.79 km² map (5.86x area) & 2,000–3,000 hybrid theater units.",
-            "SDK-16 zero-syscall render & AI refactor across all 8 code mods + 0.0s Emergency Turbo Corpse Reaper.",
-            "Single-pass 1 MiB ArrayPool launcher I/O, parallel NVMe hash cache, and instant launch verification.",
-            "Squad Match Code (r13), 5 Star Wars texture tiers, and reversible ULTRAKILL Stingray crowd LOD profile."
+            "Genuine Difficulty 12 Slot ('LEVEL 12: CLONE WARS') right after D11, armed by default while keeping D1–11 intact.",
+            "EmpireDivers r54 & Clonedivers r25: fixed Parade Stormtrooper helmet pop-in & film-scale AT-ST walker culling across all 5 tiers.",
+            "Instant Mega-City AT-ST spawn admission (< 50 ms) in empire-atst-writer 0.2.5 + preserved full-detail close-up armor LODs.",
+            "Automatic completed-backup & staging disk reclamation on low-space Clonedivers and EmpireDivers installs (Squad Code r14)."
         ],
         IsFallback: false,
         ReleaseUrl: $"https://github.com/owendavidgoode/clonedivers/releases/tag/v{AppInfo.Version}"));

@@ -70,10 +70,10 @@ static inline CdHostOptions cd_host_options_defaults(void)
     o.format = 1;
     o.chaos_intensity = CD_CHAOS_STANDARD;
     o.heavy_seaf = CD_HEAVY_SEAF_STANDARD;
-    o.theater_preset = CD_THEATER_STANDARD;
+    o.theater_preset = CD_THEATER_CLONE_WARS;
     o.faster_corpse_cleanup = 1;
     o.corpse_delay_seconds = -1;
-    o.corpse_turbo_reaper = 0;
+    o.corpse_turbo_reaper = 1;
     o.target_active_units = -1;
     o.virtual_theater_budget = -1;
     o.spawn_radius_min_m = -1;
@@ -83,6 +83,65 @@ static inline CdHostOptions cd_host_options_defaults(void)
     o.mtime_100ns = 0ULL;
     o.loaded_from_file = 0;
     return o;
+}
+
+#define CD_LG_CONTEXT_RVA     0x3326340u
+#define CD_LG_CONTEXT_OFF     0xAE288u
+#define CD_LG_DIFFICULTY_OFF  0xF9u
+
+typedef int (*CdMemReadFn)(uintptr_t address, void* buffer, size_t size);
+
+/* Reads live mission difficulty (1..15) from [[game.dll+0x3326340]+0xAE288]+0xF9, or 0 outside a level. */
+static inline int cd_read_live_mission_difficulty(CdMemReadFn read_fn, uintptr_t game_base)
+{
+    if (!read_fn || game_base < 0x10000u) return 0;
+    uint64_t ctx = 0ULL, lg = 0ULL;
+    uint8_t diff = 0u;
+    if (read_fn(game_base + CD_LG_CONTEXT_RVA, &ctx, sizeof ctx) != 0) return 0;
+    if (ctx < 0x10000ULL || (ctx >> 32) > 0x7FFFULL) return 0;
+    if (read_fn((uintptr_t)ctx + CD_LG_CONTEXT_OFF, &lg, sizeof lg) != 0) return 0;
+    if (lg < 0x10000ULL || (lg >> 32) > 0x7FFFULL) return 0;
+    if (read_fn((uintptr_t)lg + CD_LG_DIFFICULTY_OFF, &diff, sizeof diff) != 0) return 0;
+    return (diff >= 1u && diff <= 15u) ? (int)diff : 0;
+}
+
+/* True when Clone Wars / ULTRAKILL theater overrides should run in a mission at `live_diff`:
+ * - Difficulty 12+ (`live_diff >= 12`): ALWAYS active unless Chaos is explicitly turned off.
+ * - Explicit "level12-ultrakill" / "ultrakill": active on every difficulty when forced.
+ * - Default "clone-wars": active ONLY on Difficulty 12+ (`live_diff >= 12`), keeping D1..D11 normal! */
+static inline int cd_host_options_active_for_difficulty(const CdHostOptions* o, int live_diff)
+{
+    if (!o) return (live_diff >= 12) ? 1 : 0;
+    if (o->chaos_intensity == CD_CHAOS_OFF) return 0;
+    if (live_diff >= 12) return 1;
+    if (o->theater_preset == CD_THEATER_LEVEL12_ULTRAKILL || o->chaos_intensity == CD_CHAOS_ULTRAKILL)
+        return 1;
+    return 0;
+}
+
+static inline CdChaosIntensity cd_effective_chaos_for_difficulty(const CdHostOptions* o, int live_diff)
+{
+    if (!o) return (live_diff >= 12) ? CD_CHAOS_CLONE_WARS : CD_CHAOS_STANDARD;
+    if (o->chaos_intensity == CD_CHAOS_OFF) return CD_CHAOS_OFF;
+    if (cd_host_options_active_for_difficulty(o, live_diff)) {
+        if (o->chaos_intensity == CD_CHAOS_CLONE_WARS || o->theater_preset == CD_THEATER_CLONE_WARS)
+            return CD_CHAOS_CLONE_WARS;
+        return CD_CHAOS_ULTRAKILL;
+    }
+    if (o->chaos_intensity == CD_CHAOS_TOTAL_WAR) return CD_CHAOS_TOTAL_WAR;
+    return CD_CHAOS_STANDARD;
+}
+
+static inline CdHeavySeafMode cd_effective_heavy_seaf_for_difficulty(const CdHostOptions* o, int live_diff)
+{
+    if (!o) return (live_diff >= 12) ? CD_HEAVY_SEAF_CLONE_WARS : CD_HEAVY_SEAF_STANDARD;
+    if (live_diff >= 12) return CD_HEAVY_SEAF_CLONE_WARS;
+    if (o->theater_preset == CD_THEATER_LEVEL12_ULTRAKILL) {
+        if (o->heavy_seaf == CD_HEAVY_SEAF_CLONE_WARS) return CD_HEAVY_SEAF_CLONE_WARS;
+        return (o->heavy_seaf == CD_HEAVY_SEAF_STANDARD) ? CD_HEAVY_SEAF_CONSTANT : o->heavy_seaf;
+    }
+    if (o->heavy_seaf == CD_HEAVY_SEAF_CLONE_WARS) return CD_HEAVY_SEAF_STANDARD;
+    return o->heavy_seaf;
 }
 
 static inline int cd_host_options_is_ultrakill(const CdHostOptions* o)
@@ -475,6 +534,8 @@ static inline int cd_parse_host_options_json(const char* text, size_t len, CdHos
     ++c.p;
 
     CdHostOptions parsed = cd_host_options_defaults();
+    parsed.theater_preset = CD_THEATER_STANDARD;
+    parsed.corpse_turbo_reaper = 0;
     parsed.loaded_from_file = 1;
     int explicit_turbo = -1;
 

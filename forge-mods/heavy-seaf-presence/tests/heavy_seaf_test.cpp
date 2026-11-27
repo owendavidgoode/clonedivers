@@ -60,6 +60,7 @@ static uint8_t g_strat_def_116[0x200];
 static uint8_t g_strat_row_custom[0x200];
 static uint64_t g_strat_payload_buf[2] = { 0x1122334455667788ULL, 0ULL };
 static uint8_t g_strat_manager[144];
+static uint8_t g_seaf_template[96];
 
 /* Recorded 10-arg ActivateStratagemBeacon call values */
 static unsigned g_activate_calls = 0;
@@ -212,6 +213,17 @@ static void init_mock_world(void)
 
     uintptr_t world_ptr = 0x0000019099990000ULL;
     memcpy(g_strat_manager + 8u, &world_ptr, 8);
+
+    /* Default SEAF template: 6,6,6, 12,18, 0.25,0.25,0.5,1,1, 10,18, ..., 1.6x4 at +80 */
+    memset(g_seaf_template, 0, sizeof g_seaf_template);
+    uint32_t tu[5] = { 6u, 6u, 6u, 12u, 18u };
+    float tf[5] = { 0.25f, 0.25f, 0.5f, 1.0f, 1.0f };
+    uint32_t tadm[2] = { 10u, 18u };
+    float ttail[4] = { 1.6f, 1.6f, 1.6f, 1.6f };
+    memcpy(g_seaf_template + 0u, tu, 20u);
+    memcpy(g_seaf_template + 20u, tf, 20u);
+    memcpy(g_seaf_template + 40u, tadm, 8u);
+    memcpy(g_seaf_template + 80u, ttail, 16u);
 }
 
 static int mock_read(uintptr_t at, void* out, size_t n)
@@ -268,6 +280,7 @@ static int mock_read(uintptr_t at, void* out, size_t n)
         { (uintptr_t)g_strat_row_custom, sizeof g_strat_row_custom },
         { (uintptr_t)g_strat_payload_buf, sizeof g_strat_payload_buf },
         { (uintptr_t)g_strat_manager, sizeof g_strat_manager },
+        { (uintptr_t)g_seaf_template, sizeof g_seaf_template },
     };
     for (const auto& r : regions) {
         if (at >= r.base && at + n <= r.base + r.size) {
@@ -286,6 +299,18 @@ static int mock_write(uintptr_t at, const void* src, size_t n)
     }
     if (at >= (uintptr_t)g_ai_director && at + n <= (uintptr_t)g_ai_director + sizeof g_ai_director) {
         memcpy((void*)at, src, n);
+        return 0;
+    }
+    return 1;
+}
+
+static int mock_write_u32_if(HfMod*, uintptr_t at, uint32_t expected, uint32_t replacement)
+{
+    if (at >= (uintptr_t)g_seaf_template && at + 4u <= (uintptr_t)g_seaf_template + sizeof g_seaf_template) {
+        uint32_t cur = 0u;
+        memcpy(&cur, (const void*)at, 4u);
+        if (cur != expected) return 1;
+        memcpy((void*)at, &replacement, 4u);
         return 0;
     }
     return 1;
@@ -368,6 +393,7 @@ int main(int argc, char** argv)
     api.module_base = mock_module_base;
     api.read = mock_read;
     api.write = mock_write;
+    api.write_u32_if = mock_write_u32_if;
     api.code_matches = mock_code_matches;
     api.add_stratagem = mock_add_stratagem;
     api.stratagem_row = mock_stratagem_row;
@@ -530,6 +556,167 @@ int main(int argc, char** argv)
     unsigned bc_count = 0, bc_head = 0;
     const HeavyBreadcrumb* ring = HeavyBreadcrumbRing(&bc_count, &bc_head);
     CHECK(ring != NULL && bc_count >= 7u, "breadcrumb ring recorded CallSeaf + 6 soldier equips without disk flush");
+
+    /* 4b. Verify Difficulty-12 gating of default Clone Wars SEAF drops AND SEAF troop template (D1..11 keep native 12/18, 10/18; D12 raises to 72/78, 70/78; Ship/D5 restores 12/18, 10/18!) */
+    init_mock_world();
+    g_tpl = (uintptr_t)g_seaf_template;
+    g_squad = 1;
+    g_applied_step = 0;
+    CHECK(write_file_mtime(host_json, "{\"format\":1,\"theaterPreset\":\"clone-wars\",\"chaosIntensity\":\"clone-wars\",\"heavySeaf\":\"clone-wars\",\"fasterCorpseCleanup\":true,\"seafWaveCeiling\":78}", t0 + 2000000000ULL),
+          "write clone-wars options for D10 vs D12 mission gate test");
+    OptionsMenuPoll(1.5f);
+    g_mock_role = HF_SESSION_SOLO;
+    g_mock_state = HF_STATE_SHIP;
+    g_test_now_ms_override = 295000ULL;
+    Tick(fake_mod, 2.5f, NULL);
+    {
+        uint32_t tvals[4] = {0};
+        memcpy(&tvals[0], g_seaf_template + 12u, 4u);
+        memcpy(&tvals[1], g_seaf_template + 16u, 4u);
+        memcpy(&tvals[2], g_seaf_template + 40u, 4u);
+        memcpy(&tvals[3], g_seaf_template + 44u, 4u);
+        CHECK(tvals[0] == 12u && tvals[1] == 18u && tvals[2] == 10u && tvals[3] == 18u,
+              "clone-wars preset keeps native 12/18, 10/18 SEAF template on Ship");
+    }
+
+    g_mock_state = HF_STATE_MISSION;
+    g_mock_mission_mode = 3u;
+    g_mock_player_life = 3u;
+    g_settings_obj[CD_LG_DIFFICULTY_OFF] = 10u; /* Difficulty 10 (< 12): must NOT auto-dispatch Clone Wars waves OR raise template! */
+    g_activate_calls = 0;
+    g_test_now_ms_override = 300000ULL;
+    Tick(fake_mod, 2.5f, NULL);
+    g_test_now_ms_override = 304000ULL;
+    Tick(fake_mod, 2.5f, NULL);
+    g_test_now_ms_override = 325000ULL;
+    Tick(fake_mod, 2.5f, NULL);
+    CHECK(g_activate_calls == 0u, "clone-wars preset dispatches ZERO automatic SEAF waves on Difficulty 10");
+    {
+        uint32_t tvals[4] = {0};
+        memcpy(&tvals[0], g_seaf_template + 12u, 4u);
+        memcpy(&tvals[1], g_seaf_template + 16u, 4u);
+        memcpy(&tvals[2], g_seaf_template + 40u, 4u);
+        memcpy(&tvals[3], g_seaf_template + 44u, 4u);
+        CHECK(tvals[0] == 12u && tvals[1] == 18u && tvals[2] == 10u && tvals[3] == 18u,
+              "clone-wars preset preserves native 12/18, 10/18 SEAF template on Difficulty 10");
+    }
+
+    g_settings_obj[CD_LG_DIFFICULTY_OFF] = 12u; /* Difficulty 12: Clone Wars activates 2-squad native 116u wave AND raises template to 72/78, 70/78! */
+    g_test_now_ms_override = 330000ULL;
+    Tick(fake_mod, 2.5f, NULL);
+    g_test_now_ms_override = 333000ULL;
+    Tick(fake_mod, 2.5f, NULL);
+    CHECK(g_activate_calls == 2u && g_last_type == 116u, "Difficulty 12 dispatches 2-squad Clone Wars Republic SEAF wave");
+    {
+        uint32_t tvals[4] = {0};
+        memcpy(&tvals[0], g_seaf_template + 12u, 4u);
+        memcpy(&tvals[1], g_seaf_template + 16u, 4u);
+        memcpy(&tvals[2], g_seaf_template + 40u, 4u);
+        memcpy(&tvals[3], g_seaf_template + 44u, 4u);
+        CHECK(tvals[0] == 72u && tvals[1] == 78u && tvals[2] == 70u && tvals[3] == 78u,
+              "Difficulty 12 raises SEAF template to 72/78, 70/78");
+    }
+
+    /* Returning to Ship after Difficulty 12 restores SEAF template back to native 12/18, 10/18! */
+    g_mock_state = HF_STATE_SHIP;
+    g_test_now_ms_override = 336000ULL;
+    Tick(fake_mod, 2.5f, NULL);
+    {
+        uint32_t tvals[4] = {0};
+        memcpy(&tvals[0], g_seaf_template + 12u, 4u);
+        memcpy(&tvals[1], g_seaf_template + 16u, 4u);
+        memcpy(&tvals[2], g_seaf_template + 40u, 4u);
+        memcpy(&tvals[3], g_seaf_template + 44u, 4u);
+        CHECK(tvals[0] == 12u && tvals[1] == 18u && tvals[2] == 10u && tvals[3] == 18u,
+              "returning to Ship after Difficulty 12 restores native 12/18, 10/18 SEAF template");
+    }
+
+    /* 4c. Explicit forced 'level12-ultrakill' MUST keep continuous SEAF waves active on Difficulties 1..11 (both default & clone-wars SEAF) */
+    g_mock_state = HF_STATE_SHIP;
+    g_test_now_ms_override = 340000ULL;
+    Tick(fake_mod, 2.5f, NULL);
+    init_mock_world();
+    CHECK(write_file_mtime(host_json, "{\"format\":1,\"theaterPreset\":\"level12-ultrakill\",\"chaosIntensity\":\"clone-wars\",\"heavySeaf\":\"clone-wars\",\"fasterCorpseCleanup\":true}", t0 + 3000000000ULL),
+          "write forced level12-ultrakill options with clone-wars SEAF");
+    OptionsMenuPoll(1.5f);
+    g_mock_state = HF_STATE_MISSION;
+    g_mock_mission_mode = 3u;
+    g_mock_player_life = 3u;
+    g_settings_obj[CD_LG_DIFFICULTY_OFF] = 5u; /* Difficulty 5 (< 12) with forced level12-ultrakill! */
+    g_activate_calls = 0;
+    g_test_now_ms_override = 350000ULL;
+    Tick(fake_mod, 2.5f, NULL);
+    g_test_now_ms_override = 354000ULL;
+    Tick(fake_mod, 2.5f, NULL);
+    g_test_now_ms_override = 370000ULL;
+    Tick(fake_mod, 2.5f, NULL);
+    g_test_now_ms_override = 373000ULL;
+    Tick(fake_mod, 2.5f, NULL);
+    CHECK(g_activate_calls == 2u && g_last_type == 116u,
+          "forced level12-ultrakill preset dispatches 2-squad Clone Wars SEAF waves on Difficulty 5");
+
+    CHECK(write_file_mtime(host_json, "{\"format\":1,\"theaterPreset\":\"level12-ultrakill\",\"chaosIntensity\":\"ultrakill\",\"heavySeaf\":\"standard\",\"fasterCorpseCleanup\":true}", t0 + 4000000000ULL),
+          "write forced level12-ultrakill options with standard SEAF");
+    OptionsMenuPoll(1.5f);
+    {
+        int ecw = -1, econ = -1, esq = -1, eiv = -1, eceil = -1;
+        OptionsResolveForDifficulty(5, &ecw, &econ, &esq, &eiv, &eceil);
+        CHECK(ecw == 0 && econ == 1 && esq == 1 && eiv == 90000,
+              "forced level12-ultrakill with heavySeaf=standard still enables continuous SEAF waves on Difficulty 5");
+    }
+
+    /* 4d. Review #3 P2: Unrelated menu edits (Tank Hunter toggle via UMM OnChange OR wave interval via bridge)
+     *     under default clone-wars preset MUST NOT bypass Difficulty-12 gating on Difficulty 5! */
+    init_mock_world();
+    g_tpl = (uintptr_t)g_seaf_template;
+    g_squad = 1;
+    g_applied_step = 0;
+    CHECK(write_file_mtime(host_json, "{\"format\":1,\"theaterPreset\":\"clone-wars\",\"chaosIntensity\":\"clone-wars\",\"heavySeaf\":\"clone-wars\",\"fasterCorpseCleanup\":true,\"seafWaveCeiling\":78}", t0 + 5000000000ULL),
+          "write clone-wars options before unrelated menu edit on D5");
+    OptionsMenuPoll(1.5f);
+    {
+        /* Simulate UMM OnChange toggling Tank Hunter (row 2) AND changing wave interval to 60s (row 3) */
+        umm_value bval{};
+        bval.type = UMM_BOOL;
+        bval.u.b = 1;
+        OnChange(&g_callback[2], 1, &bval, NULL, NULL, 0, 0);
+        umm_value nval{};
+        nval.type = UMM_NUM;
+        nval.u.n = 60.0;
+        OnChange(&g_callback[3], 1, &nval, NULL, NULL, 0, 0);
+
+        /* Also verify HeavySeafMenu.values bridge edit changing interval to 75s while leaving constant=1 untouched */
+        CHECK(write_file_mtime(g_bridge_path, "constant=1\nsupport_squads=0\ntank_hunters=1\ninterval_seconds=75\nsquads_per_wave=2\n",
+                               MenuNowFileTime100ns() + 50000000ULL),
+              "write unrelated bridge interval edit under clone-wars");
+        OptionsMenuPoll(1.5f);
+
+        int ecw = -1, econ = -1, esq = -1, eiv = -1, eceil = -1;
+        OptionsResolveForDifficulty(5, &ecw, &econ, &esq, &eiv, &eceil);
+        CHECK(ecw == 0 && econ == 0 && esq == 1 && eiv == 75000 && eceil == 24 &&
+              OptionsEffectiveCloneWars(5) == 0 && SquadStepForDifficulty(5) == 0,
+              "unrelated D5 menu edits keep constant=0, clone_wars=0, SquadStep=0 on Difficulty 5");
+
+        /* Run mission Tick on Difficulty 5 past 15s landing grace -> ZERO automatic Clone Wars waves! */
+        g_mock_state = HF_STATE_MISSION;
+        g_mock_mission_mode = 3u;
+        g_mock_player_life = 3u;
+        g_settings_obj[CD_LG_DIFFICULTY_OFF] = 5u;
+        g_activate_calls = 0;
+        g_test_now_ms_override = 400000ULL;
+        Tick(fake_mod, 2.5f, NULL);
+        g_test_now_ms_override = 404000ULL;
+        Tick(fake_mod, 2.5f, NULL);
+        g_test_now_ms_override = 425000ULL;
+        Tick(fake_mod, 2.5f, NULL);
+        CHECK(g_activate_calls == 0u, "unrelated menu edits dispatch ZERO automatic waves on Difficulty 5");
+
+        /* Switching to Difficulty 12 still activates Clone Wars waves while honoring explicit 75s interval edit! */
+        OptionsResolveForDifficulty(12, &ecw, &econ, &esq, &eiv, &eceil);
+        CHECK(ecw == 1 && econ == 1 && esq == 2 && eiv == 75000 && eceil == 78 &&
+              OptionsEffectiveCloneWars(12) == 1 && SquadStepForDifficulty(12) == 10,
+              "Difficulty 12 activates Clone Wars while preserving explicit 75s session interval edit");
+    }
 
     /* 5. Session end stops worker flag */
     if (g_session_end_cb) g_session_end_cb(fake_mod, HF_EVENT_SESSION_END, NULL);

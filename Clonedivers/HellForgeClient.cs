@@ -46,7 +46,8 @@ public sealed class HellForgePreferences
     public string HostChaosIntensity { get; set; } = "standard";
     public string HostHeavySeaf { get; set; } = "standard";
     public bool HostFasterCorpseCleanup { get; set; } = true;
-    public string HostTheaterPreset { get; set; } = "standard";
+    public string HostTheaterPreset { get; set; } = "clone-wars";
+    public int HostTheaterDefaultVersion { get; set; } = 2;
     public string? PlayerLabel { get; set; }
     public string? PreparedPack { get; set; }
     public string? AppliedSelection { get; set; }
@@ -56,8 +57,8 @@ public sealed class HellForgePreferences
     string SquidKeySegment => squidSkin == "mixed-covenant" ? "mixed-covenant" : Covenant.ToString();
     string EmpireVoiceSuffix => DeathTrooperVoice ? "/deathtrooper" : "";
     public string SelectionKey => IsRegular ? $"regular/{HellForgePack.SupportedBuild}" :
-        Mode == "empire" ? $"r53/{HellForgePack.SupportedBuild}/empire/{Texture}/{EnemyKeySegment}/{SquidKeySegment}{EmpireVoiceSuffix}" :
-        $"r24/{HellForgePack.SupportedBuild}/{PackMode}/{Texture}/{EnemyKeySegment}/{SquidKeySegment}";
+        Mode == "empire" ? $"r54/{HellForgePack.SupportedBuild}/empire/{Texture}/{EnemyKeySegment}/{SquidKeySegment}{EmpireVoiceSuffix}" :
+        $"r25/{HellForgePack.SupportedBuild}/{PackMode}/{Texture}/{EnemyKeySegment}/{SquidKeySegment}";
     internal static string? CustomPreferencesPath()
     {
         var custom = Environment.GetEnvironmentVariable("CLONEDIVERS_FORGE_PREFS");
@@ -155,6 +156,18 @@ public sealed class HellForgePreferences
             }
             if (!preferences.AutoPerformanceTier)
                 preferences.PerformanceTier = PerformanceTierAdvisor.ReconcileManualTier(preferences.PerformanceTier, preferences.Texture);
+            if (!TryGetJsonProperty(doc.RootElement, "HostTheaterDefaultVersion", out var thVerProp) ||
+                thVerProp.ValueKind != JsonValueKind.Number ||
+                !thVerProp.TryGetInt32(out var thVer) ||
+                thVer < 2)
+            {
+                if (string.IsNullOrWhiteSpace(preferences.HostTheaterPreset) ||
+                    string.Equals(preferences.HostTheaterPreset, "standard", StringComparison.OrdinalIgnoreCase))
+                {
+                    preferences.HostTheaterPreset = "clone-wars";
+                }
+                preferences.HostTheaterDefaultVersion = 2;
+            }
         }
         preferences.Validate();
         return preferences;
@@ -165,7 +178,7 @@ public sealed class HellForgePreferences
             PerformanceTier = AutoPerformanceTier ? PerformanceTierAdvisor.Auto : PerformanceTierAdvisor.TierFromPackTexture(Texture);
         if (string.IsNullOrEmpty(HostChaosIntensity)) HostChaosIntensity = "standard";
         if (string.IsNullOrEmpty(HostHeavySeaf)) HostHeavySeaf = "standard";
-        if (string.IsNullOrEmpty(HostTheaterPreset)) HostTheaterPreset = "standard";
+        if (string.IsNullOrEmpty(HostTheaterPreset)) HostTheaterPreset = "clone-wars";
         if (string.IsNullOrWhiteSpace(LastStepDownSuggestedTier)) LastStepDownSuggestedTier = null;
         if (string.IsNullOrWhiteSpace(PendingStepDownReason)) PendingStepDownReason = null;
         if (string.IsNullOrWhiteSpace(PlayerLabel)) PlayerLabel = null;
@@ -838,8 +851,9 @@ public sealed partial class HellForgeClient(string root, IHellForgeCommands comm
             ValidateCosmeticBackup(old.Folder, old.Id);
         }
         var replacementBytes = checked(selection.Files.Sum(f => f.Size) + new FileInfo(Path.Combine(folder, "manifest.json")).Length + new FileInfo(Path.Combine(folder, HellForgePack.ReceiptName)).Length);
-        CheckPackCapacity(backup, checked(sources.Sum(f => f.Bytes) + replacementBytes));
-        CheckPackCapacity(Path.Combine(Root, "mods"), replacementBytes);
+        bool cleanedPackCacheOnce = false;
+        CheckPackCapacity(backup, checked(sources.Sum(f => f.Bytes) + replacementBytes), folder, ref cleanedPackCacheOnce, ct);
+        CheckPackCapacity(Path.Combine(Root, "mods"), replacementBytes, folder, ref cleanedPackCacheOnce, ct);
         ct.ThrowIfCancellationRequested();
         Directory.CreateDirectory(backup);
         if (File.Exists(settingsPath)) await HellForgePack.CopyLocalAsync(settingsPath, Path.Combine(backup, "hellforge-mods.json"), new FileInfo(settingsPath).Length, ct);
@@ -915,10 +929,19 @@ public sealed partial class HellForgeClient(string root, IHellForgeCommands comm
 
     internal Func<string, long?> AvailablePackBytes { get; set; } = HellForgePack.AvailableExportBytes;
     sealed record PackBackupFile(string Relative, long Bytes, string Sha256);
-    void CheckPackCapacity(string output, long bytes)
+    void CheckPackCapacity(string output, long bytes, string preserveFolder, ref bool cleanedOnce, CancellationToken ct)
     {
         var required = checked(bytes + HellForgePack.ExportReserve);
-        if (AvailablePackBytes(output) is long free && free < required) throw new IOException($"Not enough space for the appearance backup and replacement reserve: {Pack.FormatBytes(required)} needed, {Pack.FormatBytes(Math.Max(0, free))} available.");
+        if (AvailablePackBytes(output) is not long free || free >= required) return;
+        if (!cleanedOnce)
+        {
+            cleanedOnce = true;
+            try { ForgeDiskManager.CleanSafeFilesSync(Root, ct, [preserveFolder], reclaimUnpreservedExports: true, callerOwnedLockPath: PackIntentPath + ".lock"); }
+            catch (Exception e) when (e is IOException or UnauthorizedAccessException or InvalidDataException or InvalidOperationException) { }
+            if (AvailablePackBytes(output) is not long freeAfter || freeAfter >= required) return;
+            free = freeAfter;
+        }
+        throw new IOException($"Not enough space for the appearance backup and replacement reserve: {Pack.FormatBytes(required)} needed, {Pack.FormatBytes(Math.Max(0, free))} available.");
     }
 
     /// <summary>
@@ -976,7 +999,13 @@ public sealed partial class HellForgeClient(string root, IHellForgeCommands comm
                         record.RootElement.TryGetProperty("Backup", out var saved) &&
                         saved.ValueKind == JsonValueKind.String &&
                         saved.GetString() is { Length: > 0 } retained)
-                        keep.Add(Path.TrimEndingDirectorySeparator(Path.GetFullPath(retained)));
+                    {
+                        var txState = record.RootElement.TryGetProperty("State", out var stProp) && stProp.ValueKind == JsonValueKind.String
+                            ? stProp.GetString()
+                            : null;
+                        if (txState is not ("applied" or "restored"))
+                            keep.Add(Path.TrimEndingDirectorySeparator(Path.GetFullPath(retained)));
+                    }
                 }
                 catch (Exception error) when (error is IOException or UnauthorizedAccessException or JsonException or InvalidDataException or KeyNotFoundException or ArgumentException or InvalidOperationException or NullReferenceException or NotSupportedException)
                 {
@@ -1039,6 +1068,26 @@ public sealed partial class HellForgeClient(string root, IHellForgeCommands comm
             foreach (var folder in completed.Concat(exports).Concat(deleting))
                 try { HellForgePack.DeleteStorageFolder(CacheRoot, folder); }
                 catch (Exception error) when (error is IOException or UnauthorizedAccessException or InvalidDataException) { }
+            const long LowDiskPostApplyReserveBytes = 32L * 1024 * 1024 * 1024;
+            if (intent.State == "applied" && AvailablePackBytes(CacheRoot) is long freeAfter && freeAfter < LowDiskPostApplyReserveBytes)
+            {
+                try { HellForgePack.DeleteStorageFolder(CacheRoot, normalizedBackup); }
+                catch (Exception error) when (error is IOException or UnauthorizedAccessException or InvalidDataException) { }
+                if (Directory.Exists(exportsRoot))
+                {
+                    foreach (var folder in Directory.EnumerateDirectories(exportsRoot))
+                    {
+                        var exportName = Path.GetFileName(folder);
+                        if (!System.Text.RegularExpressions.Regex.IsMatch(exportName, "^(clonedivers|commandos|empire|linux)-[0-9a-f]{32}$", System.Text.RegularExpressions.RegexOptions.IgnoreCase)) continue;
+                        try
+                        {
+                            if (HellForgePack.ReadStorageReceipt(folder) != null)
+                                HellForgePack.DeleteStorageFolder(CacheRoot, folder);
+                        }
+                        catch (Exception error) when (error is IOException or UnauthorizedAccessException or JsonException or InvalidDataException or ArgumentException or InvalidOperationException or NullReferenceException or NotSupportedException) { }
+                    }
+                }
+            }
         }
         catch (Exception error) when (error is IOException or UnauthorizedAccessException or JsonException or InvalidDataException or KeyNotFoundException or ArgumentException or InvalidOperationException or NullReferenceException) { }
     }
@@ -1082,7 +1131,8 @@ public sealed partial class HellForgeClient(string root, IHellForgeCommands comm
             var source = Path.Combine(backup, "previous-pack");
             ValidateCosmeticBackup(source, id);
             if (!await MatchesPackBackupAsync(source, evidence, ct)) throw new InvalidDataException("The saved appearance backup changed; it was not imported.");
-            CheckPackCapacity(Path.Combine(Root, "mods"), evidence.Sum(f => f.Bytes));
+            bool restoreCleanedOnce = false;
+            CheckPackCapacity(Path.Combine(Root, "mods"), evidence.Sum(f => f.Bytes), backup, ref restoreCleanedOnce, ct);
             await RequireIdleAsync(ct);
             var imported = await commands.RunAsync(["mod-add", "--file", Path.Combine(source, "manifest.json")], ct);
             if (Text(imported, "id") != id) throw new InvalidDataException("The restore returned a different pack ID.");

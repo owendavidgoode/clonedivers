@@ -13,7 +13,7 @@
 #include "clonedivers_host_options.h"
 
 #define CC_BUILD "25480438"
-#define CC_VERSION "1.0.6-clonedivers.2"
+#define CC_VERSION "1.0.6-clonedivers.3"
 #define CC_DEFAULT_ENDPOINT 120
 #define CC_COUNT(a) (sizeof(a)/sizeof((a)[0]))
 #define CC_STRIDE 22096u
@@ -29,11 +29,72 @@ static uint64_t g_session_menu_edit_mtime;
 static int g_host_opts_loaded;
 static uint64_t g_next_host_opts_poll;
 static int g_was_host;
-static int g_corpse_turbo_reaper;
+static int g_corpse_turbo_reaper = 1;
 static int g_corpse_explicit_delay = -1;
+static CdHostOptions g_last_host_opts;
+static int g_last_host_opts_init;
+static int g_prev_live_theater = -1;
+static int g_prev_live_turbo = -1;
 
-static int cc_turbo_reaper_active(void) { return g_corpse_turbo_reaper; }
-static int cc_explicit_delay_seconds(void) { return g_corpse_explicit_delay; }
+static int cc_host_override_superseded(void)
+{
+    return g_session_menu_edit_mtime&&cd_session_override_is_newer(g_host_opts_mtime,g_session_menu_edit_mtime);
+}
+
+static int cc_theater_active_now(void)
+{
+    if(!g_last_host_opts_init){g_last_host_opts=cd_host_options_defaults();g_last_host_opts_init=1;}
+    if(cc_host_override_superseded())return 0;
+    if(g_last_host_opts.theater_preset==CD_THEATER_LEVEL12_ULTRAKILL||
+       g_last_host_opts.chaos_intensity==CD_CHAOS_ULTRAKILL)
+        return 1;
+    if(g_last_host_opts.theater_preset!=CD_THEATER_CLONE_WARS&&
+       g_last_host_opts.chaos_intensity!=CD_CHAOS_CLONE_WARS)
+        return 0;
+    if(!hf||!self||!hf->game_state||!hf->module_base||!hf->read)return 0;
+    if(hf->game_state(self)!=HF_STATE_MISSION)return 0;
+    size_t gsz=0;
+    uintptr_t gbase=hf->module_base("game.dll",&gsz);
+    int live_diff=cd_read_live_mission_difficulty(hf->read,gbase);
+    return cd_host_options_active_for_difficulty(&g_last_host_opts,live_diff);
+}
+
+static int cc_live_turbo_active(void)
+{
+    return g_corpse_turbo_reaper&&cc_theater_active_now();
+}
+
+static int cc_turbo_reaper_active(void) { return cc_live_turbo_active(); }
+static int cc_explicit_delay_seconds(void)
+{
+    if(cc_host_override_superseded())return -1;
+    if(g_last_host_opts_init&&g_last_host_opts.theater_preset==CD_THEATER_CLONE_WARS&&!cc_theater_active_now())
+        return -1;
+    return g_corpse_explicit_delay;
+}
+
+static float cc_effective_decay_seconds(void)
+{
+    int exp_delay=cc_explicit_delay_seconds();
+    if(cc_theater_active_now())
+    {
+        if(exp_delay>0)return (float)exp_delay;
+        if(cc_live_turbo_active())return 0.15f;
+        if(exp_delay==0)return 0.0f;
+    }
+    return (float)((exp_delay>=0)?exp_delay:config.seconds);
+}
+
+static float cc_effective_reaper_base_seconds(void)
+{
+    int exp_delay=cc_explicit_delay_seconds();
+    if(cc_theater_active_now())
+    {
+        if(exp_delay>0)return (float)exp_delay;
+        if(cc_live_turbo_active()||exp_delay==0)return 0.0f;
+    }
+    return (float)((exp_delay>=0)?exp_delay:config.seconds);
+}
 
 #ifdef CC_UNIT_TEST
 typedef void (*CcTestRemoveFn)(uintptr_t,uint32_t);
@@ -92,7 +153,7 @@ static void cc_request_reload(void){InterlockedExchange(&dirty,1);}
 static int cc_take_reload(void){return InterlockedExchange(&dirty,0)!=0;}
 static int cc_stopped(void){return InterlockedCompareExchange(&stopped,0,0)!=0;}
 static int cc_cleanup_enabled(void)
-{return cc_is_host_or_solo()&&config.enabled&&config.seconds<CC_DEFAULT_ENDPOINT;}
+{return cc_is_host_or_solo()&&config.enabled&&cc_effective_decay_seconds()<(float)CC_DEFAULT_ENDPOINT;}
 static int cc_extra_enabled(void)
 {return cc_cleanup_enabled()&&config.extra_cleanup;}
 
@@ -109,20 +170,24 @@ static void cc_load_host_options_initial(const char *folder)
     g_host_opts_path[0]='\0';
     g_host_opts_mtime=0ULL;
     g_host_opts_loaded=0;
+    g_last_host_opts=cd_host_options_defaults();
+    g_last_host_opts_init=1;
+    g_corpse_turbo_reaper=g_last_host_opts.corpse_turbo_reaper?1:0;
     if(!folder||!*folder)return;
     if(!cd_resolve_host_options_path(folder,g_host_opts_path,sizeof g_host_opts_path))return;
     CdHostOptions ho;
     int rc=cd_load_host_options_file(g_host_opts_path,&ho);
     if(rc==1)
     {
+        g_last_host_opts=ho;
         config.enabled=ho.faster_corpse_cleanup?1:0;
         g_corpse_explicit_delay=ho.corpse_delay_seconds;
-        if(ho.corpse_delay_seconds>=0)config.seconds=ho.corpse_delay_seconds;
+        if(ho.corpse_delay_seconds>=0&&ho.theater_preset!=CD_THEATER_CLONE_WARS)config.seconds=ho.corpse_delay_seconds;
         g_corpse_turbo_reaper=ho.corpse_turbo_reaper?1:0;
         g_host_opts_mtime=ho.mtime_100ns;
         g_host_opts_loaded=1;
-        hf->log(self,"Host options loaded (%s): fasterCorpseCleanup=%s delay=%d turbo=%d",
-            g_host_opts_path,config.enabled?"true":"false",config.seconds,g_corpse_turbo_reaper);
+        hf->log(self,"Host options loaded (%s): fasterCorpseCleanup=%s delay=%d turbo=%d preset=%s",
+            g_host_opts_path,config.enabled?"true":"false",config.seconds,g_corpse_turbo_reaper,cd_theater_preset_name(ho.theater_preset));
     }
     else if(rc<0)
     {
@@ -220,9 +285,11 @@ static void cc_menu(uint64_t now)
                     CdHostOptions ho;
                     if(cd_load_host_options_file(g_host_opts_path,&ho)==1)
                     {
+                        g_last_host_opts=ho;
+                        g_last_host_opts_init=1;
                         saved.enabled=ho.faster_corpse_cleanup?1:0;
                         g_corpse_explicit_delay=ho.corpse_delay_seconds;
-                        if(ho.corpse_delay_seconds>=0)saved.seconds=ho.corpse_delay_seconds;
+                        if(ho.corpse_delay_seconds>=0&&ho.theater_preset!=CD_THEATER_CLONE_WARS)saved.seconds=ho.corpse_delay_seconds;
                         g_corpse_turbo_reaper=ho.corpse_turbo_reaper?1:0;
                         g_host_opts_mtime=ho.mtime_100ns;
                     }
@@ -253,17 +320,20 @@ static void cc_poll_host_options(void)
     CdHostOptions ho;
     if(cd_load_host_options_file(g_host_opts_path,&ho)!=1)return;
     g_host_opts_loaded=1;
+    CdTheaterPreset prev_preset=g_last_host_opts.theater_preset;
+    g_last_host_opts=ho;
+    g_last_host_opts_init=1;
     CcConfig next=config;
     next.enabled=ho.faster_corpse_cleanup?1:0;
     int prev_turbo=g_corpse_turbo_reaper;
     int prev_exp_delay=g_corpse_explicit_delay;
     g_corpse_explicit_delay=ho.corpse_delay_seconds;
-    if(ho.corpse_delay_seconds>=0)next.seconds=ho.corpse_delay_seconds;
+    if(ho.corpse_delay_seconds>=0&&ho.theater_preset!=CD_THEATER_CLONE_WARS)next.seconds=ho.corpse_delay_seconds;
     g_corpse_turbo_reaper=ho.corpse_turbo_reaper?1:0;
-    if(next.enabled!=config.enabled||next.seconds!=config.seconds||g_corpse_turbo_reaper!=prev_turbo||g_corpse_explicit_delay!=prev_exp_delay)
+    if(next.enabled!=config.enabled||next.seconds!=config.seconds||g_corpse_turbo_reaper!=prev_turbo||g_corpse_explicit_delay!=prev_exp_delay||ho.theater_preset!=prev_preset)
     {
-        hf->log(self,"Host options reloaded: fasterCorpseCleanup=%s delay=%d turbo=%d",
-            next.enabled?"true":"false",next.seconds,g_corpse_turbo_reaper);
+        hf->log(self,"Host options reloaded: fasterCorpseCleanup=%s delay=%d turbo=%d preset=%s",
+            next.enabled?"true":"false",next.seconds,g_corpse_turbo_reaper,cd_theater_preset_name(ho.theater_preset));
         cc_accept_config(&next);
         cc_request_reload();
         cc_sync_menu_ui();
@@ -320,7 +390,7 @@ static void cc_apply(unsigned index)
     int on=cc_cleanup_enabled();
     if(on)
     {
-        float req_s=(g_corpse_turbo_reaper&&g_corpse_explicit_delay<0)?0.15f:(float)config.seconds;
+        float req_s=cc_effective_decay_seconds();
         float seconds=fminf(req_s,edit->before.maximum);
         want.minimum=seconds;want.maximum=seconds;
     }
@@ -387,6 +457,16 @@ static void cc_tick(HfMod *mod,float dt,void *user)
     if(config_log_due&&now>=config_log_due)
     {config_log_due=0;hf->log(self,"Cleanup %s; delay=%d seconds (120=original settings); extra cleanup=%s; menu provider manages saved values",config.enabled?"enabled":"disabled",config.seconds,config.extra_cleanup?"on":"off");}
     if(now>=g_next_host_opts_poll){g_next_host_opts_poll=now+1000;cc_poll_host_options();}
+    {
+        int cur_live_theater=cc_theater_active_now();
+        int cur_live_turbo=cc_live_turbo_active();
+        if(cur_live_theater!=g_prev_live_theater||cur_live_turbo!=g_prev_live_turbo)
+        {
+            g_prev_live_theater=cur_live_theater;
+            g_prev_live_turbo=cur_live_turbo;
+            cc_request_reload();
+        }
+    }
     /* Callbacks apply changes immediately; provider discovery/reconnection
      * only needs a low-frequency poll, including while on the ship. */
     if(now>=next_menu_poll){next_menu_poll=now+250;cc_menu(now);}

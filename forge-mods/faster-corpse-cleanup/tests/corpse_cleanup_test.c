@@ -29,6 +29,8 @@ static uint8_t g_health_record[CC_STRIDE];
 
 /* Mock game.dll / entity-registry / death-queue arena */
 static uintptr_t g_fake_game_base = 0x0000018000000000ULL;
+static uintptr_t g_fake_context_ptr = 0;
+static uintptr_t g_fake_lg_ptr = 0;
 static uint8_t g_fake_registry[0xF40000];
 static uint8_t g_fake_buckets[64 * 8];
 static uint32_t g_fake_pending_rows[64];
@@ -109,6 +111,18 @@ static int mock_read(uintptr_t at, void* out, size_t n)
         return 0;
     }
     if (at >= (uintptr_t)g_fake_queue && at + n <= (uintptr_t)g_fake_queue + sizeof g_fake_queue) {
+        memcpy(out, (const void*)at, n);
+        return 0;
+    }
+    if (at == g_fake_game_base + CD_LG_CONTEXT_RVA && n == 8) {
+        memcpy(out, &g_fake_context_ptr, 8);
+        return 0;
+    }
+    if (g_fake_context_ptr != 0 && at >= g_fake_context_ptr && at + n <= g_fake_context_ptr + 0xAF000u) {
+        memcpy(out, (const void*)at, n);
+        return 0;
+    }
+    if (g_fake_lg_ptr != 0 && at >= g_fake_lg_ptr && at + n <= g_fake_lg_ptr + 0x200u) {
         memcpy(out, (const void*)at, n);
         return 0;
     }
@@ -468,9 +482,114 @@ int main(int argc, char** argv)
     CHECK(g_mock_remove_calls >= before_turbo_removes + 4u,
           "count=300 (>128) + level12-ultrakill reaps all 4 phase-2 corpses in 1 frame at 0.0s delay");
 
+    /* 7b. Default clone-wars preset gates turbo reaper on live mission difficulty >= 12 (D1..11 stay at 5.0s!) */
+    uint8_t* mock_ctx = (uint8_t*)calloc(1, 0xAF000u);
+    uint8_t* mock_lg = (uint8_t*)calloc(1, 0x200u);
+    void* p_lg = mock_lg;
+    g_fake_context_ptr = (uintptr_t)mock_ctx;
+    g_fake_lg_ptr = (uintptr_t)mock_lg;
+    memcpy(mock_ctx + CD_LG_CONTEXT_OFF, &p_lg, 8);
+    mock_lg[CD_LG_DIFFICULTY_OFF] = 10u; /* Super Helldive (10 < 12) */
+    CHECK(write_text_with_mtime(
+              host_json,
+              "{\"format\":1,\"chaosIntensity\":\"clone-wars\",\"heavySeaf\":\"clone-wars\",\"theaterPreset\":\"clone-wars\",\"corpseDelaySeconds\":0,\"corpseTurboReaper\":true,\"fasterCorpseCleanup\":true}",
+              t_base + 500000000ULL),
+          "write clone-wars default host options");
+    g_next_host_opts_poll = 0;
+    run_all_target_sweeps((int)CC_COUNT(cc_targets) + 4);
+    memcpy(&current_decay, g_health_record + CC_DECAY_OFFSET, sizeof current_decay);
+    CHECK(cc_turbo_reaper_active() == 0 && fabsf(current_decay.minimum - 5.0f) < 1e-4f,
+          "clone-wars preset keeps normal 5.0s decay on Difficulty 10");
+
+    mock_lg[CD_LG_DIFFICULTY_OFF] = 12u; /* Difficulty 12: Clone Wars! */
+    run_all_target_sweeps((int)CC_COUNT(cc_targets) + 4);
+    memcpy(&current_decay, g_health_record + CC_DECAY_OFFSET, sizeof current_decay);
+    CHECK(cc_turbo_reaper_active() == 1 && fabsf(current_decay.minimum - 0.15f) < 1e-4f,
+          "clone-wars preset activates 0.15s turbo reaper automatically on Difficulty 12");
+
+    /* 7c. Positive corpseDelaySeconds override under clone-wars keeps normal 5.0s on D10 and applies 2.0s on D12 (both decay & reaper)! */
+    CHECK(write_text_with_mtime(
+              host_json,
+              "{\"format\":1,\"chaosIntensity\":\"clone-wars\",\"heavySeaf\":\"clone-wars\",\"theaterPreset\":\"clone-wars\",\"corpseDelaySeconds\":2,\"corpseTurboReaper\":true,\"fasterCorpseCleanup\":true}",
+              t_base + 600000000ULL),
+          "write clone-wars positive corpseDelaySeconds=2 override");
+    mock_lg[CD_LG_DIFFICULTY_OFF] = 10u;
+    g_next_host_opts_poll = 0;
+    run_all_target_sweeps((int)CC_COUNT(cc_targets) + 4);
+    memcpy(&current_decay, g_health_record + CC_DECAY_OFFSET, sizeof current_decay);
+    CHECK(fabsf(current_decay.minimum - 5.0f) < 1e-4f && fabsf(current_decay.maximum - 5.0f) < 1e-4f,
+          "clone-wars positive corpseDelaySeconds=2 preserves normal 5.0s decay on Difficulty 10");
+
+    mock_lg[CD_LG_DIFFICULTY_OFF] = 12u;
+    run_all_target_sweeps((int)CC_COUNT(cc_targets) + 4);
+    memcpy(&current_decay, g_health_record + CC_DECAY_OFFSET, sizeof current_decay);
+    CHECK(fabsf(current_decay.minimum - 2.0f) < 1e-4f && fabsf(current_decay.maximum - 2.0f) < 1e-4f,
+          "clone-wars positive corpseDelaySeconds=2 applies 2.0s decay on Difficulty 12");
+    setup_corpse_in_queue(0x701u, 0x802u, 2u, 1u);
+    cc_factory_update((uintptr_t)g_fake_queue, 0.25f);
+    CHECK(fabsf(s_effective_delay_s - 2.0f) < 1e-4f,
+          "clone-wars positive corpseDelaySeconds=2 sets phase-2 turbo reaper delay to 2.0s on Difficulty 12");
+
+    /* Also verify corpseTurboReaper=false with positive corpseDelaySeconds=2 on D12 uses 2.0s! */
+    CHECK(write_text_with_mtime(
+              host_json,
+              "{\"format\":1,\"chaosIntensity\":\"clone-wars\",\"heavySeaf\":\"clone-wars\",\"theaterPreset\":\"clone-wars\",\"corpseDelaySeconds\":2,\"corpseTurboReaper\":false,\"fasterCorpseCleanup\":true}",
+              t_base + 700000000ULL),
+          "write clone-wars corpseDelaySeconds=2 with corpseTurboReaper=false");
+    g_next_host_opts_poll = 0;
+    run_all_target_sweeps((int)CC_COUNT(cc_targets) + 4);
+    memcpy(&current_decay, g_health_record + CC_DECAY_OFFSET, sizeof current_decay);
+    CHECK(cc_turbo_reaper_active() == 0 && fabsf(current_decay.minimum - 2.0f) < 1e-4f,
+          "clone-wars corpseDelaySeconds=2 with corpseTurboReaper=false still applies 2.0s decay on Difficulty 12");
+    cc_factory_update((uintptr_t)g_fake_queue, 0.25f);
+    CHECK(s_active_reaper_tier == 0u && fabsf(s_effective_delay_s - 2.0f) < 1e-4f,
+          "clone-wars corpseDelaySeconds=2 with corpseTurboReaper=false sets Tier-0 reaper delay to 2.0s on Difficulty 12");
+
+    /* Review #3 P3: Verify corpseTurboReaper=false + corpseDelaySeconds=2 preserves 2.0s delay across ALL
+     * pressure tiers (Tier 1: wrecks>=96 / live>=900, Tier 2: wrecks>=192 / live>=1300, Tier 3: wrecks>=320 / live>=1550)
+     * while retaining each pressure tier's processing budgets! */
+    {
+        uint32_t tier_wrecks[3] = { 96u, 192u, 320u };
+        unsigned exp_tiers[3]   = { 1u,  2u,   3u   };
+        unsigned exp_budgets[3] = { 6u,  12u,  16u  };
+        for (int ti = 0; ti < 3; ++ti) {
+            setup_corpse_in_queue(0x710u + (uint32_t)ti, 0x810u + (uint32_t)ti, 2u, 1u);
+            memcpy(g_fake_queue + 0x818u, &tier_wrecks[ti], 4u);
+            factory_credit = 0.0f;
+            cc_factory_update((uintptr_t)g_fake_queue, 0.25f);
+            CHECK(s_active_reaper_tier == exp_tiers[ti] &&
+                  fabsf(s_effective_delay_s - 2.0f) < 1e-4f &&
+                  removal_budget == exp_budgets[ti],
+                  "corpseTurboReaper=false + corpseDelaySeconds=2 preserves 2.0s delay and wreck-threshold tier budget");
+        }
+        uint32_t zero_wrecks = 8u; /* >=8 triggers EM descriptor snapshot for entity-threshold check */
+        uint32_t tier_entities[3] = { 900u, 1300u, 1550u };
+        for (int ti = 0; ti < 3; ++ti) {
+            setup_corpse_in_queue(0x720u + (uint32_t)ti, 0x820u + (uint32_t)ti, 2u, 1u);
+            memcpy(g_fake_queue + 0x818u, &zero_wrecks, 4u);
+            for (uint32_t ei = 0; ei < tier_entities[ti]; ++ei) {
+                uint8_t* d = g_fake_registry + 0xF32F18u + 24u * ei;
+                uint64_t res = cc_targets[0].resource;
+                uint32_t eid = 0x10000u + ei;
+                memcpy(d + 0, &res, 8u);
+                memcpy(d + 8, &eid, 4u);
+            }
+            factory_credit = 0.0f;
+            cc_factory_update((uintptr_t)g_fake_queue, 0.25f);
+            CHECK(s_active_reaper_tier == exp_tiers[ti] &&
+                  s_live_entity_count >= tier_entities[ti] &&
+                  fabsf(s_effective_delay_s - 2.0f) < 1e-4f &&
+                  removal_budget == exp_budgets[ti],
+                  "corpseTurboReaper=false + corpseDelaySeconds=2 preserves 2.0s delay and entity-threshold tier budget");
+        }
+    }
+
     /* 8. HF_EVENT_SESSION_END disarms cleanly */
     g_on_session_end_cb(fake_mod, HF_EVENT_SESSION_END, NULL);
     CHECK(cc_stopped() == 1, "SESSION_END stops tick & hook observation");
+
+    free(mock_ctx);
+    free(mock_lg);
 
     DeleteFileA(host_json);
     printf("corpse_cleanup_test: %u checks, %u failed\n", g_checks, g_failed);

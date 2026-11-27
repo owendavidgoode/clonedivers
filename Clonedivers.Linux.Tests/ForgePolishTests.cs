@@ -162,8 +162,8 @@ internal static class ForgePolishTests
             "permission errors still map to folder permissions even if a path mentions pasta");
 
         // QA Bugfix #2 & #4 + Version 0.10.0 checks on Linux
-        check(AppInfo.Version == (ForgeEntryPolicy.ForgeEdition ? "0.11.0" : "0.5.0"),
-            "Linux Forge assembly version is bumped to 0.11.0 (0.5.0 when ForgeEdition=false)");
+        check(AppInfo.Version == (ForgeEntryPolicy.ForgeEdition ? "0.11.1" : "0.5.0"),
+            "Linux Forge assembly version is bumped to 0.11.1 (0.5.0 when ForgeEdition=false)");
         using (var linuxIco = typeof(LinuxForgePlayer).Assembly.GetManifestResourceStream("Clonedivers.Icon.ico"))
         {
             check(linuxIco != null, "Clonedivers.Icon.ico is embedded in Clonedivers.Linux assembly");

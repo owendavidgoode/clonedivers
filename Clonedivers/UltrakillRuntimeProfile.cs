@@ -28,6 +28,7 @@ public static class UltrakillRuntimeProfile
         public int Format { get; set; } = 1;
         public string InstallRoot { get; set; } = "";
         public DateTimeOffset CreatedUtc { get; set; } = DateTimeOffset.UtcNow;
+        public int LodMigratedVersion { get; set; }
         public List<BackedUpFileEntry> Files { get; set; } = [];
     }
 
@@ -80,7 +81,8 @@ public static class UltrakillRuntimeProfile
         bool hadManifest = File.Exists(manifestPath);
         var manifest = hadManifest
             ? LoadExistingManifestOrThrow(root, manifestPath)
-            : new BackupManifest { Format = 1, InstallRoot = root };
+            : new BackupManifest { Format = 1, InstallRoot = root, LodMigratedVersion = 1 };
+        bool runLodMigration = hadManifest && manifest.LodMigratedVersion < 1;
         var existingRel = manifest.Files.ToDictionary(f => f.RelativeInstallPath, PlatformPaths.Comparer);
         bool manifestDirty = !hadManifest;
 
@@ -110,12 +112,35 @@ public static class UltrakillRuntimeProfile
         {
             var rel = Path.GetRelativePath(root, fullTarget).Replace('\\', '/');
             var currentText = File.ReadAllText(fullTarget, Encoding.UTF8);
-            var patchedText = rel.Equals("game/data/settings.ini", StringComparison.OrdinalIgnoreCase)
-                ? ApplySettingsIniOverrides(currentText)
-                : ApplyUserSettingsOverrides(currentText);
+            string patchedText;
+            if (rel.Equals("game/data/settings.ini", StringComparison.OrdinalIgnoreCase))
+            {
+                patchedText = ApplySettingsIniOverrides(currentText);
+            }
+            else
+            {
+                var baseText = currentText;
+                if (runLodMigration &&
+                    string.Equals(TryExtractScalarKey(baseText, "lod_selection_multiplier"), "0.6", StringComparison.Ordinal) &&
+                    existingRel.TryGetValue(rel, out var backupEntry))
+                {
+                    var origBytes = ReadVerifiedBackupBytesOrThrow(originalsDir, backupEntry);
+                    var origText = Encoding.UTF8.GetString(origBytes);
+                    var origLod = TryExtractScalarKey(origText, "lod_selection_multiplier");
+                    if (origLod != null && !string.Equals(origLod, "0.6", StringComparison.Ordinal))
+                        baseText = ReplaceScalarKey(baseText, "lod_selection_multiplier", origLod);
+                }
+                patchedText = ApplyUserSettingsOverrides(baseText);
+            }
 
             if (!string.Equals(currentText, patchedText, StringComparison.Ordinal))
                 WriteBytesAtomic(fullTarget, Utf8NoBom.GetBytes(patchedText));
+        }
+
+        if (runLodMigration)
+        {
+            manifest.LodMigratedVersion = 1;
+            WriteBytesAtomic(manifestPath, Utf8NoBom.GetBytes(JsonSerializer.Serialize(manifest, Json)));
         }
         return true;
     }
@@ -140,15 +165,7 @@ public static class UltrakillRuntimeProfile
 
         foreach (var entry in manifest.Files)
         {
-            var backupFile = FileSafety.Child(originalsDir, entry.BackupFileName);
-            FileSafety.RejectLink(backupFile);
-            if (!File.Exists(backupFile))
-                throw new InvalidDataException($"Missing ULTRAKILL original backup file: {entry.BackupFileName}");
-
-            var origBytes = File.ReadAllBytes(backupFile);
-            var actualSha = Convert.ToHexString(SHA256.HashData(origBytes)).ToLowerInvariant();
-            if (origBytes.Length != entry.OriginalBytes || !string.Equals(actualSha, entry.OriginalSha256, StringComparison.OrdinalIgnoreCase))
-                throw new InvalidDataException($"ULTRAKILL backup hash mismatch for {entry.RelativeInstallPath}; refusing to overwrite.");
+            var origBytes = ReadVerifiedBackupBytesOrThrow(originalsDir, entry);
 
             var targetPath = Path.GetFullPath(Path.Combine(root, entry.RelativeInstallPath.Replace('/', Path.DirectorySeparatorChar)));
             if (!targetPath.StartsWith(root + Path.DirectorySeparatorChar, PlatformPaths.Comparison))
@@ -231,7 +248,6 @@ public static class UltrakillRuntimeProfile
         ArgumentNullException.ThrowIfNull(sjson);
         var newline = sjson.Contains("\r\n", StringComparison.Ordinal) ? "\r\n" : "\n";
         var updated = ReplaceScalarKey(sjson, "enable_resource_lock_debug", "false");
-        updated = ReplaceScalarKey(updated, "lod_selection_multiplier", "0.6");
         updated = ReplaceScalarKey(updated, "hq_bubble_enabled", "true");
         updated = ReplaceScalarKey(updated, "terrain_trample_enabled", "false");
         updated = ReplaceScalarKey(updated, "shadows", "2");
@@ -240,6 +256,27 @@ public static class UltrakillRuntimeProfile
         updated = ReplaceScalarKey(updated, "particle_quality", "1");
         updated = ReplaceTwoIntArrayKey(updated, "sun_shadow_map_size", 2048, 2048, newline);
         return NormalizeLineEndings(updated, newline);
+    }
+
+    static byte[] ReadVerifiedBackupBytesOrThrow(string originalsDir, BackedUpFileEntry entry)
+    {
+        var backupFile = FileSafety.Child(originalsDir, entry.BackupFileName);
+        FileSafety.RejectLink(backupFile);
+        if (!File.Exists(backupFile))
+            throw new InvalidDataException($"Missing ULTRAKILL original backup file: {entry.BackupFileName}");
+
+        var origBytes = File.ReadAllBytes(backupFile);
+        var actualSha = Convert.ToHexString(SHA256.HashData(origBytes)).ToLowerInvariant();
+        if (origBytes.Length != entry.OriginalBytes || !string.Equals(actualSha, entry.OriginalSha256, StringComparison.OrdinalIgnoreCase))
+            throw new InvalidDataException($"ULTRAKILL backup hash mismatch for {entry.RelativeInstallPath}; refusing to overwrite.");
+        return origBytes;
+    }
+
+    static string? TryExtractScalarKey(string text, string key)
+    {
+        var pattern = $@"^[ \t]*{Regex.Escape(key)}[ \t]*=[ \t]*([^\r\n#]+)";
+        var match = Regex.Match(text, pattern, RegexOptions.Multiline | RegexOptions.CultureInvariant);
+        return match.Success ? match.Groups[1].Value.Trim() : null;
     }
 
     static string ReplaceScalarKey(string text, string key, string newValue)

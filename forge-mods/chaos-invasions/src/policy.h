@@ -135,7 +135,7 @@ static int ChaosWeight(const ChaosConfig* c, int type, int difficulty)
 {
     static const int factors[3][3] = {{100, 70, 100}, {100, 100, 120}, {120, 140, 130}};
     int base[3] = {c->bots_weight, c->squids_weight, c->bugs_weight};
-    if (type < 0 || type >= 3 || difficulty < 1 || difficulty > 11) return 0;
+    if (type < 0 || type >= 3 || difficulty < 1 || difficulty > 12) return 0;
     return base[type] * factors[difficulty <= 3 ? 0 : difficulty <= 6 ? 1 : 2][type] / 100;
 }
 
@@ -185,7 +185,7 @@ static inline const char* ChaosRefuse(const ChaosConfig* c, const ChaosEvidence*
     if (!c->enabled) return "disabled";
     if (!e->host) return "not_host";
     if (!e->mission || !e->players) return "no_live_mission_players";
-    if (e->native_faction < 0 || e->native_faction >= 3 || e->difficulty < 1 || e->difficulty > 11)
+    if (e->native_faction < 0 || e->native_faction >= 3 || e->difficulty < 1 || e->difficulty > 12)
         return "mission_context_unqualified";
     if (type < 0 || type >= 3 || type == e->native_faction) return "not_foreign_faction";
     if (!e->closure) return "faction_package_closure_unqualified";
