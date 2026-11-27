@@ -1,6 +1,6 @@
 # Clonedivers Forge Status
 
-The current codebase targets **Windows `2.2.0`** ([v2.2.0](releases/v2.2.0.md)) and **Linux x86-64 Forge `0.11.0`** ([linux-v0.11.0](releases/linux-v0.11.0.md)) with native controller **`0.4.0`** (`HellForge.Launcher.ClonediversBridge`), targeting official **HellForge `0.4.0-beta` / engine `0.1.47` / SDK `16` / game `25480438`**. Live public `manifest*.json` feeds serve `v2.1.4` / `linux-v0.10.4` until the `v2.2.0`, `linux-v0.11.0`, and `forge-mods-2026-11-26` GitHub Releases are published. Linux updates require installing the complete `.deb` or `.tar.gz` package. See [the migration guide](FORGE-MIGRATION.md) and [STATUS.md](STATUS.md) for rollout and recovery.
+The current codebase ships **Windows `2.2.0`** ([v2.2.0](releases/v2.2.0.md)) and **Linux x86-64 Forge `0.11.0`** ([linux-v0.11.0](releases/linux-v0.11.0.md)) with native controller **`0.4.0`** (`HellForge.Launcher.ClonediversBridge`), targeting official **HellForge `0.4.0-beta` / engine `0.1.47` / SDK `16` / game `25480438`**. Live public `manifest*.json` feeds and `releases/latest` serve `v2.2.0` / `linux-v0.11.0`. Linux updates require installing the complete `.deb` or `.tar.gz` package. See [the migration guide](FORGE-MIGRATION.md) and [STATUS.md](STATUS.md) for rollout and recovery.
 
 ## Pinned Gameplay Preset & Appearance Catalogs (`2.2.0` / `0.11.0`)
 
