@@ -230,31 +230,31 @@ static class HellForgeTests
                         var applied = preferences.SelectionKey;
                         covenant.Checked = false; nativeAutomatons.Checked = true; Application.DoEvents();
                         check(!preferences.Droids && preferences.EnemySkin == "native-automatons" && !preferences.Selection().Options["droids"] && preferences.SelectionKey != applied &&
-                            preferences.SelectionKey == $"r52/{HellForgePack.SupportedBuild}/empire/full/False/False" && preferences.Selection().Files.Count == 132 && primaryAction.Enabled,
+                            preferences.SelectionKey == $"r53/{HellForgePack.SupportedBuild}/empire/full/False/False" && preferences.Selection().Files.Count == 132 && primaryAction.Enabled,
                             "Empire Native Automatons option reaches native 132-file Automaton composition without blocking launch");
                         mixedDroids.Checked = true; Application.DoEvents();
                         check(preferences.Droids && preferences.EnemySkin == "mixed-droids" && preferences.Selection().Options["droids"] && preferences.Selection().Options["mixed-droids"] &&
-                            preferences.SelectionKey == $"r52/{HellForgePack.SupportedBuild}/empire/full/mixed-droids/False" && preferences.Selection().Files.Count == 144,
-                            "Empire Mixed Bots + CIS Droids selects dedicated 144-file mixed-droids composition on r52");
+                            preferences.SelectionKey == $"r53/{HellForgePack.SupportedBuild}/empire/full/mixed-droids/False" && preferences.Selection().Files.Count == 144,
+                            "Empire Mixed Bots + CIS Droids selects dedicated 144-file 80/20 mixed-droids composition on r53");
                         potatoTextures.Checked = true; Application.DoEvents();
                         check(preferences.Texture == "reduced512" && preferences.Selection().Texture == "reduced512" && preferences.Selection().Options["mixed-droids"] &&
                             advisor.Text.Contains("Ultra-Potato (512px)"),
-                            "Johnson Ultra-Potato (512px) selects native reduced512 tier on r52 and updates advisor text");
+                            "Johnson Ultra-Potato (512px) selects native reduced512 tier on r53 and updates advisor text");
                         covenant.Checked = true; Application.DoEvents();
                         check(preferences.Covenant && preferences.Selection().Options["covenant"] &&
-                            preferences.SelectionKey == $"r52/{HellForgePack.SupportedBuild}/empire/reduced512/mixed-droids/True",
+                            preferences.SelectionKey == $"r53/{HellForgePack.SupportedBuild}/empire/reduced512/mixed-droids/True",
                             "Empire Covenant toggle updates SelectionKey and enables Wwise-deconflicted Covenant 1670 layer");
                         covenant.Checked = false; lighterTextures.Checked = true; nativeAutomatons.Checked = true; Application.DoEvents();
                         check(preferences.Texture == "lighter" && preferences.Selection().Texture == "lighter" && !preferences.Selection().Options["droids"] &&
-                            preferences.SelectionKey == $"r52/{HellForgePack.SupportedBuild}/empire/lighter/False/False",
+                            preferences.SelectionKey == $"r53/{HellForgePack.SupportedBuild}/empire/lighter/False/False",
                             "Empire Lighter with Native Automatons reaches its pinned streamed Automaton selection");
                         allDroids.Checked = true; Application.DoEvents();
                         check(preferences.Selection().Texture == "lighter" && preferences.Selection().Options["droids"] && !preferences.Selection().Options["mixed-droids"] &&
-                            preferences.SelectionKey == $"r52/{HellForgePack.SupportedBuild}/empire/lighter/True/False",
+                            preferences.SelectionKey == $"r53/{HellForgePack.SupportedBuild}/empire/lighter/True/False",
                             "Empire Lighter with All CIS Droids reaches its pinned streamed selection");
                         fullTextures.Checked = true; Application.DoEvents();
                         check(preferences.Selection().Texture == "full" && preferences.Selection().Options["droids"] &&
-                            preferences.SelectionKey == $"r52/{HellForgePack.SupportedBuild}/empire/full/True/False",
+                            preferences.SelectionKey == $"r53/{HellForgePack.SupportedBuild}/empire/full/True/False",
                             "restoring Empire Full returns to its full-texture selection cleanly");
                     }
                 }
@@ -778,35 +778,35 @@ static class HellForgeTests
             "unknown preferences fail without silently overwriting recoverable state");
         var pinned = HellForgePack.PinnedSelection("commandos", "lighter");
         var pinnedClonesNoDelta = HellForgePack.PinnedSelection("clonedivers", "lighter");
-        check(pinned.GameBuild == HellForgePack.SupportedBuild && pinned.Version == "2026.11.25-r23" &&
-            pinned.ManifestSha256 == "7c63e43f7e43e71889f2b01098b924586a2845daca1a3e9e6b9aa77fd3beafd5" && pinned.Files.Count == 132,
-            "the shipped launcher carries pinned Clones r23 catalog independent of the live Steam feed");
+        check(pinned.GameBuild == HellForgePack.SupportedBuild && pinned.Version == "2026.11.26-r24" &&
+            pinned.ManifestSha256 == "7ef5e5750e6e42d9fd6b4cb2910f2b7de9631ad2be60cdb0e2e6b7d314f8baca" && pinned.Files.Count == 132,
+            "the shipped launcher carries pinned Clones r24 catalog independent of the live Steam feed");
         check(pinned.Options["commandos"] && !pinnedClonesNoDelta.Options["commandos"] &&
             pinned.Files.Single(f => f.Name == "9ba626afa44a3aa3.patch_32").Sha256 == "6f237cda90b360593bf9def36149cbfb7eded57eea8e678b6fb0198a833c28bd" &&
             pinnedClonesNoDelta.Files.Single(f => f.Name == "9ba626afa44a3aa3.patch_32").Sha256 == "e88d71a8b4d27ac95d6b30c9aeecaedbc006c854f87590645a0ca04507dc12aa" &&
             new[] { "full", "lighter", "reduced1024", "reduced512", "potato256" }.All(t =>
                 HellForgePack.PinnedSelection("clonedivers", t).Files.Sum(f => f.Size) - HellForgePack.PinnedSelection("commandos", t).Files.Sum(f => f.Size) == 157857724L),
-            "turning off Delta Squad in Clones r23 selects clones-r21-delta-off across all five texture tiers despite combinedRoster=true");
+            "turning off Delta Squad in Clones r24 selects clones-r21-delta-off across all five texture tiers despite combinedRoster=true");
         var oldEmpire = new HellForgePreferences { Mode = "empire", Texture = "lighter", Droids = false, Covenant = true,
             AppliedSelection = $"r48/{HellForgePack.SupportedBuild}/empire/lighter/False/False" };
         var savedEmpire = Path.Combine(area, "empire-options.json"); oldEmpire.Save(savedEmpire);
         oldEmpire = HellForgePreferences.Load(savedEmpire);
         var newEmpire = oldEmpire.Selection();
-        check(oldEmpire.SelectionKey == $"r52/{HellForgePack.SupportedBuild}/empire/lighter/False/True" &&
-            oldEmpire.AppliedSelection != oldEmpire.SelectionKey && newEmpire.Version == "2026.11.25-r52" &&
-            newEmpire.ManifestSha256 == "878347bbdc3a9ea5493d28c04523f81244b983659b3cc1423e5231dd0b5a2006" &&
+        check(oldEmpire.SelectionKey == $"r53/{HellForgePack.SupportedBuild}/empire/lighter/False/True" &&
+            oldEmpire.AppliedSelection != oldEmpire.SelectionKey && newEmpire.Version == "2026.11.26-r53" &&
+            newEmpire.ManifestSha256 == "85e714f9ff130160d84cb1aeecf5afd768219e4f42297788906dd3a588a340b6" &&
             newEmpire.Texture == "lighter" && !newEmpire.Options["droids"] && newEmpire.Options["covenant"] && newEmpire.Files.Count == 132 &&
             newEmpire.Files.Sum(f => f.Size) == 13055695818L,
-            "Empire honors saved texture, droid and Covenant choices while requiring preparation of the r52 catalog");
+            "Empire honors saved texture, droid and Covenant choices while requiring preparation of the r53 catalog");
         var empireFull = HellForgePack.PinnedSelection("empire", "full");
         var empireLighter = HellForgePack.PinnedSelection("empire", "lighter");
         var empireReduced1024 = HellForgePack.PinnedSelection("empire", "reduced1024");
         var empirePotato = HellForgePack.PinnedSelection("empire", "reduced512");
         var empirePotato256 = HellForgePack.PinnedSelection("empire", "potato256");
-        check(empireFull.Version == "2026.11.25-r52" && empireFull.Options["droids"] && !empireFull.Options["mixed-droids"] && !empireFull.Options["covenant"] &&
+        check(empireFull.Version == "2026.11.26-r53" && empireFull.Options["droids"] && !empireFull.Options["mixed-droids"] && !empireFull.Options["covenant"] &&
             !empireFull.Options["deathtrooper"] &&
             empireFull.Files[0].Name == "9ba626afa44a3aa3.patch_1000" && newEmpire.Files[0].Name == empireFull.Files[0].Name,
-            "Empire Full selects r52 with British Imperial voice default (deathtrooper=false) and all variants preserve the fixed 1000+ layer numbers");
+            "Empire Full selects r53 with British Imperial voice default (deathtrooper=false) and all variants preserve the fixed 1000+ layer numbers");
         var r50Variants = (from texture in new[] { "full", "lighter", "reduced1024", "reduced512", "potato256" }
             from enemy in new[] { "all", "mixed", "native" }
             from covenant in new[] { false, true }
@@ -899,15 +899,15 @@ static class HellForgeTests
                     r47Selection.Version == "2026.11.09-r47" && r47Selection.Files.Count == 96 &&
                     r48Selection.Version == "2026.11.19-r48" && r48Selection.Files.Count == (droids ? 111 : 99) &&
                     HellForgePack.IsOurPack(HellForgePack.PackId(oldSelection.Mode)) && preferences.SelectionKey != preferences.AppliedSelection &&
-                    current.Version == "2026.11.25-r52" && await Reject(() => HellForgePack.VerifyMetadataAsync(oldFolder, current)) &&
+                    current.Version == "2026.11.26-r53" && await Reject(() => HellForgePack.VerifyMetadataAsync(oldFolder, current)) &&
                     await Reject(() => HellForgePack.VerifyMetadataAsync(r47Folder, current)) &&
                     await Reject(() => HellForgePack.VerifyMetadataAsync(r48Folder, current)) &&
                     File.ReadAllText(oldPath) == oldReceipt && File.ReadAllText(r47Path) == r47Receipt && File.ReadAllText(r48Path) == r48Receipt,
-                    $"r46, r47, and r48 {texture} droids={droids} receipts stay recognised and require r52 preparation without rewriting the receipt");
+                    $"r46, r47, and r48 {texture} droids={droids} receipts stay recognised and require r53 preparation without rewriting the receipt");
                 if (texture == "full" && droids) check(previous.ManifestSha256 == "4a35045a9b628e0f2b476815e7a77f00ab31a6cde957abd574e8597513c7ad36" &&
                     oldSelection.Files.Count(f => f.Sha256 != previous.Files.Single(g => g.Name == f.Name).Sha256) == 6 &&
                     r47Selection.Files.Any(f => f.Sha256 != oldSelection.Files.Single(g => g.Name == f.Name).Sha256),
-                    "retained r45-v4, r46, r47, and r48 catalogs stay exact alongside r52");
+                    "retained r45-v4, r46, r47, and r48 catalogs stay exact alongside r53");
             }
         }
         check(empireFull.Files.Select(f => f.Name).SequenceEqual(empireLighter.Files.Select(f => f.Name)) &&
@@ -917,8 +917,8 @@ static class HellForgeTests
             empireFull.Files.Sum(f => f.Size) == 14955885402L && empireLighter.Files.Sum(f => f.Size) == 15438505924L &&
             empireReduced1024.Files.Sum(f => f.Size) == 9201123602L && empirePotato.Files.Sum(f => f.Size) == 7742189330L &&
             empirePotato256.Files.Sum(f => f.Size) == 5796466698L &&
-            HellForgePack.PinnedSelection("empire", "full", new Dictionary<string, bool> { ["droids"] = true, ["mixed-droids"] = true }).Files.Sum(f => f.Size) == 13374810090L &&
-            HellForgePack.PinnedSelection("empire", "reduced512", new Dictionary<string, bool> { ["droids"] = true, ["mixed-droids"] = true }).Files.Sum(f => f.Size) == 7427255274L &&
+            HellForgePack.PinnedSelection("empire", "full", new Dictionary<string, bool> { ["droids"] = true, ["mixed-droids"] = true }).Files.Sum(f => f.Size) == 14330233594L &&
+            HellForgePack.PinnedSelection("empire", "reduced512", new Dictionary<string, bool> { ["droids"] = true, ["mixed-droids"] = true }).Files.Sum(f => f.Size) == 7653147266L &&
             HellForgePack.PinnedSelection("empire", "full", new Dictionary<string, bool> { ["droids"] = false }).Files.Sum(f => f.Size) == 12310958986L &&
             HellForgePack.PinnedSelection("empire", "lighter", new Dictionary<string, bool> { ["droids"] = false }).Files.Sum(f => f.Size) == 12731184196L &&
             HellForgePack.PinnedSelection("empire", "reduced512", new Dictionary<string, bool> { ["droids"] = false }).Files.Sum(f => f.Size) == 7121648338L &&
@@ -926,7 +926,7 @@ static class HellForgeTests
             empireReduced1024.Files.Any(f => f.Sha256 != empireLighter.Files.Single(g => g.Name == f.Name).Sha256) &&
             empirePotato.Files.Any(f => f.Sha256 != empireReduced1024.Files.Single(g => g.Name == f.Name).Sha256) &&
             empirePotato256.Files.Any(f => f.Sha256 != empirePotato.Files.Single(g => g.Name == f.Name).Sha256),
-            "Empire r52 catalogs pin exact archive sizes across all 5 texture tiers (Full, Lighter, 1024px, 512px, and 256px Ultra-Potato)");
+            "Empire r53 catalogs pin exact archive sizes across all 5 texture tiers (Full, Lighter, 1024px, 512px, and 256px Ultra-Potato)");
         check(empireFull.Files.Where(f => f.Name.EndsWith(".gpu_resources")).Sum(f => f.Size) == 11513090752L &&
             empireLighter.Files.Where(f => f.Name.EndsWith(".gpu_resources")).Sum(f => f.Size) == 4882339354L &&
             empireReduced1024.Files.Where(f => f.Name.EndsWith(".gpu_resources")).Sum(f => f.Size) == 3362042940L &&
@@ -936,16 +936,16 @@ static class HellForgeTests
             empireFull.Files.Where(f => f.Name.EndsWith(".gpu_resources")).Sum(f => f.Size) / 2 &&
             empirePotato256.Files.Where(f => f.Name.EndsWith(".gpu_resources")).Sum(f => f.Size) <
             empirePotato.Files.Where(f => f.Name.EndsWith(".gpu_resources")).Sum(f => f.Size),
-            "Empire r52 progressively lowers resident GPU bytes across all 5 tiers down to 1.97 GiB on Ultra-Potato (-81.6%)");
+            "Empire r53 progressively lowers resident GPU bytes across all 5 tiers down to 1.97 GiB on Ultra-Potato (-81.6%)");
         oldEmpire.AppliedSelection = oldEmpire.SelectionKey;
         oldEmpire.Texture = "full";
         check(oldEmpire.AppliedSelection != oldEmpire.SelectionKey && oldEmpire.Selection().Texture == "full",
             "switching Empire textures invalidates the applied selection");
         oldEmpire.Texture = "lighter";
         oldEmpire.Mode = "clonedivers";
-        check(oldEmpire.SelectionKey == $"r23/{HellForgePack.SupportedBuild}/commandos/lighter/False/True" &&
+        check(oldEmpire.SelectionKey == $"r24/{HellForgePack.SupportedBuild}/commandos/lighter/False/True" &&
             oldEmpire.Selection().Version == pinned.Version && oldEmpire.Selection().Files.Count == 120 && oldEmpire.Selection().Files.Sum(f => f.Size) == 8676705630L,
-            "switching back to Clones selects r23 with saved textures and optional skins");
+            "switching back to Clones selects r24 with saved textures and optional skins");
         using (var catalog = typeof(HellForgePack).Assembly.GetManifestResourceStream("Clonedivers.HellForge.Manifest.json")!)
         using (var reader = new StreamReader(catalog))
         {
@@ -1538,8 +1538,8 @@ static class HellForgeTests
         try { await HellForgePack.VerifyForLaunchAsync(packOut, sel, verifyCache); } catch (InvalidDataException) { caughtForgedMtime = true; }
         check(caughtForgedMtime, "VerifyForLaunchAsync detects CreationTimeUtc change even when LastWriteTimeUtc and size are preserved");
         var v2Reduced = HellForgePack.PinnedSelection("clonedivers", "reduced512", new Dictionary<string, bool> { ["droids"] = true, ["covenant"] = false, ["mixed-droids"] = true });
-        check(v2Reduced.Version == "2026.11.25-r23" && v2Reduced.Texture == "reduced512" && v2Reduced.Options["mixed-droids"] && v2Reduced.Options["droids"] && v2Reduced.Files.Count == 132,
-            "reduced512 and mixed-droids resolve natively against Clones r23");
+        check(v2Reduced.Version == "2026.11.26-r24" && v2Reduced.Texture == "reduced512" && v2Reduced.Options["mixed-droids"] && v2Reduced.Options["droids"] && v2Reduced.Files.Count == 132,
+            "reduced512 and 80/20 mixed-droids resolve natively against Clones r24");
         var r19Compat = HellForgePack.ResolveSelection(ReadTestManifestForCompat("Clonedivers.Tests.Clones.R19.Manifest.json"), null, "clonedivers", "reduced512",
             new Dictionary<string, bool> { ["droids"] = true, ["covenant"] = false, ["mixed-droids"] = true });
         var r47Compat = HellForgePack.ResolveSelection(ReadTestManifestForCompat("Clonedivers.Tests.Empire.R47.Manifest.json"),

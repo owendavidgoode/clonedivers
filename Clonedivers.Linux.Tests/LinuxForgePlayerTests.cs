@@ -56,14 +56,14 @@ internal static class LinuxForgePlayerTests
             lp.Validate();
             var cmd = lp.SelectionCommand();
             var sel = lp.PackSelection();
-            check(sel.Version == "2026.11.25-r52" &&
+            check(sel.Version == "2026.11.26-r53" &&
                   sel.Texture == tex &&
                   sel.Options["mixed-covenant"] &&
                   sel.Options["covenant"] &&
                   !sel.Options["deathtrooper"] &&
                   cmd.Contains("--squid-skin") && cmd.Contains("mixed-covenant") &&
                   cmd.Contains("--deathtrooper") && cmd.Contains("no"),
-                  $"LinuxForgePreferences accepts texture '{tex}', emits --squid-skin/--deathtrooper, and resolves Empire r52 natively");
+                  $"LinuxForgePreferences accepts texture '{tex}', emits --squid-skin/--deathtrooper, and resolves Empire r53 natively");
         }
 
         // #67 Pre-window launching UX on LinuxForgeHost ("Launching Helldivers 2 — please wait…" + "Cancel Launch" -> "Helldivers 2 is running" + "END SESSION")
@@ -132,7 +132,7 @@ internal static class LinuxForgePlayerTests
             var off = empire.PackSelection();
             var saved = Path.Combine(root, "empire-droids-" + texture + ".json"); empire.Save(saved);
             var restored = LinuxForgePreferences.Load(saved);
-            check(on.Version == "2026.11.25-r52" && mixed.Version == "2026.11.25-r52" && off.Version == "2026.11.25-r52" &&
+            check(on.Version == "2026.11.26-r53" && mixed.Version == "2026.11.26-r53" && off.Version == "2026.11.26-r53" &&
                 on.Texture == texture && mixed.Texture == texture && off.Texture == texture &&
                 on.Options["droids"] && !on.Options["mixed-droids"] && mixed.Options["droids"] && mixed.Options["mixed-droids"] && !off.Options["droids"] &&
                 on.Options["covenant"] && off.Options["covenant"] && !restored.Droids &&
@@ -145,9 +145,9 @@ internal static class LinuxForgePlayerTests
                 off.Files[0].Name == "9ba626afa44a3aa3.patch_1000",
                 "Linux Empire " + texture + " exports all three enemy variants with fixed 1000+ archive layers");
             restored.Mode = "clonedivers";
-            check(restored.PackSelection().Version == "2026.11.25-r23" && restored.PackSelection().Texture == texture &&
+            check(restored.PackSelection().Version == "2026.11.26-r24" && restored.PackSelection().Texture == texture &&
                 !restored.PackSelection().Options["droids"] && restored.PackSelection().Options["covenant"] && restored.PackSelection().Files.Count == 120,
-                "returning to Clones r23 preserves its saved texture, droid and Covenant selections");
+                "returning to Clones r24 preserves its saved texture, droid and Covenant selections");
         }
         var protocol = new ForgeProtocol(new StringReader(hello + "{\"id\":7,\"ok\":true,\"result\":{}}\n"), new StringWriter(), _ => { });
         await protocol.ConnectAsync(CancellationToken.None);
@@ -233,10 +233,10 @@ internal static class LinuxForgePlayerTests
 
         var v2Prefs = new LinuxForgePreferences { Mode = "clonedivers", Texture = "reduced512", EnemySkin = "mixed-droids", DeltaSquad = true, Covenant = false };
         var v2Sel = v2Prefs.PackSelection();
-        check(v2Prefs.Droids && v2Prefs.EnemySkin == "mixed-droids" && v2Sel.Version == "2026.11.25-r23" && v2Sel.Texture == "reduced512" &&
-            v2Sel.Options["commandos"] && v2Sel.Options["droids"] && v2Sel.Options["mixed-droids"] && v2Sel.Files.Count == 132 && v2Sel.Files.Sum(f => f.Size) == 5047240656L &&
+        check(v2Prefs.Droids && v2Prefs.EnemySkin == "mixed-droids" && v2Sel.Version == "2026.11.26-r24" && v2Sel.Texture == "reduced512" &&
+            v2Sel.Options["commandos"] && v2Sel.Options["droids"] && v2Sel.Options["mixed-droids"] && v2Sel.Files.Count == 132 && v2Sel.Files.Sum(f => f.Size) == 5273132648L &&
             v2Sel.Files.Single(f => f.Name == "9ba626afa44a3aa3.patch_32").Sha256 == "6f237cda90b360593bf9def36149cbfb7eded57eea8e678b6fb0198a833c28bd",
-            "Linux v2.1 EnemySkin and reduced512 resolve natively against Clones r23 Delta Squad");
+            "Linux v2.1 EnemySkin and reduced512 resolve natively against Clones r24 Delta Squad");
         v2Prefs.DeltaSquad = false;
         var v2NoDelta = v2Prefs.PackSelection();
         check(v2NoDelta.Mode == "clonedivers" && !v2NoDelta.Options["commandos"] && v2NoDelta.Files.Count == 132 &&

@@ -228,7 +228,7 @@ internal static class Milestone2Tests
             };
             if (mode == "empire") opts["deathtrooper"] = dt;
             var sel = HellForgePack.PinnedSelection(mode, tex, opts);
-            var expectedVer = mode == "empire" ? "2026.11.25-r52" : "2026.11.25-r23";
+            var expectedVer = mode == "empire" ? "2026.11.26-r53" : "2026.11.26-r24";
             var expectedCount = mode == "empire"
                 ? (enemy == "native-automatons" ? 132 : 144)
                 : (enemy == "native-automatons" ? 120 : 132);
@@ -236,7 +236,7 @@ internal static class Milestone2Tests
                 check(false, $"PinnedSelection {mode}/{tex}/{enemy}/{squid}/dt={dt} mismatch");
             matrixChecked++;
         }
-        check(matrixChecked == 180, "PinnedSelection resolves all 180 r23/r52 5-tier x 3-enemy x 3-squid x Delta/DeathTrooper combinations natively");
+        check(matrixChecked == 180, "PinnedSelection resolves all 180 r24/r53 5-tier x 3-enemy x 3-squid x Delta/DeathTrooper combinations natively");
 
         // r19 / r47 fallback: both reduced1024 and potato256 fall back to lighter when reduced512 is absent
         var r19Bytes = ReadResourceBytes("Clonedivers.Tests.Clones.R19.Manifest.json");
