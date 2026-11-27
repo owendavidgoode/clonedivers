@@ -341,30 +341,32 @@ static void cc_factory_before(uintptr_t queue,float dt)
     if(cc_turbo_reaper_active()||raw_count>=8u)
         cc_snapshot_em_descriptors(registry);
 
+    float base_delay_s=cc_effective_reaper_base_seconds();
+    int explicit_pos_delay=(cc_explicit_delay_seconds()>0);
     unsigned max_budget=1u;
     float rate_per_s=60.f;
     if(cc_turbo_reaper_active()||s_live_entity_count>=1550u||raw_count>=320u)
     {
         s_active_reaper_tier=3u;
-        s_effective_delay_s=(cc_turbo_reaper_active()&&cc_explicit_delay_seconds()>=0)?(float)config.seconds:0.0f;
+        s_effective_delay_s=explicit_pos_delay?base_delay_s:0.0f;
         max_budget=16u;rate_per_s=960.f;factory_resolves_left=512u;factory_reads_left=2048u;
     }
     else if(s_live_entity_count>=1300u||raw_count>=192u)
     {
         s_active_reaper_tier=2u;
-        s_effective_delay_s=fminf((float)config.seconds,0.25f);
+        s_effective_delay_s=explicit_pos_delay?base_delay_s:fminf(base_delay_s,0.25f);
         max_budget=12u;rate_per_s=720.f;factory_resolves_left=192u;factory_reads_left=1024u;
     }
     else if(s_live_entity_count>=900u||raw_count>=96u)
     {
         s_active_reaper_tier=1u;
-        s_effective_delay_s=fminf((float)config.seconds,1.5f);
+        s_effective_delay_s=explicit_pos_delay?base_delay_s:fminf(base_delay_s,1.5f);
         max_budget=6u;rate_per_s=360.f;factory_resolves_left=96u;factory_reads_left=512u;
     }
     else
     {
         s_active_reaper_tier=0u;
-        s_effective_delay_s=(float)config.seconds;
+        s_effective_delay_s=base_delay_s;
         max_budget=1u;rate_per_s=60.f;factory_resolves_left=16u;factory_reads_left=256u;
     }
 

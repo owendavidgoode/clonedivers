@@ -253,17 +253,22 @@ static inline int UltrakillTargetRealAiCap(const CdHostOptions* ho, int has_remo
     return want;
 }
 
-static inline int UltrakillTargetVirtualUnits(const CdHostOptions* ho)
+static inline int UltrakillTargetVirtualUnitsForDiff(const CdHostOptions* ho, int live_diff)
 {
-    if (!ho || !cd_host_options_is_ultrakill(ho)) return 0;
-    if (ho->virtual_theater_budget > 0) {
+    if (!cd_host_options_active_for_difficulty(ho, live_diff)) return 0;
+    if (ho && ho->virtual_theater_budget > 0) {
         int want = ho->virtual_theater_budget;
         if (ho->target_active_units > 840) {
             want += (ho->target_active_units - 840);
         }
         return want > 2150 ? 2150 : want;
     }
-    return (cd_effective_chaos_intensity(ho) == CD_CHAOS_CLONE_WARS) ? 2050 : 1650;
+    return (cd_effective_chaos_for_difficulty(ho, live_diff) == CD_CHAOS_CLONE_WARS) ? 2050 : 1650;
+}
+
+static inline int UltrakillTargetVirtualUnits(const CdHostOptions* ho)
+{
+    return UltrakillTargetVirtualUnitsForDiff(ho, 12);
 }
 
 #endif /* CHAOS_ULTRAKILL_D12_H */

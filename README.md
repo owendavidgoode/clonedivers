@@ -5,7 +5,7 @@
 Choose **Regular**, **Clones** or **Empire** in a separate HellForge installation.
 Play the official online Helldivers 2 game directly through Steam.
 
-[Windows launcher](https://github.com/owendavidgoode/clonedivers/releases/latest/download/Clonedivers.exe) · [Ubuntu/Debian x86-64 package](https://github.com/owendavidgoode/clonedivers/releases/download/linux-v0.10.5/Clonedivers-linux-x64.deb) · [Linux portable](https://github.com/owendavidgoode/clonedivers/releases/download/linux-v0.10.5/Clonedivers-linux-x64.tar.gz)
+[Windows launcher](https://github.com/owendavidgoode/clonedivers/releases/latest/download/Clonedivers.exe) · [Ubuntu/Debian x86-64 package](https://github.com/owendavidgoode/clonedivers/releases/download/linux-v0.11.1/Clonedivers-linux-x64.deb) · [Linux portable](https://github.com/owendavidgoode/clonedivers/releases/download/linux-v0.11.1/Clonedivers-linux-x64.tar.gz)
 
 ## Quick Start for Friends (Windows)
 
@@ -22,7 +22,7 @@ Play the official online Helldivers 2 game directly through Steam.
 
 ## Update or Install
 
-The current releases are **Windows 2.1.5** ([v2.1.5](docs/releases/v2.1.5.md)) and **Linux Forge 0.10.5** ([linux-v0.10.5](docs/releases/linux-v0.10.5.md)), shipping **5 native texture tiers** across **EmpireDivers `2026.11.25-r52`** (front-Armory helmet, armor, UV, and MRA repairs across `447` `UNIT`s including `RE-1861` ISB Kepi+Visor, `A-9`/`A-35`/`TG-122` Katarn, `TG-8`/`FS-23` Crimson Dagger, `GS-11` AT-AT Driver, `EX-16` Arc-Shield, `FS-37` Fire Trooper, `B-27` glowing K-2SO optics, and `CM-09` Compact LEGO; `591` Whisper-verified SEAF-free Imperial comms streams + `20,306` SEAF-free US English strings across all `14` `TEXT` tables; `9.04 m` *Jedi: Fallen Order* AT-ST walkers across `EXO-45/49/51/55`; 5-tier TIE Fighter & TIE Bomber per-attack switching; and deduplicated `<64`-bone Lambda/SEAF/dropship rigs) and **Clonedivers `2026.11.25-r23`** (`85` repaired Clone & Delta Squad `UNIT`s including `B-01` 501st Phase II, `Delta-38` Boss Katarn, `CM-09` Sev/212th, `CW-4`, `DS-10`, `FS-05`, `RS-89`, and 501st `cha_seaf` NPCs; 100% SEAF-free Grand Army of the Republic comms & strings; and CIS *Providence* Dreadnoughts vs Republic *Venators* orbital skybox), **3-way Covenant + Squids mix**, and **`build25480438-r12`** (`18` verified archives, `8,521,273` B, `0` `hf-mod.com` URLs, upgrading **5-tier `empire-tie-switch 0.3.1`** alongside **`clean-exit 0.2.1`** and **`starwars-localization 0.1.1`**). Update Windows through the launcher. On Linux, install the complete `.deb` or extract the full portable archive.
+The current releases are **Windows 2.2.1** and **Linux Forge 0.11.1**, shipping a **genuine 12th Difficulty Slot (`12: LEVEL 12: CLONE WARS`)** right after Hell Forge `11` (`942 m` / `2.79 km²` map & `2,000–3,000` units armed by default when selecting `Difficulty 12` while keeping `D1–11` intact), **5 native texture tiers** across **EmpireDivers `2026.11.27-r54`** (`836` culling-repaired Imperial & walker `UNIT`s fixing Parade Stormtrooper helmet pop-in and `EXO-45/49/51/55` film-scale `9.04 m` AT-ST frustum culling across all 5 tiers, `empire-atst-writer 0.2.5` `< 50 ms` Mega-City spawn admission, 5-tier TIE Fighter & TIE Bomber per-attack switching, `80/20` CIS Droids + Bots mix, and `591` SEAF-free Imperial comms streams) and **Clonedivers `2026.11.27-r25`** (`74` culling-repaired Clone & Delta Squad `UNIT`s, `80/20` CIS Droids + Bots mix, SEAF-free GAR comms & strings, and CIS *Providence* Dreadnoughts vs Republic *Venators* orbital skybox), **3-way Covenant + Squids mix**, automatic completed-backup & staging disk reclamation on low-space installs, and **`build25480438-r14`** (`18` verified archives, `8,567,133` B, `0` `hf-mod.com` URLs). Update Windows through the launcher. On Linux, install the complete `.deb` or extract the full portable archive.
 
 New players press **Set up Clonedivers** on Windows or **Set up / update Forge**
 on Linux. Windows checks for at least **70 GB** (`70 GiB`) free on the Forge
@@ -38,21 +38,21 @@ Read [the migration and first-setup guide](docs/FORGE-MIGRATION.md). The launche
 update preserves settings and account data and keeps a verified previous Windows
 executable for rollback. It does not edit live Steam game files or close a running
 game. **Set up selected mode** obtains **18 gameplay downloads** automatically in
-the `build25480438-r12` catalog (**9 required** gameplay and author archives totaling
-`7,991,821` bytes / `~7.62 MiB` including host-gated `Faster Corpse Cleanup` `1.0.6-clonedivers.1` and `Heavy SEAF` `1.2.0-clonedivers.5`, plus **9 optional** project-owned SDK-16 defaults totaling `529,452` bytes: `Clonedivers Clean Exit` `0.2.1`, `LEGO Compact Leaf Writer` `0.2.2`, `Empire LEGO Yoda Death` `0.2.1`, `Empire AT-ST Film-Scale Leaf Writer` `0.2.3`, 5-tier `Empire per-attack TIE` `0.3.1`, O(1) `Empire & Clone Camera Pullback` `0.1.4`, `Star Wars Localization Bridge` `0.1.1`, co-op `Dedicated Melee Slot` `1.5.2-clonedivers.2`, and co-op/Mission-2 hardened `Chaos Invasions` `0.3.5`), totaling **`8,521,273` bytes (`~8.13 MiB`)** before appearance assets. It verifies their
+the `build25480438-r14` catalog (**9 required** gameplay and author archives totaling
+`7,998,790` bytes / `~7.63 MiB` including host-gated `Faster Corpse Cleanup` `1.0.6-clonedivers.3` and `Heavy SEAF` `1.2.0-clonedivers.7`, plus **9 optional** project-owned SDK-16 defaults totaling `568,343` bytes: `Clonedivers Clean Exit` `0.2.1`, `LEGO Compact Leaf Writer` `0.2.3`, `Empire LEGO Yoda Death` `0.2.2`, `Empire AT-ST Film-Scale Leaf Writer` `0.2.5`, 5-tier `Empire per-attack TIE` `0.3.2`, O(1) `Empire & Clone Camera Pullback` `0.1.4`, `Star Wars Localization Bridge` `0.1.1`, co-op `Dedicated Melee Slot` `1.5.2-clonedivers.3`, and genuine-D12 `Chaos Invasions` `0.5.0`), totaling **`8,567,133` bytes (`~8.17 MiB`)** before appearance assets. It verifies their
 archives and content, imports them through Forge, applies preset order/options and
 then prepares the appearance.
 
 The **3** official bundled mods plus those **18** downloads (`9` required + `9` optional
-defaults enabled on fresh `r12` setup, with enabled `r4`–`r11` defaults upgraded
+defaults enabled on fresh `r14` setup, with enabled `r4`–`r13` defaults upgraded
 automatically while preserving any optionals a player disabled or removed) and **1**
 selected appearance pack form the complete **22-mod** Clones or Empire setup (`21`
 active mods in Regular). Following the **19 November 2026** `hf-mod.com` shutdown,
-`build25480438-r12` uses **zero `hf-mod.com` URLs**: permissive `0BSD` / `MIT`
+`build25480438-r14` uses **zero `hf-mod.com` URLs**: permissive `0BSD` / `MIT`
 mirrors (`Vanilla Plus Megapack 0.2.1`, `Operation Reroller 0.1.6`, `Shared Callback
-Manager 0.1.0`, `Faster Corpse Cleanup 1.0.6-clonedivers.1`, `Dedicated Melee Slot
-1.5.2-clonedivers.2`) and owner-permitted MP-hardened SEAF packages (`Heavy SEAF
-1.2.0-clonedivers.5`, `SEAF Squad 0.1.4-clonedivers.3`) come from pinned GitHub
+Manager 0.1.0`, `Faster Corpse Cleanup 1.0.6-clonedivers.3`, `Dedicated Melee Slot
+1.5.2-clonedivers.3`) and owner-permitted MP-hardened SEAF packages (`Heavy SEAF
+1.2.0-clonedivers.7`, `SEAF Squad 0.1.4-clonedivers.3`) come from pinned GitHub
 Releases, while `Bingus Shared Loader v20`, `Smarter SEAF 1.0.4`, and `Smarter Guard
 Dogs & Sentries 5.2.0` download directly from their authors' GitHub Releases (`All
 rights reserved` Th3chef archives are never mirrored). Retired legacy mods
@@ -65,14 +65,14 @@ Every player needs their own Steam-owned HD2, official separate **HellForge
 0.4.0-beta / engine 0.1.47 / SDK 16 / game 25480438**, and permitted matching mods.
 Keep supported isolation and sandbox enabled. Linux requires a dedicated Proton
 prefix and the official namespace setup (`pasta` from `passt` on Ubuntu 24.04+ /
-Debian 13+ or equivalent). Complete Linux packages include the native UI (`0.10.5`)
+Debian 13+ or equivalent). Complete Linux packages include the native UI (`0.11.1`)
 and controller (`0.4.0`); no separate .NET install is needed. ARM64, Steam Deck, and
 Flatpak/Snap Forge are not qualified.
 
 ## Modes, Account, and Gameplay
 
-Regular, Clones and Empire are Forge appearance choices. In **2.1.5** / **0.10.5**,
-both **Clones (`2026.11.25-r23`)** and **Empire (`2026.11.25-r52`)** ship the full
+Regular, Clones and Empire are Forge appearance choices. In **2.2.1** / **0.11.1**,
+both **Clones (`2026.11.27-r25`)** and **Empire (`2026.11.27-r54`)** ship the full
 **5-tier texture matrix** (`Full (Ultra)`, `High (Streamed)`, `1024px (Medium)`,
 `512px (Low / Deck)`, and `256px + Decimated Meshes (Ultra-Potato)` — cutting mission
 Dedicated VRAM by `-51.8%` in live benchmarks and pack disk up to `-66%`), **3 Enemy Skins** (`All CIS Droids`,

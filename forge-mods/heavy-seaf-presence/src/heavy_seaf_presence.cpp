@@ -179,6 +179,18 @@ static int SquadStep(void)
     return step;
 }
 
+static int SquadStepForDifficulty(int live_diff)
+{
+    int step = OptionsEffectiveExtraSquads(live_diff);
+    int max_step = OptionsEffectiveCloneWars(live_diff) ? 25 : 5;
+    if (step < EXTRA_SQUADS) step = EXTRA_SQUADS;
+    if (step < 0) return 0;
+    if (step > max_step) return max_step;
+    return step;
+}
+
+static int HeavyIsHostOrSolo(void);
+
 static int HeavyIsMissionFlow(void)
 {
     if (g_api == NULL || g_mod == NULL || g_api->game_state == NULL) return 0;
@@ -629,60 +641,102 @@ static uintptr_t FindTemplate(int allow_write)
     return 0;
 }
 
-static void ApplyTemplate(uintptr_t at)
+static int g_applied_step = 0;
+
+static int TemplateFramingMatches(const uint8_t* p)
+{
+    if (!g_sig) InitSig();
+    if (memcmp(p, g_head, 12) != 0) return 0;
+    if (memcmp(p + 20, g_head + 20, 20) != 0) return 0;
+    if (memcmp(p + 80, g_tailb, 16) != 0) return 0;
+    return 1;
+}
+
+static void SyncTemplateForStep(uintptr_t at, int want_step)
 {
     uint8_t raw[96];
-    int step = SquadStep();
-    uint32_t add;
-    uint32_t expect[4];
+    uint32_t want_add;
+    uint32_t prev_add;
+    static const uint32_t expect[4] = {12u, 18u, 10u, 18u};
     uint32_t gotv[4];
     static const uintptr_t OFFS[4] = {12u, 16u, 40u, 44u};
     int i;
-    int defaults = 1;
-    int already = 1;
-    if (step <= 0 || !ApiRd(at, raw, 96) || !TemplateAt(raw)) {
-        Log("SEAF cap not changed: the template at %llx does not match the game's default bytes", (unsigned long long)at);
+    int matches_prev = 1;
+    int matches_want = 1;
+
+    if (want_step < 0) want_step = 0;
+    if (want_step > 25) want_step = 25;
+
+    EnterCriticalSection(&g_lock);
+    int cur_applied = g_applied_step;
+    int cur_squad = g_squad;
+    LeaveCriticalSection(&g_lock);
+
+    if (want_step == cur_applied && ((want_step == 0 && cur_squad == 1) || (want_step > 0 && cur_squad == 2)))
+        return;
+
+    if (!ApiRd(at, raw, 96) || !TemplateFramingMatches(raw)) {
+        Log("SEAF cap not changed: the template at %llx does not match the game's framing bytes", (unsigned long long)at);
         EnterCriticalSection(&g_lock);
         g_squad = 3;
         g_tpl = 0;
+        g_applied_step = 0;
         LeaveCriticalSection(&g_lock);
         return;
     }
-    add = (uint32_t)step * 6u;
-    expect[0] = 12u;
-    expect[1] = 18u;
-    expect[2] = 10u;
-    expect[3] = 18u;
+
+    want_add = (uint32_t)want_step * 6u;
+    prev_add = (uint32_t)cur_applied * 6u;
     for (i = 0; i < 4; i++) {
         memcpy(&gotv[i], raw + OFFS[i], 4);
-        if (gotv[i] != expect[i]) defaults = 0;
-        if (gotv[i] != expect[i] + add) already = 0;
+        if (gotv[i] != expect[i] + prev_add) matches_prev = 0;
+        if (gotv[i] != expect[i] + want_add) matches_want = 0;
     }
-    if (already) {
-        Log("SEAF cap already raised by %d squad(s) (template %llx)", step, (unsigned long long)at);
-    } else if (!defaults) {
-        Log("SEAF cap left alone: template %llx holds %u,%u / %u,%u, not the defaults 12,18 / 10,18",
-            (unsigned long long)at, gotv[0], gotv[1], gotv[2], gotv[3]);
+
+    if (matches_want) {
+        EnterCriticalSection(&g_lock);
+        g_applied_step = want_step;
+        g_squad = (want_step > 0) ? 2 : 1;
+        LeaveCriticalSection(&g_lock);
+        return;
+    }
+
+    if (!matches_prev) {
+        Log("SEAF cap left alone: template %llx holds %u,%u / %u,%u, not expected %u,%u / %u,%u",
+            (unsigned long long)at, gotv[0], gotv[1], gotv[2], gotv[3],
+            expect[0] + prev_add, expect[1] + prev_add, expect[2] + prev_add, expect[3] + prev_add);
         EnterCriticalSection(&g_lock);
         g_squad = 3;
         LeaveCriticalSection(&g_lock);
         return;
-    } else {
-        for (i = 0; i < 4; i++) {
-            if (g_api->write_u32_if(g_mod, at + OFFS[i], expect[i], expect[i] + add) != 0) {
-                Log("SEAF cap: write %u at template+%u did not apply", expect[i] + add, (unsigned)OFFS[i]);
-                EnterCriticalSection(&g_lock);
-                g_squad = 3;
-                LeaveCriticalSection(&g_lock);
-                return;
-            }
-        }
-        Log("SEAF cap raised by %d squad(s): per drop %u/%u, admission %u/%u (template %llx)",
-            step, expect[0] + add, expect[1] + add, expect[2] + add, expect[3] + add, (unsigned long long)at);
     }
+
+    for (i = 0; i < 4; i++) {
+        if (g_api->write_u32_if == NULL ||
+            g_api->write_u32_if(g_mod, at + OFFS[i], gotv[i], expect[i] + want_add) != 0) {
+            int j;
+            for (j = 0; j < i && g_api->write_u32_if != NULL; j++) {
+                (void)g_api->write_u32_if(g_mod, at + OFFS[j], expect[j] + want_add, gotv[j]);
+            }
+            Log("SEAF cap: write %u at template+%u did not apply", expect[i] + want_add, (unsigned)OFFS[i]);
+            EnterCriticalSection(&g_lock);
+            g_squad = 3;
+            LeaveCriticalSection(&g_lock);
+            return;
+        }
+    }
+
     EnterCriticalSection(&g_lock);
-    g_squad = 2;
+    g_applied_step = want_step;
+    g_squad = (want_step > 0) ? 2 : 1;
     LeaveCriticalSection(&g_lock);
+
+    if (want_step == 0) {
+        Log("SEAF cap restored to native defaults 12/18, admission 10/18 (template %llx)", (unsigned long long)at);
+    } else {
+        Log("SEAF cap raised by %d squad(s): per drop %u/%u, admission %u/%u (template %llx)",
+            want_step, expect[0] + want_add, expect[1] + want_add, expect[2] + want_add, expect[3] + want_add, (unsigned long long)at);
+    }
 }
 
 static int WorkerStopped(void)
@@ -772,8 +826,8 @@ static DWORD WINAPI Worker(LPVOID unused)
                 }
             }
             LeaveCriticalSection(&g_lock);
-        } else if (SquadStep() > 0 && squad == 1 && tpl > 0x10000 && g_on_game == 0) {
-            ApplyTemplate(tpl);
+        } else if (SquadStep() > 0 && (squad == 1 || squad == 2) && tpl > 0x10000 && g_on_game == 0) {
+            SyncTemplateForStep(tpl, HeavyIsHostOrSolo() ? SquadStepForDifficulty(0) : 0);
         }
 
         if (SleepWorkerMs(2000)) return 0;
@@ -944,9 +998,9 @@ extern "C" int heavy_seaf_support_loaded(void)
     return g_support_scanned && g_support_count == 4;
 }
 
-static uint32_t WaveCallType(void)
+static uint32_t WaveCallTypeFor(int support_squads)
 {
-    if (!OptionsSupportSquads()) return 116u;
+    if (!support_squads) return 116u;
     if (g_support_count != 4 || !heavy_seaf_squads_ready()) return 116u;
     if (!heavy_seaf_squads_can_spawn()) {
         if (!g_custom_cap_waiting) { g_custom_cap_waiting = 1; Log("custom SEAF limit reached (18 living troops); wave will resume after casualties"); }
@@ -1108,7 +1162,8 @@ static int CallSeaf(uintptr_t game, int squad, uint32_t call_type, const float* 
     if (!ResolveLivingHostMissionGround(game, &owner, &character, origin)) return 1;
     if (beacon != NULL && Finite3(beacon)) memcpy(origin, beacon, 12);
     if (squad > 0) {
-        int cw = (beacon == NULL && OptionsCloneWars());
+        int live_diff_cw = (g_api != NULL) ? cd_read_live_mission_difficulty(g_api->read, game) : 0;
+        int cw = (beacon == NULL && OptionsEffectiveCloneWars(live_diff_cw));
         float spread = cw ? 58.0f : 30.0f;
         float step_ang = cw ? 1.5707963f : 2.0944f;
         origin[0] += spread * cosf((float)squad * step_ang);
@@ -1121,7 +1176,8 @@ static int CallSeaf(uintptr_t game, int squad, uint32_t call_type, const float* 
         static const float dz[5] = { 0.0f, 3.0f, -3.0f, 6.0f, -6.0f };
         static const float ringd_std[3] = { 0.0f, 15.0f, 30.0f };
         static const float ringd_cw[5] = { 0.0f, 20.0f, 45.0f, 80.0f, 120.0f };
-        int cw_rings = (beacon == NULL && OptionsCloneWars());
+        int live_diff_rings = (g_api != NULL) ? cd_read_live_mission_difficulty(g_api->read, game) : 0;
+        int cw_rings = (beacon == NULL && OptionsEffectiveCloneWars(live_diff_rings));
         const float* ringd = cw_rings ? ringd_cw : ringd_std;
         int n_rings = cw_rings ? 5 : 3;
         typedef unsigned char (*SearchFn)(void*, uint32_t, const void*, float*, int);
@@ -1360,6 +1416,11 @@ static void Tick(HfMod* mod, float dt, void* user)
             if (was_host) {
                 armed = 0; tries = 0; wave_left = 0; wave_held = 0; g_call_left = 0; g_have_beacon = 0;
                 was_host = 0;
+                EnterCriticalSection(&g_lock);
+                squad = g_squad;
+                tpl = g_tpl;
+                LeaveCriticalSection(&g_lock);
+                if ((squad == 1 || squad == 2) && tpl > 0x10000) SyncTemplateForStep(tpl, 0);
                 Log("mission: host role lost; SEAF director mutations and wave spawns paused");
             }
             return;
@@ -1392,12 +1453,25 @@ static void Tick(HfMod* mod, float dt, void* user)
                 Log("AUTO_WAVE_GROUND_GATE: host entity verified on mission ground; arming %llu ms post-landing grace",
                     (unsigned long long)HEAVY_LANDING_GRACE_MS);
             }
-            if (armed && !drop_stop && game != 0 && OptionsConstant() && gate == 1) {
+            int live_diff = (game != 0 && g_api != NULL) ? cd_read_live_mission_difficulty(g_api->read, game) : 0;
+            if (live_diff >= 1) {
+                EnterCriticalSection(&g_lock);
+                squad = g_squad;
+                tpl = g_tpl;
+                LeaveCriticalSection(&g_lock);
+                if ((squad == 1 || squad == 2) && tpl > 0x10000) {
+                    SyncTemplateForStep(tpl, SquadStepForDifficulty(live_diff));
+                }
+            }
+            int eff_clone_wars = 0, eff_constant = 0, eff_squads = 1, eff_interval_ms = 120000, eff_ceiling = 24;
+            int eff_support_squads = OptionsEffectiveSupportSquads(live_diff);
+            OptionsResolveForDifficulty(live_diff, &eff_clone_wars, &eff_constant, &eff_squads, &eff_interval_ms, &eff_ceiling);
+            if (armed && !drop_stop && game != 0 && eff_constant && gate == 1) {
                 int rc;
                 if (wave_left == 0 && now >= next_wave) {
                     int living = heavy_seaf_live_troops();
-                    int ceiling = OptionsWaveCeiling();
-                    int em_ok = !OptionsCloneWars() || HeavyHasEntityHeadroom(game, 1180u);
+                    int ceiling = eff_ceiling;
+                    int em_ok = !eff_clone_wars || HeavyHasEntityHeadroom(game, 1180u);
                     if (living >= ceiling || !em_ok) {
                         if (!wave_held) {
                             wave_held = 1;
@@ -1409,21 +1483,21 @@ static void Tick(HfMod* mod, float dt, void* user)
                             wave_held = 0;
                             Log("SEAF field down to %d/%d living troops; waves resume", living, ceiling);
                         }
-                        wave_left = OptionsSquadsPerWave();
+                        wave_left = eff_squads;
                         waves++;
                         squad_k = 0;
                         g_wave_sites = 0;
                     }
                 }
                 if (wave_left > 0) {
-                    uint32_t call_type = WaveCallType();
+                    uint32_t call_type = eff_clone_wars ? 116u : WaveCallTypeFor(eff_support_squads);
                     rc = TimedCallSeaf(game, squad_k, call_type, NULL);
                     if (rc == 0) {
                         sent++;
                         squad_k++;
                         wave_left--;
                         Log("%s %d called in%s", call_type == 116u ? "SEAF shuttle" : "SEAF support squad", sent, waves == 1 ? " after ground grace" : "");
-                        if (wave_left == 0) next_wave = now + (ULONGLONG)OptionsWaveIntervalMs();
+                        if (wave_left == 0) next_wave = now + (ULONGLONG)eff_interval_ms;
                     } else if (rc == 2) {
                         drop_stop = 1;
                         Log("SEAF shuttles stopped: this build's call-in code does not match");
@@ -1431,13 +1505,14 @@ static void Tick(HfMod* mod, float dt, void* user)
                         squad_k++;
                         wave_left--;
                         if (!said_site) { said_site = 1; Log("SEAF shuttle: no landing site near the player this time"); }
-                        if (wave_left == 0) next_wave = now + (ULONGLONG)OptionsWaveIntervalMs();
+                        if (wave_left == 0) next_wave = now + (ULONGLONG)eff_interval_ms;
                     }
                 }
             }
         }
         if (armed && !drop_stop && game != 0 && g_call_left > 0 && g_have_beacon) {
-            uint32_t call_type = WaveCallType();
+            int beacon_diff = (g_api != NULL) ? cd_read_live_mission_difficulty(g_api->read, game) : 0;
+            uint32_t call_type = WaveCallTypeFor(OptionsEffectiveSupportSquads(beacon_diff));
             int rc = TimedCallSeaf(game, g_call_k, call_type, g_beacon);
             if (rc == 0) {
                 g_call_k++;
@@ -1468,12 +1543,13 @@ static void Tick(HfMod* mod, float dt, void* user)
     }
     if (state == HF_STATE_PREPARE_MISSION) return;
     ApplyRanges();
-    if (SquadStep() <= 0) return;
     EnterCriticalSection(&g_lock);
     squad = g_squad;
     tpl = g_tpl;
     LeaveCriticalSection(&g_lock);
-    if (squad == 1 && tpl > 0x10000) ApplyTemplate(tpl);
+    if ((squad == 1 || squad == 2) && tpl > 0x10000) {
+        SyncTemplateForStep(tpl, HeavyIsHostOrSolo() ? SquadStepForDifficulty(0) : 0);
+    }
 }
 
 /* The galaxy map reads planetActiveEffects from the parsed war status, not the planet table.

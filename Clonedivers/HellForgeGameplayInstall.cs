@@ -22,7 +22,7 @@ public sealed partial class HellForgeClient
             if (!string.IsNullOrEmpty(id)) applied.Add(id);
         if (intent.OptionalDefaults == null && (intent.State == "applied" || intent.OptionalDefaultsApplied))
         {
-            if (intent.Catalog is "build25480438-r13" or "build25480438-r12" or "build25480438-r11" or "build25480438-r10" or "build25480438-r9" || intent.Catalog == HellForgeGameplayCatalog.Pinned.Id)
+            if (intent.Catalog is "build25480438-r14" or "build25480438-r13" or "build25480438-r12" or "build25480438-r11" or "build25480438-r10" or "build25480438-r9" || intent.Catalog == HellForgeGameplayCatalog.Pinned.Id)
                 foreach (var artifact in HellForgeGameplayCatalog.Pinned.Artifacts.Where(a => a.Optional))
                     applied.Add(artifact.Id);
             else if (intent.Catalog == "build25480438-r8")
@@ -43,9 +43,9 @@ public sealed partial class HellForgeClient
         (HellForgePreset.CleanExit, "0.1.0" or "0.2.0") or
         (HellForgePreset.LegoCompactLeafWriter, "0.0.9" or "0.1.0" or "0.2.0" or "0.2.1" or "0.2.2") or
         (HellForgePreset.EmpireLegoYoda, "0.1.0" or "0.1.2" or "0.2.0" or "0.2.1") or
-        (HellForgePreset.EmpireAtstWriter, "0.1.0" or "0.2.0" or "0.2.1" or "0.2.2" or "0.2.3") or
+        (HellForgePreset.EmpireAtstWriter, "0.1.0" or "0.2.0" or "0.2.1" or "0.2.2" or "0.2.3" or "0.2.4") or
         (HellForgePreset.EmpireTieSwitch, "0.3.0" or "0.3.1") or
-        (HellForgePreset.ChaosInvasions, "0.2.0" or "0.3.0" or "0.3.1" or "0.3.2" or "0.3.3" or "0.3.4" or "0.3.5") or
+        (HellForgePreset.ChaosInvasions, "0.2.0" or "0.3.0" or "0.3.1" or "0.3.2" or "0.3.3" or "0.3.4" or "0.3.5" or "0.4.0") or
         (HellForgePreset.EmpireCameraPullback, "0.1.0" or "0.1.1" or "0.1.2" or "0.1.3") or
         (HellForgePreset.StarWarsLocalization, "0.1.0") or
         (HellForgePreset.DedicatedMeleeSlot, "1.5.2" or "1.5.2-clonedivers.1" or "1.5.2-clonedivers.2");
@@ -265,6 +265,7 @@ public sealed partial class HellForgeClient
                 OptionalDefaults = HellForgeGameplayCatalog.Pinned.Artifacts.Where(a => a.Optional).Select(a => a.Id).OrderBy(id => id, StringComparer.Ordinal).ToArray(),
                 PriorCatalog = null
             });
+            TryWriteGameplayBackupOutcome(intent.Backup, "applied");
             progress?.Report(after.HostingProblem ?? "Required gameplay mods installed and configured.");
         }
         catch (Exception error)
@@ -456,5 +457,32 @@ public sealed partial class HellForgeClient
             WriteGameplayIntent(intent with { State = "restored", OptionalDefaultsApplied = false, OptionalDefaults = null });
         else
             WriteGameplayIntent(intent with { State = "restored", Catalog = intent.PriorCatalog ?? intent.Catalog });
+        TryWriteGameplayBackupOutcome(intent.Backup, "restored");
+    }
+
+    static void TryWriteGameplayBackupOutcome(string backupDir, string outcome)
+    {
+        try
+        {
+            if (string.IsNullOrWhiteSpace(backupDir) || !Directory.Exists(backupDir)) return;
+            FileSafety.RejectLink(backupDir);
+            var target = FileSafety.Child(backupDir, "outcome.json");
+            var temp = FileSafety.Child(backupDir, $"outcome.json.{Guid.NewGuid():N}.tmp");
+            try
+            {
+                using (var fs = new FileStream(temp, FileMode.CreateNew, FileAccess.Write, FileShare.None))
+                {
+                    JsonSerializer.Serialize(fs, new { outcome, utc = DateTimeOffset.UtcNow }, HellForgePack.Json);
+                    fs.Flush(flushToDisk: true);
+                }
+                FileSafety.RejectLink(target);
+                File.Move(temp, target, overwrite: true);
+            }
+            finally
+            {
+                try { if (File.Exists(temp)) File.Delete(temp); } catch { }
+            }
+        }
+        catch (Exception e) when (e is IOException or UnauthorizedAccessException or InvalidDataException) { }
     }
 }

@@ -70,7 +70,7 @@ extract="$qa/candidate"
 portable="$qa/portable"
 extract_checked "$archive" "$extract"
 cmp "$extract/clonedivers-forge-channel.json" clonedivers-forge-channel.json
-check_pair "$extract" 0.11.0
+check_pair "$extract" 0.11.1
 check_preserved 'fresh portable candidate'
 
 # Upgrade the same portable directory from the real old package. Check the
@@ -79,13 +79,13 @@ extract_checked "$qa/baseline/$archive" "$portable"
 check_pair "$portable" 0.8.0
 check_preserved 'portable 0.8.0'
 extract_checked "$archive" "$portable"
-check_pair "$portable" 0.11.0
+check_pair "$portable" 0.11.1
 for file in clonedivers forge/companion.json forge/HellForge.Launcher.ClonediversBridge clonedivers-forge-channel.json preset.json; do
     cmp "$extract/$file" "$portable/$file"
 done
-check_preserved 'portable 0.8.0 -> 0.11.0 overlay upgrade'
+check_preserved 'portable 0.8.0 -> 0.11.1 overlay upgrade'
 
-[[ $(dpkg-deb -f "$deb" Package) == clonedivers && $(dpkg-deb -f "$deb" Version) == 0.11.0 && $(dpkg-deb -f "$deb" Architecture) == amd64 ]]
+[[ $(dpkg-deb -f "$deb" Package) == clonedivers && $(dpkg-deb -f "$deb" Version) == 0.11.1 && $(dpkg-deb -f "$deb" Architecture) == amd64 ]]
 [[ $(dpkg-deb -f "$qa/baseline/$deb" Package) == clonedivers && $(dpkg-deb -f "$qa/baseline/$deb" Version) == 0.8.0 && $(dpkg-deb -f "$qa/baseline/$deb" Architecture) == amd64 ]]
 sudo apt-get update -qq
 sudo apt-get install -y "$qa/baseline/$deb"
@@ -94,9 +94,9 @@ check_pair /usr/lib/clonedivers 0.8.0
 /usr/bin/clonedivers --version | grep -Fx 'Clonedivers Forge Linux 0.8.0'
 check_preserved 'deb 0.8.0 installed'
 sudo apt-get install -y "$artifacts/$deb"
-[[ $(dpkg-query -W -f='${Status} ${Version}' clonedivers) == 'install ok installed 0.11.0' ]]
-check_pair /usr/lib/clonedivers 0.11.0
-/usr/bin/clonedivers --version | grep -Fx 'Clonedivers Forge Linux 0.11.0'
+[[ $(dpkg-query -W -f='${Status} ${Version}' clonedivers) == 'install ok installed 0.11.1' ]]
+check_pair /usr/lib/clonedivers 0.11.1
+/usr/bin/clonedivers --version | grep -Fx 'Clonedivers Forge Linux 0.11.1'
 /usr/bin/clonedivers --help | grep -F 'Clonedivers Forge for Linux'
 /usr/bin/clonedivers --steam --help | grep -F 'Clonedivers Linux'
 dpkg-deb -x "$deb" "$qa/deb-expected"
@@ -104,7 +104,7 @@ cmp "$qa/deb-expected/usr/bin/clonedivers" /usr/bin/clonedivers
 for file in clonedivers forge/companion.json forge/HellForge.Launcher.ClonediversBridge clonedivers-forge-channel.json preset.json; do
     cmp "$extract/$file" "/usr/lib/clonedivers/$file"
 done
-check_preserved 'deb 0.8.0 -> 0.11.0 apt upgrade'
+check_preserved 'deb 0.8.0 -> 0.11.1 apt upgrade'
 if apt-cache show passt 2>/dev/null | grep -q '^Package: passt$'; then command -v pasta; else echo 'This distribution lacks passt: real co-op stays blocked by the launcher preflight.'; fi
 command -v python3
 
@@ -131,5 +131,5 @@ if grep -Eiq 'could not open|unhandled[[:space:]-]*exception' "$smoke/gui.stderr
     smoke_failure 'Forge GUI stderr contains a desktop startup or unhandled-exception failure.'
 fi
 echo 'PASS Forge preview PNG larger than 10 KB and installed Forge GUI alive for 20 seconds under xvfb.'
-echo 'Forge portable/deb 0.8.0 -> 0.11.0 package upgrade, preserved fixture bytes, default/Steam routing and exact launcher/companion pairing passed.'
+echo 'Forge portable/deb 0.8.0 -> 0.11.1 package upgrade, preserved fixture bytes, default/Steam routing and exact launcher/companion pairing passed.'
 echo 'Version/help and headless desktop startup/render ran: settings migration, real account ownership, gameplay, Proton and multiplayer remain unqualified.'

@@ -20,6 +20,7 @@ public sealed record ForgeDiskAnalysis(
 public static class ForgeDiskManager
 {
     static readonly Regex ZipHashPartial = new(@"^\.zip-hashes\.json\.[0-9a-f]{8}\.partial$", RegexOptions.IgnoreCase | RegexOptions.CultureInvariant);
+    static readonly Regex LauncherExportName = new(@"^(clonedivers|commandos|empire|linux)-[0-9a-f]{32}$", RegexOptions.IgnoreCase | RegexOptions.CultureInvariant);
 
     public static string? GetCacheRoot(string? installRoot)
     {
@@ -53,7 +54,8 @@ public static class ForgeDiskManager
 
         var cacheRoot = GetCacheRoot(root);
         HashSet<string> protectedBackups = [];
-        bool backupsReadable = cacheRoot != null && TryGetProtectedBackups(cacheRoot, out protectedBackups);
+        HashSet<string> completedBackups = [];
+        bool backupsReadable = cacheRoot != null && TryGetBackupStates(cacheRoot, out protectedBackups, out completedBackups);
         bool txLockHeld = cacheRoot != null && IsAnyTransactionLockHeld(cacheRoot);
         bool canCleanBackups = backupsReadable && !txLockHeld;
         var installedSelections = GetInstalledPackIdentities(root);
@@ -140,7 +142,7 @@ public static class ForgeDiskManager
                             var sz = SumDirectoryBytes(bDir.FullName);
                             oldBackupsBytes += sz;
                             var norm = Path.TrimEndingDirectorySeparator(Path.GetFullPath(bDir.FullName));
-                            if (canCleanBackups && !protectedBackups.Contains(norm) && IsCompletedOrDeletingBackup(bDir))
+                            if (canCleanBackups && !protectedBackups.Contains(norm) && IsCompletedOrDeletingBackup(bDir, completedBackups))
                                 reclaimableBytes += sz;
                         }
                         else if (entry is FileInfo bFile)
@@ -292,8 +294,13 @@ public static class ForgeDiskManager
     public static Task<long> CleanSafeFilesAsync(string? installRoot, CancellationToken ct = default) =>
         Task.Run(() => CleanCore(installRoot, staleOnly: false, ct), ct);
 
-    internal static long CleanSafeFilesSync(string? installRoot, CancellationToken ct = default, IEnumerable<string>? preservePaths = null) =>
-        CleanCore(installRoot, staleOnly: false, ct, preservePaths);
+    internal static long CleanSafeFilesSync(
+        string? installRoot,
+        CancellationToken ct = default,
+        IEnumerable<string>? preservePaths = null,
+        bool reclaimUnpreservedExports = false,
+        string? callerOwnedLockPath = null) =>
+        CleanCore(installRoot, staleOnly: false, ct, preservePaths, reclaimUnpreservedExports, callerOwnedLockPath);
 
     /// <summary>
     /// Non-blocking startup/post-install background sweep. Never throws, skips active downloads/sessions,
@@ -316,7 +323,13 @@ public static class ForgeDiskManager
         }
     }
 
-    static long CleanCore(string? installRoot, bool staleOnly, CancellationToken ct, IEnumerable<string>? preservePaths = null)
+    static long CleanCore(
+        string? installRoot,
+        bool staleOnly,
+        CancellationToken ct,
+        IEnumerable<string>? preservePaths = null,
+        bool reclaimUnpreservedExports = false,
+        string? callerOwnedLockPath = null)
     {
         ct.ThrowIfCancellationRequested();
         if (string.IsNullOrWhiteSpace(installRoot)) return 0L;
@@ -353,8 +366,9 @@ public static class ForgeDiskManager
         FileSafety.RejectLink(root);
         var cacheRoot = GetCacheRoot(root);
         HashSet<string> protectedBackups = [];
-        bool backupsReadable = cacheRoot != null && TryGetProtectedBackups(cacheRoot, out protectedBackups);
-        bool txLockHeld = cacheRoot != null && IsAnyTransactionLockHeld(cacheRoot);
+        HashSet<string> completedBackups = [];
+        bool backupsReadable = cacheRoot != null && TryGetBackupStates(cacheRoot, out protectedBackups, out completedBackups);
+        bool txLockHeld = cacheRoot != null && IsAnyTransactionLockHeld(cacheRoot, callerOwnedLockPath);
         bool canCleanBackups = backupsReadable && !txLockHeld;
         var installedSelections = GetInstalledPackIdentities(root);
         var registeredModFolders = GetRegisteredModFolders(root);
@@ -418,7 +432,7 @@ public static class ForgeDiskManager
                     {
                         var norm = Path.TrimEndingDirectorySeparator(Path.GetFullPath(bDir.FullName));
                         if (protectedBackups.Contains(norm) || IsPreservedTree(norm)) continue;
-                        if (!IsCompletedOrDeletingBackup(bDir)) continue;
+                        if (!IsCompletedOrDeletingBackup(bDir, completedBackups, staleOnly, staleCutoffUtc)) continue;
                         freed += TryDeleteDirectorySafe(cacheRoot, bDir.FullName);
                     }
                     else if (entry is FileInfo bFile)
@@ -452,7 +466,7 @@ public static class ForgeDiskManager
         var exportsDir = Path.Combine(cacheRoot, "exports");
         if (!txLockHeld && Directory.Exists(exportsDir) && !IsReparsePoint(exportsDir))
         {
-            var reclaimableExports = FindReclaimableExports(exportsDir, installedSelections);
+            var reclaimableExports = FindReclaimableExports(exportsDir, installedSelections, reclaimUnpreservedExports);
             try
             {
                 foreach (var entry in new DirectoryInfo(exportsDir).EnumerateFileSystemInfos())
@@ -584,7 +598,10 @@ public static class ForgeDiskManager
         return freed;
     }
 
-    static HashSet<string> FindReclaimableExports(string exportsDir, HashSet<string> installedSelections)
+    static HashSet<string> FindReclaimableExports(
+        string exportsDir,
+        HashSet<string> installedSelections,
+        bool reclaimUnpreservedExports = false)
     {
         var reclaimable = new HashSet<string>(PlatformPaths.Comparer);
         try
@@ -623,6 +640,7 @@ public static class ForgeDiskManager
             }
 
             // Any receipted export that is already installed in mods/ (duplicate copy) or superseded by a newer export of the same mode is reclaimable.
+            // Under low-space capacity preflight (reclaimUnpreservedExports=true), launcher-named staging exports not referenced by plan.Local are also reclaimable.
             foreach (var group in validByMode.GroupBy(x => x.Selection.Mode, StringComparer.OrdinalIgnoreCase))
             {
                 var ordered = group.OrderByDescending(x => x.Dir.LastWriteTimeUtc).ThenBy(x => x.Dir.Name, StringComparer.Ordinal).ToList();
@@ -630,7 +648,8 @@ public static class ForgeDiskManager
                 {
                     var item = ordered[i];
                     var norm = Path.TrimEndingDirectorySeparator(Path.GetFullPath(item.Dir.FullName));
-                    if (installedSelections.Contains(item.Identity) || i > 0)
+                    bool isLauncherStaging = LauncherExportName.IsMatch(item.Dir.Name);
+                    if (installedSelections.Contains(item.Identity) || (i > 0 && isLauncherStaging) || (reclaimUnpreservedExports && isLauncherStaging))
                         reclaimable.Add(norm);
                 }
             }
@@ -639,9 +658,10 @@ public static class ForgeDiskManager
         return reclaimable;
     }
 
-    static bool TryGetProtectedBackups(string cacheRoot, out HashSet<string> protectedPaths)
+    static bool TryGetBackupStates(string cacheRoot, out HashSet<string> protectedPaths, out HashSet<string> completedPaths)
     {
         protectedPaths = new HashSet<string>(PlatformPaths.Comparer);
+        completedPaths = new HashSet<string>(PlatformPaths.Comparer);
         var txDir = Path.Combine(cacheRoot, "transactions");
         if (!Directory.Exists(txDir)) return true;
         if (IsReparsePoint(txDir)) return false;
@@ -651,9 +671,8 @@ public static class ForgeDiskManager
             foreach (var path in Directory.EnumerateFiles(txDir))
             {
                 var fileName = Path.GetFileName(path);
-                bool isTxJson = fileName.EndsWith(".json", StringComparison.OrdinalIgnoreCase) ||
-                                fileName.Contains(".json.retired-", StringComparison.OrdinalIgnoreCase);
-                if (!isTxJson) continue;
+                if (fileName.EndsWith(".lock", StringComparison.OrdinalIgnoreCase) || IsStaleTempFileName(fileName))
+                    continue;
 
                 try
                 {
@@ -664,6 +683,7 @@ public static class ForgeDiskManager
                     if (doc.RootElement.ValueKind != JsonValueKind.Object) return false;
 
                     string? backup = null;
+                    string? state = null;
                     foreach (var prop in doc.RootElement.EnumerateObject())
                     {
                         if (prop.Name.Equals("Backup", StringComparison.OrdinalIgnoreCase))
@@ -671,14 +691,26 @@ public static class ForgeDiskManager
                             if (prop.Value.ValueKind != JsonValueKind.String) return false;
                             backup = prop.Value.GetString();
                         }
+                        else if (prop.Name.Equals("State", StringComparison.OrdinalIgnoreCase))
+                        {
+                            if (prop.Value.ValueKind != JsonValueKind.String) return false;
+                            state = prop.Value.GetString();
+                        }
                     }
 
                     if (string.IsNullOrWhiteSpace(backup)) return false;
-                    protectedPaths.Add(Path.TrimEndingDirectorySeparator(Path.GetFullPath(backup)));
+                    var normBackup = Path.TrimEndingDirectorySeparator(Path.GetFullPath(backup));
+                    // Terminal completed records ("applied" / "restored") provide positive completion evidence;
+                    // non-terminal states ("pending", "outcome-unknown", "recovery-needed", missing) — including
+                    // retired older-catalog recovery records (*.gameplay.json.retired-*) — remain strictly protected.
+                    if (state is "applied" or "restored")
+                        completedPaths.Add(normBackup);
+                    else
+                        protectedPaths.Add(normBackup);
                 }
                 catch
                 {
-                    // Fail-closed on backups/ if any transaction JSON is unreadable, oversized, or corrupt.
+                    // Fail-closed on backups/ if any active or retired transaction record is unreadable, oversized, or corrupt.
                     return false;
                 }
             }
@@ -690,16 +722,25 @@ public static class ForgeDiskManager
         }
     }
 
-    static bool IsAnyTransactionLockHeld(string cacheRoot)
+    static bool IsAnyTransactionLockHeld(string cacheRoot, string? callerOwnedLockPath = null)
     {
         var txDir = Path.Combine(cacheRoot, "transactions");
         if (!Directory.Exists(txDir)) return false;
         if (IsReparsePoint(txDir)) return true;
+        string? normalizedOwned = null;
+        if (!string.IsNullOrWhiteSpace(callerOwnedLockPath))
+        {
+            try { normalizedOwned = Path.GetFullPath(callerOwnedLockPath); } catch { }
+        }
         try
         {
             foreach (var lockFile in Directory.EnumerateFiles(txDir, "*.lock"))
             {
-                if (IsReparsePoint(lockFile) || IsLockHeld(lockFile))
+                if (IsReparsePoint(lockFile))
+                    return true;
+                if (normalizedOwned != null && string.Equals(Path.GetFullPath(lockFile), normalizedOwned, PlatformPaths.Comparison))
+                    continue;
+                if (IsLockHeld(lockFile))
                     return true;
             }
             return false;
@@ -759,9 +800,13 @@ public static class ForgeDiskManager
         return folders;
     }
 
-    static bool IsCompletedOrDeletingBackup(DirectoryInfo dir)
+    static bool IsCompletedOrDeletingBackup(DirectoryInfo dir, HashSet<string> completedBackups, bool staleOnly = false, DateTime staleCutoffUtc = default)
     {
         if (dir.Name.StartsWith("deleting-", StringComparison.OrdinalIgnoreCase)) return true;
+        if (staleOnly && dir.Name.StartsWith("gameplay-", StringComparison.OrdinalIgnoreCase) && dir.LastWriteTimeUtc >= staleCutoffUtc)
+            return false;
+        var norm = Path.TrimEndingDirectorySeparator(Path.GetFullPath(dir.FullName));
+        if (completedBackups.Contains(norm)) return true;
         var outcomePath = Path.Combine(dir.FullName, "outcome.json");
         try
         {

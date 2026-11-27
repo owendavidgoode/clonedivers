@@ -440,8 +440,8 @@ public static class PackArtifactEngine
             ? Math.Max(0L, plan.Bytes - existingInOutput)
             : plan.Bytes;
 
-        long exportNeeded = exportNewBytes > 0
-            ? checked(exportNewBytes + HellForgePack.ExportReserve + plan.Missing.Select(f => f.Size).DefaultIfEmpty().Max())
+        long exportStagingBytes = exportNewBytes > 0
+            ? checked(exportNewBytes + plan.Missing.Select(f => f.Size).DefaultIfEmpty().Max())
             : 0L;
 
         long replacementBytes = checked(plan.Bytes + 65536L);
@@ -468,8 +468,12 @@ public static class PackArtifactEngine
 
         RequireOnVolume(backupVol, backupPath, backupNeeded, additive: false);
         RequireOnVolume(modsVol, modsPath, modsNeeded, additive: false);
-        if (exportNeeded > 0)
-            RequireOnVolume(exportVol, exportPath, exportNeeded, additive: true);
+        if (exportStagingBytes > 0)
+        {
+            bool sharesExistingReserve = volumeNeeds.ContainsKey(exportVol);
+            long addExport = sharesExistingReserve ? exportStagingBytes : checked(exportStagingBytes + HellForgePack.ExportReserve);
+            RequireOnVolume(exportVol, exportPath, addExport, additive: true);
+        }
 
         bool cleanedOnce = false;
         foreach (var (_, (probe, required)) in volumeNeeds)
@@ -478,14 +482,14 @@ public static class PackArtifactEngine
             if (!cleanedOnce)
             {
                 cleanedOnce = true;
-                try { ForgeDiskManager.CleanSafeFilesSync(installRoot, ct, plan.Local.Values); }
+                try { ForgeDiskManager.CleanSafeFilesSync(installRoot, ct, plan.Local.Values.Prepend(plan.Output), reclaimUnpreservedExports: true); }
                 catch (Exception e) when (e is IOException or UnauthorizedAccessException or InvalidDataException) { }
                 if (availableBytes(probe) is not long freeAfter || freeAfter >= required) continue;
                 free = freeAfter;
             }
             throw new IOException(
                 $"Not enough space to prepare and install this Star Wars pack: {Pack.FormatBytes(required)} needed " +
-                $"({Pack.FormatBytes(exportNeeded)} staging + {Pack.FormatBytes(backupNeeded)} backup/install reserve), " +
+                $"({Pack.FormatBytes(exportStagingBytes)} staging + {Pack.FormatBytes(backupNeeded)} backup/install reserve), " +
                 $"{Pack.FormatBytes(Math.Max(0, free))} available. Free space on this drive or choose a lighter Performance Tier, then try again.");
         }
     }

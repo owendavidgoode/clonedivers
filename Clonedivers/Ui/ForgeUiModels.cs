@@ -60,7 +60,7 @@ public sealed record ForgeHomeState(
     bool MinimizeToTray = false,
     string SquidSkin = "mixed-covenant",
     bool DeathTrooperVoice = false,
-    string HostTheaterPreset = "standard");
+    string HostTheaterPreset = "clone-wars");
 
 public sealed record ForgeSetupState(
     int Step, // 1..4

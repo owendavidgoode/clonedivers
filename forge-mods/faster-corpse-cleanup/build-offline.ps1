@@ -51,7 +51,7 @@ try {
     & $CliPath package-mod --mod $stage --out $out | Tee-Object "$mod\build\package.log"
     if ($LASTEXITCODE -ne 0) { throw 'HellForge.Cli package-mod failed' }
 
-    $zipPath = Join-Path $out 'faster-corpse-cleanup-1.0.6-clonedivers.2.zip'
+    $zipPath = Join-Path $out 'faster-corpse-cleanup-1.0.6-clonedivers.3.zip'
     if (!(Test-Path -LiteralPath $zipPath)) {
         $found = Get-ChildItem -LiteralPath $out -Filter '*.zip' | Sort-Object LastWriteTime -Descending | Select-Object -First 1
         if ($found) { Copy-Item -LiteralPath $found.FullName -Destination $zipPath -Force }

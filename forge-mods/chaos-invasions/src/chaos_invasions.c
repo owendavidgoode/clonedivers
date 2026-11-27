@@ -3,6 +3,7 @@
 #include <psapi.h>
 #include "policy.h"
 #include "ultrakill_d12.h"
+#include "d12_native_slot.h"
 
 /* ---- Build 25480438 Native Offsets & Constants ----------------------------------------------------------------- */
 
@@ -106,10 +107,15 @@ static HfMod* self;
 static volatile LONG g_phase = PHASE_INACTIVE;
 static ChaosConfig config;
 static ChaosConfig g_ini_config;
+static ChaosConfig g_session_config;
+static int g_has_session_config = 0;
+static int g_d12_config_active = 0;
 static char g_host_options_path[CD_HOST_OPTIONS_MAX_PATH];
 static uint64_t g_host_options_mtime = 0ULL;
 static uint64_t g_published_bridge_mtime = 0ULL;
 static char g_published_bridge_text[320];
+static uint64_t g_last_bridge_seen_mtime = 0ULL;
+static char g_last_bridge_seen_text[512];
 static uint64_t g_bridge_user_edit_mtime = 0ULL;
 static CdHostOptions g_host_opts;
 static ChaosClock clock_state;
@@ -118,6 +124,8 @@ static ChaosPendingWave g_pending;
 static ChaosEmSnapshot g_em_snap;
 static ChaosSpawnQueue g_spawn_queue;
 static ChaosUltrakillState g_ultrakill;
+static D12NativeSlotState g_d12_slot;
+static int g_last_mission_live_diff = 0;
 static float g_prune_accum_s = 0.0f;
 
 static unsigned state, landed, stopped, previous_role;
@@ -766,7 +774,7 @@ static int ReadDirectorContext(uintptr_t gbase, uintptr_t* dir_out, int* faction
     if (!ReadPtr(gbase + CHAOS_DIRECTOR_RVA, &dir)) return 0;
     if (!ReadMem(dir + 0x518BCu, &fmask, 4) || !ReadMem(dir + 0x518C4u, &tech, 4)) return 0;
     int nf = ChaosFactionFromDirectorMask(fmask);
-    if (nf < 0 || tech < 1u || tech > 11u) return 0;
+    if (nf < 0 || tech < 1u || tech > 12u) return 0;
     if (dir_out) *dir_out = dir;
     if (faction_out) *faction_out = nf;
     if (diff_out) *diff_out = (int)tech;
@@ -1101,6 +1109,8 @@ static void SendClientStatusIfNeeded(unsigned now, uint8_t required_mask)
     }
 }
 
+static int ChaosIsUltrakillActiveInMission(uintptr_t gbase);
+
 static void PreloadForeignFactionPackagesPaced(
     uintptr_t gbase,
     uintptr_t ebase,
@@ -1164,7 +1174,7 @@ static void PreloadForeignFactionPackagesPaced(
 
     int ready_count = 0;
     int block_next_faction = 0;
-    if (cd_host_options_is_ultrakill(&g_host_opts) && native >= 0 && native < CHAOS_FACTIONS) {
+    if (ChaosIsUltrakillActiveInMission(gbase) && native >= 0 && native < CHAOS_FACTIONS) {
         if (ResolveCuratedRosterForFaction(gbase, native)) {
             g_faction_resident[native] = 1;
         }
@@ -1322,7 +1332,7 @@ static void PruneStaleTrackedUnits(uintptr_t gbase, size_t gsize,
 #ifdef CHAOS_UNIT_TEST
     if (g_mock.alive_override) check_health = 0;
 #endif
-    int is_uk = cd_host_options_is_ultrakill(&g_host_opts);
+    int is_uk = ChaosIsUltrakillActiveInMission(gbase);
     float stranded_r = is_uk ? 320.0f : 150.0f;
     double stranded_age = is_uk ? 45.0 : 180.0;
     int limit = (g_tracker.high_water > 0 && g_tracker.high_water <= CHAOS_MAX_TRACKED)
@@ -1609,7 +1619,7 @@ static void DispatchChaosWave(uintptr_t gbase, uintptr_t director, int faction, 
          * native roster and dereference NULL. DispatchStaggeredRoster replicates 64-bit entity hashes cleanly.
          * In ULTRAKILL theater mode, ground surges also prevent uncounted transport/breach bursts from exceeding
          * the governed EntityManager ceiling. */
-        int is_ultrakill = cd_host_options_is_ultrakill(&g_host_opts);
+        int is_ultrakill = ChaosIsUltrakillActiveInMission(gbase);
         int can_transport = !has_remote_peers &&
                             !is_ultrakill &&
                             cargo_faction != 0u &&
@@ -1672,7 +1682,7 @@ static void DispatchChaosWave(uintptr_t gbase, uintptr_t director, int faction, 
 
     /* Terminids: staggered SpawnRosterRow (flags=0x24, kind=3). Skip native TriggerBreachBurst in ULTRAKILL
      * so native breach emitters cannot pour 30+ uncounted extra entities past the EntityManager governor. */
-    if (!cd_host_options_is_ultrakill(&g_host_opts)) {
+    if (!ChaosIsUltrakillActiveInMission(gbase)) {
         uintptr_t exp_q = 0;
         uint32_t invalid_ent = ReadU32(gbase + CHAOS_INVALID_SPAWN_RVA, 0xFFFFFFFFu);
         if (ReadPtr(gbase + CHAOS_FX_QUEUE_RVA, &exp_q)) {
@@ -1944,9 +1954,30 @@ static void UpdatePerceptionHostility(uintptr_t gbase)
 
 /* ---- Level 12 — ULTRAKILL & Full Clone Wars Theater Runtime ---------------------------------------------------- */
 
+static int ChaosLiveMissionDifficulty(uintptr_t gbase)
+{
+    if (!hf || !hf->read || !gbase) return 0;
+    return cd_read_live_mission_difficulty(hf->read, gbase);
+}
+
+static int ChaosIsUltrakillActiveInMission(uintptr_t gbase)
+{
+    int live_diff = ChaosLiveMissionDifficulty(gbase);
+    return cd_host_options_active_for_difficulty(&g_host_opts, live_diff);
+}
+
 static const char* UltrakillTextDetour(uint32_t id, void* a, void* b, void* c)
 {
-    if (g_ultrakill.d12_applied && id != 0u) {
+    if (id == D12_NUM_TEXT_ID) {
+        return "12";
+    }
+    if (id == D12_NAME_TEXT_ID) {
+        return (g_host_opts.theater_preset == CD_THEATER_LEVEL12_ULTRAKILL ||
+                g_host_opts.chaos_intensity == CD_CHAOS_ULTRAKILL)
+               ? "LEVEL 12: ULTRAKILL"
+               : "LEVEL 12: CLONE WARS";
+    }
+    if (g_d12_slot.state != 1 && g_ultrakill.d12_applied && id != 0u) {
         if (id == g_ultrakill.d11_num_text_id && Host()) {
             return "12";
         }
@@ -1989,6 +2020,39 @@ static void UltrakillTryInstallTextHook(const char* where)
     hf->log(self, "CHAOS_ULTRAKILL_TEXT: hooked engine text vtable at 0x%llx (%s)", (unsigned long long)text_fn, where);
 }
 
+static float g_d12_sync_poll = 0.0f;
+
+static void ChaosEnsureD12SlotAndItemEx(int force_reg_read)
+{
+    if (!hf || !self) return;
+    if (hf->size >= offsetof(HfApi, logs_folder) + sizeof(hf->logs_folder) &&
+        hf->logs_folder != NULL) {
+        const char* ldir = hf->logs_folder(self);
+        if (ldir && ldir[0]) {
+            int rc = D12SyncUnlockItemInFolder(&g_d12_slot, ldir, force_reg_read);
+            if (rc == 2) {
+                hf->log(self, "CHAOS_D12_ITEM: synced mixId=%u copyOf=%u level=12 in %s\\registered-items.json",
+                        (unsigned)D12_UNLOCK_ITEM_ID, (unsigned)D12_SUPER_HELLDIVE_ITEM, ldir);
+            }
+        }
+    }
+    size_t gsize = 0;
+    uintptr_t gbase = GameBase(&gsize);
+    if (!gbase) return;
+    if (g_d12_slot.state == 0) {
+        (void)D12TryInstallNativeSlot(&g_d12_slot, hf, self, gbase, gsize, &g_host_opts);
+    } else if (g_d12_slot.state == 1 && !g_d12_slot.online_cap_raised) {
+        if (D12TrySyncOnlineCap(&g_d12_slot, hf, gbase)) {
+            hf->log(self, "CHAOS_D12_CAP: raised online max_difficulty override to 12");
+        }
+    }
+}
+
+static void ChaosEnsureD12SlotAndItem(void)
+{
+    ChaosEnsureD12SlotAndItemEx(0);
+}
+
 static void UltrakillSyncDifficulty12(void)
 {
     if (!hf || hf->size < offsetof(HfApi, difficulty_row) + sizeof(hf->difficulty_row) || !hf->difficulty_row) return;
@@ -2002,8 +2066,19 @@ static void UltrakillSyncDifficulty12(void)
         g_ultrakill.d11_snapshot_valid = 1;
     }
 
-    int want = Host() && cd_host_options_is_ultrakill(&g_host_opts);
-    if (want) {
+    if (g_d12_slot.state == 1 && g_d12_slot.row12 != NULL) {
+        if (g_ultrakill.d12_applied) {
+            memcpy(row, g_ultrakill.d11_baseline, sizeof(HfDifficultySettings));
+            g_ultrakill.d12_applied = 0;
+        }
+        D12PopulateRow12(&g_d12_slot, &g_host_opts);
+        return;
+    }
+
+    int force_all_diffs = Host() &&
+                          (g_host_opts.theater_preset == CD_THEATER_LEVEL12_ULTRAKILL ||
+                           g_host_opts.chaos_intensity == CD_CHAOS_ULTRAKILL);
+    if (force_all_diffs) {
         UltrakillApplyDifficultyRow12(row, g_ultrakill.d11_baseline, &g_host_opts);
         if (!g_ultrakill.d12_applied) {
             g_ultrakill.d12_applied = 1;
@@ -2061,22 +2136,28 @@ static void UltrakillRaiseWwiseVoices(void)
         hf->log(self, "CHAOS_ULTRAKILL_AUDIO: wwise_max_voices=%u (default=140)", (unsigned)UK_WWISE_VOICES);
     }
 }
+#endif
 
 static void OnGameLoaded(HfMod* mod, HfEvent ev, void* user)
 {
     (void)mod; (void)ev; (void)user;
+#ifndef CHAOS_UNIT_TEST
     UltrakillTryEnlargePhysicsPools();
+#endif
     UltrakillTryInstallTextHook("HF_EVENT_GAME_LOADED");
+    ChaosEnsureD12SlotAndItemEx(1);
 }
 
 static void OnEntitiesReady(HfMod* mod, HfEvent ev, void* user)
 {
     (void)mod; (void)ev; (void)user;
+#ifndef CHAOS_UNIT_TEST
     UltrakillRaiseWwiseVoices();
+#endif
     UltrakillTryInstallTextHook("HF_EVENT_ENTITIES_READY");
+    ChaosEnsureD12SlotAndItemEx(1);
     UltrakillSyncDifficulty12();
 }
-#endif
 
 static int FindTheaterRingAnchor(uintptr_t gbase, const float (*players)[3], int living,
                                  float min_r, float max_r, float out_anchor[3], float out_player[3])
@@ -2234,7 +2315,8 @@ static void ServiceVirtualBattalions(uintptr_t gbase, int native, int diff,
                                      const float (*players)[3], int living, float dt)
 {
     if (living <= 0) return;
-    int want_virtual = UltrakillTargetVirtualUnits(&g_host_opts);
+    int live_diff = ChaosLiveMissionDifficulty(gbase);
+    int want_virtual = UltrakillTargetVirtualUnitsForDiff(&g_host_opts, live_diff);
     float max_map_r = (g_ultrakill.live_radius_factor > 0.40f ? g_ultrakill.live_radius_factor : 0.92f) * 1024.0f - 35.0f;
     if (max_map_r < 320.0f) max_map_r = 320.0f;
     if (max_map_r > 920.0f) max_map_r = 920.0f;
@@ -2395,7 +2477,13 @@ static void ServiceVirtualBattalions(uintptr_t gbase, int native, int diff,
 static void ServiceUltrakillTheater(uintptr_t gbase, uintptr_t director, int native, int diff,
                                     const float (*living_pos)[3], int living_players, float dt)
 {
-    if (!Host() || !landed || !cd_host_options_is_ultrakill(&g_host_opts)) return;
+    if (!Host() || !landed || !ChaosIsUltrakillActiveInMission(gbase)) return;
+
+    if (native >= 0 && native < CHAOS_FACTIONS && !g_rosters_loaded[native]) {
+        if (ResolveCuratedRosterForFaction(gbase, native)) {
+            g_faction_resident[native] = 1;
+        }
+    }
 
     ChaosRefreshEmSnapshot(gbase, clock_state.age);
     UltrakillSyncMissionTheater(gbase, director, dt);
@@ -2419,6 +2507,13 @@ static void ServiceUltrakillTheater(uintptr_t gbase, uintptr_t director, int nat
             g_spawn_queue.count < 96u &&
             g_em_snap.free_slots >= UK_EM_RESERVE_SLOTS + 24u) {
             int chosen = ChaosChooseEx(&config, native, diff, 1, NextRand());
+            if (chosen >= 0 && chosen < CHAOS_FACTIONS && chosen != native &&
+                (!g_rosters_loaded[chosen] || !g_faction_resident[chosen] || !PeersReadyForFaction(gbase, chosen))) {
+                if (native >= 0 && native < CHAOS_FACTIONS &&
+                    ChaosWeight(&config, native, diff) > 0 && g_rosters_loaded[native]) {
+                    chosen = native;
+                }
+            }
             if (chosen >= 0 && chosen < CHAOS_FACTIONS &&
                 g_rosters_loaded[chosen] && (chosen == native || g_faction_resident[chosen]) &&
                 (chosen == native || PeersReadyForFaction(gbase, chosen))) {
@@ -2497,6 +2592,8 @@ static void Publish(void)
         fputs(g_published_bridge_text, f);
         fclose(f);
         cd_get_file_mtime_100ns(bridge, &g_published_bridge_mtime);
+        g_last_bridge_seen_mtime = g_published_bridge_mtime;
+        snprintf(g_last_bridge_seen_text, sizeof g_last_bridge_seen_text, "%s", g_published_bridge_text);
     }
 }
 
@@ -2506,7 +2603,8 @@ static void LoadOptions(const char* path, int session_required)
     uint64_t bm = 0ULL;
     if (session_required) {
 #ifndef CHAOS_UNIT_TEST
-        if (cd_get_file_mtime_100ns(path, &bm) == 1 && bm != 0ULL && bm == g_published_bridge_mtime) {
+        if (cd_get_file_mtime_100ns(path, &bm) == 1 && bm != 0ULL &&
+            (bm == g_published_bridge_mtime || bm == g_last_bridge_seen_mtime)) {
             return;
         }
 #else
@@ -2523,7 +2621,9 @@ static void LoadOptions(const char* path, int session_required)
     if (session_required) {
         size_t got = fread(raw_buf, 1, sizeof(raw_buf) - 1u, f);
         raw_buf[got] = '\0';
-        if (g_published_bridge_text[0] && strcmp(raw_buf, g_published_bridge_text) == 0) {
+        if ((g_published_bridge_text[0] && strcmp(raw_buf, g_published_bridge_text) == 0) ||
+            (g_last_bridge_seen_text[0] && strcmp(raw_buf, g_last_bridge_seen_text) == 0 &&
+             bm != 0ULL && bm == g_last_bridge_seen_mtime)) {
             fclose(f);
             return;
         }
@@ -2545,15 +2645,23 @@ static void LoadOptions(const char* path, int session_required)
     if (!valid) return;
     if (!session_required) {
         g_ini_config = next;
+    } else {
+        if (bm == 0ULL) cd_get_file_mtime_100ns(path, &bm);
+        if (bm != 0ULL) {
+            g_bridge_user_edit_mtime = bm;
+            g_last_bridge_seen_mtime = bm;
+        }
+        snprintf(g_last_bridge_seen_text, sizeof g_last_bridge_seen_text, "%s", raw_buf);
+        g_session_config = next;
+        g_has_session_config = 1;
+        g_d12_config_active = 0;
+        if (g_host_opts.theater_preset == CD_THEATER_LEVEL12_ULTRAKILL)
+            g_host_opts.theater_preset = CD_THEATER_CLONE_WARS;
+        if (g_host_opts.chaos_intensity == CD_CHAOS_ULTRAKILL || g_host_opts.chaos_intensity == CD_CHAOS_CLONE_WARS)
+            g_host_opts.chaos_intensity = CD_CHAOS_STANDARD;
+        UltrakillSyncDifficulty12();
     }
     if (memcmp(&config, &next, sizeof next) != 0) {
-        if (session_required) {
-            if (bm != 0ULL || cd_get_file_mtime_100ns(path, &bm) == 1) g_bridge_user_edit_mtime = bm;
-            g_host_opts.theater_preset = CD_THEATER_STANDARD;
-            if (g_host_opts.chaos_intensity == CD_CHAOS_ULTRAKILL || g_host_opts.chaos_intensity == CD_CHAOS_CLONE_WARS)
-                g_host_opts.chaos_intensity = CD_CHAOS_STANDARD;
-            UltrakillSyncDifficulty12();
-        }
         config = next;
         if (!config.enabled && g_pending.active) {
             ChaosTrackerReleaseUnusedReservations(&g_tracker, g_pending.faction);
@@ -2564,6 +2672,93 @@ static void LoadOptions(const char* path, int session_required)
         hf->log(self, "CHAOS_OPTIONS: enabled=%d cooldown=%d grace=%d cap=%d faction_cap=%d squad=%d budget=%d",
                 config.enabled, config.cooldown, config.grace, config.total_cap, config.faction_cap,
                 config.squad_size, config.mission_budget);
+    }
+}
+
+static void ChaosApplyEffectiveHostConfig(int live_diff, int is_poll, const char* log_tag)
+{
+    CdChaosIntensity eff_mode = cd_effective_chaos_for_difficulty(&g_host_opts, live_diff);
+    ChaosConfig next;
+    ChaosApplyHostIntensity(&next, &g_ini_config, eff_mode);
+    if (g_host_opts.target_active_units > 0 && cd_host_options_active_for_difficulty(&g_host_opts, live_diff)) {
+        int governed = UltrakillTargetRealAiCap(&g_host_opts, 0);
+        next.total_cap = governed;
+        next.faction_cap = (governed * 3) / 4;
+    }
+    UltrakillSyncDifficulty12();
+    if (memcmp(&config, &next, sizeof next) != 0) {
+        config = next;
+        if (!config.enabled && g_pending.active) {
+            ChaosTrackerReleaseUnusedReservations(&g_tracker, g_pending.faction);
+            memset(&g_pending, 0, sizeof g_pending);
+        }
+        ChaosReset(&clock_state, &config);
+        g_shared_dirty = 1;
+        if (is_poll && bridge[0]) Publish();
+        hf->log(self, "%s: live_diff=%d intensity=%s preset=%s enabled=%d cooldown=%d grace=%d cap=%d faction_cap=%d squad=%d budget=%d",
+                log_tag, live_diff, cd_chaos_intensity_name(eff_mode), cd_theater_preset_name(g_host_opts.theater_preset),
+                config.enabled, config.cooldown, config.grace,
+                config.total_cap, config.faction_cap, config.squad_size, config.mission_budget);
+    }
+}
+
+static int ChaosHasActiveSessionOverride(void)
+{
+    if (!g_has_session_config) return 0;
+    if (!g_host_opts.loaded_from_file) return 1;
+    return cd_session_override_is_newer(g_host_options_mtime, g_bridge_user_edit_mtime);
+}
+
+static void ChaosRestoreNonD12Config(int live_diff, const char* log_tag)
+{
+    int session_active = ChaosHasActiveSessionOverride();
+    g_d12_config_active = 0;
+    if (!session_active && g_host_opts.loaded_from_file) {
+        ChaosApplyEffectiveHostConfig(live_diff, 0, log_tag);
+        return;
+    }
+    ChaosConfig target = session_active ? g_session_config : g_ini_config;
+    UltrakillSyncDifficulty12();
+    if (memcmp(&config, &target, sizeof target) != 0) {
+        config = target;
+        if (!config.enabled && g_pending.active) {
+            ChaosTrackerReleaseUnusedReservations(&g_tracker, g_pending.faction);
+            memset(&g_pending, 0, sizeof g_pending);
+        }
+        ChaosReset(&clock_state, &config);
+        g_shared_dirty = 1;
+        if (hf && self && hf->log) {
+            hf->log(self, "%s: live_diff=%d source=%s enabled=%d cooldown=%d grace=%d cap=%d faction_cap=%d squad=%d budget=%d",
+                    log_tag, live_diff, session_active ? "session" : "ini",
+                    config.enabled, config.cooldown, config.grace,
+                    config.total_cap, config.faction_cap, config.squad_size, config.mission_budget);
+        }
+    }
+}
+
+static void ChaosSyncLiveDifficultyConfig(uintptr_t gbase)
+{
+    int live_diff = ChaosLiveMissionDifficulty(gbase);
+    if (live_diff == g_last_mission_live_diff) return;
+    g_last_mission_live_diff = live_diff;
+    if (live_diff >= 12) {
+        g_d12_config_active = (g_host_opts.chaos_intensity != CD_CHAOS_OFF) ? 1 : 0;
+        if (g_d12_config_active || g_host_opts.loaded_from_file) {
+            ChaosApplyEffectiveHostConfig(live_diff, 0, "CHAOS_DIFF_GATE");
+        }
+        return;
+    }
+    if (ChaosHasActiveSessionOverride()) {
+        if (g_d12_config_active) {
+            ChaosRestoreNonD12Config(live_diff, "CHAOS_DIFF_GATE");
+        }
+        return;
+    }
+    if (g_host_opts.loaded_from_file) {
+        g_d12_config_active = 0;
+        ChaosApplyEffectiveHostConfig(live_diff, 0, "CHAOS_DIFF_GATE");
+    } else if (g_d12_config_active) {
+        ChaosRestoreNonD12Config(live_diff, "CHAOS_DIFF_GATE");
     }
 }
 
@@ -2580,29 +2775,14 @@ static void LoadHostOptions(int is_poll)
     CdHostOptions ho;
     if (cd_load_host_options_file(g_host_options_path, &ho) != 1) return;
     g_host_opts = ho;
-    CdChaosIntensity eff_mode = cd_effective_chaos_intensity(&ho);
-    ChaosConfig next;
-    ChaosApplyHostIntensity(&next, &g_ini_config, eff_mode);
-    if (ho.target_active_units > 0 && cd_host_options_is_ultrakill(&ho)) {
-        int governed = UltrakillTargetRealAiCap(&ho, 0);
-        next.total_cap = governed;
-        next.faction_cap = (governed * 3) / 4;
+    g_has_session_config = 0;
+    int live_diff = 0;
+    if (hf && self && hf->game_state && hf->game_state(self) == HF_STATE_MISSION) {
+        live_diff = ChaosLiveMissionDifficulty(GameBase(NULL));
     }
-    UltrakillSyncDifficulty12();
-    if (memcmp(&config, &next, sizeof next) != 0) {
-        config = next;
-        if (!config.enabled && g_pending.active) {
-            ChaosTrackerReleaseUnusedReservations(&g_tracker, g_pending.faction);
-            memset(&g_pending, 0, sizeof g_pending);
-        }
-        ChaosReset(&clock_state, &config);
-        g_shared_dirty = 1;
-        if (is_poll && bridge[0]) Publish();
-        hf->log(self, "CHAOS_HOST_OPTIONS: intensity=%s preset=%s enabled=%d cooldown=%d grace=%d cap=%d faction_cap=%d squad=%d budget=%d",
-                cd_chaos_intensity_name(eff_mode), cd_theater_preset_name(ho.theater_preset),
-                config.enabled, config.cooldown, config.grace,
-                config.total_cap, config.faction_cap, config.squad_size, config.mission_budget);
-    }
+    g_last_mission_live_diff = live_diff;
+    g_d12_config_active = (live_diff >= 12 && ho.chaos_intensity != CD_CHAOS_OFF) ? 1 : 0;
+    ChaosApplyEffectiveHostConfig(live_diff, is_poll, "CHAOS_HOST_OPTIONS");
 }
 
 static int Killed(void)
@@ -2663,6 +2843,10 @@ static void ResetMissionState(void)
     g_ultrakill.virtual_units_total = 0u;
     g_ultrakill.virtual_regiments_active = 0u;
     g_ultrakill.live_radius_factor = 0.0f;
+    g_last_mission_live_diff = 0;
+    if (g_d12_config_active) {
+        ChaosRestoreNonD12Config(0, "CHAOS_MISSION_RESET");
+    }
     memset(s_perc_cache_ht, 0, sizeof s_perc_cache_ht);
     s_perc_pass_seq = 0u;
     ++g_mission_epoch;
@@ -2924,7 +3108,14 @@ static void Tick(HfMod* mod, float dt, void* user)
         LoadHostOptions(1);
     }
 
-    if (!in_flow_now) return;
+    if (!in_flow_now) {
+        g_d12_sync_poll -= dt;
+        if (g_d12_sync_poll <= 0.0f) {
+            g_d12_sync_poll = 0.25f;
+            ChaosEnsureD12SlotAndItem();
+        }
+        return;
+    }
 
     /* v0.3.2 D11 Mega City OOM Fix: NEVER touch native Director/rosters or preload foreign packages during
      * HF_STATE_PREPARE_MISSION while level generation & RenderTerrainLightingMaps allocate 45.6 MB buffers. */
@@ -3002,6 +3193,7 @@ static void Tick(HfMod* mod, float dt, void* user)
     if (!ReadDirectorContext(gbase, &director, &native, &diff)) return;
 
     ServicePendingWave(gbase, director, dt);
+    ChaosSyncLiveDifficultyConfig(gbase);
 
     if (!landed && living_players > 0) {
         landed = 1;
@@ -3010,7 +3202,7 @@ static void Tick(HfMod* mod, float dt, void* user)
         hf->log(self, "CHAOS_LANDING: host=1 native_faction=%d grace=%ds", native, config.grace);
     }
 
-    if (cd_host_options_is_ultrakill(&g_host_opts)) {
+    if (ChaosIsUltrakillActiveInMission(gbase)) {
         ServiceUltrakillTheater(gbase, director, native, diff, living_pos, living_players, dt);
     }
 
@@ -3037,7 +3229,7 @@ static void Tick(HfMod* mod, float dt, void* user)
     ev.placement = 1;
     {
         uint8_t bypass_hr = 0u;
-        int is_uk = cd_host_options_is_ultrakill(&g_host_opts);
+        int is_uk = ChaosIsUltrakillActiveInMission(gbase);
         uint32_t min_free = is_uk ? UK_EM_RESERVE_SLOTS : 32u;
         ChaosRefreshEmSnapshot(gbase, clock_state.age);
         if (is_uk && g_em_snap.valid && g_em_snap.free_slots >= UK_EM_RESERVE_SLOTS) {
@@ -3110,12 +3302,20 @@ HF_MOD_EXPORT int hellforge_mod_init(const HfApi* api, HfMod* mod)
     InterlockedExchange(&g_phase, PHASE_ACTIVE);
     config = ChaosDefaults();
     g_ini_config = config;
+    memset(&g_session_config, 0, sizeof g_session_config);
+    g_has_session_config = 0;
+    g_d12_config_active = 0;
     g_host_options_path[0] = 0;
     g_host_options_mtime = 0ULL;
     g_published_bridge_mtime = 0ULL;
     g_published_bridge_text[0] = 0;
+    g_last_bridge_seen_mtime = 0ULL;
+    g_last_bridge_seen_text[0] = 0;
     g_bridge_user_edit_mtime = 0ULL;
     g_host_opts = cd_host_options_defaults();
+    memset(&g_d12_slot, 0, sizeof g_d12_slot);
+    g_d12_sync_poll = 0.0f;
+    g_last_mission_live_diff = 0;
     status_text[0] = 0;
 
     const char* folder = api->mod_folder(mod);
@@ -3148,10 +3348,9 @@ HF_MOD_EXPORT int hellforge_mod_init(const HfApi* api, HfMod* mod)
         InterlockedExchange(&g_phase, PHASE_ENDED);
         return 1;
     }
-#ifndef CHAOS_UNIT_TEST
     (void)api->on(mod, HF_EVENT_GAME_LOADED, OnGameLoaded, NULL);
     (void)api->on(mod, HF_EVENT_ENTITIES_READY, OnEntitiesReady, NULL);
-#endif
+    ChaosEnsureD12SlotAndItemEx(1);
     if (!api->subscribe(mod, HF_ON_SPAWN, OnSpawn, NULL, 0) ||
         !api->on_game_thread(mod, Tick, NULL)) {
         InterlockedExchange(&g_phase, PHASE_ENDED);
@@ -3160,8 +3359,8 @@ HF_MOD_EXPORT int hellforge_mod_init(const HfApi* api, HfMod* mod)
     if (HasChannelSend()) api->subscribe(mod, HF_ON_MESSAGE, OnMessage, NULL, 0);
     if (HasChannelShare()) api->subscribe(mod, HF_ON_SHARE, OnShare, NULL, 0);
 
-    SetStatusOnce("Chaos Invasions 0.4.0 ready");
-    api->log(mod, "CHAOS_INIT: version=0.4.0 build=25480438 sdk=16 preset=%s enabled=%d cooldown=%d grace=%d cap=%d faction_cap=%d squad=%d budget=%d",
+    SetStatusOnce("Chaos Invasions 0.5.0 ready");
+    api->log(mod, "CHAOS_INIT: version=0.5.0 build=25480438 sdk=16 preset=%s enabled=%d cooldown=%d grace=%d cap=%d faction_cap=%d squad=%d budget=%d",
              cd_theater_preset_name(g_host_opts.theater_preset),
              config.enabled, config.cooldown, config.grace, config.total_cap, config.faction_cap,
              config.squad_size, config.mission_budget);

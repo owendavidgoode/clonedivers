@@ -458,6 +458,14 @@ static int mock_hf_on(HfMod *mod, HfEvent event, HfEventCallback cb, void *user)
     if (event == HF_EVENT_SESSION_END) g_dll_session_end_cb = cb;
     return 0;
 }
+static uint32_t g_dll_spawn_subscribed = 0;
+static int mock_hf_subscribe(HfMod *mod, uint32_t kind, HfListener cb, void *user, int32_t priority) {
+    (void)mod;
+    (void)user;
+    (void)priority;
+    if (kind == HF_ON_SPAWN && cb != NULL) g_dll_spawn_subscribed++;
+    return 1;
+}
 static int mock_hf_on_game_thread(HfMod *mod, HfTickCallback cb, void *user) {
     (void)mod;
     (void)cb;
@@ -517,12 +525,14 @@ static void test_code_pins_and_dll_handshake(uint8_t *eng) {
     api.module_base = mock_hf_module_base;
     api.on = mock_hf_on;
     api.on_game_thread = mock_hf_on_game_thread;
+    api.subscribe = mock_hf_subscribe;
     api.hook_ex = mock_hf_hook_ex;
     const HfApi *fake_mod_slot = &api;
 
     g_dll_game_loaded_cb = NULL;
     g_dll_session_end_cb = NULL;
     g_dll_hook_count = 0;
+    g_dll_spawn_subscribed = 0;
     g_dll_peer_module_queries = 0;
     g_dll_fake_peer_base = 0x7FFE12340000ULL;
     g_dll_fake_peer_size = 0x28000u;
@@ -531,6 +541,7 @@ static void test_code_pins_and_dll_handshake(uint8_t *eng) {
     TEST_ASSERT(g_dll_game_loaded_cb != NULL && g_dll_session_end_cb != NULL, "registered load & session callbacks");
     g_dll_game_loaded_cb((HfMod *)&fake_mod_slot, HF_EVENT_GAME_LOADED, NULL);
     TEST_ASSERT(g_dll_hook_count == 3u, "OnGameLoaded registered all 3 hooks");
+    TEST_ASSERT(g_dll_spawn_subscribed == 1u, "OnGameLoaded subscribed to HF_ON_SPAWN burst trigger");
     TEST_ASSERT(g_dll_hook_targets[0] == (uintptr_t)eng + AT_RVA_LEAF_SKIN && g_dll_hook_priorities[0] == -10,
                 "5B2990 hooked at priority -10");
     TEST_ASSERT(g_dll_hook_targets[1] == (uintptr_t)eng + AT_RVA_SKIN_JOB && g_dll_hook_priorities[1] == -10,
@@ -1353,6 +1364,64 @@ static void test_stingray_4byte_topology_and_subnormal_resilience(at_writer_stat
         (uintptr_t)g_fake_engine + AT_RVA_CALLER_NORMAL, &rec);
     TEST_ASSERT(rec.seen == 6u && rec.replaced == 6u && rec.failure == 0u && ws->math_failures == 0u,
                 "live S2c solve with 8.386e-38f rotation off-diagonals succeeds with 0 math_failures");
+
+    /* 3. Sticky SSE exception bit (PE=0x20) set by downstream leaf skinning must NOT trigger false env_failures! */
+    uint32_t prev_env_fail = ws->env_failures;
+    uint32_t orig_csr = _mm_getcsr();
+    _mm_setcsr(orig_csr & ~0x3Fu); /* Clear sticky exception bits on entry */
+    /* Simulate sim_leaf_next raising PE (0x20) during SIMD FP multiply-add */
+    uint32_t csr_with_pe = (orig_csr & ~0x3Fu) | 0x20u;
+    TEST_ASSERT((((csr_with_pe ^ (orig_csr & ~0x3Fu)) & ~0x3Fu) == 0u), "sticky PE masked in MXCSR control check");
+    _mm_setcsr(csr_with_pe);
+    at_writer_dispatch_512B80(
+        ws, &w.mesh, (void *)(rs->world + 0x318u), &w.graph,
+        (uintptr_t)g_fake_engine + AT_RVA_CALLER_NORMAL, &rec);
+    _mm_setcsr(orig_csr);
+    TEST_ASSERT(rec.environment_ok == 1u && ws->env_failures == prev_env_fail,
+                "sticky SSE PE bit does not trigger false env_failures");
+
+    /* 4. 131,072-slot (>126,170 Mega City) UnitManager burst admission admits walker at slot 126,150 in <= 4 frames! */
+    uintptr_t *big_slots = (uintptr_t *)calloc(131072u, sizeof(uintptr_t));
+    uint8_t *big_gens = (uint8_t *)calloc(131072u, sizeof(uint8_t));
+    unsigned char *dummy_prop = (unsigned char *)calloc(1, 0xE0u);
+    TEST_ASSERT(big_slots && big_gens && dummy_prop, "alloc 131k Mega City UnitManager fixture");
+    w_u64(dummy_prop, 0x00, (uint64_t)((uintptr_t)g_fake_engine + 0x123400ULL)); /* Non-Unit prop vtable */
+    for (uint32_t i = 0; i < 126170u; i++) {
+        big_slots[i] = (uintptr_t)dummy_prop;
+        big_gens[i] = 1u;
+    }
+    at_writer_shutdown(ws);
+    InterlockedExchange(&ws->ready, 1);
+    w_u64(um->hdr, 0x88, (uint64_t)(uintptr_t)big_slots);
+    w_u32(um->hdr, 0x98, 131072u);
+    w_u64(um->hdr, 0xA0, (uint64_t)(uintptr_t)big_gens);
+
+    /* Pre-warm static Mega City props during drop-in burst (32 frames * 4,096 probes = 131,072 slots cached) */
+    for (int f = 0; f < 34; f++) {
+        at_writer_tick(ws, 32768u);
+    }
+    /* Drop AT-ST at slot 126,150 (near tail of 126,170-unit Mega City table!) */
+    sim_walker w_city;
+    bind_walker(&w_city, um, rs, (uintptr_t)g_fake_engine, 0u, 2u, 22u, 0u);
+    w_city.slot_index = 126150u;
+    big_slots[126150u] = (uintptr_t)&w_city.unit;
+    big_gens[126150u] = 2u;
+    uint32_t city_admitted = 0u;
+    int frames_to_admit = 0;
+    for (int f = 1; f <= 4; f++) {
+        city_admitted += at_writer_tick(ws, 32768u);
+        if (city_admitted > 0u) { frames_to_admit = f; break; }
+    }
+    TEST_ASSERT(city_admitted == 1u && frames_to_admit >= 1 && frames_to_admit <= 4,
+                "126,170-unit Mega City admits newly spawned AT-ST at slot 126,150 within <= 4 frames (<67 ms)");
+
+    /* Restore 16-slot UnitManager fixture */
+    w_u64(um->hdr, 0x88, (uint64_t)(uintptr_t)um->slots);
+    w_u32(um->hdr, 0x98, 16u);
+    w_u64(um->hdr, 0xA0, (uint64_t)(uintptr_t)um->gens);
+    free(dummy_prop);
+    free(big_gens);
+    free(big_slots);
 
     printf("[PASS] test_stingray_4byte_topology_and_subnormal_resilience\n");
 }

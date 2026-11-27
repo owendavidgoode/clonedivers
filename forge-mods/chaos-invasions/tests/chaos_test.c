@@ -25,12 +25,26 @@ static uint32_t g_mock_share_bytes = 0;
 /* ---- Mocked SDK & Synthetic World Fixtures --------------------------------------------------------------------- */
 
 static int g_mock_fail_em_bulk_read = 0;
+static int g_mock_fail_write_countdown = -1;
+static uintptr_t g_mock_corrupt_readback_addr = 0u;
+static int g_mock_corrupt_readback_once = 0;
+static int g_mock_fail_all_writes_after_readback = 0;
+static int g_mock_writing_active = 0;
+static unsigned g_mock_write_calls_seen = 0;
+static char g_mock_logs_dir[1700] = {0};
+static HfEventCallback g_mock_on_game_loaded = NULL;
+static HfEventCallback g_mock_on_entities_ready = NULL;
 
 static int MockRead(uintptr_t address, void* buffer, size_t size)
 {
     if (!address || !buffer) return 1;
     if (g_mock_fail_em_bulk_read && size == UK_EM_DESCRIPTOR_CAP * UK_EM_DESCRIPTOR_STRIDE) return 1;
     memcpy(buffer, (const void*)address, size);
+    if (g_mock_corrupt_readback_once == 1 && address == g_mock_corrupt_readback_addr && size > 0u) {
+        ((uint8_t*)buffer)[0] ^= 0xFFu;
+        g_mock_corrupt_readback_once = 0;
+        if (g_mock_fail_all_writes_after_readback) g_mock_writing_active = -1;
+    }
     return 0;
 }
 
@@ -42,8 +56,27 @@ static int MockReadCode(uintptr_t address, void* buffer, size_t size)
 static int MockWrite(uintptr_t address, const void* data, size_t size)
 {
     if (!address || !data) return 1;
+    ++g_mock_write_calls_seen;
+    if (g_mock_writing_active < 0) return 1;
+    if (g_mock_fail_write_countdown >= 0) {
+        if (g_mock_fail_write_countdown == 0) {
+            g_mock_fail_write_countdown = -1;
+            return 1;
+        }
+        --g_mock_fail_write_countdown;
+    }
     memcpy((void*)address, data, size);
+    if (g_mock_corrupt_readback_addr && address == g_mock_corrupt_readback_addr && g_mock_corrupt_readback_once == 2) {
+        /* Arm one-shot readback mismatch strictly AFTER bytes were mutated in memory! */
+        g_mock_corrupt_readback_once = 1;
+    }
     return 0;
+}
+
+static const char* MockLogsFolder(HfMod* m)
+{
+    (void)m;
+    return g_mock_logs_dir[0] ? g_mock_logs_dir : NULL;
 }
 
 static const char* Build(void) { return "25480438"; }
@@ -85,7 +118,9 @@ static int Subscribe(HfMod* m, uint32_t k, HfListener cb, void* u, int32_t p)
 
 static int OnEvent(HfMod* m, HfEvent e, HfEventCallback cb, void* u)
 {
-    (void)m; (void)e; (void)cb; (void)u;
+    (void)m; (void)u;
+    if (e == HF_EVENT_GAME_LOADED) g_mock_on_game_loaded = cb;
+    else if (e == HF_EVENT_ENTITIES_READY) g_mock_on_entities_ready = cb;
     return 0;
 }
 
@@ -127,7 +162,7 @@ static int MockSpawnExplosion(HfMod* m, uint32_t type, const float pos[3])
 /* Fake game.dll & helldivers2.exe memory arenas */
 static uint8_t* g_arena_game;
 static uint8_t* g_arena_exe;
-static const size_t kArenaGameSize = 0x3500000u;
+static const size_t kArenaGameSize = 0x4800000u;
 static const size_t kArenaExeSize  = 0x1B50000u;
 
 typedef struct TestPkgRecord {
@@ -696,6 +731,10 @@ static void ResetMockCountersAndModState(void)
         memcpy(g_arena_game + CHAOS_LOCAL_USER_RVA, &uptr, 8);
     }
     stopped = 0;
+    g_has_session_config = 0;
+    g_d12_config_active = 0;
+    g_last_bridge_seen_mtime = 0ULL;
+    g_last_bridge_seen_text[0] = 0;
     g_host_opts = cd_host_options_defaults();
     g_ultrakill.d11_snapshot_valid = 0;
     g_ultrakill.d12_applied = 0;
@@ -1769,10 +1808,12 @@ static void TestV035Mission2PreloadRearmAndCoopSafeRoster(void)
 }
 
 static HfDifficultySettings g_mock_d11_row;
+static uintptr_t g_mock_d11_ptr_override = 0u;
 static unsigned g_mock_proj_calls = 0;
 static uintptr_t MockDifficultyRow(uint32_t level)
 {
-    return level == 11u ? (uintptr_t)&g_mock_d11_row : 0u;
+    if (level == 11u) return g_mock_d11_ptr_override ? g_mock_d11_ptr_override : (uintptr_t)&g_mock_d11_row;
+    return 0u;
 }
 static int MockSpawnProjectile(HfMod* m, uint32_t type, const float pos[3], const float dir[3])
 {
@@ -1868,8 +1909,9 @@ static void TestV040UltrakillD12PoolsAndCloneWarsTheater(HfApi* api)
     const uint64_t t0 = 134400000000000000ULL;
     CHECK(WriteTextWithMtime(
         host_json,
-        "{\"format\":1,\"theaterPreset\":\"clone-wars\",\"chaosIntensity\":\"clone-wars\",\"heavySeaf\":\"clone-wars\",\"fasterCorpseCleanup\":true,\"virtualTheaterBudget\":1600,\"mapRadiusPermille\":920}",
+        "{\"format\":1,\"theaterPreset\":\"level12-ultrakill\",\"chaosIntensity\":\"clone-wars\",\"heavySeaf\":\"clone-wars\",\"fasterCorpseCleanup\":true,\"virtualTheaterBudget\":1600,\"mapRadiusPermille\":920}",
         t0));
+    mock_lg[CD_LG_DIFFICULTY_OFF] = 12u;
     strcpy(fixture, unpacked_mod);
     role = HF_SESSION_SOLO;
     game_state = HF_STATE_MISSION;
@@ -1991,8 +2033,1030 @@ static void TestV040UltrakillD12PoolsAndCloneWarsTheater(HfApi* api)
     g_host_options_path[0] = 0;
     g_host_options_mtime = 0ULL;
     g_host_opts = cd_host_options_defaults();
+    memset(g_arena_game + UK_CONTEXT_RVA, 0, 8u);
     free(mock_ctx);
     free(mock_lg);
+}
+
+static uintptr_t D12_MS_ABI CallD12ExtraStubWithIdx(const void* stub, uint32_t idx, uintptr_t bar_ptr)
+{
+    uintptr_t out_ptr = 0u;
+    __asm__ __volatile__(
+        "movl %[idx], %%eax\n\t"
+        "movq %[bar], %%rcx\n\t"
+        "callq *%[stub]\n\t"
+        "movq %%rax, %[out]\n\t"
+        : [out] "=r"(out_ptr)
+        : [stub] "r"(stub), [idx] "r"(idx), [bar] "r"(bar_ptr)
+        : "rax", "rcx", "rdx", "r8", "memory", "cc");
+    return out_ptr;
+}
+
+typedef struct D12BoardExecResult {
+    uint64_t rax_out;
+    uint64_t rdx_out;
+    uint64_t r11_out;
+    uint64_t rdi_out;
+    uint64_t rcx_out;
+    uint64_t r8_out;
+    uint64_t r9_out;
+    uint64_t r10_out;
+    uint32_t hit_skip;
+    float xmm_after[6][4];
+} D12BoardExecResult;
+
+typedef struct D12BoardExecCtx {
+    uint64_t entry;
+    uint64_t stack_slot20;
+    uint64_t arg38;
+    uint64_t arg40;
+    uint64_t init_rbx;
+    uint64_t init_rsi;
+    uint64_t init_r14;
+    uint64_t init_r12;
+    uint64_t init_rdx;
+    uint64_t init_r11;
+    float xmm_in[6][4];
+    D12BoardExecResult* out;
+} D12BoardExecCtx;
+
+static void ExecuteEmittedBoardStub(
+    const void* stub_entry,
+    uint32_t kind,
+    uint32_t level,
+    int32_t index,
+    uintptr_t war_ptr,
+    uint32_t planet,
+    uint32_t default_slot,
+    const float xmm_init[6][4],
+    D12BoardExecResult* res)
+{
+    memset(res, 0, sizeof *res);
+    D12BoardExecCtx ctx;
+    memset(&ctx, 0, sizeof ctx);
+    ctx.entry = (uint64_t)(uintptr_t)stub_entry;
+    ctx.stack_slot20 = 0x778899AABBCCDDE0ULL;
+    ctx.arg38 = (kind == 2u) ? (uint64_t)planet : (uint64_t)war_ptr;
+    ctx.arg40 = (uint64_t)planet;
+    ctx.init_rbx = (uint64_t)level;
+    ctx.init_rsi = (uint64_t)(uint32_t)index;
+    ctx.init_r14 = (uint64_t)level;
+    ctx.init_r12 = (kind == 1u) ? (uint64_t)planet : (uint64_t)war_ptr;
+    ctx.init_rdx = (uint64_t)default_slot;
+    ctx.init_r11 = (uint64_t)default_slot;
+    memcpy(ctx.xmm_in, xmm_init, sizeof ctx.xmm_in);
+    ctx.out = res;
+
+    register const D12BoardExecCtx* r15_ctx __asm__("r15") = &ctx;
+    __asm__ __volatile__(
+        "pushq %%rbp\n\t"
+        "subq $0x60, %%rsp\n\t"
+        "movq 0x08(%%r15), %%rax\n\t"
+        "movq %%rax, 0x20(%%rsp)\n\t"
+        "movq 0x10(%%r15), %%rax\n\t"
+        "movq %%rax, 0x38(%%rsp)\n\t"
+        "movq 0x18(%%r15), %%rax\n\t"
+        "movq %%rax, 0x40(%%rsp)\n\t"
+        "movups 0x50(%%r15), %%xmm0\n\t"
+        "movups 0x60(%%r15), %%xmm1\n\t"
+        "movups 0x70(%%r15), %%xmm2\n\t"
+        "movups 0x80(%%r15), %%xmm3\n\t"
+        "movups 0x90(%%r15), %%xmm4\n\t"
+        "movups 0xA0(%%r15), %%xmm5\n\t"
+        "movq 0x20(%%r15), %%rbx\n\t"
+        "movq 0x28(%%r15), %%rsi\n\t"
+        "movq 0x30(%%r15), %%r14\n\t"
+        "movq 0x38(%%r15), %%r12\n\t"
+        "movq 0x40(%%r15), %%rdx\n\t"
+        "movq 0x48(%%r15), %%r11\n\t"
+        "movq $0x1122334455667788, %%rcx\n\t"
+        "movq $0x2233445566778899, %%r8\n\t"
+        "movq $0x33445566778899AA, %%r9\n\t"
+        "movq $0x445566778899AABB, %%r10\n\t"
+        "callq *0x00(%%r15)\n\t"
+        "movq 0xB0(%%r15), %%r12\n\t"
+        "movq %%rax, 0x00(%%r12)\n\t"
+        "movq %%rdx, 0x08(%%r12)\n\t"
+        "movq %%r11, 0x10(%%r12)\n\t"
+        "movq %%rdi, 0x18(%%r12)\n\t"
+        "movq %%rcx, 0x20(%%r12)\n\t"
+        "movq %%r8,  0x28(%%r12)\n\t"
+        "movq %%r9,  0x30(%%r12)\n\t"
+        "movq %%r10, 0x38(%%r12)\n\t"
+        "movl %%ebp, 0x40(%%r12)\n\t"
+        "movups %%xmm0, 0x44(%%r12)\n\t"
+        "movups %%xmm1, 0x54(%%r12)\n\t"
+        "movups %%xmm2, 0x64(%%r12)\n\t"
+        "movups %%xmm3, 0x74(%%r12)\n\t"
+        "movups %%xmm4, 0x84(%%r12)\n\t"
+        "movups %%xmm5, 0x94(%%r12)\n\t"
+        "addq $0x60, %%rsp\n\t"
+        "popq %%rbp\n\t"
+        :
+        : "r"(r15_ctx)
+        : "rax", "rbx", "rcx", "rdx", "rsi", "rdi",
+          "r8", "r9", "r10", "r11", "r12", "r14",
+          "xmm0", "xmm1", "xmm2", "xmm3", "xmm4", "xmm5",
+          "memory", "cc");
+}
+
+static int g_test_reg_race_mode = 0;
+static int g_test_reg_race_fired = 0;
+static HANDLE g_test_reg_worker_thread = NULL;
+static volatile LONG g_test_reg_worker_started = 0;
+static int g_test_reg_worker_rc = 0;
+static char g_test_reg_worker_logs_dir[1700];
+
+static DWORD WINAPI MockConcurrentRegistryReplacerThread(LPVOID param)
+{
+    int mode = (int)(intptr_t)param;
+    InterlockedExchange(&g_test_reg_worker_started, 1);
+    if (mode == 2 || mode == 3) {
+        /* Cooperative atomic-replacement splice writer serialized via registered-items.json.lock */
+        const char* needle = (mode == 2) ? "\"mixId\":77665544" : "\"mixId\":88776655";
+        const char* entry  = (mode == 2)
+            ? "{\"mixId\":77665544,\"copyOf\":54321,\"mod\":\"test.moved\",\"unit\":\"mov\"}"
+            : "{\"mixId\":88776655,\"copyOf\":65432,\"mod\":\"test.stage1\",\"unit\":\"st1\"}";
+        g_test_reg_worker_rc = D12RegisterRegistryItemEx(g_test_reg_worker_logs_dir, needle, entry, 0, NULL);
+    } else if (mode == 4) {
+        /* Lock-serialized full-snapshot atomic replacement (e.g. rewriting full registry without D12) at stage 1 */
+        wchar_t wdir[MAX_PATH], wpath[MAX_PATH], wother[MAX_PATH];
+        MultiByteToWideChar(CP_UTF8, 0, g_test_reg_worker_logs_dir, -1, wdir, MAX_PATH - 48);
+        swprintf(wpath, MAX_PATH, L"%ls\\registered-items.json", wdir);
+        swprintf(wother, MAX_PATH, L"%ls\\registered-items.json.snapshot", wdir);
+        D12RegistryLock lk;
+        if (!D12AcquireRegistryLock(wdir, &lk)) {
+            g_test_reg_worker_rc = 0;
+            return 0;
+        }
+        static const char kSnapshotJson[] =
+            "{\"format\":1,\"items\":["
+            "{\"mixId\":44332211,\"copyOf\":98765,\"mod\":\"test.snap\",\"unit\":\"snp\"},"
+            "{\"kind\":\"difficulty\",\"mixId\":3369641098,\"copyOf\":2695783738,\"level\":11,\"mod\":\"skyeshade.hell-forge\",\"name\":\"hell_forge\"}"
+            "]}\n";
+        HANDLE hm_w = CreateFileW(wother, GENERIC_WRITE, 0, NULL, CREATE_ALWAYS, FILE_ATTRIBUTE_NORMAL, NULL);
+        DWORD wr = 0u;
+        BOOL ok = (hm_w != INVALID_HANDLE_VALUE) &&
+                  WriteFile(hm_w, kSnapshotJson, (DWORD)strlen(kSnapshotJson), &wr, NULL) &&
+                  wr == (DWORD)strlen(kSnapshotJson);
+        if (hm_w != INVALID_HANDLE_VALUE) CloseHandle(hm_w);
+        if (ok) ok = D12ReplaceFilePosixAtomic(wother, wpath);
+        D12ReleaseRegistryLock(&lk);
+        g_test_reg_worker_rc = ok ? 1 : 0;
+    }
+    return 0;
+}
+
+static void MockConcurrentRegistryWriterHook(const char* logs_folder_utf8, int stage)
+{
+    if (g_test_reg_race_fired) return;
+    wchar_t wdir[MAX_PATH], wpath[MAX_PATH];
+    MultiByteToWideChar(CP_UTF8, 0, logs_folder_utf8, -1, wdir, MAX_PATH - 48);
+    swprintf(wpath, MAX_PATH, L"%ls\\registered-items.json", wdir);
+
+    if (g_test_reg_race_mode == 1 && stage == 1) {
+        /* Exact HellForge registry.c WriteRegisteredItems() pattern: in-place CREATE_ALWAYS + FILE_SHARE_READ
+         * occurring ONE instruction before D12's POSIX rename! */
+        g_test_reg_race_fired = 1;
+        static const char kConcurrentJson[] =
+            "{\"format\":1,\"items\":["
+            "{\"mixId\":99887766,\"copyOf\":12345,\"mod\":\"test.weapon\",\"unit\":\"wep\"},"
+            "{\"kind\":\"difficulty\",\"mixId\":3369641098,\"copyOf\":2695783738,\"level\":11,\"mod\":\"skyeshade.hell-forge\",\"name\":\"hell_forge\"}"
+            "]}\n";
+        HANDLE hf_w = CreateFileW(wpath, GENERIC_WRITE, FILE_SHARE_READ, NULL, CREATE_ALWAYS, FILE_ATTRIBUTE_NORMAL, NULL);
+        CHECK(hf_w != INVALID_HANDLE_VALUE);
+        DWORD wr = 0u;
+        CHECK(WriteFile(hf_w, kConcurrentJson, (DWORD)strlen(kConcurrentJson), &wr, NULL) != 0);
+        CloseHandle(hf_w);
+    } else if ((g_test_reg_race_mode == 2 && stage == 0) ||
+               ((g_test_reg_race_mode == 3 || g_test_reg_race_mode == 4) && stage == 1)) {
+        /* Spawn concurrent thread performing atomic registry replacement at stage 0 (mode 2) or stage 1 (modes 3 & 4) */
+        g_test_reg_race_fired = 1;
+        snprintf(g_test_reg_worker_logs_dir, sizeof g_test_reg_worker_logs_dir, "%s", logs_folder_utf8);
+        InterlockedExchange(&g_test_reg_worker_started, 0);
+        g_test_reg_worker_rc = 0;
+        g_test_reg_worker_thread = CreateThread(NULL, 0u, MockConcurrentRegistryReplacerThread,
+                                                (LPVOID)(intptr_t)g_test_reg_race_mode, 0u, NULL);
+        CHECK(g_test_reg_worker_thread != NULL);
+        while (InterlockedCompareExchange(&g_test_reg_worker_started, 0, 0) == 0) Sleep(1u);
+        Sleep(15u); /* Let worker thread contend directly on registered-items.json.lock while D12 is at stage 0/1! */
+    }
+}
+
+static void TestV050GenuineDifficulty12SlotAndGating(HfApi* api)
+{
+    /* 1. Verify D12RegisterUnlockItemInFolder splices level 12 alongside existing HellForge level 11 entry */
+    char logs_dir[1700], reg_file[1760];
+    snprintf(logs_dir, sizeof logs_dir, "%s\\d12-logs", fixture);
+    snprintf(reg_file, sizeof reg_file, "%s\\registered-items.json", logs_dir);
+    CreateDirectoryA(logs_dir, NULL);
+    FILE* rf = fopen(reg_file, "wb");
+    CHECK(rf != NULL);
+    fputs("{\"format\":1,\"items\":[{\"kind\":\"difficulty\",\"mixId\":111111,\"copyOf\":2695783738,\"level\":11,\"mod\":\"skyeshade.hell-forge\",\"name\":\"hell_forge\"}]}\n", rf);
+    fclose(rf);
+
+    CHECK(D12RegisterUnlockItemInFolder(logs_dir) == 2);
+    CHECK(D12RegisterUnlockItemInFolder(logs_dir) == 1); /* Idempotent! */
+    rf = fopen(reg_file, "rb");
+    CHECK(rf != NULL);
+    char reg_buf[1024] = {0};
+    size_t rlen = fread(reg_buf, 1, sizeof(reg_buf) - 1u, rf);
+    fclose(rf);
+    reg_buf[rlen] = '\0';
+    CHECK(strstr(reg_buf, "\"mixId\":111111") != NULL);
+    CHECK(strstr(reg_buf, "\"mixId\":3440558350,\"copyOf\":2695783738,\"level\":12") != NULL);
+
+    /* 2. Verify D12ComputeBoardSlot across standard (<=6 regions), Super Earth (7 regions), and Cyberstan (8 regions) */
+    uint8_t std_regions[6 * 0x18] = {0};
+    for (uint32_t r = 0; r < 6u; ++r) {
+        uint32_t p = 42u;
+        memcpy(std_regions + r * 0x18u + 0u, &p, 4u);
+        memcpy(std_regions + r * 0x18u + 4u, &r, 4u);
+    }
+    CHECK(D12ComputeBoardSlot(1u, 10u, 2, std_regions, 6u, 42u, 29u) == 29u);
+    CHECK(D12ComputeBoardSlot(1u, 11u, 0, std_regions, 6u, 42u, 30u) == 100u);
+    CHECK(D12ComputeBoardSlot(0u, 11u, 5, std_regions, 6u, 42u, 0u) == 108u);
+    CHECK(D12ComputeBoardSlot(1u, 12u, 0, std_regions, 6u, 42u, 33u) == 90u);
+    CHECK(D12ComputeBoardSlot(1u, 12u, 2, std_regions, 6u, 42u, 35u) == 92u);
+    CHECK(D12ComputeBoardSlot(0u, 12u, 0, std_regions, 6u, 42u, 0u) == 93u);
+    CHECK(D12ComputeBoardSlot(0u, 12u, 5, std_regions, 6u, 42u, 0u) == 98u);
+    CHECK(D12ComputeBoardSlot(0u, 12u, 6, std_regions, 6u, 42u, 0u) == D12_BOARD_SKIP);
+
+    /* 7-region Super Earth Mega Cities (regions 0..6) */
+    uint8_t se_regions[7 * 0x18] = {0};
+    for (uint32_t r = 0; r < 7u; ++r) {
+        uint32_t p = 1u;
+        memcpy(se_regions + r * 0x18u + 0u, &p, 4u);
+        memcpy(se_regions + r * 0x18u + 4u, &r, 4u);
+    }
+    CHECK(D12ComputeBoardSlot(0u, 11u, 6, se_regions, 7u, 1u, 0u) == 109u);
+    CHECK(D12ComputeBoardSlot(0u, 12u, 0, se_regions, 7u, 1u, 0u) == 31u);
+    CHECK(D12ComputeBoardSlot(0u, 12u, 6, se_regions, 7u, 1u, 0u) == 91u);
+    CHECK(D12ComputeBoardSlot(1u, 12u, 0, se_regions, 7u, 1u, 33u) == D12_BOARD_SKIP);
+
+    /* 8-region Cyberstan Megafactories (regions 0..7) */
+    uint8_t cy_regions[8 * 0x18] = {0};
+    for (uint32_t r = 0; r < 8u; ++r) {
+        uint32_t p = 77u;
+        memcpy(cy_regions + r * 0x18u + 0u, &p, 4u);
+        memcpy(cy_regions + r * 0x18u + 4u, &r, 4u);
+    }
+    CHECK(D12ComputeBoardSlot(0u, 11u, 7, cy_regions, 8u, 77u, 0u) == 100u);
+    CHECK(D12ComputeBoardSlot(0u, 12u, 7, cy_regions, 8u, 77u, 0u) == 101u);
+    CHECK(D12ComputeBoardSlot(1u, 12u, 0, cy_regions, 8u, 77u, 33u) == D12_BOARD_SKIP);
+
+    /* 3. Full end-to-end D12TryInstallNativeSlot against mock HellForge d_code + 15-row difficulty table */
+    uint8_t* hf_table = D12AllocNearGame((uintptr_t)g_arena_game, kArenaGameSize, 0x8000u, 0u);
+    uint8_t* hf_code  = D12AllocNearGame((uintptr_t)g_arena_game, kArenaGameSize, 0x1000u, (uintptr_t)hf_table);
+    uint8_t* hf_board = D12AllocNearGame((uintptr_t)g_arena_game, kArenaGameSize, 0x1000u, (uintptr_t)hf_code);
+    CHECK(hf_table != NULL && hf_code != NULL && hf_board != NULL);
+    memset(hf_table, 0, 0x8000u);
+    memset(hf_code, 0x90, 0x1000u);
+
+    /* Populate row 11 ("HELL FORGE") inside moved 15-row table */
+    HfDifficultySettings* row11 = (HfDifficultySettings*)(hf_table + 10u * D12_ROW_BYTES);
+    row11->unlock_item = 0x11111111u;
+    row11->level = 11u;
+    row11->name_text = 0x55AA0011u;
+    row11->description_text = 0x55AA0012u;
+    row11->encounter_points = 1100.0f;
+    row11->guardforce_points = 900.0f;
+    row11->spawner_cooldown = 14.0f;
+    for (int i = 0; i < 4; ++i) row11->map_radius[i] = 0.76f;
+    ((uint8_t*)row11)[0xECu] = 11u;
+
+    /* Populate moved bands & distance after 15 rows */
+    uint8_t* hf_bands = hf_table + 15u * D12_ROW_BYTES;
+    uint8_t* hf_dist  = hf_bands + 11u * 8u;
+    uint64_t sh_band = 0xCAFEBABE12345678ULL;
+    memcpy(hf_bands + 10u * 8u, &sh_band, 8u);
+    float d11_dist[3] = {0.76f, 0.76f, 0.76f};
+    memcpy(hf_dist + 10u * 12u, d11_dist, 12u);
+
+    int32_t band_disp = (int32_t)((int64_t)(uintptr_t)hf_bands - (int64_t)(uintptr_t)g_arena_game);
+    int32_t dist_disp = (int32_t)((int64_t)(uintptr_t)hf_dist  - (int64_t)(uintptr_t)g_arena_game);
+    static const uint8_t kMockBandPrefix[4] = {0x49, 0x8B, 0x94, 0xC6};
+    memcpy(g_arena_game + D12_BAND_SITE_RVA, kMockBandPrefix, 4u);
+    memcpy(g_arena_game + D12_BAND_SITE_RVA + 4u, &band_disp, 4u);
+    for (size_t i = 0u; i < 7u; ++i) {
+        memcpy(g_arena_game + kD12DistanceSites[i].rva, kD12DistanceSites[i].prefix, kD12DistanceSites[i].disp_at);
+        memcpy(g_arena_game + kD12DistanceSites[i].rva + kD12DistanceSites[i].disp_at, &dist_disp, 4u);
+    }
+
+    /* Wire d->code ExtraWidget (+0x00), kIconStub (+0x40), companion iconChecks (+0x9D0..+0xA00), kRadiiStub (+0xC40), and kBarSites[0] -> d->code + 0x100 */
+    memcpy(hf_code + 0x000u, kD12ExtraWidgetTemplate, sizeof kD12ExtraWidgetTemplate);
+    static const uint8_t kMockIconHead[5]      = {0x83, 0xFE, 0x0B, 0x0F, 0x85};
+    static const uint8_t kMockIconChk0[6]      = {0x83, 0x7F, 0x04, 0x0B, 0x0F, 0x85};
+    static const uint8_t kMockIconChk12[7]     = {0x83, 0x7C, 0x33, 0x04, 0x0B, 0x0F, 0x85};
+    static const uint8_t kMockIconChk3[7]      = {0x83, 0x7C, 0x2B, 0x04, 0x0B, 0x0F, 0x85};
+    static const uint8_t kMockRadiiHead[9]     = {0x41, 0x80, 0xBD, 0xF9, 0x00, 0x00, 0x00, 0x0B, 0x75};
+    memcpy(hf_code + 0x040u, kMockIconHead, sizeof kMockIconHead);
+    memcpy(hf_code + 0x9D0u, kMockIconChk0, sizeof kMockIconChk0);
+    memcpy(hf_code + 0x9E0u, kMockIconChk12, sizeof kMockIconChk12);
+    memcpy(hf_code + 0x9F0u, kMockIconChk12, sizeof kMockIconChk12);
+    memcpy(hf_code + 0xA00u, kMockIconChk3, sizeof kMockIconChk3);
+    memcpy(hf_code + 0xC40u + 14u, kMockRadiiHead, sizeof kMockRadiiHead);
+
+    D12WriteE9JumpPad(api, (uintptr_t)g_arena_game + D12_BAR_SITE0_RVA, (uintptr_t)(hf_code + 0x100u), 8u);
+    D12WriteE9JumpPad(api, (uintptr_t)g_arena_game + D12_BOARD_REG_SITE_RVA, (uintptr_t)(hf_board + 0x00u), 6u);
+    D12WriteE9JumpPad(api, (uintptr_t)g_arena_game + D12_BOARD_PLN_SITE_RVA, (uintptr_t)(hf_board + 0x80u), 7u);
+    D12WriteE9JumpPad(api, (uintptr_t)g_arena_game + D12_BOARD_DEF_SITE_RVA, (uintptr_t)(hf_board + 0x100u), 7u);
+    g_arena_game[D12_BOARD_REG_MAX_RVA] = 0xBDu;
+    uint32_t eleven = 11u;
+    memcpy(g_arena_game + D12_BOARD_REG_MAX_RVA + 1u, &eleven, 4u);
+    memcpy(g_arena_game + 0x5E4FAFu, kD12HfInPlace16Pin, 16u);
+    memcpy(g_arena_game + 0x5E503Fu, kD12HfInPlace16Pin, 16u);
+    memcpy(g_arena_game + 0x17C6AA3u, kD12HfInPlace12Pin, 12u);
+
+    memcpy(g_arena_game + D12_OBJECTIVES_RVA + 0x28u, &eleven, 4u);
+    memcpy(g_arena_game + D12_OPERATIONS_RVA + 0x10u, &eleven, 4u);
+    memcpy(g_arena_game + D12_MISSIONS_RVA + 0x10u, &eleven, 4u);
+    for (size_t i = 0u; i < 14u; ++i) {
+        memcpy(g_arena_game + kD12DifficultyBounds[i].rva, kD12DifficultyBounds[i].prefix, kD12DifficultyBounds[i].imm_at);
+        memcpy(g_arena_game + kD12DifficultyBounds[i].rva + kD12DifficultyBounds[i].imm_at, &eleven, kD12DifficultyBounds[i].width);
+    }
+
+    /* Temporarily point MockDifficultyRow(11) at row11 inside hf_table */
+    uintptr_t prev_d11_override = g_mock_d11_ptr_override;
+    g_mock_d11_ptr_override = (uintptr_t)row11;
+
+    CdHostOptions def_opts = cd_host_options_defaults();
+    CHECK(def_opts.theater_preset == CD_THEATER_CLONE_WARS);
+
+    /* 3a. Verify fail-closed prerequisite checks (including distance & bound opcode prefixes) AND full transactional rollback! */
+    {
+        /* Distance site displacement mismatch refuses before touching anything */
+        int32_t bad_disp = dist_disp + 0x100;
+        memcpy(g_arena_game + kD12DistanceSites[4].rva + kD12DistanceSites[4].disp_at, &bad_disp, 4u);
+        D12NativeSlotState bad_s = {0};
+        CHECK(D12TryInstallNativeSlot(&bad_s, api, self, (uintptr_t)g_arena_game, kArenaGameSize, &def_opts) == -1);
+        CHECK(bad_s.state == -1 && bad_s.rw_mem == NULL && bad_s.rx_mem == NULL);
+        memcpy(g_arena_game + kD12DistanceSites[4].rva + kD12DistanceSites[4].disp_at, &dist_disp, 4u);
+
+        /* Distance site opcode prefix corruption (while keeping disp32 intact!) refuses before touching anything */
+        g_arena_game[kD12DistanceSites[2].rva] ^= 0xFFu;
+        memset(&bad_s, 0, sizeof bad_s);
+        CHECK(D12TryInstallNativeSlot(&bad_s, api, self, (uintptr_t)g_arena_game, kArenaGameSize, &def_opts) == -1);
+        CHECK(bad_s.state == -1 && bad_s.rw_mem == NULL && bad_s.rx_mem == NULL);
+        g_arena_game[kD12DistanceSites[2].rva] ^= 0xFFu;
+
+        /* Difficulty bound opcode prefix corruption (while keeping imm == 11 intact!) refuses before touching anything */
+        g_arena_game[kD12DifficultyBounds[3].rva] ^= 0xFFu;
+        memset(&bad_s, 0, sizeof bad_s);
+        CHECK(D12TryInstallNativeSlot(&bad_s, api, self, (uintptr_t)g_arena_game, kArenaGameSize, &def_opts) == -1);
+        CHECK(bad_s.state == -1 && bad_s.rw_mem == NULL && bad_s.rx_mem == NULL);
+        g_arena_game[kD12DifficultyBounds[3].rva] ^= 0xFFu;
+
+        /* Corrupted companion stub slots (including leading opcode/ModRM/SIB bytes 0..2 at +0x9D0..+0xA00!)
+         * MUST fail closed before touching anything! */
+        hf_code[0x9D0u] ^= 0xFFu;
+        memset(&bad_s, 0, sizeof bad_s);
+        CHECK(D12TryInstallNativeSlot(&bad_s, api, self, (uintptr_t)g_arena_game, kArenaGameSize, &def_opts) == -1);
+        CHECK(bad_s.state == -1 && bad_s.rw_mem == NULL && bad_s.rx_mem == NULL);
+        hf_code[0x9D0u] ^= 0xFFu;
+
+        static const uint32_t kChkSlots[3] = {0x9E0u, 0x9F0u, 0xA00u};
+        for (size_t si = 0u; si < 3u; ++si) {
+            for (size_t bi = 0u; bi < 3u; ++bi) {
+                hf_code[kChkSlots[si] + bi] ^= 0xFFu;
+                memset(&bad_s, 0, sizeof bad_s);
+                CHECK(D12TryInstallNativeSlot(&bad_s, api, self, (uintptr_t)g_arena_game, kArenaGameSize, &def_opts) == -1);
+                CHECK(bad_s.state == -1 && bad_s.rw_mem == NULL && bad_s.rx_mem == NULL);
+                hf_code[kChkSlots[si] + bi] ^= 0xFFu;
+            }
+        }
+
+        /* Injected partial write failures at step 4 (mid distance-site redirect) and step 22 (mid kD12DifficultyBounds)
+         * MUST roll back EVERY prior patch byte-for-byte and leave all bounds == 11! */
+        int fail_points[2] = {4, 22};
+        for (int fp = 0; fp < 2; ++fp) {
+            D12NativeSlotState rb_s = {0};
+            g_mock_fail_write_countdown = fail_points[fp];
+            CHECK(D12TryInstallNativeSlot(&rb_s, api, self, (uintptr_t)g_arena_game, kArenaGameSize, &def_opts) == -1);
+            g_mock_fail_write_countdown = -1;
+            CHECK(rb_s.state == -1 && rb_s.rw_mem == NULL && rb_s.rx_mem == NULL && rb_s.row12 == NULL);
+
+            int32_t chk_band = 0, chk_dist4 = 0;
+            memcpy(&chk_band, g_arena_game + D12_BAND_SITE_RVA + 4u, 4u);
+            memcpy(&chk_dist4, g_arena_game + kD12DistanceSites[4].rva + kD12DistanceSites[4].disp_at, 4u);
+            CHECK(chk_band == band_disp && chk_dist4 == dist_disp);
+            CHECK(hf_code[0x000u] == 0x52u && hf_code[0x040u + 4u] == 0x85u && hf_code[0xC40u + 22u] == 0x75u);
+            CHECK(memcmp(g_arena_game + 0x5E4FAFu, kD12HfInPlace16Pin, 16u) == 0);
+            for (size_t bi = 0u; bi < 14u; ++bi) {
+                uint32_t bval = 0u;
+                memcpy(&bval, g_arena_game + kD12DifficultyBounds[bi].rva + kD12DifficultyBounds[bi].imm_at, kD12DifficultyBounds[bi].width);
+                CHECK(bval == 11u);
+            }
+            HfDifficultySettings* r12_after = (HfDifficultySettings*)((uint8_t*)row11 + D12_ROW_BYTES);
+            CHECK(r12_after->level == 0u);
+        }
+
+        /* Post-write readback mismatch on E9 jump pad (0x5E4FAF):
+         *   Case A: write mutates 0x5E4FAF -> readback fails -> rollback succeeds & verifies -> memory freed cleanly.
+         *   Case B: write mutates 0x5E4FAF -> readback fails AND rollback writes also fail -> RW/RX pages MUST be RETAINED (never freed while referenced)! */
+        {
+            D12NativeSlotState rb_ok = {0};
+            g_mock_corrupt_readback_addr = (uintptr_t)g_arena_game + 0x5E4FAFu;
+            g_mock_corrupt_readback_once = 2;
+            g_mock_fail_all_writes_after_readback = 0;
+            CHECK(D12TryInstallNativeSlot(&rb_ok, api, self, (uintptr_t)g_arena_game, kArenaGameSize, &def_opts) == -1);
+            g_mock_corrupt_readback_addr = 0u;
+            g_mock_corrupt_readback_once = 0;
+            CHECK(rb_ok.state == -1 && rb_ok.rw_mem == NULL && rb_ok.rx_mem == NULL);
+            CHECK(memcmp(g_arena_game + 0x5E4FAFu, kD12HfInPlace16Pin, 16u) == 0);
+
+            uint8_t saved_row12_zero[D12_ROW_BYTES];
+            memcpy(saved_row12_zero, (const uint8_t*)row11 + D12_ROW_BYTES, D12_ROW_BYTES);
+            D12NativeSlotState rb_retain = {0};
+            g_mock_corrupt_readback_addr = (uintptr_t)g_arena_game + 0x5E4FAFu;
+            g_mock_corrupt_readback_once = 2;
+            g_mock_fail_all_writes_after_readback = 1;
+            g_mock_writing_active = 0;
+            CHECK(D12TryInstallNativeSlot(&rb_retain, api, self, (uintptr_t)g_arena_game, kArenaGameSize, &def_opts) == -1);
+            g_mock_corrupt_readback_addr = 0u;
+            g_mock_corrupt_readback_once = 0;
+            g_mock_fail_all_writes_after_readback = 0;
+            g_mock_writing_active = 0;
+            /* Because rollback writes failed while 0x5E4FAF still jumps into rx_mem, rw_mem & rx_mem MUST be retained! */
+            CHECK(rb_retain.state == -1 && rb_retain.rw_mem != NULL && rb_retain.rx_mem != NULL);
+            CHECK(g_arena_game[0x5E4FAFu] == 0xE9u);
+
+            /* Manually restore fixture memory and free retained test allocations before proceeding */
+            memcpy(g_arena_game + D12_BAND_SITE_RVA + 4u, &band_disp, 4u);
+            for (size_t di = 0u; di < 7u; ++di) {
+                memcpy(g_arena_game + kD12DistanceSites[di].rva + kD12DistanceSites[di].disp_at, &dist_disp, 4u);
+            }
+            memcpy(hf_code + 0x000u, kD12ExtraWidgetTemplate, sizeof kD12ExtraWidgetTemplate);
+            memcpy(g_arena_game + 0x5E4FAFu, kD12HfInPlace16Pin, 16u);
+            memcpy((uint8_t*)row11 + D12_ROW_BYTES, saved_row12_zero, D12_ROW_BYTES);
+            VirtualFree(rb_retain.rw_mem, 0, MEM_RELEASE);
+            VirtualFree(rb_retain.rx_mem, 0, MEM_RELEASE);
+        }
+    }
+
+    D12NativeSlotState d12s = {0};
+    CHECK(D12TryInstallNativeSlot(&d12s, api, self, (uintptr_t)g_arena_game, kArenaGameSize, &def_opts) == 1);
+    CHECK(d12s.state == 1 && d12s.row12 == (HfDifficultySettings*)((uint8_t*)row11 + D12_ROW_BYTES));
+
+    /* Verify Row 11 ("HELL FORGE") is 100% UNTOUCHED while Row 12 ("LEVEL 12: CLONE WARS") is populated! */
+    CHECK(row11->level == 11u && fabsf(row11->encounter_points - 1100.0f) < 0.01f && fabsf(row11->map_radius[0] - 0.76f) < 0.001f);
+    CHECK(d12s.row12->level == 12u && d12s.row12->unlock_item == D12_UNLOCK_ITEM_ID);
+    CHECK(d12s.row12->name_text == D12_NAME_TEXT_ID && d12s.row12->description_text == D12_NUM_TEXT_ID);
+    CHECK(((const uint8_t*)d12s.row12)[0xECu] == 11u);
+    CHECK(fabsf(d12s.row12->encounter_points - 1500.0f) < 0.01f && fabsf(d12s.row12->map_radius[0] - 0.92f) < 0.001f);
+
+    /* Verify kIconStub, companion iconChecks (+0x9D0..+0xA00), & kRadiiStub flipped jne (0x85/0x75) -> jb (0x82/0x72), and bounds/ranges widened 11 -> 12 */
+    CHECK(hf_code[0x040u + 4u] == 0x82u);
+    CHECK(hf_code[0x9D0u + 5u] == 0x82u);
+    CHECK(hf_code[0x9E0u + 6u] == 0x82u);
+    CHECK(hf_code[0x9F0u + 6u] == 0x82u);
+    CHECK(hf_code[0xA00u + 6u] == 0x82u);
+    CHECK(hf_code[0xC40u + 22u] == 0x72u);
+    uint32_t obj_hi = 0u, op_hi = 0u, mis_hi = 0u, max_bound = 0u;
+    memcpy(&obj_hi, g_arena_game + D12_OBJECTIVES_RVA + 0x28u, 4u);
+    memcpy(&op_hi, g_arena_game + D12_OPERATIONS_RVA + 0x10u, 4u);
+    memcpy(&mis_hi, g_arena_game + D12_MISSIONS_RVA + 0x10u, 4u);
+    memcpy(&max_bound, g_arena_game + kD12DifficultyBounds[0].rva + kD12DifficultyBounds[0].imm_at, 4u);
+    CHECK(obj_hi == 12u && op_hi == 12u && mis_hi == 12u && max_bound == 12u);
+
+    /* Verify UltrakillTextDetour serves D12 text on ALL roles (including Joiner) while keeping D11 as "HELL FORGE" */
+    g_d12_slot.state = 1;
+    role = HF_SESSION_JOINER;
+    CHECK(strcmp(UltrakillTextDetour(D12_NAME_TEXT_ID, NULL, NULL, NULL), "LEVEL 12: CLONE WARS") == 0);
+    CHECK(strcmp(UltrakillTextDetour(D12_NUM_TEXT_ID, NULL, NULL, NULL), "12") == 0);
+    CHECK(strcmp(UltrakillTextDetour(0x55AA0011u, NULL, NULL, NULL), "HELL FORGE") == 0);
+    g_d12_slot.state = 0;
+
+    /* 3b. Execute the actual PAGE_EXECUTE_READ machine-code stubs on the CPU (d12_extra + all 3 D12EmitBoardStub kinds) */
+    uintptr_t w10_a = CallD12ExtraStubWithIdx(d12s.rx_mem + 0x080u, 10u, 0xAAAABBBB0001ULL);
+    uintptr_t w11_a = CallD12ExtraStubWithIdx(d12s.rx_mem + 0x080u, 11u, 0xAAAABBBB0001ULL);
+    uintptr_t w11_b = CallD12ExtraStubWithIdx(d12s.rx_mem + 0x080u, 11u, 0xAAAABBBB0002ULL);
+    uintptr_t w11_a_again = CallD12ExtraStubWithIdx(d12s.rx_mem + 0x080u, 11u, 0xAAAABBBB0001ULL);
+    uintptr_t expected_w11_base = (uintptr_t)d12s.rw_mem + D12_BAR_SLOTS * 8u;
+    CHECK(w10_a != w11_a);
+    CHECK(w11_a == expected_w11_base);
+    CHECK(w11_b == expected_w11_base + D12_WIDGET_BYTES);
+    CHECK(w11_a_again == expected_w11_base);
+
+    uint8_t* exec_page = (uint8_t*)VirtualAlloc(NULL, 0x1000u, MEM_COMMIT | MEM_RESERVE, PAGE_READWRITE);
+    uint8_t* mock_war = (uint8_t*)calloc(1, 0x50000u);
+    CHECK(exec_page != NULL && mock_war != NULL);
+    memset(exec_page, 0xCC, 0x1000u);
+
+    /* Wrapper at +0x000..0x060: save caller rbp, clear ebp=0, jmp stub (because game.dll jumps, not calls, into stub!)
+     * Back pad at +0x500: xor ebp, ebp; pop rbp; ret (0x31, 0xED, 0x5D, 0xC3) -> hit_skip == 0
+     * Skip pad at +0x540: pop rbp; mov ebp, 1; ret (0x5D, 0xBD, 0x01,0x00,0x00,0x00, 0xC3) ->Wait: keep caller rbp intact?
+     * Even simpler: ExecuteEmittedBoardStub calls wrapper (+0x000/+0x020/+0x040) which pushes rbp, sets rsp frame so
+     * [entry_rsp+0x20..0x40] match ExecuteEmittedBoardStub's stack! Wait: if ExecuteEmittedBoardStub does `jmp` via
+     * pushing back/skip return or if back_pad simply `ret`s because `ExecuteEmittedBoardStub` `callq`ed stub?
+     * Check stack offsets in D12EmitBoardStub:
+     *   entry_rsp: [entry_rsp+0x38] -> [rbp+0x40] (after `push rbp`), [entry_rsp+0x40] -> [rbp+0x48]!
+     *   When ExecuteEmittedBoardStub executes `callq *%[entry]`, `callq` pushes an 8-byte return address!
+     *   Wait: in ExecuteEmittedBoardStub above, before `callq`:
+     *     `0x20(%rsp)` is at `caller_rsp + 0x20`. After `callq` pushes 8 bytes, `entry_rsp = caller_rsp - 8`!
+     *     So at `entry_rsp`:
+     *       `[entry_rsp + 0x00]` = return address pushed by `callq`!
+     *       `[entry_rsp + 0x28]` = `caller_rsp + 0x20`!
+     *   Whereas in `game.dll`, `game.dll` reaches stub via `E9 jmp` (NO return address pushed!).
+     *   So if wrapper at `+0x000` is entered via `callq`, wrapper's `[rsp]` IS the return address to `ExecuteEmittedBoardStub`!
+     *   If wrapper pops that return address into a scratch slot (e.g. `pop rax; mov [rip+saved_ret], rax; mov rax, 3; jmp stub`),
+     *   then `entry_rsp == caller_rsp` EXACTLY as in `game.dll`'s `E9 jmp`!
+     *   And `back_pad` (`mov dword ptr [rip+hit_flag], 0; jmp [rip+saved_ret]`) and
+     *   `skip_pad` (`mov dword ptr [rip+hit_flag], 1; jmp [rip+saved_ret]`) return cleanly without touching ANY register or stack slot! */
+    uint8_t* rw_scratch = (uint8_t*)VirtualAlloc(NULL, 0x1000u, MEM_COMMIT | MEM_RESERVE, PAGE_READWRITE);
+    CHECK(rw_scratch != NULL);
+    /* Wait: rip-relative needs near alloc; we can use D12AllocNearGame for both exec_page and rw_scratch! */
+    VirtualFree(exec_page, 0, MEM_RELEASE);
+    VirtualFree(rw_scratch, 0, MEM_RELEASE);
+    exec_page = D12AllocNearGame((uintptr_t)g_arena_game, kArenaGameSize, 0x1000u, 0u);
+    rw_scratch = D12AllocNearGame((uintptr_t)g_arena_game, kArenaGameSize, 0x1000u, (uintptr_t)exec_page);
+    CHECK(exec_page != NULL && rw_scratch != NULL);
+    memset(exec_page, 0xCC, 0x1000u);
+    memset(rw_scratch, 0, 0x1000u);
+
+    uintptr_t fn_va = (uintptr_t)(void*)&D12BoardSlotFromSite;
+    uintptr_t back_va = (uintptr_t)(exec_page + 0x500u);
+    uintptr_t skip_va = (uintptr_t)(exec_page + 0x540u);
+    size_t sz0 = D12EmitBoardStub(exec_page + 0x200u, 0u, (uintptr_t)(exec_page + 0x200u), fn_va, back_va, skip_va);
+    size_t sz1 = D12EmitBoardStub(exec_page + 0x2C0u, 1u, (uintptr_t)(exec_page + 0x2C0u), fn_va, back_va, skip_va);
+    size_t sz2 = D12EmitBoardStub(exec_page + 0x380u, 2u, (uintptr_t)(exec_page + 0x380u), fn_va, back_va, skip_va);
+    CHECK(sz0 == 174u && sz1 == 169u && sz2 == 170u);
+
+    /* Emit 3 entry trampolines at +0x000, +0x040, +0x080:
+     *   pop rax                        ; 58  (consumes callq return address so RSP == game.dll E9-jmp RSP!)
+     *   mov [rip + saved_ret], rax     ; 48 89 05 disp32
+     *   mov eax, 3                     ; B8 03 00 00 00 (arm RAX=3 crash canary!)
+     *   jmp stub_k                     ; E9 disp32 */
+    for (uint32_t k = 0u; k < 3u; ++k) {
+        uint8_t* tr = exec_page + k * 0x40u;
+        uintptr_t stub_target = (uintptr_t)(exec_page + 0x200u + k * 0xC0u);
+        tr[0] = 0x58u;
+        tr[1] = 0x48u; tr[2] = 0x89u; tr[3] = 0x05u;
+        int32_t disp_ret = (int32_t)((int64_t)(uintptr_t)(rw_scratch + 0x00u) - (int64_t)(uintptr_t)(tr + 8u));
+        memcpy(tr + 4u, &disp_ret, 4u);
+        tr[8] = 0xB8u; tr[9] = 0x03u; tr[10] = 0x00u; tr[11] = 0x00u; tr[12] = 0x00u;
+        tr[13] = 0xE9u;
+        int32_t disp_stub = (int32_t)((int64_t)stub_target - (int64_t)(uintptr_t)(tr + 18u));
+        memcpy(tr + 14u, &disp_stub, 4u);
+    }
+
+    /* back_va (+0x500): mov ebp, 0; jmp qword ptr [rip + saved_ret] */
+    exec_page[0x500u] = 0xBDu; memset(exec_page + 0x501u, 0, 4u);
+    exec_page[0x505u] = 0xFFu; exec_page[0x506u] = 0x25u;
+    int32_t disp_back_ret = (int32_t)((int64_t)(uintptr_t)(rw_scratch + 0x00u) - (int64_t)(uintptr_t)(exec_page + 0x50Bu));
+    memcpy(exec_page + 0x507u, &disp_back_ret, 4u);
+
+    /* skip_va (+0x540): mov ebp, 1; jmp qword ptr [rip + saved_ret] */
+    exec_page[0x540u] = 0xBDu; exec_page[0x541u] = 1u; memset(exec_page + 0x542u, 0, 3u);
+    exec_page[0x545u] = 0xFFu; exec_page[0x546u] = 0x25u;
+    int32_t disp_skip_ret = (int32_t)((int64_t)(uintptr_t)(rw_scratch + 0x00u) - (int64_t)(uintptr_t)(exec_page + 0x54Bu));
+    memcpy(exec_page + 0x547u, &disp_skip_ret, 4u);
+
+    DWORD old_exec_prot = 0;
+    CHECK(VirtualProtect(exec_page, 0x1000u, PAGE_EXECUTE_READ, &old_exec_prot) != 0);
+    FlushInstructionCache(GetCurrentProcess(), exec_page, 0x1000u);
+
+    /* Populate mock_war so both kind==0 (base+0x23018 / +0x26018) and kind==1,2 (ptr-0x23008 / -0x20008) work:
+     *Note: war_ptr for kind==0 is mock_war; war_ptr for kind==1,2 is mock_war + 0x46020 -> regions at +0x23018, count at +0x26018! */
+    memcpy(mock_war + 0x23018u, std_regions, sizeof std_regions);
+    uint32_t mock_reg_cnt = 6u;
+    memcpy(mock_war + 0x26018u, &mock_reg_cnt, 4u);
+
+    const float xmm_canary[6][4] = {
+        { 1.25f,  -2.50f,  3.75f,  -4.50f},
+        {11.25f, -12.50f, 13.75f, -14.50f},
+        {21.25f, -22.50f, 23.75f, -24.50f},
+        {31.25f, -32.50f, 33.75f, -34.50f},
+        {41.25f, -42.50f, 43.75f, -44.50f},
+        {51.25f, -52.50f, 53.75f, -54.50f},
+    };
+    D12BoardExecResult bres;
+
+    /* Kind 0 (Region): D12 index 4 on 6-region planet 42 -> slot 97 */
+    ExecuteEmittedBoardStub(exec_page + 0x000u, 0u, 12u, 4, (uintptr_t)mock_war, 42u, 7u, xmm_canary, &bres);
+    CHECK(bres.hit_skip == 0u && bres.rax_out == 97u && bres.rdx_out == 97u && bres.rdi_out == 97u * 0x5Cu);
+    CHECK(bres.rcx_out == 0x1122334455667788ULL && bres.r8_out == 0x2233445566778899ULL &&
+          bres.r9_out == 0x33445566778899AAULL && bres.r10_out == 0x445566778899AABBULL);
+    CHECK(memcmp(bres.xmm_after, xmm_canary, sizeof xmm_canary) == 0);
+
+    /* Kind 0 (Region): D12 index 6 out-of-range -> D12_BOARD_SKIP -> jumps to skip_va and loads rax = [rsp+0x20]! */
+    ExecuteEmittedBoardStub(exec_page + 0x000u, 0u, 12u, 6, (uintptr_t)mock_war, 42u, 7u, xmm_canary, &bres);
+    CHECK(bres.hit_skip == 1u && bres.rax_out == 0x778899AABBCCDDE0ULL);
+    CHECK(memcmp(bres.xmm_after, xmm_canary, sizeof xmm_canary) == 0);
+
+    /* Kind 1 (Planet campaign — exact site that crashed before fix!): D12 index 2 -> slot 92, D11 index 1 -> slot 101 */
+    ExecuteEmittedBoardStub(exec_page + 0x040u, 1u, 12u, 2, (uintptr_t)(mock_war + 0x46020u), 42u, 35u, xmm_canary, &bres);
+    CHECK(bres.hit_skip == 0u && bres.rax_out == 92u && bres.r11_out == 92u && bres.rdi_out == 92u * 0x5Cu);
+    CHECK(memcmp(bres.xmm_after, xmm_canary, sizeof xmm_canary) == 0);
+
+    ExecuteEmittedBoardStub(exec_page + 0x040u, 1u, 11u, 1, (uintptr_t)(mock_war + 0x46020u), 42u, 31u, xmm_canary, &bres);
+    CHECK(bres.hit_skip == 0u && bres.rax_out == 101u && bres.r11_out == 101u && bres.rdi_out == 101u * 0x5Cu);
+    CHECK(memcmp(bres.xmm_after, xmm_canary, sizeof xmm_canary) == 0);
+
+    /* Kind 2 (Planet defence): D12 index 0 -> slot 90; D10 passthrough -> default_slot 27 */
+    ExecuteEmittedBoardStub(exec_page + 0x080u, 2u, 12u, 0, (uintptr_t)(mock_war + 0x46020u), 42u, 33u, xmm_canary, &bres);
+    CHECK(bres.hit_skip == 0u && bres.rax_out == 90u && bres.r11_out == 90u && bres.rdi_out == 90u * 0x5Cu);
+    CHECK(memcmp(bres.xmm_after, xmm_canary, sizeof xmm_canary) == 0);
+
+    ExecuteEmittedBoardStub(exec_page + 0x080u, 2u, 10u, 0, (uintptr_t)(mock_war + 0x46020u), 42u, 27u, xmm_canary, &bres);
+    CHECK(bres.hit_skip == 0u && bres.rax_out == 27u && bres.r11_out == 27u && bres.rdi_out == 27u * 0x5Cu);
+    CHECK(memcmp(bres.xmm_after, xmm_canary, sizeof xmm_canary) == 0);
+
+    VirtualFree(exec_page, 0, MEM_RELEASE);
+    VirtualFree(rw_scratch, 0, MEM_RELEASE);
+    free(mock_war);
+
+    /* 4. Verify live difficulty gating of default "clone-wars": D11 stays Standard (cooldown=150, cap=12), D12 activates Full Clone Wars! */
+    role = HF_SESSION_SOLO;
+    game_state = HF_STATE_MISSION;
+    InitMockGameArenas(CHAOS_NATIVE_BOTS_BIT, 11u);
+    ResetMockCountersAndModState();
+    uint8_t* mock_ctx = (uint8_t*)calloc(1, 0xAF000u);
+    uint8_t* mock_lg  = (uint8_t*)calloc(1, 0x3000u);
+    void* p_ctx = mock_ctx;
+    void* p_lg  = mock_lg;
+    memcpy(g_arena_game + UK_CONTEXT_RVA, &p_ctx, 8u);
+    memcpy(mock_ctx + UK_CONTEXT_LG_OFF, &p_lg, 8u);
+
+    char unpacked_mod[1750], host_json[1700], saved_fixture[1800];
+    strcpy(saved_fixture, fixture);
+    snprintf(unpacked_mod, sizeof unpacked_mod, "%s\\mods\\.unpacked\\hash031\\chaos-invasions", saved_fixture);
+    snprintf(host_json, sizeof host_json, "%s\\mods\\clonedivers-host-options.json", saved_fixture);
+    CHECK(WriteTextWithMtime(
+        host_json,
+        "{\"format\":1,\"theaterPreset\":\"clone-wars\",\"chaosIntensity\":\"clone-wars\",\"heavySeaf\":\"clone-wars\",\"fasterCorpseCleanup\":true}",
+        134500000000000000ULL));
+    strcpy(fixture, unpacked_mod);
+
+    mock_lg[CD_LG_DIFFICULTY_OFF] = 11u; /* Playing Difficulty 11 ("HELL FORGE") */
+    subscriptions = ticks = 0;
+    CHECK(hellforge_mod_init(api, (HfMod*)1) == 0);
+    Tick(self, 1.0f / 60.0f, NULL);
+    CHECK(config.cooldown == 150 && config.total_cap == 12 && g_ultrakill.virtual_units_total == 0u);
+
+    mock_lg[CD_LG_DIFFICULTY_OFF] = 12u; /* Playing Difficulty 12 ("LEVEL 12: CLONE WARS")! */
+    for (int f = 0; f < 30; ++f) Tick(self, 1.0f / 60.0f, NULL);
+    CHECK(config.cooldown == 12 && config.total_cap == 820 && g_ultrakill.virtual_units_total >= 1900u);
+
+    /* 5. Verify full startup sequence: HF_EVENT_GAME_LOADED -> StratagemsInstalled overwrites registered-items.json ->
+     *    Ship Tick / HF_EVENT_ENTITIES_READY automatically restores mixId=3440558350 while keeping stratagems + D11! */
+    {
+        snprintf(g_mock_logs_dir, sizeof g_mock_logs_dir, "%s", logs_dir);
+        api->logs_folder = MockLogsFolder;
+        DeleteFileA(reg_file);
+        game_state = HF_STATE_SHIP;
+        subscriptions = ticks = 0;
+        g_mock_on_game_loaded = NULL;
+        g_mock_on_entities_ready = NULL;
+        CHECK(hellforge_mod_init(api, (HfMod*)1) == 0);
+        CHECK(g_mock_on_game_loaded != NULL && g_mock_on_entities_ready != NULL);
+        g_mock_on_game_loaded(self, HF_EVENT_GAME_LOADED, NULL);
+
+        /* Simulate HellForge's StratagemsInstalled (WriteRegisteredItems) overwriting registered-items.json 7s later */
+        Sleep(20);
+        FILE* ow = fopen(reg_file, "wb");
+        CHECK(ow != NULL);
+        fputs("{\"format\":1,\"items\":["
+              "{\"kind\":\"stratagem\",\"mixId\":4179658842,\"mod\":\"local.heavy-seaf-presence\",\"name\":\"seaf_reinforcement\"},"
+              "{\"kind\":\"difficulty\",\"mixId\":3369641098,\"copyOf\":2695783738,\"level\":11,\"mod\":\"skyeshade.hell-forge\",\"name\":\"hell_forge\"}"
+              "]}\n", ow);
+        fclose(ow);
+
+        /* 0.30s on Ship -> g_d12_sync_poll detects changed size/mtime and re-splices mixId=3440558350 automatically! */
+        Tick(self, 0.30f, NULL);
+        FILE* vf = fopen(reg_file, "rb");
+        CHECK(vf != NULL);
+        char vbuf[2048] = {0};
+        size_t vlen = fread(vbuf, 1, sizeof(vbuf) - 1u, vf);
+        fclose(vf);
+        vbuf[vlen] = '\0';
+        CHECK(strstr(vbuf, "\"mixId\":4179658842") != NULL);
+        CHECK(strstr(vbuf, "\"mixId\":3369641098") != NULL);
+        CHECK(strstr(vbuf, "\"mixId\":3440558350,\"copyOf\":2695783738,\"level\":12") != NULL);
+
+        /* Simulate a second rewrite of identical byte length or later mtime right before HF_EVENT_ENTITIES_READY */
+        ow = fopen(reg_file, "wb");
+        CHECK(ow != NULL);
+        fputs("{\"format\":1,\"items\":[{\"kind\":\"difficulty\",\"mixId\":3369641098,\"copyOf\":2695783738,\"level\":11,\"mod\":\"skyeshade.hell-forge\",\"name\":\"hell_forge\"}]}\n", ow);
+        fclose(ow);
+        g_mock_on_entities_ready(self, HF_EVENT_ENTITIES_READY, NULL);
+        vf = fopen(reg_file, "rb");
+        CHECK(vf != NULL);
+        memset(vbuf, 0, sizeof vbuf);
+        vlen = fread(vbuf, 1, sizeof(vbuf) - 1u, vf);
+        fclose(vf);
+        vbuf[vlen] = '\0';
+        CHECK(strstr(vbuf, "\"mixId\":3369641098") != NULL);
+        CHECK(strstr(vbuf, "\"mixId\":3440558350,\"copyOf\":2695783738,\"level\":12") != NULL);
+
+        /* Simulate an atomic MoveFileExW replacement with IDENTICAL byte length & IDENTICAL forced mtime:
+         * NTFS file index check MUST still detect the replacement on a normal non-forced poll (`force_read=0`)! */
+        {
+            char same_len_tmp[1780];
+            snprintf(same_len_tmp, sizeof same_len_tmp, "%s\\registered-items.json.samelen", logs_dir);
+            BY_HANDLE_FILE_INFORMATION before_info;
+            wchar_t wreg[MAX_PATH], wsame[MAX_PATH];
+            MultiByteToWideChar(CP_UTF8, 0, reg_file, -1, wreg, MAX_PATH);
+            MultiByteToWideChar(CP_UTF8, 0, same_len_tmp, -1, wsame, MAX_PATH);
+            CHECK(D12QueryPathHandleInfo(wreg, &before_info) == 1);
+
+            char* pad_json = (char*)malloc((size_t)before_info.nFileSizeLow + 1u);
+            CHECK(pad_json != NULL);
+            const char* head_no_d12 = "{\"format\":1,\"items\":[{\"kind\":\"difficulty\",\"mixId\":3369641098,\"copyOf\":2695783738,\"level\":11,\"mod\":\"skyeshade.hell-forge\",\"name\":\"hell_forge\"}]}";
+            size_t hlen = strlen(head_no_d12);
+            CHECK(before_info.nFileSizeLow > hlen + 2u);
+            memcpy(pad_json, head_no_d12, hlen);
+            memset(pad_json + hlen, ' ', (size_t)before_info.nFileSizeLow - hlen - 1u);
+            pad_json[before_info.nFileSizeLow - 1u] = '\n';
+
+            FILE* sf = fopen(same_len_tmp, "wb");
+            CHECK(sf != NULL);
+            CHECK(fwrite(pad_json, 1, before_info.nFileSizeLow, sf) == before_info.nFileSizeLow);
+            fclose(sf);
+            free(pad_json);
+
+            HANDLE hSet = CreateFileW(wsame, FILE_WRITE_ATTRIBUTES, FILE_SHARE_READ | FILE_SHARE_WRITE | FILE_SHARE_DELETE,
+                                      NULL, OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, NULL);
+            CHECK(hSet != INVALID_HANDLE_VALUE);
+            CHECK(SetFileTime(hSet, NULL, NULL, &before_info.ftLastWriteTime) != 0);
+            CloseHandle(hSet);
+
+            CHECK(MoveFileExW(wsame, wreg, MOVEFILE_REPLACE_EXISTING) != 0);
+            CHECK(D12SyncUnlockItemInFolder(&g_d12_slot, logs_dir, 0) == 2);
+            vf = fopen(reg_file, "rb");
+            CHECK(vf != NULL);
+            memset(vbuf, 0, sizeof vbuf);
+            vlen = fread(vbuf, 1, sizeof(vbuf) - 1u, vf);
+            fclose(vf);
+            vbuf[vlen] = '\0';
+            CHECK(strstr(vbuf, "\"mixId\":3440558350") != NULL);
+
+            /* Review #3 P1a: Exclusive open failure (ERROR_SHARING_VIOLATION) on an existing registry MUST
+             * fail closed (return 0) and NEVER fall through as an absent registry or overwrite existing items! */
+            ow = fopen(reg_file, "wb");
+            CHECK(ow != NULL);
+            fputs("{\"format\":1,\"items\":[{\"mixId\":55443322,\"copyOf\":111,\"mod\":\"keep.me\",\"unit\":\"u\"}]}\n", ow);
+            fclose(ow);
+            HANDLE hExcl = CreateFileW(wreg, GENERIC_READ | GENERIC_WRITE, 0 /* exclusive! */,
+                                       NULL, OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, NULL);
+            CHECK(hExcl != INVALID_HANDLE_VALUE);
+            CHECK(D12RegisterUnlockItemInFolder(logs_dir) == 0);
+            CloseHandle(hExcl);
+            vf = fopen(reg_file, "rb");
+            CHECK(vf != NULL);
+            memset(vbuf, 0, sizeof vbuf);
+            vlen = fread(vbuf, 1, sizeof(vbuf) - 1u, vf);
+            fclose(vf);
+            vbuf[vlen] = '\0';
+            CHECK(strstr(vbuf, "\"mixId\":55443322") != NULL);
+            CHECK(strstr(vbuf, "\"mixId\":3440558350") == NULL);
+
+            /* Review #3 P1b: Concurrent HellForge WriteRegisteredItems() (CREATE_ALWAYS + FILE_SHARE_READ)
+             * firing ONE instruction before MoveFileExW (stage == 1) MUST NOT lose mixId=99887766! */
+            ow = fopen(reg_file, "wb");
+            CHECK(ow != NULL);
+            fputs("{\"format\":1,\"items\":[{\"kind\":\"difficulty\",\"mixId\":3369641098,\"copyOf\":2695783738,\"level\":11,\"mod\":\"skyeshade.hell-forge\",\"name\":\"hell_forge\"}]}\n", ow);
+            fclose(ow);
+            g_test_reg_race_mode = 1;
+            g_test_reg_race_fired = 0;
+            g_d12_test_registry_hook = MockConcurrentRegistryWriterHook;
+            CHECK(D12RegisterUnlockItemInFolder(logs_dir) == 2);
+            g_d12_test_registry_hook = NULL;
+            CHECK(g_test_reg_race_fired == 1);
+            vf = fopen(reg_file, "rb");
+            CHECK(vf != NULL);
+            memset(vbuf, 0, sizeof vbuf);
+            vlen = fread(vbuf, 1, sizeof(vbuf) - 1u, vf);
+            fclose(vf);
+            vbuf[vlen] = '\0';
+            CHECK(strstr(vbuf, "\"mixId\":99887766") != NULL);
+            CHECK(strstr(vbuf, "\"mixId\":3369641098") != NULL);
+            CHECK(strstr(vbuf, "\"mixId\":3440558350") != NULL);
+
+            /* Review #3 P1c & Review #5 P1: Concurrent atomic-replacement registry writers at BOTH stage 0 (mode 2)
+             * AND stage 1 (modes 3 & 4) serialize via non-recursive LockFileEx on registered-items.json.lock with zero lost items! */
+            ow = fopen(reg_file, "wb");
+            CHECK(ow != NULL);
+            fputs("{\"format\":1,\"items\":[{\"kind\":\"difficulty\",\"mixId\":3369641098,\"copyOf\":2695783738,\"level\":11,\"mod\":\"skyeshade.hell-forge\",\"name\":\"hell_forge\"}]}\n", ow);
+            fclose(ow);
+            g_test_reg_race_mode = 2;
+            g_test_reg_race_fired = 0;
+            g_test_reg_worker_thread = NULL;
+            g_d12_test_registry_hook = MockConcurrentRegistryWriterHook;
+            CHECK(D12RegisterUnlockItemInFolder(logs_dir) == 2);
+            g_d12_test_registry_hook = NULL;
+            CHECK(g_test_reg_race_fired == 1 && g_test_reg_worker_thread != NULL);
+            CHECK(WaitForSingleObject(g_test_reg_worker_thread, 5000u) == WAIT_OBJECT_0);
+            CloseHandle(g_test_reg_worker_thread);
+            g_test_reg_worker_thread = NULL;
+            CHECK(g_test_reg_worker_rc == 2);
+            vf = fopen(reg_file, "rb");
+            CHECK(vf != NULL);
+            memset(vbuf, 0, sizeof vbuf);
+            vlen = fread(vbuf, 1, sizeof(vbuf) - 1u, vf);
+            fclose(vf);
+            vbuf[vlen] = '\0';
+            CHECK(strstr(vbuf, "\"mixId\":77665544") != NULL);
+            CHECK(strstr(vbuf, "\"mixId\":3369641098") != NULL);
+            CHECK(strstr(vbuf, "\"mixId\":3440558350") != NULL);
+
+            /* Stage 1 (mode 3): concurrent splice-and-POSIX-replace writer arriving right before D12ReplaceFilePosixAtomic */
+            ow = fopen(reg_file, "wb");
+            CHECK(ow != NULL);
+            fputs("{\"format\":1,\"items\":[{\"kind\":\"difficulty\",\"mixId\":3369641098,\"copyOf\":2695783738,\"level\":11,\"mod\":\"skyeshade.hell-forge\",\"name\":\"hell_forge\"}]}\n", ow);
+            fclose(ow);
+            g_test_reg_race_mode = 3;
+            g_test_reg_race_fired = 0;
+            g_d12_test_registry_hook = MockConcurrentRegistryWriterHook;
+            CHECK(D12RegisterUnlockItemInFolder(logs_dir) == 2);
+            g_d12_test_registry_hook = NULL;
+            CHECK(g_test_reg_race_fired == 1 && g_test_reg_worker_thread != NULL);
+            CHECK(WaitForSingleObject(g_test_reg_worker_thread, 5000u) == WAIT_OBJECT_0);
+            CloseHandle(g_test_reg_worker_thread);
+            g_test_reg_worker_thread = NULL;
+            CHECK(g_test_reg_worker_rc == 2);
+            vf = fopen(reg_file, "rb");
+            CHECK(vf != NULL);
+            memset(vbuf, 0, sizeof vbuf);
+            vlen = fread(vbuf, 1, sizeof(vbuf) - 1u, vf);
+            fclose(vf);
+            vbuf[vlen] = '\0';
+            CHECK(strstr(vbuf, "\"mixId\":88776655") != NULL);
+            CHECK(strstr(vbuf, "\"mixId\":3369641098") != NULL);
+            CHECK(strstr(vbuf, "\"mixId\":3440558350") != NULL);
+
+            /* Stage 1 (mode 4): concurrent full-snapshot atomic replacement arriving right before D12ReplaceFilePosixAtomic
+             * is NEVER overwritten by D12's stale snapshot, and D12SyncUnlockItemInFolder re-splices 3440558350 cleanly! */
+            ow = fopen(reg_file, "wb");
+            CHECK(ow != NULL);
+            fputs("{\"format\":1,\"items\":[{\"kind\":\"difficulty\",\"mixId\":3369641098,\"copyOf\":2695783738,\"level\":11,\"mod\":\"skyeshade.hell-forge\",\"name\":\"hell_forge\"}]}\n", ow);
+            fclose(ow);
+            g_test_reg_race_mode = 4;
+            g_test_reg_race_fired = 0;
+            g_d12_test_registry_hook = MockConcurrentRegistryWriterHook;
+            CHECK(D12SyncUnlockItemInFolder(&g_d12_slot, logs_dir, 1) == 2);
+            g_d12_test_registry_hook = NULL;
+            CHECK(g_test_reg_race_fired == 1 && g_test_reg_worker_thread != NULL);
+            CHECK(WaitForSingleObject(g_test_reg_worker_thread, 5000u) == WAIT_OBJECT_0);
+            CloseHandle(g_test_reg_worker_thread);
+            g_test_reg_worker_thread = NULL;
+            CHECK(g_test_reg_worker_rc == 1);
+            CHECK(D12SyncUnlockItemInFolder(&g_d12_slot, logs_dir, 0) == 2);
+            vf = fopen(reg_file, "rb");
+            CHECK(vf != NULL);
+            memset(vbuf, 0, sizeof vbuf);
+            vlen = fread(vbuf, 1, sizeof(vbuf) - 1u, vf);
+            fclose(vf);
+            vbuf[vlen] = '\0';
+            CHECK(strstr(vbuf, "\"mixId\":44332211") != NULL);
+            CHECK(strstr(vbuf, "\"mixId\":3369641098") != NULL);
+            CHECK(strstr(vbuf, "\"mixId\":3440558350") != NULL);
+
+            /* Review #4 P1: Forced unsupported POSIX rename (`FileRenameInfoEx` unavailable) MUST fail closed
+             * without closing `hIn` prior to replacement and without overwriting existing registry items! */
+            ow = fopen(reg_file, "wb");
+            CHECK(ow != NULL);
+            fputs("{\"format\":1,\"items\":[{\"mixId\":66554433,\"copyOf\":222,\"mod\":\"posix.req\",\"unit\":\"p\"}]}\n", ow);
+            fclose(ow);
+            g_d12_test_force_posix_unsupported = 1;
+            CHECK(D12RegisterUnlockItemInFolder(logs_dir) == 0);
+            g_d12_test_force_posix_unsupported = 0;
+            vf = fopen(reg_file, "rb");
+            CHECK(vf != NULL);
+            memset(vbuf, 0, sizeof vbuf);
+            vlen = fread(vbuf, 1, sizeof(vbuf) - 1u, vf);
+            fclose(vf);
+            vbuf[vlen] = '\0';
+            CHECK(strstr(vbuf, "\"mixId\":66554433") != NULL);
+            CHECK(strstr(vbuf, "\"mixId\":3440558350") == NULL);
+        }
+
+        api->logs_folder = NULL;
+        g_mock_logs_dir[0] = '\0';
+        game_state = HF_STATE_MISSION;
+    }
+
+    /* 6. Review #4 P2: Consecutive missions WITHOUT `clonedivers-host-options.json` (`!g_host_opts.loaded_from_file`):
+     *    D12 -> Ship -> D5 MUST restore `options.ini` (including custom settings & `enabled=0`), AND preserve explicit
+     *    in-session `ChaosInvasions.values` edits across D5 -> Ship -> D12 (multi-second poll) -> Ship -> D5! */
+    {
+        DeleteFileA(host_json);
+        char ini_path[1820];
+        snprintf(ini_path, sizeof ini_path, "%s\\options.ini", unpacked_mod);
+
+        /* 6a. Custom `options.ini` (enabled=1, cooldown=180, cap=14, squad=5, budget=40), no host-options JSON */
+        FILE* inf = fopen(ini_path, "wb");
+        CHECK(inf != NULL);
+        fputs("enabled=1\ncooldown_seconds=180\nlanding_grace_seconds=50\ntotal_cap=14\nfaction_cap=8\nsquad_size=5\nmission_budget=40\n", inf);
+        fclose(inf);
+
+        strcpy(fixture, unpacked_mod);
+        role = HF_SESSION_SOLO;
+        game_state = HF_STATE_MISSION;
+        mock_lg[CD_LG_DIFFICULTY_OFF] = 5u;
+        ResetMockCountersAndModState();
+        subscriptions = ticks = 0;
+        CHECK(hellforge_mod_init(api, (HfMod*)1) == 0);
+        CHECK(g_host_opts.loaded_from_file == 0);
+        Tick(self, 1.0f / 60.0f, NULL);
+        CHECK(config.enabled == 1 && config.cooldown == 180 && config.total_cap == 14 &&
+              config.squad_size == 5 && config.mission_budget == 40);
+
+        /* Deploy to D12 -> activates Clone Wars D12 config */
+        game_state = HF_STATE_SHIP;
+        Tick(self, 1.0f / 60.0f, NULL);
+        game_state = HF_STATE_MISSION;
+        mock_lg[CD_LG_DIFFICULTY_OFF] = 12u;
+        for (int f = 0; f < 10; ++f) Tick(self, 1.0f / 60.0f, NULL);
+        CHECK(config.enabled == 1 && config.cooldown == 12 && config.total_cap == 820 &&
+              config.squad_size == 6 && config.mission_budget == 15000);
+
+        /* Return D12 -> Ship -> D5: MUST restore custom `options.ini` settings (NOT retain D12 settings)! */
+        game_state = HF_STATE_SHIP;
+        Tick(self, 1.0f / 60.0f, NULL);
+        CHECK(config.enabled == 1 && config.cooldown == 180 && config.total_cap == 14 &&
+              config.squad_size == 5 && config.mission_budget == 40);
+        game_state = HF_STATE_MISSION;
+        mock_lg[CD_LG_DIFFICULTY_OFF] = 5u;
+        for (int f = 0; f < 10; ++f) Tick(self, 1.0f / 60.0f, NULL);
+        CHECK(config.enabled == 1 && config.cooldown == 180 && config.total_cap == 14 &&
+              config.squad_size == 5 && config.mission_budget == 40);
+
+        /* Explicit session edit via `ChaosInvasions.values` on D5 -> D12 (multi-second poll!) -> Ship -> D5 */
+        char session_edit[512];
+        snprintf(session_edit, sizeof session_edit,
+                 "session=%lu\nenabled=1\ncooldown_seconds=95\nlanding_grace_seconds=35\ntotal_cap=16\n"
+                 "faction_cap=10\nsquad_size=5\nmission_budget=48\ndroid_weight=110\nsquid_weight=70\nbug_weight=90\n",
+                 token);
+        CHECK(WriteTextWithMtime(bridge, session_edit, 134600000000000000ULL));
+        Seconds(2);
+        CHECK(config.cooldown == 95 && config.total_cap == 16 && config.squad_size == 5 && config.mission_budget == 48);
+
+        /* Transition D5 -> Ship -> D12 and tick 3 full seconds (past options_poll!) so bridge poll runs on D12 */
+        game_state = HF_STATE_SHIP;
+        Tick(self, 1.0f / 60.0f, NULL);
+        game_state = HF_STATE_MISSION;
+        mock_lg[CD_LG_DIFFICULTY_OFF] = 12u;
+        Seconds(3);
+        CHECK(config.cooldown == 12 && config.total_cap == 820 && config.mission_budget == 15000);
+
+        /* Transition D12 -> Ship -> D5: MUST restore explicit session settings (95 / 16 / 5 / 48)! */
+        game_state = HF_STATE_SHIP;
+        Tick(self, 1.0f / 60.0f, NULL);
+        CHECK(config.cooldown == 95 && config.total_cap == 16 && config.squad_size == 5 && config.mission_budget == 48);
+        game_state = HF_STATE_MISSION;
+        mock_lg[CD_LG_DIFFICULTY_OFF] = 5u;
+        Seconds(2);
+        CHECK(config.cooldown == 95 && config.total_cap == 16 && config.squad_size == 5 && config.mission_budget == 48);
+
+        /* 6b. `options.ini` with `enabled=0` and no host-options JSON: D12 -> Ship -> D5 restores `enabled=0`! */
+        inf = fopen(ini_path, "wb");
+        CHECK(inf != NULL);
+        fputs("enabled=0\ncooldown_seconds=200\n", inf);
+        fclose(inf);
+        ResetMockCountersAndModState();
+        subscriptions = ticks = 0;
+        mock_lg[CD_LG_DIFFICULTY_OFF] = 12u;
+        CHECK(hellforge_mod_init(api, (HfMod*)1) == 0);
+        CHECK(config.enabled == 0 && config.cooldown == 200);
+        for (int f = 0; f < 5; ++f) Tick(self, 1.0f / 60.0f, NULL);
+        CHECK(config.enabled == 1 && config.cooldown == 12);
+        game_state = HF_STATE_SHIP;
+        Tick(self, 1.0f / 60.0f, NULL);
+        game_state = HF_STATE_MISSION;
+        mock_lg[CD_LG_DIFFICULTY_OFF] = 5u;
+        Tick(self, 1.0f / 60.0f, NULL);
+        CHECK(config.enabled == 0 && config.cooldown == 200);
+
+        DeleteFileA(ini_path);
+    }
+
+    DeleteFileA(host_json);
+    DeleteFileA(reg_file);
+    {
+        char lock_file[1780];
+        snprintf(lock_file, sizeof lock_file, "%s\\registered-items.json.lock", logs_dir);
+        DeleteFileA(lock_file);
+    }
+    RemoveDirectoryA(logs_dir);
+    strcpy(fixture, saved_fixture);
+    g_host_options_path[0] = 0;
+    g_host_options_mtime = 0ULL;
+    g_host_opts = cd_host_options_defaults();
+    config = ChaosDefaults();
+    g_ini_config = config;
+    g_has_session_config = 0;
+    g_d12_config_active = 0;
+    Publish();
+    g_mock_d11_ptr_override = prev_d11_override;
+    memset(g_arena_game + UK_CONTEXT_RVA, 0, 8u);
+    free(mock_ctx);
+    free(mock_lg);
+    if (d12s.rw_mem) VirtualFree(d12s.rw_mem, 0, MEM_RELEASE);
+    if (d12s.rx_mem) VirtualFree(d12s.rx_mem, 0, MEM_RELEASE);
+    VirtualFree(hf_board, 0, MEM_RELEASE);
+    VirtualFree(hf_code, 0, MEM_RELEASE);
+    VirtualFree(hf_table, 0, MEM_RELEASE);
 }
 
 int main(int argc, char** argv)
@@ -2052,6 +3116,7 @@ int main(int argc, char** argv)
     TestV034BotDropDeadlockAndCityHardening();
     TestV035Mission2PreloadRearmAndCoopSafeRoster();
     TestV040UltrakillD12PoolsAndCloneWarsTheater(&api);
+    TestV050GenuineDifficulty12SlotAndGating(&api);
 
     /* Kill switch latch & token mismatch tests */
     FILE* f = fopen(bridge, "wb"); CHECK(f != NULL);

@@ -575,7 +575,7 @@ public static class HellForgePack
         var name = plan.Selection.Mode == "empire" ? "EmpireDivers" : "Clonedivers";
         await File.WriteAllTextAsync(Path.Combine(plan.Output, "manifest.json"), JsonSerializer.Serialize(new {
             Version = 1, Guid = GuidFor(plan.Selection.Mode), Name = $"{name} {plan.Selection.Version} ({plan.Selection.Texture})",
-            Description = "Star Wars pack for HellForge. Choose difficulties 1–11 in game. Gameplay and multiplayer validation pending.", Options = Array.Empty<object>()
+            Description = "Star Wars pack for HellForge. Choose difficulties 1–12 in game. Gameplay and multiplayer validation pending.", Options = Array.Empty<object>()
         }, Json), ct);
         var receiptPath = FileSafety.Child(plan.Output, ReceiptName);
         var receiptTemp = receiptPath + ".tmp";

@@ -19,6 +19,7 @@ internal static class UltrakillPerfTests
         TestHostMutatorUltrakillContract(Path.Combine(area, "host-options"), check);
         await TestUltrakillRuntimeProfileAsync(Path.Combine(area, "runtime-profile"), check);
         TestUltrakillCopyFormatting(check);
+        await TestV221DefaultTheaterAndDiskReclaimAsync(Path.Combine(area, "v221-disk-reclaim"), check);
     }
 
     internal static void RunHeadlessUiChecks(Action<bool, string> check)
@@ -31,15 +32,15 @@ internal static class UltrakillPerfTests
         typeof(ForgeShellWindow).GetMethod("RefreshAll", priv)!.Invoke(win, null);
         var theaterPills = (Dictionary<string, ToggleButton>)typeof(ForgeShellWindow).GetField("theaterPills", priv)!.GetValue(win)!;
         check(theaterPills.Count == 2 &&
-              theaterPills.ContainsKey("standard") && theaterPills["standard"].IsChecked == true &&
-              theaterPills.ContainsKey("clone-wars") && theaterPills["clone-wars"].IsChecked == false,
-              "ForgeShellWindow Customize -> Advanced renders Theater Scale (Standard vs L12 ULTRAKILL · Clone Wars)");
+              theaterPills.ContainsKey("standard") && theaterPills["standard"].IsChecked == false &&
+              theaterPills.ContainsKey("clone-wars") && theaterPills["clone-wars"].IsChecked == true,
+              "ForgeShellWindow Customize -> Advanced defaults Theater Scale to L12 ULTRAKILL · Clone Wars");
 
-        host.UpdateHostMutatorsAsync("standard", "standard", true, "clone-wars").GetAwaiter().GetResult();
+        host.UpdateHostMutatorsAsync("standard", "standard", true, "standard").GetAwaiter().GetResult();
         Avalonia.Threading.Dispatcher.UIThread.RunJobs();
         typeof(ForgeShellWindow).GetMethod("RefreshAll", priv)!.Invoke(win, null);
-        check(theaterPills["clone-wars"].IsChecked == true && theaterPills["standard"].IsChecked == false,
-            "Selecting L12 ULTRAKILL · Clone Wars updates Theater Scale pills in ForgeShellWindow");
+        check(theaterPills["standard"].IsChecked == true && theaterPills["clone-wars"].IsChecked == false,
+            "Selecting Standard (D1–11) updates Theater Scale pills in ForgeShellWindow");
         win.Close();
     }
 
@@ -261,14 +262,52 @@ internal static class UltrakillPerfTests
               patchedIni.Contains("command_queue_size = 2097152", StringComparison.Ordinal) &&
               patchedIni.Contains("pool_size = 67108864", StringComparison.Ordinal) &&
               patchedCfg.Contains("enable_resource_lock_debug = false", StringComparison.Ordinal) &&
-              patchedCfg.Contains("lod_selection_multiplier = 0.6", StringComparison.Ordinal) &&
+              patchedCfg.Contains("lod_selection_multiplier = 1.5", StringComparison.Ordinal) &&
               patchedCfg.Contains("hq_bubble_enabled = true", StringComparison.Ordinal) &&
               patchedCfg.Contains("terrain_trample_enabled = false", StringComparison.Ordinal) &&
               patchedCfg.Contains("particle_quality = 1", StringComparison.Ordinal) &&
               patchedCfg.Contains("vertical_fov = 85", StringComparison.Ordinal) &&
               patchedCfg.Contains("5120", StringComparison.Ordinal) &&
               patchedSaveCfg == patchedCfg,
-              "UltrakillRuntimeProfile.SyncEngineFiles patches Stingray fiber/Wwise/D3D12 & crowd LOD settings while preserving resolution & FOV");
+              "UltrakillRuntimeProfile.SyncEngineFiles patches Stingray fiber/Wwise/D3D12 & crowd shadow settings while preserving lod_selection_multiplier, resolution, & FOV");
+
+        // Simulate a pre-v2.2.1 install whose manifest lacks LodMigratedVersion (0) and whose live user_settings.config had
+        // lod_selection_multiplier = 0.6 written by v2.2.0 (plus an in-game FOV edit to 92):
+        // SyncEngineFiles(true) must restore lod_selection_multiplier = 1.5 ONCE from originals/ while keeping FOV = 92!
+        var liveBackupDir = UltrakillRuntimeProfile.GetBackupDirectory(installRoot);
+        var liveManifestPath = Path.Combine(liveBackupDir, UltrakillRuntimeProfile.ManifestFileName);
+        var pre221ManifestJson = (await File.ReadAllTextAsync(liveManifestPath))
+            .Replace("\"LodMigratedVersion\": 1", "\"LodMigratedVersion\": 0", StringComparison.Ordinal);
+        await File.WriteAllTextAsync(liveManifestPath, pre221ManifestJson);
+        var v220StaleCfg = patchedCfg
+            .Replace("lod_selection_multiplier = 1.5", "lod_selection_multiplier = 0.6", StringComparison.Ordinal)
+            .Replace("vertical_fov = 85", "vertical_fov = 92", StringComparison.Ordinal);
+        await File.WriteAllTextAsync(userSettingsPath, v220StaleCfg);
+        await File.WriteAllTextAsync(saveUserSettingsPath, v220StaleCfg);
+        bool upgradedFromV220 = UltrakillRuntimeProfile.SyncEngineFiles(installRoot, enableUltrakill: true);
+        var upgradedCfg = await File.ReadAllTextAsync(userSettingsPath);
+        var upgradedSaveCfg = await File.ReadAllTextAsync(saveUserSettingsPath);
+        check(upgradedFromV220 &&
+              upgradedCfg.Contains("lod_selection_multiplier = 1.5", StringComparison.Ordinal) &&
+              !upgradedCfg.Contains("lod_selection_multiplier = 0.6", StringComparison.Ordinal) &&
+              upgradedCfg.Contains("vertical_fov = 92", StringComparison.Ordinal) &&
+              upgradedCfg.Contains("shadows = 2", StringComparison.Ordinal) &&
+              upgradedSaveCfg == upgradedCfg,
+              "UltrakillRuntimeProfile.SyncEngineFiles(true) heals v2.2.0 lod_selection_multiplier = 0.6 once from SHA-256-verified originals/ while keeping player FOV changes");
+
+        // Subsequent player LOD edits (e.g. 1.2 or even 0.6) after migration MUST survive later SyncEngineFiles(true) calls!
+        var playerEditedLod12 = upgradedCfg.Replace("lod_selection_multiplier = 1.5", "lod_selection_multiplier = 1.2", StringComparison.Ordinal);
+        await File.WriteAllTextAsync(userSettingsPath, playerEditedLod12);
+        bool resyncAfter12 = UltrakillRuntimeProfile.SyncEngineFiles(installRoot, enableUltrakill: true);
+        var afterResync12 = await File.ReadAllTextAsync(userSettingsPath);
+        var playerEditedLod06 = afterResync12.Replace("lod_selection_multiplier = 1.2", "lod_selection_multiplier = 0.6", StringComparison.Ordinal);
+        await File.WriteAllTextAsync(userSettingsPath, playerEditedLod06);
+        bool resyncAfter06 = UltrakillRuntimeProfile.SyncEngineFiles(installRoot, enableUltrakill: true);
+        var afterResync06 = await File.ReadAllTextAsync(userSettingsPath);
+        check(resyncAfter12 && resyncAfter06 &&
+              afterResync12.Contains("lod_selection_multiplier = 1.2", StringComparison.Ordinal) &&
+              afterResync06.Contains("lod_selection_multiplier = 0.6", StringComparison.Ordinal),
+              "Post-migration player edits to lod_selection_multiplier (1.2 and 0.6) are preserved across subsequent SyncEngineFiles(true) runs");
 
         // Disarm -> restores byte-exact originals!
         bool restored = UltrakillRuntimeProfile.SyncEngineFiles(installRoot, enableUltrakill: false);
@@ -364,7 +403,7 @@ internal static class UltrakillPerfTests
             squidSkin: "mixed-covenant", deathTrooperVoice: false, hostTheaterPreset: "clone-wars");
         var readyLine = ForgeTacticalCopy.ReadyDetail("clonedivers", firstLaunch: false, hostTheaterPreset: "clone-wars");
         var discord = DiscordReportFormatter.Format(
-            appVersion: AppInfo.Version, squadMatchCode: "r13-1234", mode: "clonedivers", enemySkin: "mixed-droids",
+            appVersion: AppInfo.Version, squadMatchCode: "r14-1234", mode: "clonedivers", enemySkin: "mixed-droids",
             covenant: true, deltaSquad: true, performanceTier: "auto", packTexture: "full", hardware: demoHw,
             installRoot: @"D:\HellForge", triage: null, redactUserPaths: true, squidSkin: "mixed-covenant",
             deathTrooperVoice: false, hostTheaterPreset: "clone-wars");
@@ -374,5 +413,165 @@ internal static class UltrakillPerfTests
               discord.Contains("· L12 ULTRAKILL", StringComparison.Ordinal) &&
               discord.Split('\n').Length is >= DiscordReportFormatter.MinLineCount and <= DiscordReportFormatter.MaxLineCount,
               "ForgeTacticalCopy & DiscordReportFormatter surface Level 12 ULTRAKILL Clone Wars status within bounded line limits");
+    }
+
+    static async Task TestV221DefaultTheaterAndDiskReclaimAsync(string dir, Action<bool, string> check)
+    {
+        Directory.CreateDirectory(dir);
+
+        // 1. Default Clone Wars migration for pre-v2.2.1 configs vs preserved v2.2.1+ 'standard' choice
+        var freshPath = Path.Combine(dir, "fresh-v221", "hellforge.json");
+        var fresh = HellForgePreferences.Load(freshPath);
+        check(fresh.HostTheaterPreset == "clone-wars" && fresh.HostTheaterDefaultVersion == 2,
+            "Brand-new HellForgePreferences defaults HostTheaterPreset to 'clone-wars' (HostTheaterDefaultVersion=2)");
+
+        var pre221Path = Path.Combine(dir, "pre221-hellforge.json");
+        await File.WriteAllTextAsync(pre221Path, """{"Format":1,"Mode":"empire","HostTheaterPreset":"standard"}""");
+        var migrated = HellForgePreferences.Load(pre221Path);
+        check(migrated.HostTheaterPreset == "clone-wars" && migrated.HostTheaterDefaultVersion == 2,
+            "Pre-v2.2.1 hellforge.json without HostTheaterDefaultVersion migrates 'standard' once to 'clone-wars'");
+
+        migrated.HostTheaterPreset = "standard";
+        migrated.Save(pre221Path);
+        var preservedStd = HellForgePreferences.Load(pre221Path);
+        check(preservedStd.HostTheaterPreset == "standard" && preservedStd.HostTheaterDefaultVersion == 2,
+            "v2.2.1+ hellforge.json with HostTheaterDefaultVersion=2 preserves an explicit user switch back to 'standard'");
+
+        // 2. ForgeDiskManager reclaims 'applied' / 'restored' backups, '.json.retired-*' records, and 'gameplay-*' backups
+        //    while strictly protecting 'pending' transaction backups and failing closed on corrupt JSON!
+        var prevRunning = Game.IsRunningCheck;
+        try
+        {
+            Game.IsRunningCheck = () => false;
+            var root = Path.Combine(dir, "disk-reclaim-case", "HellForge");
+            var cache = Path.Combine(dir, "disk-reclaim-case", "Clonedivers-HellForge-cache");
+            var backupsDir = Path.Combine(cache, "backups");
+            var txDir = Path.Combine(cache, "transactions");
+            var exportsDir = Path.Combine(cache, "exports");
+            Directory.CreateDirectory(Path.Combine(root, "mods"));
+            Directory.CreateDirectory(backupsDir);
+            Directory.CreateDirectory(txDir);
+            Directory.CreateDirectory(exportsDir);
+
+            var appliedBackup = Path.Combine(backupsDir, "20261127-053558-6fe594ee04ce4c07908ebe416df3b3aa");
+            Directory.CreateDirectory(appliedBackup);
+            await File.WriteAllBytesAsync(Path.Combine(appliedBackup, "payload.bin"), new byte[16384]);
+            await File.WriteAllTextAsync(Path.Combine(appliedBackup, "outcome.json"), """{"outcome":"applied","utc":"2026-11-27T05:36:00Z"}""");
+            await File.WriteAllTextAsync(Path.Combine(txDir, "abc.json"),
+                JsonSerializer.Serialize(new { Root = root, Backup = appliedBackup, State = "applied" }));
+
+            var pendingBackup = Path.Combine(backupsDir, "20261127-053900-11111111111111111111111111111111");
+            Directory.CreateDirectory(pendingBackup);
+            await File.WriteAllBytesAsync(Path.Combine(pendingBackup, "payload.bin"), new byte[8192]);
+            await File.WriteAllTextAsync(Path.Combine(pendingBackup, "outcome.json"), """{"outcome":"applied","utc":"2026-11-27T05:39:00Z"}""");
+            await File.WriteAllTextAsync(Path.Combine(txDir, "pending.json"),
+                JsonSerializer.Serialize(new { Root = root, Backup = pendingBackup, State = "pending" }));
+
+            var retiredPendingBackup = Path.Combine(backupsDir, "gameplay-22222222222222222222222222222222");
+            Directory.CreateDirectory(retiredPendingBackup);
+            await File.WriteAllBytesAsync(Path.Combine(retiredPendingBackup, "old.zip"), new byte[4096]);
+            await File.WriteAllTextAsync(Path.Combine(txDir, "abc.gameplay.json.retired-deadbeef"),
+                JsonSerializer.Serialize(new { Root = root, Backup = retiredPendingBackup, State = "pending" }));
+
+            var unattestedGameplayBackup = Path.Combine(backupsDir, "gameplay-25252525252525252525252525252525");
+            Directory.CreateDirectory(unattestedGameplayBackup);
+            await File.WriteAllBytesAsync(Path.Combine(unattestedGameplayBackup, "unattested.zip"), new byte[2048]);
+
+            var completedGameplayBackup = Path.Combine(backupsDir, "gameplay-29292929292929292929292929292929");
+            Directory.CreateDirectory(completedGameplayBackup);
+            await File.WriteAllBytesAsync(Path.Combine(completedGameplayBackup, "done.zip"), new byte[4096]);
+            await File.WriteAllTextAsync(Path.Combine(txDir, "done.gameplay.json"),
+                JsonSerializer.Serialize(new { Root = root, Backup = completedGameplayBackup, State = "applied" }));
+
+            var analysis = ForgeDiskManager.Analyze(root);
+            check(analysis.ReclaimableBytes >= 16384 + 4096 && analysis.ReclaimableBytes < 16384 + 4096 + 4096,
+                "ForgeDiskManager.Analyze counts 'State':'applied' pack & gameplay backups as reclaimable while excluding retired 'pending' & unattested gameplay backups");
+
+            var freed = ForgeDiskManager.CleanSafeFilesSync(root);
+            check(freed >= 16384 + 4096 &&
+                  !Directory.Exists(appliedBackup) &&
+                  !Directory.Exists(completedGameplayBackup) &&
+                  Directory.Exists(retiredPendingBackup) &&
+                  Directory.Exists(unattestedGameplayBackup) &&
+                  Directory.Exists(pendingBackup),
+                "ForgeDiskManager.CleanSafeFilesSync reclaims 'applied' pack & gameplay backups while strictly protecting active 'pending', retired 'pending', and unattested gameplay backups");
+
+            // Corrupt retired tx JSON ALSO fails closed on backups/
+            var survivedOnCorrupt = Path.Combine(backupsDir, "20261127-054000-33333333333333333333333333333333");
+            Directory.CreateDirectory(survivedOnCorrupt);
+            await File.WriteAllBytesAsync(Path.Combine(survivedOnCorrupt, "payload.bin"), new byte[4096]);
+            await File.WriteAllTextAsync(Path.Combine(survivedOnCorrupt, "outcome.json"), """{"outcome":"applied"}""");
+            var corruptTx = Path.Combine(txDir, "corrupt.gameplay.json.retired-bad");
+            await File.WriteAllTextAsync(corruptTx, "{corrupt-json");
+            ForgeDiskManager.CleanSafeFilesSync(root);
+            check(Directory.Exists(survivedOnCorrupt),
+                "ForgeDiskManager fails closed on backups/ when an active or retired transaction record is corrupt");
+            File.Delete(corruptTx);
+            File.Delete(Path.Combine(txDir, "abc.gameplay.json.retired-deadbeef"));
+            File.Delete(Path.Combine(txDir, "pending.json"));
+
+            // 3. EnsureStagingAndInstallCapacity reclaims trapped 'applied' backup + unpreserved export without double-counting ExportReserve
+            var trappedBackup = Path.Combine(backupsDir, "20261127-054500-44444444444444444444444444444444");
+            Directory.CreateDirectory(trappedBackup);
+            await File.WriteAllBytesAsync(Path.Combine(trappedBackup, "trapped.bin"), new byte[32768]);
+            await File.WriteAllTextAsync(Path.Combine(trappedBackup, "outcome.json"), """{"outcome":"applied"}""");
+            await File.WriteAllTextAsync(Path.Combine(txDir, "trapped.json"),
+                JsonSerializer.Serialize(new { Root = root, Backup = trappedBackup, State = "applied" }));
+
+            var sampleBytes = Encoding.UTF8.GetBytes("empire-pack-payload-bytes");
+            var sampleSha = Convert.ToHexString(SHA256.HashData(sampleBytes)).ToLowerInvariant();
+            var sampleSel = new HellForgePack.Selection("empire", "full", "2026.11.27-r54", HellForgePack.SupportedBuild, new string('a', 64),
+                new() { ["droids"] = true }, [new PackFile { Name = "9ba626afa44a3aa3.patch_1000", Size = sampleBytes.Length, Sha256 = sampleSha }]);
+
+            var staleExport = Path.Combine(exportsDir, "clonedivers-" + new string('b', 32));
+            Directory.CreateDirectory(staleExport);
+            await File.WriteAllBytesAsync(Path.Combine(staleExport, "9ba626afa44a3aa3.patch_0"), new byte[16384]);
+            await File.WriteAllTextAsync(Path.Combine(staleExport, HellForgePack.ReceiptName),
+                JsonSerializer.Serialize(new HellForgePack.Receipt
+                {
+                    Selection = new HellForgePack.Selection("clonedivers", "full", "2026.11.27-r25", HellForgePack.SupportedBuild, new string('c', 64),
+                        new() { ["droids"] = true }, [])
+                }, HellForgePack.Json));
+
+            var targetExport = Path.Combine(exportsDir, "empire-" + new string('e', 32));
+            var plan = new HellForgePack.Plan(sampleSel, targetExport, new());
+
+            // Simulate tight free space: below required BEFORE reclaim, above required AFTER trappedBackup + staleExport are deleted!
+            long singleReserveRequired = checked(plan.Bytes + 65536L + HellForgePack.ExportReserve + (plan.Bytes * 2));
+            long simulatedBaseFree = singleReserveRequired - 20000L; // Needs >= 20,000 B reclaimed; trappedBackup (32,768) + staleExport (16,384) = 49,152 B!
+            long? DynamicFree(string _)
+            {
+                long stillOccupying = (Directory.Exists(trappedBackup) ? 32768L : 0L) + (Directory.Exists(staleExport) ? 16384L : 0L);
+                return simulatedBaseFree + (49152L - stillOccupying);
+            }
+
+            PackArtifactEngine.EnsureStagingAndInstallCapacity(root, cache, plan, existingInstalledPackBytes: 0, DynamicFree);
+            check(!Directory.Exists(trappedBackup) && !Directory.Exists(staleExport),
+                "PackArtifactEngine.EnsureStagingAndInstallCapacity reclaims 'State':'applied' backups and unpreserved launcher exports on low-space drives without double-counting ExportReserve");
+
+            // 4. callerOwnedLockPath allows in-flight InstallPackAsync/PrunePackStorage to clean while holding its own lock, yet blocks on foreign locks!
+            var selfLockBackup = Path.Combine(backupsDir, "20261127-055000-55555555555555555555555555555555");
+            Directory.CreateDirectory(selfLockBackup);
+            await File.WriteAllBytesAsync(Path.Combine(selfLockBackup, "payload.bin"), new byte[8192]);
+            await File.WriteAllTextAsync(Path.Combine(selfLockBackup, "outcome.json"), """{"outcome":"applied"}""");
+            var myLock = Path.Combine(txDir, "self.json.lock");
+            var foreignLock = Path.Combine(txDir, "foreign.json.lock");
+            using (new FileStream(myLock, FileMode.OpenOrCreate, FileAccess.ReadWrite, FileShare.None))
+            {
+                using (new FileStream(foreignLock, FileMode.OpenOrCreate, FileAccess.ReadWrite, FileShare.None))
+                {
+                    ForgeDiskManager.CleanSafeFilesSync(root, callerOwnedLockPath: myLock);
+                    check(Directory.Exists(selfLockBackup),
+                        "ForgeDiskManager skips cleanup when another root's transaction lock is held alongside callerOwnedLockPath");
+                }
+                ForgeDiskManager.CleanSafeFilesSync(root, callerOwnedLockPath: myLock);
+                check(!Directory.Exists(selfLockBackup),
+                    "ForgeDiskManager reclaims completed backups when only callerOwnedLockPath is held");
+            }
+        }
+        finally
+        {
+            Game.IsRunningCheck = prevRunning;
+        }
     }
 }

@@ -97,7 +97,8 @@ internal sealed class PlayerCommands
                 var prevUltrakill = HostMutatorConfig.IsUltrakillTheater(selection.HostTheaterPreset, selection.HostChaosIntensity);
                 var values = args.Skip(1).Chunk(2).ToDictionary(p => p[0], p => p[1], StringComparer.Ordinal);
                 var requested = new HellForgePreferences { Mode = values["--mode"], DeltaSquad = values["--delta"] == "yes",
-                    Texture = values["--texture"], EnemySkin = values["--droids"] == "yes" ? "all-droids" : "native-automatons", Covenant = values["--covenant"] == "yes" };
+                    Texture = values["--texture"], EnemySkin = values["--droids"] == "yes" ? "all-droids" : "native-automatons", Covenant = values["--covenant"] == "yes",
+                    HostTheaterPreset = "standard" };
                 if (values.TryGetValue("--enemy-skin", out var skin)) requested.EnemySkin = skin;
                 if (values.TryGetValue("--squid-skin", out var squid)) requested.SquidSkin = squid;
                 if (values.TryGetValue("--deathtrooper", out var dt)) requested.DeathTrooperVoice = dt == "yes";
