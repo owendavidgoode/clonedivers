@@ -77,31 +77,57 @@ public static class HellForgePack
         return new(mode, texture, pack.Version, SupportedBuild, manifestSha, options, files);
     }
 
-    public static Selection PinnedSelection(string mode, string texture, IReadOnlyDictionary<string, bool>? changes = null)
-    {
-        static byte[] ReadEmbeddedBytes(string name)
+    sealed record CachedPinnedManifest(Manifest Feed, string Sha256, HashSet<string> SupportedProfiles);
+    static readonly System.Collections.Concurrent.ConcurrentDictionary<string, CachedPinnedManifest> PinnedManifestCache = new(StringComparer.Ordinal);
+
+    static CachedPinnedManifest LoadCachedPinnedManifest(string resourceName) =>
+        PinnedManifestCache.GetOrAdd(resourceName, static name =>
         {
             using var stream = typeof(HellForgePack).Assembly.GetManifestResourceStream(name)
                 ?? throw new InvalidDataException("This launcher has no pinned HellForge pack catalog.");
             using var memory = new MemoryStream();
             stream.CopyTo(memory);
-            return memory.ToArray();
-        }
+            var bytes = memory.ToArray();
+            var sha = Convert.ToHexString(SHA256.HashData(bytes)).ToLowerInvariant();
+            var feed = Manifest.Parse(System.Text.Encoding.UTF8.GetString(bytes));
+            var profiles = feed.Pack != null
+                ? PackProfiles.Supported(feed.Pack).Select(p => p.Id).ToHashSet(StringComparer.OrdinalIgnoreCase)
+                : new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+            return new CachedPinnedManifest(feed, sha, profiles);
+        });
+
+    public static Selection PinnedSelection(string mode, string texture, IReadOnlyDictionary<string, bool>? changes = null)
+    {
         var resource = mode == "empire" ? "Clonedivers.HellForge.Empire.Manifest.json" : "Clonedivers.HellForge.Manifest.json";
-        var primary = ReadEmbeddedBytes(resource);
-        byte[]? fallback = null;
+        var primary = LoadCachedPinnedManifest(resource);
+        CachedPinnedManifest? fallback = null;
         if (mode == "empire" && texture is "lighter" or "reduced1024" or "reduced512" or "potato256")
         {
             var alt = texture is "reduced512" or "potato256" && typeof(HellForgePack).Assembly.GetManifestResourceInfo("Clonedivers.HellForge.Empire.Potato.Manifest.json") != null
                 ? "Clonedivers.HellForge.Empire.Potato.Manifest.json"
                 : typeof(HellForgePack).Assembly.GetManifestResourceInfo("Clonedivers.HellForge.Empire.Lighter.Manifest.json") != null
                     ? "Clonedivers.HellForge.Empire.Lighter.Manifest.json" : null;
-            if (alt != null) fallback = ReadEmbeddedBytes(alt);
+            if (alt != null) fallback = LoadCachedPinnedManifest(alt);
         }
-        return ResolveSelection(primary, fallback, mode, texture, changes);
+        return ResolveSelectionFromFeeds(primary.Feed, primary.Sha256, fallback?.Feed, fallback?.Sha256, mode, texture, changes);
     }
 
     public static Selection ResolveSelection(byte[] bytes, byte[]? lighterFallbackBytes, string mode, string texture, IReadOnlyDictionary<string, bool>? changes = null)
+    {
+        var primaryFeed = Manifest.Parse(System.Text.Encoding.UTF8.GetString(bytes));
+        var primarySha = Convert.ToHexString(SHA256.HashData(bytes)).ToLowerInvariant();
+        Manifest? fallbackFeed = null;
+        string? fallbackSha = null;
+        if (lighterFallbackBytes != null)
+        {
+            fallbackFeed = Manifest.Parse(System.Text.Encoding.UTF8.GetString(lighterFallbackBytes));
+            fallbackSha = Convert.ToHexString(SHA256.HashData(lighterFallbackBytes)).ToLowerInvariant();
+        }
+        return ResolveSelectionFromFeeds(primaryFeed, primarySha, fallbackFeed, fallbackSha, mode, texture, changes);
+    }
+
+    static Selection ResolveSelectionFromFeeds(Manifest primaryFeed, string primarySha, Manifest? fallbackFeed, string? fallbackSha,
+        string mode, string texture, IReadOnlyDictionary<string, bool>? changes)
     {
         var requested = changes != null ? new Dictionary<string, bool>(changes, StringComparer.OrdinalIgnoreCase) : new Dictionary<string, bool>(StringComparer.OrdinalIgnoreCase);
         if (mode == "empire")
@@ -119,21 +145,19 @@ public static class HellForgePack
         {
             requested.Remove("deathtrooper");
         }
-        var feed = Manifest.Parse(System.Text.Encoding.UTF8.GetString(bytes));
+        var feed = primaryFeed;
+        var activeSha = primarySha;
         static bool HasProfile(PackManifest candidate, string id) =>
             PackProfiles.Supported(candidate).Any(p => string.Equals(p.Id, id, StringComparison.OrdinalIgnoreCase));
-        if (mode == "empire" && texture is "lighter" or "reduced1024" or "reduced512" or "potato256" && lighterFallbackBytes != null &&
+        if (mode == "empire" && texture is "lighter" or "reduced1024" or "reduced512" or "potato256" && fallbackFeed != null && fallbackSha != null &&
             !HasProfile(feed.Pack!, texture) &&
             !(texture == "reduced1024" && HasProfile(feed.Pack!, "lighter")) &&
             !(texture == "potato256" && HasProfile(feed.Pack!, "reduced512")))
         {
-            bytes = lighterFallbackBytes;
-            feed = Manifest.Parse(System.Text.Encoding.UTF8.GetString(bytes));
+            feed = fallbackFeed;
+            activeSha = fallbackSha;
         }
         var pack = feed.Pack!;
-        // Resolve v2.0/v2.1 texture, enemy-skin, squid-skin, and Death Trooper voice selections backwards-compatibly
-        // against r47/r19 and r48/r20 manifests (reduced1024 -> lighter, potato256 -> reduced512 -> lighter,
-        // mixed-covenant -> covenant, and Empire deathtrooper graceful no-op when absent) until r49/r21 land.
         var resolvedTexture = texture;
         if (!HasProfile(pack, resolvedTexture))
         {
@@ -170,17 +194,29 @@ public static class HellForgePack
         {
             requested["covenant"] = false;
         }
-        // Prune Empire's conditional rows before selection so its fixed layers stay at 1000+.
+        // Prune Empire's conditional rows on a non-mutating PackManifest copy so cached manifests stay 100% immutable!
         if (mode == "empire")
         {
             bool RawEnabled(string id) => PackExtras.AlwaysOn(pack, id) || requested.GetValueOrDefault(id, pack.Options.FirstOrDefault(o => o.Id == id)?.Default ?? false);
             bool Enabled(string id) => RawEnabled(id)
                 || (string.Equals(id, "droids", StringComparison.OrdinalIgnoreCase) && (RawEnabled("mixed-droids") || RawEnabled("mixed_droids")))
                 || (string.Equals(id, "covenant", StringComparison.OrdinalIgnoreCase) && (RawEnabled("mixed-covenant") || RawEnabled("mixed_covenant")));
-            pack.Files = pack.Files.Where(f => PackProfiles.Includes(f, mode, resolvedTexture) &&
+            var prunedFiles = pack.Files.Where(f => PackProfiles.Includes(f, mode, resolvedTexture) &&
                 (f.Option == null || Enabled(f.Option)) && (f.UnlessOption == null || !Enabled(f.UnlessOption))).ToList();
+            pack = new PackManifest
+            {
+                Version = pack.Version,
+                GameBuild = pack.GameBuild,
+                GameDepots = pack.GameDepots,
+                Status = pack.Status,
+                StatusNotes = pack.StatusNotes,
+                Options = pack.Options,
+                TextureProfiles = pack.TextureProfiles,
+                Files = prunedFiles
+            };
+            feed = new Manifest { Format = feed.Format, App = feed.App, Pack = pack };
         }
-        return Select(feed, Convert.ToHexString(SHA256.HashData(bytes)).ToLowerInvariant(), mode, resolvedTexture, requested);
+        return Select(feed, activeSha, mode, resolvedTexture, requested);
     }
 
     public static async Task<Plan> PlanAsync(Selection selection, string output, IEnumerable<string> sources,
@@ -230,39 +266,62 @@ public static class HellForgePack
                 list.Add(file.FullName);
             }
         }
-        var local = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+        var local = new System.Collections.Concurrent.ConcurrentDictionary<string, string>(StringComparer.OrdinalIgnoreCase);
         var groups = selection.Files.Where(f => f.Size > 0).DistinctBy(f => f.Sha256).GroupBy(f => f.Size).ToList();
         var totalCheckFiles = groups.Sum(g => g.Count());
         long totalCheckBytes = groups.Sum(g => g.Key * g.Count());
         int checkedFiles = 0;
         long checkedBytes = 0;
         var speed = new SpeedTracker();
-        foreach (var group in groups)
-        {
-            var hashes = group.Select(f => f.Sha256).ToHashSet(StringComparer.OrdinalIgnoreCase);
-            foreach (var path in bySize.GetValueOrDefault(group.Key) ?? [])
+        var progressGate = new object();
+        string? hashCacheFile = string.Equals(exports.Name, "exports", PlatformPaths.Comparison) && exports.Parent != null
+            ? Path.Combine(exports.Parent.FullName, PackArtifactEngine.HashCacheFileName)
+            : null;
+        var hashCache = PackArtifactEngine.LoadHashCache(hashCacheFile);
+
+        await Parallel.ForEachAsync(
+            groups,
+            new ParallelOptions { MaxDegreeOfParallelism = PackArtifactEngine.DefaultParallelism, CancellationToken = ct },
+            async (group, token) =>
             {
-                var hash = await HashAsync(path, ct);
-                if (hashes.Contains(hash) && local.TryAdd(hash, path))
+                var hashes = group.Select(f => f.Sha256).ToHashSet(StringComparer.OrdinalIgnoreCase);
+                foreach (var path in bySize.GetValueOrDefault(group.Key) ?? [])
                 {
-                    checkedFiles++;
-                    checkedBytes += group.Key;
-                    var (rate, eta) = speed.Update(checkedBytes, totalCheckBytes);
-                    richProgress?.Report(new("Verifying cached files", $"Reusing {local.Count} local files", checkedFiles, totalCheckFiles, checkedBytes, totalCheckBytes, rate, eta, CanCancel: true));
+                    var hash = await PackArtifactEngine.HashWithMetadataCacheAsync(path, hashCache, token);
+                    if (hashes.Contains(hash) && local.TryAdd(hash, path))
+                    {
+                        var nowFiles = Interlocked.Increment(ref checkedFiles);
+                        var nowBytes = Interlocked.Add(ref checkedBytes, group.Key);
+                        if (richProgress != null)
+                        {
+                            lock (progressGate)
+                            {
+                                var (rate, eta) = speed.Update(nowBytes, totalCheckBytes);
+                                richProgress.Report(new("Verifying cached files", $"Reusing {local.Count} local files", nowFiles, totalCheckFiles, nowBytes, totalCheckBytes, rate, eta, CanCancel: true));
+                            }
+                        }
+                    }
+                    if (hashes.All(local.ContainsKey)) break;
                 }
-                if (hashes.All(local.ContainsKey)) break;
-            }
-            // Account for uncached files in this size group so the bar advances smoothly to 100%.
-            var missed = hashes.Count(h => !local.ContainsKey(h));
-            if (missed > 0)
-            {
-                checkedFiles += missed;
-                checkedBytes += group.Key * missed;
-                var (rate, eta) = speed.Update(checkedBytes, totalCheckBytes);
-                richProgress?.Report(new("Verifying cached files", $"Checked {checkedFiles}/{totalCheckFiles} files ({local.Count} cached)", checkedFiles, totalCheckFiles, checkedBytes, totalCheckBytes, rate, eta, CanCancel: true));
-            }
-        }
-        return new(selection, output, local);
+                // Account for uncached files in this size group so the bar advances smoothly to 100%.
+                var missed = hashes.Count(h => !local.ContainsKey(h));
+                if (missed > 0)
+                {
+                    var nowFiles = Interlocked.Add(ref checkedFiles, missed);
+                    var nowBytes = Interlocked.Add(ref checkedBytes, group.Key * missed);
+                    if (richProgress != null)
+                    {
+                        lock (progressGate)
+                        {
+                            var (rate, eta) = speed.Update(nowBytes, totalCheckBytes);
+                            richProgress.Report(new("Verifying cached files", $"Checked {nowFiles}/{totalCheckFiles} files ({local.Count} cached)", nowFiles, totalCheckFiles, nowBytes, totalCheckBytes, rate, eta, CanCancel: true));
+                        }
+                    }
+                }
+            });
+
+        PackArtifactEngine.SaveHashCache(hashCacheFile, hashCache);
+        return new(selection, output, new Dictionary<string, string>(local, StringComparer.OrdinalIgnoreCase));
     }
 
     static IEnumerable<string> CompletedBackupPacks(DirectoryInfo backups)
@@ -467,9 +526,20 @@ public static class HellForgePack
                     richProgress.Report(new(stage, subStep, done + 1, totalFiles, totalDone, plan.Bytes, rate, eta, CanCancel: true));
                 }
             }
-            if (file.Size == 0) await File.WriteAllBytesAsync(target, [], ct);
-            else if (exported.TryGetValue(file.Sha256, out var prior)) await CopyLocalAsync(prior, target, file.Size, ct, Report);
-            else if (hasLocal && source != null) await CopyLocalAsync(source, target, file.Size, ct, Report);
+            string actualSha;
+            if (file.Size == 0)
+            {
+                await File.WriteAllBytesAsync(target, [], ct);
+                actualSha = PackFile.EmptySha;
+            }
+            else if (exported.TryGetValue(file.Sha256, out var prior))
+            {
+                actualSha = await PackArtifactEngine.CopyAndHashAsync(prior, target, file.Size, ct, Report);
+            }
+            else if (hasLocal && source != null)
+            {
+                actualSha = await PackArtifactEngine.CopyAndHashAsync(source, target, file.Size, ct, Report);
+            }
             else
             {
                 if (!download)
@@ -488,11 +558,13 @@ public static class HellForgePack
                 if (downloadWithProgress != null) await downloadWithProgress(file, cached, new ByteProgress(p => Report(p.Done)), ct);
                 else if (downloadFile == null) await Pack.DownloadAsync(file, cached, new ByteProgress(p => Report(p.Done)), ct);
                 else await downloadFile(file, cached, ct);
-                if (new FileInfo(cached).Length != file.Size || !string.Equals(await HashAsync(cached, ct), file.Sha256, StringComparison.OrdinalIgnoreCase))
+                if (new FileInfo(cached).Length != file.Size)
                     throw new InvalidDataException($"Download hash mismatch: {file.Name}");
-                await CopyLocalAsync(cached, target, file.Size, ct);
+                actualSha = await PackArtifactEngine.CopyAndHashAsync(cached, target, file.Size, ct);
+                if (!string.Equals(actualSha, file.Sha256, StringComparison.OrdinalIgnoreCase))
+                    throw new InvalidDataException($"Download hash mismatch: {file.Name}");
             }
-            if (new FileInfo(target).Length != file.Size || !string.Equals(await HashAsync(target, ct), file.Sha256, StringComparison.OrdinalIgnoreCase))
+            if (new FileInfo(target).Length != file.Size || !string.Equals(actualSha, file.Sha256, StringComparison.OrdinalIgnoreCase))
                 throw new InvalidDataException($"Export hash mismatch: {file.Name}");
             writing(null); exported.TryAdd(file.Sha256, target);
             Report(file.Size); completed += file.Size;
@@ -676,26 +748,10 @@ public static class HellForgePack
 
     internal static async Task CopyLocalAsync(string source, string target, long expected, CancellationToken ct, Action<long>? bytes = null)
     {
-        FileSafety.RejectLink(source);
-        await using var input = new FileStream(source, FileMode.Open, FileAccess.Read, FileShare.Read, 128 * 1024, FileOptions.Asynchronous | FileOptions.SequentialScan);
-        if (input.Length != expected) throw new InvalidDataException("Reusable pack content changed size; prepare again.");
-        await using var output = new FileStream(target, FileMode.CreateNew, FileAccess.Write, FileShare.None, 128 * 1024, FileOptions.Asynchronous | FileOptions.SequentialScan);
-        await CopyExactAsync(input, output, expected, ct, bytes);
+        _ = await PackArtifactEngine.CopyAndHashAsync(source, target, expected, ct, bytes);
     }
-    internal static async Task CopyExactAsync(Stream input, Stream output, long expected, CancellationToken ct, Action<long>? bytes = null)
-    {
-        var buffer = new byte[128 * 1024]; long total = 0;
-        int count;
-        while ((count = await input.ReadAsync(buffer.AsMemory(), ct)) > 0)
-        {
-            ct.ThrowIfCancellationRequested();
-            if (count > expected - total) throw new InvalidDataException("Pack content exceeds catalog size.");
-            await output.WriteAsync(buffer.AsMemory(0, count), ct);
-            total += count;
-            bytes?.Invoke(total);
-        }
-        if (total != expected) throw new InvalidDataException("Pack content is shorter than its catalog size.");
-    }
+    internal static Task CopyExactAsync(Stream input, Stream output, long expected, CancellationToken ct, Action<long>? bytes = null) =>
+        PackArtifactEngine.CopyExactStreamAsync(input, output, expected, ct, bytes);
 
     sealed record VerifyStamp(string Folder, string Identity, long VerifiedUtcTicks, long ReceiptSize, long ReceiptTicks, long ReceiptCreationTicks,
         long ManifestSize, long ManifestTicks, long ManifestCreationTicks, Dictionary<string, VerifyFileStamp> Files);
@@ -742,25 +798,8 @@ public static class HellForgePack
     }
     static async Task VerifyContentAsync(string folder, Selection expected, IProgress<(long Done, long Total)>? bytes, CancellationToken ct)
     {
-        // Compare to the trusted catalog, not only the mutable receipt.
-        long total = expected.Files.Sum(f => f.Size);
-        long completed = 0;
-        bytes?.Report((0, total));
-        foreach (var file in expected.Files)
-        {
-            var path = FileSafety.Child(folder, file.Name);
-            FileSafety.RejectLink(path);
-            if (!File.Exists(path) || new FileInfo(path).Length != file.Size)
-                throw new InvalidDataException($"Pack file changed: {file.Name}. Prepare the pack again.");
-            long baseDone = completed;
-            var actual = bytes != null
-                ? await Pack.Sha256Async(path, new SyncProgress<long>(done => bytes.Report((baseDone + Math.Clamp(done, 0, file.Size), total))), ct)
-                : await HashAsync(path, ct);
-            if (!string.Equals(actual, file.Sha256, StringComparison.OrdinalIgnoreCase))
-                throw new InvalidDataException($"Pack file changed: {file.Name}. Prepare the pack again.");
-            completed += file.Size;
-            bytes?.Report((completed, total));
-        }
+        // Compare to the trusted catalog, not only the mutable receipt, using bounded-parallel 1 MiB SequentialScan reads.
+        await PackArtifactEngine.VerifyPackFilesAsync(folder, expected.Files, bytes, ct);
         await VerifyFolderMetadataAsync(folder, expected, ct);
     }
 
@@ -817,7 +856,7 @@ public static class HellForgePack
         }
     }
 
-    static void SaveVerifiedLayout(string folder, Selection expected, string verifyCachePath)
+    internal static void SaveVerifiedLayout(string folder, Selection expected, string verifyCachePath)
     {
         try
         {
@@ -860,9 +899,6 @@ public static class HellForgePack
         }
     }
     static bool Within(string path, string root) => path.Equals(root, StringComparison.OrdinalIgnoreCase) || path.StartsWith(Path.TrimEndingDirectorySeparator(root) + Path.DirectorySeparatorChar, StringComparison.OrdinalIgnoreCase);
-    public static async Task<string> HashAsync(string path, CancellationToken ct = default)
-    {
-        await using var stream = File.OpenRead(path);
-        return Convert.ToHexString(await SHA256.HashDataAsync(stream, ct)).ToLowerInvariant();
-    }
+    public static Task<string> HashAsync(string path, CancellationToken ct = default) =>
+        PackArtifactEngine.HashFileAsync(path, ct);
 }

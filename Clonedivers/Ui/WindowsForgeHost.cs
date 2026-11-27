@@ -216,7 +216,11 @@ public sealed class WindowsForgeHost : IForgeUiHost
         try
         {
             if (Directory.Exists(installRoot))
-                HostMutatorConfig.Write(installRoot, preferences.ToHostMutatorOptions());
+            {
+                var opts = preferences.ToHostMutatorOptions();
+                HostMutatorConfig.Write(installRoot, opts);
+                UltrakillRuntimeProfile.SyncEngineFiles(installRoot, opts.IsUltrakillTheater);
+            }
         }
         catch (Exception e) when (e is IOException or UnauthorizedAccessException or InvalidDataException or ArgumentException) { }
     }
@@ -322,7 +326,7 @@ public sealed class WindowsForgeHost : IForgeUiHost
             {
                 var cacheRoot = ForgeDiskManager.GetCacheRoot(installRoot);
                 var folders = PackSizeEstimator.CollectSearchFolders(installRoot, cacheRoot, GameLocator.AutoDetect());
-                estimate = PackSizeEstimator.Estimate(isRegular, selection, folders, applied, cacheRoot);
+                estimate = PackSizeEstimator.EstimateMemoized(isRegular, selection, folders, applied, cacheRoot);
             }
             catch
             {
@@ -353,7 +357,9 @@ public sealed class WindowsForgeHost : IForgeUiHost
             && lastStatus.Multiplayer && lastStatus.LocalBackend;
     }
 
-    bool NeedsGameplaySetup() => lastMods != null && HellForgePreset.Problem(lastMods, checkOrder: true) != null;
+    bool NeedsGameplaySetup() =>
+        lastMods != null &&
+        HellForgePreset.Problem(lastMods, checkOrder: true, ultrakillTheaterActive: HostMutatorConfig.IsUltrakillTheater(preferences.HostTheaterPreset, preferences.HostChaosIntensity)) != null;
     bool NeedsModeSetup() => !IsSelectionAppliedOnDisk();
 
     static string SteamUser()
@@ -604,7 +610,8 @@ public sealed class WindowsForgeHost : IForgeUiHost
             SelfInstallBanner: ResolveSelfInstallBanner(),
             MinimizeToTray: preferences.MinimizeToTray,
             SquidSkin: preferences.SquidSkin,
-            DeathTrooperVoice: preferences.DeathTrooperVoice);
+            DeathTrooperVoice: preferences.DeathTrooperVoice,
+            HostTheaterPreset: preferences.HostTheaterPreset);
     }
 
     (string Badge, ForgeHeroTone BadgeTone, string Headline, string Detail, string Cta, bool Enabled, ForgeHeroTone CtaTone, string? Secondary) ResolveHomePresentation()
@@ -743,7 +750,7 @@ public sealed class WindowsForgeHost : IForgeUiHost
                 playLabel, true, ForgeHeroTone.Ready, null);
 
         // #21 Crisp, understated faction-aware tactical ready line
-        var readyDetail = lastStatus.LastNotice ?? ForgeTacticalCopy.ReadyDetail(preferences.Mode, firstLaunch: !lastStatus.HasRun);
+        var readyDetail = lastStatus.LastNotice ?? ForgeTacticalCopy.ReadyDetail(preferences.Mode, firstLaunch: !lastStatus.HasRun, hostTheaterPreset: preferences.HostTheaterPreset);
         return ("Forge 0.4.0 · Ready", ForgeHeroTone.Ready, "Ready to play", readyDetail, playLabel, true, ForgeHeroTone.Ready, null);
     }
 
@@ -805,20 +812,32 @@ public sealed class WindowsForgeHost : IForgeUiHost
         return Task.CompletedTask;
     }
 
-    public Task UpdateHostMutatorsAsync(string chaosIntensity, string heavySeaf, bool fasterCorpseCleanup)
+    public async Task UpdateHostMutatorsAsync(string chaosIntensity, string heavySeaf, bool fasterCorpseCleanup, string? theaterPreset = null)
     {
-        if (working || lastStatus?.Running == true) return Task.CompletedTask;
+        if (working || lastStatus?.Running == true) return;
         try
         {
+            var prevUltrakill = HostMutatorConfig.IsUltrakillTheater(preferences.HostTheaterPreset, preferences.HostChaosIntensity);
             preferences.HostChaosIntensity = chaosIntensity;
             preferences.HostHeavySeaf = heavySeaf;
             preferences.HostFasterCorpseCleanup = fasterCorpseCleanup;
+            if (theaterPreset != null) preferences.HostTheaterPreset = theaterPreset;
             SavePrefs();
             TrySyncHostMutatorFile(preferences.InstallRoot);
+            var nowUltrakill = HostMutatorConfig.IsUltrakillTheater(preferences.HostTheaterPreset, preferences.HostChaosIntensity);
+            if (prevUltrakill != nowUltrakill && preferences.InstallRoot is { } root && !installationMissing && !IsGameProcessRunning())
+            {
+                try
+                {
+                    var client = CreateClient(root);
+                    await client.SyncUltrakillCompanionOptionsAsync(nowUltrakill, lifetime.Token);
+                    lastModsFingerprint = null;
+                }
+                catch { }
+            }
         }
         catch (Exception e) { toastNotice = "Couldn't update host rules: " + e.Message; }
         Notify();
-        return Task.CompletedTask;
     }
 
     public async Task ApplyCustomizationNowAsync()
@@ -1097,6 +1116,7 @@ public sealed class WindowsForgeHost : IForgeUiHost
 
         await InstallGameplayWithProgressAsync(client, p => SetProgress(p), ct);
         TrySyncHostMutatorFile(preferences.InstallRoot);
+        await client.SyncUltrakillCompanionOptionsAsync(HostMutatorConfig.IsUltrakillTheater(preferences.HostTheaterPreset, preferences.HostChaosIntensity), ct);
 
         if (preferences.IsRegular)
         {
@@ -1156,6 +1176,7 @@ public sealed class WindowsForgeHost : IForgeUiHost
     {
         var client = CreateClient(preferences.InstallRoot!);
         TrySyncHostMutatorFile(preferences.InstallRoot);
+        await client.SyncUltrakillCompanionOptionsAsync(HostMutatorConfig.IsUltrakillTheater(preferences.HostTheaterPreset, preferences.HostChaosIntensity), ct);
 
         if (warbondsPending)
         {
@@ -1929,7 +1950,8 @@ public sealed class WindowsForgeHost : IForgeUiHost
             triage: triage,
             redactUserPaths: true,
             squidSkin: preferences.SquidSkin,
-            deathTrooperVoice: preferences.DeathTrooperVoice);
+            deathTrooperVoice: preferences.DeathTrooperVoice,
+            hostTheaterPreset: preferences.HostTheaterPreset);
 
         var health = new List<ForgeHealthItem>
         {
@@ -1939,7 +1961,7 @@ public sealed class WindowsForgeHost : IForgeUiHost
             new("Game Copy", lastStatus?.GameCopyReady == true ? $"Build {lastStatus.Build}" : "Not ready",
                 Healthy: lastStatus?.GameCopyReady == true && lastStatus.Build == HellForgePack.SupportedBuild,
                 Warning: lastStatus == null),
-            new("Gameplay Preset", lastMods == null ? "Unknown" : NeedsGameplaySetup() ? "Needs install" : $"14/14 ({matchHash})",
+            new("Gameplay Preset", lastMods == null ? "Unknown" : NeedsGameplaySetup() ? "Needs install" : $"{HellForgeGameplayCatalog.Current.Artifacts.Count}/{HellForgeGameplayCatalog.Current.Artifacts.Count} ({matchHash})",
                 Healthy: lastMods != null && !NeedsGameplaySetup(),
                 Warning: lastMods == null),
             new("Account Sync", lastAccount?.Imported == true ? "Imported" : lastAccount?.Captured == true ? "Captured" : "Not synced",
@@ -1956,7 +1978,7 @@ public sealed class WindowsForgeHost : IForgeUiHost
         sb.AppendLine($"Installation: {installRoot ?? "Not selected"}");
         sb.AppendLine($"Disk Usage: {ForgeTacticalCopy.FormatDiskUsageSummary(disk, hasInstall)}");
         sb.AppendLine($"Selected Mode: {preferences.Mode} · EnemySkin={preferences.EnemySkin} · SquidSkin={preferences.SquidSkin} · Delta={preferences.DeltaSquad} · DeathTrooperVoice={preferences.DeathTrooperVoice} · PerfTier={preferences.PerformanceTier} · Texture={preferences.Texture}");
-        sb.AppendLine($"Host Rules: Chaos={preferences.HostChaosIntensity} · HeavySeaf={preferences.HostHeavySeaf} · FasterCorpseCleanup={preferences.HostFasterCorpseCleanup}");
+        sb.AppendLine($"Host Rules: Theater={preferences.HostTheaterPreset} · Chaos={preferences.HostChaosIntensity} · HeavySeaf={preferences.HostHeavySeaf} · FasterCorpseCleanup={preferences.HostFasterCorpseCleanup}");
         sb.AppendLine($"Hardware: {cachedHardware.GpuName} ({cachedHardware.VramGb:0.#} GB VRAM, {cachedHardware.RamGb:0.#} GB RAM)");
         sb.AppendLine($"Account: {lastAccount?.Message ?? "Not checked"}");
         sb.AppendLine($"Capture Block: {captureBlock ?? "none"}");

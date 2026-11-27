@@ -22,7 +22,7 @@ public sealed record ForgeVerifyReport(
 /// Deterministic 5-step 1-Click Verify &amp; Repair service:
 /// (1) Forge install &amp; build 25480438 check,
 /// (2) Hosts / capture cleanup check,
-/// (3) 18-mod r9 gameplay preset hash &amp; order verification/repair,
+/// (3) 18-mod gameplay preset hash &amp; order verification/repair,
 /// (4) Active pack integrity check &amp; repair,
 /// (5) Stale cache cleanup — never touching saves, profiles, or account capture data.
 /// </summary>
@@ -147,15 +147,20 @@ public static class ForgeVerifier
 
         steps.Add(new(2, "Hosts & capture cleanup", true, false, "Hosts file and capture proxy state are clean (saves & account untouched)."));
 
-        // ── Step 3/5: 18-mod r11 gameplay preset hash & order verification/repair ──
+        // ── Step 3/5: 18-mod gameplay preset hash & order verification/repair ──
+        var presetTag = SquadFingerprint.ExtractCatalogPrefix();
+        var presetCount = HellForgeGameplayCatalog.Current.Artifacts.Count;
         ct.ThrowIfCancellationRequested();
-        progress?.Report(new("Verifying gameplay preset", "Checking 18-mod r11 hashes, options, and load order…", 3, 5, CanCancel: true));
+        progress?.Report(new("Verifying gameplay preset", $"Checking {presetCount}-mod {presetTag} hashes, options, and load order…", 3, 5, CanCancel: true));
         try
         {
             var modsBefore = await client.ModsAsync(ct);
             var activeMode = prefs.IsRegular ? "regular" : prefs.PackMode;
+            var ultrakillActive = HostMutatorConfig.IsUltrakillTheater(prefs.HostTheaterPreset, prefs.HostChaosIntensity);
+            HostMutatorConfig.Write(validatedRoot, prefs.ToHostMutatorOptions());
+            UltrakillRuntimeProfile.SyncEngineFiles(validatedRoot, ultrakillActive);
             var missing = await client.MissingGameplayAsync(activeMode, ct);
-            var presetProblem = HellForgePreset.Problem(modsBefore, checkOrder: true) ?? modsBefore.HostingProblem;
+            var presetProblem = HellForgePreset.Problem(modsBefore, checkOrder: true, ultrakillTheaterActive: ultrakillActive) ?? modsBefore.HostingProblem;
 
             if (missing.Count > 0 || presetProblem != null)
             {
@@ -175,27 +180,27 @@ public static class ForgeVerifier
                 gameplayRepairedCount = Math.Max(missing.Count, 1);
 
                 var modsAfter = await client.ModsAsync(ct);
-                var afterProblem = HellForgePreset.Problem(modsAfter, checkOrder: true) ?? modsAfter.HostingProblem;
+                var afterProblem = HellForgePreset.Problem(modsAfter, checkOrder: true, ultrakillTheaterActive: ultrakillActive) ?? modsAfter.HostingProblem;
                 if (afterProblem != null)
                 {
-                    steps.Add(new(3, "Gameplay preset (r8)", false, false, afterProblem));
+                    steps.Add(new(3, $"Gameplay preset ({presetTag})", false, false, afterProblem));
                     return FailEarly(steps, afterProblem, gameplayRepairedCount);
                 }
 
-                steps.Add(new(3, "Gameplay preset (r8)", true, true,
+                steps.Add(new(3, $"Gameplay preset ({presetTag})", true, true,
                     missing.Count > 0
-                        ? $"Repaired {missing.Count} gameplay archive(s) and restored pinned r8 order & options."
-                        : "Restored pinned r8 gameplay load order, Guard Dogs options, and sharing settings."));
+                        ? $"Repaired {missing.Count} gameplay archive(s) and restored pinned {presetTag} order & options."
+                        : $"Restored pinned {presetTag} gameplay load order, Guard Dogs options, and sharing settings."));
             }
             else
             {
-                steps.Add(new(3, "Gameplay preset (r8)", true, false, "All r8 gameplay mods, hashes, options, and load order verified."));
+                steps.Add(new(3, $"Gameplay preset ({presetTag})", true, false, $"All {presetTag} gameplay mods, hashes, options, and load order verified."));
             }
         }
         catch (OperationCanceledException) { throw; }
         catch (Exception ex)
         {
-            steps.Add(new(3, "Gameplay preset (r8)", false, false, ex.Message));
+            steps.Add(new(3, $"Gameplay preset ({presetTag})", false, false, ex.Message));
             return FailEarly(steps, "Gameplay preset repair failed: " + ex.Message, gameplayRepairedCount);
         }
 
@@ -380,7 +385,7 @@ public static class ForgeVerifier
         if (packRepaired) actions.Add("repaired Star Wars pack");
         if (bytesReclaimed > 0) actions.Add($"freed {Pack.FormatBytes(bytesReclaimed)}");
         return actions.Count == 0
-            ? "All 5 checks passed — Forge, r8 gameplay preset, and active pack are healthy."
+            ? $"All 5 checks passed — Forge, {SquadFingerprint.ExtractCatalogPrefix()} gameplay preset, and active pack are healthy."
             : "Verified & repaired: " + string.Join(", ", actions) + ".";
     }
 }

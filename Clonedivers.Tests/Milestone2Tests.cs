@@ -228,7 +228,7 @@ internal static class Milestone2Tests
             };
             if (mode == "empire") opts["deathtrooper"] = dt;
             var sel = HellForgePack.PinnedSelection(mode, tex, opts);
-            var expectedVer = mode == "empire" ? "2026.11.25-r52" : "2026.11.25-r23";
+            var expectedVer = mode == "empire" ? "2026.11.26-r53" : "2026.11.26-r24";
             var expectedCount = mode == "empire"
                 ? (enemy == "native-automatons" ? 132 : 144)
                 : (enemy == "native-automatons" ? 120 : 132);
@@ -236,7 +236,7 @@ internal static class Milestone2Tests
                 check(false, $"PinnedSelection {mode}/{tex}/{enemy}/{squid}/dt={dt} mismatch");
             matrixChecked++;
         }
-        check(matrixChecked == 180, "PinnedSelection resolves all 180 r23/r52 5-tier x 3-enemy x 3-squid x Delta/DeathTrooper combinations natively");
+        check(matrixChecked == 180, "PinnedSelection resolves all 180 r24/r53 5-tier x 3-enemy x 3-squid x Delta/DeathTrooper combinations natively");
 
         // r19 / r47 fallback: both reduced1024 and potato256 fall back to lighter when reduced512 is absent
         var r19Bytes = ReadResourceBytes("Clonedivers.Tests.Clones.R19.Manifest.json");
@@ -420,28 +420,29 @@ internal static class Milestone2Tests
 
     static void TestR8CatalogDraftAndSources(Action<bool, string> check)
     {
-        check(HellForgeGameplayCatalog.Pinned.Id == "build25480438-r11" &&
-              HellForgeGameplayCatalog.Current.Id == "build25480438-r11" &&
+        check(HellForgeGameplayCatalog.Pinned.Id == "build25480438-r13" &&
+              HellForgeGameplayCatalog.Current.Id == "build25480438-r13" &&
               HellForgeGameplayCatalog.Pinned.Artifacts.Count == 18,
-              "HellForgeGameplayCatalog activates build25480438-r11 (18 artifacts) as the pinned default");
+              "HellForgeGameplayCatalog activates build25480438-r13 (18 artifacts) as the pinned default");
 
-        var r11Json = Encoding.UTF8.GetString(ReadResourceBytes("Clonedivers.Forge.Gameplay.json"));
-        var r11 = JsonSerializer.Deserialize<HellForgeGameplayCatalog>(r11Json, HellForgePack.Json)!;
-        r11.ValidateDraft();
+        var r13Json = Encoding.UTF8.GetString(ReadResourceBytes("Clonedivers.Forge.Gameplay.json"));
+        var r13 = JsonSerializer.Deserialize<HellForgeGameplayCatalog>(r13Json, HellForgePack.Json)!;
+        r13.ValidateDraft();
 
-        check(r11.Id == "build25480438-r11" &&
-              r11.GameBuild == HellForgePack.SupportedBuild &&
-              r11.Artifacts.Count == 18 &&
-              r11.Order.Count == 21 &&
-              r11.Order[^1] == HellForgePreset.BingusSharedLoader &&
-              !r11.Artifacts.Any(a => a.Url.Contains("hf-mod.com", StringComparison.OrdinalIgnoreCase)),
-              "forge-gameplay-build25480438-r11.json passes ValidateDraft with 18 artifacts, 21 ordered IDs, zero hf-mod.com URLs, and Bingus Shared Loader last");
+        check(r13.Id == "build25480438-r13" &&
+              r13.GameBuild == HellForgePack.SupportedBuild &&
+              r13.Artifacts.Count == 18 &&
+              r13.Order.Count == 21 &&
+              r13.Order[^1] == HellForgePreset.BingusSharedLoader &&
+              !r13.Artifacts.Any(a => a.Url.Contains("hf-mod.com", StringComparison.OrdinalIgnoreCase)),
+              "forge-gameplay-build25480438-r13.json passes ValidateDraft with 18 artifacts, 21 ordered IDs, zero hf-mod.com URLs, and Bingus Shared Loader last");
 
-        // Verify all 8 updated/new v2.1/v2.1.4 code-mod manifests match r11 IDs, versions, and co-op/gameplay flags
+        // Verify all 9 updated/new v2.1..v2.2.0 code-mod manifests match r13 IDs, versions, and co-op/gameplay flags
         var expectedMods = new (string Resource, string Id, bool ExpectedGameplay, bool ExpectedOptional)[]
         {
             ("Clonedivers.Tests.CleanExit.json", HellForgePreset.CleanExit, false, true),
             ("Clonedivers.Tests.EmpireAtstWriter.json", HellForgePreset.EmpireAtstWriter, false, true),
+            ("Clonedivers.Tests.EmpireTieSwitch.json", HellForgePreset.EmpireTieSwitch, false, true),
             ("Clonedivers.Tests.EmpireCameraPullback.json", HellForgePreset.EmpireCameraPullback, false, true),
             ("Clonedivers.Tests.StarWarsLocalization.json", HellForgePreset.StarWarsLocalization, false, true),
             ("Clonedivers.Tests.DedicatedMeleeSlot.json", HellForgePreset.DedicatedMeleeSlot, false, true),
@@ -452,7 +453,7 @@ internal static class Milestone2Tests
 
         foreach (var (resName, id, expectedGameplay, expectedOptional) in expectedMods)
         {
-            var art = r11.Artifacts.Single(a => a.Id == id);
+            var art = r13.Artifacts.Single(a => a.Id == id);
             using var doc = JsonDocument.Parse(ReadResourceBytes(resName));
             var rootEl = doc.RootElement;
             check(rootEl.GetProperty("id").GetString() == id &&
@@ -461,21 +462,22 @@ internal static class Milestone2Tests
                   art.Optional == expectedOptional &&
                   (art.Url.Contains("/releases/download/forge-mods-2026-11-22/", StringComparison.Ordinal) ||
                    art.Url.Contains("/releases/download/forge-mods-2026-11-23/", StringComparison.Ordinal) ||
-                   art.Url.Contains("/releases/download/forge-mods-2026-11-25/", StringComparison.Ordinal)) &&
+                   art.Url.Contains("/releases/download/forge-mods-2026-11-25/", StringComparison.Ordinal) ||
+                   art.Url.Contains("/releases/download/forge-mods-2026-11-26/", StringComparison.Ordinal)) &&
                   art.Bytes > 0 &&
                   FileSafety.IsSha256(art.Sha256) &&
                   FileSafety.IsSha256(art.ContentHash),
-                  $"r11 artifact '{id}' ({art.Version}) matches forge-mods hellforge-mod.json, targets forge-mods-2026-11-22/23/25, and pins valid hashes");
+                  $"r13 artifact '{id}' ({art.Version}) matches forge-mods hellforge-mod.json, targets forge-mods-2026-11-22/23/25/26, and pins valid hashes");
         }
 
-        // SquadFingerprint client-only vs gameplay classification for r11 mods
+        // SquadFingerprint client-only vs gameplay classification for r13 mods
         var camMod = new HellForgeMod(HellForgePreset.EmpireCameraPullback, "Empire & Clone Camera Pullback", true, "f", []);
         var meleeMod = new HellForgeMod(HellForgePreset.DedicatedMeleeSlot, "Dedicated Melee Slot", true, "f", []);
         var corpseMod = new HellForgeMod(HellForgePreset.FasterCorpseCleanup, "Faster Corpse Cleanup", true, "f", ["gameplay"]);
         check(!SquadFingerprint.IsGameplayMod(camMod) &&
               !SquadFingerprint.IsGameplayMod(meleeMod) &&
               SquadFingerprint.IsGameplayMod(corpseMod) &&
-              SquadFingerprint.Compute(r11).StartsWith("r11-", StringComparison.Ordinal),
+              SquadFingerprint.Compute(r13).StartsWith("r13-", StringComparison.Ordinal),
               "SquadFingerprint excludes per-player camera pullback & melee slot from squad hash while including gameplay corpse cleanup");
     }
 
@@ -771,7 +773,7 @@ internal static class Milestone2Tests
         public Task SelectModeAsync(string mode) => Task.CompletedTask;
         public Task UpdateCustomizationAsync(string enemySkin, bool deltaSquad, bool covenant, string texture, string? squidSkin = null, bool? deathTrooperVoice = null) => Task.CompletedTask;
         public Task SetPerformanceTierAsync(string tierId) => Task.CompletedTask;
-        public Task UpdateHostMutatorsAsync(string chaosIntensity, string heavySeaf, bool fasterCorpseCleanup) => Task.CompletedTask;
+        public Task UpdateHostMutatorsAsync(string chaosIntensity, string heavySeaf, bool fasterCorpseCleanup, string? theaterPreset = null) => Task.CompletedTask;
         public Task ApplyCustomizationNowAsync() => Task.CompletedTask;
         public Task TriggerPrimaryActionAsync() { PrimaryCalls++; return Task.CompletedTask; }
         public Task TriggerSecondaryActionAsync() { SecondaryCalls++; return Task.CompletedTask; }

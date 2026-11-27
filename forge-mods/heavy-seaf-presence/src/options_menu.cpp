@@ -24,6 +24,8 @@ static int g_tank_hunters = 0;
 static int g_interval = 120;
 static int g_squads = 1;
 static int g_extra_squads = 0;
+static int g_wave_ceiling = 24;
+static int g_clone_wars = 0;
 static int g_registered;
 
 static char g_host_opts_path[CD_HOST_OPTIONS_MAX_PATH];
@@ -79,6 +81,8 @@ static void Load(void)
     g_interval = 120;
     g_squads = 1;
     g_extra_squads = 0;
+    g_wave_ceiling = 24;
+    g_clone_wars = 0;
     if (folder == NULL) return;
     snprintf(path, sizeof path, "%s\\options.ini", folder);
     file = fopen(path, "r");
@@ -95,7 +99,7 @@ static void Load(void)
             if (seconds >= 10 && seconds <= 900) g_interval = seconds;
         } else if (strncmp(line, "squads_per_wave=", 16) == 0) {
             int squads = atoi(line + 16);
-            if (squads >= 1 && squads <= 3) g_squads = squads;
+            if (squads >= 1 && squads <= 6) g_squads = squads;
         }
     }
     fclose(file);
@@ -186,19 +190,25 @@ static void LoadHostOptions(int is_poll)
     if (cd_load_host_options_file(g_host_opts_path, &ho) != 1) return;
 
     g_host_opts_loaded = 1;
-    HeavyApplyHostMode(ho.heavy_seaf, &c, &sup, &iv, &sq, &ex);
-    if (c != g_constant || sup != g_support_squads || iv != g_interval || sq != g_squads || ex != g_extra_squads) {
+    CdHeavySeafMode eff_seaf = cd_effective_heavy_seaf(&ho);
+    int cw = (eff_seaf == CD_HEAVY_SEAF_CLONE_WARS) ? 1 : 0;
+    int wc = (ho.seaf_wave_ceiling > 0) ? ho.seaf_wave_ceiling : (cw ? 180 : 24);
+    HeavyApplyHostMode(eff_seaf, &c, &sup, &iv, &sq, &ex);
+    if (c != g_constant || sup != g_support_squads || iv != g_interval || sq != g_squads ||
+        ex != g_extra_squads || wc != g_wave_ceiling || cw != g_clone_wars) {
         g_constant = c;
         g_support_squads = sup;
         g_interval = iv;
         g_squads = sq;
         g_extra_squads = ex;
+        g_wave_ceiling = wc;
+        g_clone_wars = cw;
         BridgeWrite();
         if (g_hf && g_self) {
             g_hf->log(g_self,
-                "Host options (%s): heavySeaf=%s -> constant=%d support_squads=%d interval=%ds squads_per_wave=%d extra_squads=%d",
-                is_poll ? "reloaded" : "startup", cd_heavy_seaf_name(ho.heavy_seaf),
-                g_constant, g_support_squads, g_interval, g_squads, g_extra_squads);
+                "Host options (%s): heavySeaf=%s -> constant=%d support_squads=%d interval=%ds squads_per_wave=%d extra_squads=%d ceiling=%d",
+                is_poll ? "reloaded" : "startup", cd_heavy_seaf_name(eff_seaf),
+                g_constant, g_support_squads, g_interval, g_squads, g_extra_squads, g_wave_ceiling);
         }
     }
 }
@@ -212,7 +222,7 @@ static void ApplyNumber(int which, int value, const char* from)
         g_hf->log(g_self, "Seconds between waves %d (%s).", g_interval, from);
         return;
     }
-    if (value < 1 || value > 3 || value == g_squads) return;
+    if (value < 1 || value > 6 || value == g_squads) return;
     g_squads = value;
     Save();
     g_hf->log(g_self, "Squads per wave %d (%s).", g_squads, from);
@@ -560,4 +570,14 @@ int OptionsSquadsPerWave(void)
 int OptionsExtraSquads(void)
 {
     return g_extra_squads;
+}
+
+int OptionsWaveCeiling(void)
+{
+    return g_wave_ceiling > 0 ? g_wave_ceiling : 24;
+}
+
+int OptionsCloneWars(void)
+{
+    return g_clone_wars;
 }

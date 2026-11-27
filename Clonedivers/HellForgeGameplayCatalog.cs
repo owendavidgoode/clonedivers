@@ -28,7 +28,7 @@ public sealed class HellForgeGameplayCatalog
     }
     public void Validate()
     {
-        if (Format != 1 || Id != "build25480438-r11" || GameBuild != HellForgePack.SupportedBuild || Artifacts.Count != 18 || Artifacts.Select(a => a.Id).Distinct().Count() != 18 || Order.Distinct().Count() != Order.Count)
+        if (Format != 1 || Id != "build25480438-r13" || GameBuild != HellForgePack.SupportedBuild || Artifacts.Count != 18 || Artifacts.Select(a => a.Id).Distinct().Count() != 18 || Order.Distinct().Count() != Order.Count)
             throw new InvalidDataException("Unsupported gameplay catalog.");
         var supplied = Artifacts.Select(a => a.Id).ToHashSet(StringComparer.Ordinal);
         var bundled = new[] { "hellforge.editor", "skyeshade.hell-forge", "skyeshade.vanilla-plus" };
@@ -98,21 +98,40 @@ public sealed class HellForgeGameplayCatalog
         {
             var artifact = pending[i];
             ct.ThrowIfCancellationRequested();
+            ValidateArtifact(artifact);
             var path = FileSafety.Child(folder, artifact.FileName);
             progress?.Report($"Getting {artifact.Name} ({i + 1}/{pending.Count})…");
             richProgress?.Report(new("Downloading gameplay mods", artifact.Name, i + 1, pending.Count, done, total, CanCancel: true));
-            await Pack.DownloadAsync(new PackFile { Name = artifact.FileName, Url = artifact.Url, Size = artifact.Bytes, Sha256 = artifact.Sha256 }, path,
-                new SyncProgress<(long done, long total)>(p =>
-                {
-                    var currentDone = done + p.done;
-                    downloadProgress?.Report((currentDone, total));
-                    if (richProgress != null)
+
+            bool alreadyVerified = false;
+            if (File.Exists(path))
+            {
+                try { await VerifyArchiveAsync(path, artifact, ct); alreadyVerified = true; }
+                catch (Exception e) when (e is IOException or InvalidDataException) { }
+            }
+
+            if (!alreadyVerified && await TryStageLocalRepoArtifactAsync(artifact, path, ct))
+            {
+                await VerifyArchiveAsync(path, artifact, ct);
+                alreadyVerified = true;
+            }
+
+            if (!alreadyVerified)
+            {
+                await Pack.DownloadAsync(new PackFile { Name = artifact.FileName, Url = artifact.Url, Size = artifact.Bytes, Sha256 = artifact.Sha256 }, path,
+                    new SyncProgress<(long done, long total)>(p =>
                     {
-                        var (rate, eta) = speed.Update(currentDone, total);
-                        richProgress.Report(new("Downloading gameplay mods", artifact.Name, i + 1, pending.Count, currentDone, total, rate, eta, CanCancel: true));
-                    }
-                }), ct);
-            await VerifyArchiveAsync(path, artifact, ct);
+                        var currentDone = done + p.done;
+                        downloadProgress?.Report((currentDone, total));
+                        if (richProgress != null)
+                        {
+                            var (rate, eta) = speed.Update(currentDone, total);
+                            richProgress.Report(new("Downloading gameplay mods", artifact.Name, i + 1, pending.Count, currentDone, total, rate, eta, CanCancel: true));
+                        }
+                    }), ct);
+                await VerifyArchiveAsync(path, artifact, ct);
+            }
+
             done += artifact.Bytes;
             downloadProgress?.Report((done, total));
             if (richProgress != null)
@@ -121,5 +140,64 @@ public sealed class HellForgeGameplayCatalog
                 richProgress.Report(new("Downloading gameplay mods", artifact.Name, i + 1, pending.Count, done, total, rate, eta, CanCancel: true));
             }
         }
+    }
+
+    static async Task<bool> TryStageLocalRepoArtifactAsync(GameplayArtifact artifact, string targetPath, CancellationToken ct)
+    {
+        if (!Uri.TryCreate(artifact.Url, UriKind.Absolute, out var uri) ||
+            uri.Scheme != "https" ||
+            uri.Host != "github.com" ||
+            !uri.AbsolutePath.StartsWith("/owendavidgoode/clonedivers/releases/download/", StringComparison.Ordinal))
+        {
+            return false;
+        }
+
+        var zipLeaf = Uri.UnescapeDataString(uri.Segments[^1]);
+        if (string.IsNullOrWhiteSpace(zipLeaf) || !zipLeaf.EndsWith(".zip", StringComparison.OrdinalIgnoreCase))
+            return false;
+
+        foreach (var startDir in new[] { AppContext.BaseDirectory, Directory.GetCurrentDirectory() }.Where(d => !string.IsNullOrWhiteSpace(d)).Distinct(PlatformPaths.Comparer))
+        {
+            for (var dir = new DirectoryInfo(startDir); dir != null; dir = dir.Parent)
+            {
+                var forgeModsDir = Path.Combine(dir.FullName, "forge-mods");
+                if (!Directory.Exists(forgeModsDir)) continue;
+                try
+                {
+                    FileSafety.RejectLink(forgeModsDir);
+                    foreach (var modDir in Directory.EnumerateDirectories(forgeModsDir))
+                    {
+                        var candidate = Path.Combine(modDir, "dist", zipLeaf);
+                        if (!File.Exists(candidate)) continue;
+                        FileSafety.RejectLink(modDir);
+                        FileSafety.RejectLink(Path.Combine(modDir, "dist"));
+                        FileSafety.RejectLink(candidate);
+                        var fi = new FileInfo(candidate);
+                        if (fi.Length != artifact.Bytes) continue;
+                        var temp = targetPath + ".local-" + Guid.NewGuid().ToString("N") + ".tmp";
+                        try
+                        {
+                            var sha = await PackArtifactEngine.CopyAndHashAsync(candidate, temp, artifact.Bytes, ct);
+                            if (!string.Equals(sha, artifact.Sha256, StringComparison.OrdinalIgnoreCase))
+                            {
+                                File.Delete(temp);
+                                continue;
+                            }
+                            FileSafety.RejectLink(targetPath);
+                            File.Move(temp, targetPath, overwrite: true);
+                            return true;
+                        }
+                        finally
+                        {
+                            try { if (File.Exists(temp)) File.Delete(temp); }
+                            catch (Exception e) when (e is IOException or UnauthorizedAccessException) { }
+                        }
+                    }
+                }
+                catch (Exception e) when (e is IOException or UnauthorizedAccessException or InvalidDataException) { }
+                break;
+            }
+        }
+        return false;
     }
 }

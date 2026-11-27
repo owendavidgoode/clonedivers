@@ -13,7 +13,7 @@
 #include "clonedivers_host_options.h"
 
 #define CC_BUILD "25480438"
-#define CC_VERSION "1.0.6-clonedivers.1"
+#define CC_VERSION "1.0.6-clonedivers.2"
 #define CC_DEFAULT_ENDPOINT 120
 #define CC_COUNT(a) (sizeof(a)/sizeof((a)[0]))
 #define CC_STRIDE 22096u
@@ -29,6 +29,11 @@ static uint64_t g_session_menu_edit_mtime;
 static int g_host_opts_loaded;
 static uint64_t g_next_host_opts_poll;
 static int g_was_host;
+static int g_corpse_turbo_reaper;
+static int g_corpse_explicit_delay = -1;
+
+static int cc_turbo_reaper_active(void) { return g_corpse_turbo_reaper; }
+static int cc_explicit_delay_seconds(void) { return g_corpse_explicit_delay; }
 
 #ifdef CC_UNIT_TEST
 typedef void (*CcTestRemoveFn)(uintptr_t,uint32_t);
@@ -111,11 +116,13 @@ static void cc_load_host_options_initial(const char *folder)
     if(rc==1)
     {
         config.enabled=ho.faster_corpse_cleanup?1:0;
+        g_corpse_explicit_delay=ho.corpse_delay_seconds;
         if(ho.corpse_delay_seconds>=0)config.seconds=ho.corpse_delay_seconds;
+        g_corpse_turbo_reaper=ho.corpse_turbo_reaper?1:0;
         g_host_opts_mtime=ho.mtime_100ns;
         g_host_opts_loaded=1;
-        hf->log(self,"Host options loaded (%s): fasterCorpseCleanup=%s delay=%d",
-            g_host_opts_path,config.enabled?"true":"false",config.seconds);
+        hf->log(self,"Host options loaded (%s): fasterCorpseCleanup=%s delay=%d turbo=%d",
+            g_host_opts_path,config.enabled?"true":"false",config.seconds,g_corpse_turbo_reaper);
     }
     else if(rc<0)
     {
@@ -143,7 +150,7 @@ static int cc_config_value(CcConfig *out,const char *key,double value)
 static void cc_accept_config(const CcConfig *next)
 {
     if(next->enabled==config.enabled&&next->seconds==config.seconds&&next->extra_cleanup==config.extra_cleanup)return;
-    config=*next;cc_request_reload();memset(factory_lives,0,sizeof factory_lives);factory_credit=0;
+    config=*next;cc_request_reload();cc_clear_factory_lives();factory_credit=0;
     config_log_due=GetTickCount64()+300;
 }
 static void cc_sync_menu_ui(void)
@@ -214,7 +221,9 @@ static void cc_menu(uint64_t now)
                     if(cd_load_host_options_file(g_host_opts_path,&ho)==1)
                     {
                         saved.enabled=ho.faster_corpse_cleanup?1:0;
+                        g_corpse_explicit_delay=ho.corpse_delay_seconds;
                         if(ho.corpse_delay_seconds>=0)saved.seconds=ho.corpse_delay_seconds;
+                        g_corpse_turbo_reaper=ho.corpse_turbo_reaper?1:0;
                         g_host_opts_mtime=ho.mtime_100ns;
                     }
                     else
@@ -246,12 +255,17 @@ static void cc_poll_host_options(void)
     g_host_opts_loaded=1;
     CcConfig next=config;
     next.enabled=ho.faster_corpse_cleanup?1:0;
+    int prev_turbo=g_corpse_turbo_reaper;
+    int prev_exp_delay=g_corpse_explicit_delay;
+    g_corpse_explicit_delay=ho.corpse_delay_seconds;
     if(ho.corpse_delay_seconds>=0)next.seconds=ho.corpse_delay_seconds;
-    if(next.enabled!=config.enabled||next.seconds!=config.seconds)
+    g_corpse_turbo_reaper=ho.corpse_turbo_reaper?1:0;
+    if(next.enabled!=config.enabled||next.seconds!=config.seconds||g_corpse_turbo_reaper!=prev_turbo||g_corpse_explicit_delay!=prev_exp_delay)
     {
-        hf->log(self,"Host options reloaded: fasterCorpseCleanup=%s delay=%d",
-            next.enabled?"true":"false",next.seconds);
+        hf->log(self,"Host options reloaded: fasterCorpseCleanup=%s delay=%d turbo=%d",
+            next.enabled?"true":"false",next.seconds,g_corpse_turbo_reaper);
         cc_accept_config(&next);
+        cc_request_reload();
         cc_sync_menu_ui();
     }
 }
@@ -306,7 +320,8 @@ static void cc_apply(unsigned index)
     int on=cc_cleanup_enabled();
     if(on)
     {
-        float seconds=fminf((float)config.seconds,edit->before.maximum);
+        float req_s=(g_corpse_turbo_reaper&&g_corpse_explicit_delay<0)?0.15f:(float)config.seconds;
+        float seconds=fminf(req_s,edit->before.maximum);
         want.minimum=seconds;want.maximum=seconds;
     }
     if(!memcmp(&live,&want,sizeof live)){edit->held=on;edit->expected=want;edit->settled=1;return;}
@@ -342,7 +357,7 @@ static void cc_tick(HfMod *mod,float dt,void *user)
     if(cc_stopped())return;
     InterlockedExchange(&factory_thread,(LONG)GetCurrentThreadId());
     uint32_t state=hf->game_state(self);int mission=state==HF_STATE_MISSION;
-    if(!mission&&factory_in_mission)memset(factory_lives,0,sizeof factory_lives);
+    if(!mission&&factory_in_mission)cc_clear_factory_lives();
     factory_in_mission=mission;
 
     int is_host=cc_is_host_or_solo();
@@ -351,7 +366,7 @@ static void cc_tick(HfMod *mod,float dt,void *user)
         if(g_was_host)
         {
             g_was_host=0;
-            memset(factory_lives,0,sizeof factory_lives);
+            cc_clear_factory_lives();
             factory_credit=0;
             cc_restore_all_now();
             hf->log(self,"Host role lost; restored decay timers and paused corpse cleanup on joiner");

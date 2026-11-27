@@ -46,6 +46,7 @@ public sealed class HellForgePreferences
     public string HostChaosIntensity { get; set; } = "standard";
     public string HostHeavySeaf { get; set; } = "standard";
     public bool HostFasterCorpseCleanup { get; set; } = true;
+    public string HostTheaterPreset { get; set; } = "standard";
     public string? PlayerLabel { get; set; }
     public string? PreparedPack { get; set; }
     public string? AppliedSelection { get; set; }
@@ -55,8 +56,8 @@ public sealed class HellForgePreferences
     string SquidKeySegment => squidSkin == "mixed-covenant" ? "mixed-covenant" : Covenant.ToString();
     string EmpireVoiceSuffix => DeathTrooperVoice ? "/deathtrooper" : "";
     public string SelectionKey => IsRegular ? $"regular/{HellForgePack.SupportedBuild}" :
-        Mode == "empire" ? $"r52/{HellForgePack.SupportedBuild}/empire/{Texture}/{EnemyKeySegment}/{SquidKeySegment}{EmpireVoiceSuffix}" :
-        $"r23/{HellForgePack.SupportedBuild}/{PackMode}/{Texture}/{EnemyKeySegment}/{SquidKeySegment}";
+        Mode == "empire" ? $"r53/{HellForgePack.SupportedBuild}/empire/{Texture}/{EnemyKeySegment}/{SquidKeySegment}{EmpireVoiceSuffix}" :
+        $"r24/{HellForgePack.SupportedBuild}/{PackMode}/{Texture}/{EnemyKeySegment}/{SquidKeySegment}";
     internal static string? CustomPreferencesPath()
     {
         var custom = Environment.GetEnvironmentVariable("CLONEDIVERS_FORGE_PREFS");
@@ -73,14 +74,8 @@ public sealed class HellForgePreferences
         Texture = PerformanceTierAdvisor.ResolvePackTexture(tierId, hardware);
     }
 
-    public HostMutatorOptions ToHostMutatorOptions(DateTimeOffset? updatedUtc = null) => new()
-    {
-        Format = 1,
-        ChaosIntensity = HostChaosIntensity,
-        HeavySeaf = HostHeavySeaf,
-        FasterCorpseCleanup = HostFasterCorpseCleanup,
-        UpdatedUtc = updatedUtc ?? DateTimeOffset.UtcNow
-    };
+    public HostMutatorOptions ToHostMutatorOptions(DateTimeOffset? updatedUtc = null) =>
+        HostMutatorConfig.BuildOptions(HostChaosIntensity, HostHeavySeaf, HostFasterCorpseCleanup, HostTheaterPreset, updatedUtc);
 
     static bool TryGetJsonProperty(JsonElement obj, string name, out JsonElement value)
     {
@@ -170,6 +165,7 @@ public sealed class HellForgePreferences
             PerformanceTier = AutoPerformanceTier ? PerformanceTierAdvisor.Auto : PerformanceTierAdvisor.TierFromPackTexture(Texture);
         if (string.IsNullOrEmpty(HostChaosIntensity)) HostChaosIntensity = "standard";
         if (string.IsNullOrEmpty(HostHeavySeaf)) HostHeavySeaf = "standard";
+        if (string.IsNullOrEmpty(HostTheaterPreset)) HostTheaterPreset = "standard";
         if (string.IsNullOrWhiteSpace(LastStepDownSuggestedTier)) LastStepDownSuggestedTier = null;
         if (string.IsNullOrWhiteSpace(PendingStepDownReason)) PendingStepDownReason = null;
         if (string.IsNullOrWhiteSpace(PlayerLabel)) PlayerLabel = null;
@@ -185,6 +181,7 @@ public sealed class HellForgePreferences
             (PendingStepDownReason != null && PendingStepDownReason.Length > 512) ||
             !HostMutatorConfig.IsValidChaosIntensity(HostChaosIntensity) ||
             !HostMutatorConfig.IsValidHeavySeaf(HostHeavySeaf) ||
+            !HostMutatorConfig.IsValidTheaterPreset(HostTheaterPreset) ||
             (PlayerLabel != null && PlayerLabel.Length > 40))
             throw new InvalidDataException("Unsupported HellForge preferences. Restore hellforge.json from backup.");
         Loadout = "account";
@@ -225,17 +222,63 @@ public interface IHellForgeCommands
 public sealed class HellForgeCommands : IHellForgeCommands
 {
     static readonly System.Collections.Concurrent.ConcurrentDictionary<string, bool> UncertainRoots = new(StringComparer.OrdinalIgnoreCase);
+    static readonly System.Collections.Concurrent.ConcurrentDictionary<string, (long MarkerTicks, long ExpiresUtcTicks)> ValidatedRootsCache = new(StringComparer.OrdinalIgnoreCase);
+
+    int batchDepth;
+    JsonElement? cachedBatchStatus;
+    long cachedBatchStatusExpiresTicks;
+
     public string Root { get; }
     public HellForgeCommands(string root) => Root = ValidateRoot(root);
+
+    internal IDisposable BeginBatch()
+    {
+        Interlocked.Increment(ref batchDepth);
+        return new BatchScope(this);
+    }
+
+    sealed class BatchScope(HellForgeCommands owner) : IDisposable
+    {
+        int disposed;
+        public void Dispose()
+        {
+            if (Interlocked.Exchange(ref disposed, 1) != 0) return;
+            if (Interlocked.Decrement(ref owner.batchDepth) <= 0)
+                owner.InvalidateStatusLease();
+        }
+    }
+
+    void InvalidateStatusLease()
+    {
+        cachedBatchStatus = null;
+        Interlocked.Exchange(ref cachedBatchStatusExpiresTicks, 0);
+    }
+
     public static string ValidateRoot(string root)
     {
         root = Path.TrimEndingDirectorySeparator(Path.GetFullPath(root));
+        var nowTicks = DateTime.UtcNow.Ticks;
+        var marker = Path.Combine(root, "hellforge-install.json");
+        if (ValidatedRootsCache.TryGetValue(root, out var cached) && nowTicks < cached.ExpiresUtcTicks)
+        {
+            try
+            {
+                var fi = new FileInfo(marker);
+                if (fi.Exists && (fi.Attributes & FileAttributes.ReparsePoint) == 0 && fi.LastWriteTimeUtc.Ticks == cached.MarkerTicks &&
+                    File.Exists(Path.Combine(root, "app", "cli", "HellForge.Cli.exe")) && File.Exists(Path.Combine(root, "HellForge.exe")))
+                {
+                    return root;
+                }
+            }
+            catch (Exception e) when (e is IOException or UnauthorizedAccessException) { }
+        }
+
         for (var directory = new DirectoryInfo(root); directory != null; directory = directory.Parent)
         {
             FileSafety.RejectLink(directory.FullName);
             if (directory.Name.Equals("steamapps", StringComparison.OrdinalIgnoreCase)) throw new InvalidDataException("Choose the separate HellForge folder, outside Steam.");
         }
-        var marker = FileSafety.Child(root, "hellforge-install.json");
+        marker = FileSafety.Child(root, "hellforge-install.json");
         if (!File.Exists(marker) || new FileInfo(marker).Length > 64 * 1024) throw new InvalidDataException("Choose the HellForge installation folder containing hellforge-install.json.");
         using var doc = JsonDocument.Parse(File.ReadAllText(marker));
         if (doc.RootElement.GetProperty("schemaVersion").GetInt32() != 1) throw new InvalidDataException("Unsupported HellForge installation format.");
@@ -243,20 +286,42 @@ public sealed class HellForgeCommands : IHellForgeCommands
             FileSafety.RejectLink(Path.Combine(root, relative));
         if (!File.Exists(Path.Combine(root, "app", "cli", "HellForge.Cli.exe")) || !File.Exists(Path.Combine(root, "HellForge.exe")))
             throw new InvalidDataException("HellForge programs are missing. Repair it with the official installer.");
+
+        ValidatedRootsCache[root] = (new FileInfo(marker).LastWriteTimeUtc.Ticks, DateTime.UtcNow.AddSeconds(5).Ticks);
         return root;
     }
+
     public async Task<JsonElement> RunAsync(IReadOnlyList<string> args, CancellationToken ct = default)
     {
         if (UncertainRoots.ContainsKey(Root) && !ReadAfterUncertain(args)) throw new HellForgeCommandOutcomeUnknownException("The previous CLI could not be confirmed stopped. End session and diagnostics remain available. Confirm the CLI has stopped and review the mod state, then restart this launcher before retrying changes or launch.");
         ValidateRoot(Root);
+        var command = args.FirstOrDefault() ?? "";
+        if (args.Count == 1 && command == "status" && Volatile.Read(ref batchDepth) > 0 && !UncertainRoots.ContainsKey(Root) &&
+            cachedBatchStatus is { } leased && DateTime.UtcNow.Ticks < Interlocked.Read(ref cachedBatchStatusExpiresTicks) && !Game.IsRunning())
+        {
+            return leased;
+        }
+        if (command is "play" or "stop" or "settings")
+            InvalidateStatusLease();
+
         var start = new ProcessStartInfo(Path.Combine(Root, "app", "cli", "HellForge.Cli.exe")) {
             UseShellExecute = false, CreateNoWindow = true, RedirectStandardOutput = true, RedirectStandardError = true,
             WorkingDirectory = Root
         };
         foreach (var arg in args) start.ArgumentList.Add(arg);
-        var command = args.FirstOrDefault() ?? "";
-        try { return await TimedAsync(command, TimeSpan.FromMinutes(command == "mod-add" ? 10 : 2), t => ReadJsonProcessAsync(start, command == "play", t), ct); }
-        catch (HellForgeCommandOutcomeUnknownException) { UncertainRoots[Root] = true; throw; }
+        try
+        {
+            var reply = await TimedAsync(command, TimeSpan.FromMinutes(command == "mod-add" ? 10 : 2), t => ReadJsonProcessAsync(start, command == "play", t), ct);
+            if (args.Count == 1 && command == "status" && Volatile.Read(ref batchDepth) > 0 &&
+                reply.TryGetProperty("session", out var sess) && sess.TryGetProperty("running", out var runEl) && runEl.ValueKind == JsonValueKind.False)
+            {
+                cachedBatchStatus = reply;
+                Interlocked.Exchange(ref cachedBatchStatusExpiresTicks, DateTime.UtcNow.AddSeconds(2).Ticks);
+            }
+            return reply;
+        }
+        catch (HellForgeCommandOutcomeUnknownException) { InvalidateStatusLease(); UncertainRoots[Root] = true; throw; }
+        catch { InvalidateStatusLease(); throw; }
     }
     // A deadline is not a player cancel: callers show cancellations as "Operation cancelled" or drop them silently.
     internal static async Task<JsonElement> TimedAsync(string command, TimeSpan limit, Func<CancellationToken, Task<JsonElement>> run, CancellationToken ct)
@@ -358,6 +423,31 @@ public sealed partial class HellForgeClient(string root, IHellForgeCommands comm
     public string Root { get; } = Path.TrimEndingDirectorySeparator(Path.GetFullPath(root));
     internal bool LinuxNamespace { get; init; }
     public HellForgeClient(string root) : this(HellForgeCommands.ValidateRoot(root), new HellForgeCommands(root)) { }
+
+    sealed class NoopDisposable : IDisposable
+    {
+        public static readonly NoopDisposable Instance = new();
+        public void Dispose() { }
+    }
+
+    internal IDisposable BeginCliBatch() => commands is HellForgeCommands native ? native.BeginBatch() : NoopDisposable.Instance;
+
+    internal bool IsUltrakillHostTheaterActive()
+    {
+        try { return HostMutatorConfig.Read(Root).IsUltrakillTheater; }
+        catch { return false; }
+    }
+
+    public async Task SyncUltrakillCompanionOptionsAsync(bool enableUltrakill, CancellationToken ct = default)
+    {
+        using var batch = BeginCliBatch();
+        var catalog = await ModsAsync(ct);
+        await UltrakillRuntimeProfile.SyncCompanionModOptionsAsync(
+            (args, token) => commands.RunAsync(args, token),
+            catalog,
+            enableUltrakill,
+            ct);
+    }
 
     public async Task<HellForgeStatus> StatusAsync(CancellationToken ct = default)
     {
@@ -719,6 +809,7 @@ public sealed partial class HellForgeClient(string root, IHellForgeCommands comm
         using var operation = LockPackChange();
         RequireNoInterruptedPack();
         RequireCliQuiescent();
+        using var batch = BeginCliBatch();
         var verifySpeed = new SpeedTracker();
         progress?.Report(new("Verifying prepared pack", "Checking file integrity before install…", 0, selection.Files.Count, 0, selection.Files.Sum(f => f.Size), CanCancel: true));
         await HellForgePack.VerifyAsync(folder, selection, progress == null ? null : new SyncProgress<(long Done, long Total)>(p =>
@@ -762,13 +853,13 @@ public sealed partial class HellForgeClient(string root, IHellForgeCommands comm
             var target = Path.Combine(backup, "previous-pack", file.Relative);
             Directory.CreateDirectory(Path.GetDirectoryName(target)!);
             long baseBytes = doneBackupBytes;
-            await HellForgePack.CopyLocalAsync(file.Source, target, file.Bytes, ct, progress == null ? null : copied =>
+            var backupSha = await PackArtifactEngine.CopyAndHashAsync(file.Source, target, file.Bytes, ct, progress == null ? null : copied =>
             {
                 var (rate, eta) = backupSpeed.Update(baseBytes + copied, totalBackupBytes);
                 progress.Report(new("Backing up current appearance", file.Relative, i + 1, sources.Count, baseBytes + copied, totalBackupBytes, rate, eta, CanCancel: true));
             });
             doneBackupBytes += file.Bytes;
-            evidence.Add(new(file.Relative, file.Bytes, await HellForgePack.HashAsync(target, ct)));
+            evidence.Add(new(file.Relative, file.Bytes, backupSha));
         }
         await File.WriteAllTextAsync(Path.Combine(backup, "before.json"), JsonSerializer.Serialize(new { mods = before, status = beforeStatus, files = evidence }, HellForgePack.Json), ct);
         await RequireIdleAsync(ct);
@@ -793,6 +884,7 @@ public sealed partial class HellForgeClient(string root, IHellForgeCommands comm
                 var (rate, eta) = postVerifySpeed.Update(p.Done, p.Total);
                 progress.Report(new("Verifying installed pack", null, 0, 0, p.Done, p.Total, rate, eta, CanCancel: false));
             }), ct);
+            HellForgePack.SaveVerifiedLayout(selected.Folder, selection, Path.Combine(CacheRoot, "verify-cache.json"));
             SavePackOutcome(backup, "applied");
             WritePackIntent(intent with { State = "applied" });
             PrunePackStorage(backup, after);
@@ -839,10 +931,6 @@ public sealed partial class HellForgeClient(string root, IHellForgeCommands comm
         ArgumentNullException.ThrowIfNull(plan);
         ct.ThrowIfCancellationRequested();
 
-        long exportNeeded = Directory.Exists(plan.Output)
-            ? 0L
-            : checked(plan.Bytes + HellForgePack.ExportReserve + plan.Missing.Select(f => f.Size).DefaultIfEmpty().Max());
-
         var before = await ModsAsync(ct).ConfigureAwait(false);
         var old = before.Mods.SingleOrDefault(m => m.Id == HellForgePack.PackId(plan.Selection.Mode));
         long oldBytes = 0;
@@ -856,50 +944,7 @@ public sealed partial class HellForgeClient(string root, IHellForgeCommands comm
             }
         }
 
-        long replacementBytes = checked(plan.Bytes + 65536L);
-        long backupNeeded = checked(oldBytes + replacementBytes + HellForgePack.ExportReserve);
-        long modsNeeded = checked(replacementBytes + HellForgePack.ExportReserve);
-
-        var exportPath = Path.GetFullPath(plan.Output);
-        var backupPath = Path.Combine(CacheRoot, "backups");
-        var modsPath = Path.Combine(Root, "mods");
-
-        var exportVol = HellForgePack.VolumeKey(exportPath);
-        var backupVol = HellForgePack.VolumeKey(backupPath);
-        var modsVol = HellForgePack.VolumeKey(modsPath);
-
-        var volumeNeeds = new Dictionary<string, (string ProbePath, long Required)>(StringComparer.Ordinal);
-        void RequireOnVolume(string vol, string probe, long addBytes, bool additive)
-        {
-            if (addBytes <= 0) return;
-            if (volumeNeeds.TryGetValue(vol, out var cur))
-                volumeNeeds[vol] = (cur.ProbePath, additive ? checked(cur.Required + addBytes) : Math.Max(cur.Required, addBytes));
-            else
-                volumeNeeds[vol] = (probe, addBytes);
-        }
-
-        RequireOnVolume(backupVol, backupPath, backupNeeded, additive: false);
-        RequireOnVolume(modsVol, modsPath, modsNeeded, additive: false);
-        if (exportNeeded > 0)
-            RequireOnVolume(exportVol, exportPath, exportNeeded, additive: true);
-
-        bool cleanedOnce = false;
-        foreach (var (_, (probe, required)) in volumeNeeds)
-        {
-            if (AvailablePackBytes(probe) is not long free || free >= required) continue;
-            if (!cleanedOnce)
-            {
-                cleanedOnce = true;
-                try { ForgeDiskManager.CleanSafeFilesSync(Root, ct, plan.Local.Values); }
-                catch (Exception e) when (e is IOException or UnauthorizedAccessException or InvalidDataException) { }
-                if (AvailablePackBytes(probe) is not long freeAfter || freeAfter >= required) continue;
-                free = freeAfter;
-            }
-            throw new IOException(
-                $"Not enough space to prepare and install this Star Wars pack: {Pack.FormatBytes(required)} needed " +
-                $"({Pack.FormatBytes(exportNeeded)} staging + {Pack.FormatBytes(backupNeeded)} backup/install reserve), " +
-                $"{Pack.FormatBytes(Math.Max(0, free))} available. Free space on this drive or choose a lighter Performance Tier, then try again.");
-        }
+        PackArtifactEngine.EnsureStagingAndInstallCapacity(Root, CacheRoot, plan, oldBytes, AvailablePackBytes, ct);
     }
     static string PackState(HellForgeMods mods) => JsonSerializer.Serialize(mods.Mods.Select(m => new { m.Id, m.Enabled, m.Name, m.Version, m.Options }).OrderBy(m => m.Id, StringComparer.Ordinal));
     static void SavePackOutcome(string backup, string outcome)
@@ -1088,6 +1133,7 @@ public sealed partial class HellForgeClient(string root, IHellForgeCommands comm
         using var operation = LockPackChange();
         RequireNoInterruptedPack();
         RequireCliQuiescent();
+        using var batch = BeginCliBatch();
         var before = await ModsAsync(ct).ConfigureAwait(false);
         if (before.Problems.Length > 0) throw new InvalidDataException("Resolve HellForge's mod notices before changing modes: " + string.Join("; ", before.Problems));
         if (!before.Mods.Any(m => m.Id == DifficultyId)) throw new InvalidDataException("Finish official HellForge setup to install its bundled difficulty mod.");
@@ -1167,7 +1213,8 @@ public sealed partial class HellForgeClient(string root, IHellForgeCommands comm
         if (!status.Multiplayer || !status.LocalBackend) throw new InvalidDataException("Enable Steam co-op and the local backend in HellForge settings.");
         var catalog = await ModsAsync(ct);
         var selected = RequireSelected(catalog, selection);
-        if (HellForgePreset.Problem(catalog, checkOrder: true) is { } preset) throw new InvalidDataException(preset);
+        bool ultrakillActive = IsUltrakillHostTheaterActive();
+        if (HellForgePreset.Problem(catalog, checkOrder: true, ultrakillTheaterActive: ultrakillActive) is { } preset) throw new InvalidDataException(preset);
         if (HellForgePreset.ModeCompanionProblem(catalog, selection.Mode) is { } companionIssue) throw new InvalidDataException(companionIssue);
         if ((await MissingGameplayAsync(selection.Mode, ct)).Any(a => !a.Optional || HellForgePreset.RequiredCompanionsForMode(selection.Mode).Contains(a.Id, StringComparer.Ordinal))) throw new InvalidDataException("Required gameplay or mode companion content changed. Use Prepare Star Wars pack to verify and repair the preset before launching.");
         if (!catalog.Mods.Any(m => m.Id == DifficultyId && m.Enabled)) throw new InvalidDataException("Open HellForge setup to install its built-in difficulty 11, then enable it on the Mods page.");
@@ -1188,7 +1235,8 @@ public sealed partial class HellForgeClient(string root, IHellForgeCommands comm
         if (!status.Multiplayer || !status.LocalBackend) throw new InvalidDataException("Enable Steam co-op and the local backend in HellForge settings.");
         var catalog = await ModsAsync(ct);
         RequireRegular(catalog);
-        if (HellForgePreset.Problem(catalog, checkOrder: true) is { } preset) throw new InvalidDataException(preset);
+        bool ultrakillActive = IsUltrakillHostTheaterActive();
+        if (HellForgePreset.Problem(catalog, checkOrder: true, ultrakillTheaterActive: ultrakillActive) is { } preset) throw new InvalidDataException(preset);
         if (HellForgePreset.ModeCompanionProblem(catalog, "regular") is { } companionIssue) throw new InvalidDataException(companionIssue);
         if ((await MissingGameplayAsync(ct)).Any(a => !a.Optional)) throw new InvalidDataException("Required gameplay content changed. Use Prepare to verify and repair the preset before launching.");
         if (!catalog.Mods.Any(m => m.Id == DifficultyId && m.Enabled)) throw new InvalidDataException("Enable HellForge's bundled difficulty mod on its Mods page.");

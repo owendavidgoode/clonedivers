@@ -14,7 +14,7 @@ import zipfile
 
 ROOT = Path(__file__).resolve().parents[1]
 MIXING = Path('D:/ClaudeWork/mixing')
-ZIP = ROOT / 'dist/chaos-invasions-0.3.5.zip'
+ZIP = ROOT / 'dist/chaos-invasions-0.4.0.zip'
 REFERENCE = MIXING / 'heavy-seaf-src/heavy-seaf-presence'
 ROW = struct.Struct('<7Q6I')
 LUA_TYPE = 0xa14e8dfa2cd117e2
@@ -80,7 +80,7 @@ def prepare() -> None:
     save(ROOT / 'build/chaos-source-evidence.json', {
         'build': '25480438',
         'sdk': 16,
-        'version': '0.3.5',
+        'version': '0.4.0',
         'lua_resource': f'{resource:016x}',
         'lua_source_exact': True,
         'template_lua_resource': f'{row[0]:016x}',
@@ -92,16 +92,17 @@ def verify() -> None:
     if not ZIP.is_file():
         raise ValueError(f'Missing package ZIP: {ZIP}')
     count = 0
+    shared_header = ROOT.parent / 'shared/clonedivers_host_options.h'
     with zipfile.ZipFile(ZIP) as archive:
         files = [name for name in archive.namelist() if not name.endswith('/')]
         for name in files:
             relative = Path(name).relative_to('chaos-invasions')
-            source = ROOT / relative
+            source = shared_header if relative == Path('src/clonedivers_host_options.h') else (ROOT / relative)
             if not source.is_file() or archive.read(name) != source.read_bytes():
                 raise ValueError(f'ZIP source mismatch: {name}')
             count += 1
         for required in ('hellforge-mod.json', 'options.ini', 'src/chaos_invasions.c',
-                         'src/policy.h', 'src/clonedivers_host_options.h',
+                         'src/policy.h', 'src/ultrakill_d12.h', 'src/clonedivers_host_options.h',
                          'data/' + ARCHIVE, 'src/menu_bridge.lua', 'CREDITS.md'):
             if 'chaos-invasions/' + required not in files:
                 raise ValueError(f'Missing artifact member {required}')
@@ -109,7 +110,7 @@ def verify() -> None:
     manifest = json.loads((ROOT / 'hellforge-mod.json').read_text(encoding='utf-8'))
     if (manifest.get('id') != 'clonedivers.chaos-invasions' or
             manifest.get('name') != 'Chaos Invasions' or
-            manifest.get('version') != '0.3.5' or
+            manifest.get('version') != '0.4.0' or
             manifest.get('gameplay') is not True or
             manifest.get('code') != {'dll': 'chaos_invasions.dll', 'sdk': 16, 'game': '25480438'}):
         raise ValueError(f'Invalid hellforge-mod.json metadata: {manifest}')

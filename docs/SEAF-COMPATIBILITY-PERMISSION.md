@@ -21,6 +21,6 @@ retain their upstream licenses and notices. Automatic host mod sharing remains o
 author packages carry mixed redistribution terms.
 
 Pinned compatibility/gameplay downloads and content hashes are in
-`Clonedivers/Resources/forge-gameplay-build25480438-r11.json`. All entries use immutable
+`Clonedivers/Resources/forge-gameplay-build25480438-r12.json`. All entries use immutable
 release URLs and SHA-256 + content-hash verification; no silent upgrade to unreviewed
 upstream archives or another engine is part of this preset.

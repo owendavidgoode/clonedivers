@@ -11,14 +11,14 @@ account captures, seal keys, profiles or save files. Progress imports only from 
 into Forge; Forge rewards stay local. The official Steam game remains a separate
 launch path.
 
-Before joining, compare the pinned `build25480438-r11` preset (`3` bundled Forge mods
+Before joining, compare the pinned `build25480438-r12` preset (`3` bundled Forge mods
 + `9` required gameplay downloads + optional `Chaos Invasions 0.3.5` when enabled; the `8`
 client-only optional SDK-16 mods including `Clonedivers Clean Exit 0.2.1`, `LEGO Compact
-Leaf Writer 0.2.2`, `Empire AT-ST Writer 0.2.3`, `Empire Camera Pullback 0.1.4`, and
+Leaf Writer 0.2.2`, `Empire AT-ST Writer 0.2.3`, `Empire per-attack TIE 0.3.1`, `Empire Camera Pullback 0.1.4`, and
 `Star Wars Localization Bridge 0.1.1` declare `gameplay: false` and are excluded from
 HellForge co-op matching so peers may toggle them independently), load order, options
 (including Guard Dogs `Targeting Marker` OFF and matching host controls), and the
-**Squad Match Code** shown in the launcher (`r11-...`). Keep the retired standalone
+**Squad Match Code** shown in the launcher (`r12-2de0`). Keep the retired standalone
 `mine-boundary 0.1.1` fix disabled (`engine 0.1.47` includes its bounds fix). Match
 enemy-roster selections (`All CIS Droids` vs `Mixed Bots + CIS` vs `Native Automatons`,
 and `Mixed Covenant + Squids` vs `All Covenant` vs `Native Squids`) across Clones

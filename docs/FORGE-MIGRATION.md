@@ -1,6 +1,6 @@
 # Setting Up and Updating Clonedivers — Forge
 
-**Clonedivers 2.1.4** (Windows) and **Clonedivers Forge 0.10.4** (Linux x86-64, with native
+**Clonedivers 2.2.0** (Windows) and **Clonedivers Forge 0.11.0** (Linux x86-64, with native
 controller `0.4.0` `HellForge.Launcher.ClonediversBridge`) target official **HellForge
 `0.4.0-beta` / engine `0.1.47` / SDK `16` / game `25480438`**. Choose **Regular**, **Clones**,
 or **Empire** in Clonedivers; launch official online Helldivers 2 directly through Steam.
@@ -20,7 +20,7 @@ For a new installation, run `Clonedivers.exe`, pick your mode (**Regular**, **Cl
 1. **Step 1 · Preflight Check**: confirms Steam is signed in and at least **70 GB (`70 GiB`)** is free on your chosen local folder outside OneDrive and Steam (for example `D:\HellForge`).
 2. **Step 2 · Forge & Game Copy**: downloads and verifies the official HellForge installer and copies build `25480438` from Steam or downloads it via the in-app **Steam Mobile QR** flow (with **Official setup (fallback)** available). Steam sign-in and Windows UAC prompts remain player actions.
 3. **Step 3 · Guided Steam Account Sync (Required)**: guides your one-time mandatory HD2 → Forge account capture so your real Warbonds, unlocks, and XP copy locally. Leave *Apply import* and *auto-apply* off — Clonedivers imports the sealed capture automatically as soon as Helldivers 2 and HellForge close, and automatically opens owned premium Warbonds. *(Never share account captures, seal keys, profiles, or import receipts.)*
-4. **Step 4 · Pack Download & Ready**: downloads and verifies the `build25480438-r11` gameplay preset (`18` archives, `8,518,467` B) and your selected Star Wars pack (`Clonedivers 2026.11.25-r23` or `EmpireDivers 2026.11.25-r52`) with resumable `.partial` byte progress and multi-volume space checks.
+4. **Step 4 · Pack Download & Ready**: downloads and verifies the `build25480438-r13` gameplay preset (`18` archives, `8,542,113` B) and your selected Star Wars pack (`Clonedivers 2026.11.25-r23` or `EmpireDivers 2026.11.25-r52`) with resumable `.partial` byte progress (`1 MiB` pooled streaming I/O) and multi-volume space checks.
 
 An existing HellForge `0.3.0-beta` installation offers **Update HellForge**, snapshotting
 profile/settings privately and running the supported `--unpack` upgrade with automatic
@@ -32,7 +32,7 @@ Install the complete `.deb` (`Clonedivers-linux-x64.deb`) or extract the entire 
 archive (`Clonedivers-linux-x64.tar.gz`, keeping its `forge/` folder adjacent). Close any
 running launcher before upgrading.
 
-Press **Set up / update Forge** in `0.10.4`. Clonedivers offers installation of missing
+Press **Set up / update Forge** in `0.11.0`. Clonedivers offers installation of missing
 Ubuntu/Debian networking tools (`pasta` from `passt` and `python3`, required on Ubuntu
 24.04+ / Debian 13+ or equivalent for the network namespace and Valve relay whitelist),
 downloads and verifies the official native Linux HellForge installer, and connects to your
@@ -41,14 +41,15 @@ installations can be chosen with **Locate** and are never silently replaced.
 
 ## First Forge Setup
 
-**Set up selected mode** installs the pinned **`build25480438-r11`** catalog (`9` required
+**Set up selected mode** installs the pinned **`build25480438-r13`** catalog (`9` required
 gameplay/author archives + `9` optional SDK-16 defaults enabled once on fresh setup, zero
 `hf-mod.com` URLs) alongside HellForge's `3` bundled baseline mods and your chosen Star Wars
 pack (`22` active mods in Clones/Empire, `21` in Regular). Both **Clones (`2026.11.25-r23`)**
 and **Empire (`2026.11.25-r52`)** provide all **5 texture tiers**, **3 Enemy Skins** (`All CIS
 Droids`, `Mixed Bots + CIS Droids`, `Native Automatons`), and **3-way Covenant + Squids**
 (`Mixed Covenant + Squids` default, `All Covenant`, `Native Squids`), plus **Delta Squad** in
-Clones and opt-in **Encrypted Death Trooper Voice** (OFF by default) in Empire. Regular installs
+Clones, opt-in **Encrypted Death Trooper Voice** (OFF by default) in Empire, and optional
+host-driven **Theater Scale (`Standard (D1–11)` vs `L12 ULTRAKILL · Clone Wars`)** under Customize -> Advanced. Regular installs
 only the gameplay preset without Star Wars appearance packs.
 
 Setup applies load order, loader/menu options, Guard Dogs AI/safety `ON` with `Targeting Marker`

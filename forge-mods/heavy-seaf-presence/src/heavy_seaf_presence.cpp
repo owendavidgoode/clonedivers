@@ -168,14 +168,22 @@ static ULONGLONG HeavyNowMs(void)
     return GetTickCount64();
 }
 
-/* 0 keeps the game's cap. 1..5 adds that many squads of 6 (24, 30, 36, 42, 48 SEAF). */
+/* 0 keeps the game's cap. 1..5 adds that many squads of 6 (up to 25 in Clone Wars mode -> 162-168 SEAF). */
 static int SquadStep(void)
 {
     int step = OptionsExtraSquads();
+    int max_step = OptionsCloneWars() ? 25 : 5;
     if (step < EXTRA_SQUADS) step = EXTRA_SQUADS;
     if (step < 0) return 0;
-    if (step > 5) return 5;
+    if (step > max_step) return max_step;
     return step;
+}
+
+static int HeavyIsMissionFlow(void)
+{
+    if (g_api == NULL || g_mod == NULL || g_api->game_state == NULL) return 0;
+    uint32_t st = g_api->game_state(g_mod);
+    return st == HF_STATE_MISSION || st == HF_STATE_PREPARE_MISSION;
 }
 
 static void Log(const char* fmt, ...)
@@ -704,6 +712,11 @@ static DWORD WINAPI Worker(LPVOID unused)
         int squad;
         int tries;
         uintptr_t tpl;
+        if (HeavyIsMissionFlow()) {
+            /* Pause VirtualQuery/ReadProcessMemory heap scans while preparing or fighting a mission. */
+            if (SleepWorkerMs(2000)) return 0;
+            continue;
+        }
         EnterCriticalSection(&g_lock);
         need = g_rescan || g_range_count == 0;
         squad = g_squad;
@@ -946,7 +959,7 @@ static uint32_t WaveCallType(void)
     return CUSTOM_SQUAD_BASE + (g_rng % 4u);
 }
 
-static float g_wave_site[3][3];
+static float g_wave_site[6][3];
 static int g_wave_sites;
 
 static int FarFromWave(const float* g)
@@ -958,6 +971,28 @@ static int FarFromWave(const float* g)
         if (dx * dx + dy * dy < 400.0f) return 0;
     }
     return 1;
+}
+
+static int HeavyHasEntityHeadroom(uintptr_t game, uint32_t min_free)
+{
+    static uint8_t s_em_desc_buf[2048u * 24u];
+    uintptr_t factory = 0;
+    uint32_t invalid = 0xffffffffu;
+    uint32_t free_slots = 0u;
+    if (game == 0 || !ApiRd(game + 0x346bf98u, &factory, 8) || factory < 0x10000u) return 0;
+    if (!ApiRd(game + 0x348456cu, &invalid, 4)) return 0;
+    if (!ApiRd(factory + 0xf32f18u, s_em_desc_buf, sizeof s_em_desc_buf)) return 0;
+    for (uint32_t i = 0; i < 2048u; i++) {
+        uint64_t res = 0;
+        uint32_t eid = 0;
+        const uint8_t* slot = s_em_desc_buf + (size_t)i * 24u;
+        memcpy(&res, slot + 0u, 8);
+        memcpy(&eid, slot + 8u, 4);
+        if (res == 0ULL || eid == 0u || eid == 0xffffffffu || eid == invalid) {
+            ++free_slots;
+        }
+    }
+    return free_slots >= min_free;
 }
 
 static int ResolveLivingHostMissionGround(uintptr_t game, uint32_t* out_owner, uint32_t* out_character, float out_origin[3])
@@ -1073,21 +1108,28 @@ static int CallSeaf(uintptr_t game, int squad, uint32_t call_type, const float* 
     if (!ResolveLivingHostMissionGround(game, &owner, &character, origin)) return 1;
     if (beacon != NULL && Finite3(beacon)) memcpy(origin, beacon, 12);
     if (squad > 0) {
-        origin[0] += 30.0f * cosf((float)squad * 2.0944f);
-        origin[1] += 30.0f * sinf((float)squad * 2.0944f);
+        int cw = (beacon == NULL && OptionsCloneWars());
+        float spread = cw ? 58.0f : 30.0f;
+        float step_ang = cw ? 1.5707963f : 2.0944f;
+        origin[0] += spread * cosf((float)squad * step_ang);
+        origin[1] += spread * sinf((float)squad * step_ang);
     }
     if (!ApiRd(game + 0x33266b0u, &manager, 8) || manager == 0 || !ApiRd(manager, mgr_copy, 128)) return 2;
     memcpy(&world, mgr_copy + 8, 8);
     if (world == 0) return 2;
     {
         static const float dz[5] = { 0.0f, 3.0f, -3.0f, 6.0f, -6.0f };
-        static const float ringd[3] = { 0.0f, 15.0f, 30.0f };
+        static const float ringd_std[3] = { 0.0f, 15.0f, 30.0f };
+        static const float ringd_cw[5] = { 0.0f, 20.0f, 45.0f, 80.0f, 120.0f };
+        int cw_rings = (beacon == NULL && OptionsCloneWars());
+        const float* ringd = cw_rings ? ringd_cw : ringd_std;
+        int n_rings = cw_rings ? 5 : 3;
         typedef unsigned char (*SearchFn)(void*, uint32_t, const void*, float*, int);
         SearchFn search_fn = (SearchFn)(game + 0x6a8f00u);
 #ifdef HEAVY_SEAF_UNIT_TEST
         if (g_test_search_override) search_fn = g_test_search_override;
 #endif
-        for (ring = 0; ring < 3 && !ok; ring++)
+        for (ring = 0; ring < n_rings && !ok; ring++)
         for (ang = 0; ang < (ring ? 8 : 1) && !ok; ang++)
         for (hz = 0; hz < 5 && !ok; hz++) {
             float o[3];
@@ -1110,7 +1152,7 @@ static int CallSeaf(uintptr_t game, int squad, uint32_t call_type, const float* 
         }
     }
     if (!ok) return 3;
-    if (g_wave_sites < 3) memcpy(g_wave_site[g_wave_sites++], controller + 0x650, 12);
+    if (g_wave_sites < 6) memcpy(g_wave_site[g_wave_sites++], controller + 0x650, 12);
     memcpy(front, controller + 0x40, sizeof front);
     memcpy(front + 0x3a4, &character, 4);
     memcpy(front + 0x3b4, &invalid, 4);
@@ -1313,14 +1355,13 @@ static void Tick(HfMod* mod, float dt, void* user)
     now = HeavyNowMs();
     if (state == HF_STATE_MISSION) {
         int is_host = HeavyIsHostOrSolo();
-        if (!is_host) {
+            if (!is_host) {
             HeavyLandingGateReset(&g_landing_gate);
             if (was_host) {
                 armed = 0; tries = 0; wave_left = 0; wave_held = 0; g_call_left = 0; g_have_beacon = 0;
                 was_host = 0;
                 Log("mission: host role lost; SEAF director mutations and wave spawns paused");
             }
-            ApplyRanges();
             return;
         }
         if (mission_at == 0 || !was_host) {
@@ -1355,15 +1396,18 @@ static void Tick(HfMod* mod, float dt, void* user)
                 int rc;
                 if (wave_left == 0 && now >= next_wave) {
                     int living = heavy_seaf_live_troops();
-                    if (living >= WAVE_CEILING) {
+                    int ceiling = OptionsWaveCeiling();
+                    int em_ok = !OptionsCloneWars() || HeavyHasEntityHeadroom(game, 1180u);
+                    if (living >= ceiling || !em_ok) {
                         if (!wave_held) {
                             wave_held = 1;
-                            Log("SEAF field holds %d living troops; the next wave waits for casualties", living);
+                            Log("SEAF field holds %d/%d living troops (em_headroom=%d); the next wave waits for casualties",
+                                living, ceiling, em_ok);
                         }
                     } else {
                         if (wave_held) {
                             wave_held = 0;
-                            Log("SEAF field down to %d living troops; waves resume", living);
+                            Log("SEAF field down to %d/%d living troops; waves resume", living, ceiling);
                         }
                         wave_left = OptionsSquadsPerWave();
                         waves++;
@@ -1408,6 +1452,7 @@ static void Tick(HfMod* mod, float dt, void* user)
                 Log("SEAF Reinforcement: no landing site for squad %d", g_call_k);
             }
         }
+        return;
     } else {
         HeavyLandingGateReset(&g_landing_gate);
         if (mission_at != 0 || was_host) {
@@ -1421,6 +1466,7 @@ static void Tick(HfMod* mod, float dt, void* user)
             g_have_beacon = 0;
         }
     }
+    if (state == HF_STATE_PREPARE_MISSION) return;
     ApplyRanges();
     if (SquadStep() <= 0) return;
     EnterCriticalSection(&g_lock);
@@ -1657,8 +1703,8 @@ HF_MOD_EXPORT int hellforge_mod_init(const HfApi* hf, HfMod* mod)
     InitializeCriticalSection(&g_lock);
     build = hf->build_id();
     OptionsMenuStart(hf, mod);
-    Log("Heavy SEAF Presence Everywhere 1.2.0-clonedivers.5: modifier %u and map tag %u on every planet, extra squads %d, constant=%d (build %s)",
-        MODIFIER, MARKER, SquadStep(), OptionsConstant(), build != NULL ? build : "?");
+    Log("Heavy SEAF Presence Everywhere 1.2.0-clonedivers.6: modifier %u and map tag %u on every planet, extra squads %d, constant=%d, ceiling=%d (build %s)",
+        MODIFIER, MARKER, SquadStep(), OptionsConstant(), OptionsWaveCeiling(), build != NULL ? build : "?");
     g_squads_tick_joined = (heavy_seaf_squads_init(hf, mod) == 0) ? 1 : 0;
     if (!g_squads_tick_joined) Log("custom squad delivery did not initialize; waves will use regular SEAF");
     /* Clonedivers local repair: the pool needs decoded game.dll; initialize in OnGameLoaded. */

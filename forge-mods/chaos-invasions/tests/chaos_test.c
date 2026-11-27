@@ -24,9 +24,12 @@ static uint32_t g_mock_share_bytes = 0;
 
 /* ---- Mocked SDK & Synthetic World Fixtures --------------------------------------------------------------------- */
 
+static int g_mock_fail_em_bulk_read = 0;
+
 static int MockRead(uintptr_t address, void* buffer, size_t size)
 {
     if (!address || !buffer) return 1;
+    if (g_mock_fail_em_bulk_read && size == UK_EM_DESCRIPTOR_CAP * UK_EM_DESCRIPTOR_STRIDE) return 1;
     memcpy(buffer, (const void*)address, size);
     return 0;
 }
@@ -693,6 +696,9 @@ static void ResetMockCountersAndModState(void)
         memcpy(g_arena_game + CHAOS_LOCAL_USER_RVA, &uptr, 8);
     }
     stopped = 0;
+    g_host_opts = cd_host_options_defaults();
+    g_ultrakill.d11_snapshot_valid = 0;
+    g_ultrakill.d12_applied = 0;
     ResetMissionState();
     if (hf) state = hf->game_state(self);
     previous_role = (unsigned)Host();
@@ -1762,6 +1768,233 @@ static void TestV035Mission2PreloadRearmAndCoopSafeRoster(void)
     }
 }
 
+static HfDifficultySettings g_mock_d11_row;
+static unsigned g_mock_proj_calls = 0;
+static uintptr_t MockDifficultyRow(uint32_t level)
+{
+    return level == 11u ? (uintptr_t)&g_mock_d11_row : 0u;
+}
+static int MockSpawnProjectile(HfMod* m, uint32_t type, const float pos[3], const float dir[3])
+{
+    (void)m; (void)type; (void)pos; (void)dir;
+    ++g_mock_proj_calls;
+    return 1;
+}
+static const char* MockOrigText(uint32_t id, void* a, void* b, void* c)
+{
+    (void)id; (void)a; (void)b; (void)c;
+    return "HELL FORGE";
+}
+
+static void TestV040UltrakillD12PoolsAndCloneWarsTheater(HfApi* api)
+{
+    /* 1. Havok kPhysicsPools uncap: verifies vanilla & HellForge 0.1.47 pins, setup-already-ran guard, & pin corruption fail-closed */
+    InitMockGameArenas(CHAOS_NATIVE_BOTS_BIT, 11u);
+    ResetMockCountersAndModState();
+    for (unsigned i = 0; i < 6u; i++) {
+        const UkPhysicsPoolPatch* p = &kUkPhysicsPools[i];
+        memcpy(g_arena_game + p->rva, p->prefix, p->value_off);
+        uint32_t v = (i & 1u) ? p->hf0147_val : p->vanilla_val;
+        memcpy(g_arena_game + p->rva + p->value_off, &v, 4u);
+    }
+    uint64_t zero_setup = 0ULL;
+    memcpy(g_arena_game + UK_PHYSICS_SETUP_RVA, &zero_setup, 8u);
+    CHECK(UltrakillPatchPoolsWithOps((uintptr_t)g_arena_game, kArenaGameSize, MockRead, MockWrite) == 1);
+    for (unsigned i = 0; i < 6u; i++) {
+        uint32_t got = 0u;
+        memcpy(&got, g_arena_game + kUkPhysicsPools[i].rva + kUkPhysicsPools[i].value_off, 4u);
+        CHECK(got == kUkPhysicsPools[i].ultrakill_val);
+    }
+    /* Setup already ran -> returns 0 without writing */
+    uint64_t done_setup = 0x12345678ULL;
+    memcpy(g_arena_game + UK_PHYSICS_SETUP_RVA, &done_setup, 8u);
+    CHECK(UltrakillPatchPoolsWithOps((uintptr_t)g_arena_game, kArenaGameSize, MockRead, MockWrite) == 0);
+    /* Corrupted opcode byte -> fails closed with -1 */
+    memcpy(g_arena_game + UK_PHYSICS_SETUP_RVA, &zero_setup, 8u);
+    g_arena_game[kUkPhysicsPools[2].rva] ^= 0xFFu;
+    CHECK(UltrakillPatchPoolsWithOps((uintptr_t)g_arena_game, kArenaGameSize, MockRead, MockWrite) == -1);
+    g_arena_game[kUkPhysicsPools[2].rva] ^= 0xFFu;
+
+    /* 2. O(1) 4,096-unit ChaosTracker hash table stress check (2,500 live units) */
+    ChaosTracker big_tr;
+    ChaosTrackerReset(&big_tr);
+    for (uint32_t e = 10000u; e < 12500u; ++e) {
+        CHECK(ChaosTrackerRecordSpawnAt(&big_tr, (int)(e % 3u), e, 0, 1.0) == 1);
+        CHECK(ChaosTrackerHasEntity(&big_tr, e) == 1);
+        CHECK(ChaosTrackerRecordSpawnAt(&big_tr, (int)(e % 3u), e, 0, 1.0) == 0);
+    }
+    CHECK(big_tr.total_live == 2500 && big_tr.mission_spawned == 2500);
+    big_tr.units[0].active = 0u;
+    big_tr.units[1249].active = 0u;
+    ChaosTrackerRecount(&big_tr);
+    CHECK(big_tr.total_live == 2498 && !ChaosTrackerHasEntity(&big_tr, 10000u) && ChaosTrackerHasEntity(&big_tr, 12499u));
+
+    /* 3. Level 12 ULTRAKILL DifficultySettings row-11 mutation, HUD text override, 942m map area, & 2,000-3,000 unit Clone Wars theater */
+    memset(&g_mock_d11_row, 0, sizeof g_mock_d11_row);
+    g_mock_d11_row.unlock_item = 0xA0AE653Au;
+    g_mock_d11_row.level = 11u;
+    g_mock_d11_row.name_text = 0x55AA0011u;
+    g_mock_d11_row.description_text = 0x55AA0012u;
+    g_mock_d11_row.encounter_points = 1500.0f;
+    g_mock_d11_row.guardforce_points = 1500.0f;
+    g_mock_d11_row.spawner_cooldown = 1.0f;
+    for (int i = 0; i < 4; i++) g_mock_d11_row.map_radius[i] = 0.76f;
+    for (int f = 0; f < 3; f++) { g_mock_d11_row.patrol_interval[f] = 35.0f; g_mock_d11_row.patrol_cap[f] = 60u; }
+
+    api->difficulty_row = MockDifficultyRow;
+    api->spawn_projectile = MockSpawnProjectile;
+    g_ultrakill.orig_text = MockOrigText;
+    g_mock_proj_calls = 0;
+
+    /* Wire Context -> LevelGenerator (lg+0x1E4 mode=3, lg+0x2D70 radius=0.76, lg+0x2D74 border=0.93) */
+    uint8_t* mock_ctx = (uint8_t*)calloc(1, 0xAF000u);
+    uint8_t* mock_lg = (uint8_t*)calloc(1, 0x3000u);
+    void* p_ctx = mock_ctx;
+    void* p_lg = mock_lg;
+    uint32_t lg_mode = 3u;
+    float r_init = 0.76f, r_border = 0.93f;
+    memcpy(g_arena_game + UK_CONTEXT_RVA, &p_ctx, 8);
+    memcpy(mock_ctx + UK_CONTEXT_LG_OFF, &p_lg, 8);
+    memcpy(mock_lg + UK_LG_MODE_OFF, &lg_mode, 4);
+    memcpy(mock_lg + UK_LG_PLAYABLE_RADIUS_OFF, &r_init, 4);
+    memcpy(mock_lg + UK_LG_BORDER_RADIUS_OFF, &r_border, 4);
+
+    char saved_fixture[1800], unpacked_mod[1750], host_json[1700];
+    strcpy(saved_fixture, fixture);
+    snprintf(unpacked_mod, sizeof unpacked_mod, "%s\\mods\\.unpacked\\hash031\\chaos-invasions", saved_fixture);
+    snprintf(host_json, sizeof host_json, "%s\\mods\\clonedivers-host-options.json", saved_fixture);
+    CreateDirectoryA(unpacked_mod, NULL);
+
+    const uint64_t t0 = 134400000000000000ULL;
+    CHECK(WriteTextWithMtime(
+        host_json,
+        "{\"format\":1,\"theaterPreset\":\"clone-wars\",\"chaosIntensity\":\"clone-wars\",\"heavySeaf\":\"clone-wars\",\"fasterCorpseCleanup\":true,\"virtualTheaterBudget\":1600,\"mapRadiusPermille\":920}",
+        t0));
+    strcpy(fixture, unpacked_mod);
+    role = HF_SESSION_SOLO;
+    game_state = HF_STATE_MISSION;
+    ResetMockCountersAndModState();
+    subscriptions = ticks = 0;
+    CHECK(hellforge_mod_init(api, (HfMod*)1) == 0);
+
+    CHECK(g_ultrakill.d12_applied == 1);
+    CHECK(g_mock_d11_row.encounter_points == 1500.0f && g_mock_d11_row.patrol_cap[0] == 32u);
+    CHECK(fabsf(g_mock_d11_row.map_radius[0] - 0.92f) < 0.001f);
+    CHECK(strcmp(UltrakillTextDetour(0x55AA0011u, NULL, NULL, NULL), "LEVEL 12: CLONE WARS") == 0);
+    CHECK(strcmp(UltrakillTextDetour(0x55AA0012u, NULL, NULL, NULL), "12") == 0);
+    CHECK(strcmp(UltrakillTextDetour(0x99999999u, NULL, NULL, NULL), "HELL FORGE") == 0);
+
+    /* Run 25 frames at 60 FPS -> verifies paced <= 4 SpawnRosterRow/frame, lg+0x2D70 -> 0.92f, and 1,600+ virtual battalion units! */
+    unsigned max_roster_per_frame = 0u;
+    for (int f = 0; f < 180; f++) {
+        unsigned before = g_roster_calls;
+        Tick(self, 1.0f / 60.0f, NULL);
+        unsigned delta = g_roster_calls - before;
+        if (delta > max_roster_per_frame) max_roster_per_frame = delta;
+    }
+    float live_r = 0.0f;
+    memcpy(&live_r, mock_lg + UK_LG_PLAYABLE_RADIUS_OFF, 4);
+    CHECK(fabsf(live_r - 0.92f) < 0.002f);
+    CHECK(max_roster_per_frame <= UK_MAX_SPAWNS_PER_FRAME);
+    CHECK(g_ultrakill.multi_ring_spawns_total >= 12u);
+    CHECK(g_ultrakill.virtual_units_total >= 1580u && g_ultrakill.virtual_units_total <= 2200u);
+
+    /* Simulate EntityManager crossing governed reserve ceiling (900 live slots -> 1,148 free < 1,180 reserve): must hold real spawns! */
+    for (uint32_t i = 0; i < 900u; i++) {
+        uint64_t r = 0x0002ba767df856f3ull;
+        uint32_t eid = 20000u + i;
+        memcpy(g_emgr_mem + UK_EM_DESCRIPTORS_OFF + (size_t)i * 24u + 0u, &r, 8);
+        memcpy(g_emgr_mem + UK_EM_DESCRIPTORS_OFF + (size_t)i * 24u + 8u, &eid, 4);
+    }
+    g_em_snap.valid = 0;
+    ChaosSpawnJob test_job = {0};
+    test_job.faction = CHAOS_BOTS;
+    test_job.row_slot = 0u;
+    test_job.flags = 0x3Cu;
+    ChaosSpawnQueuePush(&g_spawn_queue, &test_job);
+    unsigned before_full = g_roster_calls;
+    DrainTheaterSpawnQueue((uintptr_t)g_arena_game, (uintptr_t)g_director_mem);
+    CHECK(g_em_snap.valid == 1 && g_em_snap.free_slots == 1148u);
+    CHECK(g_roster_calls == before_full); /* Zero EntityManager spawns when free_slots < 1,180! */
+
+    /* Simulate transient EntityManager occupancy bulk-read failure (g_mock_fail_em_bulk_read == 1 -> g_em_snap.valid == 0
+     * while CollectLivingPlayers still sees living_players == 1 and ChaosDue fires through full Tick()):
+     * ALL population governors AND the due-wave scheduler (ev.constructor / bypass_hr) MUST fail closed! */
+    memset(g_emgr_mem + UK_EM_DESCRIPTORS_OFF, 0, 2048u * 24u);
+    float low_budget = 100.0f;
+    memcpy(g_director_mem + UK_DIR_REINFORCE_BUDGET_OFF, &low_budget, 4);
+    g_ultrakill.budget_refresh_s = 0.0f;
+    g_ultrakill.surge_accum_s = 1.0f;
+    g_ultrakill.salvo_budget_tokens = 2.0f;
+    clock_state.next = clock_state.age; /* Force scheduled Chaos wave due on the very next Tick()! */
+    g_em_snap.valid = 1;
+    g_em_snap.captured_age = -10.0;
+    g_mock_fail_em_bulk_read = 1;
+    unsigned roster_before_fail = g_roster_calls;
+    unsigned transport_before_fail = g_transport_calls;
+    unsigned proj_before_fail = g_mock_proj_calls;
+    unsigned skip_before_fail = skipped_logs;
+    uint32_t q_before_fail = g_spawn_queue.count;
+    for (int f = 0; f < 30; f++) {
+        Tick(self, 0.5f, NULL);
+    }
+    float budget_after_fail = 0.0f;
+    memcpy(&budget_after_fail, g_director_mem + UK_DIR_REINFORCE_BUDGET_OFF, 4);
+    CHECK(g_em_snap.valid == 0);
+    CHECK(g_roster_calls == roster_before_fail); /* Neither theater queue nor due-wave scheduler spawned roster units! */
+    CHECK(g_transport_calls == transport_before_fail); /* Due-wave scheduler did not dispatch transport waves either! */
+    CHECK(skipped_logs > skip_before_fail); /* Due-wave refused with constructor_unqualified! */
+    CHECK(g_spawn_queue.count == q_before_fail); /* New platoon admission & virtual promotion blocked! */
+    CHECK(fabsf(budget_after_fail - 100.0f) < 0.01f); /* Director budget NOT topped up to 900 without valid occupancy! */
+    CHECK(g_mock_proj_calls == proj_before_fail); /* Virtual projectiles blocked when occupancy read fails! */
+    g_mock_fail_em_bulk_read = 0;
+    g_em_snap.captured_age = -10.0;
+
+    /* Host-role transitions WITHOUT options-file edits must synchronize HfDifficultySettings row 11 immediately! */
+    /* Mid-mission demotion: SOLO -> JOINER restores baseline D11 row and flushes spawn queue */
+    role = HF_SESSION_JOINER;
+    Tick(self, 1.0f / 60.0f, NULL);
+    CHECK(g_ultrakill.d12_applied == 0);
+    CHECK(fabsf(g_mock_d11_row.map_radius[0] - 0.76f) < 0.001f);
+    CHECK(strcmp(UltrakillTextDetour(0x55AA0011u, NULL, NULL, NULL), "HELL FORGE") == 0);
+    CHECK(g_spawn_queue.count == 0u);
+
+    /* Mid-mission promotion: JOINER -> HOST re-applies Level 12 row without file edit */
+    role = HF_SESSION_HOST;
+    Tick(self, 1.0f / 60.0f, NULL);
+    CHECK(g_ultrakill.d12_applied == 1);
+    CHECK(fabsf(g_mock_d11_row.map_radius[0] - 0.92f) < 0.001f);
+    CHECK(strcmp(UltrakillTextDetour(0x55AA0011u, NULL, NULL, NULL), "LEVEL 12: CLONE WARS") == 0);
+
+    /* Ship-state lobby transitions: HOST -> JOINER -> SOLO also synchronize D12 row immediately */
+    game_state = HF_STATE_SHIP;
+    Tick(self, 1.0f / 60.0f, NULL);
+    role = HF_SESSION_JOINER;
+    Tick(self, 1.0f / 60.0f, NULL);
+    CHECK(g_ultrakill.d12_applied == 0 && fabsf(g_mock_d11_row.map_radius[0] - 0.76f) < 0.001f);
+    role = HF_SESSION_SOLO;
+    Tick(self, 1.0f / 60.0f, NULL);
+    CHECK(g_ultrakill.d12_applied == 1 && fabsf(g_mock_d11_row.map_radius[0] - 0.92f) < 0.001f);
+    game_state = HF_STATE_MISSION;
+
+    /* Switch back to standard mode -> restores Difficulty 11 row byte-for-byte! */
+    CHECK(WriteTextWithMtime(
+        host_json,
+        "{\"format\":1,\"theaterPreset\":\"standard\",\"chaosIntensity\":\"standard\",\"heavySeaf\":\"standard\",\"fasterCorpseCleanup\":true}",
+        t0 + 50000000ULL));
+    Seconds(2);
+    CHECK(g_ultrakill.d12_applied == 0);
+    CHECK(g_mock_d11_row.encounter_points == 1500.0f && fabsf(g_mock_d11_row.map_radius[0] - 0.76f) < 0.001f);
+
+    DeleteFileA(host_json);
+    strcpy(fixture, saved_fixture);
+    g_host_options_path[0] = 0;
+    g_host_options_mtime = 0ULL;
+    g_host_opts = cd_host_options_defaults();
+    free(mock_ctx);
+    free(mock_lg);
+}
+
 int main(int argc, char** argv)
 {
     CHECK(argc == 2 && strlen(argv[1]) < sizeof fixture);
@@ -1818,6 +2051,7 @@ int main(int argc, char** argv)
     TestH4SlowD11JoinerBarrierAndImmediateMissionSync();
     TestV034BotDropDeadlockAndCityHardening();
     TestV035Mission2PreloadRearmAndCoopSafeRoster();
+    TestV040UltrakillD12PoolsAndCloneWarsTheater(&api);
 
     /* Kill switch latch & token mismatch tests */
     FILE* f = fopen(bridge, "wb"); CHECK(f != NULL);

@@ -49,16 +49,16 @@ public static class HellForgePreset
         ("skyeshade.hell-forge", "Hell Forge Difficulty", "0.16.1"),
         ("local.hf-shared-dispatcher", "Shared Callback Manager", "0.1.0"),
         ("local.operation-reroller", "Operation Reroller", "0.1.6"),
-        (FasterCorpseCleanup, "Faster Corpse Cleanup", "1.0.6-clonedivers.1"),
+        (FasterCorpseCleanup, "Faster Corpse Cleanup", "1.0.6-clonedivers.2"),
         ("cowboybingus.vanilla-plus-megapack", "Vanilla Plus Megapack", "0.2.1"),
-        ("local.heavy-seaf-presence", "Heavy SEAF Presence Everywhere", "1.2.0-clonedivers.5"),
+        ("local.heavy-seaf-presence", "Heavy SEAF Presence Everywhere", "1.2.0-clonedivers.6"),
         ("local.mod-9fd7880666f6", "SEAF Squad Stratagems", "0.1.4-clonedivers.3"),
         (BingusSharedLoader, "Bingus Shared Loader - v20", ""),
         (SmarterSeaf, "Smarter SEAF 1.0.4", ""),
         (GuardDogs, "Smarter Guard Dogs & Sentries 5.2.0", "")
     ];
 
-    public static string? Problem(HellForgeMods catalog, bool checkOrder = false)
+    public static string? Problem(HellForgeMods catalog, bool checkOrder = false, bool ultrakillTheaterActive = false)
     {
         if (catalog.HostingProblem != null) return catalog.HostingProblem;
         var issues = new List<string>();
@@ -87,7 +87,10 @@ public static class HellForgePreset
         {
             if (dogs.Options?.SingleOrDefault(o => o.Name == "Targeting Marker") is not { On: false })
                 issues.Add("Turn off the Guard Dogs Targeting Marker");
-            foreach (var name in new[] { "Smarter Guard Dogs and Sentries", "Guard Dogs", "Sentries", "Intelligence", "Safety", "Sentry Safety", "SEAF Safety" })
+            var requiredDogOptions = ultrakillTheaterActive
+                ? new[] { "Smarter Guard Dogs and Sentries", "Guard Dogs", "Sentries", "Intelligence", "Safety", "Sentry Safety" }
+                : new[] { "Smarter Guard Dogs and Sentries", "Guard Dogs", "Sentries", "Intelligence", "Safety", "Sentry Safety", "SEAF Safety" };
+            foreach (var name in requiredDogOptions)
                 if (dogs.Options?.SingleOrDefault(o => o.Name == name) is not { On: true })
                     issues.Add("Enable Guard Dogs option: " + name);
         }

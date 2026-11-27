@@ -49,6 +49,7 @@ internal sealed class LinuxForgePreferences
     public string HostChaosIntensity { get; set; } = "standard";
     public string HostHeavySeaf { get; set; } = "standard";
     public bool HostFasterCorpseCleanup { get; set; } = true;
+    public string HostTheaterPreset { get; set; } = "standard";
     public string? PlayerLabel { get; set; }
     internal static string PathName => Path.Combine(PlatformPaths.ConfigDirectory, "forge.json");
 
@@ -61,14 +62,8 @@ internal sealed class LinuxForgePreferences
         Texture = PerformanceTierAdvisor.ResolvePackTexture(tierId, hardware);
     }
 
-    internal HostMutatorOptions ToHostMutatorOptions(DateTimeOffset? updatedUtc = null) => new()
-    {
-        Format = 1,
-        ChaosIntensity = HostChaosIntensity,
-        HeavySeaf = HostHeavySeaf,
-        FasterCorpseCleanup = HostFasterCorpseCleanup,
-        UpdatedUtc = updatedUtc ?? DateTimeOffset.UtcNow
-    };
+    internal HostMutatorOptions ToHostMutatorOptions(DateTimeOffset? updatedUtc = null) =>
+        HostMutatorConfig.BuildOptions(HostChaosIntensity, HostHeavySeaf, HostFasterCorpseCleanup, HostTheaterPreset, updatedUtc);
 
     static bool TryGetJsonProperty(JsonElement obj, string name, out JsonElement value)
     {
@@ -93,6 +88,7 @@ internal sealed class LinuxForgePreferences
             PerformanceTier = AutoPerformanceTier ? PerformanceTierAdvisor.Auto : PerformanceTierAdvisor.TierFromPackTexture(Texture);
         if (string.IsNullOrEmpty(HostChaosIntensity)) HostChaosIntensity = "standard";
         if (string.IsNullOrEmpty(HostHeavySeaf)) HostHeavySeaf = "standard";
+        if (string.IsNullOrEmpty(HostTheaterPreset)) HostTheaterPreset = "standard";
         if (string.IsNullOrWhiteSpace(LastStepDownSuggestedTier)) LastStepDownSuggestedTier = null;
         if (string.IsNullOrWhiteSpace(PendingStepDownReason)) PendingStepDownReason = null;
         if (string.IsNullOrWhiteSpace(PlayerLabel)) PlayerLabel = null;
@@ -107,6 +103,7 @@ internal sealed class LinuxForgePreferences
             (PendingStepDownReason != null && PendingStepDownReason.Length > 512) ||
             !HostMutatorConfig.IsValidChaosIntensity(HostChaosIntensity) ||
             !HostMutatorConfig.IsValidHeavySeaf(HostHeavySeaf) ||
+            !HostMutatorConfig.IsValidTheaterPreset(HostTheaterPreset) ||
             (PlayerLabel != null && PlayerLabel.Length > 40))
             throw new InvalidDataException("Unsupported Forge preferences; restore forge.json from backup.");
     }
@@ -181,9 +178,13 @@ internal sealed class LinuxForgePreferences
         File.WriteAllText(file + ".tmp", JsonSerializer.Serialize(this, HellForgePack.Json));
         File.Move(file + ".tmp", file, true);
     }
-    internal string[] SelectionCommand() => ["select-mode", "--mode", Mode, "--delta", DeltaSquad ? "yes" : "no", "--texture", Texture,
-        "--droids", Droids ? "yes" : "no", "--covenant", Covenant ? "yes" : "no", "--enemy-skin", EnemySkin,
-        "--squid-skin", SquidSkin, "--deathtrooper", DeathTrooperVoice ? "yes" : "no"];
+    internal string[] SelectionCommand() => !HostMutatorConfig.IsUltrakillTheater(HostTheaterPreset, HostChaosIntensity)
+        ? ["select-mode", "--mode", Mode, "--delta", DeltaSquad ? "yes" : "no", "--texture", Texture,
+            "--droids", Droids ? "yes" : "no", "--covenant", Covenant ? "yes" : "no", "--enemy-skin", EnemySkin,
+            "--squid-skin", SquidSkin, "--deathtrooper", DeathTrooperVoice ? "yes" : "no"]
+        : ["select-mode", "--mode", Mode, "--delta", DeltaSquad ? "yes" : "no", "--texture", Texture,
+            "--droids", Droids ? "yes" : "no", "--covenant", Covenant ? "yes" : "no", "--enemy-skin", EnemySkin,
+            "--squid-skin", SquidSkin, "--deathtrooper", DeathTrooperVoice ? "yes" : "no", "--theater", "clone-wars"];
     internal HellForgePack.Selection PackSelection()
     {
         var options = new Dictionary<string, bool>
@@ -345,7 +346,8 @@ internal sealed class LinuxForgePlayer(IForgeConnection connection, LinuxForgePr
     {
         if (SessionActive || Game.IsRunning()) throw new InvalidOperationException("End HD2 before installing the required gameplay preset.");
         await SelectAsync(ct);
-        richProgress?.Report(new("Checking required gameplay mods", "Verifying installed 18-mod r11 preset…", IsIndeterminate: true, CanCancel: true));
+        var presetTag = SquadFingerprint.ExtractCatalogPrefix();
+        richProgress?.Report(new("Checking required gameplay mods", $"Verifying installed {HellForgeGameplayCatalog.Pinned.Artifacts.Count}-mod {presetTag} preset…", IsIndeterminate: true, CanCancel: true));
         var missing = (await connection.RunAsync(["gameplay-status"], ct)).Deserialize<List<GameplayArtifact>>(HellForgePack.Json)
             ?? throw new InvalidDataException("Forge returned no gameplay installation plan.");
         var pinned = HellForgeGameplayCatalog.Pinned;
@@ -357,7 +359,7 @@ internal sealed class LinuxForgePlayer(IForgeConnection connection, LinuxForgePr
         // HTTPS runs here in the native frontend, never in the isolated Wine bridge.
         await HellForgeGameplayCatalog.StageAsync(cache, missing, progress, ct, richProgress: richProgress);
         if (SessionActive || Game.IsRunning()) throw new InvalidOperationException("HD2 started while downloading; keep the verified files and retry after closing it.");
-        richProgress?.Report(new("Installing gameplay mods", "Configuring pinned r11 load order and sharing…", IsIndeterminate: true, CanCancel: false));
+        richProgress?.Report(new("Installing gameplay mods", $"Configuring pinned {presetTag} load order and sharing…", IsIndeterminate: true, CanCancel: false));
         await connection.RunAsync(["install-gameplay", "--file", windows], ct);
         await RefreshAsync(ct);
     }
@@ -482,24 +484,6 @@ internal sealed class LinuxForgePlayer(IForgeConnection connection, LinuxForgePr
     static Task EnsureHostExportAndInstallCapacityAsync(string? installRoot, HellForgePack.Plan plan, CancellationToken ct)
     {
         if (string.IsNullOrWhiteSpace(installRoot) || !Directory.Exists(installRoot)) return Task.CompletedTask;
-        long existingInOutput = 0;
-        if (Directory.Exists(plan.Output))
-        {
-            try
-            {
-                foreach (var f in Directory.EnumerateFiles(plan.Output, "*", SearchOption.AllDirectories))
-                {
-                    FileSafety.RejectLink(f);
-                    existingInOutput = checked(existingInOutput + new FileInfo(f).Length);
-                }
-            }
-            catch (Exception e) when (e is IOException or UnauthorizedAccessException or InvalidDataException) { }
-        }
-        long exportNewBytes = Math.Max(0L, plan.Bytes - existingInOutput);
-        long exportNeeded = exportNewBytes > 0
-            ? checked(exportNewBytes + HellForgePack.ExportReserve + plan.Missing.Select(f => f.Size).DefaultIfEmpty().Max())
-            : 0L;
-
         long oldBytes = 0;
         var modsRoot = Path.Combine(installRoot, "mods");
         if (Directory.Exists(modsRoot))
@@ -538,50 +522,8 @@ internal sealed class LinuxForgePlayer(IForgeConnection connection, LinuxForgePr
                 catch (Exception e) when (e is IOException or UnauthorizedAccessException or InvalidDataException) { }
             }
         }
-        long replacementBytes = checked(plan.Bytes + 65536L);
-        long backupNeeded = checked(oldBytes + replacementBytes + HellForgePack.ExportReserve);
-        long modsNeeded = checked(replacementBytes + HellForgePack.ExportReserve);
-
-        var exportPath = Path.GetFullPath(plan.Output);
         var cacheRoot = Path.Combine(Path.GetDirectoryName(Path.TrimEndingDirectorySeparator(Path.GetFullPath(installRoot)))!, "Clonedivers-HellForge-cache");
-        var backupPath = Path.Combine(cacheRoot, "backups");
-
-        var exportVol = HellForgePack.VolumeKey(exportPath);
-        var backupVol = HellForgePack.VolumeKey(backupPath);
-        var modsVol = HellForgePack.VolumeKey(modsRoot);
-
-        var volumeNeeds = new Dictionary<string, (string ProbePath, long Required)>(StringComparer.Ordinal);
-        void RequireOnVolume(string vol, string probe, long addBytes, bool additive)
-        {
-            if (addBytes <= 0) return;
-            if (volumeNeeds.TryGetValue(vol, out var cur))
-                volumeNeeds[vol] = (cur.ProbePath, additive ? checked(cur.Required + addBytes) : Math.Max(cur.Required, addBytes));
-            else
-                volumeNeeds[vol] = (probe, addBytes);
-        }
-
-        RequireOnVolume(backupVol, backupPath, backupNeeded, additive: false);
-        RequireOnVolume(modsVol, modsRoot, modsNeeded, additive: false);
-        if (exportNeeded > 0)
-            RequireOnVolume(exportVol, exportPath, exportNeeded, additive: true);
-
-        bool cleanedOnce = false;
-        foreach (var (_, (probe, required)) in volumeNeeds)
-        {
-            if (HellForgePack.AvailableExportBytes(probe) is not long free || free >= required) continue;
-            if (!cleanedOnce)
-            {
-                cleanedOnce = true;
-                try { ForgeDiskManager.CleanSafeFilesSync(installRoot, ct, plan.Local.Values); }
-                catch (Exception e) when (e is IOException or UnauthorizedAccessException or InvalidDataException) { }
-                if (HellForgePack.AvailableExportBytes(probe) is not long freeAfter || freeAfter >= required) continue;
-                free = freeAfter;
-            }
-            throw new IOException(
-                $"Not enough space to prepare and install this Star Wars pack: {Pack.FormatBytes(required)} needed " +
-                $"({Pack.FormatBytes(exportNeeded)} staging + {Pack.FormatBytes(backupNeeded)} backup/install reserve), " +
-                $"{Pack.FormatBytes(Math.Max(0, free))} available. Free space on this drive or choose a lighter Performance Tier, then try again.");
-        }
+        PackArtifactEngine.EnsureStagingAndInstallCapacity(installRoot, cacheRoot, plan, oldBytes, HellForgePack.AvailableExportBytes, ct);
         return Task.CompletedTask;
     }
 

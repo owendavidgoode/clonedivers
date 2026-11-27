@@ -156,7 +156,8 @@ static void Tick(HfMod*,float dt,void*){
  if(done)jobs.erase(jobs.begin()+n);else ++n;
  }
  hunters::frame(dt);
- for(size_t n=0;n<soldiers.size();){try{maintain(soldiers[n],dt);if(soldiers[n].squad==3&&OptionsTankHunters())hunters::maintain(soldiers[n],dt);++n;}catch(const std::exception& e){api->log(mod,"SOLDIER_MAINTENANCE_STOPPED: %u: %s",soldiers[n].identity.id,e.what());hunters::forget(soldiers[n].identity.id);soldiers.erase(soldiers.begin()+n);}}
+ static unsigned soldier_slice=0;unsigned sbucket=(++soldier_slice)&3u;bool sslice=dt<0.20f;float sdt=sslice?(dt*4.0f):dt;
+ for(size_t n=0;n<soldiers.size();){if(sslice&&((n&3u)!=sbucket)){++n;continue;}try{maintain(soldiers[n],sdt);if(soldiers[n].squad==3&&OptionsTankHunters())hunters::maintain(soldiers[n],sdt);++n;}catch(const std::exception& e){api->log(mod,"SOLDIER_MAINTENANCE_STOPPED: %u: %s",soldiers[n].identity.id,e.what());hunters::forget(soldiers[n].identity.id);soldiers.erase(soldiers.begin()+n);}}
  live_check-=dt;if(live_check<=0){prune_live();live_check=1.0f;}
  DispatchCalls();
 }

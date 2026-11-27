@@ -2,8 +2,8 @@
   "format": 1,
   "id": "clonedivers.lego-compact-leaf-writer",
   "name": "LEGO Compact Leaf Writer",
-  "version": "0.2.2",
-  "description": "Multi-actor co-op compact LEGO leaf writer (0.2.2). Pre-resolved LOD mesh seqlock filter (zero steady-state unclassified RPM syscalls), subnormal/underflow float resilience, node-count cross-mode rejection, and unified JSON garment registry for EmpireDivers & Clonedivers Compact LEGO kits.",
+  "version": "0.2.3",
+  "description": "Multi-actor co-op compact LEGO leaf writer (0.2.3). Scoped per-handle 1E7CD0 retirement, fast zero-retire 1E7CD0 bypass, pre-resolved LOD mesh seqlock filter, subnormal/underflow float resilience, and unified JSON garment registry for EmpireDivers & Clonedivers Compact LEGO kits.",
   "gameplay": false,
   "coop": "per-player",
   "code": {

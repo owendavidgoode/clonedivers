@@ -408,14 +408,14 @@ internal static class TurnkeySetupTests
                 (await postRecovery.MissingGameplayAsync()).Select(a => a.Id).ToHashSet(StringComparer.Ordinal).SetEquals(expectedR4Upgrade),
                 "RecoverGameplayAsync after an interrupted r4->r8 upgrade restores 0.0.9/0.2.0 and still offers the enabled retired-default upgrades on retry");
             fake.Calls.Clear(); await postRecovery.InstallGameplayAsync(postRecovery.GameplayCache);
-            check(fake.Mods.Single(m => m.Id == leafWriter.Id) is { Enabled: true, Version: "0.2.2" } &&
-                fake.Mods.Single(m => m.Id == chaos.Id) is { Enabled: true, Version: "0.3.5" } &&
-                fake.Mods.Single(m => m.Id == atst.Id) is { Enabled: true, Version: "0.2.3" } &&
+            check(fake.Mods.Single(m => m.Id == leafWriter.Id) is { Enabled: true, Version: "0.2.3" } &&
+                fake.Mods.Single(m => m.Id == chaos.Id) is { Enabled: true, Version: "0.4.0" } &&
+                fake.Mods.Single(m => m.Id == atst.Id) is { Enabled: true, Version: "0.2.4" } &&
                 newInR5.All(id => fake.Mods.Single(m => m.Id == id).Enabled) &&
                 fake.Mods.Single(m => m.Id == yoda.Id) is { Enabled: false, Version: "0.1.2" } &&
                 fake.Mods.All(m => m.Id != cleanExit.Id) &&
                 fake.Calls.Count(c => c[0] == "mod-add") == expectedR4Upgrade.Count,
-                "r4->r10 retry after RecoverGameplayAsync imports 0.2.2/0.2.3/0.3.5 upgrades and new AT-ST/TIE Switch/Camera Pullback/Star Wars Localization/Dedicated Melee defaults while leaving disabled Yoda 0.1.2 and removed Clean Exit untouched");
+                "r4->r13 retry after RecoverGameplayAsync imports 0.2.3/0.2.4/0.4.0 upgrades and new AT-ST/TIE Switch/Camera Pullback/Star Wars Localization/Dedicated Melee defaults while leaving disabled Yoda 0.1.2 and removed Clean Exit untouched");
 
             // Upgrading from r5 upgrades enabled 0.1.0 LEGO leaf writer and AT-ST writer while offering Camera Pullback + Star Wars Localization + Dedicated Melee and preserving disabled/removed optionals.
             var r5OptionalIds = new[] { cleanExit.Id, leafWriter.Id, yoda.Id, atst.Id, tieSwitch.Id, chaos.Id };
@@ -480,6 +480,29 @@ internal static class TurnkeySetupTests
             var expectedR10Upgrade = new[] { cleanExit.Id, swLoc.Id }.ToHashSet(StringComparer.Ordinal);
             check((await restarted.MissingGameplayAsync()).Select(a => a.Id).ToHashSet(StringComparer.Ordinal).SetEquals(expectedR10Upgrade),
                 "an r10 (v2.1.3) installation upgrades enabled Clean Exit 0.2.0 -> 0.2.1 and Star Wars Localization 0.1.0 -> 0.1.1 while keeping disabled/removed optionals opted out");
+
+            // Upgrading from r11 (v2.1.4) must upgrade enabled Empire TIE Switch 0.3.0 -> 0.3.2 while keeping disabled/removed optionals opted out.
+            fake.Mods.RemoveAll(m => HellForgePreset.Optional.Contains(m.Id));
+            fake.Mods.Add(new(tieSwitch.Id, tieSwitch.Name, true, MakeOldDir(tieSwitch, "0.3.0"), ["code"], "0.3.0"));
+            fake.Mods.Add(new(dedicatedMelee.Id, dedicatedMelee.Name, false, MakeOldDir(dedicatedMelee, "1.5.2-clonedivers.2"), ["code"], "1.5.2-clonedivers.2"));
+            WriteRecord("build25480438-r11", "applied", true, null);
+            var expectedR11Upgrade = new[] { tieSwitch.Id }.ToHashSet(StringComparer.Ordinal);
+            check((await restarted.MissingGameplayAsync()).Select(a => a.Id).ToHashSet(StringComparer.Ordinal).SetEquals(expectedR11Upgrade),
+                "an r11 (v2.1.4) installation upgrades enabled Empire TIE Switch 0.3.0 -> 0.3.2 while keeping disabled/removed optionals opted out");
+
+            // Upgrading from r12 (v2.1.5) must upgrade all 6 enabled r12->r13 optionals (0.2.2->0.2.3, 0.2.1->0.2.2, 0.2.3->0.2.4, 0.3.1->0.3.2, 1.5.2-clonedivers.2->1.5.2-clonedivers.3, 0.3.5->0.4.0) while keeping disabled/removed optionals opted out.
+            fake.Mods.RemoveAll(m => HellForgePreset.Optional.Contains(m.Id));
+            fake.Mods.Add(new(leafWriter.Id, leafWriter.Name, true, MakeOldDir(leafWriter, "0.2.2"), ["code"], "0.2.2"));
+            fake.Mods.Add(new(yoda.Id, yoda.Name, true, MakeOldDir(yoda, "0.2.1"), ["code"], "0.2.1"));
+            fake.Mods.Add(new(atst.Id, atst.Name, true, MakeOldDir(atst, "0.2.3"), ["code"], "0.2.3"));
+            fake.Mods.Add(new(tieSwitch.Id, tieSwitch.Name, true, MakeOldDir(tieSwitch, "0.3.1"), ["code"], "0.3.1"));
+            fake.Mods.Add(new(dedicatedMelee.Id, dedicatedMelee.Name, true, MakeOldDir(dedicatedMelee, "1.5.2-clonedivers.2"), ["code"], "1.5.2-clonedivers.2"));
+            fake.Mods.Add(new(chaos.Id, chaos.Name, true, MakeOldDir(chaos, "0.3.5"), ["code"], "0.3.5"));
+            fake.Mods.Add(new(cleanExit.Id, cleanExit.Name, false, MakeOldDir(cleanExit, "0.2.1"), ["code"], "0.2.1"));
+            WriteRecord("build25480438-r12", "applied", true, null);
+            var expectedR12Upgrade = new[] { leafWriter.Id, yoda.Id, atst.Id, tieSwitch.Id, dedicatedMelee.Id, chaos.Id }.ToHashSet(StringComparer.Ordinal);
+            check((await restarted.MissingGameplayAsync()).Select(a => a.Id).ToHashSet(StringComparer.Ordinal).SetEquals(expectedR12Upgrade),
+                "an r12 (v2.1.5) installation upgrades all 6 enabled r13 code mods while keeping disabled/removed optionals opted out");
 
             // Upgrading from an earlier record with partial OptionalDefaults offers newly added optionals while preserving prior opt-outs and player-kept versions across rollback.
             fake.Mods.RemoveAll(m => HellForgePreset.Optional.Contains(m.Id));

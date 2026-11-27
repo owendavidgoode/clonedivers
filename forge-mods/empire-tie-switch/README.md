@@ -1,8 +1,10 @@
-# Empire per-attack TIE (v0.3.0)
+# Empire per-attack TIE (v0.3.1)
 
 HellForge SDK 16, game 25480438. Client-only (`gameplay: false`, `coop: per-player`) code driver paired
-with `D:\ClaudeWork\empire-forge\empire-forge-r47-tie` (and compatible with `empire-forge-r46-tie`).
-Version 0.3.0 retains lazy `hellforge_lua_mod` registration out of `hellforge_mod_init()` and adds:
+with `EmpireDivers r52` across all 5 performance tiers (`full`, `lighter`, `reduced1024`, `reduced512`, `potato256`).
+Version 0.3.1 expands `assets.h` and `asset_gate.h` from 3 tiers (`0x07u`) to all 5 `EmpireDivers` texture tiers
+(`[0]=full`, `[1]=lighter`, `[2]=reduced1024`, `[3]=reduced512`, `[4]=potato256`, `TIE_ALL_TIERS_MASK = 0x1Fu`),
+retaining lazy `hellforge_lua_mod` registration out of `hellforge_mod_init()` and:
 
 1. **Direct `eagle_base` (`0x2C26BC4C6592FA14`) residency fallback (`package_pin.h`):**
    - Calls `hf->load_package(mod, 0x2C26BC4C6592FA14ull)` first (succeeds natively on patched loaders).

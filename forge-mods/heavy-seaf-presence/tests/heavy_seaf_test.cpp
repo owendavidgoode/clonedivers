@@ -44,7 +44,10 @@ static uint8_t g_settings_obj[0x400];
 static uint8_t g_players_obj[0x600];
 static uint8_t g_player_rec[32];
 static uint32_t g_player_map_buckets[16 * 2];
-static uint8_t g_factory_obj[0xF34000];
+static uint8_t g_factory_obj[0xF40000];
+static int g_mock_fail_factory_read = 0;
+static int g_mock_fail_invalid_read = 0;
+static int g_mock_fail_desc_read = 0;
 static uint32_t g_net_map_buckets[16 * 2];
 static uint8_t g_user_obj[0xC000];
 static uint8_t g_transform_src[0x4900];
@@ -228,8 +231,16 @@ static int mock_read(uintptr_t at, void* out, size_t n)
     if (at == g_fake_game + DIRECTOR_RVA && n == 8) { uintptr_t p = (uintptr_t)g_ai_director; memcpy(out, &p, 8); return 0; }
     if (at == g_fake_game + 0x3326340u && n == 8) { uintptr_t p = (uintptr_t)g_context_obj; memcpy(out, &p, 8); return 0; }
     if (at == g_fake_game + 0x3483C34u && n == 4) { uint32_t inv = 0xFFFFFFFFu; memcpy(out, &inv, 4); return 0; }
+    if (at == g_fake_game + 0x348456Cu && n == 4) {
+        if (g_mock_fail_invalid_read) return 1;
+        uint32_t inv = 0xFFFFFFFFu; memcpy(out, &inv, 4); return 0;
+    }
     if (at == g_fake_game + 0x3326468u && n == 8) { uintptr_t p = (uintptr_t)g_players_obj; memcpy(out, &p, 8); return 0; }
-    if (at == g_fake_game + 0x346BF98u && n == 8) { uintptr_t p = (uintptr_t)g_factory_obj; memcpy(out, &p, 8); return 0; }
+    if (at == g_fake_game + 0x346BF98u && n == 8) {
+        if (g_mock_fail_factory_read) return 1;
+        uintptr_t p = (uintptr_t)g_factory_obj; memcpy(out, &p, 8); return 0;
+    }
+    if (g_mock_fail_desc_read && at == (uintptr_t)g_factory_obj + 0xF32F18u) return 1;
     if (at == g_fake_game + 0x347CEF0u && n == 8) { uintptr_t p = (uintptr_t)g_user_obj; memcpy(out, &p, 8); return 0; }
     if (at == g_fake_game + 0x3326558u && n == 8) { uintptr_t p = (uintptr_t)g_transform_src; memcpy(out, &p, 8); return 0; }
     if (at == g_fake_game + 0x3326688u && n == 8) { uintptr_t p = (uintptr_t)g_health_mgr; memcpy(out, &p, 8); return 0; }
@@ -401,6 +412,44 @@ int main(int argc, char** argv)
     OptionsMenuPoll(1.5f);
     CHECK(OptionsConstant() == 1 && OptionsSupportSquads() == 1 && OptionsSquadsPerWave() == 1 && OptionsWaveIntervalMs() == 90000,
           "newer Launcher Apply enables constant mode");
+
+    /* Verify Clone Wars Grand Army preset ("heavySeaf":"clone-wars") -> 1-slot native 116u squads (support=0), 24s cadence, 200 ceiling override, SquadStep=10 */
+    CHECK(write_file_mtime(host_json, "{\"format\":1,\"theaterPreset\":\"clone-wars\",\"chaosIntensity\":\"clone-wars\",\"heavySeaf\":\"clone-wars\",\"fasterCorpseCleanup\":true,\"seafWaveCeiling\":200}", t0 + 900000000ULL),
+          "write clone-wars host options");
+    OptionsMenuPoll(1.5f);
+    CHECK(OptionsConstant() == 1 && OptionsSupportSquads() == 0 && OptionsCloneWars() == 1 &&
+          OptionsSquadsPerWave() == 2 && OptionsWaveIntervalMs() == 24000 &&
+          OptionsWaveCeiling() == 200 && SquadStep() == 10,
+          "clone-wars preset configures 24s 2-squad native 116u Clone Trooper drops with ceiling=200 and SquadStep=10");
+
+    /* Verify HeavyHasEntityHeadroom (<1,024 GwNav::Bot governor) fails closed on read errors and holds at >=869 occupied slots */
+    memset(g_factory_obj + 0xF32F18u, 0, 2048u * 24u);
+    CHECK(HeavyHasEntityHeadroom(g_fake_game, 1180u) == 1, "empty EntityManager grants 2048 >= 1180 headroom");
+    CHECK(HeavyHasEntityHeadroom(0u, 1180u) == 0, "null game base fails closed");
+    g_mock_fail_factory_read = 1;
+    CHECK(HeavyHasEntityHeadroom(g_fake_game, 1180u) == 0, "failed factory pointer read fails closed");
+    g_mock_fail_factory_read = 0;
+    g_mock_fail_invalid_read = 1;
+    CHECK(HeavyHasEntityHeadroom(g_fake_game, 1180u) == 0, "failed sentinel read fails closed");
+    g_mock_fail_invalid_read = 0;
+    g_mock_fail_desc_read = 1;
+    CHECK(HeavyHasEntityHeadroom(g_fake_game, 1180u) == 0, "failed descriptor bulk read fails closed");
+    g_mock_fail_desc_read = 0;
+    for (uint32_t i = 0; i < 900u; ++i) {
+        uint64_t res = 0x0002BA767DF856F3ULL;
+        uint32_t eid = 1000u + i;
+        memcpy(g_factory_obj + 0xF32F18u + (size_t)i * 24u + 0u, &res, 8);
+        memcpy(g_factory_obj + 0xF32F18u + (size_t)i * 24u + 8u, &eid, 4);
+    }
+    CHECK(HeavyHasEntityHeadroom(g_fake_game, 1180u) == 0, "900 occupied EntityManager slots (1148 free < 1180) holds Clone Wars SEAF wave");
+    init_mock_world();
+
+    /* Restore constant mode for the wave-1 landing gate assertions below */
+    CHECK(write_file_mtime(host_json, "{\"format\":1,\"chaosIntensity\":\"standard\",\"heavySeaf\":\"constant\",\"fasterCorpseCleanup\":true}", t0 + 1000000000ULL),
+          "restore constant mode for landing gate test");
+    OptionsMenuPoll(1.5f);
+    CHECK(OptionsCloneWars() == 0 && OptionsWaveCeiling() == 24 && SquadStep() == 2,
+          "reverting from clone-wars restores standard ceiling=24 and SquadStep<=5");
 
     /* 3. Positive Mission-Ground Landing Gate & Stale Ship-Spawn Immunity + 10-arg 0x6ABDB0 ABI */
     /* On ship (state=HF_STATE_SHIP) with player life==3 (reproducing stale ship spawn!): */

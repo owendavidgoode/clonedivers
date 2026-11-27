@@ -344,7 +344,7 @@ static ULONGLONG census_at;
 static void census_add(uint32_t id) {
     if (!id) return;
     for (const auto& row : census) if (row.id == id) return;
-    if (census.size() >= 192) census.erase(census.begin());
+    if (census.size() >= 1024) census.erase(census.begin());
     census.push_back({id, GetTickCount64()});
     census_at = 0;
 }
@@ -733,12 +733,17 @@ static void Tick(HfMod*, float dt, void*) {
         for (size_t n = 0; n < pending.size();) {
             if (!pending[n].at) pending.erase(pending.begin() + n); else ++n;
         }
+        static unsigned maint_slice = 0;
+        unsigned bucket = (++maint_slice) & 3u;
+        bool slice_frames = dt < 0.20f;
+        float eff_dt = slice_frames ? (dt * 4.0f) : dt;
         for (size_t n = 0; n < tracked.size();) {
+            if (slice_frames && ((n & 3u) != bucket)) { ++n; continue; }
             try {
                 auto& t = tracked[n];
                 bool hunter = t.squad == 2 && OptionsTankHunters();  /* the Tank Hunter squad */
                 if (t.soldier.weapon == 0x587878FB76F4B9B1ull) {     /* native MG-43 gunner */
-                    if (hunter) hunters::maintain(t.soldier, dt);
+                    if (hunter) hunters::maintain(t.soldier, eff_dt);
                     n++;
                     continue;
                 }
@@ -749,8 +754,8 @@ static void Tick(HfMod*, float dt, void*) {
                     if (live) live--;
                     continue;
                 }
-                maintain(t.soldier, dt);
-                if (hunter) hunters::maintain(t.soldier, dt);
+                maintain(t.soldier, eff_dt);
+                if (hunter) hunters::maintain(t.soldier, eff_dt);
                 ++n;
             } catch (const std::exception& error) {
                 api->log(mod, "SQUAD_MAINTENANCE_STOPPED: %u: %s", tracked[n].id, error.what());

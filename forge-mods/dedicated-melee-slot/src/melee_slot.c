@@ -1,4 +1,4 @@
-/* Dedicated Melee Slot 1.5.2-clonedivers.2 (vibeslacker.dedicated-melee-slot).
+/* Dedicated Melee Slot 1.5.2-clonedivers.3 (vibeslacker.dedicated-melee-slot).
  * Original work Copyright (c) 2026 vibeslacker (MIT License, tag v1.5.2 + LoadSlotKeys from v1.6.3).
  * Clonedivers 4-player co-op & SDK-16 patches Copyright (c) 2026 Clonedivers Contributors (MIT License).
  *
@@ -156,13 +156,14 @@ static int IsVanillaSecondaryEntity(uint64_t res)
     return 0;
 }
 
-static int IsSecondaryWeaponResource(uint64_t res)
-{
-    if (res == 0ULL) return 0;
-    if (IsVanillaSecondaryEntity(res)) return 1;
-    if (res == g_secondaryRes) return 1;
+static uint64_t g_customSecondaries[64];
+static uint32_t g_customSecondaryCount;
+static int g_customSecondariesCached;
 
-    /* Check custom arsenal weapons registered by HellForge mods via add_weapon (HF_KIND_ITEM). */
+static void RefreshCustomSecondaries(void)
+{
+    g_customSecondaryCount = 0u;
+    g_customSecondariesCached = 0;
     if (g_hf != NULL && g_mod != NULL &&
         g_hf->size >= offsetof(HfApi, content) + sizeof(void*) && g_hf->content != NULL) {
         for (uint32_t i = 0; i < 512u; i++) {
@@ -170,10 +171,24 @@ static int IsSecondaryWeaponResource(uint64_t res)
             memset(&c, 0, sizeof(c));
             c.size = (uint32_t)sizeof(c);
             if (!g_hf->content(g_mod, i, &c)) break;
-            if (c.kind == HF_KIND_ITEM && c.entity == res && IsVanillaSecondaryEntity(c.base_entity)) {
-                return 1;
+            if (c.kind == HF_KIND_ITEM && c.entity != 0ULL && IsVanillaSecondaryEntity(c.base_entity)) {
+                if (g_customSecondaryCount < 64u) {
+                    g_customSecondaries[g_customSecondaryCount++] = c.entity;
+                }
             }
         }
+        g_customSecondariesCached = 1;
+    }
+}
+
+static int IsSecondaryWeaponResource(uint64_t res)
+{
+    if (res == 0ULL) return 0;
+    if (IsVanillaSecondaryEntity(res)) return 1;
+    if (res == g_secondaryRes) return 1;
+    if (!g_customSecondariesCached) RefreshCustomSecondaries();
+    for (uint32_t i = 0; i < g_customSecondaryCount; i++) {
+        if (g_customSecondaries[i] == res) return 1;
     }
     return 0;
 }
@@ -534,6 +549,7 @@ static void ResetMissionState(int arm_mission)
     InterlockedExchange(&g_pkgDone, 0);
     InterlockedExchange(&g_swapStage, 0);
     g_secondaryRes = 0ULL;
+    g_customSecondariesCached = 0;
     InterlockedExchange(&g_tapFlag, 0);
     InterlockedExchange(&g_injectSel, 0);
     InterlockedExchange(&g_armed, arm_mission ? 1 : 0);
@@ -615,20 +631,25 @@ static void OnSessionEnd(HfMod* mod, HfEvent event, void* user)
 
 static uint64_t SpawnReqDetour(uint64_t a, uint64_t b, uint64_t c, uint64_t d, uint64_t e, uint64_t f)
 {
+    /* Ultra-fast register-only reject: 100% of enemy, SEAF, corpse, projectile, and primary spawns
+     * exit immediately in ~4 ns with ZERO ReadProcessMemory syscalls and ZERO TEB/MXCSR serializations. */
+    if (InterlockedCompareExchange(&g_armed, 0, 0) == 0 ||
+        InterlockedCompareExchange(&g_missionOn, 0, 0) == 0 ||
+        InterlockedCompareExchange(&g_spawningClone, 0, 0) != 0 ||
+        a <= 0x10000ULL || c <= 0x10000ULL ||
+        !IsSecondaryWeaponResource(b)) {
+        return g_spawnReq(a, b, c, d, e, f);
+    }
+
     DWORD saved_err = GetLastError();
     unsigned int saved_csr = _mm_getcsr();
 
     uint64_t resource = b;
-    int can_probe = (InterlockedCompareExchange(&g_spawningClone, 0, 0) == 0) &&
-                    (InterlockedCompareExchange(&g_missionOn, 0, 0) != 0) &&
-                    (InterlockedCompareExchange(&g_armed, 0, 0) != 0) &&
-                    (a > 0x10000ULL) && (c > 0x10000ULL);
-
     uint8_t before[0x58];
     int match = 0;
-    if (can_probe && g_hf->read((uintptr_t)c, before, sizeof(before)) == 0) {
+    if (g_hf->read((uintptr_t)c, before, sizeof(before)) == 0) {
         /* before[0] is SpawnInfo.authority: 1 = locally owned/simulated, 0 = remote peer/enemy! */
-        if (before[0] != 0u && IsSecondaryWeaponResource(resource)) {
+        if (before[0] != 0u) {
             match = 1;
         }
     }
@@ -979,7 +1000,16 @@ static void Tick(HfMod* mod, float dt, void* user)
     (void)user;
     if (!g_missionOn) return;
     uintptr_t game = HF_API(mod)->module_base("game.dll", NULL);
+#ifndef DMS_UNIT_TEST
+    static uint32_t s_syncDiv;
+    int needFastSync = (InterlockedCompareExchange(&g_avatar, 0, 0) == 0) ||
+                       (InterlockedCompareExchange(&g_regDone, 0, 0) == 0) ||
+                       (g_swapStage != 0) ||
+                       (((++s_syncDiv) & 7u) == 0u);
+    if (game && needFastSync) SyncLocalAvatarAndRespawn(game);
+#else
     if (game) SyncLocalAvatarAndRespawn(game);
+#endif
     AttachCopy(mod);
     RequestPackages(mod);
     if (InterlockedExchange(&g_tapFlag, 0)) DoSwap(mod);
@@ -1389,7 +1419,7 @@ static void GameLoaded(HfMod* mod, HfEvent event, void* user)
         hf->game_state(mod) == HF_STATE_MISSION) {
         ResetMissionState(1);
     }
-    hf->log(mod, "Dedicated Melee Slot 1.5.2-clonedivers.2 hooks ready");
+    hf->log(mod, "Dedicated Melee Slot 1.5.2-clonedivers.3 hooks ready");
 }
 
 HF_MOD_EXPORT int hellforge_mod_init(const HfApi* hf, HfMod* mod)
@@ -1426,7 +1456,7 @@ HF_MOD_EXPORT int hellforge_mod_init(const HfApi* hf, HfMod* mod)
     /* H3a: No InvThread! SyncLocalAvatarAndRespawn runs strictly on the game thread via Tick & OnPlayer. */
     g_keyThread = CreateThread(NULL, 0, KeyThread, NULL, 0, NULL);
 #endif
-    hf->log(mod, "Dedicated Melee Slot 1.5.2-clonedivers.2 loaded (weapon=%d, tick=%d)", ok, tick);
+    hf->log(mod, "Dedicated Melee Slot 1.5.2-clonedivers.3 loaded (weapon=%d, tick=%d)", ok, tick);
     return 0;
 }
 

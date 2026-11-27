@@ -64,7 +64,7 @@ try {
     & $CliPath package-mod --mod $stage --out $out | Tee-Object "$mod\build\package.log"
     if ($LASTEXITCODE -ne 0) { throw 'HellForge.Cli package-mod failed' }
 
-    $zipLower=Join-Path $out 'dedicated-melee-slot-1.5.2-clonedivers.2.zip'
+    $zipLower=Join-Path $out 'dedicated-melee-slot-1.5.2-clonedivers.3.zip'
     if (!(Test-Path -LiteralPath $zipLower)) { throw "Expected package not found: $zipLower" }
 
     $zipItem=Get-Item -LiteralPath $zipLower

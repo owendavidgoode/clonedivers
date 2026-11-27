@@ -13,5 +13,7 @@ int OptionsTankHunters(void);
 int OptionsWaveIntervalMs(void);
 int OptionsSquadsPerWave(void);
 int OptionsExtraSquads(void);
+int OptionsWaveCeiling(void);
+int OptionsCloneWars(void);
 
 #endif

@@ -47,25 +47,62 @@ int at_writer_init(
 
 _Static_assert(sizeof(uintptr_t) == sizeof(PVOID) && sizeof(size_t) == sizeof(PVOID), "64-bit pointer width");
 
+static uint32_t at_hash_mesh_ptr(uintptr_t v) {
+    uint64_t x = (uint64_t)v;
+    x ^= x >> 33;
+    x *= 0xff51afd7ed558ccdULL;
+    x ^= x >> 33;
+    return (uint32_t)x;
+}
+
 static void at_fast_publish(at_writer_state *s) {
     /* Caller holds s->lock exclusive (or single-threaded init). */
     uint32_t seq = __atomic_load_n(&s->fast.seq, __ATOMIC_RELAXED);
     __atomic_store_n(&s->fast.seq, seq + 1u, __ATOMIC_RELEASE); /* odd: writer updating */
     __atomic_thread_fence(__ATOMIC_RELEASE);
+    memset(s->fast.mesh_ht, 0, sizeof(s->fast.mesh_ht));
     uint32_t cnt = 0u;
+    uint32_t all_resolved = 1u;
     for (unsigned i = 0; i < AT_MAX_WALKERS; i++) {
         const at_walker_slot *slot = &s->reg.slots[i];
         if (slot->occupied && cnt < AT_MAX_WALKERS) {
             s->fast.handles[cnt] = slot->graph_handle;
             s->fast.worlds[cnt] = slot->world;
             cnt++;
+            if (!slot->meshes_resolved || slot->mesh_count == 0u) {
+                all_resolved = 0u;
+            } else {
+                for (unsigned m = 0; m < slot->mesh_count && m < AT_MESH_DESC_COUNT; m++) {
+                    uintptr_t mobj = slot->meshes[m];
+                    if (!mobj) continue;
+                    uint32_t h = at_hash_mesh_ptr(mobj) & AT_FAST_MESH_HT_MASK;
+                    int inserted = 0;
+                    for (unsigned p = 0; p < AT_FAST_MESH_HT_SIZE; p++) {
+                        uint32_t k = (h + p) & AT_FAST_MESH_HT_MASK;
+                        if (!s->fast.mesh_ht[k] || s->fast.mesh_ht[k] == mobj) {
+                            s->fast.mesh_ht[k] = mobj;
+                            inserted = 1;
+                            break;
+                        }
+                    }
+                    if (!inserted) all_resolved = 0u;
+                }
+            }
         }
     }
+    uint32_t next_ep = (s->fast.filter_epoch + 1u) & 0xFFFFu;
+    if (next_ep == 0u) {
+        /* 16-bit wrap: clear negative cache so old tags never collide with epoch 1. */
+        memset((void *)s->neg_mesh_ht, 0, sizeof(s->neg_mesh_ht));
+        next_ep = 1u;
+    }
+    s->fast.filter_epoch = next_ep;
     s->fast.count = cnt;
+    s->fast.all_meshes_resolved = (cnt > 0u && all_resolved) ? 1u : 0u;
     __atomic_store_n(&s->fast.seq, seq + 2u, __ATOMIC_RELEASE); /* even: snapshot ready */
 }
 
-static int at_fast_may_match_skin(const at_writer_state *s, uintptr_t mesh, uintptr_t pool) {
+static int at_fast_may_match_skin(at_writer_state *s, uintptr_t mesh, uintptr_t pool) {
     for (unsigned attempt = 0; attempt < 4u; attempt++) {
         uint32_t seq1 = __atomic_load_n(&s->fast.seq, __ATOMIC_ACQUIRE);
         if (seq1 & 1u) return 1;
@@ -86,8 +123,36 @@ static int at_fast_may_match_skin(const at_writer_state *s, uintptr_t mesh, uint
             if (__atomic_load_n(&s->fast.seq, __ATOMIC_ACQUIRE) == seq1) return 0;
             continue;
         }
+        uint32_t mh = at_hash_mesh_ptr(mesh);
+        int mesh_hit = 0;
+        for (unsigned p = 0; p < AT_FAST_MESH_HT_SIZE; p++) {
+            uintptr_t entry = s->fast.mesh_ht[(mh + p) & AT_FAST_MESH_HT_MASK];
+            if (!entry) break;
+            if (entry == mesh) { mesh_hit = 1; break; }
+        }
+        if (mesh_hit) {
+            __atomic_thread_fence(__ATOMIC_ACQUIRE);
+            if (__atomic_load_n(&s->fast.seq, __ATOMIC_ACQUIRE) == seq1) return 1;
+            continue;
+        }
+        if (s->fast.all_meshes_resolved) {
+            __atomic_thread_fence(__ATOMIC_ACQUIRE);
+            if (__atomic_load_n(&s->fast.seq, __ATOMIC_ACQUIRE) == seq1) return 0;
+            continue;
+        }
+        uint32_t ep = s->fast.filter_epoch;
+        uint64_t neg_tag = ((uint64_t)(ep ? ep : 1u) << 48) | ((uint64_t)mesh & 0x0000FFFFFFFFFFFFULL);
+        uint32_t neg_idx = mh & AT_NEG_MESH_HT_MASK;
+        if (__atomic_load_n(&s->neg_mesh_ht[neg_idx], __ATOMIC_RELAXED) == neg_tag) {
+            __atomic_thread_fence(__ATOMIC_ACQUIRE);
+            if (__atomic_load_n(&s->fast.seq, __ATOMIC_ACQUIRE) == seq1) return 0;
+            continue;
+        }
+        DWORD saved_err = GetLastError();
         uint32_t m_handle = 0u;
-        if (!s->read_fn || s->read_fn(mesh + 0x34u, &m_handle, sizeof(m_handle), s->read_user) != 0) return 1;
+        int rd_err = (!s->read_fn || s->read_fn(mesh + 0x34u, &m_handle, sizeof(m_handle), s->read_user) != 0);
+        SetLastError(saved_err);
+        if (rd_err) return 1;
         int matched = 0;
         if (m_handle && m_handle != 0xFFFFFFu) {
             for (uint32_t i = 0; i < cnt && i < AT_MAX_WALKERS; i++) {
@@ -95,7 +160,12 @@ static int at_fast_may_match_skin(const at_writer_state *s, uintptr_t mesh, uint
             }
         }
         __atomic_thread_fence(__ATOMIC_ACQUIRE);
-        if (__atomic_load_n(&s->fast.seq, __ATOMIC_ACQUIRE) == seq1) return matched;
+        if (__atomic_load_n(&s->fast.seq, __ATOMIC_ACQUIRE) == seq1) {
+            if (!matched) {
+                __atomic_store_n(&s->neg_mesh_ht[neg_idx], neg_tag, __ATOMIC_RELAXED);
+            }
+            return matched;
+        }
     }
     return 1;
 }
@@ -309,25 +379,30 @@ uint32_t at_writer_dispatch_512B80(
     void *opt_graph,
     uintptr_t caller,
     at_receipt *out_receipt) {
-    DWORD entry_err = GetLastError();
-    uint32_t entry_csr = _mm_getcsr();
     if (out_receipt) memset(out_receipt, 0, sizeof(*out_receipt));
     if (!s || !mesh || !pool) {
         return UINT32_MAX;
     }
+    at_skin_job_fn fast_next = __atomic_load_n(&s->skin_next, __ATOMIC_ACQUIRE);
     if (!__atomic_load_n(&s->ready, __ATOMIC_ACQUIRE)) {
-        return call_skin_passthrough(s, mesh, pool, opt_graph, entry_err, entry_csr);
+        return fast_next ? fast_next(mesh, pool, opt_graph) : UINT32_MAX;
     }
+    if (fast_next == s->approved_skin_next &&
+        __atomic_load_n(&s->leaf_next, __ATOMIC_ACQUIRE) == s->approved_leaf_next) {
+        /* Lock-free fast reject: zero GetLastError, zero _mm_getcsr, zero shared atomic writes,
+         * and zero ReadProcessMemory syscalls in steady state across all 14 render threads. */
+        if (!at_fast_may_match_skin(s, (uintptr_t)mesh, (uintptr_t)pool)) {
+            return fast_next ? fast_next(mesh, pool, opt_graph) : UINT32_MAX;
+        }
+    }
+
+    DWORD entry_err = GetLastError();
+    uint32_t entry_csr = _mm_getcsr();
 
     if (__atomic_load_n(&s->skin_next, __ATOMIC_ACQUIRE) != s->approved_skin_next ||
         __atomic_load_n(&s->leaf_next, __ATOMIC_ACQUIRE) != s->approved_leaf_next) {
         InterlockedIncrement((LONG *)&s->chain_failures);
         InterlockedIncrement((LONG *)&s->passthroughs);
-        return call_skin_passthrough(s, mesh, pool, opt_graph, entry_err, entry_csr);
-    }
-
-    /* Lock-free fast reject when 0 AT-ST walkers exist or this mesh handle is not an active walker (zero atomic writes). */
-    if (!at_fast_may_match_skin(s, (uintptr_t)mesh, (uintptr_t)pool)) {
         return call_skin_passthrough(s, mesh, pool, opt_graph, entry_err, entry_csr);
     }
 
@@ -539,12 +614,15 @@ uint64_t at_writer_retire_1E7CD0(
     uintptr_t world,
     void *packet,
     uintptr_t aux) {
+    if (!s) return 0;
+    if (__atomic_load_n(&s->fast.count, __ATOMIC_ACQUIRE) == 0u) {
+        at_render_remove_fn fast_next = __atomic_load_n(&s->remove_next, __ATOMIC_ACQUIRE);
+        return fast_next ? fast_next(world, packet, aux) : 0ULL;
+    }
     DWORD entry_err = GetLastError();
     uint32_t entry_csr = _mm_getcsr();
-    if (!s) return 0;
 
-    if (world && packet && span_ok((uintptr_t)packet, 8u) &&
-        __atomic_load_n(&s->fast.count, __ATOMIC_ACQUIRE) != 0u) {
+    if (world && packet && span_ok((uintptr_t)packet, 8u)) {
         uint32_t handle = 0;
         if (s->read_fn((uintptr_t)packet + 4u, &handle, sizeof(handle), s->read_user) == 0 &&
             at_fast_may_match_retire(s, world, handle)) {
@@ -569,8 +647,11 @@ uint32_t at_writer_tick(at_writer_state *s, uint32_t max_scan) {
     if (!s || !__atomic_load_n(&s->ready, __ATOMIC_ACQUIRE)) return 0u;
     AcquireSRWLockExclusive(&s->lock);
     uint32_t prev_scavenged = s->reg.scavenged;
+    uint32_t prev_mesh_res = s->reg.mesh_resolutions;
     uint32_t admitted = at_registry_reconcile(&s->reg, s->read_fn, s->read_user, max_scan);
-    if (admitted > 0u || s->reg.scavenged != prev_scavenged) at_fast_publish(s);
+    if (admitted > 0u || s->reg.scavenged != prev_scavenged || s->reg.mesh_resolutions != prev_mesh_res) {
+        at_fast_publish(s);
+    }
     ReleaseSRWLockExclusive(&s->lock);
     return admitted;
 }

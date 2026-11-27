@@ -179,7 +179,11 @@ internal sealed class LinuxForgeHost : IForgeUiHost
         try
         {
             if (Directory.Exists(root))
-                HostMutatorConfig.Write(root, preferences.ToHostMutatorOptions());
+            {
+                var opts = preferences.ToHostMutatorOptions();
+                HostMutatorConfig.Write(root, opts);
+                UltrakillRuntimeProfile.SyncEngineFiles(root, opts.IsUltrakillTheater);
+            }
         }
         catch (Exception e) when (e is IOException or UnauthorizedAccessException or InvalidDataException or ArgumentException) { }
     }
@@ -330,7 +334,7 @@ internal sealed class LinuxForgeHost : IForgeUiHost
             {
                 var cache = ForgeDiskManager.GetCacheRoot(root);
                 var folders = PackSizeEstimator.CollectSearchFolders(root, cache, GameLocator.AutoDetect());
-                est = PackSizeEstimator.Estimate(isRegular, selection, folders, player?.CanLaunch == true, cache);
+                est = PackSizeEstimator.EstimateMemoized(isRegular, selection, folders, player?.CanLaunch == true, cache);
             }
             catch
             {
@@ -478,7 +482,7 @@ internal sealed class LinuxForgeHost : IForgeUiHost
             else if (lastTriage != null && lastTriage.Kind != CrashKind.Clean)
                 detail = string.IsNullOrWhiteSpace(lastTriage.RecommendedAction) ? lastTriage.Summary : $"{lastTriage.Summary} {lastTriage.RecommendedAction}";
             else
-                detail = ForgeTacticalCopy.ReadyDetail(preferences.Mode);
+                detail = ForgeTacticalCopy.ReadyDetail(preferences.Mode, hostTheaterPreset: preferences.HostTheaterPreset);
         }
 
         var ctaLabel = isLaunchingWork || isPreWindowLaunch ? ForgeTacticalCopy.LaunchingPrimaryButton
@@ -553,7 +557,8 @@ internal sealed class LinuxForgeHost : IForgeUiHost
             SelfInstallBanner: null,
             MinimizeToTray: preferences.MinimizeToTray,
             SquidSkin: preferences.SquidSkin,
-            DeathTrooperVoice: preferences.DeathTrooperVoice);
+            DeathTrooperVoice: preferences.DeathTrooperVoice,
+            HostTheaterPreset: preferences.HostTheaterPreset);
     }
 
     public ForgeSetupState GetSetupState() => throw new NotSupportedException("Linux uses native official setup.");
@@ -606,20 +611,25 @@ internal sealed class LinuxForgeHost : IForgeUiHost
         });
     }
 
-    public Task UpdateHostMutatorsAsync(string chaosIntensity, string heavySeaf, bool fasterCorpseCleanup)
+    public async Task UpdateHostMutatorsAsync(string chaosIntensity, string heavySeaf, bool fasterCorpseCleanup, string? theaterPreset = null)
     {
-        if (preview || operations.Busy || player?.SessionActive == true) return Task.CompletedTask;
+        if (preview || operations.Busy || player?.SessionActive == true) return;
         try
         {
+            var prevUltrakill = HostMutatorConfig.IsUltrakillTheater(preferences.HostTheaterPreset, preferences.HostChaosIntensity);
+            var prevTheater = preferences.HostTheaterPreset;
             preferences.HostChaosIntensity = chaosIntensity;
             preferences.HostHeavySeaf = heavySeaf;
             preferences.HostFasterCorpseCleanup = fasterCorpseCleanup;
+            if (theaterPreset != null) preferences.HostTheaterPreset = theaterPreset;
             preferences.Save();
             TrySyncHostMutatorFile();
+            var nowUltrakill = HostMutatorConfig.IsUltrakillTheater(preferences.HostTheaterPreset, preferences.HostChaosIntensity);
+            if ((prevUltrakill != nowUltrakill || (theaterPreset != null && !string.Equals(prevTheater, preferences.HostTheaterPreset, StringComparison.Ordinal))) && player != null)
+                await RunOpAsync(ct => player.ApplySelectionAsync(ct));
         }
         catch (Exception e) { toastNotice = "Couldn't save host rules: " + e.Message; }
         Notify();
-        return Task.CompletedTask;
     }
 
     public async Task ApplyCustomizationNowAsync()
@@ -883,6 +893,7 @@ internal sealed class LinuxForgeHost : IForgeUiHost
         }
 
         var throttler = new ProgressThrottler(p => SetProgress(p));
+        TrySyncHostMutatorFile();
         await player.InstallGameplayAsync(null, ct, throttler.AsProgress());
         TrySyncHostMutatorFile();
 
@@ -960,7 +971,8 @@ internal sealed class LinuxForgeHost : IForgeUiHost
                     await player.RecoverAppearanceAsync(ct);
             }
 
-            throttler.Report(new("Verifying gameplay preset", "Checking 18-mod r11 hashes and load order…", 2, 5, CanCancel: true));
+            var presetTag = SquadFingerprint.ExtractCatalogPrefix();
+            throttler.Report(new("Verifying gameplay preset", $"Checking {HellForgeGameplayCatalog.Current.Artifacts.Count}-mod {presetTag} hashes and load order…", 2, 5, CanCancel: true));
             await player.InstallGameplayAsync(null, ct, throttler.AsProgress());
             TrySyncHostMutatorFile();
 
@@ -982,8 +994,8 @@ internal sealed class LinuxForgeHost : IForgeUiHost
             UiSoundEffects.PlayCompletion();
             requestAttention?.Invoke();
             var summary = freed > 0
-                ? $"Verified Forge, r8 gameplay preset, and active pack; freed {Pack.FormatBytes(freed)}."
-                : "All checks passed — Forge, r8 gameplay preset, and active pack are healthy.";
+                ? $"Verified Forge, {presetTag} gameplay preset, and active pack; freed {Pack.FormatBytes(freed)}."
+                : $"All checks passed — Forge, {presetTag} gameplay preset, and active pack are healthy.";
             toastNotice = summary;
             updateMessage = summary;
             ScheduleSizeEstimate();
@@ -1086,7 +1098,8 @@ internal sealed class LinuxForgeHost : IForgeUiHost
             Triage: triage,
             RedactUserPaths: true,
             SquidSkin: preferences.SquidSkin,
-            DeathTrooperVoice: preferences.DeathTrooperVoice));
+            DeathTrooperVoice: preferences.DeathTrooperVoice,
+            HostTheaterPreset: preferences.HostTheaterPreset));
 
         var health = new List<ForgeHealthItem>
         {
@@ -1103,7 +1116,7 @@ internal sealed class LinuxForgeHost : IForgeUiHost
         sb.AppendLine($"Installation: {installRoot ?? "Not connected"}");
         sb.AppendLine($"Disk Usage: {diskSummary}");
         sb.AppendLine($"Mode: {preferences.Mode} · EnemySkin={preferences.EnemySkin} · SquidSkin={preferences.SquidSkin} · Delta={preferences.DeltaSquad} · DeathTrooperVoice={preferences.DeathTrooperVoice} · PerfTier={preferences.PerformanceTier} · Texture={preferences.Texture}");
-        sb.AppendLine($"Host Rules: Chaos={preferences.HostChaosIntensity} · HeavySeaf={preferences.HostHeavySeaf} · FasterCorpseCleanup={preferences.HostFasterCorpseCleanup}");
+        sb.AppendLine($"Host Rules: Theater={preferences.HostTheaterPreset} · Chaos={preferences.HostChaosIntensity} · HeavySeaf={preferences.HostHeavySeaf} · FasterCorpseCleanup={preferences.HostFasterCorpseCleanup}");
         sb.AppendLine($"Diagnostics: {operations.FailureDetail ?? failureDetail ?? operations.Error ?? player?.Error ?? st?.LastFailure ?? st?.LastNotice ?? player?.State?.Detail ?? "none"}");
         if (reportPath != null) sb.AppendLine("Support report saved: " + reportPath);
 

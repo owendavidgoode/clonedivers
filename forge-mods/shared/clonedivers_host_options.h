@@ -3,9 +3,10 @@
  * Resolves <installRoot>\mods\clonedivers-host-options.json cleanly from api->mod_folder(mod)
  * for BOTH folder installs (<installRoot>\mods\<mod>) and .unpacked zip installs
  * (<installRoot>\mods\.unpacked\<pkg-hash>\<submod>), validates against reparse points and
- * oversized payloads, parses the HostMutatorConfig JSON contract (format 1), and exposes
- * 100ns Win32 FILETIME mtimes so newer in-game Mod Options Menu edits take precedence during
- * an active session while newer Launcher Apply writes override stale session caches.
+ * oversized payloads, parses the HostMutatorConfig JSON contract (format 1, including additive
+ * Level 12 ULTRAKILL & Clone Wars theater fields), and exposes 100ns Win32 FILETIME mtimes so
+ * newer in-game Mod Options Menu edits take precedence during an active session while newer
+ * Launcher Apply writes override stale session caches.
  */
 #ifndef CLONEDIVERS_HOST_OPTIONS_H
 #define CLONEDIVERS_HOST_OPTIONS_H
@@ -25,23 +26,40 @@ extern "C" {
 #define CD_HOST_OPTIONS_MAX_PATH  4096u
 
 typedef enum CdChaosIntensity {
-    CD_CHAOS_STANDARD  = 0,
-    CD_CHAOS_OFF       = 1,
-    CD_CHAOS_TOTAL_WAR = 2
+    CD_CHAOS_STANDARD   = 0,
+    CD_CHAOS_OFF        = 1,
+    CD_CHAOS_TOTAL_WAR  = 2,
+    CD_CHAOS_ULTRAKILL  = 3,
+    CD_CHAOS_CLONE_WARS = 4
 } CdChaosIntensity;
 
 typedef enum CdHeavySeafMode {
-    CD_HEAVY_SEAF_STANDARD = 0,
-    CD_HEAVY_SEAF_HEAVY    = 1,
-    CD_HEAVY_SEAF_CONSTANT = 2
+    CD_HEAVY_SEAF_STANDARD   = 0,
+    CD_HEAVY_SEAF_HEAVY      = 1,
+    CD_HEAVY_SEAF_CONSTANT   = 2,
+    CD_HEAVY_SEAF_CLONE_WARS = 3
 } CdHeavySeafMode;
+
+typedef enum CdTheaterPreset {
+    CD_THEATER_STANDARD          = 0,
+    CD_THEATER_LEVEL12_ULTRAKILL = 1,
+    CD_THEATER_CLONE_WARS        = 2
+} CdTheaterPreset;
 
 typedef struct CdHostOptions {
     int format;
     CdChaosIntensity chaos_intensity;
     CdHeavySeafMode heavy_seaf;
+    CdTheaterPreset theater_preset;
     int faster_corpse_cleanup;
-    int corpse_delay_seconds; /* -1 when not specified in JSON; 0..120 when overridden */
+    int corpse_delay_seconds;    /* -1 when omitted; 0..120 when overridden */
+    int corpse_turbo_reaper;     /* 1 when explicit or theater_preset != standard */
+    int target_active_units;     /* -1 when omitted; 12..8000 when overridden */
+    int virtual_theater_budget;  /* -1 when omitted; 12..20000 when overridden */
+    int spawn_radius_min_m;      /* -1 when omitted; 28..400 when overridden */
+    int spawn_radius_max_m;      /* -1 when omitted; 45..950 when overridden */
+    int seaf_wave_ceiling;       /* -1 when omitted; 6..600 when overridden */
+    int map_radius_permille;     /* -1 when omitted; 380..950 when overridden (920 = 0.92f = 942m) */
     uint64_t mtime_100ns;
     int loaded_from_file;
 } CdHostOptions;
@@ -52,28 +70,76 @@ static inline CdHostOptions cd_host_options_defaults(void)
     o.format = 1;
     o.chaos_intensity = CD_CHAOS_STANDARD;
     o.heavy_seaf = CD_HEAVY_SEAF_STANDARD;
+    o.theater_preset = CD_THEATER_STANDARD;
     o.faster_corpse_cleanup = 1;
     o.corpse_delay_seconds = -1;
+    o.corpse_turbo_reaper = 0;
+    o.target_active_units = -1;
+    o.virtual_theater_budget = -1;
+    o.spawn_radius_min_m = -1;
+    o.spawn_radius_max_m = -1;
+    o.seaf_wave_ceiling = -1;
+    o.map_radius_permille = -1;
     o.mtime_100ns = 0ULL;
     o.loaded_from_file = 0;
     return o;
 }
 
+static inline int cd_host_options_is_ultrakill(const CdHostOptions* o)
+{
+    if (!o) return 0;
+    return (o->theater_preset != CD_THEATER_STANDARD ||
+            o->chaos_intensity == CD_CHAOS_ULTRAKILL ||
+            o->chaos_intensity == CD_CHAOS_CLONE_WARS) ? 1 : 0;
+}
+
+static inline CdChaosIntensity cd_effective_chaos_intensity(const CdHostOptions* o)
+{
+    if (!o) return CD_CHAOS_STANDARD;
+    if (o->chaos_intensity == CD_CHAOS_OFF) return CD_CHAOS_OFF;
+    if (o->chaos_intensity == CD_CHAOS_CLONE_WARS || o->theater_preset == CD_THEATER_CLONE_WARS)
+        return CD_CHAOS_CLONE_WARS;
+    if (o->chaos_intensity == CD_CHAOS_ULTRAKILL || o->theater_preset == CD_THEATER_LEVEL12_ULTRAKILL)
+        return CD_CHAOS_ULTRAKILL;
+    return o->chaos_intensity;
+}
+
+static inline CdHeavySeafMode cd_effective_heavy_seaf(const CdHostOptions* o)
+{
+    if (!o) return CD_HEAVY_SEAF_STANDARD;
+    if (o->heavy_seaf == CD_HEAVY_SEAF_CLONE_WARS) return CD_HEAVY_SEAF_CLONE_WARS;
+    if (o->theater_preset != CD_THEATER_STANDARD && o->heavy_seaf == CD_HEAVY_SEAF_CONSTANT)
+        return CD_HEAVY_SEAF_CLONE_WARS;
+    return o->heavy_seaf;
+}
+
 static inline const char* cd_chaos_intensity_name(CdChaosIntensity v)
 {
     switch (v) {
-        case CD_CHAOS_OFF:       return "off";
-        case CD_CHAOS_TOTAL_WAR: return "total-war";
-        default:                 return "standard";
+        case CD_CHAOS_OFF:        return "off";
+        case CD_CHAOS_TOTAL_WAR:  return "total-war";
+        case CD_CHAOS_ULTRAKILL:  return "ultrakill";
+        case CD_CHAOS_CLONE_WARS: return "clone-wars";
+        default:                  return "standard";
     }
 }
 
 static inline const char* cd_heavy_seaf_name(CdHeavySeafMode v)
 {
     switch (v) {
-        case CD_HEAVY_SEAF_HEAVY:    return "heavy";
-        case CD_HEAVY_SEAF_CONSTANT: return "constant";
-        default:                     return "standard";
+        case CD_HEAVY_SEAF_HEAVY:      return "heavy";
+        case CD_HEAVY_SEAF_CONSTANT:   return "constant";
+        case CD_HEAVY_SEAF_CLONE_WARS: return "clone-wars";
+        default:                       return "standard";
+    }
+}
+
+static inline const char* cd_theater_preset_name(CdTheaterPreset v)
+{
+    switch (v) {
+        case CD_THEATER_LEVEL12_ULTRAKILL: return "level12-ultrakill";
+        case CD_THEATER_CLONE_WARS:        return "clone-wars";
+        default:                           return "standard";
     }
 }
 
@@ -94,13 +160,6 @@ static inline int cd_is_sep_(char c)
     return c == '\\' || c == '/';
 }
 
-/* Resolves <modsDir>\clonedivers-host-options.json from api->mod_folder(mod).
- * Supports:
- *   - Folder installs: <installRoot>\mods\<mod>
- *   - Zip installs:    <installRoot>\mods\.unpacked\<hash>\<submod> (or deeper under .unpacked)
- * Requires <modsDir>'s own directory name to be "mods" (case-insensitive) so arbitrary paths
- * outside a HellForge mods folder fail closed.
- * Returns 1 on success, 0 on failure. */
 static inline int cd_resolve_host_options_path(const char* mod_folder, char* out_path, size_t out_cap)
 {
     if (!out_path || out_cap == 0) return 0;
@@ -110,7 +169,6 @@ static inline int cd_resolve_host_options_path(const char* mod_folder, char* out
     size_t len = strlen(mod_folder);
     if (len >= CD_HOST_OPTIONS_MAX_PATH - 64u) return 0;
 
-    /* Strip trailing path separators (preserving root like "D:\"). */
     while (len > 0 && cd_is_sep_(mod_folder[len - 1])) {
         if (len == 3 && mod_folder[1] == ':') break;
         if (len == 1) break;
@@ -118,7 +176,6 @@ static inline int cd_resolve_host_options_path(const char* mod_folder, char* out
     }
     if (len == 0) return 0;
 
-    /* Tokenize path into up to 64 non-empty segments [start, end). */
     size_t seg_start[64];
     size_t seg_end[64];
     size_t seg_count = 0;
@@ -134,17 +191,13 @@ static inline int cd_resolve_host_options_path(const char* mod_folder, char* out
         ++seg_count;
     }
 
-    /* Need at least <root-or-parent>\mods\<mod> -> >= 2 segments ("mods" + "<mod>"). */
     if (seg_count < 2u) return 0;
 
-    /* Check if any ancestor segment (excluding the final leaf only if .unpacked has children,
-     * though even <mods>\.unpacked\<hash> has .unpacked at seg_count - 2) equals ".unpacked". */
     size_t mods_seg_idx = (size_t)-1;
     for (size_t k = seg_count; k > 0; --k) {
         size_t idx = k - 1u;
         size_t slen = seg_end[idx] - seg_start[idx];
         if (cd_ascii_ieq_span_(mod_folder + seg_start[idx], slen, ".unpacked")) {
-            /* ".unpacked" must have a parent segment, and cannot be the leaf itself without a hash dir. */
             if (idx == 0u || idx + 1u >= seg_count) return 0;
             mods_seg_idx = idx - 1u;
             break;
@@ -152,7 +205,6 @@ static inline int cd_resolve_host_options_path(const char* mod_folder, char* out
     }
 
     if (mods_seg_idx == (size_t)-1) {
-        /* Standard folder install: <installRoot>\mods\<mod> -> parent of leaf must be "mods". */
         mods_seg_idx = seg_count - 2u;
     }
 
@@ -166,7 +218,6 @@ static inline int cd_resolve_host_options_path(const char* mod_folder, char* out
     size_t suffix_len = strlen(suffix);
     if (prefix_len + suffix_len + 1u > out_cap) return 0;
 
-    /* Copy prefix normalizing '/' -> '\\' for consistent Windows paths. */
     for (size_t p = 0; p < prefix_len; ++p) {
         out_path[p] = (mod_folder[p] == '/') ? '\\' : mod_folder[p];
     }
@@ -174,9 +225,6 @@ static inline int cd_resolve_host_options_path(const char* mod_folder, char* out
     return 1;
 }
 
-/* Queries Win32 last-write FILETIME (100ns ticks since 1601-01-01 UTC) for a UTF-8 file path.
- * Rejects directories and reparse points / symlinks.
- * Returns 1 on success, 0 if missing, -1 if reparse point / directory / invalid path. */
 static inline int cd_get_file_mtime_100ns(const char* utf8_path, uint64_t* mtime_out)
 {
     if (mtime_out) *mtime_out = 0ULL;
@@ -203,8 +251,6 @@ static inline int cd_get_file_mtime_100ns(const char* utf8_path, uint64_t* mtime
     return 1;
 }
 
-/* Returns 1 when session_bridge_mtime > host_options_mtime (meaning an in-game Mod Options Menu
- * edit occurred more recently than clonedivers-host-options.json), 0 otherwise. */
 static inline int cd_session_override_is_newer(uint64_t host_options_mtime, uint64_t session_bridge_mtime)
 {
     if (session_bridge_mtime == 0ULL) return 0;
@@ -228,6 +274,16 @@ static inline void cd_json_skip_ws_(CdJsonCursor_* c)
     }
 }
 
+static inline int cd_json_parse_null_(CdJsonCursor_* c)
+{
+    cd_json_skip_ws_(c);
+    if ((size_t)(c->end - c->p) >= 4u && memcmp(c->p, "null", 4) == 0) {
+        c->p += 4;
+        return 1;
+    }
+    return 0;
+}
+
 static inline int cd_json_parse_string_(CdJsonCursor_* c, char* out, size_t out_cap)
 {
     cd_json_skip_ws_(c);
@@ -240,7 +296,7 @@ static inline int cd_json_parse_string_(CdJsonCursor_* c, char* out, size_t out_
             if (out && out_cap > 0) out[used < out_cap ? used : (out_cap - 1u)] = '\0';
             return 1;
         }
-        if (ch < 0x20u) return 0; /* unescaped control character */
+        if (ch < 0x20u) return 0;
         if (ch == '\\') {
             if (c->p >= c->end) return 0;
             unsigned char esc = (unsigned char)*c->p++;
@@ -295,9 +351,17 @@ static inline int cd_json_parse_int_(CdJsonCursor_* c, int* out_val)
         if (acc > 0x7FFFFFFFLL) return 0;
         ++c->p;
     }
-    /* Reject fractional or exponent suffixes on integer fields. */
     if (c->p < c->end && (*c->p == '.' || *c->p == 'e' || *c->p == 'E')) return 0;
     *out_val = neg ? -(int)acc : (int)acc;
+    return 1;
+}
+
+static inline int cd_json_parse_opt_bounded_int_(CdJsonCursor_* c, int lo, int hi, int* out_val)
+{
+    if (cd_json_parse_null_(c)) return 1;
+    int v = 0;
+    if (!cd_json_parse_int_(c, &v) || v < lo || v > hi) return 0;
+    *out_val = v;
     return 1;
 }
 
@@ -392,8 +456,6 @@ static inline int cd_json_skip_value_(CdJsonCursor_* c, int depth)
     return 0;
 }
 
-/* Parses a UTF-8 JSON buffer into *out.
- * Returns 1 on valid format-1 JSON, -1 on syntax/schema error (leaving *out untouched). */
 static inline int cd_parse_host_options_json(const char* text, size_t len, CdHostOptions* out)
 {
     if (!text || !out || len == 0 || len > CD_HOST_OPTIONS_MAX_BYTES) return -1;
@@ -414,6 +476,7 @@ static inline int cd_parse_host_options_json(const char* text, size_t len, CdHos
 
     CdHostOptions parsed = cd_host_options_defaults();
     parsed.loaded_from_file = 1;
+    int explicit_turbo = -1;
 
     cd_json_skip_ws_(&c);
     if (c.p < c.end && *c.p == '}') {
@@ -442,6 +505,8 @@ static inline int cd_parse_host_options_json(const char* text, size_t len, CdHos
             if (strcmp(val, "standard") == 0) parsed.chaos_intensity = CD_CHAOS_STANDARD;
             else if (strcmp(val, "off") == 0) parsed.chaos_intensity = CD_CHAOS_OFF;
             else if (strcmp(val, "total-war") == 0) parsed.chaos_intensity = CD_CHAOS_TOTAL_WAR;
+            else if (strcmp(val, "ultrakill") == 0) parsed.chaos_intensity = CD_CHAOS_ULTRAKILL;
+            else if (strcmp(val, "clone-wars") == 0) parsed.chaos_intensity = CD_CHAOS_CLONE_WARS;
             else return -1;
         } else if (cd_ascii_ieq_span_(key, klen, "heavySeaf")) {
             char val[32];
@@ -449,15 +514,43 @@ static inline int cd_parse_host_options_json(const char* text, size_t len, CdHos
             if (strcmp(val, "standard") == 0) parsed.heavy_seaf = CD_HEAVY_SEAF_STANDARD;
             else if (strcmp(val, "heavy") == 0) parsed.heavy_seaf = CD_HEAVY_SEAF_HEAVY;
             else if (strcmp(val, "constant") == 0) parsed.heavy_seaf = CD_HEAVY_SEAF_CONSTANT;
+            else if (strcmp(val, "clone-wars") == 0) parsed.heavy_seaf = CD_HEAVY_SEAF_CLONE_WARS;
             else return -1;
+        } else if (cd_ascii_ieq_span_(key, klen, "theaterPreset")) {
+            if (!cd_json_parse_null_(&c)) {
+                char val[32];
+                if (!cd_json_parse_string_(&c, val, sizeof val)) return -1;
+                if (strcmp(val, "standard") == 0) parsed.theater_preset = CD_THEATER_STANDARD;
+                else if (strcmp(val, "level12-ultrakill") == 0 || strcmp(val, "ultrakill") == 0)
+                    parsed.theater_preset = CD_THEATER_LEVEL12_ULTRAKILL;
+                else if (strcmp(val, "clone-wars") == 0)
+                    parsed.theater_preset = CD_THEATER_CLONE_WARS;
+                else return -1;
+            }
         } else if (cd_ascii_ieq_span_(key, klen, "fasterCorpseCleanup")) {
             int b = 0;
             if (!cd_json_parse_bool_(&c, &b)) return -1;
             parsed.faster_corpse_cleanup = b;
         } else if (cd_ascii_ieq_span_(key, klen, "corpseDelaySeconds")) {
-            int secs = 0;
-            if (!cd_json_parse_int_(&c, &secs) || secs < 0 || secs > 120) return -1;
-            parsed.corpse_delay_seconds = secs;
+            if (!cd_json_parse_opt_bounded_int_(&c, 0, 120, &parsed.corpse_delay_seconds)) return -1;
+        } else if (cd_ascii_ieq_span_(key, klen, "corpseTurboReaper")) {
+            if (!cd_json_parse_null_(&c)) {
+                int b = 0;
+                if (!cd_json_parse_bool_(&c, &b)) return -1;
+                explicit_turbo = b;
+            }
+        } else if (cd_ascii_ieq_span_(key, klen, "targetActiveUnits")) {
+            if (!cd_json_parse_opt_bounded_int_(&c, 12, 8000, &parsed.target_active_units)) return -1;
+        } else if (cd_ascii_ieq_span_(key, klen, "virtualTheaterBudget")) {
+            if (!cd_json_parse_opt_bounded_int_(&c, 12, 20000, &parsed.virtual_theater_budget)) return -1;
+        } else if (cd_ascii_ieq_span_(key, klen, "spawnRadiusMinM")) {
+            if (!cd_json_parse_opt_bounded_int_(&c, 28, 400, &parsed.spawn_radius_min_m)) return -1;
+        } else if (cd_ascii_ieq_span_(key, klen, "spawnRadiusMaxM")) {
+            if (!cd_json_parse_opt_bounded_int_(&c, 45, 950, &parsed.spawn_radius_max_m)) return -1;
+        } else if (cd_ascii_ieq_span_(key, klen, "seafWaveCeiling")) {
+            if (!cd_json_parse_opt_bounded_int_(&c, 6, 600, &parsed.seaf_wave_ceiling)) return -1;
+        } else if (cd_ascii_ieq_span_(key, klen, "mapRadiusPermille")) {
+            if (!cd_json_parse_opt_bounded_int_(&c, 380, 950, &parsed.map_radius_permille)) return -1;
         } else {
             if (!cd_json_skip_value_(&c, 1)) return -1;
         }
@@ -475,15 +568,21 @@ static inline int cd_parse_host_options_json(const char* text, size_t len, CdHos
     cd_json_skip_ws_(&c);
     if (c.p != c.end) return -1;
 
+    if (parsed.spawn_radius_min_m > 0 && parsed.spawn_radius_max_m > 0 &&
+        parsed.spawn_radius_min_m > parsed.spawn_radius_max_m) {
+        return -1;
+    }
+
+    if (explicit_turbo >= 0) {
+        parsed.corpse_turbo_reaper = explicit_turbo;
+    } else if (cd_host_options_is_ultrakill(&parsed)) {
+        parsed.corpse_turbo_reaper = 1;
+    }
+
     *out = parsed;
     return 1;
 }
 
-/* Reads and parses <utf8_path> safely (rejecting reparse points and >64 KiB files).
- * Returns:
- *   1 : valid file loaded into *out (out->loaded_from_file = 1, out->mtime_100ns populated)
- *   0 : file missing (*out set to defaults, out->loaded_from_file = 0)
- *  -1 : reparse point, oversized, I/O failure, or invalid JSON (*out set to defaults) */
 static inline int cd_load_host_options_file(const char* utf8_path, CdHostOptions* out)
 {
     if (!out) return -1;
@@ -494,8 +593,6 @@ static inline int cd_load_host_options_file(const char* utf8_path, CdHostOptions
     int wn = MultiByteToWideChar(CP_UTF8, MB_ERR_INVALID_CHARS, utf8_path, -1, wpath, CD_HOST_OPTIONS_MAX_PATH);
     if (wn <= 0 || wn >= (int)CD_HOST_OPTIONS_MAX_PATH) return -1;
 
-    /* Check ancestor directories are not reparse points? Note HellForge may run on a volume/folder,
-     * so we strictly enforce FILE_FLAG_OPEN_REPARSE_POINT on the target file itself and its parent mods dir. */
     WIN32_FILE_ATTRIBUTE_DATA fad;
     if (!GetFileAttributesExW(wpath, GetFileExInfoStandard, &fad)) {
         DWORD err = GetLastError();
@@ -561,8 +658,6 @@ static inline int cd_load_host_options_file(const char* utf8_path, CdHostOptions
     return 1;
 }
 
-/* Convenience wrapper: resolves <modsDir>\clonedivers-host-options.json from api->mod_folder(mod)
- * and loads it. Returns 1 loaded, 0 missing, -1 invalid path or malformed JSON. */
 static inline int cd_load_host_options_from_mod_folder(const char* mod_folder, CdHostOptions* out)
 {
     if (!out) return -1;

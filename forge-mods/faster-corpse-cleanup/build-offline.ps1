@@ -21,6 +21,7 @@ if (!(Test-Path -LiteralPath $compiler)) {
 }
 
 Copy-Item "$mod\src","$mod\notices","$mod\reference" $stage -Recurse -Force
+Copy-Item -LiteralPath (Join-Path (Split-Path $mod -Parent) 'shared\clonedivers_host_options.h') -Destination "$stage\src\clonedivers_host_options.h" -Force
 Copy-Item "$mod\hellforge-mod.json","$mod\config.ini","$mod\LICENSE.txt","$mod\LICENSE-CLIENT-INTERFACE.txt","$mod\LICENSE-MENU-ADAPTER.txt","$mod\LICENSE-SDK.txt","$mod\README.md","$mod\CHANGELOG.md","$mod\PATCH_NOTES.md","$mod\THIRD-PARTY-NOTICES.md" $stage -Force
 
 $oldTemp=$env:TEMP; $oldTmp=$env:TMP; $oldGlobal=$env:ZIG_GLOBAL_CACHE_DIR; $oldLocal=$env:ZIG_LOCAL_CACHE_DIR
@@ -46,10 +47,11 @@ try {
     if ($LASTEXITCODE -ne 0) { throw 'Unit test execution failed' }
 
     # 4. Package zip & compute SHA-256 + ContentHash
+    Get-ChildItem -LiteralPath $out -Filter '*.zip' -ErrorAction SilentlyContinue | Remove-Item -Force
     & $CliPath package-mod --mod $stage --out $out | Tee-Object "$mod\build\package.log"
     if ($LASTEXITCODE -ne 0) { throw 'HellForge.Cli package-mod failed' }
 
-    $zipPath = Join-Path $out 'faster-corpse-cleanup-1.0.6-clonedivers.1.zip'
+    $zipPath = Join-Path $out 'faster-corpse-cleanup-1.0.6-clonedivers.2.zip'
     if (!(Test-Path -LiteralPath $zipPath)) {
         $found = Get-ChildItem -LiteralPath $out -Filter '*.zip' | Sort-Object LastWriteTime -Descending | Select-Object -First 1
         if ($found) { Copy-Item -LiteralPath $found.FullName -Destination $zipPath -Force }

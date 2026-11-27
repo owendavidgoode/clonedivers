@@ -35,6 +35,7 @@ typedef struct {
     uint32_t meshes;
     uintptr_t world_array;
     uintptr_t topology;
+    uintptr_t mesh_entries;
 } at_unit_view;
 
 typedef struct {
@@ -68,6 +69,8 @@ typedef struct {
 
 typedef struct {
     uint8_t occupied;
+    uint8_t meshes_resolved;
+    uint8_t mesh_count;
     uint32_t epoch;
     uint32_t unit_index;
     uint8_t unit_gen;
@@ -77,16 +80,19 @@ typedef struct {
     uintptr_t world;
     uint32_t graph_handle;
     uintptr_t normal_graph;
+    uintptr_t meshes[AT_MESH_DESC_COUNT];
 } at_walker_slot;
 
 typedef struct {
     at_walker_slot slots[AT_MAX_WALKERS];
     uintptr_t engine_base;
     uintptr_t rmanager_vtable_graph; /* engine + 0x16880B0u (overridable if needed in unit tests) */
+    uintptr_t rmanager_vtable_mesh;  /* engine + 0x1688950u (MeshObject vtable) */
     uint32_t scan_cursor;
     uint32_t admissions;
     uint32_t retirements;
     uint32_t scavenged;
+    uint32_t mesh_resolutions;
     uint32_t capacity_refusals;
     uint32_t passthroughs;
     uint32_t sweep_count;

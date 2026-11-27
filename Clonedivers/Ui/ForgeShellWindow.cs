@@ -1,6 +1,8 @@
 using System.Diagnostics;
 using Avalonia;
 using Avalonia.Automation;
+using Avalonia.Automation.Peers;
+using Avalonia.Automation.Provider;
 using Avalonia.Controls;
 using Avalonia.Controls.ApplicationLifetimes;
 using Avalonia.Controls.Primitives;
@@ -197,15 +199,7 @@ public sealed class ForgeShellWindow : Window
     readonly Dictionary<string, Border> tierDots = new();
     readonly Dictionary<string, Border> tierRecPills = new();
 
-    readonly Border advancedHeaderBorder = new()
-    {
-        Background = ForgeTheme.BgElevated,
-        BorderBrush = ForgeTheme.BorderSubtle,
-        BorderThickness = new Thickness(1),
-        CornerRadius = new CornerRadius(9),
-        Padding = new Thickness(12, 9),
-        Cursor = new Cursor(StandardCursorType.Hand)
-    };
+    readonly Border advancedHeaderBorder;
     readonly TextBlock advancedHeaderLabel = ForgeTheme.Label("Advanced ▸", 12.5, ForgeTheme.TextPrimary, FontWeight.Bold, wrap: false);
     readonly TextBlock advancedHeaderHint = ForgeTheme.Label("Enemy Mix · Extras · Host Rules", 11, ForgeTheme.TextSecondary, wrap: false);
     readonly StackPanel advancedBodyPanel = new() { Spacing = 10, IsVisible = false, Margin = new Thickness(0, 4, 0, 0) };
@@ -218,7 +212,8 @@ public sealed class ForgeShellWindow : Window
     readonly ToggleSwitch deathTrooperToggle = new() { OnContent = "On", OffContent = "Off" };
     readonly Border deathTrooperRow = new();
 
-    // Host Gameplay Controls (#20)
+    // Host Gameplay Controls (#20 + v2.2 Level 12 ULTRAKILL Theater Scale)
+    readonly Dictionary<string, ToggleButton> theaterPills = new();
     readonly Dictionary<string, ToggleButton> chaosPills = new();
     readonly Dictionary<string, ToggleButton> seafPills = new();
     readonly ToggleSwitch corpseCleanupToggle = new() { OnContent = "On", OffContent = "Off" };
@@ -373,6 +368,15 @@ public sealed class ForgeShellWindow : Window
     public ForgeShellWindow(IForgeUiHost host, string? initialOverlay = null)
     {
         this.host = host;
+        advancedHeaderBorder = new ActionCardBorder(ToggleAdvancedSectionAsync)
+        {
+            Background = ForgeTheme.BgElevated,
+            BorderBrush = ForgeTheme.BorderSubtle,
+            BorderThickness = new Thickness(1),
+            CornerRadius = new CornerRadius(9),
+            Padding = new Thickness(12, 9),
+            Cursor = new Cursor(StandardCursorType.Hand)
+        };
 
         Title = "Clonedivers";
         Icon = ForgeTheme.CreateWindowIcon();
@@ -759,6 +763,7 @@ public sealed class ForgeShellWindow : Window
         };
 
         AutomationProperties.SetName(settingsButton, "Settings and diagnostics");
+        AutomationProperties.SetAutomationId(settingsButton, "HeaderSettingsButton");
         settingsButton.Click += async (_, _) =>
         {
             UiSoundEffects.PlayButtonBlip();
@@ -1009,7 +1014,9 @@ public sealed class ForgeShellWindow : Window
 
         // 2. Compact Loadout Summary Bar
         customizeSizePill.Child = customizeSizePillText;
+        AutomationProperties.SetAutomationId(customizeSummaryText, "LoadoutSummaryText");
         AutomationProperties.SetName(customizeOpenButton, "Customize loadout options");
+        AutomationProperties.SetAutomationId(customizeOpenButton, "CustomizeOpenButton");
         customizeOpenButton.Click += (_, _) =>
         {
             UiSoundEffects.PlayButtonBlip();
@@ -1036,6 +1043,9 @@ public sealed class ForgeShellWindow : Window
         stack.Children.Add(customizeStrip);
 
         // 3. Fixed-Height Mission Status & Deterministic Progress Deck
+        AutomationProperties.SetAutomationId(statusHeadline, "StatusHeadline");
+        AutomationProperties.SetAutomationId(statusDetail, "StatusDetail");
+        AutomationProperties.SetAutomationId(toastText, "ToastNotice");
         var statusTop = new Grid { ColumnDefinitions = new ColumnDefinitions("Auto,*,Auto"), ColumnSpacing = 10 };
         statusTop.Children.Add(statusDot);
         Grid.SetColumn(statusHeadline, 1);
@@ -1056,6 +1066,8 @@ public sealed class ForgeShellWindow : Window
 
         // 4. Hero Primary CTA (+ optional contextual secondary button)
         AutomationProperties.SetName(heroButton, "Primary action");
+        AutomationProperties.SetAutomationId(heroButton, "HeroPrimaryButton");
+        AutomationProperties.SetAutomationId(secondaryButton, "HeroSecondaryButton");
         heroButton.Click += async (_, _) =>
         {
             var label = heroButton.Content?.ToString() ?? "";
@@ -1127,6 +1139,8 @@ public sealed class ForgeShellWindow : Window
         };
         var hwRow = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 8, Children = { hwDot, drawerHardwareText } };
 
+        AutomationProperties.SetAutomationId(autoTierToggle, "AutoTierToggle");
+        AutomationProperties.SetName(autoTierToggle, "Auto performance tier");
         var autoSwitchRow = BuildSwitchRow(
             "Auto (Recommended)",
             "Matches texture memory to your detected GPU & RAM.",
@@ -1215,7 +1229,14 @@ public sealed class ForgeShellWindow : Window
             Grid.SetColumn(rightHint, 1);
             rowGrid.Children.Add(rightHint);
 
-            var rowBorder = new Border
+            var tierIdCopy = tier.Id;
+            async Task SelectTierAsync()
+            {
+                if (updatingControls || host.GetHomeState().ControlsLocked) return;
+                UiSoundEffects.PlayButtonBlip();
+                await host.SetPerformanceTierAsync(tierIdCopy);
+            }
+            var rowBorder = new ActionCardBorder(SelectTierAsync)
             {
                 Background = ForgeTheme.BgCanvas,
                 BorderBrush = ForgeTheme.BorderSubtle,
@@ -1226,14 +1247,9 @@ public sealed class ForgeShellWindow : Window
                 Cursor = new Cursor(StandardCursorType.Hand),
                 Child = rowGrid
             };
+            AutomationProperties.SetAutomationId(rowBorder, $"TierRow-{tier.Id}");
             AutomationProperties.SetName(rowBorder, $"{tier.DisplayName} — {CustomizeTierDescriptions.GetValueOrDefault(tier.Id, tier.Description)}");
-            var tierIdCopy = tier.Id;
-            rowBorder.PointerPressed += async (_, _) =>
-            {
-                if (updatingControls || host.GetHomeState().ControlsLocked) return;
-                UiSoundEffects.PlayButtonBlip();
-                await host.SetPerformanceTierAsync(tierIdCopy);
-            };
+            rowBorder.PointerPressed += async (_, _) => await SelectTierAsync();
             tierRows[tier.Id] = rowBorder;
             tierListStack.Children.Add(rowBorder);
         }
@@ -1261,17 +1277,9 @@ public sealed class ForgeShellWindow : Window
         Grid.SetColumn(advancedHeaderHint, 1);
         advHeaderGrid.Children.Add(advancedHeaderHint);
         advancedHeaderBorder.Child = advHeaderGrid;
+        AutomationProperties.SetAutomationId(advancedHeaderBorder, "CustomizeAdvancedToggle");
         AutomationProperties.SetName(advancedHeaderBorder, "Toggle advanced customization");
-        advancedHeaderBorder.PointerPressed += (_, _) =>
-        {
-            UiSoundEffects.PlayButtonBlip();
-            showingAdvanced = !showingAdvanced;
-            RefreshCustomizeDrawer();
-            if (showingAdvanced)
-                Dispatcher.UIThread.Post(() => drawerScrollViewer?.ScrollToEnd(), DispatcherPriority.Loaded);
-            else
-                Dispatcher.UIThread.Post(() => drawerScrollViewer?.ScrollToHome(), DispatcherPriority.Loaded);
-        };
+        advancedHeaderBorder.PointerPressed += async (_, _) => await ToggleAdvancedSectionAsync();
 
         // Advanced 1: Enemy Skin & Squid Skin segmented pills
         var enemyWrap = new UniformGrid { Columns = 3 };
@@ -1285,6 +1293,7 @@ public sealed class ForgeShellWindow : Window
         {
             var (id, label) = enemySpecs[i];
             var pill = BuildSegmentedPill(label, i < enemySpecs.Length - 1);
+            AutomationProperties.SetAutomationId(pill, $"EnemyPill-{id}");
             pill.Click += async (_, _) =>
             {
                 if (updatingControls) return;
@@ -1307,6 +1316,7 @@ public sealed class ForgeShellWindow : Window
         {
             var (id, label) = squidSpecs[i];
             var pill = BuildSegmentedPill(label, i < squidSpecs.Length - 1);
+            AutomationProperties.SetAutomationId(pill, $"SquidPill-{id}");
             pill.Click += async (_, _) =>
             {
                 if (updatingControls) return;
@@ -1355,7 +1365,30 @@ public sealed class ForgeShellWindow : Window
         drawerVisualExtrasSection.Children.Add(deltaRow);
         drawerVisualExtrasSection.Children.Add(deathTrooperRow);
 
-        // Advanced 3: Host Gameplay Controls (#20)
+        // Advanced 3: Host Gameplay Controls (#20 + v2.2 Level 12 ULTRAKILL Theater Scale)
+        var theaterWrap = new UniformGrid { Columns = 2 };
+        var theaterSpecs = new[]
+        {
+            ("standard", "Standard (D1–11)"),
+            ("clone-wars", "L12 ULTRAKILL · Clone Wars")
+        };
+        for (int i = 0; i < theaterSpecs.Length; i++)
+        {
+            var (id, label) = theaterSpecs[i];
+            var pill = BuildSegmentedPill(label, i < theaterSpecs.Length - 1);
+            pill.FontSize = 11;
+            AutomationProperties.SetAutomationId(pill, $"TheaterPill-{id}");
+            pill.Click += async (_, _) =>
+            {
+                if (updatingControls) return;
+                UiSoundEffects.PlayButtonBlip();
+                var s = host.GetHomeState();
+                await host.UpdateHostMutatorsAsync(s.HostChaosIntensity, s.HostHeavySeaf, s.HostFasterCorpseCleanup, id);
+            };
+            theaterPills[id] = pill;
+            theaterWrap.Children.Add(pill);
+        }
+
         var chaosWrap = new UniformGrid { Columns = 3 };
         var chaosSpecs = new[] { ("off", "Off"), ("standard", "Standard"), ("total-war", "Total War") };
         for (int i = 0; i < chaosSpecs.Length; i++)
@@ -1367,7 +1400,7 @@ public sealed class ForgeShellWindow : Window
                 if (updatingControls) return;
                 UiSoundEffects.PlayButtonBlip();
                 var s = host.GetHomeState();
-                await host.UpdateHostMutatorsAsync(id, s.HostHeavySeaf, s.HostFasterCorpseCleanup);
+                await host.UpdateHostMutatorsAsync(id, s.HostHeavySeaf, s.HostFasterCorpseCleanup, s.HostTheaterPreset);
             };
             chaosPills[id] = pill;
             chaosWrap.Children.Add(pill);
@@ -1384,7 +1417,7 @@ public sealed class ForgeShellWindow : Window
                 if (updatingControls) return;
                 UiSoundEffects.PlayButtonBlip();
                 var s = host.GetHomeState();
-                await host.UpdateHostMutatorsAsync(s.HostChaosIntensity, id, s.HostFasterCorpseCleanup);
+                await host.UpdateHostMutatorsAsync(s.HostChaosIntensity, id, s.HostFasterCorpseCleanup, s.HostTheaterPreset);
             };
             seafPills[id] = pill;
             seafWrap.Children.Add(pill);
@@ -1395,7 +1428,7 @@ public sealed class ForgeShellWindow : Window
             if (updatingControls) return;
             UiSoundEffects.PlayButtonBlip();
             var s = host.GetHomeState();
-            await host.UpdateHostMutatorsAsync(s.HostChaosIntensity, s.HostHeavySeaf, corpseCleanupToggle.IsChecked == true);
+            await host.UpdateHostMutatorsAsync(s.HostChaosIntensity, s.HostHeavySeaf, corpseCleanupToggle.IsChecked == true, s.HostTheaterPreset);
         };
 
         var hostCard = new Border
@@ -1411,11 +1444,14 @@ public sealed class ForgeShellWindow : Window
                 Children =
                 {
                     ForgeTheme.Label("Applies when you host missions · Squad match code stays identical.", 11, ForgeTheme.TextSecondary),
+                    ForgeTheme.Label("Theater Scale (Experimental)", 11.5, ForgeTheme.ClonesAccent, FontWeight.SemiBold),
+                    theaterWrap,
+                    ForgeTheme.Label("L12 ULTRAKILL unlocks a 2.79 km² map, 2–3k hybrid Clone Wars battalions, and 0.0s turbo corpse cleanup.", 10.5, ForgeTheme.TextSecondary),
                     ForgeTheme.Label("Chaos Invasions", 11.5, ForgeTheme.TextPrimary, FontWeight.SemiBold),
                     chaosWrap,
                     ForgeTheme.Label("Heavy SEAF Reinforcements", 11.5, ForgeTheme.TextPrimary, FontWeight.SemiBold),
                     seafWrap,
-                    BuildSwitchRow("Faster Corpse Cleanup", "Clears fallen bodies sooner to protect D10–11 FPS.", corpseCleanupToggle)
+                    BuildSwitchRow("Faster Corpse Cleanup", "Clears fallen bodies sooner to protect D10–12 FPS.", corpseCleanupToggle)
                 }
             }
         };
@@ -1430,6 +1466,7 @@ public sealed class ForgeShellWindow : Window
         previewStack.Children.Add(drawerPreviewDetail);
         drawerPreviewBox.Child = previewStack;
 
+        AutomationProperties.SetAutomationId(drawerApplyButton, "CustomizeApplyButton");
         drawerApplyButton.Click += async (_, _) =>
         {
             UiSoundEffects.PlayButtonBlip();
@@ -1512,8 +1549,24 @@ public sealed class ForgeShellWindow : Window
         return grid;
     }
 
+    Task ToggleAdvancedSectionAsync()
+    {
+        UiSoundEffects.PlayButtonBlip();
+        showingAdvanced = !showingAdvanced;
+        RefreshCustomizeDrawer();
+        if (showingAdvanced)
+            Dispatcher.UIThread.Post(() => drawerScrollViewer?.ScrollToEnd(), DispatcherPriority.Loaded);
+        else
+            Dispatcher.UIThread.Post(() => drawerScrollViewer?.ScrollToHome(), DispatcherPriority.Loaded);
+        return Task.CompletedTask;
+    }
+
     Control BuildSetupView()
     {
+        AutomationProperties.SetAutomationId(setupBackButton, "SetupBackButton");
+        AutomationProperties.SetAutomationId(setupHeadline, "SetupHeadline");
+        AutomationProperties.SetAutomationId(setupDetail, "SetupDetail");
+        AutomationProperties.SetAutomationId(setupPrimaryButton, "SetupPrimaryButton");
         setupBackButton.Click += (_, _) =>
         {
             UiSoundEffects.PlayButtonBlip();
@@ -1724,6 +1777,8 @@ public sealed class ForgeShellWindow : Window
                 HorizontalContentAlignment = HorizontalAlignment.Center,
                 Cursor = new Cursor(StandardCursorType.Hand)
             };
+            AutomationProperties.SetAutomationId(btn, $"SetupTexture-{id}");
+            AutomationProperties.SetName(btn, title);
             btn.Click += async (_, _) =>
             {
                 UiSoundEffects.PlayButtonBlip();
@@ -1828,6 +1883,7 @@ public sealed class ForgeShellWindow : Window
         Grid.SetColumn(closeBtn, 1);
         header.Children.Add(closeBtn);
 
+        AutomationProperties.SetAutomationId(settingsVerifyRepairButton, "SettingsVerifyRepairButton");
         settingsVerifyRepairButton.BorderBrush = ForgeTheme.ClonesAccent;
         settingsVerifyRepairButton.Foreground = ForgeTheme.ClonesAccent;
 
@@ -2420,7 +2476,8 @@ public sealed class ForgeShellWindow : Window
             s.HostHeavySeaf,
             s.HostFasterCorpseCleanup,
             s.SquidSkin,
-            s.DeathTrooperVoice);
+            s.DeathTrooperVoice,
+            s.HostTheaterPreset);
         customizeOpenButton.Content = s.Mode == "regular" ? "Host Rules ▸" : "Customize ▸";
         customizeOpenButton.IsVisible = true;
         customizeOpenButton.IsEnabled = !s.ControlsLocked;
@@ -2470,6 +2527,7 @@ public sealed class ForgeShellWindow : Window
         if (!string.IsNullOrWhiteSpace(s.SecondaryActionLabel))
         {
             secondaryButton.Content = s.SecondaryActionLabel;
+            AutomationProperties.SetName(secondaryButton, s.SecondaryActionLabel);
             secondaryButton.IsVisible = true;
             secondaryButton.IsEnabled = !s.IsBusy;
         }
@@ -2510,6 +2568,7 @@ public sealed class ForgeShellWindow : Window
                 bool isRecommended = string.Equals(s.Hardware.RecommendedTierId, tier.Id, StringComparison.OrdinalIgnoreCase);
 
                 var row = tierRows[tier.Id];
+                row.IsEnabled = !s.ControlsLocked;
                 row.Background = selected ? ForgeTheme.BgSelected : ForgeTheme.BgCanvas;
                 row.BorderBrush = selected ? ForgeTheme.ClonesAccent : ForgeTheme.BorderSubtle;
                 row.Opacity = s.ControlsLocked ? 0.6 : 1.0;
@@ -2552,6 +2611,16 @@ public sealed class ForgeShellWindow : Window
             deathTrooperRow.IsVisible = s.Mode == "empire";
             deathTrooperToggle.IsChecked = s.DeathTrooperVoice;
             deathTrooperToggle.IsEnabled = !s.ControlsLocked;
+
+            bool isUltrakillTheater = HostMutatorConfig.IsUltrakillTheater(s.HostTheaterPreset, s.HostChaosIntensity);
+            foreach (var (id, pill) in theaterPills)
+            {
+                bool on = id == "clone-wars" ? isUltrakillTheater : !isUltrakillTheater;
+                pill.IsChecked = on;
+                pill.Background = on ? ForgeTheme.BgSelected : ForgeTheme.BgCanvas;
+                pill.BorderBrush = on ? ForgeTheme.ClonesAccent : ForgeTheme.BorderSubtle;
+                pill.IsEnabled = !s.ControlsLocked;
+            }
 
             foreach (var (id, pill) in chaosPills)
             {
@@ -2602,6 +2671,7 @@ public sealed class ForgeShellWindow : Window
             }
 
             drawerApplyButton.Content = applyLabel;
+            AutomationProperties.SetName(drawerApplyButton, applyLabel);
             drawerApplyButton.IsEnabled = !s.ControlsLocked;
             ApplyCtaTone(drawerApplyButton, applyTone, s.Mode, !s.ControlsLocked);
         }
@@ -2762,6 +2832,7 @@ public sealed class ForgeShellWindow : Window
         }
 
         setupPrimaryButton.Content = st.PrimaryActionLabel;
+        AutomationProperties.SetName(setupPrimaryButton, st.PrimaryActionLabel);
         setupPrimaryButton.IsEnabled = st.PrimaryActionEnabled;
         ApplyCtaTone(setupPrimaryButton, st.PackReady ? ForgeHeroTone.Ready : ForgeHeroTone.Action, "clonedivers", st.PrimaryActionEnabled);
 
@@ -2846,6 +2917,26 @@ public sealed class ForgeShellWindow : Window
             bitmap.Render(this);
             var tag = scale == 1.0 ? "100pct" : $"{(int)(scale * 100)}pct";
             bitmap.Save(Path.Combine(outputDir, $"{namePrefix}-{tag}.png"));
+        }
+    }
+
+    sealed class ActionCardBorder(Func<Task> onInvoke) : Border
+    {
+        protected override AutomationPeer OnCreateAutomationPeer() => new ActionCardBorderPeer(this, onInvoke);
+    }
+
+    sealed class ActionCardBorderPeer(ActionCardBorder owner, Func<Task> onInvoke) : ControlAutomationPeer(owner), IInvokeProvider
+    {
+        protected override AutomationControlType GetAutomationControlTypeCore() => AutomationControlType.Button;
+        protected override bool IsContentElementCore() => true;
+        protected override bool IsControlElementCore() => true;
+        public void Invoke()
+        {
+            if (!owner.IsEnabled) return;
+            Dispatcher.UIThread.Post(async () =>
+            {
+                if (owner.IsEnabled) await onInvoke();
+            });
         }
     }
 }

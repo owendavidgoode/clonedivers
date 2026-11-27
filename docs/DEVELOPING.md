@@ -8,8 +8,8 @@ The launcher targets **.NET 8** with a shared **Avalonia 11** dark Star Wars UI 
 Windows (`Clonedivers`, `net8.0-windows` with `--classic` WinForms and `--steam` recovery
 fallbacks retained) and Linux (`Clonedivers.Linux` + `Clonedivers.ForgeBridge` native
 controller `HellForge.Launcher.ClonediversBridge`). Embedded catalogs live under
-`Clonedivers/Resources/` (`hellforge-empire-r52.json`, `hellforge-clones-r23.json`, and
-`forge-gameplay-build25480438-r11.json`), and project-owned HellForge SDK-16 C11 mods live
+`Clonedivers/Resources/` (`hellforge-empire-r53.json`, `hellforge-clones-r24.json`, and
+`forge-gameplay-build25480438-r13.json`), and project-owned HellForge SDK-16 C11 mods live
 under `forge-mods/`. See [Linux setup and checks](LINUX.md) and [mod coverage](FORGE-MOD-COVERAGE.md).
 
 ```powershell

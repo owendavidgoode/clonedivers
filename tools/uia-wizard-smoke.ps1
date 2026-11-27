@@ -1,8 +1,8 @@
 ﻿<#
 .SYNOPSIS
-    Offline UIAutomation end-to-end smoke test for Clonedivers Windows Single Wizard & Launcher (F1-F16, v2.0 UI).
+    Offline UIAutomation end-to-end smoke test for the unified Clonedivers Avalonia 11 Launcher & Embedded 4-Step Setup (F1-F16, v2.1 UI).
 .NOTES
-    Runs 100% isolated via CLONEDIVERS_FORGE_PREFS / CLONEDIVERS_FORGE_TEST_HOSTS / CLONEDIVERS_FORGE_TEST_STEAM / CLONEDIVERS_FORGE_SKIP_UPDATE_CHECK
+    Runs 100% isolated via CLONEDIVERS_FORGE_PREFS / CLONEDIVERS_FORGE_TEST_HOSTS / CLONEDIVERS_FORGE_TEST_STEAM / CLONEDIVERS_FORGE_TEST_FREE_BYTES / CLONEDIVERS_FORGE_SKIP_UPDATE_CHECK
     in D:\ClaudeWork\cache\tmp. Never modifies real AppData, real D:\HellForge\, or launches helldivers2.exe.
 #>
 param(
@@ -14,8 +14,19 @@ if (Get-Process helldivers2 -ErrorAction SilentlyContinue) {
     throw 'REFUSED: helldivers2.exe is running.'
 }
 
-$dotnet = 'C:\Users\goode\OneDrive\Desktop\clonedivers\dist\dotnet-sdk\dotnet.exe'
-if (-not (Test-Path $dotnet)) { $dotnet = 'dotnet' }
+$dotnetCandidates = @(
+    (Join-Path $Worktree 'dist\dotnet-sdk\dotnet.exe'),
+    'C:\Users\goode\OneDrive\Desktop\clonedivers\dist\dotnet-sdk\dotnet.exe',
+    'D:\ClaudeWork\empire-forge\tie-prerequisites-astra\dotnet-10.0.403\dotnet.exe'
+)
+$dotnet = $dotnetCandidates | Where-Object { Test-Path -LiteralPath $_ } | Select-Object -First 1
+if (-not $dotnet) { $dotnet = 'dotnet' }
+if ($dotnet -like '*dotnet-10*' -or $dotnet -like '*dotnet-9*') {
+    $env:DOTNET_ROOT = Split-Path -Parent $dotnet
+    $cliHome = 'D:\ClaudeWork\empire-forge\tie-prerequisites-astra\dotnet-home'
+    if (Test-Path -LiteralPath $cliHome) { $env:DOTNET_CLI_HOME = $cliHome }
+    $env:DOTNET_ROLL_FORWARD = 'Major'
+}
 $env:DOTNET_CLI_TELEMETRY_OPTOUT = '1'
 $env:DOTNET_NOLOGO = '1'
 
@@ -40,19 +51,19 @@ function Build-App {
     Write-Host 'Building Clonedivers & ForgeBridge...'
     $distPresentMon = Join-Path $Worktree 'dist\PresentMon.exe'
     $srcPresentMon = 'C:\Users\goode\OneDrive\Desktop\clonedivers\dist\PresentMon.exe'
-    if (-not (Test-Path $distPresentMon) -and (Test-Path $srcPresentMon)) {
+    if (-not (Test-Path -LiteralPath $distPresentMon) -and (Test-Path -LiteralPath $srcPresentMon)) {
         New-Item -ItemType Directory -Force (Split-Path $distPresentMon) | Out-Null
-        Copy-Item $srcPresentMon $distPresentMon
+        Copy-Item -LiteralPath $srcPresentMon -Destination $distPresentMon
     }
     & $dotnet build (Join-Path $Worktree 'Clonedivers.ForgeBridge\Clonedivers.ForgeBridge.csproj') -c Release -v quiet | Out-Null
     if ($LASTEXITCODE -ne 0) { throw 'Failed to build Clonedivers.ForgeBridge' }
     & $dotnet build (Join-Path $Worktree 'Clonedivers\Clonedivers.csproj') -c Release -v quiet | Out-Null
     if ($LASTEXITCODE -ne 0) { throw 'Failed to build Clonedivers' }
     $exe = Join-Path $Worktree 'Clonedivers\bin\Release\net8.0-windows\win-x64\Clonedivers.exe'
-    if (-not (Test-Path $exe)) {
+    if (-not (Test-Path -LiteralPath $exe)) {
         $exe = (Get-ChildItem (Join-Path $Worktree 'Clonedivers\bin\Release') -Recurse -Filter Clonedivers.exe | Select-Object -First 1).FullName
     }
-    if (-not $exe -or -not (Test-Path $exe)) { throw 'Clonedivers.exe not found under Clonedivers\bin\Release' }
+    if (-not $exe -or -not (Test-Path -LiteralPath $exe)) { throw 'Clonedivers.exe not found under Clonedivers\bin\Release' }
     return [string]$exe
 }
 
@@ -194,6 +205,7 @@ switch (args[0])
     {
         var st = LoadState();
         var (ver, eng, sdk) = ReadAppBuild();
+        var isRun = st["running"]!.GetValue<bool>();
         var resp = new
         {
             install = root,
@@ -205,7 +217,8 @@ switch (args[0])
             ready = new { gameCopy = st["gameCopy"]!.GetValue<bool>(), sessionRunner = st["runner"]!.GetValue<bool>(), linuxNamespace = false },
             session = new
             {
-                running = st["running"]!.GetValue<bool>(),
+                running = isRun,
+                gameLaunched = isRun ? (bool?)true : null,
                 lastRun = st["lastRun"]?.GetValue<string?>(),
                 lastStatus = st["lastStatus"]?.GetValue<string?>(),
                 lastFailure = st["lastFailure"]?.GetValue<string?>()
@@ -306,7 +319,7 @@ switch (args[0])
     {
         var st = LoadState();
         st["running"] = false;
-        st["lastRun"] = "2026-11-16T00:00:00Z";
+        st["lastRun"] = "2026-11-26T00:00:00Z";
         SaveState(st);
         Console.WriteLine("""{"event":"stopping"}""");
         return 0;
@@ -332,7 +345,6 @@ function Seed-ForgeRoot([string]$Root, [string]$FxBin, [bool]$GameCopy = $false)
     Rename-Item (Join-Path $cliDir 'FakeForge.exe') 'HellForge.Cli.exe' -Force
 
     Copy-Item (Join-Path $FxBin '*') $backendDir -Force
-    Rename-Item (Join-Path $cliDir 'HellForge.Cli.exe') 'HellForge.Cli.exe' -Force # no-op verify
     Rename-Item (Join-Path $backendDir 'FakeForge.exe') 'HellForge.LocalBackend.exe' -Force
 
     Copy-Item (Join-Path $FxBin '*') $Root -Force
@@ -340,7 +352,7 @@ function Seed-ForgeRoot([string]$Root, [string]$FxBin, [bool]$GameCopy = $false)
 
     '{"schemaVersion":1,"buildId":"25480438"}' | Set-Content (Join-Path $Root 'hellforge-install.json') -Encoding UTF8
     '{"version":"0.4.0-beta","engine":"0.1.47","modSdk":16}' | Set-Content (Join-Path $Root 'app\app-build.json') -Encoding UTF8
-    '{"share":true}' | Set-Content (Join-Path $modsDir 'hellforge-mods.json') -Encoding UTF8
+    '{"share":false}' | Set-Content (Join-Path $modsDir 'hellforge-mods.json') -Encoding UTF8
     '{"schemaVersion":1,"progression":{"experience":1000},"customization":{"items":[]},"inventory":{"items":[]}}' | Set-Content (Join-Path $profileDir 'profile.json') -Encoding UTF8
 
     @{
@@ -358,7 +370,7 @@ function Write-SealedCapture([string]$Root) {
     New-Item -ItemType Directory -Force $snapDir | Out-Null
     '{"items":[{"id":1}]}' | Set-Content (Join-Path $snapDir 'real-inventory.json') -Encoding UTF8
     '{"experience":12345}' | Set-Content (Join-Path $snapDir 'progression.json') -Encoding UTF8
-    '{"steamAccount":"1","capturedUtc":"2026-11-16T00:00:00Z"}' | Set-Content (Join-Path $snapDir 'seal.json') -Encoding UTF8
+    '{"steamAccount":"1","capturedUtc":"2026-11-26T00:00:00Z"}' | Set-Content (Join-Path $snapDir 'seal.json') -Encoding UTF8
     '{"progression":true,"items":1}' | Set-Content (Join-Path $snapDir 'snapshot.json') -Encoding UTF8
 }
 
@@ -368,13 +380,14 @@ function Start-IsolatedLauncher([string]$Exe, [string]$PrefsPath, [string]$Hosts
     $psi.Environment['CLONEDIVERS_FORGE_PREFS'] = $PrefsPath
     $psi.Environment['CLONEDIVERS_FORGE_TEST_HOSTS'] = $HostsPath
     $psi.Environment['CLONEDIVERS_FORGE_TEST_STEAM'] = '1'
+    $psi.Environment['CLONEDIVERS_FORGE_TEST_FREE_BYTES'] = '120000000000'
     $psi.Environment['CLONEDIVERS_FORGE_SKIP_UPDATE_CHECK'] = '1'
     $p = [System.Diagnostics.Process]::Start($psi)
     $procs.Add($p)
     return $p
 }
 
-function Find-Window([int]$ProcessId, [string]$TitleSubstr, [int]$TimeoutMs = 15000, [System.Windows.Automation.AutomationElement]$Owner = $null) {
+function Find-Window([int]$ProcessId, [string]$TitleSubstr, [int]$TimeoutMs = 15000) {
     $sw = [Diagnostics.Stopwatch]::StartNew()
     $root = [System.Windows.Automation.AutomationElement]::RootElement
     $winCond = [System.Windows.Automation.AndCondition]::new(
@@ -383,19 +396,9 @@ function Find-Window([int]$ProcessId, [string]$TitleSubstr, [int]$TimeoutMs = 15
     )
     while ($sw.ElapsedMilliseconds -lt $TimeoutMs) {
         try {
-            if ($null -ne $Owner) {
-                $owned = $Owner.FindAll([System.Windows.Automation.TreeScope]::Descendants, $winCond)
-                foreach ($w in $owned) {
-                    try { if ($w.Current.Name -like "*$TitleSubstr*") { return $w } } catch [System.Windows.Automation.ElementNotAvailableException] {}
-                }
-            }
             $wins = $root.FindAll([System.Windows.Automation.TreeScope]::Children, $winCond)
             foreach ($w in $wins) {
                 try { if ($w.Current.Name -like "*$TitleSubstr*") { return $w } } catch [System.Windows.Automation.ElementNotAvailableException] {}
-                $sub = $w.FindAll([System.Windows.Automation.TreeScope]::Children, $winCond)
-                foreach ($s in $sub) {
-                    try { if ($s.Current.Name -like "*$TitleSubstr*") { return $s } } catch [System.Windows.Automation.ElementNotAvailableException] {}
-                }
             }
         } catch [System.Windows.Automation.ElementNotAvailableException] {}
         Start-Sleep -Milliseconds 120
@@ -410,8 +413,9 @@ function Describe-Elements([System.Windows.Automation.AutomationElement]$Scope) 
         foreach ($el in $all) {
             try {
                 $name = $el.Current.Name
-                if (-not [string]::IsNullOrWhiteSpace($name)) {
-                    $lines.Add("  $($el.Current.ControlType.ProgrammaticName): '$name' enabled=$($el.Current.IsEnabled)")
+                $aid = $el.Current.AutomationId
+                if (-not [string]::IsNullOrWhiteSpace($name) -or -not [string]::IsNullOrWhiteSpace($aid)) {
+                    $lines.Add("  $($el.Current.ControlType.ProgrammaticName) id='$aid': '$name' enabled=$($el.Current.IsEnabled) off=$($el.Current.IsOffscreen)")
                 }
             } catch [System.Windows.Automation.ElementNotAvailableException] {}
         }
@@ -436,11 +440,25 @@ function Find-ByName([System.Windows.Automation.AutomationElement]$Scope, [strin
     throw "Timed out waiting for element matching '$NameSubstr'. Visible:`n$dump"
 }
 
-function Find-Button([System.Windows.Automation.AutomationElement]$Scope, [string]$Text, [int]$TimeoutMs = 15000) {
+function Find-ByAutomationId([System.Windows.Automation.AutomationElement]$Scope, [string]$AutomationId, [int]$TimeoutMs = 15000) {
     $sw = [Diagnostics.Stopwatch]::StartNew()
+    $cond = [System.Windows.Automation.PropertyCondition]::new([System.Windows.Automation.AutomationElement]::AutomationIdProperty, $AutomationId)
     while ($sw.ElapsedMilliseconds -lt $TimeoutMs) {
         try {
-            $cond = [System.Windows.Automation.PropertyCondition]::new([System.Windows.Automation.AutomationElement]::ControlTypeProperty, [System.Windows.Automation.ControlType]::Button)
+            $el = $Scope.FindFirst([System.Windows.Automation.TreeScope]::Descendants, $cond)
+            if ($null -ne $el -and $el.Current.IsEnabled) { return $el }
+        } catch [System.Windows.Automation.ElementNotAvailableException] {}
+        Start-Sleep -Milliseconds 120
+    }
+    $dump = Describe-Elements $Scope
+    throw "Timed out waiting for enabled AutomationId '$AutomationId'. Visible:`n$dump"
+}
+
+function Find-Button([System.Windows.Automation.AutomationElement]$Scope, [string]$Text, [int]$TimeoutMs = 15000) {
+    $sw = [Diagnostics.Stopwatch]::StartNew()
+    $cond = [System.Windows.Automation.PropertyCondition]::new([System.Windows.Automation.AutomationElement]::ControlTypeProperty, [System.Windows.Automation.ControlType]::Button)
+    while ($sw.ElapsedMilliseconds -lt $TimeoutMs) {
+        try {
             $btns = $Scope.FindAll([System.Windows.Automation.TreeScope]::Descendants, $cond)
             foreach ($b in $btns) {
                 try {
@@ -454,41 +472,32 @@ function Find-Button([System.Windows.Automation.AutomationElement]$Scope, [strin
     throw "Timed out waiting for enabled button '$Text'. Visible:`n$dump"
 }
 
-Add-Type @'
-using System;
-using System.Runtime.InteropServices;
-public static class Win32Click {
-    [DllImport("user32.dll")]
-    public static extern bool PostMessage(IntPtr hWnd, uint Msg, IntPtr wParam, IntPtr lParam);
-}
-'@
-
-function Invoke-Button([System.Windows.Automation.AutomationElement]$Button) {
-    $hwnd = [IntPtr]$Button.Current.NativeWindowHandle
-    if ($hwnd -ne [IntPtr]::Zero) {
-        $null = [Win32Click]::PostMessage($hwnd, 0x00F5, [IntPtr]::Zero, [IntPtr]::Zero)
+function Invoke-Element([System.Windows.Automation.AutomationElement]$El) {
+    $pat = $null
+    if ($El.TryGetCurrentPattern([System.Windows.Automation.InvokePattern]::Pattern, [ref]$pat)) {
+        ([System.Windows.Automation.InvokePattern]$pat).Invoke()
         return
     }
-    $p = $Button.GetCurrentPattern([System.Windows.Automation.InvokePattern]::Pattern)
-    ([System.Windows.Automation.InvokePattern]$p).Invoke()
+    if ($El.TryGetCurrentPattern([System.Windows.Automation.TogglePattern]::Pattern, [ref]$pat)) {
+        ([System.Windows.Automation.TogglePattern]$pat).Toggle()
+        return
+    }
+    if ($El.TryGetCurrentPattern([System.Windows.Automation.SelectionItemPattern]::Pattern, [ref]$pat)) {
+        ([System.Windows.Automation.SelectionItemPattern]$pat).Select()
+        return
+    }
+    throw "Element '$($El.Current.Name)' (id='$($El.Current.AutomationId)') does not expose Invoke/Toggle/SelectionItem pattern"
 }
 
-function Select-Radio([System.Windows.Automation.AutomationElement]$Scope, [string]$Name) {
-    $cond = [System.Windows.Automation.AndCondition]::new(
-        [System.Windows.Automation.PropertyCondition]::new([System.Windows.Automation.AutomationElement]::ControlTypeProperty, [System.Windows.Automation.ControlType]::RadioButton),
-        [System.Windows.Automation.PropertyCondition]::new([System.Windows.Automation.AutomationElement]::NameProperty, $Name)
-    )
-    $rb = $Scope.FindFirst([System.Windows.Automation.TreeScope]::Descendants, $cond)
-    if ($null -eq $rb) { throw "RadioButton '$Name' not found" }
-    $pat = $null
-    if ($rb.TryGetCurrentPattern([System.Windows.Automation.InvokePattern]::Pattern, [ref]$pat)) {
-        ([System.Windows.Automation.InvokePattern]$pat).Invoke()
-    } elseif ($rb.TryGetCurrentPattern([System.Windows.Automation.SelectionItemPattern]::Pattern, [ref]$pat)) {
-        ([System.Windows.Automation.SelectionItemPattern]$pat).Select()
-    } else {
-        $tog = $rb.GetCurrentPattern([System.Windows.Automation.TogglePattern]::Pattern)
-        ([System.Windows.Automation.TogglePattern]$tog).Toggle()
-    }
+function Stop-LauncherCleanly([System.Diagnostics.Process]$Proc) {
+    if ($null -eq $Proc) { return }
+    try {
+        if (-not $Proc.HasExited) {
+            $null = $Proc.CloseMainWindow()
+            $null = $Proc.WaitForExit(5000)
+        }
+        if (-not $Proc.HasExited) { $Proc.Kill() }
+    } catch {}
 }
 
 try {
@@ -499,95 +508,117 @@ try {
     $hosts = Join-Path $tmp 'hosts.txt'
     '' | Set-Content $hosts -Encoding UTF8
 
-    Write-Host '--- Pass A: Fresh launch, v2.0 UI selectors, F15 single-instance focus, Step 1 checklist ---'
+    Write-Host '--- Pass A: Fresh launch, Avalonia v2.1 Customize drawer (5 tiers + Advanced), F15 single-instance, Step 1 checklist ---'
     $prefsA = Join-Path $tmp 'prefsA\forge.json'
     $p1 = Start-IsolatedLauncher $exe $prefsA $hosts
-    $mainA = Find-Window $p1.Id 'Clonedivers — HellForge'
-    $setupBtn = Find-Button $mainA 'SET UP CLONEDIVERS'
-    Assert-True ($null -ne $setupBtn) 'Fresh launch offers primary button SET UP CLONEDIVERS'
+    $mainA = Find-Window $p1.Id 'Clonedivers'
+    $setupBtn = Find-Button $mainA 'START GUIDED SETUP'
+    $useExistingBtn = Find-Button $mainA 'Use Existing Forge…'
+    Assert-True ($null -ne $setupBtn -and $null -ne $useExistingBtn) 'Fresh launch offers START GUIDED SETUP and Use Existing Forge…'
 
-    Select-Radio $mainA 'Mixed Bots + CIS Droids'
-    Select-Radio $mainA 'Johnson Ultra-Potato (512px) textures'
-    $null = Find-ByName $mainA 'Ultra-Potato (512px): lowest VRAM footprint'
+    # Open Customize slide-over drawer -> select Ultra-Potato (potato256) + expand Advanced -> All CIS Droids
+    Invoke-Element (Find-ByAutomationId $mainA 'CustomizeOpenButton')
+    Invoke-Element (Find-ByAutomationId $mainA 'TierRow-ultra-potato')
+    Invoke-Element (Find-ByAutomationId $mainA 'CustomizeAdvancedToggle')
+    Invoke-Element (Find-ByAutomationId $mainA 'EnemyPill-all-droids')
+    Invoke-Element (Find-ByAutomationId $mainA 'CustomizeApplyButton')
+
+    $null = Find-ByName $mainA 'All CIS Droids'
     $savedA = Get-Content $prefsA -Raw | ConvertFrom-Json
-    Assert-True ($savedA.EnemySkin -eq 'mixed-droids' -and $savedA.Texture -eq 'reduced512') 'v2.0 UIA toggles persist Mixed Bots + CIS Droids and reduced512 to isolated prefs'
+    Assert-True ($savedA.EnemySkin -eq 'all-droids' -and $savedA.Texture -eq 'potato256' -and $savedA.PerformanceTier -eq 'ultra-potato' -and -not $savedA.AutoPerformanceTier) `
+        'Avalonia Customize drawer persists All CIS Droids + Ultra-Potato (potato256) to isolated forge.json'
 
     # F15: second instance signals running instance and exits immediately
     $pDup = Start-IsolatedLauncher $exe $prefsA $hosts
     Assert-True ($pDup.WaitForExit(8000) -and -not $p1.HasExited) 'F15 second instance exits cleanly without spawning a duplicate window'
 
-    Invoke-Button $setupBtn
-    $wizA = Find-Window $p1.Id 'Clonedivers — Setup Wizard' -Owner $mainA
-    $null = Find-ByName $wizA 'Step 1 of 4'
-    $null = Find-ByName $wizA 'Keep Helldivers 2 installed in Steam'
-    $null = Find-ByName $wizA 'Official setup (fallback)'
-    $null = Find-ByName $wizA '70 GB'
-    $btnsA = $wizA.FindAll([System.Windows.Automation.TreeScope]::Descendants,
+    Invoke-Element (Find-Button $mainA 'START GUIDED SETUP')
+    $null = Find-ByName $mainA 'Step 1 of 4 · Space & Steam'
+    $null = Find-ByName $mainA '~70 GB'
+    $null = Find-ByName $mainA 'Steam App'
+    $btnsA = $mainA.FindAll([System.Windows.Automation.TreeScope]::Descendants,
         [System.Windows.Automation.PropertyCondition]::new([System.Windows.Automation.AutomationElement]::ControlTypeProperty, [System.Windows.Automation.ControlType]::Button))
     $hasSkipA = $false
-    foreach ($b in $btnsA) { if ($b.Current.Name -match 'Skip|Fresh') { $hasSkipA = $true } }
-    Assert-True (-not $hasSkipA) 'Step 1/Wizard never exposes Skip or Fresh-character bypass'
-    Invoke-Button (Find-Button $wizA 'Close')
-    $p1.CloseMainWindow() | Out-Null
-    $null = $p1.WaitForExit(5000)
-    if (-not $p1.HasExited) { $p1.Kill() }
+    foreach ($b in $btnsA) { try { if ($b.Current.Name -match 'Skip|Fresh') { $hasSkipA = $true } } catch {} }
+    Assert-True (-not $hasSkipA) 'Embedded Setup Step 1 never exposes Skip or Fresh-character bypass'
+    Invoke-Element (Find-ByAutomationId $mainA 'SetupBackButton')
+    $null = Find-Button $mainA 'START GUIDED SETUP'
+    Stop-LauncherCleanly $p1
 
-    Write-Host '--- Pass B: End-to-End 4-Step Single Wizard (Step 2 QR -> Step 3 Mandatory Sync & F10 -> Step 4 & F13 -> Launch & Stop) ---'
+    Write-Host '--- Pass B: End-to-End 4-Step Embedded Setup (Step 2 QR -> Step 3 Mandatory Sync & F10 -> Step 4 -> F13 -> Launch & Stop) ---'
     $forgeRoot = Join-Path $tmp 'forge-root'
     Seed-ForgeRoot $forgeRoot $fxBin $false
     $prefsB = Join-Path $tmp 'prefsB\forge.json'
     New-Item -ItemType Directory -Force (Split-Path $prefsB) | Out-Null
-    @{ Format = 1; InstallRoot = $forgeRoot; Mode = 'regular'; DeltaSquad = $true; Texture = 'full'; Droids = $true; EnemySkin = 'all-droids'; Covenant = $false } |
+    @{ Format = 1; InstallRoot = $forgeRoot; Mode = 'regular'; DeltaSquad = $true; Texture = 'full'; AutoPerformanceTier = $false; PerformanceTier = 'ultra'; Droids = $true; EnemySkin = 'mixed-droids'; Covenant = $true; SquidSkin = 'mixed-covenant' } |
         ConvertTo-Json | Set-Content $prefsB -Encoding UTF8
 
     $p2 = Start-IsolatedLauncher $exe $prefsB $hosts
-    $mainB = Find-Window $p2.Id 'Clonedivers — HellForge'
-    $finishSetupBtn = Find-Button $mainB 'FINISH SETUP'
-    Invoke-Button $finishSetupBtn
+    $mainB = Find-Window $p2.Id 'Clonedivers'
+    Invoke-Element (Find-Button $mainB 'CONTINUE GUIDED SETUP')
 
-    $wizB = Find-Window $p2.Id 'Clonedivers — Setup Wizard' -Owner $mainB
-    $contBtn = Find-Button $wizB 'CONTINUE GAME SETUP'
-    Invoke-Button $contBtn
+    # Embedded setup opens directly at Step 2 when Forge is present without gameCopy, or Step 1 CONTINUE GAME COPY
+    $step2Or1 = $null
+    $swStep = [Diagnostics.Stopwatch]::StartNew()
+    while ($swStep.ElapsedMilliseconds -lt 10000 -and $null -eq $step2Or1) {
+        $condPrimary = [System.Windows.Automation.PropertyCondition]::new([System.Windows.Automation.AutomationElement]::AutomationIdProperty, 'SetupPrimaryButton')
+        $cand = $mainB.FindFirst([System.Windows.Automation.TreeScope]::Descendants, $condPrimary)
+        if ($null -ne $cand -and $cand.Current.IsEnabled -and ($cand.Current.Name -eq 'RETRY GAME SETUP' -or $cand.Current.Name -eq 'CONTINUE GAME COPY')) {
+            $step2Or1 = $cand
+        } else {
+            Start-Sleep -Milliseconds 120
+        }
+    }
+    Assert-True ($null -ne $step2Or1) 'Embedded Setup offers game-copy action for incomplete Forge install'
+    $null = Find-ByName $mainB 'Having trouble with QR? Open official HellForge setup'
+    Invoke-Element $step2Or1
 
     # Step 2 runs steam-download (emits QR + flips gameCopy=true) and auto-advances to Step 3
-    $null = Find-ByName $wizB 'Step 3 of 4' 20000
-    Assert-True ($wizB.Current.BoundingRectangle.Height -le [System.Windows.Forms.Screen]::PrimaryScreen.WorkingArea.Height) 'QR/Step 2 wizard height fits within WorkingArea'
-    $syncBtn = Find-Button $wizB 'OPEN HELLFORGE TO SYNC'
-    $btnsB3 = $wizB.FindAll([System.Windows.Automation.TreeScope]::Descendants,
+    $null = Find-ByName $mainB 'Step 3 of 4' 20000
+    Assert-True ($mainB.Current.BoundingRectangle.Height -le [System.Windows.Forms.Screen]::PrimaryScreen.WorkingArea.Height) 'Window height fits within WorkingArea during QR & Step 3 flow'
+    $syncBtn = Find-Button $mainB 'OPEN HELLFORGE TO SYNC'
+    $btnsB3 = $mainB.FindAll([System.Windows.Automation.TreeScope]::Descendants,
         [System.Windows.Automation.PropertyCondition]::new([System.Windows.Automation.AutomationElement]::ControlTypeProperty, [System.Windows.Automation.ControlType]::Button))
     $hasSkipB = $false
-    foreach ($b in $btnsB3) { if ($b.Current.Name -match 'Skip|Fresh') { $hasSkipB = $true } }
+    foreach ($b in $btnsB3) { try { if ($b.Current.Name -match 'Skip|Fresh') { $hasSkipB = $true } } catch {} }
     Assert-True ($null -ne $syncBtn -and -not $hasSkipB) 'Step 3 arrives automatically after Step 2 and enforces mandatory Steam Account Sync'
+
+    # Trigger sync request (opens FakeForge HellForge.exe -> exits 0 -> syncRequested=true)
+    Invoke-Element $syncBtn
+    $null = Find-ByName $mainB 'HellForge opened.' 10000
 
     # F10 cleanup detection inside Step 3
     '127.0.0.1 api.helldivers2.com # HellForge-CaptureProxy' | Set-Content $hosts -Encoding UTF8
-    $cleanBtn = Find-Button $wizB 'OPEN HELLFORGE TO CLEAN UP' 10000
+    $cleanBtn = Find-Button $mainB 'OPEN HELLFORGE TO CLEAN UP' 10000
     Assert-True ($null -ne $cleanBtn) 'F10 hosts cleanup lock switches Step 3 button to OPEN HELLFORGE TO CLEAN UP'
 
     # Clear hosts & provide sealed HD2 capture -> auto-import -> Step 4
     '' | Set-Content $hosts -Encoding UTF8
     Write-SealedCapture $forgeRoot
-    $doneBtn = Find-Button $wizB 'FINISH & RETURN TO LAUNCHER' 20000
-    $null = Find-ByName $wizB 'Step 4 of 4'
-    Assert-True ($null -ne $doneBtn) 'Sealed capture auto-imports into Step 4 and unlocks FINISH & RETURN TO LAUNCHER'
-    Invoke-Button $doneBtn
+    $installModsBtn = Find-Button $mainB 'INSTALL MODS & FINISH' 20000
+    $null = Find-ByName $mainB 'Step 4 of 4'
+    Assert-True ($null -ne $installModsBtn) 'Sealed capture auto-imports into Step 4 and offers INSTALL MODS & FINISH'
+    Invoke-Element $installModsBtn
+
+    $finishBtn = Find-Button $mainB 'FINISH & GO TO LAUNCHER' 20000
+    $null = Find-ByName $mainB 'Step 4 of 4 · Ready to Play!'
+    Assert-True ($null -ne $finishBtn) 'Step 4 installs 18-mod preset & Regular configuration and unlocks FINISH & GO TO LAUNCHER'
+    Invoke-Element $finishBtn
 
     # Main window ready to launch + F13 first-launch firewall notice
     $launchBtn = Find-Button $mainB 'LAUNCH REGULAR HELLFORGE' 15000
-    $null = Find-ByName $mainB 'Windows may ask for network approval on your first launch.'
-    Assert-True ($null -ne $launchBtn) 'Wizard return updates main launcher immediately with F13 first-launch firewall notice'
+    $null = Find-ByName $mainB 'Windows may ask for network approval once'
+    Assert-True ($null -ne $launchBtn) 'Returning from Setup updates Home immediately with F13 first-launch firewall notice'
 
     # Launch -> END SESSION -> F13 cleared
-    Invoke-Button $launchBtn
+    Invoke-Element $launchBtn
     $endBtn = Find-Button $mainB 'END SESSION' 15000
     Assert-True ($null -ne $endBtn) 'Launching transitions cleanly to HellForge session running (END SESSION)'
-    Invoke-Button $endBtn
+    Invoke-Element $endBtn
     $relaunchBtn = Find-Button $mainB 'LAUNCH REGULAR HELLFORGE' 15000
-    $null = Find-ByName $mainB 'Your session ended and HellForge cleanup is complete.'
-    Assert-True ($null -ne $relaunchBtn -and (Describe-Elements $mainB) -notlike '*Windows may ask for network approval*') 'END SESSION completes cleanup and clears F13 first-launch firewall notice once HasRun=true'
-    $p2.CloseMainWindow() | Out-Null
-    $null = $p2.WaitForExit(5000)
-    if (-not $p2.HasExited) { $p2.Kill() }
+    $null = Find-ByName $mainB 'Session ended and HellForge cleanup is complete.'
+    Assert-True ($null -ne $relaunchBtn -and (Describe-Elements $mainB) -notlike '*Windows may ask for network approval once*') 'END SESSION completes cleanup and clears F13 first-launch firewall notice once HasRun=true'
+    Stop-LauncherCleanly $p2
 
     Write-Host '--- Pass C: F6 Fast Crash, F2 Incompatible Forge, F1 Missing Forge ---'
     # F6: Fast crash status never masked
@@ -595,20 +626,23 @@ try {
     $st.lastStatus = 'failed'; $st.lastFailure = 'Process exited 42'
     $st | ConvertTo-Json | Set-Content (Join-Path $forgeRoot 'fixture-state.json') -Encoding UTF8
     $p3 = Start-IsolatedLauncher $exe $prefsB $hosts
-    $mainC = Find-Window $p3.Id 'Clonedivers — HellForge'
-    $null = Find-ByName $mainC 'Last session needs attention'
-    Assert-True ($true) 'F6 failed last session status surfaces Last session needs attention cleanly'
-    $p3.CloseMainWindow() | Out-Null; $null = $p3.WaitForExit(5000); if (-not $p3.HasExited) { $p3.Kill() }
+    $mainC = Find-Window $p3.Id 'Clonedivers'
+    $null = Find-ByName $mainC 'Last session ended unexpectedly'
+    Assert-True ($true) 'F6 failed last session status surfaces Last session ended unexpectedly cleanly'
+    Stop-LauncherCleanly $p3
 
-    # F2: Unsupported Forge version offers INSTALL SEPARATE FORGE
+    # F2: Unsupported Forge version offers CONTINUE GUIDED SETUP -> Step 1 INSTALL FORGE & COPY GAME (separate root)
     '{"version":"0.5.0-alpha","engine":"0.2.0","modSdk":16}' | Set-Content (Join-Path $forgeRoot 'app\app-build.json') -Encoding UTF8
     $p4 = Start-IsolatedLauncher $exe $prefsB $hosts
-    $mainD = Find-Window $p4.Id 'Clonedivers — HellForge'
-    $sepBtn = Find-Button $mainD 'INSTALL SEPARATE FORGE'
-    Assert-True ($null -ne $sepBtn) 'F2 unsupported Forge version offers INSTALL SEPARATE FORGE'
-    $p4.CloseMainWindow() | Out-Null; $null = $p4.WaitForExit(5000); if (-not $p4.HasExited) { $p4.Kill() }
+    $mainD = Find-Window $p4.Id 'Clonedivers'
+    $null = Find-ByName $mainD 'HellForge setup needs attention'
+    $contIncompatBtn = Find-Button $mainD 'CONTINUE GUIDED SETUP'
+    Invoke-Element $contIncompatBtn
+    $installSepBtn = Find-Button $mainD 'INSTALL FORGE & COPY GAME'
+    Assert-True ($null -ne $installSepBtn) 'F2 unsupported Forge version routes to Step 1 INSTALL FORGE & COPY GAME on a separate root'
+    Stop-LauncherCleanly $p4
 
-    # F1: Deleted install root offers SET UP AGAIN
+    # F1: Deleted install root offers RUN GUIDED SETUP + Locate Folder…
     $deleted = $false
     for ($i = 0; $i -lt 20 -and -not $deleted; $i++) {
         try {
@@ -620,10 +654,12 @@ try {
     }
     if (-not $deleted) { Remove-Item $forgeRoot -Recurse -Force -ErrorAction Stop }
     $p5 = Start-IsolatedLauncher $exe $prefsB $hosts
-    $mainE = Find-Window $p5.Id 'Clonedivers — HellForge'
-    $againBtn = Find-Button $mainE 'SET UP AGAIN'
-    Assert-True ($null -ne $againBtn) 'F1 missing saved Forge folder offers SET UP AGAIN'
-    $p5.CloseMainWindow() | Out-Null; $null = $p5.WaitForExit(5000); if (-not $p5.HasExited) { $p5.Kill() }
+    $mainE = Find-Window $p5.Id 'Clonedivers'
+    $null = Find-ByName $mainE 'HellForge folder not found'
+    $againBtn = Find-Button $mainE 'RUN GUIDED SETUP'
+    $locateBtn = Find-Button $mainE 'Locate Folder…'
+    Assert-True ($null -ne $againBtn -and $null -ne $locateBtn) 'F1 missing saved Forge folder offers RUN GUIDED SETUP and Locate Folder…'
+    Stop-LauncherCleanly $p5
 
     Write-Host 'ALL UIA SINGLE-WIZARD SMOKE CHECKS PASSED.'
 }
@@ -632,7 +668,7 @@ finally {
         try { if (-not $p.HasExited) { $p.Kill() } } catch {}
         $p.Dispose()
     }
-    if (Test-Path $tmp) {
-        try { Remove-Item $tmp -Recurse -Force -ErrorAction SilentlyContinue } catch {}
+    if (Test-Path -LiteralPath $tmp) {
+        try { Remove-Item -LiteralPath $tmp -Recurse -Force -ErrorAction SilentlyContinue } catch {}
     }
 }

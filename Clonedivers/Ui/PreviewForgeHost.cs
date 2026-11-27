@@ -15,6 +15,7 @@ public sealed class PreviewForgeHost : IForgeUiHost
     string hostChaos = "standard";
     string hostSeaf = "standard";
     bool hostCorpseCleanup = true;
+    string hostTheater = "standard";
     bool soundEffectsEnabled = true;
     bool discordRpcEnabled = true;
     bool minimizeToTray;
@@ -221,7 +222,8 @@ public sealed class PreviewForgeHost : IForgeUiHost
             SelfInstallBanner: selfInstall,
             MinimizeToTray: minimizeToTray,
             SquidSkin: squidSkin,
-            DeathTrooperVoice: deathTrooperVoice);
+            DeathTrooperVoice: deathTrooperVoice,
+            HostTheaterPreset: hostTheater);
     }
 
     public ForgeSetupState GetSetupState()
@@ -314,7 +316,7 @@ public sealed class PreviewForgeHost : IForgeUiHost
             [
                 new ForgeHealthItem("HellForge", "0.4.0-beta · SDK 16", Healthy: true),
                 new ForgeHealthItem("Game Copy", "Build 25480438", Healthy: true),
-                new ForgeHealthItem("Gameplay Preset", $"17/17 ({matchCode})", Healthy: true),
+                new ForgeHealthItem("Gameplay Preset", $"{HellForgeGameplayCatalog.Current.Artifacts.Count}/{HellForgeGameplayCatalog.Current.Artifacts.Count} ({matchCode})", Healthy: true),
                 new ForgeHealthItem("Account Sync", "Imported", Healthy: true),
                 new ForgeHealthItem("Co-op Network", "Sandbox + WFP OK", Healthy: true)
             ],
@@ -356,7 +358,15 @@ public sealed class PreviewForgeHost : IForgeUiHost
         StateChanged?.Invoke();
         return Task.CompletedTask;
     }
-    public Task UpdateHostMutatorsAsync(string chaos, string seaf, bool cleanup) { hostChaos = chaos; hostSeaf = seaf; hostCorpseCleanup = cleanup; StateChanged?.Invoke(); return Task.CompletedTask; }
+    public Task UpdateHostMutatorsAsync(string chaos, string seaf, bool cleanup, string? theater = null)
+    {
+        hostChaos = chaos;
+        hostSeaf = seaf;
+        hostCorpseCleanup = cleanup;
+        if (theater != null) hostTheater = theater;
+        StateChanged?.Invoke();
+        return Task.CompletedTask;
+    }
     public Task ApplyCustomizationNowAsync() => Task.CompletedTask;
     public Task TriggerPrimaryActionAsync() => Task.CompletedTask;
     public Task TriggerSecondaryActionAsync() => Task.CompletedTask;
@@ -370,10 +380,10 @@ public sealed class PreviewForgeHost : IForgeUiHost
         Tag: WhatsNewFetcher.NormalizeTag(versionOrTag ?? AppInfo.Version, isLinux: false),
         Bullets:
         [
-            "5 native Star Wars texture tiers (up to -80% VRAM & decimated meshes on Ultra-Potato).",
-            "Empire r52 & Clones r23: Front-Armory helmet/armor overhaul, 100% SEAF-free Imperial & GAR VO/text, AT-ST & CIS vs Venators.",
-            "Clean in-game Esc menu exit (clean-exit 0.2.1), Co-op crash fixes, and Compact LEGO.",
-            "Squad Match Code (r11), low-disk export cleanup, and Linux Proton camera/sync polish."
+            "Level 12 ULTRAKILL · Full Clone Wars Theater: 2.79 km² map (5.86x area) & 2,000–3,000 hybrid theater units.",
+            "SDK-16 zero-syscall render & AI refactor across all 8 code mods + 0.0s Emergency Turbo Corpse Reaper.",
+            "Single-pass 1 MiB ArrayPool launcher I/O, parallel NVMe hash cache, and instant launch verification.",
+            "Squad Match Code (r13), 5 Star Wars texture tiers, and reversible ULTRAKILL Stingray crowd LOD profile."
         ],
         IsFallback: false,
         ReleaseUrl: $"https://github.com/owendavidgoode/clonedivers/releases/tag/v{AppInfo.Version}"));
