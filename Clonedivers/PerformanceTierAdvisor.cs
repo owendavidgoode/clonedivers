@@ -18,7 +18,9 @@ public sealed record HardwarePerformanceRecommendation(
     double VramGb,
     double RamGb,
     string RecommendedTierId,
-    string Reason);
+    string Reason,
+    double SwapGb = 0d,
+    double AvailableRamGb = 0d);
 
 /// <summary>
 /// 5-tier Star Wars pack performance ladder (Ultra -> High -> Balanced -> Low VRAM 512px -> Ultra Potato),
@@ -33,22 +35,26 @@ public static class PerformanceTierAdvisor
     public const string Low512 = "low-512";
     public const string UltraPotato = "ultra-potato";
 
+    public const double UltraMinDedicatedVramExclusiveGb = 18.0;
+    public const double UltraMinSystemRamGb = 40.0;
+    public const double UltraMinLinuxTotalCommitGb = 48.0;
+
     public static IReadOnlyList<PerformanceTierDefinition> Tiers { get; } =
     [
         new(
             Id: Ultra,
             DisplayName: "Ultra",
             ShortLabel: "Ultra",
-            Description: "Full resident Star Wars textures for high-VRAM desktops (12 GB+ VRAM, 16 GB+ RAM).",
+            Description: "Full resident Star Wars textures (~27 GiB GPU/GTT footprint; requires > 18 GB VRAM and 40+ GB RAM).",
             MappedPackTexture: "full",
-            RecommendedMinVramGb: 12.0,
-            RecommendedMinRamGb: 16.0,
+            RecommendedMinVramGb: 20.0,
+            RecommendedMinRamGb: 40.0,
             PlannedFutureProfile: "full"),
         new(
             Id: High,
             DisplayName: "High",
             ShortLabel: "High",
-            Description: "High-detail streamed Star Wars textures for 8–11 GB GPUs.",
+            Description: "Balanced streamed Star Wars textures (~8–10 GiB VRAM) for 8–18 GB GPUs.",
             MappedPackTexture: "lighter",
             RecommendedMinVramGb: 8.0,
             RecommendedMinRamGb: 16.0,
@@ -164,6 +170,10 @@ public static class PerformanceTierAdvisor
             {
                 var hw = Diagnostics.ReadHardware();
                 var ramGb = hw.PhysicalBytes is ulong bytes ? Math.Round(bytes / 1073741824d, 2) : 0d;
+                var availGb = hw.AvailablePhysicalBytes is ulong avail ? Math.Round(avail / 1073741824d, 2) : 0d;
+                var swapGb = hw.TotalPageFileBytes is ulong pf && hw.PhysicalBytes is ulong phys && pf > phys
+                    ? Math.Round((pf - phys) / 1073741824d, 2)
+                    : 0d;
                 var adapter = hw.Adapters
                     .Where(a => !a.Software)
                     .OrderByDescending(a => a.DedicatedBytes)
@@ -174,9 +184,9 @@ public static class PerformanceTierAdvisor
                 {
                     var vramGb = Math.Round(adapter.DedicatedBytes / 1073741824d, 2);
                     var gpuName = CleanGpuName(adapter.Name);
-                    return Recommend(gpuName, vramGb, ramGb, adapter.Software || LooksIntegrated(gpuName, vramGb));
+                    return Recommend(gpuName, vramGb, ramGb, adapter.Software || LooksIntegrated(gpuName, vramGb), swapGb, isLinux: false, availableRamGb: availGb);
                 }
-                return Recommend("Unknown GPU", 0d, ramGb, false);
+                return Recommend("Unknown GPU", 0d, ramGb, false, swapGb, isLinux: false, availableRamGb: availGb);
             }
             catch
             {
@@ -197,7 +207,10 @@ public static class PerformanceTierAdvisor
         string drmRoot = "/sys/class/drm",
         string nvidiaGpusRoot = "/proc/driver/nvidia/gpus")
     {
-        double ramGb = ParseLinuxMemInfoRamGb(SafeReadHead(memInfoPath, 16384));
+        var memInfoText = SafeReadHead(memInfoPath, 16384);
+        double ramGb = ParseLinuxMemInfoRamGb(memInfoText);
+        double swapGb = ParseLinuxMemInfoFieldGb(memInfoText, "SwapTotal");
+        double availGb = ParseLinuxMemInfoFieldGb(memInfoText, "MemAvailable");
         string gpuName = "Unknown GPU";
         double bestVramGb = 0d;
         bool sawDiscreteVendor = false;
@@ -254,13 +267,16 @@ public static class PerformanceTierAdvisor
         catch (Exception e) when (e is IOException or UnauthorizedAccessException) { }
 
         var isIntegrated = !sawDiscreteVendor && LooksIntegrated(gpuName, bestVramGb);
-        return Recommend(gpuName, bestVramGb, ramGb, isIntegrated);
+        return Recommend(gpuName, bestVramGb, ramGb, isIntegrated, swapGb, isLinux: true, availableRamGb: availGb);
     }
 
-    public static double ParseLinuxMemInfoRamGb(string? memInfoText)
+    public static double ParseLinuxMemInfoRamGb(string? memInfoText) =>
+        ParseLinuxMemInfoFieldGb(memInfoText, "MemTotal");
+
+    public static double ParseLinuxMemInfoFieldGb(string? memInfoText, string fieldName)
     {
-        if (string.IsNullOrWhiteSpace(memInfoText)) return 0d;
-        var match = Regex.Match(memInfoText, @"^MemTotal:\s*(\d+)\s*kB", RegexOptions.Multiline | RegexOptions.IgnoreCase);
+        if (string.IsNullOrWhiteSpace(memInfoText) || string.IsNullOrWhiteSpace(fieldName)) return 0d;
+        var match = Regex.Match(memInfoText, $@"^{Regex.Escape(fieldName)}:\s*(\d+)\s*kB", RegexOptions.Multiline | RegexOptions.IgnoreCase);
         if (!match.Success || !ulong.TryParse(match.Groups[1].Value, NumberStyles.Integer, CultureInfo.InvariantCulture, out var kb))
             return 0d;
         return Math.Round(kb / (1024d * 1024d), 2);
@@ -270,21 +286,28 @@ public static class PerformanceTierAdvisor
         string? gpuName,
         double vramGb,
         double ramGb,
-        bool isSoftwareOrIntegrated = false)
+        bool isSoftwareOrIntegrated = false,
+        double swapGb = 0d,
+        bool isLinux = false,
+        double availableRamGb = 0d)
     {
         var cleanGpu = CleanGpuName(gpuName);
         var cleanVram = double.IsFinite(vramGb) && vramGb > 0 ? Math.Round(vramGb, 2) : 0d;
         var cleanRam = double.IsFinite(ramGb) && ramGb > 0 ? Math.Round(ramGb, 2) : 0d;
+        var cleanSwap = double.IsFinite(swapGb) && swapGb > 0 ? Math.Round(swapGb, 2) : 0d;
+        var cleanAvail = double.IsFinite(availableRamGb) && availableRamGb > 0 ? Math.Round(availableRamGb, 2) : 0d;
 
         if (isSoftwareOrIntegrated || LooksIntegrated(cleanGpu, cleanVram))
         {
             if (cleanRam > 0 && cleanRam < 12.0 || cleanVram > 0 && cleanVram < 2.5)
             {
                 return new(cleanGpu, cleanVram, cleanRam, UltraPotato,
-                    $"Detected {cleanGpu} ({FormatMem(cleanVram, cleanRam)}) — selected Ultra Potato for maximum stability on shared/low memory.");
+                    $"Detected {cleanGpu} ({FormatMem(cleanVram, cleanRam)}) — selected Ultra Potato for maximum stability on shared/low memory.",
+                    cleanSwap, cleanAvail);
             }
             return new(cleanGpu, cleanVram, cleanRam, Low512,
-                $"Detected {cleanGpu} ({FormatMem(cleanVram, cleanRam)}) — selected Low VRAM (512px) to keep memory headroom safe.");
+                $"Detected {cleanGpu} ({FormatMem(cleanVram, cleanRam)}) — selected Low VRAM (512px) to keep memory headroom safe.",
+                cleanSwap, cleanAvail);
         }
 
         if (cleanVram <= 0)
@@ -293,38 +316,73 @@ public static class PerformanceTierAdvisor
             if (cleanRam > 0 && cleanRam <= 10.0)
             {
                 return new(cleanGpu, cleanVram, cleanRam, Low512,
-                    $"Detected {cleanRam:0.#} GB system RAM (GPU VRAM unreported) — selected Low VRAM (512px) for safe memory usage.");
+                    $"Detected {cleanRam:0.#} GB system RAM (GPU VRAM unreported) — selected Low VRAM (512px) for safe memory usage.",
+                    cleanSwap, cleanAvail);
             }
             return new(cleanGpu, cleanVram, cleanRam, Balanced,
-                $"GPU VRAM could not be queried ({cleanGpu}) — selected Balanced streamed textures as a safe default.");
+                $"GPU VRAM could not be queried ({cleanGpu}) — selected Balanced streamed textures as a safe default.",
+                cleanSwap, cleanAvail);
         }
 
-        if (cleanVram >= 11.5 && (cleanRam <= 0 || cleanRam >= 15.0))
+        bool meetsLinuxCommit = !isLinux || (cleanRam + cleanSwap) >= UltraMinLinuxTotalCommitGb;
+        if (cleanVram > UltraMinDedicatedVramExclusiveGb && cleanRam >= UltraMinSystemRamGb && meetsLinuxCommit)
         {
             return new(cleanGpu, cleanVram, cleanRam, Ultra,
-                $"Detected {cleanGpu} with {cleanVram:0.#} GB VRAM — plenty of headroom for Ultra full-resolution textures.");
+                $"Detected {cleanGpu} ({FormatMem(cleanVram, cleanRam)}) — plenty of headroom (> 18 GB VRAM, 40+ GB RAM) for Ultra full-resolution textures.",
+                cleanSwap, cleanAvail);
         }
 
         if (cleanVram >= 7.5 && (cleanRam <= 0 || cleanRam >= 14.0))
         {
             return new(cleanGpu, cleanVram, cleanRam, High,
-                $"Detected {cleanGpu} with {cleanVram:0.#} GB VRAM — selected High streamed textures to prevent 10 GB VRAM spikes.");
+                $"Detected {cleanGpu} ({FormatMem(cleanVram, cleanRam)}) — selected High streamed textures (~8–10 GB VRAM) to prevent Full (Ultra) VRAM/GTT spillover.",
+                cleanSwap, cleanAvail);
         }
 
         if (cleanVram >= 5.5)
         {
             return new(cleanGpu, cleanVram, cleanRam, Balanced,
-                $"Detected {cleanGpu} with {cleanVram:0.#} GB VRAM — selected Balanced streamed textures for smooth frame pacing.");
+                $"Detected {cleanGpu} with {cleanVram:0.#} GB VRAM — selected Balanced streamed textures for smooth frame pacing.",
+                cleanSwap, cleanAvail);
         }
 
         if (cleanVram >= 3.5)
         {
             return new(cleanGpu, cleanVram, cleanRam, Low512,
-                $"Detected {cleanGpu} with {cleanVram:0.#} GB VRAM — selected Low VRAM (512px) to avoid D3D12 out-of-memory crashes.");
+                $"Detected {cleanGpu} with {cleanVram:0.#} GB VRAM — selected Low VRAM (512px) to avoid D3D12 out-of-memory crashes.",
+                cleanSwap, cleanAvail);
         }
 
         return new(cleanGpu, cleanVram, cleanRam, UltraPotato,
-            $"Detected {cleanGpu} with {cleanVram:0.#} GB VRAM — selected Ultra Potato for maximum low-VRAM stability.");
+            $"Detected {cleanGpu} with {cleanVram:0.#} GB VRAM — selected Ultra Potato for maximum low-VRAM stability.",
+            cleanSwap, cleanAvail);
+    }
+
+    /// <summary>
+    /// Returns true when the detected hardware falls below Full (Ultra)'s safe memory envelope
+    /// (&lt;= 18 GB dedicated VRAM or &lt; 40 GiB physical RAM, or &lt; 48 GiB RAM+swap on Linux),
+    /// where Full (Ultra)'s ~27 GiB VRAM+GTT footprint causes 1 FPS stutters, TAA smear, or swap exhaustion.
+    /// </summary>
+    public static bool ShouldWarnAboutLegacyFullTier(HardwarePerformanceRecommendation hw, bool isLinux = false)
+    {
+        ArgumentNullException.ThrowIfNull(hw);
+        if (hw.VramGb <= 0 && hw.RamGb <= 0) return false;
+        if (hw.VramGb > 0 && hw.VramGb <= UltraMinDedicatedVramExclusiveGb) return true;
+        if (hw.RamGb > 0 && hw.RamGb < UltraMinSystemRamGb) return true;
+        if (isLinux && hw.RamGb > 0 && (hw.RamGb + Math.Max(0d, hw.SwapGb)) < UltraMinLinuxTotalCommitGb) return true;
+        return false;
+    }
+
+    public static (string SuggestedTierId, string WarningReason) BuildLegacyFullSpilloverAdvisory(HardwarePerformanceRecommendation hw)
+    {
+        ArgumentNullException.ThrowIfNull(hw);
+        var suggested = IsConcreteTier(hw.RecommendedTierId) && hw.RecommendedTierId != Ultra
+            ? hw.RecommendedTierId
+            : High;
+        var tierDef = GetTier(suggested, hw);
+        var mem = FormatMem(hw.VramGb, hw.RamGb);
+        var reason = $"Full (Ultra) uses ~27 GiB of GPU/GTT memory and can cause 1 FPS stutters, TAA smear, or swap exhaustion on {mem} systems — switch to {tierDef.DisplayName} streamed textures (~8–10 GiB VRAM)?";
+        return (suggested, reason);
     }
 
     static bool LooksIntegrated(string gpuName, double vramGb)

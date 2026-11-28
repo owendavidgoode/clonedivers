@@ -19,7 +19,6 @@ public sealed record DiscordReportInput(
     CrashTriageResult? Triage,
     bool RedactUserPaths = true,
     string? SquidSkin = null,
-    bool DeathTrooperVoice = false,
     string? HostTheaterPreset = null);
 
 /// <summary>
@@ -50,7 +49,7 @@ public static class DiscordReportFormatter
         var vramText = hw.VramGb > 0 ? $"{hw.VramGb:0.#} GB VRAM" : "VRAM n/a";
         var ramText = hw.RamGb > 0 ? $"{hw.RamGb:0.#} GB RAM" : "RAM n/a";
 
-        var modeSummary = FormatModeSummary(input.Mode, input.EnemySkin, input.Covenant, input.DeltaSquad, input.SquidSkin, input.DeathTrooperVoice, input.HostTheaterPreset);
+        var modeSummary = FormatModeSummary(input.Mode, input.EnemySkin, input.Covenant, input.DeltaSquad, input.SquidSkin, input.HostTheaterPreset);
         var tierSummary = FormatTierSummary(input.PerformanceTier, input.PackTexture, hw);
         var rootText = FormatInstallRoot(input.InstallRoot, input.RedactUserPaths);
         var sessionSummary = FormatTriageSummary(input.Triage);
@@ -112,7 +111,6 @@ public static class DiscordReportFormatter
         CrashTriageResult? triage,
         bool redactUserPaths = true,
         string? squidSkin = null,
-        bool deathTrooperVoice = false,
         string? hostTheaterPreset = null) =>
         Format(new DiscordReportInput(
             AppVersion: appVersion,
@@ -130,10 +128,9 @@ public static class DiscordReportFormatter
             Triage: triage,
             RedactUserPaths: redactUserPaths,
             SquidSkin: squidSkin,
-            DeathTrooperVoice: deathTrooperVoice,
             HostTheaterPreset: hostTheaterPreset));
 
-    static string FormatModeSummary(string mode, string enemySkin, bool covenant, bool deltaSquad, string? squidSkin, bool deathTrooperVoice, string? hostTheaterPreset)
+    static string FormatModeSummary(string mode, string enemySkin, bool covenant, bool deltaSquad, string? squidSkin, string? hostTheaterPreset)
     {
         bool isEmpire = string.Equals(mode, "empire", StringComparison.OrdinalIgnoreCase);
         var theaterSuffix = HostMutatorConfig.IsUltrakillTheater(hostTheaterPreset)
@@ -143,7 +140,7 @@ public static class DiscordReportFormatter
             return "Regular HellForge (Vanilla visuals)" + theaterSuffix;
 
         var universe = isEmpire
-            ? (deathTrooperVoice ? "EmpireDivers (Death Trooper VO)" : "EmpireDivers")
+            ? "EmpireDivers"
             : (deltaSquad ? "Clonedivers (Delta Squad)" : "Clonedivers");
 
         var bots = enemySkin switch

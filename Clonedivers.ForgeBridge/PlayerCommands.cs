@@ -39,6 +39,8 @@ internal sealed class PlayerCommands
         this.official = official;
         client = new(root, official) { LinuxNamespace = true };
         account = new(root, backend);
+        try { HellForgeRelease.PatchLinuxInnerWrapper(root); }
+        catch (Exception e) when (e is IOException or UnauthorizedAccessException or InvalidDataException) { }
         this.reviewWarbonds = reviewWarbondsWithStatus
             ?? (reviewWarbonds != null ? async ct => (int?)await reviewWarbonds(ct) : TryOpenOwnedWarbondsOrDeferAsync);
         customOpenManager = openManager;
@@ -101,7 +103,6 @@ internal sealed class PlayerCommands
                     HostTheaterPreset = "standard" };
                 if (values.TryGetValue("--enemy-skin", out var skin)) requested.EnemySkin = skin;
                 if (values.TryGetValue("--squid-skin", out var squid)) requested.SquidSkin = squid;
-                if (values.TryGetValue("--deathtrooper", out var dt)) requested.DeathTrooperVoice = dt == "yes";
                 if (values.TryGetValue("--theater", out var th)) requested.HostTheaterPreset = th;
                 if (values.TryGetValue("--play-without-sync", out var pws)) requested.PlayWithoutAccountSync = pws == "yes";
                 requested.Validate();
@@ -110,12 +111,12 @@ internal sealed class PlayerCommands
                     companionSyncPending = true;
                 selection.Mode = requested.Mode; selection.DeltaSquad = requested.DeltaSquad;
                 selection.Texture = requested.Texture; selection.EnemySkin = requested.EnemySkin;
-                selection.SquidSkin = requested.SquidSkin; selection.DeathTrooperVoice = requested.DeathTrooperVoice;
+                selection.SquidSkin = requested.SquidSkin;
                 selection.HostTheaterPreset = requested.HostTheaterPreset;
                 selection.PlayWithoutAccountSync = requested.PlayWithoutAccountSync;
                 if (companionSyncPending && await SyncTheaterCompanionsIfReadyAsync(nowUltrakill, ct))
                     companionSyncPending = false;
-                return JsonSerializer.SerializeToElement(new { selection.Mode, selection.DeltaSquad, selection.Texture, selection.Droids, selection.EnemySkin, selection.Covenant, selection.SquidSkin, selection.DeathTrooperVoice, selection.HostTheaterPreset, selection.PlayWithoutAccountSync });
+                return JsonSerializer.SerializeToElement(new { selection.Mode, selection.DeltaSquad, selection.Texture, selection.Droids, selection.EnemySkin, selection.Covenant, selection.SquidSkin, selection.HostTheaterPreset, selection.PlayWithoutAccountSync });
             case "prepare-regular":
                 if (!selection.IsRegular) throw new InvalidOperationException("Select Regular before applying that mode.");
                 await client.PrepareRegularAsync(ct); return JsonSerializer.SerializeToElement(new { prepared = true });

@@ -130,6 +130,7 @@ public static class HellForgePack
         string mode, string texture, IReadOnlyDictionary<string, bool>? changes)
     {
         var requested = changes != null ? new Dictionary<string, bool>(changes, StringComparer.OrdinalIgnoreCase) : new Dictionary<string, bool>(StringComparer.OrdinalIgnoreCase);
+        requested.Remove("deathtrooper");
         if (mode == "empire")
         {
             var empireChanges = new Dictionary<string, bool>(StringComparer.OrdinalIgnoreCase)
@@ -137,13 +138,9 @@ public static class HellForgePack
                 ["droids"] = requested.GetValueOrDefault("droids", true),
                 ["covenant"] = requested.GetValueOrDefault("covenant", false)
             };
-            foreach (var key in new[] { "mixed-droids", "mixed_droids", "mixed-covenant", "mixed_covenant", "deathtrooper" })
+            foreach (var key in new[] { "mixed-droids", "mixed_droids", "mixed-covenant", "mixed_covenant" })
                 if (requested.TryGetValue(key, out var value)) empireChanges[key] = value;
             requested = empireChanges;
-        }
-        else
-        {
-            requested.Remove("deathtrooper");
         }
         var feed = primaryFeed;
         var activeSha = primarySha;
@@ -185,7 +182,11 @@ public static class HellForgePack
                 if (!optionIds.Contains(futureCovKey)) requested.Remove(futureCovKey);
             }
         }
-        if (requested.ContainsKey("deathtrooper") && (mode != "empire" || !optionIds.Contains("deathtrooper")))
+        if (mode == "empire" && optionIds.Contains("deathtrooper"))
+        {
+            requested["deathtrooper"] = false;
+        }
+        else
         {
             requested.Remove("deathtrooper");
         }

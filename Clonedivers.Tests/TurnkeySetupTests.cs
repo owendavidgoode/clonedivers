@@ -253,7 +253,7 @@ internal static class TurnkeySetupTests
                 fake.Mods.Add(new(id, required.Name ?? artifact?.Name ?? "Vanilla Plus", true, Path.Combine(root, "mods", id), [], required.Version ?? artifact?.Version ?? ""));
             }
             var dogs = fake.Mods.FindIndex(m => m.Id == HellForgePreset.GuardDogs);
-            fake.Mods[dogs] = fake.Mods[dogs] with { Options = [new("Smarter Guard Dogs and Sentries", true), new("Guard Dogs", true), new("Sentries", true), new("Intelligence", true), new("Safety", true), new("Sentry Safety", true), new("SEAF Safety", true), new("Targeting Marker", issue == "options")] };
+            fake.Mods[dogs] = fake.Mods[dogs] with { Options = [new("Smarter Guard Dogs and Sentries", true), new("Guard Dogs", true), new("Sentries", true), new("Intelligence", true), new("Safety", true), new("Sentry Safety", issue == "options"), new("SEAF Safety", false), new("Targeting Laser", issue == "options"), new("Targeting Marker", issue == "options")] };
             if (issue == "difficulty") { var index = fake.Mods.FindIndex(m => m.Id == HellForgeClient.DifficultyId); fake.Mods[index] = fake.Mods[index] with { Enabled = false }; }
             if (issue == "order") fake.Mods.Reverse();
             if (issue == "overlap") fake.Mods.Add(new("pack.80a03e3b-a671-4e54-a2ce-52c35bb64c91", "Reinforcement Beacons Fixed", true, Path.Combine(root, "mods", "beacons"), []));
@@ -577,7 +577,7 @@ internal static class TurnkeySetupTests
             Directory.CreateDirectory(folder);
             var mod = new HellForgeMod(id, required.Name ?? artifact?.Name ?? "Vanilla Plus", true, folder, ["gameplay"], required.Version ?? artifact?.Version ?? "");
             if (id == HellForgePreset.GuardDogs)
-                mod = mod with { Options = [new("Smarter Guard Dogs and Sentries", true), new("Guard Dogs", true), new("Sentries", true), new("Intelligence", true), new("Safety", true), new("Sentry Safety", true), new("SEAF Safety", true), new("Targeting Marker", false)] };
+                mod = mod with { Options = [new("Smarter Guard Dogs and Sentries", true), new("Guard Dogs", true), new("Sentries", true), new("Intelligence", true), new("Safety", true), new("Sentry Safety", false), new("SEAF Safety", false), new("Targeting Laser", false), new("Targeting Marker", false)] };
             fake.Mods.Add(mod);
         }
         var client = new HellForgeClient(wizRoot, fake) { RequireCliQuiescent = () => { } };

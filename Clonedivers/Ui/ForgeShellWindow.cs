@@ -207,10 +207,9 @@ public sealed class ForgeShellWindow : Window
     readonly StackPanel drawerVisualExtrasSection = new() { Spacing = 8 };
     readonly Dictionary<string, ToggleButton> enemyPills = new();
     readonly Dictionary<string, ToggleButton> squidPills = new();
+    readonly TextBlock extrasHeaderLabel = ForgeTheme.Label("EXTRAS", 10.5, ForgeTheme.TextMuted, FontWeight.Bold);
     readonly ToggleSwitch deltaToggle = new() { OnContent = "On", OffContent = "Off" };
     readonly Border deltaRow = new();
-    readonly ToggleSwitch deathTrooperToggle = new() { OnContent = "On", OffContent = "Off" };
-    readonly Border deathTrooperRow = new();
 
     // Host Gameplay Controls (#20 + v2.2 Level 12 ULTRAKILL Theater Scale)
     readonly Dictionary<string, ToggleButton> theaterPills = new();
@@ -1167,8 +1166,8 @@ public sealed class ForgeShellWindow : Window
         var tierListStack = new StackPanel { Spacing = 4 };
         var vramHints = new Dictionary<string, string>
         {
-            [PerformanceTierAdvisor.Ultra] = "12 GB+ VRAM · Resident",
-            [PerformanceTierAdvisor.High] = "8–11 GB VRAM · Streamed",
+            [PerformanceTierAdvisor.Ultra] = "> 18 GB VRAM · 40+ GB RAM",
+            [PerformanceTierAdvisor.High] = "8–18 GB VRAM · Streamed",
             [PerformanceTierAdvisor.Balanced] = "6–8 GB VRAM · 1024px",
             [PerformanceTierAdvisor.Low512] = "4–6 GB VRAM · 512px",
             [PerformanceTierAdvisor.UltraPotato] = "≤ 4 GB / iGPU · 256px"
@@ -1302,7 +1301,7 @@ public sealed class ForgeShellWindow : Window
                 if (updatingControls) return;
                 UiSoundEffects.PlayButtonBlip();
                 var s = host.GetHomeState();
-                await host.UpdateCustomizationAsync(id, s.DeltaSquad, s.Covenant, s.Texture, s.SquidSkin, s.DeathTrooperVoice);
+                await host.UpdateCustomizationAsync(id, s.DeltaSquad, s.Covenant, s.Texture, s.SquidSkin);
             };
             enemyPills[id] = pill;
             enemyWrap.Children.Add(pill);
@@ -1325,13 +1324,13 @@ public sealed class ForgeShellWindow : Window
                 if (updatingControls) return;
                 UiSoundEffects.PlayButtonBlip();
                 var s = host.GetHomeState();
-                await host.UpdateCustomizationAsync(s.EnemySkin, s.DeltaSquad, id != "native-squids", s.Texture, id, s.DeathTrooperVoice);
+                await host.UpdateCustomizationAsync(s.EnemySkin, s.DeltaSquad, id != "native-squids", s.Texture, id);
             };
             squidPills[id] = pill;
             squidWrap.Children.Add(pill);
         }
 
-        // Advanced 2: Faction-specific Extras (Clones Delta Squad & Empire Encrypted Death Trooper Voice)
+        // Advanced 2: Faction-specific Extras (Clones Delta Squad)
         deltaRow.Background = ForgeTheme.BgElevated;
         deltaRow.BorderBrush = ForgeTheme.BorderSubtle;
         deltaRow.BorderThickness = new Thickness(1);
@@ -1343,30 +1342,15 @@ public sealed class ForgeShellWindow : Window
             if (updatingControls) return;
             UiSoundEffects.PlayButtonBlip();
             var s = host.GetHomeState();
-            await host.UpdateCustomizationAsync(s.EnemySkin, deltaToggle.IsChecked == true, s.Covenant, s.Texture, s.SquidSkin, s.DeathTrooperVoice);
-        };
-
-        deathTrooperRow.Background = ForgeTheme.BgElevated;
-        deathTrooperRow.BorderBrush = ForgeTheme.BorderSubtle;
-        deathTrooperRow.BorderThickness = new Thickness(1);
-        deathTrooperRow.CornerRadius = new CornerRadius(9);
-        deathTrooperRow.Padding = new Thickness(11, 7);
-        deathTrooperRow.Child = BuildSwitchRow("Encrypted Death Trooper Voice", "Rogue One scrambled comms on Imperial voice slot 4.", deathTrooperToggle);
-        deathTrooperToggle.IsCheckedChanged += async (_, _) =>
-        {
-            if (updatingControls) return;
-            UiSoundEffects.PlayButtonBlip();
-            var s = host.GetHomeState();
-            await host.UpdateCustomizationAsync(s.EnemySkin, s.DeltaSquad, s.Covenant, s.Texture, s.SquidSkin, deathTrooperToggle.IsChecked == true);
+            await host.UpdateCustomizationAsync(s.EnemySkin, deltaToggle.IsChecked == true, s.Covenant, s.Texture, s.SquidSkin);
         };
 
         drawerVisualExtrasSection.Children.Add(ForgeTheme.Label("ENEMY SKIN", 10.5, ForgeTheme.TextMuted, FontWeight.Bold));
         drawerVisualExtrasSection.Children.Add(enemyWrap);
         drawerVisualExtrasSection.Children.Add(ForgeTheme.Label("SQUID SKIN", 10.5, ForgeTheme.TextMuted, FontWeight.Bold));
         drawerVisualExtrasSection.Children.Add(squidWrap);
-        drawerVisualExtrasSection.Children.Add(ForgeTheme.Label("EXTRAS", 10.5, ForgeTheme.TextMuted, FontWeight.Bold));
+        drawerVisualExtrasSection.Children.Add(extrasHeaderLabel);
         drawerVisualExtrasSection.Children.Add(deltaRow);
-        drawerVisualExtrasSection.Children.Add(deathTrooperRow);
 
         // Advanced 3: Host Gameplay Controls (#20 + v2.2 Level 12 ULTRAKILL Theater Scale)
         var theaterWrap = new UniformGrid { Columns = 2 };
@@ -2517,7 +2501,6 @@ public sealed class ForgeShellWindow : Window
             s.HostHeavySeaf,
             s.HostFasterCorpseCleanup,
             s.SquidSkin,
-            s.DeathTrooperVoice,
             s.HostTheaterPreset);
         customizeOpenButton.Content = s.Mode == "regular" ? "Host Rules ▸" : "Customize ▸";
         customizeOpenButton.IsVisible = true;
@@ -2645,13 +2628,10 @@ public sealed class ForgeShellWindow : Window
                 pill.IsEnabled = !s.ControlsLocked;
             }
 
+            extrasHeaderLabel.IsVisible = s.Mode == "clonedivers";
             deltaRow.IsVisible = s.Mode == "clonedivers";
             deltaToggle.IsChecked = s.DeltaSquad;
             deltaToggle.IsEnabled = !s.ControlsLocked;
-
-            deathTrooperRow.IsVisible = s.Mode == "empire";
-            deathTrooperToggle.IsChecked = s.DeathTrooperVoice;
-            deathTrooperToggle.IsEnabled = !s.ControlsLocked;
 
             bool isEmpireMode = string.Equals(s.Mode, "empire", StringComparison.OrdinalIgnoreCase);
             var d12PillLabel = isEmpireMode ? "L12 ULTRAKILL · Stormtrooper" : "L12 ULTRAKILL · Clone Wars";

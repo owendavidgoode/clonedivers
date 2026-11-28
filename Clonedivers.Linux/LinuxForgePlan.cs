@@ -36,6 +36,8 @@ internal sealed record LinuxForgePlan(string Install, string Prefix, string Wind
         using var marker = JsonDocument.Parse(File.ReadAllText(Path.Combine(root, "hellforge-install.json")));
         if (marker.RootElement.GetProperty("schemaVersion").GetInt32() != 1 || marker.RootElement.GetProperty("buildId").GetString() != GameBuild)
             throw new InvalidDataException("Unsupported Forge installation/build.");
+        try { HellForgeRelease.PatchLinuxInnerWrapper(root); }
+        catch (Exception e) when (e is IOException or UnauthorizedAccessException or InvalidDataException) { }
         VerifyFile(bridgeSource, expectedBridgeHash);
         var cache = Path.Combine(drive.FullName, "ClonediversLauncher", "native-" + expectedBridgeHash[..16]);
         RejectLinks(cache); Directory.CreateDirectory(cache);

@@ -58,8 +58,18 @@ public static class HellForgePreset
         (GuardDogs, "Smarter Guard Dogs & Sentries 5.2.0", "")
     ];
 
+    public static readonly string[] GuardDogsRequiredOnOptions =
+        ["Smarter Guard Dogs and Sentries", "Guard Dogs", "Sentries", "Intelligence", "Safety"];
+
+    public static readonly string[] GuardDogsRequiredOffOptions =
+        ["Sentry Safety", "SEAF Safety", "Targeting Laser", "Targeting Marker"];
+
+    public static readonly string[] GuardDogsAuxiliaryOffOptions =
+        ["Laser Color", "Laser Brightness", "Marker Opacity", "Marker Size"];
+
     public static string? Problem(HellForgeMods catalog, bool checkOrder = false, bool ultrakillTheaterActive = false)
     {
+        _ = ultrakillTheaterActive;
         if (catalog.HostingProblem != null) return catalog.HostingProblem;
         var issues = new List<string>();
         foreach (var conflict in catalog.Mods.Where(m => m.Enabled && IsConflictingAlternative(m))) issues.Add("Disable conflicting " + conflict.Name);
@@ -85,12 +95,13 @@ public static class HellForgePreset
         var dogs = catalog.Mods.SingleOrDefault(m => m.Id == GuardDogs && m.Enabled);
         if (dogs != null)
         {
-            if (dogs.Options?.SingleOrDefault(o => o.Name == "Targeting Marker") is not { On: false })
-                issues.Add("Turn off the Guard Dogs Targeting Marker");
-            var requiredDogOptions = ultrakillTheaterActive
-                ? new[] { "Smarter Guard Dogs and Sentries", "Guard Dogs", "Sentries", "Intelligence", "Safety", "Sentry Safety" }
-                : new[] { "Smarter Guard Dogs and Sentries", "Guard Dogs", "Sentries", "Intelligence", "Safety", "Sentry Safety", "SEAF Safety" };
-            foreach (var name in requiredDogOptions)
+            foreach (var name in GuardDogsRequiredOffOptions)
+                if (dogs.Options?.SingleOrDefault(o => o.Name == name) is not { On: false })
+                    issues.Add("Turn off Guard Dogs option: " + name);
+            foreach (var aux in GuardDogsAuxiliaryOffOptions)
+                if (dogs.Options?.SingleOrDefault(o => o.Name == aux) is { On: true })
+                    issues.Add("Turn off Guard Dogs option: " + aux);
+            foreach (var name in GuardDogsRequiredOnOptions)
                 if (dogs.Options?.SingleOrDefault(o => o.Name == name) is not { On: true })
                     issues.Add("Enable Guard Dogs option: " + name);
         }

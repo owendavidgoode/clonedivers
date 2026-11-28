@@ -341,7 +341,7 @@ internal static class LauncherRedesignTests
         public Task InitializeAsync() => Task.CompletedTask;
         public bool CanClose(out string? reason) { reason = null; return true; }
         public Task SelectModeAsync(string mode) => Task.CompletedTask;
-        public Task UpdateCustomizationAsync(string enemySkin, bool deltaSquad, bool covenant, string texture, string? squidSkin = null, bool? deathTrooperVoice = null) => Task.CompletedTask;
+        public Task UpdateCustomizationAsync(string enemySkin, bool deltaSquad, bool covenant, string texture, string? squidSkin = null) => Task.CompletedTask;
         public Task SetPerformanceTierAsync(string tierId) => Task.CompletedTask;
         public Task UpdateHostMutatorsAsync(string chaosIntensity, string heavySeaf, bool fasterCorpseCleanup, string? theaterPreset = null) => Task.CompletedTask;
         public Task SetGalacticWarAsync(string warMode) => Task.CompletedTask;

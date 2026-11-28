@@ -356,30 +356,30 @@ await Clonedivers.ForgeBridge.Tests.CliTests.RunAsync(Check);
 await Clonedivers.ForgeBridge.Tests.CliTests.OutputAsync(Check);
 await Clonedivers.ForgeBridge.Tests.CompatibilityTests.RunAsync(Check);
 
-// Milestone 2 (v2.1): BridgeSession & PlayerCommands 5 texture profiles, 3-way --squid-skin, --deathtrooper, backwards-compat select-mode, and #66 stray pack guard
+// Milestone 2 (v2.1/v2.3): BridgeSession & PlayerCommands 5 texture profiles, 3-way --squid-skin, --deathtrooper removal, backwards-compat select-mode, and #66 stray pack guard
 foreach (var tex in new[] { "full", "lighter", "reduced1024", "reduced512", "potato256" })
 {
     foreach (var sq in new[] { "mixed-covenant", "all-covenant", "native-squids" })
     {
-        var args23 = new[]
+        var args15 = new[]
         {
             "select-mode", "--mode", "empire", "--delta", "no", "--texture", tex,
             "--droids", "yes", "--covenant", sq != "native-squids" ? "yes" : "no",
-            "--enemy-skin", "mixed-droids", "--squid-skin", sq, "--deathtrooper", "no"
+            "--enemy-skin", "mixed-droids", "--squid-skin", sq
         };
-        BridgeSession.Validate(args23);
+        BridgeSession.Validate(args15);
     }
 }
-// Legacy 15-arg and 19-arg select-mode still validate cleanly
+// Legacy 11-arg and 13-arg select-mode still validate cleanly
 BridgeSession.Validate(["select-mode", "--mode", "clonedivers", "--delta", "yes", "--texture", "full", "--droids", "yes", "--covenant", "no"]);
 BridgeSession.Validate(["select-mode", "--mode", "clonedivers", "--delta", "yes", "--texture", "lighter", "--droids", "yes", "--covenant", "yes", "--enemy-skin", "mixed-droids"]);
-Reject(() => BridgeSession.Validate(["select-mode", "--mode", "empire", "--delta", "no", "--texture", "ultra-8k", "--droids", "yes", "--covenant", "yes", "--enemy-skin", "mixed-droids", "--squid-skin", "mixed-covenant", "--deathtrooper", "yes"]),
+Reject(() => BridgeSession.Validate(["select-mode", "--mode", "empire", "--delta", "no", "--texture", "ultra-8k", "--droids", "yes", "--covenant", "yes", "--enemy-skin", "mixed-droids", "--squid-skin", "mixed-covenant"]),
     "BridgeSession.Validate rejects unsupported texture profile");
-Reject(() => BridgeSession.Validate(["select-mode", "--mode", "empire", "--delta", "no", "--texture", "full", "--droids", "yes", "--covenant", "yes", "--enemy-skin", "mixed-droids", "--squid-skin", "flood", "--deathtrooper", "yes"]),
+Reject(() => BridgeSession.Validate(["select-mode", "--mode", "empire", "--delta", "no", "--texture", "full", "--droids", "yes", "--covenant", "yes", "--enemy-skin", "mixed-droids", "--squid-skin", "flood"]),
     "BridgeSession.Validate rejects unsupported --squid-skin value");
-Reject(() => BridgeSession.Validate(["select-mode", "--mode", "empire", "--delta", "no", "--texture", "full", "--droids", "yes", "--covenant", "yes", "--enemy-skin", "mixed-droids", "--squid-skin", "mixed-covenant", "--deathtrooper", "maybe"]),
-    "BridgeSession.Validate rejects non-boolean --deathtrooper value");
-Check(true, "BridgeSession.Validate accepts all 5 texture profiles, 3-way --squid-skin, --deathtrooper, and legacy 15/19-token select-mode");
+Reject(() => BridgeSession.Validate(["select-mode", "--mode", "empire", "--delta", "no", "--texture", "full", "--droids", "yes", "--covenant", "yes", "--enemy-skin", "mixed-droids", "--squid-skin", "mixed-covenant", "--deathtrooper", "yes"]),
+    "BridgeSession.Validate rejects removed --deathtrooper option");
+Check(true, "BridgeSession.Validate accepts all 5 texture profiles, 3-way --squid-skin, rejects removed --deathtrooper, and supports legacy select-mode");
 
 var v21BridgeRoot = Path.Combine(Path.GetTempPath(), "bridge-v21-" + Guid.NewGuid().ToString("N"));
 Directory.CreateDirectory(v21BridgeRoot);
@@ -390,13 +390,13 @@ try
     var v21Reply = await v21Player.RunAsync(
         ["select-mode", "--mode", "empire", "--delta", "no", "--texture", "potato256",
          "--droids", "yes", "--covenant", "yes", "--enemy-skin", "mixed-droids",
-         "--squid-skin", "mixed-covenant", "--deathtrooper", "no"],
+         "--squid-skin", "mixed-covenant"],
         CancellationToken.None);
     Check(v21Reply.GetProperty("Mode").GetString() == "empire" &&
           v21Reply.GetProperty("Texture").GetString() == "potato256" &&
           v21Reply.GetProperty("SquidSkin").GetString() == "mixed-covenant" &&
-          !v21Reply.GetProperty("DeathTrooperVoice").GetBoolean(),
-          "PlayerCommands select-mode stores and echoes potato256, mixed-covenant, and DeathTrooperVoice=false");
+          !v21Reply.TryGetProperty("DeathTrooperVoice", out _),
+          "PlayerCommands select-mode stores and echoes potato256 & mixed-covenant with DeathTrooperVoice removed");
 
     // HellForge 0.5: Galactic War modes, --play-without-sync, and live-like profile template validation
     foreach (var war in new[] { "hellforge", "open", "live", "custom" })

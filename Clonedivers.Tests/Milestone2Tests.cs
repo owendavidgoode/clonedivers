@@ -211,13 +211,13 @@ internal static class Milestone2Tests
                   $"ResolveSelection({mode}) falls back seamlessly on r20/r48: reduced1024 -> lighter and potato256 -> reduced512");
         }
 
-        // Live embedded r21 & r49 180-combination PinnedSelection matrix (90 Clones r21 + 90 Empire r49)
+        // Live embedded r25 & r54 matrix (90 Clones r25 + 45 Empire r54 + 45 Empire legacy deathtrooper=true stripped/forced-false check = 180)
         int matrixChecked = 0;
         foreach (var mode in new[] { "clonedivers", "commandos", "empire" })
         foreach (var tex in allFive)
         foreach (var enemy in new[] { "all-droids", "mixed-droids", "native-automatons" })
         foreach (var squid in new[] { "mixed-covenant", "all-covenant", "native-squids" })
-        foreach (var dt in mode == "empire" ? new[] { true, false } : new[] { true })
+        foreach (var dtCallerFlag in mode == "empire" ? new[] { true, false } : new[] { false })
         {
             var opts = new Dictionary<string, bool>
             {
@@ -226,17 +226,18 @@ internal static class Milestone2Tests
                 ["covenant"] = squid != "native-squids",
                 ["mixed-covenant"] = squid == "mixed-covenant"
             };
-            if (mode == "empire") opts["deathtrooper"] = dt;
+            if (mode == "empire" && dtCallerFlag) opts["deathtrooper"] = true;
             var sel = HellForgePack.PinnedSelection(mode, tex, opts);
             var expectedVer = mode == "empire" ? "2026.11.27-r54" : "2026.11.27-r25";
             var expectedCount = mode == "empire"
                 ? (enemy == "native-automatons" ? 132 : 144)
                 : (enemy == "native-automatons" ? 120 : 132);
-            if (sel.Version != expectedVer || sel.Texture != tex || sel.Files.Count != expectedCount)
-                check(false, $"PinnedSelection {mode}/{tex}/{enemy}/{squid}/dt={dt} mismatch");
+            bool dtNeverEnabled = !sel.Options.TryGetValue("deathtrooper", out var dtVal) || !dtVal;
+            if (sel.Version != expectedVer || sel.Texture != tex || sel.Files.Count != expectedCount || !dtNeverEnabled)
+                check(false, $"PinnedSelection {mode}/{tex}/{enemy}/{squid}/dt={dtCallerFlag} mismatch");
             matrixChecked++;
         }
-        check(matrixChecked == 180, "PinnedSelection resolves all 180 r25/r54 5-tier x 3-enemy x 3-squid x Delta/DeathTrooper combinations natively");
+        check(matrixChecked == 180, "PinnedSelection resolves all 180 r25/r54 combinations natively and forces deathtrooper=false even if caller passes true");
 
         // r19 / r47 fallback: both reduced1024 and potato256 fall back to lighter when reduced512 is absent
         var r19Bytes = ReadResourceBytes("Clonedivers.Tests.Clones.R19.Manifest.json");
@@ -275,32 +276,38 @@ internal static class Milestone2Tests
 
     static void TestSquidSkinAndDeathTrooperVoice(string dir, Action<bool, string> check)
     {
-        // Brand-new defaults
+        // Brand-new defaults & Death Trooper Voice complete removal
         var fresh = HellForgePreferences.Load(Path.Combine(dir, "fresh-v21", "hellforge.json"));
-        check(fresh.SquidSkin == "mixed-covenant" && fresh.Covenant && fresh.DeathTrooperVoice && fresh.EnemySkin == "mixed-droids",
-            "brand-new HellForgePreferences defaults to SquidSkin='mixed-covenant', Covenant=true, and DeathTrooperVoice=true");
+        check(fresh.SquidSkin == "mixed-covenant" && fresh.Covenant && fresh.EnemySkin == "mixed-droids" &&
+              typeof(HellForgePreferences).GetProperty("DeathTrooperVoice") == null &&
+              typeof(ForgeHomeState).GetProperty("DeathTrooperVoice") == null,
+            "brand-new HellForgePreferences defaults to mixed-droids + mixed-covenant and DeathTrooperVoice property is completely removed");
 
         var hw = new HardwarePerformanceRecommendation("NVIDIA GeForce RTX 4090", 24.0, 64.0, "ultra", "test");
         check(ForgeTacticalCopy.FormatLoadoutSummary("clonedivers", fresh.EnemySkin, fresh.DeltaSquad, fresh.Covenant,
-                  true, "auto", hw, squidSkin: fresh.SquidSkin, deathTrooperVoice: fresh.DeathTrooperVoice) == "Full Star Wars Mix · Auto (Ultra)" &&
+                  true, "auto", hw, squidSkin: fresh.SquidSkin) == "Full Star Wars Mix · Auto (Ultra)" &&
               ForgeTacticalCopy.FormatLoadoutSummary("empire", fresh.EnemySkin, false, fresh.Covenant,
-                  true, "auto", hw, squidSkin: fresh.SquidSkin, deathTrooperVoice: true) == "Full Star Wars Mix · Auto (Ultra)" &&
-              ForgeTacticalCopy.FormatLoadoutSummary("empire", fresh.EnemySkin, false, fresh.Covenant,
-                  true, "auto", hw, squidSkin: fresh.SquidSkin, deathTrooperVoice: false).Contains("Standard Imperial Voice", StringComparison.Ordinal),
-              "FormatLoadoutSummary treats mixed-droids + mixed-covenant (+ Encrypted Death Trooper Voice on Empire) as 'Full Star Wars Mix'");
+                  true, "auto", hw, squidSkin: fresh.SquidSkin) == "Full Star Wars Mix · Auto (Ultra)" &&
+              !ForgeTacticalCopy.FormatLoadoutSummary("empire", "all-droids", false, fresh.Covenant,
+                  true, "auto", hw, squidSkin: fresh.SquidSkin).Contains("Death Trooper", StringComparison.OrdinalIgnoreCase),
+              "FormatLoadoutSummary treats mixed-droids + mixed-covenant as 'Full Star Wars Mix' with zero Death Trooper voice text");
 
-        // Backwards-compatible legacy Covenant JSON loading (when SquidSkin is absent)
+        // Backwards-compatible legacy JSON loading (with legacy DeathTrooperVoice=true ignored & stripped on save)
         var covTruePath = Path.Combine(dir, "legacy-cov-true.json");
-        File.WriteAllText(covTruePath, """{"Format":1,"Mode":"clonedivers","Covenant":true}""");
+        File.WriteAllText(covTruePath, """{"Format":1,"Mode":"empire","Covenant":true,"DeathTrooperVoice":true,"AppliedSelection":"r54/25480438/empire/full/mixed-droids/mixed-covenant/deathtrooper"}""");
         var loadedCovTrue = HellForgePreferences.Load(covTruePath);
-        check(loadedCovTrue.SquidSkin == "all-covenant" && loadedCovTrue.Covenant && loadedCovTrue.DeathTrooperVoice,
-            "upgrading pre-v2.2.2 hellforge.json with Covenant=true (no SquidSkin) maps cleanly to SquidSkin='all-covenant' and migrates DeathTrooperVoice=true");
+        check(loadedCovTrue.SquidSkin == "all-covenant" && loadedCovTrue.Covenant &&
+              loadedCovTrue.EnemySkin == "mixed-droids" &&
+              !loadedCovTrue.SelectionKey.Contains("deathtrooper", StringComparison.OrdinalIgnoreCase) &&
+              loadedCovTrue.AppliedSelection != loadedCovTrue.SelectionKey &&
+              !loadedCovTrue.Selection().Options["deathtrooper"],
+            "upgrading legacy hellforge.json with DeathTrooperVoice=true strips deathtrooper from SelectionKey/Selection so old pack re-syncs cleanly");
 
         var covFalsePath = Path.Combine(dir, "legacy-cov-false.json");
-        File.WriteAllText(covFalsePath, """{"Format":1,"Mode":"clonedivers","Covenant":false}""");
+        File.WriteAllText(covFalsePath, """{"Format":1,"Mode":"clonedivers","Covenant":false,"HostTheaterDefaultVersion":4}""");
         var loadedCovFalse = HellForgePreferences.Load(covFalsePath);
         check(loadedCovFalse.SquidSkin == "native-squids" && !loadedCovFalse.Covenant,
-            "upgrading hellforge.json with Covenant=false (no SquidSkin) maps cleanly to SquidSkin='native-squids'");
+            "v4+ hellforge.json with Covenant=false (no SquidSkin) maps cleanly to SquidSkin='native-squids'");
 
         // M4: Upgrading v2.0.3 manual PerformanceTier ('balanced' + 'lighter', 'ultra-potato' + 'reduced512') reconciles PerformanceTier to active Texture
         var m4BalancedPath = Path.Combine(dir, "v203-manual-balanced.json");
@@ -318,57 +325,53 @@ internal static class Milestone2Tests
               rejectedCorruptTierJson,
               "M4: HellForgePreferences.Load reconciles v2.0.3 manual PerformanceTier with saved Texture while rejecting corrupt tier strings");
 
-        // Explicit SquidSkin + DeathTrooperVoice JSON round-trip across all 3 SquidSkin values
+        // Explicit SquidSkin JSON round-trip across all 3 SquidSkin values on v4+
         foreach (var sq in new[] { "mixed-covenant", "all-covenant", "native-squids" })
         {
             var rtPath = Path.Combine(dir, $"rt-{sq}.json");
-            var p = new HellForgePreferences { Mode = "empire", SquidSkin = sq, DeathTrooperVoice = sq == "mixed-covenant" };
+            var p = new HellForgePreferences { Mode = "empire", SquidSkin = sq };
             p.Save(rtPath);
+            var savedText = File.ReadAllText(rtPath);
             var back = HellForgePreferences.Load(rtPath);
             check(back.SquidSkin == sq &&
                   back.Covenant == (sq != "native-squids") &&
-                  back.DeathTrooperVoice == (sq == "mixed-covenant"),
-                  $"HellForgePreferences round-trips SquidSkin='{sq}' and DeathTrooperVoice accurately");
+                  !savedText.Contains("DeathTrooper", StringComparison.OrdinalIgnoreCase),
+                  $"HellForgePreferences round-trips SquidSkin='{sq}' on v4+ without writing DeathTrooperVoice");
         }
 
         bool rejectedBadSquid = false;
         try { new HellForgePreferences { SquidSkin = "flood" }.Validate(); } catch (InvalidDataException) { rejectedBadSquid = true; }
         check(rejectedBadSquid, "HellForgePreferences.Validate rejects unsupported SquidSkin values");
 
-        // SelectionKey invalidation for SquidSkin & Empire DeathTrooperVoice
-        var empDefault = new HellForgePreferences { Mode = "empire", Texture = "full", SquidSkin = "mixed-covenant", DeathTrooperVoice = true };
-        var empAllCov = new HellForgePreferences { Mode = "empire", Texture = "full", SquidSkin = "all-covenant", DeathTrooperVoice = true };
-        var empNative = new HellForgePreferences { Mode = "empire", Texture = "full", SquidSkin = "native-squids", DeathTrooperVoice = true };
-        var empNoDt = new HellForgePreferences { Mode = "empire", Texture = "full", SquidSkin = "mixed-covenant", DeathTrooperVoice = false };
-        check(new[] { empDefault.SelectionKey, empAllCov.SelectionKey, empNative.SelectionKey, empNoDt.SelectionKey }.Distinct(StringComparer.Ordinal).Count() == 4,
-            "Empire SelectionKey distinguishes mixed-covenant, all-covenant, native-squids, and DeathTrooperVoice=false");
+        // SelectionKey invalidation for SquidSkin across Empire
+        var empDefault = new HellForgePreferences { Mode = "empire", Texture = "full", SquidSkin = "mixed-covenant" };
+        var empAllCov = new HellForgePreferences { Mode = "empire", Texture = "full", SquidSkin = "all-covenant" };
+        var empNative = new HellForgePreferences { Mode = "empire", Texture = "full", SquidSkin = "native-squids" };
+        check(new[] { empDefault.SelectionKey, empAllCov.SelectionKey, empNative.SelectionKey }.Distinct(StringComparer.Ordinal).Count() == 3 &&
+              !empDefault.SelectionKey.Contains("deathtrooper", StringComparison.OrdinalIgnoreCase),
+            "Empire SelectionKey distinguishes mixed-covenant, all-covenant, and native-squids with no /deathtrooper suffix");
 
-        var clonesDtOn = new HellForgePreferences { Mode = "clonedivers", DeathTrooperVoice = true };
-        var clonesDtOff = new HellForgePreferences { Mode = "clonedivers", DeathTrooperVoice = false };
-        check(clonesDtOn.SelectionKey == clonesDtOff.SelectionKey,
-            "Clones SelectionKey ignores Empire-only DeathTrooperVoice");
-
-        // r20 / r48 fallback: mixed-covenant falls back cleanly to covenant=true, and deathtrooper is a safe no-op on r48
+        // r20 / r48 fallback: mixed-covenant falls back cleanly to covenant=true, and deathtrooper is always stripped/disabled
         var r20Bytes = ReadResourceBytes("Clonedivers.Tests.Clones.R20.Manifest.json");
         var r48Bytes = ReadResourceBytes("Clonedivers.Tests.Empire.R48.Manifest.json");
         var r20MixedCov = HellForgePack.ResolveSelection(r20Bytes, null, "clonedivers", "full",
             new Dictionary<string, bool> { ["droids"] = true, ["mixed-droids"] = true, ["covenant"] = true, ["mixed-covenant"] = true });
         var r48MixedCovDtOff = HellForgePack.ResolveSelection(r48Bytes, null, "empire", "full",
-            new Dictionary<string, bool> { ["droids"] = true, ["mixed-droids"] = true, ["covenant"] = true, ["mixed-covenant"] = true, ["deathtrooper"] = false });
+            new Dictionary<string, bool> { ["droids"] = true, ["mixed-droids"] = true, ["covenant"] = true, ["mixed-covenant"] = true, ["deathtrooper"] = true });
         var r21Live = new HellForgePreferences { Mode = "clonedivers", SquidSkin = "mixed-covenant" }.Selection();
-        var r49LiveDtOff = new HellForgePreferences { Mode = "empire", SquidSkin = "mixed-covenant", DeathTrooperVoice = false }.Selection();
+        var r49LiveDtOff = new HellForgePreferences { Mode = "empire", SquidSkin = "mixed-covenant" }.Selection();
         check(r20MixedCov.Options["covenant"] && !r20MixedCov.Options.ContainsKey("mixed-covenant") &&
               r48MixedCovDtOff.Options["covenant"] && !r48MixedCovDtOff.Options.ContainsKey("deathtrooper") &&
               r21Live.Options["mixed-covenant"] && r21Live.Options["covenant"] &&
               r49LiveDtOff.Options["mixed-covenant"] && !r49LiveDtOff.Options["deathtrooper"],
-              "r20/r48 fall back cleanly while live embedded r21/r49 resolve mixed-covenant and deathtrooper natively");
+              "r20/r48 fall back cleanly while live embedded r25/r54 resolve mixed-covenant and always keep deathtrooper=false");
 
-        // Synthetic r49 3-way SquidSkin + DeathTrooperVoice verification (including PackProfiles.Validate -> CanCoexist!)
+        // Synthetic r49 3-way SquidSkin + forced deathtrooper=false verification (even when manifest Default=true and caller passes deathtrooper=true!)
         var r49Bytes = BuildSyntheticV21ManifestBytes(isEmpire: true);
         var r49Feed = Manifest.Parse(Encoding.UTF8.GetString(r49Bytes));
         PackProfiles.Validate(r49Feed.Pack!);
         check(!PackExtras.Visible(r49Feed.Pack!).Any(o => o.Id is "mixed-covenant" or "deathtrooper"),
-              "r49 PackProfiles.Validate accepts mixed-covenant with UnlessOption='mixed-covenant' and PackExtras hides dedicated options");
+              "r49 PackProfiles.Validate accepts mixed-covenant and PackExtras hides deathtrooper");
 
         var r49Mixed = HellForgePack.ResolveSelection(r49Bytes, null, "empire", "full",
             new Dictionary<string, bool> { ["droids"] = true, ["mixed-droids"] = true, ["covenant"] = true, ["mixed-covenant"] = true, ["deathtrooper"] = true });
@@ -379,18 +382,20 @@ internal static class Milestone2Tests
 
         check(r49Mixed.Files.Any(f => f.Sha256 == new string('d', 64)) &&
               !r49Mixed.Files.Any(f => f.Sha256 == new string('c', 64)) &&
-              r49Mixed.Files.Any(f => f.Sha256 == new string('e', 64)) &&
+              !r49Mixed.Files.Any(f => f.Sha256 == new string('e', 64)) &&
+              r49Mixed.Files.Any(f => f.Sha256 == new string('f', 64)) &&
               r49AllCov.Files.Any(f => f.Sha256 == new string('c', 64)) &&
               !r49AllCov.Files.Any(f => f.Sha256 == new string('d', 64)) &&
               r49AllCov.Files.Any(f => f.Sha256 == new string('f', 64)) &&
               !r49Native.Files.Any(f => f.Sha256 == new string('c', 64) || f.Sha256 == new string('d', 64)) &&
+              r49Native.Files.Any(f => f.Sha256 == new string('f', 64)) &&
               r49Mixed.Files.All(f => f.Name.Contains(".patch_100", StringComparison.Ordinal)),
-              "r49 ResolveSelection selects mixed-covenant vs all-covenant vs native-squids and toggles encrypted Death Trooper voice at 1000+ layers");
+              "ResolveSelection selects mixed-covenant vs all-covenant vs native-squids and strictly forces deathtrooper=false (standard Imperial voice) even when requested true");
     }
 
     static void TestForgeShellWindowV21Controls(Action<bool, string> check)
     {
-        // Headless Avalonia ForgeShellWindow verification of 3-pill SquidSkin, Empire-only DeathTrooperVoice, and 5-button Step 4
+        // Headless Avalonia ForgeShellWindow verification of 3-pill SquidSkin, DeathTrooperVoice removal, and 5-button Step 4
         var previewHost = new PreviewForgeHost("customize");
         var win = new ForgeShellWindow(previewHost, "customize");
         check(!win.IsAdvancedExpanded, "Customize drawer keeps Advanced section collapsed by default in v2.1");
@@ -402,7 +407,9 @@ internal static class Milestone2Tests
         var squidPills = (Dictionary<string, ToggleButton>)typeof(ForgeShellWindow).GetField("squidPills", priv)!.GetValue(win)!;
         var warPills = (Dictionary<string, ToggleButton>)typeof(ForgeShellWindow).GetField("warPills", priv)!.GetValue(win)!;
         var deltaRow = (Border)typeof(ForgeShellWindow).GetField("deltaRow", priv)!.GetValue(win)!;
-        var deathTrooperRow = (Border)typeof(ForgeShellWindow).GetField("deathTrooperRow", priv)!.GetValue(win)!;
+        var extrasLabel = (TextBlock)typeof(ForgeShellWindow).GetField("extrasHeaderLabel", priv)!.GetValue(win)!;
+        var hasDeathTrooperField = typeof(ForgeShellWindow).GetField("deathTrooperRow", priv) != null ||
+                                   typeof(ForgeShellWindow).GetField("deathTrooperToggle", priv) != null;
         var step4Tex = (Dictionary<string, Button>)typeof(ForgeShellWindow).GetField("setupStep4TextureButtons", priv)!.GetValue(win)!;
 
         check(squidPills.Count == 3 &&
@@ -410,9 +417,9 @@ internal static class Milestone2Tests
               squidPills.ContainsKey("all-covenant") && squidPills.ContainsKey("native-squids") &&
               warPills.Count == 4 && warPills["hellforge"].IsChecked == true &&
               warPills.ContainsKey("open") && warPills.ContainsKey("live") && warPills.ContainsKey("custom") &&
-              deltaRow.IsVisible && !deathTrooperRow.IsVisible &&
+              deltaRow.IsVisible && extrasLabel.IsVisible && !hasDeathTrooperField &&
               step4Tex.Count == 5 && step4Tex.ContainsKey("reduced1024") && step4Tex.ContainsKey("potato256"),
-              "ForgeShellWindow Customize renders 3-pill Squid Skin, 4-pill Galactic War (HellForge War default), Clones Delta Squad, and 5 Step-4 texture buttons");
+              "ForgeShellWindow Customize renders 3-pill Squid Skin, 4-pill Galactic War, Clones Delta Squad, 5 Step-4 texture buttons, and zero Death Trooper controls");
 
         previewHost.SetGalacticWarAsync("open").GetAwaiter().GetResult();
         Avalonia.Threading.Dispatcher.UIThread.RunJobs();
@@ -421,8 +428,8 @@ internal static class Milestone2Tests
 
         previewHost.SelectModeAsync("empire").GetAwaiter().GetResult();
         Avalonia.Threading.Dispatcher.UIThread.RunJobs();
-        check(!deltaRow.IsVisible && deathTrooperRow.IsVisible,
-            "switching to Empire hides Clones Delta Squad and reveals Empire-only Encrypted Death Trooper Voice toggle");
+        check(!deltaRow.IsVisible && !extrasLabel.IsVisible,
+            "switching to Empire hides Clones-only EXTRAS header and Delta Squad with no Death Trooper toggle");
         win.Close();
 
         // HellForge 0.5 Step 3 'Play Now, Sync Later' secondary action advances directly to Step 4
@@ -795,7 +802,7 @@ internal static class Milestone2Tests
         public Task InitializeAsync() => Task.CompletedTask;
         public bool CanClose(out string? reason) { reason = null; return true; }
         public Task SelectModeAsync(string mode) => Task.CompletedTask;
-        public Task UpdateCustomizationAsync(string enemySkin, bool deltaSquad, bool covenant, string texture, string? squidSkin = null, bool? deathTrooperVoice = null) => Task.CompletedTask;
+        public Task UpdateCustomizationAsync(string enemySkin, bool deltaSquad, bool covenant, string texture, string? squidSkin = null) => Task.CompletedTask;
         public Task SetPerformanceTierAsync(string tierId) => Task.CompletedTask;
         public Task UpdateHostMutatorsAsync(string chaosIntensity, string heavySeaf, bool fasterCorpseCleanup, string? theaterPreset = null) => Task.CompletedTask;
         public Task SetGalacticWarAsync(string warMode) => Task.CompletedTask;

@@ -14,6 +14,7 @@ public sealed class WindowsForgeHost : IForgeUiHost
     readonly DispatcherTimer setupTimer = new() { Interval = TimeSpan.FromMilliseconds(1500) };
     readonly DiscordRpcClient discordRpc = new();
     readonly SquadReportClient squadReporter = new();
+    readonly SessionMemoryTracker memoryTracker = new();
     readonly HardwarePerformanceRecommendation cachedHardware;
 
     Func<ForgeConfirmRequest, Task<bool>> confirmAsync = _ => Task.FromResult(false);
@@ -96,8 +97,30 @@ public sealed class WindowsForgeHost : IForgeUiHost
         this.preferences.Validate();
 
         cachedHardware = PerformanceTierAdvisor.ScanHardware();
+        var previousTexture = this.preferences.Texture;
         if (this.preferences.AutoPerformanceTier)
+        {
             this.preferences.Texture = PerformanceTierAdvisor.ResolvePackTexture(PerformanceTierAdvisor.Auto, cachedHardware);
+            if (this.preferences.VramTierAdvisoryVersion < 1 &&
+                string.Equals(previousTexture, "full", StringComparison.OrdinalIgnoreCase) &&
+                !string.Equals(this.preferences.Texture, "full", StringComparison.OrdinalIgnoreCase))
+            {
+                var recTier = PerformanceTierAdvisor.GetTier(cachedHardware.RecommendedTierId, cachedHardware);
+                migrationNotice ??= $"Auto selected {recTier.DisplayName} streamed textures ({cachedHardware.VramGb:0.#} GB VRAM / {cachedHardware.RamGb:0.#} GB RAM) to prevent Full (Ultra) VRAM and swap spillover.";
+            }
+            this.preferences.VramTierAdvisoryVersion = 1;
+        }
+        else if (this.preferences.VramTierAdvisoryVersion < 1)
+        {
+            if (string.Equals(this.preferences.Texture, "full", StringComparison.OrdinalIgnoreCase) &&
+                PerformanceTierAdvisor.ShouldWarnAboutLegacyFullTier(cachedHardware, isLinux: false))
+            {
+                var (suggested, warning) = PerformanceTierAdvisor.BuildLegacyFullSpilloverAdvisory(cachedHardware);
+                this.preferences.LastStepDownSuggestedTier = suggested;
+                this.preferences.PendingStepDownReason = warning;
+            }
+            this.preferences.VramTierAdvisoryVersion = 1;
+        }
 
         UiSoundEffects.Enabled = this.preferences.SoundEffectsEnabled;
         discordRpc.Enabled = this.preferences.DiscordRpcEnabled;
@@ -234,6 +257,7 @@ public sealed class WindowsForgeHost : IForgeUiHost
 
     void HandleSessionEnded(string installRoot, HellForgeStatus status)
     {
+        memoryTracker.TrySample(force: true);
         double? durationSec = sessionStartUtc is { } started
             ? Math.Max(0d, (DateTimeOffset.UtcNow - started).TotalSeconds)
             : null;
@@ -430,7 +454,13 @@ public sealed class WindowsForgeHost : IForgeUiHost
                 {
                     sessionWasActive = true;
                     sessionStartUtc ??= DateTimeOffset.UtcNow;
+                    memoryTracker.Reset();
+                    memoryTracker.TrySample(force: true);
                     UpdateDiscordPresence(running: true);
+                }
+                else
+                {
+                    memoryTracker.TrySample(force: false);
                 }
             }
             else if (sessionWasActive)
@@ -617,7 +647,6 @@ public sealed class WindowsForgeHost : IForgeUiHost
             SelfInstallBanner: ResolveSelfInstallBanner(),
             MinimizeToTray: preferences.MinimizeToTray,
             SquidSkin: preferences.SquidSkin,
-            DeathTrooperVoice: preferences.DeathTrooperVoice,
             HostTheaterPreset: preferences.HostTheaterPreset,
             PlayWithoutAccountSync: CanPlayWithoutSync,
             GalacticWar: lastStatus?.GalacticWar ?? preferences.GalacticWar ?? "hellforge");
@@ -784,7 +813,7 @@ public sealed class WindowsForgeHost : IForgeUiHost
         return Task.CompletedTask;
     }
 
-    public Task UpdateCustomizationAsync(string enemySkin, bool deltaSquad, bool covenant, string texture, string? squidSkin = null, bool? deathTrooperVoice = null)
+    public Task UpdateCustomizationAsync(string enemySkin, bool deltaSquad, bool covenant, string texture, string? squidSkin = null)
     {
         if (working || lastStatus?.Running == true) return Task.CompletedTask;
         try
@@ -794,7 +823,6 @@ public sealed class WindowsForgeHost : IForgeUiHost
             preferences.DeltaSquad = deltaSquad;
             if (squidSkin != null) preferences.SquidSkin = squidSkin;
             else preferences.Covenant = covenant;
-            if (deathTrooperVoice is { } dt) preferences.DeathTrooperVoice = dt;
             if (!string.Equals(preferences.Texture, texture, StringComparison.OrdinalIgnoreCase))
             {
                 preferences.Texture = texture;
@@ -2017,7 +2045,6 @@ public sealed class WindowsForgeHost : IForgeUiHost
             triage: triage,
             redactUserPaths: true,
             squidSkin: preferences.SquidSkin,
-            deathTrooperVoice: preferences.DeathTrooperVoice,
             hostTheaterPreset: preferences.HostTheaterPreset);
 
         var health = new List<ForgeHealthItem>
@@ -2044,9 +2071,11 @@ public sealed class WindowsForgeHost : IForgeUiHost
         sb.AppendLine($"Squad Match: {matchHash}");
         sb.AppendLine($"Installation: {installRoot ?? "Not selected"}");
         sb.AppendLine($"Disk Usage: {ForgeTacticalCopy.FormatDiskUsageSummary(disk, hasInstall)}");
-        sb.AppendLine($"Selected Mode: {preferences.Mode} · EnemySkin={preferences.EnemySkin} · SquidSkin={preferences.SquidSkin} · Delta={preferences.DeltaSquad} · DeathTrooperVoice={preferences.DeathTrooperVoice} · PerfTier={preferences.PerformanceTier} · Texture={preferences.Texture}");
+        sb.AppendLine($"Selected Mode: {preferences.Mode} · EnemySkin={preferences.EnemySkin} · SquidSkin={preferences.SquidSkin} · Delta={preferences.DeltaSquad} · PerfTier={preferences.PerformanceTier} · Texture={preferences.Texture}");
         sb.AppendLine($"Host Rules: Theater={preferences.HostTheaterPreset} · Chaos={preferences.HostChaosIntensity} · HeavySeaf={preferences.HostHeavySeaf} · FasterCorpseCleanup={preferences.HostFasterCorpseCleanup}");
-        sb.AppendLine($"Hardware: {cachedHardware.GpuName} ({cachedHardware.VramGb:0.#} GB VRAM, {cachedHardware.RamGb:0.#} GB RAM)");
+        var swapPart = cachedHardware.SwapGb > 0 ? $", {cachedHardware.SwapGb:0.#} GB Pagefile" : "";
+        sb.AppendLine($"Hardware: {cachedHardware.GpuName} ({cachedHardware.VramGb:0.#} GB VRAM, {cachedHardware.RamGb:0.#} GB RAM{swapPart})");
+        sb.AppendLine($"Memory Telemetry: {memoryTracker.FormatSummaryLine()}");
         sb.AppendLine($"Account: {lastAccount?.Message ?? "Not checked"}");
         sb.AppendLine($"Capture Block: {captureBlock ?? "none"}");
         sb.AppendLine($"Launcher Diagnostic: {failureDetail ?? lastError ?? "none"}");

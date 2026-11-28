@@ -18,6 +18,7 @@ internal sealed class LinuxForgeHost : IForgeUiHost
     readonly ForgeSyncHandoff syncHandoff = new();
     readonly DiscordRpcClient discordRpc = new();
     readonly SquadReportClient squadReporter = new();
+    readonly SessionMemoryTracker memoryTracker = new();
     readonly HardwarePerformanceRecommendation cachedHardware;
 
     CancellationTokenSource? workCts;
@@ -68,11 +69,36 @@ internal sealed class LinuxForgeHost : IForgeUiHost
         resources = Path.Combine(AppContext.BaseDirectory, "forge");
 
         cachedHardware = preview
-            ? PerformanceTierAdvisor.Recommend("AMD Radeon RX 7800 XT", 16.0, 32.0)
+            ? PerformanceTierAdvisor.Recommend("AMD Radeon RX 7800 XT", 16.0, 32.0, swapGb: 8.0, isLinux: true)
             : PerformanceTierAdvisor.ScanHardware();
 
-        if (!preview && preferences.AutoPerformanceTier)
-            preferences.Texture = PerformanceTierAdvisor.ResolvePackTexture(PerformanceTierAdvisor.Auto, cachedHardware);
+        if (!preview)
+        {
+            var previousTexture = preferences.Texture;
+            if (preferences.AutoPerformanceTier)
+            {
+                preferences.Texture = PerformanceTierAdvisor.ResolvePackTexture(PerformanceTierAdvisor.Auto, cachedHardware);
+                if (preferences.VramTierAdvisoryVersion < 1 &&
+                    string.Equals(previousTexture, "full", StringComparison.OrdinalIgnoreCase) &&
+                    !string.Equals(preferences.Texture, "full", StringComparison.OrdinalIgnoreCase))
+                {
+                    var recTier = PerformanceTierAdvisor.GetTier(cachedHardware.RecommendedTierId, cachedHardware);
+                    toastNotice = $"Auto selected {recTier.DisplayName} streamed textures ({cachedHardware.VramGb:0.#} GB VRAM / {cachedHardware.RamGb:0.#} GB RAM) to prevent Full (Ultra) VRAM/GTT and swap spillover.";
+                }
+                preferences.VramTierAdvisoryVersion = 1;
+            }
+            else if (preferences.VramTierAdvisoryVersion < 1)
+            {
+                if (string.Equals(preferences.Texture, "full", StringComparison.OrdinalIgnoreCase) &&
+                    PerformanceTierAdvisor.ShouldWarnAboutLegacyFullTier(cachedHardware, isLinux: true))
+                {
+                    var (suggested, warning) = PerformanceTierAdvisor.BuildLegacyFullSpilloverAdvisory(cachedHardware);
+                    preferences.LastStepDownSuggestedTier = suggested;
+                    preferences.PendingStepDownReason = warning;
+                }
+                preferences.VramTierAdvisoryVersion = 1;
+            }
+        }
 
         UiSoundEffects.Enabled = !preview && preferences.SoundEffectsEnabled;
         discordRpc.Enabled = !preview && preferences.DiscordRpcEnabled;
@@ -202,6 +228,11 @@ internal sealed class LinuxForgeHost : IForgeUiHost
 
     void HandleSessionEnded(string? installRoot, HellForgeStatus? status)
     {
+        if (!preview)
+        {
+            memoryTracker.TrySample(force: true);
+            LinuxSupport.Record("session-memory", memoryTracker.FormatSummaryLine());
+        }
         double? durationSec = sessionStartUtc is { } started
             ? Math.Max(0d, (DateTimeOffset.UtcNow - started).TotalSeconds)
             : null;
@@ -557,7 +588,6 @@ internal sealed class LinuxForgeHost : IForgeUiHost
             SelfInstallBanner: null,
             MinimizeToTray: preferences.MinimizeToTray,
             SquidSkin: preferences.SquidSkin,
-            DeathTrooperVoice: preferences.DeathTrooperVoice,
             HostTheaterPreset: preferences.HostTheaterPreset,
             PlayWithoutAccountSync: preferences.PlayWithoutAccountSync,
             GalacticWar: viewState?.Status.GalacticWar ?? preferences.GalacticWar ?? "hellforge");
@@ -578,7 +608,7 @@ internal sealed class LinuxForgeHost : IForgeUiHost
         });
     }
 
-    public async Task UpdateCustomizationAsync(string enemySkin, bool deltaSquad, bool covenant, string texture, string? squidSkin = null, bool? deathTrooperVoice = null)
+    public async Task UpdateCustomizationAsync(string enemySkin, bool deltaSquad, bool covenant, string texture, string? squidSkin = null)
     {
         if (preview || operations.Busy || player?.SessionActive == true) return;
         await RunOpAsync(async ct =>
@@ -587,7 +617,6 @@ internal sealed class LinuxForgeHost : IForgeUiHost
             preferences.DeltaSquad = deltaSquad;
             if (squidSkin != null) preferences.SquidSkin = squidSkin;
             else preferences.Covenant = covenant;
-            if (deathTrooperVoice is { } dt) preferences.DeathTrooperVoice = dt;
             if (!string.Equals(preferences.Texture, texture, StringComparison.OrdinalIgnoreCase))
             {
                 preferences.Texture = texture;
@@ -764,6 +793,12 @@ internal sealed class LinuxForgeHost : IForgeUiHost
     async Task LaunchCoreAsync(CancellationToken ct)
     {
         if (player == null) return;
+        if (!preview && !string.IsNullOrWhiteSpace(player.ResolvedInstallRoot) && !IsGameProcessRunning())
+        {
+            var preCleaned = LinuxStaleSessionGuard.CleanupStaleOrphans(player.ResolvedInstallRoot);
+            if (preCleaned.Count > 0)
+                LinuxSupport.Record("stale-session-cleanup", $"Cleaned {preCleaned.Count} post-crash orphaned session wrapper(s) before launch: {string.Join(", ", preCleaned)}");
+        }
         TrySyncHostMutatorFile();
         SetProgress(new(ForgeTacticalCopy.LaunchingHeadline, ForgeTacticalCopy.LaunchingDetail, IsIndeterminate: true, CanCancel: false));
         await player.LaunchAsync(ct);
@@ -772,6 +807,8 @@ internal sealed class LinuxForgeHost : IForgeUiHost
         timer.Interval = launchedNow ? TimeSpan.FromSeconds(5) : TimeSpan.FromMilliseconds(1500);
         sessionWasActive = true;
         sessionStartUtc = DateTimeOffset.UtcNow;
+        memoryTracker.Reset();
+        memoryTracker.TrySample(force: true);
         UpdateDiscordPresence(running: true);
     }
 
@@ -826,6 +863,8 @@ internal sealed class LinuxForgeHost : IForgeUiHost
         {
             sessionWasActive = true;
             sessionStartUtc ??= DateTimeOffset.UtcNow;
+            memoryTracker.Reset();
+            memoryTracker.TrySample(force: true);
             UpdateDiscordPresence(running: true);
         }
         else if (player?.State?.Status is { HasRun: true } st)
@@ -865,7 +904,13 @@ internal sealed class LinuxForgeHost : IForgeUiHost
             {
                 sessionWasActive = true;
                 sessionStartUtc ??= DateTimeOffset.UtcNow;
+                memoryTracker.Reset();
+                memoryTracker.TrySample(force: true);
                 UpdateDiscordPresence(running: true);
+            }
+            else
+            {
+                memoryTracker.TrySample(force: false);
             }
         }
         else if (sessionWasActive)
@@ -1117,7 +1162,6 @@ internal sealed class LinuxForgeHost : IForgeUiHost
             Triage: triage,
             RedactUserPaths: true,
             SquidSkin: preferences.SquidSkin,
-            DeathTrooperVoice: preferences.DeathTrooperVoice,
             HostTheaterPreset: preferences.HostTheaterPreset));
 
         var health = new List<ForgeHealthItem>
@@ -1134,8 +1178,11 @@ internal sealed class LinuxForgeHost : IForgeUiHost
         sb.AppendLine($"Squad Match: {matchHash}");
         sb.AppendLine($"Installation: {installRoot ?? "Not connected"}");
         sb.AppendLine($"Disk Usage: {diskSummary}");
-        sb.AppendLine($"Mode: {preferences.Mode} · EnemySkin={preferences.EnemySkin} · SquidSkin={preferences.SquidSkin} · Delta={preferences.DeltaSquad} · DeathTrooperVoice={preferences.DeathTrooperVoice} · PerfTier={preferences.PerformanceTier} · Texture={preferences.Texture}");
+        sb.AppendLine($"Mode: {preferences.Mode} · EnemySkin={preferences.EnemySkin} · SquidSkin={preferences.SquidSkin} · Delta={preferences.DeltaSquad} · PerfTier={preferences.PerformanceTier} · Texture={preferences.Texture}");
         sb.AppendLine($"Host Rules: Theater={preferences.HostTheaterPreset} · Chaos={preferences.HostChaosIntensity} · HeavySeaf={preferences.HostHeavySeaf} · FasterCorpseCleanup={preferences.HostFasterCorpseCleanup}");
+        var swapPart = cachedHardware.SwapGb > 0 ? $", {cachedHardware.SwapGb:0.#} GB Swap" : "";
+        sb.AppendLine($"Hardware: {cachedHardware.GpuName} ({cachedHardware.VramGb:0.#} GB VRAM, {cachedHardware.RamGb:0.#} GB RAM{swapPart})");
+        if (!preview) sb.AppendLine($"Memory Telemetry: {memoryTracker.FormatSummaryLine()}");
         sb.AppendLine($"Diagnostics: {operations.FailureDetail ?? failureDetail ?? operations.Error ?? player?.Error ?? st?.LastFailure ?? st?.LastNotice ?? player?.State?.Detail ?? "none"}");
         if (reportPath != null) sb.AppendLine("Support report saved: " + reportPath);
 
@@ -1167,7 +1214,8 @@ internal sealed class LinuxForgeHost : IForgeUiHost
         if (preview) return Task.FromResult<string?>(null);
         var output = LinuxSupport.SaveReport(null, new Settings(), forge: new LinuxSupport.ForgeReport(
             preferences.InstallRoot, preferences.Mode, player?.State,
-            operations.FailureDetail ?? failureDetail ?? operations.Error ?? player?.Error));
+            operations.FailureDetail ?? failureDetail ?? operations.Error ?? player?.Error,
+            memoryTracker.ToDiagnosticObject()));
         reportPath = output;
         Notify();
         return Task.FromResult<string?>(output);

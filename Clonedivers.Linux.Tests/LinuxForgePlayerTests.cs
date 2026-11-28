@@ -12,33 +12,38 @@ internal static class LinuxForgePlayerTests
             "Linux embeds and validates the r16 gameplay catalog with all nine optional mods");
         var brandNewLinux = LinuxForgePreferences.Load(Path.Combine(root, "brand-new-linux", "forge.json"));
         check(brandNewLinux.Mode == "clonedivers" && brandNewLinux.EnemySkin == "mixed-droids" && brandNewLinux.Covenant &&
-            brandNewLinux.SquidSkin == "mixed-covenant" && brandNewLinux.DeathTrooperVoice &&
+            brandNewLinux.SquidSkin == "mixed-covenant" &&
             brandNewLinux.DeltaSquad && brandNewLinux.AutoPerformanceTier && brandNewLinux.PerformanceTier == "auto" &&
             brandNewLinux.SoundEffectsEnabled && brandNewLinux.DiscordRpcEnabled && !brandNewLinux.MinimizeToTray &&
             brandNewLinux.HostChaosIntensity == "total-war" && brandNewLinux.HostHeavySeaf == "constant" && brandNewLinux.HostFasterCorpseCleanup &&
-            brandNewLinux.HostTheaterPreset == "clone-wars" && brandNewLinux.HostTheaterDefaultVersion == 3,
-            "brand-new Linux installs default to all Star Wars & host goodies on, AutoPerformanceTier=true, and HostTheaterPreset='clone-wars'");
+            brandNewLinux.HostTheaterPreset == "clone-wars" && brandNewLinux.HostTheaterDefaultVersion == 4,
+            "brand-new Linux installs default to mixed-droids, mixed-covenant, AutoPerformanceTier=true, and HostTheaterDefaultVersion=4");
         var legacyLinuxPath = Path.Combine(root, "legacy-linux-forge.json");
-        File.WriteAllText(legacyLinuxPath, """{"Format":1,"Mode":"clonedivers","Texture":"lighter"}""");
+        File.WriteAllText(legacyLinuxPath, """{"Format":1,"Mode":"empire","Texture":"lighter","DeathTrooperVoice":true,"EnemySkin":"all-droids","SquidSkin":"native-squids","HostTheaterDefaultVersion":3}""");
         var legacyLinux = LinuxForgePreferences.Load(legacyLinuxPath);
-        check(legacyLinux.EnemySkin == "all-droids" && !legacyLinux.Covenant && legacyLinux.SquidSkin == "native-squids" &&
+        check(legacyLinux.EnemySkin == "mixed-droids" && legacyLinux.Covenant && legacyLinux.SquidSkin == "mixed-covenant" &&
             !legacyLinux.AutoPerformanceTier && legacyLinux.PerformanceTier == "high" &&
             legacyLinux.HostTheaterPreset == "clone-wars" && legacyLinux.HostChaosIntensity == "total-war" &&
-            legacyLinux.HostHeavySeaf == "constant" && legacyLinux.DeathTrooperVoice && legacyLinux.HostTheaterDefaultVersion == 3,
-            "existing saved pre-v2.2.2 Linux forge.json files preserve legacy EnemySkin, Covenant=false, and AutoPerformanceTier=false while migrating default host goodies once");
-        var explicitStdLinuxPath = Path.Combine(root, "v221-explicit-std-linux.json");
-        var explicitStdLinux = new LinuxForgePreferences { Mode = "clonedivers", HostTheaterPreset = "standard", HostChaosIntensity = "standard", HostHeavySeaf = "standard", DeathTrooperVoice = false };
+            legacyLinux.HostHeavySeaf == "constant" && legacyLinux.HostTheaterDefaultVersion == 4 &&
+            !legacyLinux.PackSelection().Options["deathtrooper"] &&
+            !legacyLinux.SelectionCommand().Contains("--deathtrooper"),
+            "existing pre-v4 Linux forge.json migrates all-droids/native-squids once to mixed-droids/mixed-covenant and strips DeathTrooperVoice");
+        var explicitStdLinuxPath = Path.Combine(root, "v230-explicit-std-linux.json");
+        var explicitStdLinux = new LinuxForgePreferences { Mode = "clonedivers", EnemySkin = "all-droids", SquidSkin = "native-squids", HostTheaterPreset = "standard", HostChaosIntensity = "standard", HostHeavySeaf = "standard" };
         explicitStdLinux.Save(explicitStdLinuxPath);
+        var savedLinuxJson = File.ReadAllText(explicitStdLinuxPath);
         var reloadedStdLinux = LinuxForgePreferences.Load(explicitStdLinuxPath);
-        check(reloadedStdLinux.HostTheaterPreset == "standard" && reloadedStdLinux.HostChaosIntensity == "standard" &&
-            reloadedStdLinux.HostHeavySeaf == "standard" && !reloadedStdLinux.DeathTrooperVoice && reloadedStdLinux.HostTheaterDefaultVersion == 3,
-            "v2.2.2+ Linux forge.json with HostTheaterDefaultVersion=3 preserves explicit 'standard' / DeathTrooperVoice=false choices");
+        check(reloadedStdLinux.EnemySkin == "all-droids" && reloadedStdLinux.SquidSkin == "native-squids" &&
+            reloadedStdLinux.HostTheaterPreset == "standard" && reloadedStdLinux.HostChaosIntensity == "standard" &&
+            reloadedStdLinux.HostHeavySeaf == "standard" && reloadedStdLinux.HostTheaterDefaultVersion == 4 &&
+            !savedLinuxJson.Contains("DeathTrooperVoice", StringComparison.OrdinalIgnoreCase),
+            "v2.3+ Linux forge.json with HostTheaterDefaultVersion=4 preserves explicit post-v4 all-droids/native-squids/standard choices and never writes DeathTrooperVoice");
 
         var legacyLinuxCovTruePath = Path.Combine(root, "legacy-linux-cov-true.json");
-        File.WriteAllText(legacyLinuxCovTruePath, """{"Format":1,"Mode":"clonedivers","Covenant":true}""");
+        File.WriteAllText(legacyLinuxCovTruePath, """{"Format":1,"Mode":"clonedivers","EnemySkin":"native-automatons","Covenant":true}""");
         var legacyLinuxCovTrue = LinuxForgePreferences.Load(legacyLinuxCovTruePath);
-        check(legacyLinuxCovTrue.SquidSkin == "all-covenant" && legacyLinuxCovTrue.Covenant && legacyLinuxCovTrue.DeathTrooperVoice,
-            "existing pre-v2.2.2 Linux forge.json with Covenant=true (no SquidSkin) upgrades cleanly to SquidSkin='all-covenant' and DeathTrooperVoice=true");
+        check(legacyLinuxCovTrue.EnemySkin == "native-automatons" && legacyLinuxCovTrue.SquidSkin == "all-covenant" && legacyLinuxCovTrue.Covenant,
+            "existing pre-v4 Linux forge.json preserves explicit native-automatons and Covenant=true ('all-covenant') during v4 migration");
 
         // M4: Upgrading v2.0.3 manual PerformanceTier ('balanced'+'lighter' and 'ultra-potato'+'reduced512') reconciles PerformanceTier on Linux
         var linuxM4BalPath = Path.Combine(root, "linux-m4-balanced.json");
@@ -51,7 +56,7 @@ internal static class LinuxForgePlayerTests
               !linuxM4Pot.AutoPerformanceTier && linuxM4Pot.Texture == "reduced512" && linuxM4Pot.PerformanceTier == "low-512",
               "M4: LinuxForgePreferences.Load reconciles v2.0.3 manual PerformanceTier with saved Texture");
 
-        // Milestone 2: all 5 texture profiles + 3-way SquidSkin + DeathTrooperVoice + SelectionCommand flags on Linux
+        // Milestone 2/v2.3: all 5 texture profiles + 3-way SquidSkin + no DeathTrooperVoice on Linux
         foreach (var tex in new[] { "full", "lighter", "reduced1024", "reduced512", "potato256" })
         {
             var lp = new LinuxForgePreferences
@@ -60,8 +65,7 @@ internal static class LinuxForgePlayerTests
                 Texture = tex,
                 AutoPerformanceTier = false,
                 PerformanceTier = PerformanceTierAdvisor.TierFromPackTexture(tex),
-                SquidSkin = "mixed-covenant",
-                DeathTrooperVoice = false
+                SquidSkin = "mixed-covenant"
             };
             lp.Validate();
             var cmd = lp.SelectionCommand();
@@ -72,8 +76,8 @@ internal static class LinuxForgePlayerTests
                   sel.Options["covenant"] &&
                   !sel.Options["deathtrooper"] &&
                   cmd.Contains("--squid-skin") && cmd.Contains("mixed-covenant") &&
-                  cmd.Contains("--deathtrooper") && cmd.Contains("no"),
-                  $"LinuxForgePreferences accepts texture '{tex}', emits --squid-skin/--deathtrooper, and resolves Empire r54 natively");
+                  !cmd.Contains("--deathtrooper"),
+                  $"LinuxForgePreferences accepts texture '{tex}', emits --squid-skin without --deathtrooper, and resolves Empire r54 with deathtrooper=false");
         }
 
         // HellForge 0.5: PlayWithoutAccountSync & GalacticWar preferences validate, persist, and propagate to SelectionCommand
