@@ -887,8 +887,9 @@ static void TestRelocated4096EntityManagerRaycastStrideAndPeerCoexistence(void)
     TfhStepDetour(NULL);
     g_gt_tick((HfMod*)&g_mod_obj, 0.016f, NULL);
     CHECK(g_screen_open_state == 1, "HUD opens cleanly on relocated 4,096-slot EntityManager (slots 3499/3500)");
-    LONG gt_i = InterlockedCompareExchange(&g_gameTelIdx, 0, 0);
-    CHECK(g_gameTelBuf[gt_i & 1].hull_hp == 1350 && g_gameTelBuf[gt_i & 1].mount_count == 2u,
+    TfhGameTelemetry gt_check;
+    TfhSnapshotGameTelemetry(&gt_check);
+    CHECK(gt_check.hull_hp == 1350 && gt_check.mount_count == 2u,
           "relocated EntityManager resolves walker entity 0x2002 telemetry");
 
     memset(g_mock_game + CD_EM_SITE_REC8_RVA, 0, 7u);
@@ -978,6 +979,117 @@ static void TestRelocated4096EntityManagerRaycastStrideAndPeerCoexistence(void)
     g_testPeerQueryBaseOverride = NULL;
 }
 
+static volatile LONG g_race_failures = 0;
+
+static DWORD WINAPI RaceGameAndCustomWalkersThread(LPVOID param)
+{
+    (void)param;
+    TfhGameTelemetry a, b;
+    memset(&a, 0, sizeof(a));
+    memset(&b, 0, sizeof(b));
+    a.avatar_entity = 0x1001u; a.avatar_ref = 0xAA01u; a.hull_hp = 1111; a.hull_max_hp = 2222;
+    a.speed_mps = 4.25f; a.mount_count = 1u; a.mounts[0].present = 1u; a.mounts[0].rounds = 111; a.mounts[0].capacity = 222;
+    b.avatar_entity = 0x2002u; b.avatar_ref = 0xBB02u; b.hull_hp = 3333; b.hull_max_hp = 4444;
+    b.speed_mps = 8.50f; b.mount_count = 2u; b.mounts[0].present = 1u; b.mounts[0].rounds = 333; b.mounts[0].capacity = 444;
+    b.mounts[1].present = 1u; b.mounts[1].rounds = 55; b.mounts[1].capacity = 66;
+
+    for (uint32_t i = 0u; i < 4000u; i++) {
+        TfhPublishGameTelemetry((i & 1u) ? &b : &a);
+        if ((i & 3u) == 0u) {
+            TfhRefreshCustomWalkers();
+        }
+    }
+    return 0;
+}
+
+static DWORD WINAPI RaceCameraPoseAndLookupThread(LPVOID param)
+{
+    uint64_t custom_id = *(const uint64_t*)param;
+    TfhPoseTelemetry p0, p1;
+    memset(&p0, 0, sizeof(p0));
+    memset(&p1, 0, sizeof(p1));
+    p0.mounted = 1; p0.first_person = 0; p0.heading_deg = 45.0f;  p0.walker_yaw_deg = 30.0f;  p0.pitch_deg = -10.0f; p0.cam_fov = 1.05f;
+    p1.mounted = 1; p1.first_person = 1; p1.heading_deg = 225.0f; p1.walker_yaw_deg = 210.0f; p1.pitch_deg = 15.0f;  p1.cam_fov = 1.25f;
+
+    for (uint32_t i = 0u; i < 4000u; i++) {
+        TfhPublishPoseTelemetry((i & 1u) ? &p1 : &p0);
+        TfhGameTelemetry gt;
+        TfhSnapshotGameTelemetry(&gt);
+        int ok_gt = (gt.hull_hp == 0 && gt.hull_max_hp == 0) ||
+                    (gt.hull_hp == 1111 && gt.hull_max_hp == 2222 && gt.mount_count == 1u && gt.mounts[0].rounds == 111 && gt.mounts[0].capacity == 222) ||
+                    (gt.hull_hp == 3333 && gt.hull_max_hp == 4444 && gt.mount_count == 2u && gt.mounts[0].rounds == 333 && gt.mounts[1].capacity == 66);
+        if (!ok_gt) InterlockedIncrement(&g_race_failures);
+
+        if (!TfhIsWalkerResource(kTfhWalkerResources[0]) ||
+            !TfhIsWalkerResource(custom_id) ||
+            TfhIsWalkerResource(0xDEAD0000BEEF1234ULL)) {
+            InterlockedIncrement(&g_race_failures);
+        }
+    }
+    return 0;
+}
+
+static DWORD WINAPI RaceOverlaySnapshotReaderThread(LPVOID param)
+{
+    (void)param;
+    for (uint32_t i = 0u; i < 6000u; i++) {
+        TfhGameTelemetry gt;
+        TfhPoseTelemetry pt;
+        TfhSnapshotAllTelemetry(&gt, &pt);
+        int ok_gt = (gt.hull_hp == 0 && gt.hull_max_hp == 0) ||
+                    (gt.hull_hp == 1111 && gt.hull_max_hp == 2222 && gt.mount_count == 1u && gt.mounts[0].rounds == 111 && gt.mounts[0].capacity == 222) ||
+                    (gt.hull_hp == 3333 && gt.hull_max_hp == 4444 && gt.mount_count == 2u && gt.mounts[0].rounds == 333 && gt.mounts[1].capacity == 66);
+        int ok_pt = (pt.mounted == 0 && pt.heading_deg == 0.0f && pt.pitch_deg == 0.0f) ||
+                    (pt.mounted == 1 && pt.first_person == 0 && pt.heading_deg == 45.0f && pt.pitch_deg == -10.0f && pt.cam_fov == 1.05f) ||
+                    (pt.mounted == 1 && pt.first_person == 1 && pt.heading_deg == 225.0f && pt.pitch_deg == 15.0f && pt.cam_fov == 1.25f);
+        if (!ok_gt || !ok_pt) {
+            InterlockedIncrement(&g_race_failures);
+        }
+    }
+    return 0;
+}
+
+static int MockCustomWalkerContent(HfMod* m, uint32_t idx, HfContent* out)
+{
+    (void)m;
+    if (idx == 0u && out) {
+        memset(out, 0, sizeof(*out));
+        out->size = sizeof(*out);
+        out->kind = 2u; /* HF_KIND_ENTITY */
+        out->base = kTfhWalkerResources[0];
+        out->id = 0xCAFE5555AAAA7777ULL;
+        return 1;
+    }
+    return 0;
+}
+
+static void TestConcurrentTelemetryAndCustomWalkerLocks(void)
+{
+    const uint64_t kCustomWalker = 0xCAFE5555AAAA7777ULL;
+    ResetHarness(kCustomWalker, 198u, 2.06f);
+    g_api.content = MockCustomWalkerContent;
+    TfhRefreshCustomWalkers();
+    CHECK(TfhIsWalkerResource(kCustomWalker) == 1, "initial custom walker registered before multi-thread stress");
+
+    InterlockedExchange(&g_race_failures, 0);
+    HANDLE th[3];
+    th[0] = CreateThread(NULL, 0, RaceGameAndCustomWalkersThread, NULL, 0, NULL);
+    th[1] = CreateThread(NULL, 0, RaceCameraPoseAndLookupThread, (LPVOID)&kCustomWalker, 0, NULL);
+    th[2] = CreateThread(NULL, 0, RaceOverlaySnapshotReaderThread, NULL, 0, NULL);
+    CHECK(th[0] != NULL && th[1] != NULL && th[2] != NULL, "spawned 3 concurrent publisher/reader Win32 threads");
+    if (th[0] && th[1] && th[2]) {
+        DWORD w = WaitForMultipleObjects(3, th, TRUE, 10000);
+        CHECK(w == WAIT_OBJECT_0, "all 3 concurrent stress threads finished within timeout");
+    }
+    for (int i = 0; i < 3; i++) {
+        if (th[i]) CloseHandle(th[i]);
+    }
+    CHECK(InterlockedCompareExchange(&g_race_failures, 0, 0) == 0,
+          "Findings 8 & 9: zero torn telemetry snapshots or custom-walker race failures across 14,000+ concurrent ops");
+    CHECK(hellforge_mod_unload(&g_api, (HfMod*)&g_mod_obj, HF_UNLOAD_REMOVE) == 0,
+          "clean unload after multi-threaded SRWLOCK stress test");
+}
+
 int main(int argc, char** argv)
 {
     const char* temp_dir = (argc > 1) ? argv[1] : "";
@@ -985,6 +1097,7 @@ int main(int argc, char** argv)
     TestAtteHudLifecycleTelemetryAndAtstGate();
     TestDualViewFirstPersonRaycastAndRestore();
     TestRelocated4096EntityManagerRaycastStrideAndPeerCoexistence();
+    TestConcurrentTelemetryAndCustomWalkerLocks();
 
     if (g_failed != 0) {
         fprintf(stderr, "titanfall-walker-hud unit suite FAILED (%d / %d)\n", g_failed, g_checks);

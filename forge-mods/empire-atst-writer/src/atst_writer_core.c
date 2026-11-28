@@ -72,26 +72,35 @@ static void at_fast_publish(at_writer_state *s) {
     __atomic_thread_fence(__ATOMIC_RELEASE);
     memset(s->fast.mesh_ht, 0, sizeof(s->fast.mesh_ht));
     for (unsigned i = 0; i < AT_PILOT_MESH_HT_SIZE; i++) {
-        s->fast.pilot_mesh_ht[i] = -1;
+        __atomic_store_n(&s->fast.pilot_mesh_ht[i], (int16_t)-1, __ATOMIC_RELAXED);
     }
     uint32_t pcnt = s->pilot_hide_count <= AT_MAX_PILOT_HIDE_MESHES ? s->pilot_hide_count : AT_MAX_PILOT_HIDE_MESHES;
-    s->fast.pilot_mesh_count = pcnt;
+    __atomic_store_n(&s->fast.pilot_mesh_count, pcnt, __ATOMIC_RELAXED);
     if (pcnt > 0u) {
-        memcpy(s->fast.pilot_meshes, s->pilot_hide_entries, (size_t)pcnt * sizeof(s->pilot_hide_entries[0]));
         for (uint32_t pm = 0; pm < pcnt; pm++) {
-            uintptr_t mobj = s->fast.pilot_meshes[pm].mesh;
+            const at_pilot_hide_entry *src = &s->pilot_hide_entries[pm];
+            __atomic_store_n(&s->fast.pilot_meshes[pm].mesh, src->mesh, __ATOMIC_RELAXED);
+            __atomic_store_n(&s->fast.pilot_meshes[pm].hide_all, src->hide_all, __ATOMIC_RELAXED);
+            __atomic_store_n(&s->fast.pilot_meshes[pm].mask_lo, src->mask_lo, __ATOMIC_RELAXED);
+            __atomic_store_n(&s->fast.pilot_meshes[pm].mask_hi, src->mask_hi, __ATOMIC_RELAXED);
+            uintptr_t mobj = src->mesh;
             if (!mobj) continue;
             uint32_t h = at_hash_mesh_ptr(mobj) & AT_PILOT_MESH_HT_MASK;
             for (unsigned p = 0; p < AT_PILOT_MESH_HT_SIZE; p++) {
                 uint32_t k = (h + p) & AT_PILOT_MESH_HT_MASK;
-                if (s->fast.pilot_mesh_ht[k] < 0) {
-                    s->fast.pilot_mesh_ht[k] = (int16_t)pm;
+                if (__atomic_load_n(&s->fast.pilot_mesh_ht[k], __ATOMIC_RELAXED) < 0) {
+                    __atomic_store_n(&s->fast.pilot_mesh_ht[k], (int16_t)pm, __ATOMIC_RELAXED);
                     break;
                 }
             }
         }
     } else {
-        memset(s->fast.pilot_meshes, 0, sizeof(s->fast.pilot_meshes));
+        for (uint32_t pm = 0; pm < AT_MAX_PILOT_HIDE_MESHES; pm++) {
+            __atomic_store_n(&s->fast.pilot_meshes[pm].mesh, (uintptr_t)0u, __ATOMIC_RELAXED);
+            __atomic_store_n(&s->fast.pilot_meshes[pm].hide_all, (uint8_t)0u, __ATOMIC_RELAXED);
+            __atomic_store_n(&s->fast.pilot_meshes[pm].mask_lo, 0ULL, __ATOMIC_RELAXED);
+            __atomic_store_n(&s->fast.pilot_meshes[pm].mask_hi, 0ULL, __ATOMIC_RELAXED);
+        }
     }
     uint32_t cnt = 0u;
     uint32_t all_resolved = 1u;
@@ -143,7 +152,8 @@ static int at_fast_lookup_pilot_hide(const at_writer_state *s, uintptr_t mesh, a
     for (unsigned attempt = 0; attempt < 4u; attempt++) {
         uint32_t seq1 = __atomic_load_n(&s->fast.seq, __ATOMIC_ACQUIRE);
         if (seq1 & 1u) break;
-        uint32_t pcnt = s->fast.pilot_mesh_count;
+        uint32_t pcnt = __atomic_load_n(&s->fast.pilot_mesh_count, __ATOMIC_RELAXED);
+        if (pcnt > AT_MAX_PILOT_HIDE_MESHES) pcnt = AT_MAX_PILOT_HIDE_MESHES;
         if (pcnt == 0u) {
             __atomic_thread_fence(__ATOMIC_ACQUIRE);
             if (__atomic_load_n(&s->fast.seq, __ATOMIC_ACQUIRE) == seq1) return 0;
@@ -154,12 +164,19 @@ static int at_fast_lookup_pilot_hide(const at_writer_state *s, uintptr_t mesh, a
         at_pilot_hide_entry local_e;
         memset(&local_e, 0, sizeof(local_e));
         for (unsigned p = 0; p < AT_PILOT_MESH_HT_SIZE; p++) {
-            int16_t idx = s->fast.pilot_mesh_ht[(h + p) & AT_PILOT_MESH_HT_MASK];
+            int16_t idx = __atomic_load_n(&s->fast.pilot_mesh_ht[(h + p) & AT_PILOT_MESH_HT_MASK], __ATOMIC_RELAXED);
             if (idx < 0) break;
-            if ((uint32_t)idx < pcnt && s->fast.pilot_meshes[idx].mesh == mesh) {
-                local_e = s->fast.pilot_meshes[idx];
-                hit = 1;
-                break;
+            if ((uint32_t)idx < pcnt) {
+                const at_pilot_hide_entry *slot_e = &s->fast.pilot_meshes[(uint32_t)idx];
+                uintptr_t emesh = __atomic_load_n(&slot_e->mesh, __ATOMIC_RELAXED);
+                if (emesh == mesh) {
+                    local_e.mesh = emesh;
+                    local_e.hide_all = __atomic_load_n(&slot_e->hide_all, __ATOMIC_RELAXED);
+                    local_e.mask_lo = __atomic_load_n(&slot_e->mask_lo, __ATOMIC_RELAXED);
+                    local_e.mask_hi = __atomic_load_n(&slot_e->mask_hi, __ATOMIC_RELAXED);
+                    hit = 1;
+                    break;
+                }
             }
         }
         __atomic_thread_fence(__ATOMIC_ACQUIRE);

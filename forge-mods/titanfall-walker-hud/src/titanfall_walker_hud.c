@@ -211,15 +211,18 @@ static SRWLOCK g_walkerLock = SRWLOCK_INIT;
 static TfhWalkerSlot g_walkerSlots[TFH_MAX_TRACKED_WALKERS];
 static uint32_t g_walkerGen = 0u;
 static uint32_t g_walkerCursor = 0u;
+
+static SRWLOCK g_customWalkerLock = SRWLOCK_INIT;
 static uint64_t g_customWalkerEntities[TFH_MAX_CUSTOM_WALKERS];
 static uint32_t g_customWalkerCount = 0u;
 
-/* Lock-free double-buffered telemetry between game thread, camera thread, and overlay Present thread. */
+/* SRWLOCK-synchronized double-buffered telemetry between game thread, camera thread, and overlay Present thread. */
+static SRWLOCK g_telLock = SRWLOCK_INIT;
 static TfhGameTelemetry g_gameTelBuf[2];
-static volatile LONG g_gameTelIdx = 0;
+static LONG g_gameTelIdx = 0;
 
 static TfhPoseTelemetry g_poseTelBuf[2];
-static volatile LONG g_poseTelIdx = 0;
+static LONG g_poseTelIdx = 0;
 
 /* Camera-step thread private state. */
 static struct {
@@ -256,33 +259,74 @@ static struct {
     int is_open;
 } g_overlay;
 
-static int TfhIsWalkerResource(uint64_t res)
+static int TfhIsVanillaWalkerResource(uint64_t res)
 {
     if (res == 0ULL) return 0;
     for (size_t i = 0; i < sizeof(kTfhWalkerResources) / sizeof(kTfhWalkerResources[0]); i++) {
         if (kTfhWalkerResources[i] == res) return 1;
     }
-    for (uint32_t i = 0; i < g_customWalkerCount; i++) {
-        if (g_customWalkerEntities[i] == res) return 1;
-    }
     return 0;
+}
+
+static int TfhIsWalkerResource(uint64_t res)
+{
+    if (res == 0ULL) return 0;
+    if (TfhIsVanillaWalkerResource(res)) return 1;
+    int hit = 0;
+    AcquireSRWLockShared(&g_customWalkerLock);
+    for (uint32_t i = 0; i < g_customWalkerCount; i++) {
+        if (g_customWalkerEntities[i] == res) {
+            hit = 1;
+            break;
+        }
+    }
+    ReleaseSRWLockShared(&g_customWalkerLock);
+    return hit;
+}
+
+static void TfhClearCustomWalkers(void)
+{
+    AcquireSRWLockExclusive(&g_customWalkerLock);
+    g_customWalkerCount = 0u;
+    memset(g_customWalkerEntities, 0, sizeof(g_customWalkerEntities));
+    ReleaseSRWLockExclusive(&g_customWalkerLock);
 }
 
 static void TfhRefreshCustomWalkers(void)
 {
-    g_customWalkerCount = 0u;
-    if (!g_hf || g_hf->size < offsetof(HfApi, content) + sizeof(void*) || !g_hf->content) return;
-    for (uint32_t idx = 0u; idx < 2048u; idx++) {
-        HfContent c;
-        memset(&c, 0, sizeof(c));
-        c.size = sizeof(c);
-        if (!g_hf->content(g_mod, idx, &c)) break;
-        if (c.kind == 2u /* HF_KIND_ENTITY */ && TfhIsWalkerResource(c.base) && c.id != 0ULL) {
-            if (g_customWalkerCount < TFH_MAX_CUSTOM_WALKERS) {
-                g_customWalkerEntities[g_customWalkerCount++] = c.id;
+    uint64_t local_ids[TFH_MAX_CUSTOM_WALKERS];
+    uint32_t local_cnt = 0u;
+    if (g_hf && g_hf->size >= offsetof(HfApi, content) + sizeof(void*) && g_hf->content) {
+        for (uint32_t idx = 0u; idx < 2048u; idx++) {
+            HfContent c;
+            memset(&c, 0, sizeof(c));
+            c.size = sizeof(c);
+            if (!g_hf->content(g_mod, idx, &c)) break;
+            if (c.kind != 2u /* HF_KIND_ENTITY */ || c.id == 0ULL) continue;
+            int is_walker_base = TfhIsVanillaWalkerResource(c.base);
+            if (!is_walker_base) {
+                for (uint32_t k = 0u; k < local_cnt; k++) {
+                    if (local_ids[k] == c.base) {
+                        is_walker_base = 1;
+                        break;
+                    }
+                }
+            }
+            if (is_walker_base && local_cnt < TFH_MAX_CUSTOM_WALKERS) {
+                local_ids[local_cnt++] = c.id;
             }
         }
     }
+    AcquireSRWLockExclusive(&g_customWalkerLock);
+    g_customWalkerCount = local_cnt;
+    if (local_cnt > 0u) {
+        memcpy(g_customWalkerEntities, local_ids, (size_t)local_cnt * sizeof(uint64_t));
+    }
+    if (local_cnt < TFH_MAX_CUSTOM_WALKERS) {
+        memset(g_customWalkerEntities + local_cnt, 0,
+               (size_t)(TFH_MAX_CUSTOM_WALKERS - local_cnt) * sizeof(uint64_t));
+    }
+    ReleaseSRWLockExclusive(&g_customWalkerLock);
 }
 
 static int TfhRead(uintptr_t addr, void* buf, size_t sz)
@@ -432,13 +476,37 @@ static int TfhReadEntityDescByNet(uintptr_t em, uint32_t net_id, TfhEntityDescri
 
 /* ---- Game-Thread Telemetry Publisher ---------------------------------------------------------------------------- */
 
+static void TfhPublishGameTelemetry(const TfhGameTelemetry* gt)
+{
+    AcquireSRWLockExclusive(&g_telLock);
+    LONG nxt = (g_gameTelIdx == 0) ? 1 : 0;
+    if (gt) {
+        g_gameTelBuf[nxt] = *gt;
+    } else {
+        memset(&g_gameTelBuf[nxt], 0, sizeof(g_gameTelBuf[nxt]));
+    }
+    g_gameTelIdx = nxt;
+    ReleaseSRWLockExclusive(&g_telLock);
+}
+
+static void TfhSnapshotGameTelemetry(TfhGameTelemetry* out_gt)
+{
+    AcquireSRWLockShared(&g_telLock);
+    if (out_gt) *out_gt = g_gameTelBuf[g_gameTelIdx & 1];
+    ReleaseSRWLockShared(&g_telLock);
+}
+
+static void TfhSnapshotAllTelemetry(TfhGameTelemetry* out_gt, TfhPoseTelemetry* out_pt)
+{
+    AcquireSRWLockShared(&g_telLock);
+    if (out_gt) *out_gt = g_gameTelBuf[g_gameTelIdx & 1];
+    if (out_pt) *out_pt = g_poseTelBuf[g_poseTelIdx & 1];
+    ReleaseSRWLockShared(&g_telLock);
+}
+
 static void TfhPublishEmptyTelemetry(void)
 {
-    LONG cur = InterlockedCompareExchange(&g_gameTelIdx, 0, 0);
-    LONG nxt = (cur == 0) ? 1 : 0;
-    memset(&g_gameTelBuf[nxt], 0, sizeof(g_gameTelBuf[nxt]));
-    MemoryBarrier();
-    InterlockedExchange(&g_gameTelIdx, nxt);
+    TfhPublishGameTelemetry(NULL);
 }
 
 static void TfhOnGameThread(HfMod* mod, float dt, void* user)
@@ -622,11 +690,7 @@ static void TfhOnGameThread(HfMod* mod, float dt, void* user)
         }
     }
 
-    LONG cur = InterlockedCompareExchange(&g_gameTelIdx, 0, 0);
-    LONG nxt = (cur == 0) ? 1 : 0;
-    g_gameTelBuf[nxt] = next;
-    MemoryBarrier();
-    InterlockedExchange(&g_gameTelIdx, nxt);
+    TfhPublishGameTelemetry(&next);
 }
 
 /* ---- Stingray Unit Helpers & Camera Step Detour ----------------------------------------------------------------- */
@@ -727,11 +791,15 @@ static void TfhSetScreenVisible(int want_open)
 
 static void TfhPublishPoseTelemetry(const TfhPoseTelemetry* pt)
 {
-    LONG cur = InterlockedCompareExchange(&g_poseTelIdx, 0, 0);
-    LONG nxt = (cur == 0) ? 1 : 0;
-    g_poseTelBuf[nxt] = *pt;
-    MemoryBarrier();
-    InterlockedExchange(&g_poseTelIdx, nxt);
+    AcquireSRWLockExclusive(&g_telLock);
+    LONG nxt = (g_poseTelIdx == 0) ? 1 : 0;
+    if (pt) {
+        g_poseTelBuf[nxt] = *pt;
+    } else {
+        memset(&g_poseTelBuf[nxt], 0, sizeof(g_poseTelBuf[nxt]));
+    }
+    g_poseTelIdx = nxt;
+    ReleaseSRWLockExclusive(&g_telLock);
 }
 
 static void TfhRestoreBasePoseIfNeeded(void)
@@ -1017,8 +1085,8 @@ static void TfhApplyCameraAndTelemetryStep(void)
         g_cam.world = world;
     }
 
-    LONG gt_idx = InterlockedCompareExchange(&g_gameTelIdx, 0, 0);
-    TfhGameTelemetry gt = g_gameTelBuf[gt_idx & 1];
+    TfhGameTelemetry gt;
+    TfhSnapshotGameTelemetry(&gt);
     if (gt.avatar_ref == 0u) {
         TfhResetCameraCache();
         return;
@@ -1334,10 +1402,9 @@ static int TfhDrawScreen(void* user, const HfDraw* draw, const HfInput* input, f
         }
     }
 
-    LONG gt_i = InterlockedCompareExchange(&g_gameTelIdx, 0, 0);
-    LONG pt_i = InterlockedCompareExchange(&g_poseTelIdx, 0, 0);
-    TfhGameTelemetry gt = g_gameTelBuf[gt_i & 1];
-    TfhPoseTelemetry pt = g_poseTelBuf[pt_i & 1];
+    TfhGameTelemetry gt;
+    TfhPoseTelemetry pt;
+    TfhSnapshotAllTelemetry(&gt, &pt);
 
     if (!pt.mounted && !input->closing) {
         return 0;
@@ -1544,6 +1611,7 @@ HF_MOD_EXPORT int hellforge_mod_unload(const HfApi* api, HfMod* mod, uint32_t re
         api->screen_show(mod, g_screenId, 0);
     }
     TfhClearWalkers();
+    TfhClearCustomWalkers();
     return 0;
 }
 
@@ -1583,9 +1651,14 @@ HF_MOD_EXPORT int hellforge_mod_init(const HfApi* api, HfMod* mod)
     memset(&g_cam, 0, sizeof(g_cam));
     g_cam.pelvis_node = -1;
     memset(&g_overlay, 0, sizeof(g_overlay));
+    AcquireSRWLockExclusive(&g_telLock);
     memset(g_gameTelBuf, 0, sizeof(g_gameTelBuf));
     memset(g_poseTelBuf, 0, sizeof(g_poseTelBuf));
+    g_gameTelIdx = 0;
+    g_poseTelIdx = 0;
+    ReleaseSRWLockExclusive(&g_telLock);
     TfhClearWalkers();
+    TfhClearCustomWalkers();
 
     tfh_options_defaults(&g_opts);
     if (api->mod_folder) {

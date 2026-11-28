@@ -73,6 +73,8 @@ static int g_attach_calls = 0;
 static int g_pkg_calls = 0;
 static int g_hf_load_pkg_calls = 0;
 static int g_auto_resident_on_req = 1;
+static int g_sim_refmap_updates = 0;
+static uint64_t g_last_pkg_req_id = 0ULL;
 static uint64_t g_custom_mod_sec_ent = 0xCAFE000012345678ULL;
 static char g_mock_mod_folder[MAX_PATH + 128];
 
@@ -290,8 +292,45 @@ static void MockPkgReqFn(uint64_t sys, uint64_t id_ptr, uint64_t one, uint64_t d
     if (id_ptr >= 0x10000ULL) {
         memcpy(&pid, (const void*)(uintptr_t)id_ptr, 8u);
     }
+    g_last_pkg_req_id = pid;
     if (pid != 0ULL) {
         UpsertMockEnginePkg(pid, 2u, g_auto_resident_on_req ? 4u : 2u);
+        if (g_sim_refmap_updates) {
+            uint64_t entries_u64 = 0ULL;
+            uint32_t cap = 0u;
+            memcpy(&entries_u64, g_mock_pkg_sys + 0u, 8u);
+            memcpy(&cap, g_mock_pkg_sys + 8u, 4u);
+            if (entries_u64 >= 0x10000ULL && cap > 0u && cap <= 64u) {
+                uint8_t* entries = (uint8_t*)(uintptr_t)entries_u64;
+                int updated = 0;
+                for (uint32_t i = 0u; i < cap; i++) {
+                    uint64_t k = 0ULL;
+                    uint32_t r = 0u;
+                    memcpy(&k, entries + i * 16u + 0u, 8u);
+                    memcpy(&r, entries + i * 16u + 8u, 4u);
+                    if (k == pid && r != 0u) {
+                        r++;
+                        memcpy(entries + i * 16u + 8u, &r, 4u);
+                        updated = 1;
+                        break;
+                    }
+                }
+                if (!updated) {
+                    for (uint32_t i = 0u; i < cap; i++) {
+                        uint64_t k = 0ULL;
+                        uint32_t r = 0u;
+                        memcpy(&k, entries + i * 16u + 0u, 8u);
+                        memcpy(&r, entries + i * 16u + 8u, 4u);
+                        if (k == 0ULL || r == 0u) {
+                            r = 1u;
+                            memcpy(entries + i * 16u + 0u, &pid, 8u);
+                            memcpy(entries + i * 16u + 8u, &r, 4u);
+                            break;
+                        }
+                    }
+                }
+            }
+        }
     }
 }
 
@@ -850,17 +889,19 @@ static void test_wilderness_preload_and_residency_gated_deferred_spawn(const cha
     memcpy(g_mock_pkg_ref_entries + 0u, &held_machete0, 8u);
     memcpy(g_mock_pkg_ref_entries + 8u, &refs2, 4u);
 
-    /* Player switches picker to 'machete' (9 packages) during PREPARE_MISSION loadout! */
+    /* Player switches picker to 'machete' (9 packages) during PREPARE_MISSION loadout!
+     * Finding 2: dedicated-melee-slot acquires its OWN +1 ref once per session slot even when
+     * held_machete0 is already in RefcountedPackageSystem (7 + 9 = 16), then dedups on repeat ticks! */
     char p[MAX_PATH + 64];
     snprintf(p, sizeof(p), "%s\\melee-slot-weapon.txt", dir);
     FILE* f = fopen(p, "wb");
     if (f) { fprintf(f, "machete\r\n"); fclose(f); }
     g_nextPkgCheckTick = 0ULL;
     g_cb_tick((HfMod*)&g_mod_inst, 0.016f, NULL);
-    /* 1 of 9 was already in RefcountedPackageSystem -> only 8 new g_pkgReq calls (7 + 8 = 15)! */
-    TEST_CHECK(g_pkg_calls == 15, "PREPARE_MISSION Tick preloaded machete and skipped already-held package in ref map");
-    /* Seed 0x8f295b4d04c3a06c in mock engine list as LOADING (state = 2) too */
-    UpsertMockEnginePkg(held_machete0, 2u, 2u);
+    TEST_CHECK(g_pkg_calls == 16, "PREPARE_MISSION Tick acquired own +1 ref for all 9 machete packages including externally-held slot");
+    g_nextPkgCheckTick = 0ULL;
+    g_cb_tick((HfMod*)&g_mod_inst, 0.016f, NULL);
+    TEST_CHECK(g_pkg_calls == 16, "repeat PREPARE_MISSION Tick did not double-request session-held packages");
 
     /* Now fill 12 of 16 slots (75% full: (12 + 1) * 4 = 52 >= 48) and switch to 'shovel' -> g_pkgReq refused safely! */
     for (uint32_t fill = 1u; fill < 12u; fill++) {
@@ -873,7 +914,7 @@ static void test_wilderness_preload_and_residency_gated_deferred_spawn(const cha
     if (f) { fprintf(f, "shovel\r\n"); fclose(f); }
     g_nextPkgCheckTick = 0ULL;
     g_cb_tick((HfMod*)&g_mod_inst, 0.016f, NULL);
-    TEST_CHECK(g_pkg_calls == 15, "RefcountedPackageSystem >=75% load factor refused unsafe g_pkgReq");
+    TEST_CHECK(g_pkg_calls == 16, "RefcountedPackageSystem >=75% load factor refused unsafe g_pkgReq");
 
     /* Clear ref map saturation and switch back to 'machete' for wilderness drop test! */
     memset(g_mock_pkg_sys, 0, sizeof(g_mock_pkg_sys));
@@ -976,6 +1017,97 @@ static void test_wilderness_preload_and_residency_gated_deferred_spawn(const cha
         "clean unload after wilderness deferred spawn suite");
 }
 
+static void test_finding2_multimission_external_ref_unload_recovery(const char* dir)
+{
+    if (!dir || !*dir) return;
+
+    SetupHarnessEx(dir, "machete", 1, 0);
+    g_sim_refmap_updates = 1;
+
+    uint64_t machete_pkgs[DMS_MAX_REQ_PACKAGES];
+    size_t machete_cnt = ParsePackageIdList(kMelee[0].packages, machete_pkgs, DMS_MAX_REQ_PACKAGES);
+    TEST_CHECK(machete_cnt == 9u, "Finding 2: parsed 9 machete packages");
+
+    uint64_t ref_ptr = (uint64_t)(uintptr_t)g_mock_pkg_ref_entries;
+    uint32_t ref_cap = 32u;
+    memcpy(g_mock_pkg_sys + 0u, &ref_ptr, 8u);
+    memcpy(g_mock_pkg_sys + 8u, &ref_cap, 4u);
+
+    /* Co-op teammate already holds machete_pkgs[0] (refs = 1) on Mission 1 before our mission start! */
+    uint32_t ext_refs = 1u;
+    memcpy(g_mock_pkg_ref_entries + 0u, &machete_pkgs[0], 8u);
+    memcpy(g_mock_pkg_ref_entries + 8u, &ext_refs, 4u);
+
+    /* Mission 1 start: we MUST still acquire our own +1 ref on machete_pkgs[0] (bringing refs 1 -> 2)! */
+    HfEventInfo m1_start = {sizeof(HfStateEvent), HF_ON_MISSION_START, 1};
+    g_ls_mstart((HfMod*)&g_mod_inst, &m1_start, NULL);
+    uint32_t slot0_refs = 0u;
+    memcpy(&slot0_refs, g_mock_pkg_ref_entries + 8u, 4u);
+    TEST_CHECK(g_pkg_calls == 9 && slot0_refs == 2u,
+        "Finding 2: Mission 1 acquired own +1 ref alongside external holder (refs 1 -> 2)");
+
+    /* Mission 1 ends and co-op teammate leaves (decrementing external ref 2 -> 1; package stays alive!). */
+    HfEventInfo m1_end = {sizeof(HfStateEvent), HF_ON_MISSION_END, 2};
+    g_ls_mend((HfMod*)&g_mod_inst, &m1_end, NULL);
+    slot0_refs--;
+    memcpy(g_mock_pkg_ref_entries + 8u, &slot0_refs, 4u);
+    TEST_CHECK(PkgSystemRefMapQuery((uintptr_t)g_mock_pkg_sys, machete_pkgs[0]) == 2,
+        "Finding 2: machete_pkgs[0] remains held (refs = 1) after external teammate unloads");
+
+    /* Now test defense-in-depth recovery: simulate an engine transition wiping machete_pkgs[0] from the
+     * RefcountedPackageSystem map AND evicting its parts to non-resident (state = 2) on a Mission 2
+     * wilderness drop while g_sessionHeldSysReq[0] == 1 and g_pkgDone == 1! */
+    HfEventInfo m2_start = {sizeof(HfStateEvent), HF_ON_MISSION_START, 3};
+    g_ls_mstart((HfMod*)&g_mod_inst, &m2_start, NULL);
+    TEST_CHECK(g_pkg_calls == 9, "Finding 2: Mission 2 start made 0 redundant g_pkgReq calls while refs intact");
+
+    HfPlayerEvent pev = {{sizeof(pev), HF_ON_PLAYER_SPAWN, 3}, 0xAABBCCDDEEFF0011ULL, 0x9999u, 1u};
+    g_ls_pspawn((HfMod*)&g_mod_inst, (const HfEventInfo*)&pev, NULL);
+
+    /* External/transition wipe drops machete_pkgs[0] from refmap and unloads part 0 in engine list! */
+    memset(g_mock_pkg_ref_entries + 0u, 0, 16u);
+    SetMockEnginePkgPartState(machete_pkgs[0], 0u, 2u);
+    g_auto_resident_on_req = 0; /* g_pkgReq will start streaming (state = 2) */
+
+    uint8_t stack_info[0x200];
+    memset(stack_info, 0, sizeof(stack_info));
+    stack_info[0] = 1u;
+    uint32_t pistol_net = 0x444u, out_id = 0u;
+    memcpy(stack_info + 4u, &pistol_net, 4u);
+    g_spawn_calls = 0;
+    g_last_pkg_req_id = 0ULL;
+    SpawnReqDetour((uint64_t)(uintptr_t)&out_id, 0x8D3D52A3B2F19402ULL, (uint64_t)(uintptr_t)stack_info, 0, 0, 0);
+    memcpy(&slot0_refs, g_mock_pkg_ref_entries + 8u, 4u);
+    TEST_CHECK(g_pendingSpawn == 1 && g_spawn_calls == 1,
+        "Finding 2: Mission 2 wilderness drop deferred melee spawn when machete_pkgs[0] non-resident");
+    TEST_CHECK(g_pkg_calls == 10 && g_last_pkg_req_id == machete_pkgs[0] && slot0_refs == 1u,
+        "Finding 2: SpawnReqDetour immediately re-verified refmap and re-requested ONLY dropped machete_pkgs[0]");
+
+    /* Also wipe machete_pkgs[1] AFTER SpawnReqDetour while g_pendingSpawn == 1 -> ProcessPendingSpawn MUST
+     * detect PkgSystemRefMapQuery != 2 despite g_pkgDone == 1, clear g_sessionHeldSysReq[1], and re-request it! */
+    memset(g_mock_pkg_ref_entries + 16u, 0, 16u);
+    SetMockEnginePkgPartState(machete_pkgs[1], 0u, 2u);
+    g_last_pkg_req_id = 0ULL;
+    g_cb_tick((HfMod*)&g_mod_inst, 0.016f, NULL);
+    uint32_t slot1_refs = 0u;
+    memcpy(&slot1_refs, g_mock_pkg_ref_entries + 16u + 8u, 4u);
+    TEST_CHECK(g_pkg_calls == 11 && g_last_pkg_req_id == machete_pkgs[1] && slot1_refs == 1u,
+        "Finding 2: ProcessPendingSpawn re-verified refmap, cleared stale held flag, and re-requested ONLY dropped machete_pkgs[1]");
+
+    /* Streaming finishes -> next Tick spawns extra melee copy cleanly without stranding! */
+    SetMockEnginePkgPartState(machete_pkgs[0], 0u, 4u);
+    SetMockEnginePkgPartState(machete_pkgs[0], 1u, 4u);
+    SetMockEnginePkgPartState(machete_pkgs[1], 0u, 4u);
+    SetMockEnginePkgPartState(machete_pkgs[1], 1u, 4u);
+    g_cb_tick((HfMod*)&g_mod_inst, 0.016f, NULL);
+    TEST_CHECK(g_pendingSpawn == 0 && g_spawn_calls == 2 && g_probeEntity != 0u,
+        "Finding 2: Mission 2 wilderness deferred spawn completed immediately once re-acquired package finished streaming");
+
+    g_sim_refmap_updates = 0;
+    TEST_CHECK(hellforge_mod_unload(&g_api, (HfMod*)&g_mod_inst, HF_UNLOAD_REMOVE) == 0,
+        "clean unload after Finding 2 multi-mission recovery suite");
+}
+
 int main(int argc, char** argv)
 {
     const char* temp_dir = argc > 1 ? argv[1] : NULL;
@@ -986,6 +1118,7 @@ int main(int argc, char** argv)
     test_h3c_h3d_failed_spawn_and_failed_attach_recovery(temp_dir);
     test_hellforge_05_relocated_4096_entity_manager(temp_dir);
     test_wilderness_preload_and_residency_gated_deferred_spawn(temp_dir);
+    test_finding2_multimission_external_ref_unload_recovery(temp_dir);
 
     printf("dedicated-melee-slot C11 unit suite: %d checks run, %d failed\n", g_tests_run, g_tests_failed);
     return g_tests_failed == 0 ? 0 : 1;
