@@ -1026,10 +1026,11 @@ internal static class Milestone1CoreTests
             {
                 var f = Path.Combine(modsDir, id);
                 Directory.CreateDirectory(f);
+                File.WriteAllText(Path.Combine(f, "hellforge-mod.json"), JsonSerializer.Serialize(new { id, name, version = ver }));
                 Mods.Add(new(id, name, true, f, ["gameplay"], ver));
             }
 
-            // All 14 r7 catalog artifacts with matching archives/folders and hashes
+            // All r17 catalog artifacts with real 0.5.0-beta parity (pack.* extracted to folder with archive: null)
             foreach (var artifact in HellForgeGameplayCatalog.Pinned.Artifacts)
             {
                 var folder = Path.Combine(modsDir, artifact.Id);
@@ -1037,9 +1038,15 @@ internal static class Milestone1CoreTests
                 string? archive = null;
                 if (artifact.Id.StartsWith("pack.", StringComparison.Ordinal))
                 {
-                    // Create a matching tiny zip? Wait: InstalledGameplayHashAsync verifies exact artifact.Bytes & Sha256 for pack.* when Archive != null!
-                    // Leaving Archive == null makes InstalledGameplayHashAsync call `mod-hash --mod folder` directly, which returns artifact.ContentHash!
+                    File.WriteAllText(Path.Combine(folder, "manifest.json"),
+                        JsonSerializer.Serialize(new { Version = 1, Guid = artifact.Id["pack.".Length..], Name = artifact.Name }));
+                    File.WriteAllBytes(Path.Combine(folder, "0000000000000001.patch_0"), [1, 2, 3, 4]);
                     archive = null;
+                }
+                else
+                {
+                    File.WriteAllText(Path.Combine(folder, "hellforge-mod.json"),
+                        JsonSerializer.Serialize(new { id = artifact.Id, name = artifact.Name, version = artifact.Version }));
                 }
                 hashesByFolder[folder] = artifact.ContentHash;
 
@@ -1106,10 +1113,37 @@ internal static class Milestone1CoreTests
                     break;
 
                 case "mod-hash":
+                {
                     var target = args[2];
-                    var hash = hashesByFolder.TryGetValue(target, out var known) ? known : new string('0', 64);
+                    string hash;
+                    if (target.EndsWith(".zip", StringComparison.OrdinalIgnoreCase))
+                    {
+                        using var zip = System.IO.Compression.ZipFile.OpenRead(target);
+                        string id;
+                        if (zip.GetEntry("hellforge-mod.json") is { } hfEntry)
+                        {
+                            using var s = hfEntry.Open();
+                            using var doc = JsonDocument.Parse(s);
+                            id = doc.RootElement.GetProperty("id").GetString()!;
+                        }
+                        else if (zip.GetEntry("manifest.json") is { } packEntry)
+                        {
+                            using var s = packEntry.Open();
+                            using var doc = JsonDocument.Parse(s);
+                            id = "pack." + doc.RootElement.GetProperty("Guid").GetString()!;
+                        }
+                        else throw new InvalidDataException("Archive holds no mod.");
+                        hash = HellForgeGameplayCatalog.Pinned.Artifacts.FirstOrDefault(a => a.Id == id)?.ContentHash ?? new string('0', 64);
+                    }
+                    else
+                    {
+                        var mf = Path.Combine(target, "hellforge-mod.json");
+                        if (!File.Exists(mf)) throw new FileNotFoundException($"HellForge: Could not find file '{mf}'.");
+                        hash = hashesByFolder.TryGetValue(target, out var known) ? known : new string('0', 64);
+                    }
                     response = new { hash };
                     break;
+                }
 
                 case "mod-switch":
                 {

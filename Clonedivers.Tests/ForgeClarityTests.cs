@@ -40,12 +40,12 @@ static class ForgeClarityTests
                 },
                 "mods" => new
                 {
-                    mods = Mods.Select(m => new { id = m.Id, name = m.Name, enabled = m.Enabled, folder = m.Folder, tags = m.Tags, version = m.Version,
+                    mods = Mods.Select(m => new { id = m.Id, name = m.Name, enabled = m.Enabled, folder = m.Folder, archive = m.Archive, tags = m.Tags, version = m.Version,
                         options = m.Options?.Select(o => new { name = o.Name, on = o.On }) }),
                     problems = Array.Empty<string>(),
                     modlist = "fixture-code"
                 },
-                "mod-hash" => new { hash = HellForgeGameplayCatalog.Pinned.Artifacts.Single(a => Mods.Any(m => m.Id == a.Id && m.Folder == args[2])).ContentHash },
+                "mod-hash" => HashTarget(args[2]),
                 "profiles" => new { profiles = new[] { new { name = HellForgeAccount.Profile, template = "starter" } } },
                 "settings" => new { ok = true },
                 "play" => RecordPlay(),
@@ -53,14 +53,65 @@ static class ForgeClarityTests
             };
             return Task.FromResult(JsonSerializer.SerializeToElement(result));
         }
+        static object HashTarget(string target)
+        {
+            string id;
+            if (target.EndsWith(".zip", StringComparison.OrdinalIgnoreCase))
+            {
+                using var zip = System.IO.Compression.ZipFile.OpenRead(target);
+                if (zip.GetEntry("hellforge-mod.json") is { } hfEntry)
+                {
+                    using var s = hfEntry.Open();
+                    using var doc = JsonDocument.Parse(s);
+                    id = doc.RootElement.GetProperty("id").GetString()!;
+                }
+                else if (zip.GetEntry("manifest.json") is { } packEntry)
+                {
+                    using var s = packEntry.Open();
+                    using var doc = JsonDocument.Parse(s);
+                    id = "pack." + doc.RootElement.GetProperty("Guid").GetString()!;
+                }
+                else throw new InvalidDataException("Archive holds no mod.");
+            }
+            else
+            {
+                var mf = Path.Combine(target, "hellforge-mod.json");
+                if (!File.Exists(mf)) throw new FileNotFoundException($"HellForge: Could not find file '{mf}'.");
+                using var doc = JsonDocument.Parse(File.ReadAllText(mf));
+                id = doc.RootElement.GetProperty("id").GetString()!;
+            }
+            return new { hash = HellForgeGameplayCatalog.Pinned.Artifacts.Single(a => a.Id == id).ContentHash };
+        }
         object RecordPlay() { PlayCalls++; return new { @event = "started", runId = "fixture", pid = 123 }; }
+    }
+
+    static void SeedFakeModFolder(string folder, string id, string name, string version)
+    {
+        Directory.CreateDirectory(folder);
+        if (id.StartsWith("pack.", StringComparison.Ordinal))
+        {
+            File.WriteAllText(Path.Combine(folder, "manifest.json"), JsonSerializer.Serialize(new { Version = 1, Guid = id["pack.".Length..], Name = name }));
+            File.WriteAllBytes(Path.Combine(folder, "0000000000000001.patch_0"), [1, 2, 3, 4]);
+        }
+        else
+        {
+            File.WriteAllText(Path.Combine(folder, "hellforge-mod.json"), JsonSerializer.Serialize(new { id, name, version }));
+        }
     }
 
     static List<HellForgeMod> BuildReadyMods(string root)
     {
-        var mods = HellForgePreset.Required.Select(item => new HellForgeMod(item.Id, item.Name, true, Path.Combine(root, "mods", item.Id), [], item.Version,
-            item.Id == HellForgePreset.GuardDogs ? [new("Smarter Guard Dogs and Sentries", true), new("Guard Dogs", true), new("Sentries", true), new("Intelligence", true), new("Safety", true), new("Sentry Safety", false), new("SEAF Safety", false), new("Targeting Laser", false), new("Targeting Marker", false)] : null)).ToList();
-        mods.Add(new("skyeshade.vanilla-plus", "Vanilla Plus", true, Path.Combine(root, "mods", "vanilla-plus"), []));
+        var mods = HellForgePreset.Required.Select(item =>
+        {
+            var folder = Path.Combine(root, "mods", item.Id);
+            SeedFakeModFolder(folder, item.Id, item.Name, item.Version);
+            return new HellForgeMod(item.Id, item.Name, true, folder, [], item.Version,
+                item.Id == HellForgePreset.GuardDogs ? [new("Smarter Guard Dogs and Sentries", true), new("Guard Dogs", true), new("Sentries", true), new("Intelligence", true), new("Safety", true), new("Sentry Safety", false), new("SEAF Safety", false), new("Targeting Laser", false), new("Targeting Marker", false)] : null,
+                Archive: null);
+        }).ToList();
+        var vpFolder = Path.Combine(root, "mods", "vanilla-plus");
+        SeedFakeModFolder(vpFolder, "skyeshade.vanilla-plus", "Vanilla Plus", "");
+        mods.Add(new("skyeshade.vanilla-plus", "Vanilla Plus", true, vpFolder, []));
         mods.Sort((a, b) => HellForgeGameplayCatalog.Pinned.Order.IndexOf(a.Id).CompareTo(HellForgeGameplayCatalog.Pinned.Order.IndexOf(b.Id)));
         return mods;
     }

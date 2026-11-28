@@ -191,6 +191,341 @@ internal static class GameplayInstallTests
         check(HellForgeClient.BackupHashSource(new(HellForgePreset.GuardDogs, "Smarter Guard Dogs", true, Path.Combine(install, "mods", "guard-dogs"), ["pack"]), zip) == zip &&
             HellForgeClient.BackupHashSource(new("local.operation-reroller", "Operation Reroller", true, Path.Combine(install, "mods", "reroller"), ["code"]), zip) == Path.Combine(install, "mods", "reroller"),
             "a folder-installed cosmetic pack's backup is attested by its ZIP, not by the CLI's unhashable pack folder");
+        await PackArchiveNullRegressionTests(root, check);
+    }
+
+    static async Task PackArchiveNullRegressionTests(string root, Action<bool, string> check)
+    {
+        var catalog = HellForgeGameplayCatalog.Pinned;
+        var originalArtifacts = catalog.Artifacts.ToList();
+        var install = Path.Combine(root, "pack-archive-null-050", "HellForge");
+        Directory.CreateDirectory(Path.Combine(install, "mods"));
+        try
+        {
+            var cli = new Fake050CliCommands(install);
+            var client = new HellForgeClient(install, cli) { RequireCliQuiescent = () => { } };
+            Directory.CreateDirectory(client.GameplayCache);
+
+            // Build deterministic fixture .zip archives for all 19 r17 artifacts, matching real 0.5.0-beta structure:
+            // - pack.* archives hold manifest.json + option patch subfolders (no hellforge-mod.json)
+            // - code/data mods hold hellforge-mod.json + payload
+            for (int i = 0; i < catalog.Artifacts.Count; i++)
+            {
+                var orig = catalog.Artifacts[i];
+                var tempPath = Path.Combine(client.GameplayCache, $"fixture-{i}.zip");
+                using (var archive = ZipFile.Open(tempPath, ZipArchiveMode.Create))
+                {
+                    if (orig.Id.StartsWith("pack.", StringComparison.Ordinal))
+                    {
+                        var guid = orig.Id["pack.".Length..];
+                        object[] opts = orig.Id == HellForgePreset.GuardDogs
+                            ? [
+                                new { Name = "Smarter Guard Dogs and Sentries", Include = new[] { "core" } },
+                                new { Name = "Guard Dogs", Include = new[] { "core" } },
+                                new { Name = "Sentries", Include = new[] { "core" } },
+                                new { Name = "Intelligence", Include = new[] { "core" } },
+                                new { Name = "Safety", Include = new[] { "core" } },
+                                new { Name = "Sentry Safety", Include = new[] { "core" } },
+                                new { Name = "SEAF Safety", Include = new[] { "core" } },
+                                new { Name = "Targeting Laser", Include = new[] { "core" } },
+                                new { Name = "Targeting Marker", Include = new[] { "core" } }
+                            ]
+                            : [new { Name = orig.Name, Include = new[] { "core" } }];
+                        using (var w = new StreamWriter(archive.CreateEntry("manifest.json").Open()))
+                            w.Write(JsonSerializer.Serialize(new { Version = 1, Guid = guid, Name = orig.Name, Options = opts }));
+                        using (var w = new StreamWriter(archive.CreateEntry("core/0000000000000001.patch_0").Open()))
+                            w.Write("clean-pack-payload:" + orig.Id);
+                    }
+                    else
+                    {
+                        using (var w = new StreamWriter(archive.CreateEntry("hellforge-mod.json").Open()))
+                            w.Write(JsonSerializer.Serialize(new { id = orig.Id, name = orig.Name, version = orig.Version, gameplay = orig.Id == HellForgePreset.ChaosInvasions }));
+                        using (var w = new StreamWriter(archive.CreateEntry("payload.bin").Open()))
+                            w.Write("clean-mod-payload:" + orig.Id + ":" + orig.Version);
+                    }
+                }
+                var bytes = File.ReadAllBytes(tempPath);
+                var sha = Convert.ToHexString(SHA256.HashData(bytes)).ToLowerInvariant();
+                var contentHashJson = await cli.RunAsync(["mod-hash", "--mod", tempPath]);
+                var contentHash = contentHashJson.GetProperty("hash").GetString()!;
+                var updated = orig with { Bytes = bytes.Length, Sha256 = sha, ContentHash = contentHash };
+                File.Move(tempPath, Path.Combine(client.GameplayCache, updated.FileName), overwrite: true);
+                catalog.Artifacts[i] = updated;
+            }
+
+            // 1. Fresh InstallGameplayAsync on 0.5.0-beta where pack.* imports unpack to folders with archive: null
+            await client.InstallGameplayAsync(client.GameplayCache, activeMode: "empire");
+            var installedMods = await client.ModsAsync();
+            var packMods = installedMods.Mods.Where(m => m.Id.StartsWith("pack.", StringComparison.Ordinal)).ToList();
+            bool directFolderHashThrows = false;
+            try { await cli.RunAsync(["mod-hash", "--mod", packMods[0].Folder]); }
+            catch (IOException) { directFolderHashThrows = true; }
+
+            var tempHashDir = Path.Combine(client.CacheRoot, "temp");
+            bool noTempZipLeak = !Directory.Exists(tempHashDir) || !Directory.EnumerateFiles(tempHashDir, "*.zip").Any();
+            var missingAfterInstall = await client.MissingGameplayAsync("empire");
+            check(packMods.Count == 3 && packMods.All(m => m.Archive == null) && directFolderHashThrows &&
+                missingAfterInstall.Count == 0 && noTempZipLeak,
+                "InstallGameplayAsync and MissingGameplayAsync verify all 3 archive:null pack.* folders via ephemeral temp zips with 0 leaked temp files while non-zip pack.* mod-hash throws IOException (#47)");
+
+            // 2. Unpacked pack.* corruption is detected when archive is null and Rollback (RestoreGameplayAsync) succeeds when snapshot.Backups holds pack.* mods!
+            var smarterSeafMod = installedMods.Mods.Single(m => m.Id == HellForgePreset.SmarterSeaf);
+            var seafPatch = Path.Combine(smarterSeafMod.Folder, "core", "0000000000000001.patch_0");
+            File.WriteAllText(seafPatch, "drifted-pack-payload-before-upgrade");
+            var missingDrifted = await client.MissingGameplayAsync("empire");
+            check(missingDrifted.Count == 1 && missingDrifted[0].Id == HellForgePreset.SmarterSeaf,
+                "MissingGameplayAsync detects changed files inside an archive:null pack.* folder");
+
+            cli.FailNextModPack = true;
+            bool rolledBackCleanly = false;
+            try { await client.InstallGameplayAsync(client.GameplayCache, activeMode: "empire"); }
+            catch (IOException ex) when (ex.Message.Contains("previous mod selection was restored", StringComparison.Ordinal)) { rolledBackCleanly = true; }
+            check(rolledBackCleanly && client.InterruptedGameplayProblem() == null &&
+                File.ReadAllText(seafPatch) == "drifted-pack-payload-before-upgrade",
+                "RestoreGameplayAsync rollback succeeds on 0.5.0-beta when snapshot.Backups contains archive:null pack.* mods (#47)");
+
+            // 3. Wedged State = "pending" recovery (RecoverGameplayAsync) when snapshot.Backups holds archive:null pack.* mods!
+            cli.LoseNextModAddAck = true;
+            bool lostAck = false;
+            try { await client.InstallGameplayAsync(client.GameplayCache, activeMode: "empire"); }
+            catch (HellForgeCommandOutcomeUnknownException) { lostAck = true; }
+            check(lostAck && client.InterruptedGameplayProblem() != null,
+                "interrupted pack.* repair leaves State = pending for RecoverGameplayAsync");
+
+            var freshRecoveryClient = new HellForgeClient(install, cli) { RequireCliQuiescent = () => { } };
+            await freshRecoveryClient.RecoverGameplayAsync();
+            check(freshRecoveryClient.InterruptedGameplayProblem() == null &&
+                File.ReadAllText(seafPatch) == "drifted-pack-payload-before-upgrade",
+                "RecoverGameplayAsync cleanly recovers an installation wedged in State = pending with archive:null pack.* backups (#47)");
+
+            // 4. Subsequent retry repairs Smarter SEAF back to clean pinned hash with 0 missing artifacts
+            await freshRecoveryClient.InstallGameplayAsync(freshRecoveryClient.GameplayCache, activeMode: "empire");
+            check((await freshRecoveryClient.MissingGameplayAsync("empire")).Count == 0 &&
+                File.ReadAllText(seafPatch) == "clean-pack-payload:" + HellForgePreset.SmarterSeaf,
+                "subsequent InstallGameplayAsync after RecoverGameplayAsync repairs archive:null pack.* content cleanly");
+        }
+        finally
+        {
+            catalog.Artifacts.Clear();
+            catalog.Artifacts.AddRange(originalArtifacts);
+        }
+    }
+
+    sealed class Fake050CliCommands : IHellForgeCommands
+    {
+        readonly string root;
+        public List<HellForgeMod> Mods { get; } = [];
+        public bool FailNextModPack;
+        public bool LoseNextModAddAck;
+
+        public Fake050CliCommands(string root)
+        {
+            this.root = root;
+            foreach (var (id, name, ver) in new[]
+            {
+                ("hellforge.editor", "HellForge Editor", "0.4.2"),
+                (HellForgeClient.DifficultyId, "Hell Forge Difficulty", "0.16.1"),
+                ("skyeshade.vanilla-plus", "Vanilla Plus", "")
+            })
+            {
+                var dir = Path.Combine(root, "mods", id);
+                Directory.CreateDirectory(dir);
+                File.WriteAllText(Path.Combine(dir, "hellforge-mod.json"), JsonSerializer.Serialize(new { id, name, version = ver }));
+                Mods.Add(new(id, name, true, dir, ["bundled", "code"], ver, Archive: null));
+            }
+        }
+
+        static string ComputeModHashFromFolder(string folder, string id, string version)
+        {
+            var sb = new StringBuilder();
+            sb.Append(id).Append('|').Append(version).Append('\n');
+            foreach (var file in Directory.GetFiles(folder, "*", SearchOption.AllDirectories)
+                .Select(f => (Full: f, Rel: Path.GetRelativePath(folder, f).Replace('\\', '/')))
+                .Where(x => !x.Rel.Split('/').Any(p => p.StartsWith('.')))
+                .OrderBy(x => x.Rel, StringComparer.Ordinal))
+            {
+                var fileSha = Convert.ToHexString(SHA256.HashData(File.ReadAllBytes(file.Full)));
+                sb.Append(file.Rel).Append('|').Append(fileSha).Append('\n');
+            }
+            return Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(sb.ToString()))).ToLowerInvariant();
+        }
+
+        public Task<JsonElement> RunAsync(IReadOnlyList<string> args, CancellationToken ct = default)
+        {
+            ct.ThrowIfCancellationRequested();
+            object result;
+            switch (args[0])
+            {
+                case "status":
+                    result = new
+                    {
+                        install = root,
+                        hellforge = HellForgeRelease.Version,
+                        engine = HellForgeRelease.Engine,
+                        modSdk = HellForgeRelease.Sdk,
+                        gameBuild = HellForgePack.SupportedBuild,
+                        networkBlock = "wfp",
+                        ready = new { gameCopy = true, sessionRunner = true, linuxNamespace = false },
+                        session = new { running = false, lastStatus = (string?)null, lastFailure = (string?)null, lastRun = (string?)null },
+                        settings = new { multiplayer = true, localPlayFab = true, sandbox = true }
+                    };
+                    break;
+                case "mods":
+                    result = new
+                    {
+                        mods = Mods.Select(m => new
+                        {
+                            id = m.Id,
+                            name = m.Name,
+                            enabled = m.Enabled,
+                            folder = m.Folder,
+                            archive = m.Archive,
+                            tags = m.Tags,
+                            version = m.Version,
+                            options = m.Options?.Select(o => new { name = o.Name, on = o.On })
+                        }),
+                        problems = Array.Empty<string>(),
+                        modlist = "fixture"
+                    };
+                    break;
+                case "mod-hash":
+                {
+                    var target = args[2];
+                    if (!target.EndsWith(".zip", StringComparison.OrdinalIgnoreCase))
+                    {
+                        var mf = Path.Combine(target, "hellforge-mod.json");
+                        if (!File.Exists(mf)) throw new FileNotFoundException($"HellForge: Could not find file '{mf}'.");
+                        using var doc = JsonDocument.Parse(File.ReadAllText(mf));
+                        var id = doc.RootElement.GetProperty("id").GetString()!;
+                        var ver = doc.RootElement.TryGetProperty("version", out var v) ? v.GetString() ?? "" : "";
+                        result = new { hash = ComputeModHashFromFolder(target, id, ver) };
+                        break;
+                    }
+                    var tempExtract = Path.Combine(Path.GetTempPath(), "fake050-mod-hash-" + Guid.NewGuid().ToString("N"));
+                    try
+                    {
+                        ZipFile.ExtractToDirectory(target, tempExtract);
+                        var mf = Path.Combine(tempExtract, "hellforge-mod.json");
+                        if (File.Exists(mf))
+                        {
+                            using var doc = JsonDocument.Parse(File.ReadAllText(mf));
+                            var id = doc.RootElement.GetProperty("id").GetString()!;
+                            var ver = doc.RootElement.TryGetProperty("version", out var v) ? v.GetString() ?? "" : "";
+                            result = new { hash = ComputeModHashFromFolder(tempExtract, id, ver) };
+                        }
+                        else
+                        {
+                            var packMf = Path.Combine(tempExtract, "manifest.json");
+                            if (!File.Exists(packMf)) throw new InvalidDataException("Archive holds no mod.");
+                            using var doc = JsonDocument.Parse(File.ReadAllText(packMf));
+                            var id = "pack." + doc.RootElement.GetProperty("Guid").GetString()!;
+                            result = new { hash = ComputeModHashFromFolder(tempExtract, id, "") };
+                        }
+                    }
+                    finally { if (Directory.Exists(tempExtract)) Directory.Delete(tempExtract, true); }
+                    break;
+                }
+                case "mod-add":
+                {
+                    var zipPath = args[2];
+                    var tempExtract = Path.Combine(Path.GetTempPath(), "fake050-mod-add-" + Guid.NewGuid().ToString("N"));
+                    try
+                    {
+                        ZipFile.ExtractToDirectory(zipPath, tempExtract);
+                        var mf = Path.Combine(tempExtract, "hellforge-mod.json");
+                        if (File.Exists(mf))
+                        {
+                            using var doc = JsonDocument.Parse(File.ReadAllText(mf));
+                            var id = doc.RootElement.GetProperty("id").GetString()!;
+                            var name = doc.RootElement.GetProperty("name").GetString()!;
+                            var ver = doc.RootElement.TryGetProperty("version", out var v) ? v.GetString() ?? "" : "";
+                            var dest = Path.Combine(root, "mods", id);
+                            if (Directory.Exists(dest)) Directory.Delete(dest, true);
+                            ZipFile.ExtractToDirectory(zipPath, dest);
+                            var prev = Mods.FirstOrDefault(m => m.Id == id);
+                            var enabled = prev?.Enabled ?? true;
+                            Mods.RemoveAll(m => m.Id == id);
+                            Mods.Add(new(id, name, enabled, dest, ["code"], ver, Archive: null));
+                            result = new { id, installed = dest };
+                        }
+                        else
+                        {
+                            var packMf = Path.Combine(tempExtract, "manifest.json");
+                            using var doc = JsonDocument.Parse(File.ReadAllText(packMf));
+                            var id = "pack." + doc.RootElement.GetProperty("Guid").GetString()!;
+                            var name = doc.RootElement.GetProperty("Name").GetString()!;
+                            var opts = doc.RootElement.TryGetProperty("Options", out var optArr) && optArr.ValueKind == JsonValueKind.Array
+                                ? optArr.EnumerateArray().Select(o => new HellForgeOption(o.GetProperty("Name").GetString()!, true)).ToArray()
+                                : null;
+                            var dest = Path.Combine(root, "mods", id);
+                            if (Directory.Exists(dest)) Directory.Delete(dest, true);
+                            ZipFile.ExtractToDirectory(zipPath, dest);
+                            var prev = Mods.FirstOrDefault(m => m.Id == id);
+                            var enabled = prev?.Enabled ?? true;
+                            if (prev?.Options != null && opts != null)
+                            {
+                                var prevMap = prev.Options.ToDictionary(o => o.Name, o => o.On, StringComparer.Ordinal);
+                                opts = opts.Select(o => prevMap.TryGetValue(o.Name, out var on) ? o with { On = on } : o).ToArray();
+                            }
+                            // Real 0.5.0-beta: pack.* zip is extracted to folder and deleted -> archive is null!
+                            Mods.RemoveAll(m => m.Id == id);
+                            Mods.Add(new(id, name, enabled, dest, ["pack"], "", opts, Archive: null));
+                            result = new { id, installed = dest };
+                        }
+                    }
+                    finally { if (Directory.Exists(tempExtract)) Directory.Delete(tempExtract, true); }
+                    if (LoseNextModAddAck)
+                    {
+                        LoseNextModAddAck = false;
+                        throw new HellForgeCommandOutcomeUnknownException("Simulated lost acknowledgement after pack.* import.");
+                    }
+                    break;
+                }
+                case "mod-remove":
+                {
+                    var rem = Mods.SingleOrDefault(m => m.Id == args[2]);
+                    if (rem != null)
+                    {
+                        if (Directory.Exists(rem.Folder)) Directory.Delete(rem.Folder, true);
+                        Mods.Remove(rem);
+                    }
+                    result = new { ok = true };
+                    break;
+                }
+                case "mod-switch":
+                {
+                    var idx = Mods.FindIndex(m => m.Id == args[2]);
+                    if (idx >= 0) Mods[idx] = Mods[idx] with { Enabled = args[4] == "yes" };
+                    result = new { ok = true };
+                    break;
+                }
+                case "mod-pack":
+                {
+                    if (FailNextModPack) { FailNextModPack = false; throw new IOException("Simulated mod-pack configuration failure."); }
+                    var idx = Mods.FindIndex(m => m.Id == args[2]);
+                    if (idx >= 0 && Mods[idx].Options is { } cur)
+                    {
+                        if (args[3] == "--all")
+                            Mods[idx] = Mods[idx] with { Options = cur.Select(o => o with { On = args[4] == "yes" }).ToArray() };
+                        else if (args[3] == "--option")
+                            Mods[idx] = Mods[idx] with { Options = cur.Select(o => o.Name == args[4] ? o with { On = args[6] == "yes" } : o).ToArray() };
+                    }
+                    result = new { ok = true };
+                    break;
+                }
+                case "mod-order":
+                {
+                    var order = args[2].Split(',', StringSplitOptions.RemoveEmptyEntries);
+                    var rank = order.Select((id, i) => (id, i)).ToDictionary(x => x.id, x => x.i, StringComparer.Ordinal);
+                    Mods.Sort((a, b) => rank.GetValueOrDefault(a.Id, 999).CompareTo(rank.GetValueOrDefault(b.Id, 999)));
+                    result = new { ok = true };
+                    break;
+                }
+                default:
+                    throw new InvalidOperationException("Unexpected Fake050CliCommands call: " + args[0]);
+            }
+            return Task.FromResult(JsonSerializer.SerializeToElement(result));
+        }
     }
 
     sealed class RecordingCommands(string root) : IHellForgeCommands
@@ -209,14 +544,18 @@ internal static class GameplayInstallTests
         var local = @"D:\CodexScratch\hellforge\windows-onboarding-20261104\real-bootstrap";
         var temporary = full.StartsWith(Path.TrimEndingDirectorySeparator(Path.GetTempPath()) + Path.DirectorySeparatorChar, StringComparison.OrdinalIgnoreCase)
             && Path.GetFileName(full).StartsWith("forge-gameplay-install-test-", StringComparison.Ordinal);
-        if (!temporary && !(full.Equals(local, StringComparison.OrdinalIgnoreCase) || full.Equals(@"D:\CodexScratch\hellforge\forge-upgrade-20261105\probe-0.4.0", StringComparison.OrdinalIgnoreCase))) throw new InvalidOperationException("Real recovery trials require an explicitly isolated test installation.");
+        if (!temporary && !(full.Equals(local, StringComparison.OrdinalIgnoreCase)
+            || full.Equals(@"D:\CodexScratch\hellforge\forge-upgrade-20261105\probe-0.4.0", StringComparison.OrdinalIgnoreCase)
+            || full.Equals(@"D:\ClaudeWork\hellforge-0.5-probe\gameplay-install-rehearsal-v23", StringComparison.OrdinalIgnoreCase)))
+            throw new InvalidOperationException("Real recovery trials require an explicitly isolated test installation.");
     }
     internal static async Task RealRecovery(string root)
     {
         RequireIsolated(root);
+        Game.IsRunningCheck = () => false;
         var full = Path.TrimEndingDirectorySeparator(Path.GetFullPath(root));
         var official = new HellForgeCommands(full);
-        var client = new HellForgeClient(full, official);
+        var client = new HellForgeClient(full, official) { RequireCliQuiescent = () => { } };
         if (client.InterruptedGameplayProblem() != null) await client.RecoverGameplayAsync();
         var catalog = HellForgeGameplayCatalog.Pinned;
         var before = await client.ModsAsync();
@@ -232,17 +571,18 @@ internal static class GameplayInstallTests
         foreach (var mod in before.Mods.Where(m => catalog.Artifacts.Any(a => a.Id == m.Id)))
             await official.RunAsync(["mod-remove", "--id", mod.Id]);
         // Reset the isolated fixture's one-time defaults before testing a fresh install.
-        File.Delete(client.PackIntentPath + ".gameplay.json");
+        var resetIntent = client.PackIntentPath + ".gameplay.json";
+        if (File.Exists(resetIntent)) File.Delete(resetIntent);
         var clean = await client.ModsAsync();
         if (clean.Mods.Count != 3) throw new InvalidDataException("Clean fixture must contain exactly three official bundled mods.");
         var fault = new FailOnce(official);
-        try { await new HellForgeClient(full, fault).InstallGameplayAsync(client.GameplayCache); throw new Exception("Injected failure did not happen."); }
+        try { await new HellForgeClient(full, fault) { RequireCliQuiescent = () => { } }.InstallGameplayAsync(client.GameplayCache); throw new Exception("Injected failure did not happen."); }
         catch (IOException error) when (error.Message.Contains("previous mod selection was restored", StringComparison.Ordinal)) { }
         var restored = await client.ModsAsync();
         if (restored.Mods.Count != 3 || client.InterruptedGameplayProblem() != null || (await client.MissingGameplayAsync()).Count != catalog.Artifacts.Count)
             throw new InvalidDataException("Fresh-import rollback failed.");
         Console.WriteLine("PASS: actual failed preset installation restored all three bundled mods and cleared recovery");
-        try { await new HellForgeClient(full, new LoseAcknowledgement(official)).InstallGameplayAsync(client.GameplayCache); throw new Exception("Lost acknowledgement was not injected."); }
+        try { await new HellForgeClient(full, new LoseAcknowledgement(official)) { RequireCliQuiescent = () => { } }.InstallGameplayAsync(client.GameplayCache); throw new Exception("Lost acknowledgement was not injected."); }
         catch (HellForgeCommandOutcomeUnknownException) { }
         if (client.InterruptedGameplayProblem() == null) throw new InvalidDataException("An unknown import outcome did not preserve recovery intent.");
         var intentFile = client.PackIntentPath + ".gameplay.json";
@@ -256,16 +596,58 @@ internal static class GameplayInstallTests
             if (client.InterruptedGameplayProblem() == null) throw new InvalidDataException("Invalid recovery metadata lost its pending state.");
             await File.WriteAllBytesAsync(snapshotFile, snapshotBytes);
         }
-        await new HellForgeClient(full, official).RecoverGameplayAsync();
+        await new HellForgeClient(full, official) { RequireCliQuiescent = () => { } }.RecoverGameplayAsync();
         if ((await client.ModsAsync()).Mods.Count != 3 || client.InterruptedGameplayProblem() != null) throw new InvalidDataException("Restart recovery did not restore the clean fixture.");
         Console.WriteLine("PASS: actual lost import acknowledgement stays pending, rejects damaged backup metadata and recovers through a fresh client");
         await client.InstallGameplayAsync(client.GameplayCache);
+        var postInstallMods = await client.ModsAsync();
+        var installedPacks = postInstallMods.Mods.Where(m => m.Id.StartsWith("pack.", StringComparison.Ordinal)).ToList();
+        if (installedPacks.Count != 3 || installedPacks.Any(m => m.Archive != null))
+            throw new InvalidDataException("Expected 3 installed pack.* mods with archive: null on 0.5.0-beta.");
         if ((await client.MissingGameplayAsync()).Count != 0) throw new InvalidDataException("Actual retry left missing dependencies.");
-        Console.WriteLine("PASS: actual retry installed and verified all eleven preset mods");
+        Console.WriteLine($"PASS: actual retry installed and verified all {catalog.Artifacts.Count} preset mods (including 3 archive:null pack.* folders)");
         var settings = Path.Combine(full, "mods", "hellforge-mods.json"); var originalSettings = File.ReadAllBytes(settings);
         await client.InstallGameplayAsync(client.GameplayCache);
         if (!File.ReadAllBytes(settings).SequenceEqual(originalSettings)) throw new InvalidDataException("An already complete preset was rewritten.");
         Console.WriteLine("PASS: actual repeated setup is a no-op with byte-identical mod settings");
+
+        // Prove #47 exact scenario on real 0.5.0-beta HellForge.Cli.exe:
+        // When an existing pack.* mod (Smarter SEAF 1.0.4, archive: null) is backed up into snapshot.Backups,
+        // BOTH RestoreGameplayAsync rollback AND wedged State="pending" RecoverGameplayAsync succeed!
+        var smarterSeaf = postInstallMods.Mods.Single(m => m.Id == HellForgePreset.SmarterSeaf);
+        var seafPayload = Directory.EnumerateFiles(smarterSeaf.Folder, "*", SearchOption.AllDirectories)
+            .First(p => Path.GetFileName(p) != "manifest.json" && new FileInfo(p).Length > 0);
+        if (!Path.GetFullPath(seafPayload).StartsWith(full + Path.DirectorySeparatorChar, StringComparison.OrdinalIgnoreCase))
+            throw new InvalidDataException("Smarter SEAF payload escaped isolated root.");
+        var originalSeafBytes = await File.ReadAllBytesAsync(seafPayload);
+        using (var output = new FileStream(seafPayload, FileMode.Append, FileAccess.Write)) output.WriteByte(0xfe);
+        var driftedSeafBytes = await File.ReadAllBytesAsync(seafPayload);
+        if ((await client.MissingGameplayAsync()).Count != 1) throw new InvalidDataException("Drifted Smarter SEAF pack.* folder was not detected.");
+        try { await new HellForgeClient(full, new FailOnce(official)) { RequireCliQuiescent = () => { } }.InstallGameplayAsync(client.GameplayCache); throw new Exception("Pack backup rollback failure did not happen."); }
+        catch (IOException error) when (error.Message.Contains("previous mod selection was restored", StringComparison.Ordinal)) { }
+        var restoredSeaf = (await client.ModsAsync()).Mods.Single(m => m.Id == HellForgePreset.SmarterSeaf);
+        var restoredSeafPayload = Path.Combine(restoredSeaf.Folder, Path.GetRelativePath(smarterSeaf.Folder, seafPayload));
+        if (client.InterruptedGameplayProblem() != null || !(await File.ReadAllBytesAsync(restoredSeafPayload)).SequenceEqual(driftedSeafBytes))
+            throw new InvalidDataException("RestoreGameplayAsync failed to restore archive:null Smarter SEAF backup.");
+        Console.WriteLine("PASS: actual RestoreGameplayAsync rollback restored archive:null Smarter SEAF 1.0.4 backup on 0.5.0-beta");
+
+        try { await new HellForgeClient(full, new LoseAcknowledgement(official)) { RequireCliQuiescent = () => { } }.InstallGameplayAsync(client.GameplayCache); throw new Exception("Pack pending recovery injection did not happen."); }
+        catch (HellForgeCommandOutcomeUnknownException) { }
+        if (client.InterruptedGameplayProblem() == null) throw new InvalidDataException("Wedged State=pending was not recorded for Smarter SEAF.");
+        await new HellForgeClient(full, official) { RequireCliQuiescent = () => { } }.RecoverGameplayAsync();
+        var recoveredSeaf = (await client.ModsAsync()).Mods.Single(m => m.Id == HellForgePreset.SmarterSeaf);
+        var recoveredSeafPayload = Path.Combine(recoveredSeaf.Folder, Path.GetRelativePath(smarterSeaf.Folder, seafPayload));
+        if (client.InterruptedGameplayProblem() != null || !(await File.ReadAllBytesAsync(recoveredSeafPayload)).SequenceEqual(driftedSeafBytes))
+            throw new InvalidDataException("RecoverGameplayAsync failed from wedged State=pending with Smarter SEAF in snapshot.Backups.");
+        Console.WriteLine("PASS: actual RecoverGameplayAsync recovered wedged State=pending with archive:null Smarter SEAF 1.0.4 in snapshot.Backups");
+
+        await client.InstallGameplayAsync(client.GameplayCache);
+        var repairedSeaf = (await client.ModsAsync()).Mods.Single(m => m.Id == HellForgePreset.SmarterSeaf);
+        var repairedSeafPayload = Path.Combine(repairedSeaf.Folder, Path.GetRelativePath(smarterSeaf.Folder, seafPayload));
+        if ((await client.MissingGameplayAsync()).Count != 0 || !(await File.ReadAllBytesAsync(repairedSeafPayload)).SequenceEqual(originalSeafBytes))
+            throw new InvalidDataException("Smarter SEAF repair after RecoverGameplayAsync did not restore clean bytes.");
+        Console.WriteLine("PASS: actual InstallGameplayAsync after RecoverGameplayAsync repaired Smarter SEAF 1.0.4 and verified 0 missing mods");
+
         var installed = (await client.ModsAsync()).Mods.Single(m => m.Id == "pack.612eaf70-d682-43c7-9efd-16dcc695f977");
         var payload = Directory.EnumerateFiles(installed.Folder, "*", SearchOption.AllDirectories).First(p => Path.GetFileName(p) != "manifest.json" && new FileInfo(p).Length > 0);
         if (!Path.GetFullPath(payload).StartsWith(full + Path.DirectorySeparatorChar, StringComparison.OrdinalIgnoreCase)) throw new InvalidDataException("Test payload escaped isolated root.");
