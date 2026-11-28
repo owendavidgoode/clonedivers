@@ -64,8 +64,17 @@ struct Delivery {
  }
 };
 inline std::vector<std::unique_ptr<Delivery>> deliveries;
+inline void prune_deliveries(){
+ for(size_t i=0;i<deliveries.size();){
+  bool alive=false;
+  const auto& d=deliveries[i];
+  if(d&&d->out&&d->out!=0xffffffffu){try{auto desc=descriptor(d->out);alive=(desc.id==d->out&&desc.type==shuttle_resource);}catch(...){alive=false;}}
+  if(alive)++i;else deliveries.erase(deliveries.begin()+i);
+ }
+}
+inline void clear_deliveries(){deliveries.clear();deliveries.shrink_to_fit();}
 inline uint32_t deliver(const float* position,const Loadout* roster,uint64_t shuttle){
- require(api->game_state(mod)==HF_STATE_MISSION,"delivery outside mission");require(deliveries.size()<128,"delivery session capacity exhausted");
+ require(api->game_state(mod)==HF_STATE_MISSION,"delivery outside mission");prune_deliveries();require(deliveries.size()<128,"delivery session capacity exhausted");
  auto root=ptr(game+0x346BF98);require(read<uint16_t>(root+0xF3F828)==1,"constructor busy");require(has_free_entity_slot(root,em_layout()),"no free shuttle slot");
  auto defaults=bytes(root+15986472,0x8A0);require(std::all_of(defaults.begin(),defaults.end(),[](unsigned char b){return b==0;}),"default spawn context changed");
  auto d=std::make_unique<Delivery>(position,roster);auto p=d.get();deliveries.push_back(std::move(d));

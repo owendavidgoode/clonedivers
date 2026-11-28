@@ -1,27 +1,20 @@
-/* Level 12 — ULTRAKILL & Full Clone Wars Theater Engine Extensions (Chaos Invasions 0.4.0)
- * Target: Helldivers 2 Steam build 25480438, HellForge Engine 0.1.47, Mod SDK 16.
+/* Level 12 — CLONE WARS / STORMTROOPER Theater Engine Extensions (Chaos Invasions 0.5.2 / v2.3)
+ * Target: Helldivers 2 Steam build 25480438, HellForge 0.5.0-beta, Mod SDK 20.
  *
  * Responsibilities:
- *   1. Boot-time Havok kPhysicsPools uncap (before [game.dll+0x3326380] initializes):
- *      ragdolls -> 8,192 (0x2000), ragdoll_actors -> 262,144 (0x40000), motions -> 262,144,
- *      bodies -> 524,288 (0x80000, < 2^21 body-ID bit-width limit), dynamic_actors -> 262,144,
- *      keyframed_actors -> 65,536. Prevents the unchecked allocator -1 crash at exe+0x7A307F
- *      past ~963 units+corpses.
+ *   1. Boot-time Havok kPhysicsPools right-sizing (aligned with HellForge 0.5's 2,048 ragdolls / 262,144 bodies):
+ *      ragdolls -> 2,048 (0x800), ragdoll_actors -> 65,536 (0x10000), motions -> 131,072 (0x20000),
+ *      bodies -> 262,144 (0x40000), dynamic_actors -> 131,072 (0x20000), keyframed_actors -> 32,768 (0x8000).
  *   2. Wwise 512-voice uncap via AK::SoundEngine::SetMaxNumVoicesLimit(512) (vanilla Init.bnk = 140).
- *   3. Live reversible HfDifficultySettings row-11 mutation + engine text vtable hook
- *      ([[game.dll+0x3326308]+0x10]+1000) serving "LEVEL 12: ULTRAKILL" / "LEVEL 12: CLONE WARS"
- *      and top-HUD difficulty number "12" when armed on Solo/Host.
- *   4. Playable battlefield radius expansion on 2x generated maps (lg+0x2D70: 0.76 -> 0.92 = 942 m
- *      radius, 1,884 m diameter, 2.79 km^2 = 5.86x Super Helldive area) inside NavRetile's 2,048 m
- *      navmesh without overflowing Voronoi/stamp/city generation tables.
- *   5. Hybrid Full Clone Wars Theater:
- *      - 1-syscall bulk EntityManager descriptor snapshot ([game.dll+0x346BF98]+0xF32F18, 48 KB)
- *        enforcing free_em_slots >= 260 so player weapons/stratagems/Pelicans never starve.
- *      - Paced SpawnRosterRow ring queue (<= 6 unit constructions/frame) across 3 concentric rings
- *        (55..115 m, 115..230 m, 230..380 m).
- *      - 180 outer-theater Virtual Battalions (1,400-1,800 CIS Droid + Republic Clone troopers at
- *        190..880 m, 0 EntityManager slots, 0 Havok ragdolls) exchanging visible laser/plasma
- *        salvos across the horizon and dynamically promoting into real AI squads as players close in.
+ *   3. Genuine 12th Difficulty Slot ("CLONE WARS" / "STORMTROOPER") configured as a clean 1-primary / 5-optional
+ *      battle (<= 14 HUD/map markers < DIF_MARKER_SLOTS = 16) while leaving D11 ("HELL FORGE") 2-primary / 8-optional.
+ *   4. Tighter ~700 m (~1.7x, 0.685f * 1,024 m = 701.4 m) playable battlefield radius for continuous action.
+ *   5. Hard < 1,024 GwNav::Bot Governor & Hybrid Clone Wars Theater:
+ *      - 1-syscall bulk EntityManager descriptor snapshot tracking BOTH live_slots and walking_ai_slots.
+ *      - Tight <= 620 walking-AI cap & <= 580 active Director patrol/reinforce valve so total GwNav::Bots
+ *        NEVER approach helldivers2.exe+0x801b03's 1,024 pool ceiling even under D12 3x outposts + Pelicans.
+ *      - High real active density in BOTH solo (610) and co-op (600), outer cohesive 18-32 unit swarms
+ *        at 95-185 m marching inward, > 260 m straggler recycling, and 140-380 m virtual laser exchanges.
  */
 #ifndef CHAOS_ULTRAKILL_D12_H
 #define CHAOS_ULTRAKILL_D12_H
@@ -54,9 +47,16 @@
 #define UK_EM_DESCRIPTOR_CAP        2048u
 #define UK_EM_MAX_DESCRIPTOR_CAP    4096u
 #define UK_EM_DESCRIPTOR_STRIDE     24u
-/* Keeps live EntityManager slots <= 868 (~600-720 GwNav::Bots), staying >300 below the 1,024 GwNav::Bot
- * hard allocator crash at helldivers2.exe+0x801b03 (1,180 free on 2,048 table; 3,228 free on 4,096 table). */
-#define UK_EM_RESERVE_SLOTS         1180u
+/* Keeps live EntityManager slots <= 700 and walking AI <= 620, staying > 280 slots below the 1,024 GwNav::Bot
+ * hard allocator crash at helldivers2.exe+0x801b03 (1,348 free on 2,048 table; 3,396 free on 4,096 table). */
+#define UK_EM_RESERVE_SLOTS             1348u
+#define UK_MAX_WALKING_AI_CAP           620u
+#define UK_DIRECTOR_VALVE_STOP_WALKING  580u
+#define UK_DIRECTOR_VALVE_RESUME_WALKING 520u
+#define UK_FOREIGN_HEADROOM_SLOTS       72
+#define UK_DEFAULT_MAP_RADIUS_FACTOR    0.685f /* 701.4 m (~1.7x Super Helldive 410 m) */
+#define UK_D12_MAJOR_OBJECTIVES         1u
+#define UK_D12_OPTIONAL_OBJECTIVES      5u
 
 #define UK_SPAWN_QUEUE_CAP          256u
 #define UK_MAX_SPAWNS_PER_FRAME     4u
@@ -71,22 +71,24 @@ typedef struct UkPhysicsPoolPatch {
     uint32_t vanilla_val;
     uint32_t hf0147_val;
     uint32_t hf0158_val;
+    uint32_t legacy_uk_val;
     uint32_t ultrakill_val;
 } UkPhysicsPoolPatch;
 
+/* Right-sized to HellForge 0.5's 2,048 ragdolls / 262,144 bodies to prevent ~380 MB Havok arena bloat (#43). */
 static const UkPhysicsPoolPatch kUkPhysicsPools[6] = {
-    /* config +0x2C ragdoll_actors: 8,192 / 32,768 (0.1.47) / 65,536 (0.1.58) -> 262,144 */
-    {0x4EE32Bu, 7u,  3u, {0xC7, 0x45, 0x9C, 0, 0, 0},       0x00002000u, 0x00008000u, 0x00010000u, 0x00040000u},
-    /* config +0x3C ragdolls: 512 / 1,024 (0.1.47) / 2,048 (0.1.58) -> 8,192 */
-    {0x4EE35Cu, 7u,  3u, {0xC7, 0x45, 0xAC, 0, 0, 0},       0x00000200u, 0x00000400u, 0x00000800u, 0x00002000u},
-    /* Havok world motions: 36,864 / 131,072 -> 262,144 */
-    {0xAB19F8u, 10u, 6u, {0xC7, 0x85, 0x20, 0x05, 0x00, 0x00}, 0x00009000u, 0x00020000u, 0x00020000u, 0x00040000u},
-    /* Havok world bodies (< 2^21 bit-width cap): 131,072 / 262,144 -> 524,288 */
-    {0xAB19EEu, 10u, 6u, {0xC7, 0x85, 0x1C, 0x05, 0x00, 0x00}, 0x00020000u, 0x00040000u, 0x00040000u, 0x00080000u},
-    /* config +0x24 dynamic_actors: 32,768 / 131,072 -> 262,144 */
-    {0x4EE31Du, 7u,  3u, {0xC7, 0x45, 0x94, 0, 0, 0},       0x00008000u, 0x00020000u, 0x00020000u, 0x00040000u},
-    /* config +0x20 keyframed_actors: 8,192 / 32,768 -> 65,536 */
-    {0x4EE332u, 7u,  3u, {0xC7, 0x45, 0x90, 0, 0, 0},       0x00002000u, 0x00008000u, 0x00008000u, 0x00010000u},
+    /* config +0x2C ragdoll_actors: 8,192 -> 65,536 (0x10000) */
+    {0x4EE32Bu, 7u,  3u, {0xC7, 0x45, 0x9C, 0, 0, 0},       0x00002000u, 0x00008000u, 0x00010000u, 0x00040000u, 0x00010000u},
+    /* config +0x3C ragdolls: 512 -> 2,048 (0x800) */
+    {0x4EE35Cu, 7u,  3u, {0xC7, 0x45, 0xAC, 0, 0, 0},       0x00000200u, 0x00000400u, 0x00000800u, 0x00002000u, 0x00000800u},
+    /* Havok world motions: 36,864 -> 131,072 (0x20000) */
+    {0xAB19F8u, 10u, 6u, {0xC7, 0x85, 0x20, 0x05, 0x00, 0x00}, 0x00009000u, 0x00020000u, 0x00020000u, 0x00040000u, 0x00020000u},
+    /* Havok world bodies (< 2^21 bit-width cap): 131,072 -> 262,144 (0x40000) */
+    {0xAB19EEu, 10u, 6u, {0xC7, 0x85, 0x1C, 0x05, 0x00, 0x00}, 0x00020000u, 0x00040000u, 0x00040000u, 0x00080000u, 0x00040000u},
+    /* config +0x24 dynamic_actors: 32,768 -> 131,072 (0x20000) */
+    {0x4EE31Du, 7u,  3u, {0xC7, 0x45, 0x94, 0, 0, 0},       0x00008000u, 0x00020000u, 0x00020000u, 0x00040000u, 0x00020000u},
+    /* config +0x20 keyframed_actors: 8,192 -> 32,768 (0x8000) */
+    {0x4EE332u, 7u,  3u, {0xC7, 0x45, 0x90, 0, 0, 0},       0x00002000u, 0x00008000u, 0x00008000u, 0x00010000u, 0x00008000u},
 };
 
 typedef int (*UkReadFn)(uintptr_t address, void* buffer, size_t size);
@@ -110,7 +112,8 @@ static inline int UltrakillPatchPoolsWithOps(uintptr_t gbase, size_t gsize, UkRe
         if (memcmp(insn, p->prefix, p->value_off) != 0) return -1;
         memcpy(&cur_val, insn + p->value_off, 4u);
         if (cur_val != p->vanilla_val && cur_val != p->hf0147_val &&
-            cur_val != p->hf0158_val && cur_val != p->ultrakill_val) {
+            cur_val != p->hf0158_val && cur_val != p->legacy_uk_val &&
+            cur_val != p->ultrakill_val) {
             return -1;
         }
     }
@@ -132,6 +135,7 @@ typedef struct ChaosEmSnapshot {
     uint32_t gwnav_reserve;
     uint32_t invalid_entity;
     uint32_t live_slots;
+    uint32_t walking_ai_slots;
     uint32_t free_slots;
     int valid;
     double captured_age;
@@ -201,6 +205,7 @@ typedef struct ChaosUltrakillState {
     int voices_raised;
     int d11_snapshot_valid;
     int d12_applied;
+    int director_valve_closed;
     uint32_t d11_name_text_id;
     uint32_t d11_num_text_id;
     uint8_t d11_baseline[sizeof(HfDifficultySettings)];
@@ -216,8 +221,25 @@ typedef struct ChaosUltrakillState {
     uint32_t salvos_fired_total;
     uint32_t promotions_total;
     uint32_t multi_ring_spawns_total;
+    uint32_t stragglers_recycled_total;
+    uint32_t friendly_air_runs_total;
+    uint32_t enemy_air_runs_total;
+    uint32_t atte_salvos_total;
     ChaosVirtualBattalion battalions[UK_MAX_VIRTUAL_BATTALIONS];
 } ChaosUltrakillState;
+
+static inline float UltrakillResolveRadiusFactor(const CdHostOptions* ho)
+{
+    float radius_factor = UK_DEFAULT_MAP_RADIUS_FACTOR;
+    if (ho && ho->map_radius_permille >= 380 && ho->map_radius_permille <= 850) {
+        radius_factor = (float)ho->map_radius_permille / 1000.0f;
+    } else if (ho && ho->map_radius_permille > 850 && ho->map_radius_permille <= 940 &&
+               ho->theater_preset == CD_THEATER_LEVEL12_ULTRAKILL &&
+               ho->map_radius_permille != 920) {
+        radius_factor = (float)ho->map_radius_permille / 1000.0f;
+    }
+    return radius_factor;
+}
 
 static inline void UltrakillApplyDifficultyRow12(HfDifficultySettings* row, const uint8_t baseline[sizeof(HfDifficultySettings)],
                                                  const CdHostOptions* ho)
@@ -226,35 +248,32 @@ static inline void UltrakillApplyDifficultyRow12(HfDifficultySettings* row, cons
     memcpy(row, baseline, sizeof(HfDifficultySettings));
     if (!ho || !cd_host_options_is_ultrakill(ho)) return;
 
-    float radius_factor = 0.92f;
-    if (ho->map_radius_permille >= 380 && ho->map_radius_permille <= 940) {
-        radius_factor = (float)ho->map_radius_permille / 1000.0f;
-    }
+    float radius_factor = UltrakillResolveRadiusFactor(ho);
 
+    /* Clean 1-primary / 5-optional layout (<= 14 total HUD/map markers < DIF_MARKER_SLOTS = 16). */
+    row->optional_objectives = UK_D12_OPTIONAL_OBJECTIVES;
+    row->major_objectives = UK_D12_MAJOR_OBJECTIVES;
     row->encounter_points = 1500.0f;
-    row->guardforce_points = 1200.0f;
-    row->spawner_cooldown = 8.0f;
+    row->guardforce_points = 1150.0f;
+    row->spawner_cooldown = 10.0f;
     for (int i = 0; i < 4; ++i) {
-        if (row->map_radius[i] > 0.50f && row->map_radius[i] < radius_factor) {
+        if (row->map_radius[i] > 0.50f) {
             row->map_radius[i] = radius_factor;
         }
     }
     for (int f = 0; f < 3; ++f) {
-        row->patrol_interval[f] = 28.0f;
-        row->patrol_cap[f] = 32u;
+        row->patrol_interval[f] = 30.0f;
+        row->patrol_cap[f] = 24u;
     }
-    uint32_t reinf_cap = 120u;
+    uint32_t reinf_cap = 96u;
     memcpy((uint8_t*)row + UK_DIFF_REINFORCE_CAP_OFF, &reinf_cap, sizeof reinf_cap);
 }
 
 static inline int UltrakillTargetRealAiCap(const CdHostOptions* ho, int has_remote_peers)
 {
-    if (has_remote_peers) {
-        /* Protect Stingray peer snapshot bandwidth in active multiplayer sessions. */
-        return 420;
-    }
-    int want = (ho && ho->target_active_units > 0) ? ho->target_active_units : 820;
-    if (want > 840) want = 840; /* Hard governor keeping >= 1,180 EntityManager slots free (< 1,024 GwNav::Bots) */
+    int def_cap = has_remote_peers ? 600 : 610;
+    int want = (ho && ho->target_active_units > 0) ? ho->target_active_units : def_cap;
+    if (want > (int)UK_MAX_WALKING_AI_CAP) want = (int)UK_MAX_WALKING_AI_CAP;
     if (want < 200) want = 200;
     return want;
 }
@@ -264,8 +283,8 @@ static inline int UltrakillTargetVirtualUnitsForDiff(const CdHostOptions* ho, in
     if (!cd_host_options_active_for_difficulty(ho, live_diff)) return 0;
     if (ho && ho->virtual_theater_budget > 0) {
         int want = ho->virtual_theater_budget;
-        if (ho->target_active_units > 840) {
-            want += (ho->target_active_units - 840);
+        if (ho->target_active_units > (int)UK_MAX_WALKING_AI_CAP) {
+            want += (ho->target_active_units - (int)UK_MAX_WALKING_AI_CAP);
         }
         return want > 2150 ? 2150 : want;
     }

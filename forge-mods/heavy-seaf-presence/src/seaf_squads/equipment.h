@@ -44,9 +44,19 @@ inline void prepare_eruptor(uint32_t weapon){
 }
 struct WeaponConstruction {alignas(16) unsigned char context[0x8A0]{};alignas(8) unsigned char creation[0x58]{};uint32_t out{};};
 inline std::vector<std::unique_ptr<WeaponConstruction>> weapon_buffers;
+inline void prune_weapon_buffers(){
+ for(size_t i=0;i<weapon_buffers.size();){
+  bool alive=false;
+  const auto& w=weapon_buffers[i];
+  if(w&&w->out&&!empty(w->out)){try{auto d=descriptor(w->out);alive=(d.id==w->out);}catch(...){alive=false;}}
+  if(alive)++i;else weapon_buffers.erase(weapon_buffers.begin()+i);
+ }
+}
+inline void clear_weapon_buffers(){weapon_buffers.clear();weapon_buffers.shrink_to_fit();}
 inline uint32_t replace(uint32_t soldier,uint64_t resource,unsigned slot=1){
  require(resource&&(slot==1||slot==3||slot==6),"invalid replacement");auto inv=inventory(soldier);auto before=bytes(inv.row,16);require(!empty(read<uint32_t>(inv.row)),"inventory not initialized");
  auto root=ptr(game+0x346BF98);require(read<uint16_t>(root+0xF3F828)==1,"constructor busy");
+ prune_weapon_buffers();
  require(has_free_entity_slot(root,em_layout()),"no free entity slot");require(weapon_buffers.size()<768,"weapon session capacity exhausted");
  auto c=std::make_unique<WeaponConstruction>();auto p=c.get();weapon_buffers.push_back(std::move(c));
  auto desc=native<void*(*)(uint32_t)>(0xFD9D40)(soldier);require(desc&&read<uint32_t>((uintptr_t)desc+8)==soldier,"soldier descriptor changed");

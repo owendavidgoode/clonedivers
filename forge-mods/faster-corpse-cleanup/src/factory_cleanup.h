@@ -369,29 +369,29 @@ static void cc_factory_before(uintptr_t queue,float dt)
     if(!cc_memory(queue+0x818,&raw_count,4)||raw_count>65536u)return;
     s_last_wreck_count=raw_count;
 
-    if(cc_turbo_reaper_active()||raw_count>=8u)
+    if(cc_turbo_reaper_active()||raw_count>=1u||(factory_stamp&3u)==0u)
         cc_snapshot_em_descriptors(registry);
 
     float base_delay_s=cc_effective_reaper_base_seconds();
     int explicit_pos_delay=(cc_explicit_delay_seconds()>0);
     unsigned max_budget=1u;
     float rate_per_s=60.f;
-    if(cc_turbo_reaper_active()||s_live_entity_count>=1550u||raw_count>=320u)
+    if(cc_turbo_reaper_active()||s_live_entity_count>=620u||raw_count>=220u)
     {
         s_active_reaper_tier=3u;
         s_effective_delay_s=explicit_pos_delay?base_delay_s:0.0f;
         max_budget=16u;rate_per_s=960.f;factory_resolves_left=512u;factory_reads_left=2048u;
     }
-    else if(s_live_entity_count>=1300u||raw_count>=192u)
+    else if(s_live_entity_count>=500u||raw_count>=140u)
     {
         s_active_reaper_tier=2u;
         s_effective_delay_s=explicit_pos_delay?base_delay_s:fminf(base_delay_s,0.25f);
         max_budget=12u;rate_per_s=720.f;factory_resolves_left=192u;factory_reads_left=1024u;
     }
-    else if(s_live_entity_count>=900u||raw_count>=96u)
+    else if(s_live_entity_count>=380u||raw_count>=64u)
     {
         s_active_reaper_tier=1u;
-        s_effective_delay_s=explicit_pos_delay?base_delay_s:fminf(base_delay_s,1.5f);
+        s_effective_delay_s=explicit_pos_delay?base_delay_s:fminf(base_delay_s,1.0f);
         max_budget=6u;rate_per_s=360.f;factory_resolves_left=96u;factory_reads_left=512u;
     }
     else

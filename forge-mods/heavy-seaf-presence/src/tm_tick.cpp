@@ -129,6 +129,7 @@ static int ownSlot; /* the fallback: some callback of this DLL on its own on_gam
 /* the fallback's trampoline (so tm_tick_leave works there too) */
 static void OwnTick(HfMod* mod, float dt, void* user)
 {
+    (void)mod;
     tm_tick_client* c = (tm_tick_client*)user;
     if (!(c->flags & TM_TICK_CLIENT_OFF)) c->fn(c->mod, dt, c->user);
 }

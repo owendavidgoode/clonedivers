@@ -15,11 +15,16 @@
 extern "C" {
 #endif
 
-#define HEAVY_LANDING_GRACE_MS      15000ULL
-#define HEAVY_MAX_EQUIPS_PER_TICK   1u
-#define HEAVY_EQUIP_RETRY_BACKOFF_MS 250ULL
-#define HEAVY_EQUIP_MAX_WINDOW_MS   8000ULL
-#define HEAVY_EQUIP_MAX_RETRIES     16u
+#define HEAVY_LANDING_GRACE_MS            15000ULL
+#define HEAVY_CLONE_WARS_LANDING_GRACE_MS 7000ULL
+#define HEAVY_MAX_BOT_SAFE_SEAF_CEILING   48
+#define HEAVY_MAX_WALKING_AI_GATE         660u
+#define HEAVY_MAX_LIVE_EM_GATE            740u
+#define HEAVY_GWNAV_RESERVE_2048          (2048u - HEAVY_MAX_LIVE_EM_GATE) /* 1308u */
+#define HEAVY_MAX_EQUIPS_PER_TICK         1u
+#define HEAVY_EQUIP_RETRY_BACKOFF_MS      250ULL
+#define HEAVY_EQUIP_MAX_WINDOW_MS         8000ULL
+#define HEAVY_EQUIP_MAX_RETRIES           16u
 
 typedef struct HeavyLandingGate {
     int landed;
@@ -37,19 +42,21 @@ static inline void HeavyLandingGateReset(HeavyLandingGate* g)
 
 /* Positive mission-ground gate (immune to stale ship-spawn HF_ON_PLAYER_SPAWN):
  * - Resets landed = 0 whenever state != HF_STATE_MISSION or !is_host.
- * - Arms 15s grace timer ONLY after state == HF_STATE_MISSION + living_host_entity != 0.
+ * - Arms grace_ms timer ONLY after state == HF_STATE_MISSION + living_host_entity != 0.
  * - Returns:
  *     0 : not ready yet
  *     1 : ready (grace elapsed)
- *     2 : newly armed this step (caller may log once; still waiting for 15s grace) */
-static inline int HeavyLandingGateStep(HeavyLandingGate* g, uint32_t state, int is_host,
-                                       int living_host_entity, ULONGLONG now_ms)
+ *     2 : newly armed this step (caller may log once; still waiting for grace) */
+static inline int HeavyLandingGateStepWithGrace(HeavyLandingGate* g, uint32_t state, int is_host,
+                                                int living_host_entity, ULONGLONG now_ms,
+                                                ULONGLONG grace_ms)
 {
     if (!g) return 0;
     if (state != HF_STATE_MISSION || !is_host) {
         HeavyLandingGateReset(g);
         return 0;
     }
+    if (grace_ms == 0ULL) grace_ms = HEAVY_LANDING_GRACE_MS;
     if (!g->landed) {
         if (!living_host_entity) return 0;
         g->landed = 1;
@@ -61,11 +68,17 @@ static inline int HeavyLandingGateStep(HeavyLandingGate* g, uint32_t state, int 
         /* Host died before grace completed; keep landed=1 once ground entry occurred, or require grace. */
     }
     if (!g->grace_ready) {
-        if (now_ms >= g->landed_at_ms && (now_ms - g->landed_at_ms) >= HEAVY_LANDING_GRACE_MS) {
+        if (now_ms >= g->landed_at_ms && (now_ms - g->landed_at_ms) >= grace_ms) {
             g->grace_ready = 1;
         }
     }
     return g->grace_ready ? 1 : 0;
+}
+
+static inline int HeavyLandingGateStep(HeavyLandingGate* g, uint32_t state, int is_host,
+                                       int living_host_entity, ULONGLONG now_ms)
+{
+    return HeavyLandingGateStepWithGrace(g, state, is_host, living_host_entity, now_ms, HEAVY_LANDING_GRACE_MS);
 }
 
 /* Maps clonedivers-host-options.json "heavySeaf" mode ("standard" / "heavy" / "constant" / "clone-wars")
@@ -75,11 +88,11 @@ static inline void HeavyApplyHostMode(CdHeavySeafMode mode, int* out_constant, i
 {
     if (mode == CD_HEAVY_SEAF_CLONE_WARS) {
         if (out_constant) *out_constant = 1;
-        /* Use 1-slot zero-maintenance native 116u Clone Trooper squads bounded inside the 1,024 GwNav::Bot budget. */
+        /* Use 1-slot zero-maintenance native 116u Clone Trooper squads bounded <= 48 troops inside the 1,024 GwNav::Bot budget. */
         if (out_support_squads) *out_support_squads = 0;
         if (out_interval_seconds) *out_interval_seconds = 24;
         if (out_squads_per_wave) *out_squads_per_wave = 2;
-        if (out_extra_squads) *out_extra_squads = 10;
+        if (out_extra_squads) *out_extra_squads = 5;
     } else if (mode == CD_HEAVY_SEAF_CONSTANT) {
         if (out_constant) *out_constant = 1;
         if (out_support_squads) *out_support_squads = 1;

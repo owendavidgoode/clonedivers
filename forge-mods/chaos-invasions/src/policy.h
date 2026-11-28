@@ -22,6 +22,7 @@ enum {
 typedef struct ChaosConfig {
     int enabled, cooldown, grace, total_cap, faction_cap, squad_size, mission_budget;
     int bots_weight, squids_weight, bugs_weight;
+    int air_runs_enabled, atte_walker_support;
 } ChaosConfig;
 
 static const char* const chaos_names[] = {"droid_invasion", "squid_ships", "bug_breach"};
@@ -29,7 +30,7 @@ static const char* const chaos_faction_names[] = {"Bots", "Squids", "Bugs"};
 
 static ChaosConfig ChaosDefaults(void)
 {
-    ChaosConfig c = {1, 150, 45, 12, 6, 4, 36, 100, 80, 100};
+    ChaosConfig c = {1, 150, 45, 12, 6, 4, 36, 100, 80, 100, 1, 1};
     return c;
 }
 
@@ -43,26 +44,26 @@ static inline void ChaosApplyHostIntensity(ChaosConfig* out, const ChaosConfig* 
         out->enabled = 0;
     } else if (mode == CD_CHAOS_TOTAL_WAR) {
         out->enabled = 1;
-        out->cooldown = 75;
-        out->grace = 30;
-        out->total_cap = 20;
-        out->faction_cap = 12;
-        out->squad_size = 6;
-        out->mission_budget = 72;
+        out->cooldown = 45;
+        out->grace = 8;
+        out->total_cap = 64;
+        out->faction_cap = 40;
+        out->squad_size = 20;
+        out->mission_budget = 960;
         out->bots_weight = 100;
         out->squids_weight = 100;
         out->bugs_weight = 100;
     } else if (mode == CD_CHAOS_ULTRAKILL || mode == CD_CHAOS_CLONE_WARS) {
         out->enabled = 1;
-        out->cooldown = 12;
-        out->grace = 15;
-        out->total_cap = 820;
-        out->faction_cap = 620;
-        out->squad_size = 6;
-        out->mission_budget = 15000;
-        out->bots_weight = (mode == CD_CHAOS_CLONE_WARS) ? 200 : 140;
-        out->squids_weight = (mode == CD_CHAOS_CLONE_WARS) ? 60 : 120;
-        out->bugs_weight = (mode == CD_CHAOS_CLONE_WARS) ? 60 : 140;
+        out->cooldown = 10;
+        out->grace = 7;
+        out->total_cap = 620;
+        out->faction_cap = 380;
+        out->squad_size = 24;
+        out->mission_budget = 25000;
+        out->bots_weight = 130;
+        out->squids_weight = 110;
+        out->bugs_weight = 110;
     } else {
         out->enabled = 1;
     }
@@ -74,15 +75,17 @@ static int ChaosOption(ChaosConfig* c, const char* key, int n)
 #define OPTION(name, field, lo, hi) \
     if (!strcmp(key, name)) { if (n < (lo) || n > (hi)) return 0; c->field = n; return 1; }
     OPTION("enabled", enabled, 0, 1)
-    OPTION("cooldown_seconds", cooldown, 30, 900)
-    OPTION("landing_grace_seconds", grace, 15, 300)
-    OPTION("total_cap", total_cap, 1, 24)
-    OPTION("faction_cap", faction_cap, 1, 16)
-    OPTION("squad_size", squad_size, 1, 6)
-    OPTION("mission_budget", mission_budget, 1, 96)
+    OPTION("cooldown_seconds", cooldown, 10, 900)
+    OPTION("landing_grace_seconds", grace, 6, 300)
+    OPTION("total_cap", total_cap, 1, 640)
+    OPTION("faction_cap", faction_cap, 1, 400)
+    OPTION("squad_size", squad_size, 1, 32)
+    OPTION("mission_budget", mission_budget, 1, 25000)
     OPTION("droid_weight", bots_weight, 0, 200)
     OPTION("squid_weight", squids_weight, 0, 200)
     OPTION("bug_weight", bugs_weight, 0, 200)
+    OPTION("air_runs_enabled", air_runs_enabled, 0, 1)
+    OPTION("atte_walker_support", atte_walker_support, 0, 1)
 #undef OPTION
     return 0;
 }
@@ -98,7 +101,7 @@ static int ChaosParse(ChaosConfig* c, const char* line)
     key[eq - line] = 0;
     errno = 0;
     n = strtol(eq + 1, &end, 10);
-    if (errno || end == eq + 1 || n < 0 || n > 1000) return 0;
+    if (errno || end == eq + 1 || n < 0 || n > 25000) return 0;
     while (*end == ' ' || *end == '\r' || *end == '\n' || *end == '\t') ++end;
     return !*end && ChaosOption(c, key, (int)n);
 }
@@ -159,6 +162,30 @@ static inline int ChaosChooseEx(const ChaosConfig* c, int native, int difficulty
 static inline int ChaosChoose(const ChaosConfig* c, int native, int difficulty, uint32_t draw)
 {
     return ChaosChooseEx(c, native, difficulty, 0, draw);
+}
+
+/* Anti-repeat foreign faction selector: boosts the alternate foreign faction 2.5x after a wave of `last_foreign`
+ * so both off-planet Chaos factions rotate consistently throughout the entire mission. */
+static inline int ChaosChooseForeignRotated(const ChaosConfig* c, int native, int difficulty, int last_foreign, uint32_t draw)
+{
+    int weights[3], total = 0;
+    if (!c || native < 0 || native >= 3) return -1;
+    for (int i = 0; i < 3; i++) {
+        int w = (i == native) ? 0 : ChaosWeight(c, i, difficulty);
+        if (w > 0 && last_foreign >= 0 && last_foreign < 3 && last_foreign != native && i != last_foreign) {
+            w = (w * 5) / 2;
+            if (w < 1) w = 1;
+        }
+        weights[i] = w;
+        total += w;
+    }
+    if (!total) return -1;
+    int at = (int)(draw % (unsigned)total);
+    for (int i = 0; i < 3; i++) {
+        if (at < weights[i]) return i;
+        at -= weights[i];
+    }
+    return -1;
 }
 
 static inline int ChaosMinWaveSize(const ChaosConfig* c)
@@ -246,10 +273,13 @@ enum {
     CPIN_BREACH_BURST,
     CPIN_LOOKUP_ENTITY_PKGS,
     CPIN_PKG_REQUEST,
+    CPIN_PKG_RELEASE,
     CPIN_PKGS_IDLE,
     CPIN_PASSENGER_INIT_SLOT,
     CPIN_PASSENGER_RESOLVE_CARGO,
     CPIN_PASSENGER_UNLOAD_FACTION,
+    CPIN_REMOVE_ENTITY,
+    CPIN_REQUEST_ENTITY_SPAWN,
     CPIN_COUNT
 };
 
@@ -281,6 +311,9 @@ static const ChaosCodePin kChaosCodePins[CPIN_COUNT] = {
     {0x12fe350u, "RefcountedPackageRequest",
      {0x45, 0x85, 0xc0, 0x0f, 0x84, 0x75, 0x01, 0x00, 0x00, 0x41, 0x56, 0x41, 0x57, 0x48, 0x83, 0xec,
       0x38, 0x48, 0x89, 0x5c, 0x24, 0x50, 0x4c, 0x8b, 0xfa, 0x48, 0x89, 0x6c, 0x24, 0x58, 0x4c, 0x8b}},
+    {0x12fe4e0u, "RefcountedPackageRelease",
+     {0x45, 0x85, 0xc0, 0x0f, 0x84, 0x60, 0x01, 0x00, 0x00, 0x41, 0x56, 0x41, 0x57, 0x48, 0x83, 0xec,
+      0x38, 0x48, 0x89, 0x5c, 0x24, 0x50, 0x4c, 0x8b, 0xfa, 0x48, 0x89, 0x6c, 0x24, 0x58, 0x4c, 0x8b}},
     {0x12fe680u, "ArePackagesIdle",
      {0x48, 0x83, 0xec, 0x28, 0x48, 0x8b, 0x05, 0x7d, 0x7c, 0x02, 0x02, 0x48, 0x8b, 0x48, 0x10, 0xff,
       0x91, 0x40, 0x03, 0x00, 0x00, 0x85, 0xc0, 0x0f, 0x94, 0xc0, 0x48, 0x83, 0xc4, 0x28, 0xc3, 0xcc}},
@@ -293,6 +326,12 @@ static const ChaosCodePin kChaosCodePins[CPIN_COUNT] = {
     {0x06852f0u, "PassengerUnloadFaction",
      {0x74, 0x48, 0x3b, 0xc8, 0x74, 0x48, 0xff, 0xc2, 0x41, 0x3b, 0xd1, 0x72, 0xe3, 0xb8, 0xff, 0xff,
       0xff, 0xff, 0x8b, 0xc8, 0x43, 0x8b, 0x04, 0x2c, 0x4c, 0x6b, 0xf9, 0x1c, 0x4c, 0x03, 0x7f, 0x48}},
+    {0x0fdc310u, "RemoveEntity",
+     {0x48, 0x89, 0x5c, 0x24, 0x08, 0x57, 0x48, 0x83, 0xec, 0x30, 0x3b, 0x15, 0x4c, 0x82, 0x4a, 0x02,
+      0x8b, 0xda, 0x48, 0x8b, 0xf9, 0x0f, 0x84, 0xd4, 0x00, 0x00, 0x00, 0x8b, 0xca, 0xe8, 0xbe, 0xd7}},
+    {0x0fd9710u, "RequestEntitySpawn",
+     {0x4c, 0x8b, 0xdc, 0x49, 0x89, 0x5b, 0x10, 0x49, 0x89, 0x73, 0x20, 0x57, 0x48, 0x81, 0xec, 0xa0,
+      0x00, 0x00, 0x00, 0x48, 0x8b, 0x05, 0xe6, 0x28, 0x66, 0x01, 0x48, 0x33, 0xc4, 0x48, 0x89, 0x84}},
 };
 
 typedef int (*ChaosReadCodeFn)(uintptr_t address, void* buffer, size_t size);
@@ -467,6 +506,25 @@ static int ChaosIsTransportResource(uint64_t resource)
            resource == 0xD84FFC32A6E640A8ull || /* Automaton Dropship */
            resource == 0x74E2285C01DA4F71ull || /* illuminate_dropship */
            resource == 0x2AD2E055DAD21F6Eull;   /* illuminate_invasionship */
+}
+
+/* Proven non-GwNav::Bot EntityManager resources (corpse wrappers, dismembered limbs, dropships/shuttles/cargo,
+ * unpiloted Exosuits, and player avatars). Every other live EM slot is conservatively counted as walking_ai. */
+static inline int ChaosIsProvenNonWalkingResource(uint64_t resource)
+{
+    return ChaosIsKnownCorpseWrapper(resource) ||
+           ChaosIsTransportResource(resource) ||
+           resource == 0xB971B1141E1CBFACull ||
+           resource == 0x49674794A165EDA8ull ||
+           resource == 0x8FB47DD28B398CF7ull ||
+           resource == 0xB8580CAC32214FC0ull ||
+           resource == 0x3EC790806D0B0540ull || /* SEAF Pelican shuttle */
+           resource == 0xA56F9F7E8CD25D04ull || /* Native 1401 SEAF Pelican */
+           resource == 0x75F7E96AF7DCD303ull || /* SEAF Pelican cargo */
+           resource == 0xC2D449ECF7FACAB1ull || /* EXO-49 Emancipator (AT-TE) */
+           resource == 0x79E4B3D2DA5E45E3ull || /* EXO-45 Patriot */
+           resource == 0x058E6DC1D55C0720ull || /* EXO-45 alt */
+           resource == 0x4D1C334D294DFA97ull;   /* Player avatar */
 }
 
 static int ChaosEnemyFamily(uint64_t resource)

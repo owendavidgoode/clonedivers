@@ -110,8 +110,8 @@ static void DispatchCalls(){
  while(!pending_calls.empty()){
   auto call=pending_calls.front();pending_calls.pop_front();auto& s=squads[call.squad];
   try{mission();prove();population();auto id=deliver(call.position.data(),s.roster,s.shuttle);auto d=descriptor(id);
-   require(jobs.size()<128,"too many pending deliveries");jobs.push_back({call.squad,d});
-   arrivals.push_back({call.squad,d});api->log(mod,"SQUAD_CALLED: %s; shuttle %u; network %u; target %.1f %.1f %.1f",s.title,id,d.network,call.position[0],call.position[1],call.position[2]);
+   require(jobs.size()<128,"too many pending deliveries");jobs.push_back(Job{call.squad,d,0.0f,false,false,0u,{}});
+   arrivals.push_back(Arrival{call.squad,d,0.0f});api->log(mod,"SQUAD_CALLED: %s; shuttle %u; network %u; target %.1f %.1f %.1f",s.title,id,d.network,call.position[0],call.position[1],call.position[2]);
   }catch(const std::exception& e){api->log(mod,"SQUAD_CALL_REFUSED: %s: %s",s.title,e.what());}
  }
 }
@@ -124,7 +124,7 @@ static void Tick(HfMod*,float dt,void*){
  static bool was_host;
  HeavyEquipBeginFrame();
  if(!prepared||failed||!std::isfinite(dt)||dt<0)return;auto now=api->game_state(mod);
- if(now!=state){if(now!=HF_STATE_MISSION){jobs.clear();soldiers.clear();live_troops.clear();pending_calls.clear();arrivals.clear();hunters::reset();was_host=false;}state=now;}
+ if(now!=state){if(now!=HF_STATE_MISSION){jobs.clear();soldiers.clear();live_troops.clear();pending_calls.clear();arrivals.clear();clear_deliveries();clear_weapon_buffers();hunters::reset();was_host=false;}state=now;}
  if(now!=HF_STATE_SHIP&&now!=HF_STATE_MISSION)return;
  if(!assets_ready){asset_elapsed+=dt;asset_wait-=dt;if(asset_wait>0)return;asset_wait=.5f;
   try {bool resident=true;auto load=[&](uint64_t p){auto status=load_squad_package(p);if(status==0||(status!=HF_PACKAGE_RESIDENT&&asset_elapsed>90)){char message[128];snprintf(message,sizeof message,"package %016llx %s",(unsigned long long)p,status==0?"request refused":"loading timed out");throw std::runtime_error(message);}resident&=status==HF_PACKAGE_RESIDENT;};load(patrol_package);for(auto p:asset_packages)load(p);if(resident)population();assets_ready=resident;if(resident)api->log(mod,"SQUADS_READY: all four squads available");}
@@ -132,7 +132,7 @@ static void Tick(HfMod*,float dt,void*){
  }
  if(now!=HF_STATE_MISSION)return;
  if(!host()){
-  if(was_host){jobs.clear();soldiers.clear();live_troops.clear();pending_calls.clear();arrivals.clear();hunters::reset();was_host=false;}
+  if(was_host){jobs.clear();soldiers.clear();live_troops.clear();pending_calls.clear();arrivals.clear();clear_deliveries();clear_weapon_buffers();hunters::reset();was_host=false;}
   return;
  }
  was_host=true;
