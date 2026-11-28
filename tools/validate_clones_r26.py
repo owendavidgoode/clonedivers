@@ -418,6 +418,44 @@ def validate(
             if not rep["passed"]:
                 errors.append(f"Preflight failed on {nm} ({f['sha256'][:12]}): {rep['issues']}")
 
+    # 2b. Verify strict 0..K patch contiguity & unique triplets across all 180 valid mode × option × tier combinations!
+    mode_states = (("clonedivers", set()), ("commandos", {"commandos"}))
+    droid_states = (
+        ("native-bots", set(), 42),
+        ("all-droids", {"droids"}, 47),
+        ("mixed-droids", {"droids", "mixed-droids"}, 47),
+    )
+    covenant_states = (set(), {"covenant"}, {"covenant", "mixed-covenant"})
+    aimpoint_states = (set(), {"aimpoints"})
+    for tier in B.TIERS:
+        for mode_name, m_opts in mode_states:
+            for d_lbl, d_opts, expected_max_p in droid_states:
+                for c_opts in covenant_states:
+                    for a_opts in aimpoint_states:
+                        opts_180 = m_opts | d_opts | c_opts | a_opts
+                        sel_180 = select_manifest_files(r26, mode_name, tier, opts_180)
+                        by_name = Counter(e["name"] for e in sel_180)
+                        dups = [nm for nm, cnt in by_name.items() if cnt != 1]
+                        if dups:
+                            errors.append(f"Duplicate manifest selection in {mode_name}/{d_lbl}/{tier}: {dups}")
+                            continue
+                        pnums = sorted(
+                            int(e["name"].split("_")[1])
+                            for e in sel_180
+                            if not e["name"].endswith((".stream", ".gpu_resources"))
+                        )
+                        expected_seq = list(range(expected_max_p + 1))
+                        if pnums != expected_seq:
+                            errors.append(
+                                f"Non-contiguous patch sequence in {mode_name}/{d_lbl}/{tier}: got {pnums}, expected 0..{expected_max_p}"
+                            )
+                            continue
+                        for pn in expected_seq:
+                            for suf in P.SUFFIXES:
+                                if by_name.get(f"9ba626afa44a3aa3.patch_{pn}{suf}") != 1:
+                                    errors.append(f"Missing companion patch_{pn}{suf} in {mode_name}/{d_lbl}/{tier}")
+                        metrics["contiguous_180_combinations_verified"] += 1
+
     # 3. Verify 100% bit-exact preservation of all 83 protected runtime-pinned UNITs across all 5 tiers
     for tier in B.TIERS:
         r25_sel = select_manifest_files(r25, "commandos", tier, {"commandos", "droids", "aimpoints"})
@@ -500,24 +538,58 @@ def validate(
             if ("droids" in opts) != has_providence:
                 errors.append(f"Skybox Providence gating mismatch in {label}/{tier}: has={has_providence}")
 
-            # Gate 1a: Scorch/Fixer/Sev Katarn helmets win in BOTH `clonedivers` and `commandos`, unit_safe & bone-hash aligned
+            # Gate 1a: Scorch/Fixer/Sev Katarn helmets win in BOTH `clonedivers` and `commandos` (`patch_41`), unit_safe & bone-hash aligned
             for dst_uid, _, _ in B.DELTA_SQUAD_HELMET_COPIES:
                 h_win = winners.get((dst_uid, B.UNIT_T))
-                if not h_win or h_win[0] != "9ba626afa44a3aa3.patch_45":
-                    errors.append(f"Delta Squad helmet 0x{dst_uid:016x} not won by patch_45 in {label}/{tier}")
+                if not h_win or h_win[0] != "9ba626afa44a3aa3.patch_41":
+                    errors.append(f"Delta Squad helmet 0x{dst_uid:016x} not won by patch_41 in {label}/{tier}")
                     continue
                 h_raw = h_win[1].read_bytes()[h_win[2][2] : h_win[2][2] + h_win[2][7]]
                 stk_dst = stock_main((dst_uid, B.UNIT_T))
                 assert stk_dst is not None
                 if not P.unit_safe((h_raw, b"", b""), stk_dst):
-                    errors.append(f"patch_45 helmet 0x{dst_uid:016x} failed empire_port.unit_safe in {label}/{tier}")
+                    errors.append(f"patch_41 helmet 0x{dst_uid:016x} failed empire_port.unit_safe in {label}/{tier}")
                 if struct.unpack_from("<Q", h_raw, 8)[0] != struct.unpack_from("<Q", stk_dst, 8)[0]:
-                    errors.append(f"patch_45 helmet 0x{dst_uid:016x} corrupted external bones ref in {label}/{tier}")
+                    errors.append(f"patch_41 helmet 0x{dst_uid:016x} corrupted external bones ref in {label}/{tier}")
                 if joint_hashes(h_raw) != joint_hashes(stk_dst):
-                    errors.append(f"patch_45 helmet 0x{dst_uid:016x} @52 bone-hash order mismatch vs stock in {label}/{tier}")
-                metrics["patch45_helmet_checks"] += 1
+                    errors.append(f"patch_41 helmet 0x{dst_uid:016x} @52 bone-hash order mismatch vs stock in {label}/{tier}")
+                metrics["patch41_helmet_checks"] += 1
 
-            # Gate 1b: MagnaGuard m8..m13 rebind + Cyborg corpse/severed-limb/gore/gunship-wreck hiders
+            # Verify 49-stream GAR Clone voice pronunciation delta (`patch_42`) wins across both `clonedivers` and `commandos`
+            p42_main_entry = next((e for e in mains if e["name"] == "9ba626afa44a3aa3.patch_42"), None)
+            if p42_main_entry is None or p42_main_entry["sha256"] != B.GAR_VO_MAIN_SHA256:
+                errors.append(f"Missing or mismatched GAR VO patch_42 in {label}/{tier}")
+            elif stms.get("9ba626afa44a3aa3.patch_42.stream", {}).get("sha256") != B.GAR_VO_STREAM_SHA256:
+                errors.append(f"Mismatched GAR VO patch_42.stream in {label}/{tier}")
+            else:
+                p42_bp = resolve_blob(B.GAR_VO_MAIN_SHA256)
+                p42_sp = resolve_blob(B.GAR_VO_STREAM_SHA256)
+                p42_mb = p42_bp.read_bytes()
+                p42_rows = P.directory(p42_bp)
+                if len(p42_rows) != 49:
+                    errors.append(f"Expected 49 GAR VO streams in patch_42, got {len(p42_rows)}")
+                with p42_sp.open("rb") as sfh:
+                    for vr in p42_rows:
+                        vkey = (vr[0], vr[1])
+                        if winners.get(vkey, ("",))[0] != "9ba626afa44a3aa3.patch_42":
+                            errors.append(f"GAR VO stream {vr[0]:016x} not won by patch_42 in {label}/{tier}")
+                            break
+                        wrap = p42_mb[vr[2] : vr[2] + vr[7]]
+                        stk_wrap = stock_main(vkey)
+                        if len(wrap) != 12 or struct.unpack_from("<I", wrap, 8)[0] != vr[8]:
+                            errors.append(f"Invalid GAR VO 12B wrapper on {vr[0]:016x}")
+                            break
+                        if stk_wrap is not None and wrap[:8] != stk_wrap[:8]:
+                            errors.append(f"GAR VO native wrapper header mismatch on {vr[0]:016x}")
+                            break
+                        sfh.seek(vr[3])
+                        riff_hdr = sfh.read(12)
+                        if riff_hdr[:4] != b"RIFF" or riff_hdr[8:12] != b"WAVE":
+                            errors.append(f"GAR VO stream {vr[0]:016x} missing RIFF/WAVE header")
+                            break
+                metrics["gar_vo_overlay_checks"] += 1
+
+            # Gate 1b: MagnaGuard m8..m13 rebind + Cyborg corpse/severed-limb/gore/gunship-wreck hiders (`patch_47`)
             if "droids" in opts:
                 mg_win = winners.get((B.MAGNAGUARD_FEMALE_UID, B.UNIT_T))
                 if not mg_win:
@@ -548,18 +620,18 @@ def validate(
                 if "mixed-droids" not in opts:
                     for wuid in B.CORPSE_ALL_DROIDS_ONLY:
                         w_win = winners.get((wuid, B.UNIT_T))
-                        if not w_win or w_win[0] != "9ba626afa44a3aa3.patch_48":
-                            errors.append(f"all-droids wreck/corpse hider 0x{wuid:016x} not won by patch_48 in {label}/{tier}")
+                        if not w_win or w_win[0] != "9ba626afa44a3aa3.patch_47":
+                            errors.append(f"all-droids wreck/corpse hider 0x{wuid:016x} not won by patch_47 in {label}/{tier}")
                             continue
                         w_raw = w_win[1].read_bytes()[w_win[2][2] : w_win[2][2] + w_win[2][7]]
                         stk_w = stock_main((wuid, B.UNIT_T))
                         assert stk_w is not None
                         if not P.unit_safe((w_raw, b"", b""), stk_w):
-                            errors.append(f"patch_48 hider 0x{wuid:016x} failed unit_safe in {label}/{tier}")
+                            errors.append(f"patch_47 hider 0x{wuid:016x} failed unit_safe in {label}/{tier}")
                         if drawn_index_count(w_raw) != 0:
-                            errors.append(f"patch_48 hider 0x{wuid:016x} still draws indices in {label}/{tier}")
+                            errors.append(f"patch_47 hider 0x{wuid:016x} still draws indices in {label}/{tier}")
                         if any(v != B.M_COLLISION for v in VC.material_map(w_raw).values()):
-                            errors.append(f"patch_48 hider 0x{wuid:016x} material_map not rebound to m_collision in {label}/{tier}")
+                            errors.append(f"patch_47 hider 0x{wuid:016x} material_map not rebound to m_collision in {label}/{tier}")
                         metrics["corpse_hider_checks"] += 1
                 else:
                     for wuid in B.CORPSE_ALL_DROIDS_ONLY:
@@ -585,7 +657,7 @@ def validate(
                 lbl_k = f"{key[0]:016x}.{key[1]:016x}"
                 return lbl_k in nat_idx or lbl_k in full_idx
 
-            # Gate 1d: Verify every custom eagle_base.package entry resides in patch_44 and is pinned in clone_eagle_assets.h
+            # Gate 1d: Verify every custom eagle_base.package entry resides in patch_40 and is pinned in clone_eagle_assets.h
             eb_raw = _get_main((B.EAGLE_PACKAGE, B.PACKAGE_T))
             if eb_raw is None:
                 errors.append(f"Missing eagle_base.package in {label}/{tier}")
@@ -594,15 +666,14 @@ def validate(
                 for rk, rn in struct.iter_unpack("<QQ", eb_raw[16 : 16 + 16 * eb_cnt]):
                     if (rn, rk) in stock_eagle_pkg_entries:
                         continue
-                    # Native shader parents are native-only entries; all custom units/materials/textures must be in patch_44
                     if (rn, rk) not in winners:
                         if rk == B.MAT_T and _exists((rn, rk)):
                             continue  # native shader parent
                         errors.append(f"Custom eagle_base entry {rn:016x}.{rk:016x} missing from winners in {label}/{tier}")
                         continue
                     w_name, _, w_row, _, _ = winners[(rn, rk)]
-                    if w_name != "9ba626afa44a3aa3.patch_44":
-                        errors.append(f"Custom eagle_base entry {rn:016x}.{rk:016x} lives in {w_name} instead of patch_44")
+                    if w_name != "9ba626afa44a3aa3.patch_40":
+                        errors.append(f"Custom eagle_base entry {rn:016x}.{rk:016x} lives in {w_name} instead of patch_40")
                     for pt in range(3):
                         if w_row[7 + pt] > 0 and (rn, rk, pt) not in pinned_parts_set:
                             errors.append(f"Custom eagle_base entry {rn:016x}.{rk:016x} part={pt} omitted from clone_eagle_assets.h")
@@ -752,10 +823,19 @@ def validate(
                                 elif th != 0x093FC934:
                                     errors.append(f"Unmapped drawn thin mat 0x{th:08x} on UNIT {rid:016x}")
 
-    # 5. Simulate `asset_gate.h` (`ScanAssets`) across the FULL staged directory (`*.patch_*`) for both variants & all 5 tiers!
-    for variant_name in ("all-droids", "mixed-droids"):
+    # 5. Simulate `asset_gate.h` (`ScanAssets`) + physical staged patch contiguity across all 15 staged directories (`all-droids`, `mixed-droids`, `native-bots` × 5 tiers)!
+    for variant_name, expected_max_p in (("all-droids", 47), ("mixed-droids", 47), ("native-bots", 42)):
         for tier_idx, tier in enumerate(B.TIERS):
             vdir = out_dir / "staged" / variant_name / tier
+            staged_mains = sorted(
+                int(p.name.split("_")[1])
+                for p in vdir.iterdir()
+                if p.is_file() and re.fullmatch(r"9ba626afa44a3aa3\.patch_\d+", p.name)
+            )
+            if staged_mains != list(range(expected_max_p + 1)):
+                errors.append(
+                    f"Staged directory {vdir} non-contiguous main patches: got {staged_mains}, expected 0..{expected_max_p}"
+                )
             scan_errs = simulate_asset_gate_scan_dir(vdir, pin_rows, tier_idx)
             errors.extend(scan_errs)
             metrics["eagle_asset_gate_full_dirs_verified"] += 1

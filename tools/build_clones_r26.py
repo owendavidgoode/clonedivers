@@ -183,18 +183,24 @@ DELTA_SQUAD_HELMET_COPIES = (
     (0x651CCF16AB84901A, 34, 0xDE118AD3932E0A23),  # SC-30 Sev    <- CM-09 Sev Katarn (src untouched!)
 )
 
-# Missing 9 resources in `mixed-droids` (`patch_46`) extracted from `all-droids` `patch_40/41/43`
+# Missing 9 resources in `mixed-droids` (`patch_47` mixed-droids) extracted from `all-droids` `patch_43/44/46` (shifted +3 from r25 `40/41/43`)
 MIXED_DROIDS_CLOSURE_SPECS = (
-    (41, 0x07D297C39E0E01F1, UNIT_T),
-    (41, 0xE5B14182B25F7F7D, UNIT_T),
-    (43, 0x8B470671532E9E4F, UNIT_T),
-    (43, 0xE2E62FDD39407FE3, UNIT_T),
-    (41, 0x5990E5EFBCA8AE21, MAT_T),
-    (40, 0x2995131412D7022C, MAT_T),
-    (40, 0x7F02AA6C13F641AC, TEX_T),
-    (41, 0xA99E398B3352A825, TEX_T),
-    (43, 0xA6E57C439405067B, TEX_T),
+    (44, 0x07D297C39E0E01F1, UNIT_T),
+    (44, 0xE5B14182B25F7F7D, UNIT_T),
+    (46, 0x8B470671532E9E4F, UNIT_T),
+    (46, 0xE2E62FDD39407FE3, UNIT_T),
+    (44, 0x5990E5EFBCA8AE21, MAT_T),
+    (43, 0x2995131412D7022C, MAT_T),
+    (43, 0x7F02AA6C13F641AC, TEX_T),
+    (44, 0xA99E398B3352A825, TEX_T),
+    (46, 0xA6E57C439405067B, TEX_T),
 )
+
+GAR_VO_MAIN_SHA256 = "f6d4f36878d448b2faa667075626e13987d3041efe7632c3098e0ebf73775bf9"
+GAR_VO_MAIN_SIZE = 4880
+GAR_VO_STREAM_SHA256 = "3c3fb1828270991639d4b75268aba9aa03bcbb1e9c44facfc849e791b0c42a05"
+GAR_VO_STREAM_SIZE = 27914032
+NOOP_SKYBOX_PKG_ID = murmur64a("clonedivers/clones_r26/noop_skybox_slot")
 
 # 16 shared Cyborg corpses, severed limbs, gore piles, scout-walker wrecks & head spikes (`patch_47`: `option: "droids"`)
 CORPSE_SHARED_DROIDS = (
@@ -974,6 +980,7 @@ class ClonesR26Builder:
         wt_root: Path = WT_ROOT,
         cache_dir: Path = Path(r"D:\ClaudeWork\swarm-packs\clones-r26\_blob_cache"),
         out_dir: Path = Path(r"D:\ClaudeWork\swarm-packs\clones-r26"),
+        voices_overlay_dir: Path = Path(r"D:\ClaudeWork\swarm-packs\empire-r55\clones-voices-r26-overlay"),
         steam_data: Path = Path(r"C:\Program Files (x86)\Steam\steamapps\common\Helldivers 2\data"),
         nat_idx_path: Path = Path(r"D:\ClaudeWork\empire-forge\native-index-25480438.json"),
         full_idx_path: Path = Path(r"D:\ClaudeWork\empire-forge\r47\verifier-inputs\dist\hd2-update-2026-10-29\native-index-v1\native-index.json"),
@@ -981,6 +988,7 @@ class ClonesR26Builder:
         self.wt_root = wt_root
         self.cache_dir = cache_dir
         self.out_dir = out_dir
+        self.voices_overlay_dir = voices_overlay_dir
         self.blobs_dir = out_dir / "blobs"
         self.staged_dir = out_dir / "staged"
         self.protected_units = load_protected_units(wt_root)
@@ -1417,7 +1425,7 @@ class ClonesR26Builder:
             struct.pack_into("<I", pkg_buf, 8, stk_cnt + len(added_sorted))
             resources[(EAGLE_PACKAGE, PACKAGE_T)] = P.Generated((bytes(pkg_buf), b"", b""))
 
-            tier_out = tmp_dir / tier / "9ba626afa44a3aa3.patch_44"
+            tier_out = tmp_dir / tier / "9ba626afa44a3aa3.patch_40"
             tier_out.parent.mkdir(parents=True, exist_ok=True)
             P.write_archive(tier_out, header_72, resources, stream_alignment=64 if tier != "full" else 16)
 
@@ -1434,7 +1442,7 @@ class ClonesR26Builder:
                     tier_part_hashes.setdefault((rname, rkind, part_idx), []).append((h_str, len(blob)))
 
         manifest_entries = self._emit_deduped_manifest_entries(
-            44, tier_built_paths, modes=["clonedivers", "commandos"]
+            40, tier_built_paths, modes=["clonedivers", "commandos"]
         )
         shutil.rmtree(tmp_dir)
 
@@ -1503,7 +1511,7 @@ class ClonesR26Builder:
                 )
                 resources[(dst_uid, UNIT_T)] = P.Generated((grafted_um, b"", ug))
 
-            out_p = tmp_dir / tier / "9ba626afa44a3aa3.patch_45"
+            out_p = tmp_dir / tier / "9ba626afa44a3aa3.patch_41"
             out_p.parent.mkdir(parents=True, exist_ok=True)
             P.write_archive(out_p, header_72, resources, stream_alignment=64 if tier != "full" else 16)
             stm_p = out_p.with_name(out_p.name + ".stream")
@@ -1512,14 +1520,103 @@ class ClonesR26Builder:
             tier_paths[tier] = (out_p, stm_p, gpu_p)
 
         entries = self._emit_deduped_manifest_entries(
-            45, tier_paths, modes=["clonedivers", "commandos"]
+            41, tier_paths, modes=["clonedivers", "commandos"]
         )
         shutil.rmtree(tmp_dir)
         return entries
 
-    def build_patch_46_all_tiers(self, updated_files: list[dict[str, Any]]) -> list[dict[str, Any]]:
-        """Build 5-tier `patch_46` (`option: "mixed-droids"`) closing the 9 missing `all-droids` hider/jumppack resources."""
-        tmp_dir = self.out_dir / "_tmp_patch_46"
+    def build_patch_35_noop_unless_droids(self) -> list[dict[str, Any]]:
+        """Build `patch_35` (`unlessOption: "droids"`) no-op archive so `native-bots` stays strictly contiguous `0..42`."""
+        tmp_dir = self.out_dir / "_tmp_patch_35_noop"
+        if tmp_dir.exists():
+            shutil.rmtree(tmp_dir)
+        tmp_dir.mkdir(parents=True)
+
+        header_72 = self.blob_path(self.find_r25_entry("9ba626afa44a3aa3.patch_0", "full")["sha256"]).read_bytes()[:72]
+        stk_pkg = self.stock_parts((EAGLE_PACKAGE, PACKAGE_T))
+        if not stk_pkg:
+            raise RuntimeError("Missing stock eagle_base package header")
+        noop_pkg_bytes = stk_pkg[0][:8] + struct.pack("<II", 0, 0)
+        out_p = tmp_dir / "9ba626afa44a3aa3.patch_35"
+        P.write_archive(out_p, header_72, {(NOOP_SKYBOX_PKG_ID, PACKAGE_T): P.Generated((noop_pkg_bytes, b"", b""))})
+        stm_p = out_p.with_name(out_p.name + ".stream")
+        gpu_p = out_p.with_name(out_p.name + ".gpu_resources")
+        rep = PREFLIGHT.inspect_path(out_p, (stm_p.stat().st_size, gpu_p.stat().st_size))
+        if not rep["passed"]:
+            raise RuntimeError(f"patch_35 noop preflight failed: {rep['issues']}")
+        m_sha, m_sz = self.store_new_file(out_p)
+        shutil.rmtree(tmp_dir)
+        return [
+            {
+                "name": "9ba626afa44a3aa3.patch_35",
+                "url": self.url_for(m_sha, m_sz),
+                "size": m_sz,
+                "sha256": m_sha,
+                "modes": ["clonedivers", "commandos"],
+                "unlessOption": "droids",
+            },
+            {
+                "name": "9ba626afa44a3aa3.patch_35.stream",
+                "url": "",
+                "size": 0,
+                "sha256": EMPTY_SHA256,
+                "modes": ["clonedivers", "commandos"],
+                "unlessOption": "droids",
+            },
+            {
+                "name": "9ba626afa44a3aa3.patch_35.gpu_resources",
+                "url": "",
+                "size": 0,
+                "sha256": EMPTY_SHA256,
+                "modes": ["clonedivers", "commandos"],
+                "unlessOption": "droids",
+            },
+        ]
+
+    def build_patch_42_gar_voices_overlay(self) -> list[dict[str, Any]]:
+        """Stage the verified 49-stream GAR Clone voice pronunciation delta (`patch_42`, `modes: ["clonedivers", "commandos"]`)."""
+        vo_main = self.voices_overlay_dir / "9ba626afa44a3aa3.patch_47"
+        vo_stm = self.voices_overlay_dir / "9ba626afa44a3aa3.patch_47.stream"
+        if not vo_main.is_file() or not vo_stm.is_file():
+            raise FileNotFoundError(f"Missing GAR voice overlay files in {self.voices_overlay_dir}")
+
+        m_sha, m_sz = self.store_new_file(vo_main)
+        s_sha, s_sz = self.store_new_file(vo_stm)
+        if (m_sha, m_sz) != (GAR_VO_MAIN_SHA256, GAR_VO_MAIN_SIZE):
+            raise RuntimeError(f"GAR VO main SHA/size mismatch: got {(m_sha, m_sz)}")
+        if (s_sha, s_sz) != (GAR_VO_STREAM_SHA256, GAR_VO_STREAM_SIZE):
+            raise RuntimeError(f"GAR VO stream SHA/size mismatch: got {(s_sha, s_sz)}")
+        rep = PREFLIGHT.inspect_path(vo_main, (s_sz, 0))
+        if not rep["passed"]:
+            raise RuntimeError(f"GAR VO preflight failed: {rep['issues']}")
+
+        return [
+            {
+                "name": "9ba626afa44a3aa3.patch_42",
+                "url": self.url_for(m_sha, m_sz),
+                "size": m_sz,
+                "sha256": m_sha,
+                "modes": ["clonedivers", "commandos"],
+            },
+            {
+                "name": "9ba626afa44a3aa3.patch_42.stream",
+                "url": self.url_for(s_sha, s_sz),
+                "size": s_sz,
+                "sha256": s_sha,
+                "modes": ["clonedivers", "commandos"],
+            },
+            {
+                "name": "9ba626afa44a3aa3.patch_42.gpu_resources",
+                "url": "",
+                "size": 0,
+                "sha256": EMPTY_SHA256,
+                "modes": ["clonedivers", "commandos"],
+            },
+        ]
+
+    def build_patch_47_droid_closure_and_hiders(self, updated_files: list[dict[str, Any]]) -> list[dict[str, Any]]:
+        """Build 5-tier partitioned `patch_47` (`all-droids` 21 corpse/wreck hiders + `mixed-droids` 9 closure + 16 hiders)."""
+        tmp_dir = self.out_dir / "_tmp_patch_47"
         if tmp_dir.exists():
             shutil.rmtree(tmp_dir)
         tmp_dir.mkdir(parents=True)
@@ -1537,9 +1634,44 @@ class ClonesR26Builder:
                     return e
             raise KeyError(f"Missing all-droids entry {name} tier={tier}")
 
-        tier_paths: dict[str, tuple[Path, Path, Path]] = {}
+        # Precompute `unit_safe` zero-draw hiders for all 16 shared + 5 all-droids-only corpse/wreck UNITs
+        shared_hiders: dict[tuple[int, int], P.Generated] = {}
+        for uid in CORPSE_SHARED_DROIDS:
+            if uid in self.protected_units:
+                raise RuntimeError(f"Refusing to hide protected UNIT 0x{uid:016x}")
+            stk_raw = self.stock_main(uid, UNIT_T)
+            if stk_raw is None:
+                raise RuntimeError(f"Missing stock corpse/gore UNIT 0x{uid:016x}")
+            hm, hg = build_zero_draw_unit_hider(stk_raw)
+            shared_hiders[(uid, UNIT_T)] = P.Generated((hm, b"", hg))
+
+        all_droids_only_hiders: dict[tuple[int, int], P.Generated] = {}
+        for uid in CORPSE_ALL_DROIDS_ONLY:
+            if uid in self.protected_units:
+                raise RuntimeError(f"Refusing to hide protected UNIT 0x{uid:016x}")
+            stk_raw = self.stock_main(uid, UNIT_T)
+            if stk_raw is None:
+                raise RuntimeError(f"Missing stock wreck/corpse UNIT 0x{uid:016x}")
+            hm, hg = build_zero_draw_unit_hider(stk_raw)
+            all_droids_only_hiders[(uid, UNIT_T)] = P.Generated((hm, b"", hg))
+
+        # 1) `patch_47` for `all-droids` (`option: "droids", unlessOption: "mixed-droids"`): 21 hiders
+        all_droids_res = dict(shared_hiders)
+        all_droids_res.update(all_droids_only_hiders)
+        ad_tier_paths: dict[str, tuple[Path, Path, Path]] = {}
         for tier in TIERS:
-            resources: dict[tuple[int, int], P.Generated] = {}
+            out_p = tmp_dir / "all-droids" / tier / "9ba626afa44a3aa3.patch_47"
+            out_p.parent.mkdir(parents=True, exist_ok=True)
+            P.write_archive(out_p, header_72, all_droids_res, stream_alignment=64 if tier != "full" else 16)
+            stm_p = out_p.with_name(out_p.name + ".stream")
+            gpu_p = out_p.with_name(out_p.name + ".gpu_resources")
+            PREFLIGHT.inspect_path(out_p, (stm_p.stat().st_size, gpu_p.stat().st_size))
+            ad_tier_paths[tier] = (out_p, stm_p, gpu_p)
+
+        # 2) `patch_47` for `mixed-droids` (`option: "mixed-droids"`): 9 closure resources + 16 shared hiders
+        md_tier_paths: dict[str, tuple[Path, Path, Path]] = {}
+        for tier in TIERS:
+            resources: dict[tuple[int, int], P.Generated] = dict(shared_hiders)
             for src_pnum, rid, rkind in MIXED_DROIDS_CLOSURE_SPECS:
                 fm = _find_all_droids(f"9ba626afa44a3aa3.patch_{src_pnum}", tier)
                 fs = _find_all_droids(f"9ba626afa44a3aa3.patch_{src_pnum}.stream", tier)
@@ -1556,75 +1688,41 @@ class ClonesR26Builder:
                     )
                 resources[(rid, rkind)] = P.Generated((pm, ps, pg))
 
-            out_p = tmp_dir / tier / "9ba626afa44a3aa3.patch_46"
+            out_p = tmp_dir / "mixed-droids" / tier / "9ba626afa44a3aa3.patch_47"
             out_p.parent.mkdir(parents=True, exist_ok=True)
             P.write_archive(out_p, header_72, resources, stream_alignment=64 if tier != "full" else 16)
             stm_p = out_p.with_name(out_p.name + ".stream")
             gpu_p = out_p.with_name(out_p.name + ".gpu_resources")
             PREFLIGHT.inspect_path(out_p, (stm_p.stat().st_size, gpu_p.stat().st_size))
-            tier_paths[tier] = (out_p, stm_p, gpu_p)
+            md_tier_paths[tier] = (out_p, stm_p, gpu_p)
 
         entries = self._emit_deduped_manifest_entries(
-            46, tier_paths, modes=["clonedivers", "commandos"], option="mixed-droids"
+            47,
+            ad_tier_paths,
+            modes=["clonedivers", "commandos"],
+            option="droids",
+            unless_option="mixed-droids",
+        )
+        entries.extend(
+            self._emit_deduped_manifest_entries(
+                47,
+                md_tier_paths,
+                modes=["clonedivers", "commandos"],
+                option="mixed-droids",
+            )
         )
         shutil.rmtree(tmp_dir)
         return entries
 
-    def build_patch_47_and_48_hiders(self) -> list[dict[str, Any]]:
-        """Build 5-tier `patch_47` (16 shared droid corpse/gore/spike hiders) & `patch_48` (5 all-droids gunship/berserker hiders)."""
-        tmp_dir = self.out_dir / "_tmp_patch_47_48"
-        if tmp_dir.exists():
-            shutil.rmtree(tmp_dir)
-        tmp_dir.mkdir(parents=True)
-
-        header_72 = self.blob_path(self.find_r25_entry("9ba626afa44a3aa3.patch_0", "full")["sha256"]).read_bytes()[:72]
-        all_entries: list[dict[str, Any]] = []
-
-        for patch_num, uids, opt, unless_opt in (
-            (47, CORPSE_SHARED_DROIDS, "droids", None),
-            (48, CORPSE_ALL_DROIDS_ONLY, "droids", "mixed-droids"),
-        ):
-            resources: dict[tuple[int, int], P.Generated] = {}
-            for uid in uids:
-                if uid in self.protected_units:
-                    raise RuntimeError(f"Refusing to hide protected UNIT 0x{uid:016x}")
-                stk_raw = self.stock_main(uid, UNIT_T)
-                if stk_raw is None:
-                    raise RuntimeError(f"Missing stock corpse/wreck UNIT 0x{uid:016x}")
-                hm, hg = build_zero_draw_unit_hider(stk_raw)
-                resources[(uid, UNIT_T)] = P.Generated((hm, b"", hg))
-
-            tier_paths: dict[str, tuple[Path, Path, Path]] = {}
-            for tier in TIERS:
-                out_p = tmp_dir / f"p{patch_num}" / tier / f"9ba626afa44a3aa3.patch_{patch_num}"
-                out_p.parent.mkdir(parents=True, exist_ok=True)
-                P.write_archive(out_p, header_72, resources, stream_alignment=64 if tier != "full" else 16)
-                stm_p = out_p.with_name(out_p.name + ".stream")
-                gpu_p = out_p.with_name(out_p.name + ".gpu_resources")
-                PREFLIGHT.inspect_path(out_p, (stm_p.stat().st_size, gpu_p.stat().st_size))
-                tier_paths[tier] = (out_p, stm_p, gpu_p)
-
-            all_entries.extend(
-                self._emit_deduped_manifest_entries(
-                    patch_num,
-                    tier_paths,
-                    modes=["clonedivers", "commandos"],
-                    option=opt,
-                    unless_option=unless_opt,
-                )
-            )
-
-        shutil.rmtree(tmp_dir)
-        return all_entries
-
     def stage_named_views(self, r26_manifest: dict[str, Any]) -> dict[str, int]:
-        """Materialize hardlinked named `.patch_N` views for every available archive per tier."""
+        """Materialize hardlinked named `.patch_N` views for `all-droids`, `mixed-droids`, and `native-bots` per tier."""
         if self.staged_dir.exists():
             shutil.rmtree(self.staged_dir)
         counts: dict[str, int] = {}
         for variant_name, active_opts in (
             ("all-droids", {"commandos", "droids", "aimpoints"}),
             ("mixed-droids", {"commandos", "droids", "mixed-droids", "aimpoints"}),
+            ("native-bots", {"commandos", "aimpoints"}),
         ):
             for tier in TIERS:
                 vdir = self.staged_dir / variant_name / tier
@@ -1665,13 +1763,17 @@ class ClonesR26Builder:
         r26 = copy.deepcopy(self.r25)
         files = r26["pack"]["files"]
 
-        # Step A: Fix `patch_35`:
-        #   1) Add `"option": "droids"` to all `patch_35*` manifest entries so CIS Providence Dreadnoughts
-        #      appear in orbit & surface skyboxes for BOTH `all-droids` and `mixed-droids` (and turn off on `native-bots`).
-        #   2) Fix `patch_35.gpu_resources` `lighter` OOB bug (`29,404,888 < 29,404,928`) by merging `lighter`
-        #      onto `full`'s valid `29,404,928`-byte `3c32e0039ee7ed07...` blob.
+        # Step A:
+        #   1) Fix `patch_35` (`option: "droids"` + merge `lighter` `.gpu_resources` onto valid `full` 29,404,928-byte blob).
+        #   2) Shift `r25`'s `droids`-only `patch_40..43` to `patch_43..46` so unconditional `patch_40` (Eagle aircraft),
+        #      `patch_41` (Katarn helmets), and `patch_42` (49-stream GAR voice delta) sit contiguously at `0..42` on `native-bots`,
+        #      and `droids` (`all-droids` & `mixed-droids`) sit contiguously at `0..47`!
         new_files: list[dict[str, Any]] = []
         for entry in files:
+            m_shift = re.fullmatch(r"(9ba626afa44a3aa3\.patch_)(4[0-3])(\.stream|\.gpu_resources)?", entry["name"])
+            if m_shift:
+                shifted_pnum = int(m_shift.group(2)) + 3
+                entry["name"] = f"{m_shift.group(1)}{shifted_pnum}{m_shift.group(3) or ''}"
             if entry["name"].startswith("9ba626afa44a3aa3.patch_35"):
                 entry["option"] = "droids"
                 if entry["name"] == "9ba626afa44a3aa3.patch_35.gpu_resources":
@@ -1685,8 +1787,8 @@ class ClonesR26Builder:
 
         # Step B: Rewrite MAIN CPU archives in-place (0 B `.gpu_resources`/`.stream` churn!) for:
         #   - `patch_0..31`, `patch_34`, `patch_37`, `patch_39`: Scorch `c96cb2e72d7a0525`, Clone wearables/NPCs, AT-TE weapon children
-        #   - `patch_35`: Providence Dreadnought (`2600 m`) + Vulture Droid (`26 m`) skybox bounds
-        #   - `patch_40..43` (`all-droids` AND `mixed-droids`): MagnaGuard `9f44121c554dae89` (`patch_41`) `m8..m13` collision rebind
+        #   - `patch_35` (`option: "droids"`): Providence Dreadnought (`2600 m`) + Vulture Droid (`26 m`) skybox bounds
+        #   - `patch_43..46` (`all-droids` AND `mixed-droids`): MagnaGuard `9f44121c554dae89` (`patch_44`) `m8..m13` collision rebind
         #     + CIS droid/Electrostaff/vehicle `@48` LODData & `@100` MeshObject bounds + `lod_scale` clamp
         rewritten_cache: dict[str, tuple[str, int, int]] = {}
         stats = Counter()
@@ -1745,7 +1847,7 @@ class ClonesR26Builder:
                         )
                     return raw
 
-                if _pnum in (40, 41, 42, 43):
+                if _pnum in (43, 44, 45, 46):
                     rebinds = MAGNAGUARD_COLLISION_REBINDS if uid == MAGNAGUARD_FEMALE_UID else None
                     if uid in CIS_LARGE_VEHICLE_UNITS:
                         box = (-18.0, -18.0, -12.0, 18.0, 18.0, 16.0)
@@ -1819,32 +1921,43 @@ class ClonesR26Builder:
             else:
                 rewritten_cache[cache_key] = (orig_sha, entry["size"], 0)
 
-        # Step C: Build new 5-tier triplet archives (`patch_44`, `patch_45`, `patch_46`, `patch_47`, `patch_48`)
-        p44_entries, eagle_header_c = self.build_patch_44_all_tiers(files)
-        p45_entries = self.build_patch_45_all_tiers(files)
-        p46_entries = self.build_patch_46_all_tiers(files)
-        p47_48_entries = self.build_patch_47_and_48_hiders()
-        files.extend(p44_entries)
-        files.extend(p45_entries)
-        files.extend(p46_entries)
-        files.extend(p47_48_entries)
+        # Step C: Build contiguous new 5-tier triplet archives:
+        #   - `patch_35` (`unlessOption: "droids"`): contiguous no-op placeholder for `native-bots`
+        #   - `patch_40` (unconditional): 4 self-contained Eagle-rigged aircraft + 101 privatized surface/unit pins
+        #   - `patch_41` (unconditional): 3 Delta Squad Armory Katarn helmets grafted onto stock
+        #   - `patch_42` (unconditional): 49-stream GAR Clone voice pronunciation delta (`native-bots` ends at `0..42`)
+        #   - `patch_47` (`all-droids` & `mixed-droids` partitioned): Cyborg corpse/gore/wreck hiders + `mixed-droids` 9-resource closure (`droids` ends at `0..47`)
+        p35_noop_entries = self.build_patch_35_noop_unless_droids()
+        p40_eagle_entries, eagle_header_c = self.build_patch_44_all_tiers(files)
+        p41_helmet_entries = self.build_patch_45_all_tiers(files)
+        p42_gar_vo_entries = self.build_patch_42_gar_voices_overlay()
+        p47_droid_entries = self.build_patch_47_droid_closure_and_hiders(files)
+        files.extend(p35_noop_entries)
+        files.extend(p40_eagle_entries)
+        files.extend(p41_helmet_entries)
+        files.extend(p42_gar_vo_entries)
+        files.extend(p47_droid_entries)
+        # Sort manifest file rows cleanly by patch index so `hellforge-clones-r26.json` reads in ascending `.patch_0..47` order
+        files.sort(key=lambda e: (int(re.search(r"\.patch_(\d+)", e["name"]).group(1)), e["name"]))  # type: ignore[union-attr]
 
         # Update top-level r26 metadata
         r26["pack"]["version"] = "2026.11.28-r26"
         r26["pack"]["notes"] = (
             "Clonedivers r26: Restored Republic Commando Scorch/Fixer/Sev Katarn helmets across both `clonedivers` and `commandos` "
-            "modes (`patch_45`, grafted onto stock rigs with `unit_safe` parity) and expanded ankle-culled Clone wearables; "
-            "fixed IG-100 MagnaGuard Cyborg ragdoll capsule material leak (`patch_41` `m8..m13` -> `m_collision`), CIS droid/Electrostaff/"
-            "vehicle culling bounds (`patch_40..43`), `mixed-droids` 9-resource closure (`patch_46`), and hidden vanilla Cyborg corpses, "
-            "severed limbs, gore piles, scout-walker wrecks, head spikes, and HMP Gunship death wrecks (`patch_47` & `patch_48`); "
-            "expanded AT-TE cannon culling bounds; wired CIS Providence Dreadnoughts & Vulture Droids into orbit & surface skyboxes across "
-            "both `all-droids` and `mixed-droids` (`patch_35`, plus fixed `lighter` `.gpu_resources` truncation); and added 4 self-contained "
-            "Eagle-rigged attack-run ships (`ARC-170`, `BTL-B Y-Wing`, `LAAT/i Gunship`, `CIS Vulture Droid`) with full 5-tier texture closure (`patch_44`)."
+            "modes (`patch_41`, grafted onto stock rigs with `unit_safe` parity) and expanded ankle-culled Clone wearables; "
+            "folded 49 GAR Clone voice pronunciation fixes (`patch_42`); fixed IG-100 MagnaGuard Cyborg ragdoll capsule material leak "
+            "(`patch_44` `m8..m13` -> `m_collision`), CIS droid/Electrostaff/vehicle culling bounds (`patch_43..46`), `mixed-droids` "
+            "9-resource closure and zero-draw hiders for Cyborg corpses, severed limbs, gore piles, scout-walker wrecks, head spikes, "
+            "and HMP Gunship death wrecks (`patch_47`); expanded AT-TE cannon culling bounds; wired CIS Providence Dreadnoughts & Vulture "
+            "Droids into orbit & surface skyboxes across `all-droids` and `mixed-droids` (`patch_35`, plus fixed `lighter` `.gpu_resources` "
+            "truncation and contiguous `unlessOption: droids` slot); and added 4 self-contained Eagle-rigged attack-run ships (`ARC-170`, "
+            "`BTL-B Y-Wing`, `LAAT/i Gunship`, `CIS Vulture Droid`) with full 5-tier texture closure (`patch_40`)."
         )
         r26["pack"]["statusNotes"] = (
-            "Verified across all 5 tiers (full, lighter, reduced1024, reduced512, potato256) with 0 archive preflight issues, "
-            "0 missing dependencies, 0 TINY_MESH_AABB, <= 64 bones per compact skin, 0 NaN floats, full `asset_gate.h` directory scan parity, "
-            "and 100% preserved LEGO/Yoda/AT-ST runtime pins."
+            "Verified across all 180 mode/option/tier combinations (full, lighter, reduced1024, reduced512, potato256) with strict "
+            "patch contiguity (`0..42` native-bots, `0..47` all-droids/mixed-droids), 0 archive preflight issues, 0 missing dependencies, "
+            "0 TINY_MESH_AABB, <= 64 bones per compact skin, 0 NaN floats, full `asset_gate.h` directory scan parity, and 100% preserved "
+            "LEGO/Yoda/AT-ST runtime pins."
         )
 
         manifest_path = self.out_dir / "hellforge-clones-r26.json"
