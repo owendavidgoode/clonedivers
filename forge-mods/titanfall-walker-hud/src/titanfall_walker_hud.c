@@ -17,6 +17,7 @@
 #include <string.h>
 
 #include "hellforge_mod.h"
+#include "clonedivers_em_layout.h"
 #include "titanfall_hud_options.h"
 #include "titanfall_hud_render.h"
 
@@ -177,9 +178,11 @@ static volatile LONG g_disarmed = 1;
 static volatile LONG g_sessionEnded = 0;
 static volatile LONG g_cacheEpoch = 1;
 static volatile LONG g_activeWalkerEntity = 0; /* Published by camera thread for game-thread telemetry */
+static volatile LONG g_fpCameraActive = 0;     /* 1 iff Tfh actively owns local_poses[0] in 1P canopy view */
 
 static TfhStepFn g_origStep;
 static TfhSubStepFn g_origSubStep;
+static uint32_t g_hookedRva;
 static TfhSetLocalPoseFn g_setLocalPose;
 static TfhUpdateUnitFn g_updateUnit;
 static TfhLookupUnitFn g_lookupUnit;
@@ -187,6 +190,22 @@ static TfhMainWorldFn g_mainWorld;
 static TfhRaycastFn g_raycast;
 static int g_raycastState;
 static int g_hookInstalled;
+
+static SRWLOCK g_emLayoutLock = SRWLOCK_INIT;
+static CdEmLayout g_emLayout;
+static int g_emLayoutResolved = 0;
+
+typedef int (*TfhPeerQueryBasePoseFn)(
+    uintptr_t world,
+    uint32_t cam_ref,
+    const float raw_pose[16],
+    float out_base[16],
+    int consume);
+static HMODULE g_peerEcpMod = NULL;
+static TfhPeerQueryBasePoseFn g_peerEcpQueryBase = NULL;
+#ifdef TFH_UNIT_TEST
+static TfhPeerQueryBasePoseFn g_testPeerQueryBaseOverride = NULL;
+#endif
 
 static SRWLOCK g_walkerLock = SRWLOCK_INIT;
 static TfhWalkerSlot g_walkerSlots[TFH_MAX_TRACKED_WALKERS];
@@ -314,21 +333,100 @@ static int TfhMapFind(uintptr_t manager, uint32_t at, uint32_t key, uint32_t* ou
     return 0;
 }
 
+static void TfhInvalidateEmLayout(void)
+{
+    AcquireSRWLockExclusive(&g_emLayoutLock);
+    g_emLayoutResolved = 0;
+    ReleaseSRWLockExclusive(&g_emLayoutLock);
+}
+
+static CdEmLayout TfhGetEmLayout(void)
+{
+    AcquireSRWLockShared(&g_emLayoutLock);
+    if (g_emLayoutResolved) {
+        CdEmLayout cached = g_emLayout;
+        ReleaseSRWLockShared(&g_emLayoutLock);
+        return cached;
+    }
+    ReleaseSRWLockShared(&g_emLayoutLock);
+
+    uintptr_t game = g_gameBase;
+    if (game == 0u && g_hf && g_hf->module_base) {
+        game = g_hf->module_base("game.dll", NULL);
+    }
+    if (game == 0u || !g_hf) {
+        return cd_em_default_layout();
+    }
+
+    CdEmLayout lay = cd_em_default_layout();
+    if (g_hf->read_code) {
+        lay = cd_em_resolve_hf(game, g_hf->read_code);
+    }
+    if (!lay.relocated && g_hf->read) {
+        lay = cd_em_resolve_hf(game, g_hf->read);
+    }
+
+    AcquireSRWLockExclusive(&g_emLayoutLock);
+    g_emLayout = lay;
+    g_emLayoutResolved = 1;
+    ReleaseSRWLockExclusive(&g_emLayoutLock);
+    return lay;
+}
+
+static int TfhQueryPeerBasePose(
+    uintptr_t world,
+    uint32_t cam_ref,
+    const float raw_pose[16],
+    float out_base[16],
+    int consume)
+{
+#ifdef TFH_UNIT_TEST
+    if (g_testPeerQueryBaseOverride != NULL) {
+        return g_testPeerQueryBaseOverride(world, cam_ref, raw_pose, out_base, consume);
+    }
+#endif
+    HMODULE cur = GetModuleHandleA("empire_camera_pullback.dll");
+    if (cur == NULL) {
+        g_peerEcpMod = NULL;
+        g_peerEcpQueryBase = NULL;
+        return 0;
+    }
+    if (cur != g_peerEcpMod) {
+        g_peerEcpMod = cur;
+        g_peerEcpQueryBase = (TfhPeerQueryBasePoseFn)(uintptr_t)GetProcAddress(cur, "hellforge_ecp_query_base_pose");
+    }
+    return g_peerEcpQueryBase != NULL ? g_peerEcpQueryBase(world, cam_ref, raw_pose, out_base, consume) : 0;
+}
+
+HF_MOD_EXPORT int hellforge_tfh_is_first_person_active(void)
+{
+    if (!g_opts.enabled ||
+        InterlockedCompareExchange(&g_sessionEnded, 0, 0) != 0 ||
+        InterlockedCompareExchange(&g_disarmed, 0, 0) != 0) {
+        return 0;
+    }
+    return InterlockedCompareExchange(&g_fpCameraActive, 0, 0) != 0 ? 1 : 0;
+}
+
 static int TfhReadEntityDescById(uintptr_t em, uint32_t entity_id, TfhEntityDescriptor* out)
 {
     if (em < 0x10000u || entity_id == 0u || entity_id == 0xFFFFFFFFu || !out) return 0;
+    CdEmLayout layout = TfhGetEmLayout();
     uint32_t slot = 0u;
-    if (!TfhMapFind(em, TFH_EM_ENTITY_MAP, entity_id, &slot) || slot >= TFH_EM_DESC_MAX) return 0;
-    if (!TfhRead(em + TFH_EM_DESCRIPTORS + (uintptr_t)slot * TFH_EM_DESC_STRIDE, out, sizeof(*out))) return 0;
+    if (!TfhMapFind(em, TFH_EM_ENTITY_MAP, entity_id, &slot) || slot >= layout.capacity) return 0;
+    uintptr_t rec = cd_em_record_at(em, layout.records_offset, slot);
+    if (!rec || !TfhRead(rec, out, sizeof(*out))) return 0;
     return out->entity == entity_id ? 1 : 0;
 }
 
 static int TfhReadEntityDescByNet(uintptr_t em, uint32_t net_id, TfhEntityDescriptor* out)
 {
     if (em < 0x10000u || net_id == 0u || net_id == TFH_NET_ID_NONE || !out) return 0;
+    CdEmLayout layout = TfhGetEmLayout();
     uint32_t slot = 0u;
-    if (!TfhMapFind(em, TFH_EM_NETWORK_MAP, net_id, &slot) || slot >= TFH_EM_DESC_MAX) return 0;
-    if (!TfhRead(em + TFH_EM_DESCRIPTORS + (uintptr_t)slot * TFH_EM_DESC_STRIDE, out, sizeof(*out))) return 0;
+    if (!TfhMapFind(em, TFH_EM_NETWORK_MAP, net_id, &slot) || slot >= layout.capacity) return 0;
+    uintptr_t rec = cd_em_record_at(em, layout.records_offset, slot);
+    if (!rec || !TfhRead(rec, out, sizeof(*out))) return 0;
     return out->network == net_id ? 1 : 0;
 }
 
@@ -665,6 +763,7 @@ static void TfhResetCameraCache(void)
     TfhRestoreBasePoseIfNeeded();
     TfhSetScreenVisible(0);
     InterlockedExchange(&g_activeWalkerEntity, 0);
+    InterlockedExchange(&g_fpCameraActive, 0);
 
     TfhPoseTelemetry empty_pt;
     memset(&empty_pt, 0, sizeof(empty_pt));
@@ -686,20 +785,30 @@ static int TfhEnsureRaycastReady(void)
     }
     if (!g_hf->code_matches(g_exeBase + TFH_EXE_PHYSICS_RAYCAST, kTfhPinRaycast)) {
         g_raycastState = -1;
+        if (g_hf->log) g_hf->log(g_mod, "titanfall-walker-hud: raycast off (exe+0x%X pin mismatch)", TFH_EXE_PHYSICS_RAYCAST);
         return 0;
     }
     uintptr_t phys_api = 0u, slot_fn = 0u;
+    uint32_t qhash = 0u;
+    /* helldivers2.exe+0x77DEC0 (+0x3F: lea rcx,[rax+rax*4]) indexes 20-byte query rows (+0x5C for row 4). */
     if (!TfhReadPtr(g_gameBase + TFH_GAME_PHYSICS_GLOBAL, &phys_api) || phys_api < 0x10000u ||
         !TfhReadPtr(phys_api + TFH_PHYSICS_RAYCAST_SLOT, &slot_fn) ||
-        slot_fn != (g_exeBase + TFH_EXE_PHYSICS_RAYCAST)) {
-        return 0;
-    }
-    uint32_t qhash = 0u;
-    if (!TfhReadU32(g_exeBase + TFH_EXE_RAYCAST_QUERIES + TFH_RAYCAST_QUERY_ROW * 16u + 12u, &qhash) ||
+        slot_fn != (g_exeBase + TFH_EXE_PHYSICS_RAYCAST) ||
+        !TfhReadU32(g_exeBase + TFH_EXE_RAYCAST_QUERIES + TFH_RAYCAST_QUERY_ROW * 20u + 12u, &qhash) ||
         qhash != TFH_RAYCAST_QUERY_HASH) {
+        if (phys_api >= 0x10000u) {
+            g_raycastState = -1;
+            if (g_hf->log) {
+                g_hf->log(g_mod, "titanfall-walker-hud: raycast off (physics slot or damage_los_query mismatch)");
+            }
+        }
         return 0;
     }
-    g_raycast = (TfhRaycastFn)(g_exeBase + TFH_EXE_PHYSICS_RAYCAST);
+#ifdef TFH_UNIT_TEST
+    if (!g_raycast) g_raycast = (TfhRaycastFn)slot_fn;
+#else
+    g_raycast = (TfhRaycastFn)slot_fn;
+#endif
     g_raycastState = 1;
     return 1;
 }
@@ -920,10 +1029,12 @@ static void TfhApplyCameraAndTelemetryStep(void)
     uintptr_t avatar_link = 0u;
     if (!avatar_graph || !TfhReadPtr(avatar_graph + TFH_GRAPH_LINK_PARENT, &avatar_link) || avatar_link == 0u) {
         /* Local player is on foot (or unmounted) -> close HUD & restore any 1P pose immediately. */
-        if (g_cam.mounted_prev || g_cam.hud_requested_open || g_cam.has_last_written) {
+        if (g_cam.mounted_prev || g_cam.hud_requested_open || g_cam.has_last_written ||
+            InterlockedCompareExchange(&g_fpCameraActive, 0, 0) != 0) {
             TfhRestoreBasePoseIfNeeded();
             TfhSetScreenVisible(0);
             InterlockedExchange(&g_activeWalkerEntity, 0);
+            InterlockedExchange(&g_fpCameraActive, 0);
             g_cam.mounted_prev = 0;
             g_cam.first_person = 0;
             TfhPoseTelemetry off_pt;
@@ -937,10 +1048,12 @@ static void TfhApplyCameraAndTelemetryStep(void)
     uintptr_t walker_unit = TfhResolveMountedWalker(world, avatar_link, &walker_ent);
     if (!walker_unit) {
         /* Mounted in a non-walker (Hellpod, Pelican, FRV) -> keep HUD shut. */
-        if (g_cam.mounted_prev || g_cam.hud_requested_open || g_cam.has_last_written) {
+        if (g_cam.mounted_prev || g_cam.hud_requested_open || g_cam.has_last_written ||
+            InterlockedCompareExchange(&g_fpCameraActive, 0, 0) != 0) {
             TfhRestoreBasePoseIfNeeded();
             TfhSetScreenVisible(0);
             InterlockedExchange(&g_activeWalkerEntity, 0);
+            InterlockedExchange(&g_fpCameraActive, 0);
             g_cam.mounted_prev = 0;
             g_cam.first_person = 0;
             TfhPoseTelemetry off_pt;
@@ -959,6 +1072,7 @@ static void TfhApplyCameraAndTelemetryStep(void)
     uint32_t wnodes = 0u;
     float wm[16];
     if (!wgraph || !TfhReadU32(wgraph + TFH_GRAPH_NODE_COUNT, &wnodes) || !TfhUnitWorldPose(walker_unit, 0u, wm)) {
+        InterlockedExchange(&g_fpCameraActive, 0);
         return;
     }
     TfhVec3 wroot = tfh_v3(wm[12], wm[13], wm[14]);
@@ -966,6 +1080,7 @@ static void TfhApplyCameraAndTelemetryStep(void)
     TfhVec3 wfwd = tfh_v3(wm[4], wm[5], wm[6]);
     TfhVec3 wup = tfh_v3(wm[8], wm[9], wm[10]);
     if (!tfh_normalize(&wright) || !tfh_normalize(&wfwd) || !tfh_normalize(&wup)) {
+        InterlockedExchange(&g_fpCameraActive, 0);
         return;
     }
 
@@ -979,9 +1094,11 @@ static void TfhApplyCameraAndTelemetryStep(void)
     }
 
     if (is_atst && !g_opts.enable_on_atst) {
-        if (g_cam.mounted_prev || g_cam.hud_requested_open || g_cam.has_last_written) {
+        if (g_cam.mounted_prev || g_cam.hud_requested_open || g_cam.has_last_written ||
+            InterlockedCompareExchange(&g_fpCameraActive, 0, 0) != 0) {
             TfhRestoreBasePoseIfNeeded();
             TfhSetScreenVisible(0);
+            InterlockedExchange(&g_fpCameraActive, 0);
             g_cam.mounted_prev = 0;
             g_cam.first_person = 0;
         }
@@ -991,7 +1108,10 @@ static void TfhApplyCameraAndTelemetryStep(void)
     /* Acquire active render camera if not yet cached. */
     if (g_cam.cam_ref == 0u) {
         g_cam.cam_ref = TfhStepFindRenderCameraSliced(world);
-        if (g_cam.cam_ref == 0u) return;
+        if (g_cam.cam_ref == 0u) {
+            InterlockedExchange(&g_fpCameraActive, 0);
+            return;
+        }
     }
 
     uintptr_t cam_unit = g_lookupUnit(g_cam.cam_ref);
@@ -1002,15 +1122,21 @@ static void TfhApplyCameraAndTelemetryStep(void)
         !TfhRead(lposes, raw_pose, sizeof(raw_pose))) {
         g_cam.cam_ref = 0u;
         g_cam.has_last_written = 0;
+        InterlockedExchange(&g_fpCameraActive, 0);
         return;
     }
 
     float base_pose[16];
     int was_unoverwritten = 0;
+    int from_peer_ecp = 0;
     if (g_cam.has_last_written && g_cam.last_written_world == world &&
         g_cam.last_written_cam_ref == g_cam.cam_ref && TfhPoseMatches12(raw_pose, g_cam.last_written_pose)) {
         memcpy(base_pose, g_cam.last_base_pose, sizeof(base_pose));
         was_unoverwritten = 1;
+    } else if (TfhQueryPeerBasePose(world, g_cam.cam_ref, raw_pose, base_pose, 0)) {
+        /* Peek pre-pullback engine pose from empire-camera-pullback (-10) without disturbing paused 3P frames. */
+        from_peer_ecp = 1;
+        g_cam.has_last_written = 0;
     } else {
         memcpy(base_pose, raw_pose, sizeof(base_pose));
         g_cam.has_last_written = 0;
@@ -1018,6 +1144,7 @@ static void TfhApplyCameraAndTelemetryStep(void)
 
     TfhVec3 cam_pos, cam_fwd;
     if (!TfhLocalPoseValid(base_pose, &cam_pos, &cam_fwd)) {
+        InterlockedExchange(&g_fpCameraActive, 0);
         return;
     }
 
@@ -1098,6 +1225,9 @@ static void TfhApplyCameraAndTelemetryStep(void)
         }
 
         if (isfinite(final_pos.x) && isfinite(final_pos.y) && isfinite(final_pos.z)) {
+            if (from_peer_ecp) {
+                (void)TfhQueryPeerBasePose(world, g_cam.cam_ref, raw_pose, NULL, 1);
+            }
             float fp_pose[16];
             memcpy(fp_pose, base_pose, sizeof(fp_pose));
             fp_pose[9]  = final_pos.x;
@@ -1121,6 +1251,7 @@ static void TfhApplyCameraAndTelemetryStep(void)
         g_updateUnit(world, cam_unit);
         g_cam.has_last_written = 0;
     }
+    InterlockedExchange(&g_fpCameraActive, applied_fp ? 1 : 0);
 
     /* Compute compass heading, pitch, and walker hull yaw for the HfScreen overlay. */
     float hdg_deg = 0.0f, pitch_deg = 0.0f, wyaw_deg = 0.0f;
@@ -1147,24 +1278,27 @@ static void TfhStepDetour(void* app)
 {
     DWORD saved_err = GetLastError();
     unsigned int saved_csr = _mm_getcsr();
-    if (g_origStep) g_origStep(app);
     TfhApplyCameraAndTelemetryStep();
     _mm_setcsr(saved_csr);
     SetLastError(saved_err);
+    if (g_origStep) g_origStep(app);
+}
+
+static uint64_t TfhSubStepDetourWithCaller(void* rcx, void* rdx, void* r8, uint64_t r9, void* arg5, uintptr_t ret_addr)
+{
+    if (g_exeBase != 0u && ret_addr == g_exeBase + TFH_EXE_CAMERA_STEP_RET) {
+        DWORD saved_err = GetLastError();
+        unsigned int saved_csr = _mm_getcsr();
+        TfhApplyCameraAndTelemetryStep();
+        _mm_setcsr(saved_csr);
+        SetLastError(saved_err);
+    }
+    return g_origSubStep ? g_origSubStep(rcx, rdx, r8, r9, arg5) : 0ULL;
 }
 
 static uint64_t TfhSubStepDetour(void* rcx, void* rdx, void* r8, uint64_t r9, void* arg5)
 {
-    DWORD saved_err = GetLastError();
-    unsigned int saved_csr = _mm_getcsr();
-    uint64_t ret = g_origSubStep ? g_origSubStep(rcx, rdx, r8, r9, arg5) : 0ULL;
-    uintptr_t ret_addr = (uintptr_t)__builtin_return_address(0);
-    if (g_exeBase != 0u && ret_addr == g_exeBase + TFH_EXE_CAMERA_STEP_RET) {
-        TfhApplyCameraAndTelemetryStep();
-    }
-    _mm_setcsr(saved_csr);
-    SetLastError(saved_err);
-    return ret;
+    return TfhSubStepDetourWithCaller(rcx, rdx, r8, r9, arg5, (uintptr_t)__builtin_return_address(0));
 }
 
 /* ---- HfScreen Overlay Callbacks (Present Thread) ---------------------------------------------------------------- */
@@ -1230,6 +1364,7 @@ static void TfhUpdateArmForState(uint32_t state)
         InterlockedExchange(&g_disarmed, 0);
     } else {
         InterlockedExchange(&g_disarmed, 1);
+        InterlockedExchange(&g_fpCameraActive, 0);
         InterlockedIncrement(&g_cacheEpoch);
         if (g_screenId > 0 && g_hf && g_hf->screen_show && g_mod) {
             g_hf->screen_show(g_mod, g_screenId, 0);
@@ -1308,15 +1443,18 @@ static void TfhTryInstallHooks(void)
 
     g_exeBase = exe;
     g_gameBase = game;
+    TfhInvalidateEmLayout();
     g_setLocalPose = (TfhSetLocalPoseFn)(exe + TFH_EXE_SET_LOCAL_POSE);
     g_updateUnit = (TfhUpdateUnitFn)(exe + TFH_EXE_UPDATE_UNIT);
     g_lookupUnit = (TfhLookupUnitFn)(exe + TFH_EXE_LOOKUP_UNIT);
     g_mainWorld = (TfhMainWorldFn)(exe + TFH_EXE_MAIN_WORLD);
 
     int hooked = 0;
+    uint32_t hooked_rva = 0u;
     if (g_hf->code_matches(exe + TFH_EXE_CAMERA_STEP, kTfhPinCameraStep)) {
         if (g_hf->hook_ex(g_mod, exe + TFH_EXE_CAMERA_STEP, (void*)TfhStepDetour, (void**)&g_origStep, -20) == 0) {
             hooked = 1;
+            hooked_rva = TFH_EXE_CAMERA_STEP;
         }
     }
     if (!hooked &&
@@ -1324,6 +1462,7 @@ static void TfhTryInstallHooks(void)
         g_hf->code_matches(exe + 0x689BFBu, "E8 00 CD B3 FF")) {
         if (g_hf->hook_ex(g_mod, exe + TFH_EXE_CAMERA_SUB_STEP, (void*)TfhSubStepDetour, (void**)&g_origSubStep, -20) == 0) {
             hooked = 1;
+            hooked_rva = TFH_EXE_CAMERA_SUB_STEP;
         }
     }
 
@@ -1332,12 +1471,13 @@ static void TfhTryInstallHooks(void)
         return;
     }
 
+    g_hookedRva = hooked_rva;
     g_hookInstalled = 1;
     if (g_hf->set_status) {
         g_hf->set_status(g_mod, "ready (AT-TE tactical visor + F7 1P/3P optics)");
     }
-    g_hf->log(g_mod, "titanfall-walker-hud v0.1.0: installed camera & telemetry pipeline (screen_id=%d, dual_view_vk=0x%02X)",
-              g_screenId, g_opts.dual_view_vk);
+    g_hf->log(g_mod, "titanfall-walker-hud v0.1.0: installed camera & telemetry pipeline (rva=0x%X, screen_id=%d, dual_view_vk=0x%02X)",
+              g_hookedRva, g_screenId, g_opts.dual_view_vk);
 }
 
 static void TfhOnLoadEvent(HfMod* mod, HfEvent event, void* user)
@@ -1347,11 +1487,13 @@ static void TfhOnLoadEvent(HfMod* mod, HfEvent event, void* user)
     if (event == HF_EVENT_GAME_LOADED) {
         TfhTryInstallHooks();
     } else if (event == HF_EVENT_ENTITIES_READY || event == HF_EVENT_MODS_CHANGED) {
+        TfhInvalidateEmLayout();
         TfhRefreshCustomWalkers();
         TfhTryInstallHooks();
     } else if (event == HF_EVENT_SESSION_END) {
         InterlockedExchange(&g_sessionEnded, 1);
         InterlockedExchange(&g_disarmed, 1);
+        InterlockedExchange(&g_fpCameraActive, 0);
         InterlockedIncrement(&g_cacheEpoch);
     }
 }
@@ -1370,13 +1512,15 @@ static void tfh_test_bind_engine(
 {
     g_exeBase = exe_base;
     g_gameBase = game_base;
+    TfhInvalidateEmLayout();
     g_origStep = orig_step;
     g_setLocalPose = set_pose;
     g_updateUnit = update_unit;
     g_lookupUnit = lookup_unit;
     g_mainWorld = main_world;
     g_raycast = raycast;
-    g_raycastState = raycast_ready ? 1 : -1;
+    g_raycastState = raycast_ready;
+    g_hookedRva = TFH_EXE_CAMERA_STEP;
     g_hookInstalled = 1;
 }
 #endif
@@ -1386,10 +1530,20 @@ HF_MOD_EXPORT int hellforge_mod_unload(const HfApi* api, HfMod* mod, uint32_t re
     (void)reason;
     InterlockedExchange(&g_sessionEnded, 1);
     InterlockedExchange(&g_disarmed, 1);
+    InterlockedExchange(&g_fpCameraActive, 0);
     InterlockedIncrement(&g_cacheEpoch);
+    if (g_hookInstalled && g_exeBase != 0u && api &&
+        api->size >= offsetof(HfApi, unhook) + sizeof(void*) && api->unhook) {
+        api->unhook(mod, g_exeBase + (g_hookedRva ? g_hookedRva : TFH_EXE_CAMERA_STEP));
+    }
+    g_hookInstalled = 0;
+    g_hookedRva = 0u;
+    g_origStep = NULL;
+    g_origSubStep = NULL;
     if (g_screenId > 0 && api && api->size >= offsetof(HfApi, screen_show) + sizeof(void*) && api->screen_show) {
         api->screen_show(mod, g_screenId, 0);
     }
+    TfhClearWalkers();
     return 0;
 }
 
@@ -1415,11 +1569,17 @@ HF_MOD_EXPORT int hellforge_mod_init(const HfApi* api, HfMod* mod)
     g_mod = mod;
     g_screenId = 0;
     g_hookInstalled = 0;
+    g_hookedRva = 0u;
+    g_origStep = NULL;
+    g_origSubStep = NULL;
     g_raycastState = 0;
+    g_raycast = NULL;
+    TfhInvalidateEmLayout();
     InterlockedExchange(&g_sessionEnded, 0);
     InterlockedExchange(&g_disarmed, 1);
     InterlockedExchange(&g_cacheEpoch, 1);
     InterlockedExchange(&g_activeWalkerEntity, 0);
+    InterlockedExchange(&g_fpCameraActive, 0);
     memset(&g_cam, 0, sizeof(g_cam));
     g_cam.pelvis_node = -1;
     memset(&g_overlay, 0, sizeof(g_overlay));

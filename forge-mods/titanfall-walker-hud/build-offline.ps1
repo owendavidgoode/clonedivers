@@ -38,6 +38,7 @@ if (!(Test-Path -LiteralPath $compiler)) {
 }
 
 Copy-Item -LiteralPath "$mod\src" -Destination $stage -Recurse -Force
+Copy-Item -LiteralPath "$mod\..\shared\clonedivers_em_layout.h" -Destination "$stage\src\clonedivers_em_layout.h" -Force
 Copy-Item -LiteralPath "$mod\hellforge-mod.json","$mod\options.ini","$mod\README.md" -Destination $stage -Force
 
 $manifest = Get-Content -LiteralPath "$stage\hellforge-mod.json" -Raw | ConvertFrom-Json
@@ -62,7 +63,7 @@ try {
 
     # 2. Strict -std=c11 -O2 -Wall -Wextra -Werror C11 unit & mock-HfDraw verification suite
     & "$compiler\zig.exe" cc -std=c11 -target x86_64-windows-gnu -O2 -Wall -Wextra -Werror `
-        -I $sdk -I "$mod\src" "$mod\tests\titanfall_hud_test.c" -luser32 -o "$mod\build\titanfall_hud_test.exe"
+        -I $sdk -I "$mod\src" -I "$mod\..\shared" "$mod\tests\titanfall_hud_test.c" -luser32 -o "$mod\build\titanfall_hud_test.exe"
     if ($LASTEXITCODE -ne 0) { throw 'Unit test compilation failed' }
 
     & "$mod\build\titanfall_hud_test.exe" $fixture | Tee-Object "$mod\build\tests.log"

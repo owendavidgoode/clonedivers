@@ -70,8 +70,9 @@ static uintptr_t MockVtblGraph(uintptr_t u) { return (uintptr_t)&((MockUnit*)u)-
 static int MockVtblCamCount(uintptr_t u) { return ((MockUnit*)u)->cam_count; }
 static uintptr_t MockVtblCamera(uintptr_t u, uint32_t idx) { return idx == 0u ? (uintptr_t)&((MockUnit*)u)->cam : 0u; }
 
-static uint8_t g_mock_exe[TFH_EXE_UNIT_VTABLE + 0x200];
-static uint8_t g_mock_game[0x1000];
+static uint8_t g_mock_exe[TFH_EXE_RAYCAST_QUERIES + 0x200];
+static uint8_t g_mock_game[0x3500000];
+static uint8_t g_mock_phys_api[0x100];
 static uint8_t g_mock_world[0x231000];
 static uintptr_t g_mock_units[8];
 static uint32_t g_mock_unit_cnt;
@@ -129,6 +130,9 @@ static TfhVec3 g_ray_hit_pt;
 static int g_corrupt_env_in_raycast = 0;
 static DWORD g_orig_seen_err = 0;
 static unsigned int g_orig_seen_csr = 0;
+static float g_orig_seen_cam_pose[16];
+static int g_unhook_calls = 0;
+static uintptr_t g_last_unhook_target = 0u;
 
 static void MockLog(HfMod* m, const char* fmt, ...) { (void)m; (void)fmt; }
 static const char* MockBuildId(void) { return "25480438"; }
@@ -143,6 +147,13 @@ static int MockCodeMatches(uintptr_t addr, const char* pat) { (void)addr; (void)
 static int MockHookEx(HfMod* m, uintptr_t t, void* d, void** o, int32_t p)
 {
     (void)m; (void)t; (void)d; (void)o; (void)p;
+    return 0;
+}
+static int MockUnhook(HfMod* m, uintptr_t target)
+{
+    (void)m;
+    g_unhook_calls++;
+    g_last_unhook_target = target;
     return 0;
 }
 static int MockOn(HfMod* m, HfEvent ev, HfEventCallback cb, void* u)
@@ -229,6 +240,7 @@ static void MockOrigStep(void* app)
     (void)app;
     g_orig_seen_err = GetLastError();
     g_orig_seen_csr = _mm_getcsr();
+    memcpy(g_orig_seen_cam_pose, g_u_cam.local_poses[0], sizeof(g_orig_seen_cam_pose));
 }
 static void MockSetLocalPose(uint32_t ref, int32_t node, const float pose[16])
 {
@@ -395,6 +407,8 @@ static struct { const HfApi* api; } g_mod_obj;
 static void ResetHarness(uint64_t walker_res, uint32_t walker_nodes, float pelvis_z)
 {
     memset(g_mock_exe, 0, sizeof(g_mock_exe));
+    memset(g_mock_game, 0, 0x2000u);
+    memset(g_mock_phys_api, 0, sizeof(g_mock_phys_api));
     uintptr_t fn_g = (uintptr_t)MockVtblGraph;
     uintptr_t fn_cc = (uintptr_t)MockVtblCamCount;
     uintptr_t fn_c = (uintptr_t)MockVtblCamera;
@@ -402,14 +416,24 @@ static void ResetHarness(uint64_t walker_res, uint32_t walker_nodes, float pelvi
     memcpy(g_mock_exe + TFH_EXE_UNIT_VTABLE + TFH_UNIT_VTABLE_CAM_COUNT, &fn_cc, 8u);
     memcpy(g_mock_exe + TFH_EXE_UNIT_VTABLE + TFH_UNIT_VTABLE_CAMERA, &fn_c, 8u);
 
+    /* Populate real 20-byte-stride Havok raycast query table (+0x5C for row 4) & physics slot (+0x68). */
+    uintptr_t phys_ptr = (uintptr_t)g_mock_phys_api;
+    uintptr_t ray_slot = (uintptr_t)(g_mock_exe + TFH_EXE_PHYSICS_RAYCAST);
+    uint32_t ray_hash = TFH_RAYCAST_QUERY_HASH;
+    memcpy(g_mock_game + TFH_GAME_PHYSICS_GLOBAL, &phys_ptr, sizeof(phys_ptr));
+    memcpy(g_mock_phys_api + TFH_PHYSICS_RAYCAST_SLOT, &ray_slot, sizeof(ray_slot));
+    memcpy(g_mock_exe + TFH_EXE_RAYCAST_QUERIES + TFH_RAYCAST_QUERY_ROW * 20u + 12u, &ray_hash, sizeof(ray_hash));
+
     memset(&g_api, 0, sizeof(g_api));
     g_api.version = 20;
     g_api.size = sizeof(HfApi);
     g_api.log = MockLog;
     g_api.build_id = MockBuildId;
     g_api.read = MockRead;
+    g_api.read_code = MockRead;
     g_api.code_matches = MockCodeMatches;
     g_api.hook_ex = MockHookEx;
+    g_api.unhook = MockUnhook;
     g_api.on = MockOn;
     g_api.subscribe = MockSubscribe;
     g_api.on_game_thread = MockOnGameThread;
@@ -432,6 +456,9 @@ static void ResetHarness(uint64_t walker_res, uint32_t walker_nodes, float pelvi
     g_ray_hit = 0;
     g_corrupt_env_in_raycast = 0;
     g_testSimulatedVkDown = 0u;
+    g_unhook_calls = 0;
+    g_last_unhook_target = 0u;
+    memset(g_orig_seen_cam_pose, 0, sizeof(g_orig_seen_cam_pose));
 
     InitMockUnitObj(&g_u_cam, 0x500001u, 0x1111ULL, 1u, 1);
     InitLocalPosePlusY(g_u_cam.local_poses[0], 0.0f, -4.5f, 3.8f);
@@ -533,7 +560,7 @@ static void ResetHarness(uint64_t walker_res, uint32_t walker_nodes, float pelvi
         MockLookupUnit,
         MockMainWorld,
         MockRaycast,
-        1);
+        0); /* Exercise real TfhEnsureRaycastReady() 20-byte stride validation from unchecked state 0! */
 
     HfSpawnEvent sp = {{sizeof(sp), HF_ON_SPAWN, 1}, 0x2002u, 0x44u, walker_res, 1u};
     if (g_ev_spawn) g_ev_spawn((HfMod*)&g_mod_obj, &sp, NULL);
@@ -692,10 +719,15 @@ static void TestDualViewFirstPersonRaycastAndRestore(void)
 
     TfhStepDetour(NULL);
     g_testSimulatedVkDown = 0u;
-    CHECK(g_set_pose_calls == 1 && g_cam.first_person == 1, "F7 toggled into 1P Forward-Canopy view");
+    CHECK(g_set_pose_calls == 1 && g_cam.first_person == 1 && g_raycastState == 1,
+          "F7 toggled into 1P Forward-Canopy view via real 20B-stride TfhEnsureRaycastReady()");
+    CHECK(hellforge_tfh_is_first_person_active() == 1, "exported 1P flag active while rendering 1P canopy");
     CHECK_NEAR(g_last_pose[9], 0.0f, 1e-4f, "1P canopy X");
     CHECK_NEAR(g_last_pose[10], 2.0f + g_opts.fp_forward_offset, 1e-4f, "1P canopy Y (forward)");
     CHECK_NEAR(g_last_pose[11], 0.0f + g_opts.fp_up_offset, 1e-4f, "1P canopy Z (up)");
+    /* Pre-call ordering: g_origStep (exe+0x689BC0) MUST see fp_pose on the exact toggle frame! */
+    CHECK_NEAR(g_orig_seen_cam_pose[10], 2.0f + g_opts.fp_forward_offset, 1e-4f, "origStep rendered 1P Y pre-call");
+    CHECK_NEAR(g_orig_seen_cam_pose[11], 0.0f + g_opts.fp_up_offset, 1e-4f, "origStep rendered 1P Z pre-call");
     CHECK(g_orig_seen_err == 0x24681357u && GetLastError() == 0x24681357u, "GetLastError preserved");
     CHECK(g_orig_seen_csr == orig_csr && _mm_getcsr() == orig_csr, "SSE MXCSR preserved");
 
@@ -731,9 +763,219 @@ static void TestDualViewFirstPersonRaycastAndRestore(void)
     HfStateEvent sev = {{sizeof(sev), HF_ON_STATE, 5}, HF_STATE_MISSION, HF_STATE_PREPARE_SHIP};
     g_mock_state = HF_STATE_PREPARE_SHIP;
     if (g_ev_state) g_ev_state((HfMod*)&g_mod_obj, &sev, NULL);
-    CHECK(g_screen_open_state == 0 && InterlockedCompareExchange(&g_disarmed, 0, 0) == 1,
-          "4 -> 5 teardown closes HUD and disarms atomically");
+    CHECK(g_screen_open_state == 0 && InterlockedCompareExchange(&g_disarmed, 0, 0) == 1 &&
+          hellforge_tfh_is_first_person_active() == 0,
+          "4 -> 5 teardown closes HUD, clears 1P flag, and disarms atomically");
     CHECK(hellforge_mod_unload(&g_api, (HfMod*)&g_mod_obj, HF_UNLOAD_REMOVE) == 0, "clean unload");
+    CHECK(g_unhook_calls == 1 && g_last_unhook_target == (uintptr_t)(g_mock_exe + TFH_EXE_CAMERA_STEP),
+          "hellforge_mod_unload unhooked exact TFH_EXE_CAMERA_STEP RVA");
+}
+
+/* Mock peer empire-camera-pullback (-10) state machine to verify end-to-end (-10) + (-20) co-existence. */
+static struct {
+    int has_last_written;
+    uintptr_t world;
+    uint32_t cam_ref;
+    float last_base_pose[16];
+    float last_written_pose[16];
+    int step_writes;
+} g_mock_peer_ecp;
+
+static int MockPeerQueryBasePose(
+    uintptr_t world,
+    uint32_t cam_ref,
+    const float raw_pose[16],
+    float out_base[16],
+    int consume)
+{
+    if (!g_mock_peer_ecp.has_last_written || g_mock_peer_ecp.world != world ||
+        g_mock_peer_ecp.cam_ref != cam_ref || !TfhPoseMatches12(raw_pose, g_mock_peer_ecp.last_written_pose)) {
+        return 0;
+    }
+    if (out_base) memcpy(out_base, g_mock_peer_ecp.last_base_pose, sizeof(g_mock_peer_ecp.last_base_pose));
+    if (consume) g_mock_peer_ecp.has_last_written = 0;
+    return 1;
+}
+
+static void SimulateCombinedCameraStepFrame(int engine_updates_cam, float eng_y, float eng_z)
+{
+    if (engine_updates_cam) {
+        InitLocalPosePlusY(g_u_cam.local_poses[0], 0.0f, eng_y, eng_z);
+    }
+    /* 1. Outer hook: empire-camera-pullback (priority -10) runs BEFORE titanfall-walker-hud (-20). */
+    if (hellforge_tfh_is_first_person_active()) {
+        /* Peer 1P active: Ecp restores only if it still owns local_poses[0], otherwise leaves 1P untouched. */
+        if (g_mock_peer_ecp.has_last_written &&
+            TfhPoseMatches12(g_u_cam.local_poses[0], g_mock_peer_ecp.last_written_pose)) {
+            memcpy(g_u_cam.local_poses[0], g_mock_peer_ecp.last_base_pose, 64u);
+        }
+        g_mock_peer_ecp.has_last_written = 0;
+    } else if (g_u_avatar.graph.link_parent != 0u) {
+        float game_p[16];
+        if (g_mock_peer_ecp.has_last_written &&
+            TfhPoseMatches12(g_u_cam.local_poses[0], g_mock_peer_ecp.last_written_pose)) {
+            memcpy(game_p, g_mock_peer_ecp.last_base_pose, 64u);
+        } else {
+            memcpy(game_p, g_u_cam.local_poses[0], 64u);
+        }
+        float out_p[16];
+        memcpy(out_p, game_p, 64u);
+        out_p[10] -= 2.80f; /* 3P walker pullback */
+        out_p[11] += 1.65f; /* 3P walker lift */
+        memcpy(g_u_cam.local_poses[0], out_p, 64u);
+        memcpy(g_mock_peer_ecp.last_base_pose, game_p, 64u);
+        memcpy(g_mock_peer_ecp.last_written_pose, out_p, 64u);
+        g_mock_peer_ecp.world = (uintptr_t)g_mock_world;
+        g_mock_peer_ecp.cam_ref = g_u_cam.ref;
+        g_mock_peer_ecp.has_last_written = 1;
+        g_mock_peer_ecp.step_writes++;
+    }
+    /* 2. Inner hook: titanfall-walker-hud (priority -20) runs BEFORE exe+0x689BC0 (MockOrigStep). */
+    TfhStepDetour(NULL);
+}
+
+static uint64_t g_substep_orig_seen_calls = 0u;
+static float g_substep_orig_seen_y = 0.0f;
+static uint64_t MockOrigSubStep(void* a, void* b, void* c, uint64_t d, void* e)
+{
+    (void)a; (void)b; (void)c; (void)d; (void)e;
+    g_substep_orig_seen_calls++;
+    g_substep_orig_seen_y = g_u_cam.local_poses[0][10];
+    return 0x12345678ULL;
+}
+
+static void TestRelocated4096EntityManagerRaycastStrideAndPeerCoexistence(void)
+{
+    /* A. Relocated 4,096-slot EntityManager (slot 3,500 > 2,048 at +0x1200000; inline em + 0xF32F18 zeroed). */
+    ResetHarness(kTfhWalkerResources[0], 198u, 2.06f);
+    const size_t arena_sz = 0x2000000u;
+    uint8_t* reloc_em = (uint8_t*)calloc(1, arena_sz);
+    CHECK(reloc_em != NULL, "allocated relocated EntityManager slab");
+    memcpy(reloc_em, g_mock_em, sizeof(g_mock_em));
+    memset(reloc_em + TFH_EM_DESCRIPTORS, 0, 8u * TFH_EM_DESC_STRIDE); /* Zero inline 0xF32F18 table! */
+
+    int32_t off1 = 0x1200000;
+    int32_t off8 = off1 / 8;
+    uint32_t cap4k = 4096u;
+    uint8_t s_rec8[7] = {0x48u, 0x8Du, 0x80u, 0, 0, 0, 0};
+    uint8_t s_rec1[7] = {0x49u, 0x8Du, 0x85u, 0, 0, 0, 0};
+    uint8_t s_cnt1[7] = {0x8Bu, 0xD0u, 0xBAu, 0, 0, 0, 0};
+    uint8_t s_cnt2[7] = {0xF3u, 0x00u, 0x3Du, 0, 0, 0, 0};
+    memcpy(s_rec8 + 3u, &off8, 4u);
+    memcpy(s_rec1 + 3u, &off1, 4u);
+    memcpy(s_cnt1 + 3u, &cap4k, 4u);
+    memcpy(s_cnt2 + 3u, &cap4k, 4u);
+    memcpy(g_mock_game + CD_EM_SITE_REC8_RVA, s_rec8, 7u);
+    memcpy(g_mock_game + CD_EM_SITE_REC1_RVA, s_rec1, 7u);
+    memcpy(g_mock_game + CD_EM_SITE_CNT1_RVA, s_cnt1, 7u);
+    memcpy(g_mock_game + CD_EM_SITE_CNT2_RVA, s_cnt2, 7u);
+    TfhInvalidateEmLayout();
+
+    g_cell_entity_mgr = (uintptr_t)reloc_em;
+    InitMapHeader(reloc_em, TFH_EM_NETWORK_MAP, g_mock_em_net_tbl, 32u, TFH_NET_ID_NONE);
+    InitMapHeader(reloc_em, TFH_EM_ENTITY_MAP, g_mock_em_ent_tbl, 32u, 0xFFFFFFFFu);
+    TfhEntityDescriptor d_av = {TFH_RES_HELLDIVER_AVATAR, 0x1001u, g_u_avatar.ref, 0x33u, 1u};
+    TfhEntityDescriptor d_wk = {kTfhWalkerResources[0], 0x2002u, g_u_walker.ref, 0x44u, 1u};
+    memcpy(reloc_em + (size_t)off1 + 3499u * CD_EM_RECORD_STRIDE, &d_av, sizeof(d_av));
+    memcpy(reloc_em + (size_t)off1 + 3500u * CD_EM_RECORD_STRIDE, &d_wk, sizeof(d_wk));
+    InsertMapKey(g_mock_em_net_tbl, 32u, TFH_NET_ID_NONE, 0x33u, 3499u);
+    InsertMapKey(g_mock_em_ent_tbl, 32u, 0xFFFFFFFFu, 0x1001u, 3499u);
+    InsertMapKey(g_mock_em_ent_tbl, 32u, 0xFFFFFFFFu, 0x2002u, 3500u);
+
+    g_u_avatar.graph.link_parent = g_u_walker.graph.world_poses;
+    g_gt_tick((HfMod*)&g_mod_obj, 0.016f, NULL);
+    TfhStepDetour(NULL);
+    g_gt_tick((HfMod*)&g_mod_obj, 0.016f, NULL);
+    CHECK(g_screen_open_state == 1, "HUD opens cleanly on relocated 4,096-slot EntityManager (slots 3499/3500)");
+    LONG gt_i = InterlockedCompareExchange(&g_gameTelIdx, 0, 0);
+    CHECK(g_gameTelBuf[gt_i & 1].hull_hp == 1350 && g_gameTelBuf[gt_i & 1].mount_count == 2u,
+          "relocated EntityManager resolves walker entity 0x2002 telemetry");
+
+    memset(g_mock_game + CD_EM_SITE_REC8_RVA, 0, 7u);
+    memset(g_mock_game + CD_EM_SITE_REC1_RVA, 0, 7u);
+    memset(g_mock_game + CD_EM_SITE_CNT1_RVA, 0, 7u);
+    memset(g_mock_game + CD_EM_SITE_CNT2_RVA, 0, 7u);
+    TfhInvalidateEmLayout();
+    free(reloc_em);
+
+    /* B. Raycast 20B stride negative proof: putting hash only at wrong 16B offset (+0x4C) must fail-closed (-1). */
+    ResetHarness(kTfhWalkerResources[0], 198u, 2.06f);
+    uint32_t zero_u32 = 0u, good_hash = TFH_RAYCAST_QUERY_HASH;
+    memcpy(g_mock_exe + TFH_EXE_RAYCAST_QUERIES + TFH_RAYCAST_QUERY_ROW * 20u + 12u, &zero_u32, 4u);
+    memcpy(g_mock_exe + TFH_EXE_RAYCAST_QUERIES + TFH_RAYCAST_QUERY_ROW * 16u + 12u, &good_hash, 4u);
+    CHECK(TfhEnsureRaycastReady() == 0 && g_raycastState == -1,
+          "wrong 16B stride offset (+0x4C) rejected and latches g_raycastState = -1");
+
+    /* C. Proton SubStep pre-call ordering & unhook target verification. */
+    ResetHarness(kTfhWalkerResources[0], 198u, 2.06f);
+    g_origStep = NULL;
+    g_origSubStep = MockOrigSubStep;
+    g_hookedRva = TFH_EXE_CAMERA_SUB_STEP;
+    g_u_avatar.graph.link_parent = g_u_walker.graph.world_poses;
+    g_gt_tick((HfMod*)&g_mod_obj, 0.016f, NULL);
+    g_substep_orig_seen_calls = 0u;
+    (void)TfhSubStepDetourWithCaller(NULL, NULL, NULL, 0ULL, NULL, (uintptr_t)g_mock_exe + TFH_EXE_CAMERA_STEP_RET);
+    g_testSimulatedVkDown = 0x76u;
+    (void)TfhSubStepDetourWithCaller(NULL, NULL, NULL, 0ULL, NULL, (uintptr_t)g_mock_exe + TFH_EXE_CAMERA_STEP_RET);
+    g_testSimulatedVkDown = 0u;
+    CHECK_NEAR(g_substep_orig_seen_y, 2.0f + g_opts.fp_forward_offset, 1e-4f,
+               "TfhSubStepDetour writes 1P pose BEFORE calling g_origSubStep");
+    CHECK(hellforge_mod_unload(&g_api, (HfMod*)&g_mod_obj, HF_UNLOAD_REMOVE) == 0 &&
+          g_last_unhook_target == (uintptr_t)(g_mock_exe + TFH_EXE_CAMERA_SUB_STEP),
+          "hellforge_mod_unload unhooked Proton fallback TFH_EXE_CAMERA_SUB_STEP RVA");
+
+    /* D. Full empire-camera-pullback (-10) + titanfall-walker-hud (-20) co-existence across live & paused toggles! */
+    ResetHarness(kTfhWalkerResources[0], 198u, 2.06f);
+    memset(&g_mock_peer_ecp, 0, sizeof(g_mock_peer_ecp));
+    g_testPeerQueryBaseOverride = MockPeerQueryBasePose;
+    g_u_avatar.graph.link_parent = g_u_walker.graph.world_poses;
+    g_gt_tick((HfMod*)&g_mod_obj, 0.016f, NULL);
+
+    /* 1. Live & paused 3P frames: Ecp (-10) renders (-7.30, 5.45) with zero drift. */
+    SimulateCombinedCameraStepFrame(1, -4.5f, 3.8f);
+    CHECK_NEAR(g_orig_seen_cam_pose[10], -7.30f, 1e-4f, "3P frame rendered Ecp pullback Y=-7.30m");
+    for (int f = 0; f < 10; f++) {
+        SimulateCombinedCameraStepFrame(0, -4.5f, 3.8f); /* Paused 3P */
+    }
+    CHECK_NEAR(g_orig_seen_cam_pose[10], -7.30f, 1e-4f, "paused 3P zero drift with both mods active");
+
+    /* 2. Press F7 while PAUSED (3P -> 1P): Tfh consumes pre-pullback (-4.5, 3.8) & renders 1P (+4.35, 2.85) immediately! */
+    g_testSimulatedVkDown = 0x76u;
+    SimulateCombinedCameraStepFrame(0, -4.5f, 3.8f);
+    g_testSimulatedVkDown = 0u;
+    CHECK_NEAR(g_orig_seen_cam_pose[10], 2.0f + g_opts.fp_forward_offset, 1e-4f, "paused 3P->1P rendered 1P immediately");
+    CHECK_NEAR(g_cam.last_base_pose[10], -4.5f, 1e-4f, "captured true pre-pullback engine base_pose Y=-4.5m");
+    CHECK_NEAR(g_cam.last_base_pose[11], 3.8f, 1e-4f, "captured true pre-pullback engine base_pose Z=3.8m");
+
+    /* 3. 20 paused frames + 5 live frames in 1P: Ecp (-10) never overwrites 1P or corrupts base_pose! */
+    for (int f = 0; f < 20; f++) {
+        SimulateCombinedCameraStepFrame(0, -4.5f, 3.8f);
+        CHECK_NEAR(g_orig_seen_cam_pose[10], 2.0f + g_opts.fp_forward_offset, 1e-4f, "paused 1P stays locked on canopy");
+    }
+    for (int f = 0; f < 5; f++) {
+        SimulateCombinedCameraStepFrame(1, -4.5f, 3.8f);
+        CHECK_NEAR(g_orig_seen_cam_pose[10], 2.0f + g_opts.fp_forward_offset, 1e-4f, "live 1P wins over Ecp -10");
+    }
+
+    /* 4. Press F7 while PAUSED (1P -> 3P): restores exact (-4.5, 3.8), then next paused frame resumes 3P (-7.30, 5.45)! */
+    g_testSimulatedVkDown = 0x76u;
+    SimulateCombinedCameraStepFrame(0, -4.5f, 3.8f);
+    g_testSimulatedVkDown = 0u;
+    CHECK_NEAR(g_orig_seen_cam_pose[10], -4.5f, 1e-4f, "paused 1P->3P restored exact engine Y=-4.5m");
+    SimulateCombinedCameraStepFrame(0, -4.5f, 3.8f);
+    CHECK_NEAR(g_orig_seen_cam_pose[10], -7.30f, 1e-4f, "next paused frame cleanly resumed 3P pullback Y=-7.30m");
+
+    /* 5. Re-enter 1P while live, then disembark while paused -> restores exact (-4.5, 3.8) & closes HUD! */
+    g_testSimulatedVkDown = 0x76u;
+    SimulateCombinedCameraStepFrame(1, -4.5f, 3.8f);
+    g_testSimulatedVkDown = 0u;
+    CHECK_NEAR(g_orig_seen_cam_pose[10], 2.0f + g_opts.fp_forward_offset, 1e-4f, "live 3P->1P active");
+    g_u_avatar.graph.link_parent = 0u;
+    SimulateCombinedCameraStepFrame(0, -4.5f, 3.8f);
+    CHECK(g_screen_open_state == 0 && hellforge_tfh_is_first_person_active() == 0, "disembark closed HUD & 1P flag");
+    CHECK_NEAR(g_orig_seen_cam_pose[10], -4.5f, 1e-4f, "disembark restored exact engine base_pose Y=-4.5m");
+
+    g_testPeerQueryBaseOverride = NULL;
 }
 
 int main(int argc, char** argv)
@@ -742,6 +984,7 @@ int main(int argc, char** argv)
     TestOptionsAndAngles(temp_dir);
     TestAtteHudLifecycleTelemetryAndAtstGate();
     TestDualViewFirstPersonRaycastAndRestore();
+    TestRelocated4096EntityManagerRaycastStrideAndPeerCoexistence();
 
     if (g_failed != 0) {
         fprintf(stderr, "titanfall-walker-hud unit suite FAILED (%d / %d)\n", g_failed, g_checks);

@@ -66,7 +66,8 @@ typedef enum EcpBypassReason {
     ECP_BYPASS_SIGHTS_DISTANCE = 13,
     ECP_BYPASS_PARENT_LINK = 14,
     ECP_BYPASS_ARMORY_PREVIEW = 15,
-    ECP_BYPASS_WALL_BLOCKED = 16
+    ECP_BYPASS_WALL_BLOCKED = 16,
+    ECP_BYPASS_PEER_FIRST_PERSON = 17
 } EcpBypassReason;
 
 /* 24-byte EntityManager descriptor at em + 0xF32F18 + slot * 24 (hellforge_globals.h:78-88). */
@@ -221,6 +222,7 @@ static const char* EcpBypassReasonName(EcpBypassReason reason)
         case ECP_BYPASS_PARENT_LINK: return "parent_link";
         case ECP_BYPASS_ARMORY_PREVIEW: return "armory_preview";
         case ECP_BYPASS_WALL_BLOCKED: return "wall_blocked";
+        case ECP_BYPASS_PEER_FIRST_PERSON: return "peer_1p_canopy";
         default: return "unknown";
     }
 }
@@ -473,6 +475,70 @@ static void EcpRestoreBasePoseIfNeeded(void)
         g_setLocalPose(g_rt.last_written_cam_ref, 0, g_rt.last_base_pose);
         g_updateUnit(world, cam_unit);
     }
+}
+
+/* ---- Peer First-Person Walker HUD Coordination (titanfall-walker-hud -20 <-> empire-camera-pullback -10) -------- */
+
+typedef int (*EcpPeerIsFirstPersonFn)(void);
+static HMODULE g_peerTfhMod = NULL;
+static EcpPeerIsFirstPersonFn g_peerTfhIsFp = NULL;
+#ifdef ECP_UNIT_TEST
+static EcpPeerIsFirstPersonFn g_testPeerIsFpOverride = NULL;
+#endif
+
+static int EcpIsPeerFirstPersonActive(void)
+{
+#ifdef ECP_UNIT_TEST
+    if (g_testPeerIsFpOverride != NULL) return g_testPeerIsFpOverride() != 0 ? 1 : 0;
+#endif
+    HMODULE cur = GetModuleHandleA("titanfall_walker_hud.dll");
+    if (cur == NULL) {
+        g_peerTfhMod = NULL;
+        g_peerTfhIsFp = NULL;
+        return 0;
+    }
+    if (cur != g_peerTfhMod) {
+        g_peerTfhMod = cur;
+        g_peerTfhIsFp = (EcpPeerIsFirstPersonFn)(uintptr_t)GetProcAddress(cur, "hellforge_tfh_is_first_person_active");
+    }
+    return (g_peerTfhIsFp != NULL && g_peerTfhIsFp() != 0) ? 1 : 0;
+}
+
+/* Exported for titanfall-walker-hud (-20) so on a 3P -> 1P toggle frame (where Ecp at -10 already wrote out_pose),
+ * Tfh captures the true pre-pullback engine base_pose instead of Ecp's pulled-back pose, and clears Ecp's ownership
+ * when consume != 0. */
+HF_MOD_EXPORT int hellforge_ecp_query_base_pose(
+    uintptr_t world,
+    uint32_t cam_ref,
+    const float raw_pose[16],
+    float out_base[16],
+    int consume)
+{
+    if (raw_pose == NULL || world == 0u || cam_ref == 0u) return 0;
+    if (!g_rt.has_last_written ||
+        g_rt.last_written_world != world ||
+        g_rt.last_written_cam_ref != cam_ref ||
+        !EcpPoseMatches12(raw_pose, g_rt.last_written_pose)) {
+        return 0;
+    }
+    if (out_base != NULL) {
+        memcpy(out_base, g_rt.last_base_pose, 16u * sizeof(float));
+    }
+    if (consume) {
+        g_rt.has_last_written = 0;
+        g_rt.blend = 0.0f;
+        g_rt.active_profile = ECP_PROFILE_NONE;
+    }
+    return 1;
+}
+
+HF_MOD_EXPORT int hellforge_ecp_peek_base_pose(
+    uintptr_t world,
+    uint32_t cam_ref,
+    const float raw_pose[16],
+    float out_base[16])
+{
+    return hellforge_ecp_query_base_pose(world, cam_ref, raw_pose, out_base, 0);
 }
 
 /* ---- Bounded O(1) Engine Hash & EntityManager Lookups ----------------------------------------------------------- */
@@ -1551,6 +1617,14 @@ static void EcpApplyFrame(void)
         g_rt.blend = 0.0f;
         g_rt.active_profile = ECP_PROFILE_NONE;
         EcpFinishFrameTelemetry(frame_t0, ECP_BYPASS_TERMINAL_CAM, "terminal_cam");
+        return;
+    }
+
+    if (EcpIsPeerFirstPersonActive()) {
+        EcpRestoreBasePoseIfNeeded();
+        g_rt.blend = 0.0f;
+        g_rt.active_profile = ECP_PROFILE_NONE;
+        EcpFinishFrameTelemetry(frame_t0, ECP_BYPASS_PEER_FIRST_PERSON, "peer_1p_canopy");
         return;
     }
 
