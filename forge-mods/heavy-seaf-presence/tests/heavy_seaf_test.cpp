@@ -960,6 +960,66 @@ int main(int argc, char** argv)
             CHECK(g_mock_orig_1401_calls == 2u && adm[0] == 40u && adm[1] == 48u,
                   "400 walking AI + 200 corpses re-opens template admission 40/48 and permits native 1401 Pelican");
         }
+
+        /* 4g. In-flight Pelican cargo reservation (+6/shuttle, reconciled on troop spawn or 25s expiry, cleared on mission reset):
+         *     - 47 living SEAF (< 48 ceiling, < 6 remaining) blocks a new 6-troop shuttle (no overshoot to 53!)
+         *     - 42 living SEAF admits 1st shuttle (42 + 6 == 48), blocks 2nd in-flight shuttle (42 + 6 + 6 > 48),
+         *       expires after 25s if unloaded=0, reconciles immediately when 6 troops spawn, and clears on SHIP reset. */
+        HeavyClearInflightSeaf();
+        memset(g_factory_obj + 0xF32F18u + 10u * 24u, 0, 900u * 24u);
+        for (uint32_t i = 0; i < 47u; ++i) {
+            uint64_t sres = g_seaf_soldier_hashes[i % 11u];
+            uint32_t eid = 0x7200u + i;
+            memcpy(g_factory_obj + 0xF32F18u + (size_t)(10u + i) * 24u + 0u, &sres, 8u);
+            memcpy(g_factory_obj + 0xF32F18u + (size_t)(10u + i) * 24u + 8u, &eid, 4u);
+        }
+        g_test_now_ms_override = 520000ULL;
+        unsigned orig_before_47 = g_mock_orig_1401_calls;
+        Native1401SpawnDetour(0x1234u, 0u, 0u, 0u);
+        CHECK(g_mock_orig_1401_calls == orig_before_47,
+              "47 living SEAF with 48 ceiling blocks 6-troop Pelican to prevent overshoot above 48");
+
+        /* Drop 5 casualties -> 42 living SEAF: 1st Pelican admitted (42 + 6 == 48), 2nd in-flight Pelican blocked! */
+        memset(g_factory_obj + 0xF32F18u + (10u + 42u) * 24u, 0, 5u * 24u);
+        g_test_now_ms_override = 520500ULL;
+        Native1401SpawnDetour(0x1234u, 0u, 0u, 0u);
+        CHECK(g_mock_orig_1401_calls == orig_before_47 + 1u,
+              "42 living SEAF admits 1st Pelican (42 + 6 == 48)");
+        g_test_now_ms_override = 521000ULL;
+        Native1401SpawnDetour(0x1234u, 0u, 0u, 0u);
+        CHECK(g_mock_orig_1401_calls == orig_before_47 + 1u,
+              "2nd Pelican blocked while 1st Pelican's +6 cargo is still in flight");
+
+        /* Advance >= 25s without landing -> reservation expires cleanly so capacity never leaks */
+        g_test_now_ms_override = 545600ULL;
+        Native1401SpawnDetour(0x1234u, 0u, 0u, 0u);
+        CHECK(g_mock_orig_1401_calls == orig_before_47 + 2u,
+              "25s in-flight TTL expires unlanded Pelican reservation cleanly");
+
+        /* Unload 6 troopers into EntityManager (42 -> 48), then take 6 casualties (48 -> 42) at +2s (< 25s):
+         * spawn reconciliation retires the +6 reservation immediately so next shuttle admits without waiting 25s! */
+        for (uint32_t i = 42u; i < 48u; ++i) {
+            uint64_t sres = g_seaf_soldier_hashes[i % 11u];
+            uint32_t eid = 0x7200u + i;
+            memcpy(g_factory_obj + 0xF32F18u + (size_t)(10u + i) * 24u + 0u, &sres, 8u);
+            memcpy(g_factory_obj + 0xF32F18u + (size_t)(10u + i) * 24u + 8u, &eid, 4u);
+        }
+        g_test_now_ms_override = 546000ULL;
+        Native1401SpawnDetour(0x1234u, 0u, 0u, 0u);
+        CHECK(g_mock_orig_1401_calls == orig_before_47 + 2u,
+              "48 landed SEAF reconciles in-flight cargo and still blocks at ceiling");
+        memset(g_factory_obj + 0xF32F18u + (10u + 42u) * 24u, 0, 6u * 24u);
+        g_test_now_ms_override = 547000ULL;
+        Native1401SpawnDetour(0x1234u, 0u, 0u, 0u);
+        CHECK(g_mock_orig_1401_calls == orig_before_47 + 3u,
+              "after spawn reconciliation + 6 casualties (48 -> 42), next Pelican admits immediately without waiting 25s");
+
+        /* Returning to SHIP clears in-flight reservations */
+        g_mock_state = HF_STATE_SHIP;
+        g_test_now_ms_override = 550000ULL;
+        Tick(fake_mod, 2.5f, NULL);
+        CHECK(g_inflight_last_living == -1 && g_inflight_shuttles[0].remaining_troops == 0,
+              "mission exit to HF_STATE_SHIP clears all in-flight Pelican reservations");
     }
 
     /* 5. Session end stops worker flag */
