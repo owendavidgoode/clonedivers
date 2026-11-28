@@ -5,6 +5,9 @@ using System.Security.Cryptography;
 using System.Runtime.InteropServices;
 
 var passed = 0;
+Game.IsRunningCheck = () => false; // unit fixtures must not depend on an active host game session
+HellForgeWarbonds.AnyProcessNamed = _ => false;
+HellForgeClient.DefaultCliQuiescentOverride = () => { };
 void Check(bool ok, string name) { if (!ok) throw new Exception("FAIL: " + name); Console.WriteLine("PASS: " + name); passed++; }
 void Reject(Action action, string name) { try { action(); } catch (ArgumentException) { Check(true, name); return; } throw new Exception("FAIL: " + name); }
 if (args.Contains("--native-control-only"))
@@ -394,6 +397,23 @@ try
           v21Reply.GetProperty("SquidSkin").GetString() == "mixed-covenant" &&
           !v21Reply.GetProperty("DeathTrooperVoice").GetBoolean(),
           "PlayerCommands select-mode stores and echoes potato256, mixed-covenant, and DeathTrooperVoice=false");
+
+    // HellForge 0.5: Galactic War modes, --play-without-sync, and live-like profile template validation
+    foreach (var war in new[] { "hellforge", "open", "live", "custom" })
+        BridgeSession.Validate(["settings", "--war", war]);
+    Reject(() => BridgeSession.Validate(["settings", "--war", "galaxy-conquest"]),
+        "BridgeSession.Validate rejects unsupported --war mode");
+    BridgeSession.Validate(["select-mode", "--mode", "empire", "--delta", "no", "--texture", "full", "--droids", "yes", "--covenant", "yes", "--play-without-sync", "yes"]);
+    Reject(() => BridgeSession.Validate(["select-mode", "--mode", "empire", "--delta", "no", "--texture", "full", "--droids", "yes", "--covenant", "yes", "--play-without-sync", "maybe"]),
+        "BridgeSession.Validate rejects non-boolean --play-without-sync");
+    var syncSkipReply = await v21Player.RunAsync(
+        ["select-mode", "--mode", "empire", "--delta", "no", "--texture", "full", "--droids", "yes", "--covenant", "yes", "--play-without-sync", "yes"],
+        CancellationToken.None);
+    Check(syncSkipReply.GetProperty("PlayWithoutAccountSync").GetBoolean() &&
+          HellForgeAccount.IsSupportedAccountTemplate("live-like") &&
+          HellForgeAccount.IsSupportedAccountTemplate("starter") &&
+          !HellForgeAccount.IsSupportedAccountTemplate("unlock-all"),
+          "HellForge 0.5 bridge accepts --war modes, --play-without-sync=yes, and both starter & live-like account templates");
 }
 finally
 {
@@ -449,7 +469,7 @@ sealed class Fake : IHellForgeCommands
         ct.ThrowIfCancellationRequested(); Calls.Add(args.ToArray());
         object result;
         if (args[0] == "status" && stopping && StatusesUntilEnded-- <= 0) { Running = false; stopping = false; }
-        if (args[0] == "status") result = new { install = Root, gameBuild = BridgeSession.Build, hellforge = "0.4.0-beta (d8a8b46)", engine = Isolation == "other-engine" ? "0.2.0" : "0.1.47", modSdk = 16,
+        if (args[0] == "status") result = new { install = Root, gameBuild = BridgeSession.Build, hellforge = "0.5.0-beta (d8a8b46)", engine = Isolation == "other-engine" ? "0.2.0" : "0.1.58", modSdk = 20,
             networkBlock = Isolation == "none" ? "none" : "linux-netns", ready = new { linuxNamespace = Isolation != "none", gameCopy = !Running, sessionRunner = true }, settings = new { sandbox = Isolation != "sandbox-off", multiplayer = true, localPlayFab = true }, session = new { running = Running, lastRun = Run, lastStatus = LastStatus, lastFailure = LastFailure } };
         else if (args[0] == "play") { Running = true; if (IsolationAfterPlay != null) Isolation = IsolationAfterPlay; result = new { @event = "started", run = Run }; }
         // The real `stop --wait yes` prints a "stopping" line, status lines and an "ended" line: never one JSON reply.

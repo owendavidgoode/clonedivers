@@ -127,10 +127,10 @@ internal static class LauncherRedesignTests
                   !string.IsNullOrWhiteSpace(setup.Headline) &&
                   diag.HealthChecks.Count > 0 &&
                   diag.HealthChecks.Single(h => h.Name == "Gameplay Preset").Status.StartsWith("18/18 (", StringComparison.Ordinal) &&
-                  System.Text.RegularExpressions.Regex.IsMatch(home.SquadMatchHash, @"^r15-[0-9a-f]{4}$") &&
+                  System.Text.RegularExpressions.Regex.IsMatch(home.SquadMatchHash, @"^r16-[0-9a-f]{4}$") &&
                   !string.IsNullOrWhiteSpace(diag.DiscordReportText) &&
                   !string.IsNullOrWhiteSpace(diag.DiskUsageSummary),
-                $"PreviewForgeHost preset '{preset}' produces complete Home/Setup/Diagnostics state with 18/18 r15 match hash and Discord report");
+                $"PreviewForgeHost preset '{preset}' produces complete Home/Setup/Diagnostics state with 18/18 r16 match hash and Discord report");
         }
 
         var stepDownHome = new PreviewForgeHost("home-stepdown").GetHomeState();
@@ -144,7 +144,7 @@ internal static class LauncherRedesignTests
             "PreviewForgeHost 'home-resume' exposes UPDATE & LAUNCH CTA, Resume download pill, and Self-Install shortcuts banner");
 
         // 10. Version bump & cross-platform WindowIcon extraction (Deliverables 1 & 4)
-        check(AppInfo.Version == "2.2.2" || AppInfo.Version == "1.0.0", // Test runner assembly may be 1.0.0 unless Version set, verify Clonedivers.Icon.ico!
+        check(AppInfo.Version == "2.3.0" || AppInfo.Version == "1.0.0", // Test runner assembly may be 1.0.0 unless Version set, verify Clonedivers.Icon.ico!
             "AppInfo.Version resolves cleanly");
         using (var icoRes = typeof(ForgeTheme).Assembly.GetManifestResourceStream("Clonedivers.Icon.ico"))
         {
@@ -344,6 +344,7 @@ internal static class LauncherRedesignTests
         public Task UpdateCustomizationAsync(string enemySkin, bool deltaSquad, bool covenant, string texture, string? squidSkin = null, bool? deathTrooperVoice = null) => Task.CompletedTask;
         public Task SetPerformanceTierAsync(string tierId) => Task.CompletedTask;
         public Task UpdateHostMutatorsAsync(string chaosIntensity, string heavySeaf, bool fasterCorpseCleanup, string? theaterPreset = null) => Task.CompletedTask;
+        public Task SetGalacticWarAsync(string warMode) => Task.CompletedTask;
         public Task ApplyCustomizationNowAsync() => Task.CompletedTask;
         public Task TriggerPrimaryActionAsync() => Task.CompletedTask;
         public Task TriggerSecondaryActionAsync() => Task.CompletedTask;
@@ -362,6 +363,7 @@ internal static class LauncherRedesignTests
         public Task BrowseSetupFolderAsync(bool existing) => Task.CompletedTask;
         public Task SetSetupTextureAsync(string texture) => Task.CompletedTask;
         public Task TriggerSetupPrimaryActionAsync() => Task.CompletedTask;
+        public Task SkipSetupAccountSyncAsync() => Task.CompletedTask;
         public void CancelSetupWork() { }
         public Task OpenOfficialSetupFallbackAsync() => Task.CompletedTask;
         public Task LocateInstallAsync() => Task.CompletedTask;

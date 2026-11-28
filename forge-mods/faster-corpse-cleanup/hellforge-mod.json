@@ -2,8 +2,8 @@
   "format": 1,
   "id": "local.faster-corpse-cleanup",
   "name": "Faster Corpse Cleanup",
-  "version": "1.0.6-clonedivers.3",
-  "description": "Host-gated enemy corpse cleanup & Level 12 ULTRAKILL 0.0s Emergency Turbo-Reaper for build 25480438 (SDK 16). Eliminates the 128-wreck failure cliff, adds 2,048-slot O(1) lifecycle tracking + 1-syscall EntityManager occupancy gauge, and enforces strict HF_SESSION_SOLO/HOST authority.",
+  "version": "1.0.6-clonedivers.4",
+  "description": "Host-gated enemy corpse cleanup & Level 12 ULTRAKILL 0.0s Emergency Turbo-Reaper for build 25480438 (SDK 16-20+, HellForge 0.4/0.5). Eliminates the 128-wreck failure cliff, supports 2,048 & 4,096 relocated EntityManager tables, and enforces strict HF_SESSION_SOLO/HOST authority.",
   "gameplay": true,
   "code": {
     "dll": "corpse_cleanup.dll",

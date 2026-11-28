@@ -625,6 +625,69 @@ static void test_h3c_h3d_failed_spawn_and_failed_attach_recovery(const char* dir
     TEST_CHECK(hellforge_mod_unload(&g_api, (HfMod*)&g_mod_inst, HF_UNLOAD_REMOVE) == 0, "clean unload after H3c/H3d");
 }
 
+static void test_hellforge_05_relocated_4096_entity_manager(const char* temp_dir)
+{
+    SetupHarness(temp_dir, "saber");
+    g_api.version = 20u;
+    g_api.entity_of_network = NULL; /* exercise fallback ResolveEntityFromNetId via relocated EM */
+
+    uint8_t* arena = (uint8_t*)calloc(1u, 0x2000000u);
+    TEST_CHECK(arena != NULL, "allocated relocated 4,096-record EM slab for melee slot");
+    uint8_t* reloc_recs = arena + 0x1500000u; /* 0x1500000 is divisible by 24 */
+    int32_t off1 = 0x1500000;
+    int32_t off8 = off1 / 8;
+    uint32_t cap = 4096u;
+
+    uintptr_t arena_em = (uintptr_t)arena;
+    memcpy(g_mock_game + ENTITIES_GLOBAL, &arena_em, sizeof(arena_em));
+
+    uint8_t s_rec8[7] = {0x48u, 0x8Du, 0x80u, 0, 0, 0, 0};
+    uint8_t s_rec1[7] = {0x49u, 0x8Du, 0x85u, 0, 0, 0, 0};
+    uint8_t s_cnt1[7] = {0x8Bu, 0xD0u, 0xBAu, 0, 0, 0, 0};
+    uint8_t s_cnt2[7] = {0xF3u, 0x00u, 0x3Du, 0, 0, 0, 0};
+    memcpy(s_rec8 + 3u, &off8, 4u);
+    memcpy(s_rec1 + 3u, &off1, 4u);
+    memcpy(s_cnt1 + 3u, &cap, 4u);
+    memcpy(s_cnt2 + 3u, &cap, 4u);
+    memcpy(g_mock_game + CD_EM_SITE_REC8_RVA, s_rec8, 7u);
+    memcpy(g_mock_game + CD_EM_SITE_REC1_RVA, s_rec1, 7u);
+    memcpy(g_mock_game + CD_EM_SITE_CNT1_RVA, s_cnt1, 7u);
+    memcpy(g_mock_game + CD_EM_SITE_CNT2_RVA, s_cnt2, 7u);
+
+    uint8_t net_buckets[64 * 8];
+    InitHashHeader(arena + EM_ENTITY_MAP, g_mock_em_buckets, 64u);
+    InitHashHeader(arena + EM_NETWORK_MAP, net_buckets, 64u);
+    const uint32_t kSlot = 3200u;
+    const uint32_t kNet = 0x22u;
+    const uint32_t kEnt = 0x7099u;
+    const uint32_t kUnit = 0x400123u;
+    const uint64_t kRes = 0x8D3D52A3B2F19402ULL;
+    PutHashEntry(net_buckets, 64u, kNet, kSlot);
+    PutHashEntry(g_mock_em_buckets, 64u, kEnt, kSlot);
+    memcpy(reloc_recs + (size_t)kSlot * 24u + 0u, &kRes, 8u);
+    memcpy(reloc_recs + (size_t)kSlot * 24u + 8u, &kEnt, 4u);
+    memcpy(reloc_recs + (size_t)kSlot * 24u + 12u, &kUnit, 4u);
+    memcpy(reloc_recs + (size_t)kSlot * 24u + 16u, &kNet, 4u);
+
+    TEST_CHECK(ResolveEntityFromNetId((uintptr_t)g_mock_game, kNet) == kEnt,
+               "ResolveEntityFromNetId resolves relocated slot 3,200 (> 2,048)");
+    uint64_t out_res = 0ULL;
+    uint32_t out_unit = 0u;
+    TEST_CHECK(UnitOfEntity((uintptr_t)g_mock_game, kEnt, &out_res, &out_unit) == 1 &&
+               out_res == kRes && out_unit == kUnit,
+               "UnitOfEntity resolves relocated slot 3,200 (> 2,048)");
+
+    uintptr_t orig_em = (uintptr_t)g_mock_em;
+    memcpy(g_mock_game + ENTITIES_GLOBAL, &orig_em, sizeof(orig_em));
+    memset(g_mock_game + CD_EM_SITE_REC8_RVA, 0, 7u);
+    memset(g_mock_game + CD_EM_SITE_REC1_RVA, 0, 7u);
+    memset(g_mock_game + CD_EM_SITE_CNT1_RVA, 0, 7u);
+    memset(g_mock_game + CD_EM_SITE_CNT2_RVA, 0, 7u);
+    TEST_CHECK(hellforge_mod_unload(&g_api, (HfMod*)&g_mod_inst, HF_UNLOAD_REMOVE) == 0,
+               "clean unload after HellForge 0.5 relocated EM test");
+    free(arena);
+}
+
 int main(int argc, char** argv)
 {
     const char* temp_dir = argc > 1 ? argv[1] : NULL;
@@ -633,6 +696,7 @@ int main(int argc, char** argv)
     test_coop_hotjoin_authority_netid_attach_and_swap(temp_dir);
     test_keybind_parser_and_clean_thread_shutdown(temp_dir);
     test_h3c_h3d_failed_spawn_and_failed_attach_recovery(temp_dir);
+    test_hellforge_05_relocated_4096_entity_manager(temp_dir);
 
     printf("dedicated-melee-slot C11 unit suite: %d checks run, %d failed\n", g_tests_run, g_tests_failed);
     return g_tests_failed == 0 ? 0 : 1;

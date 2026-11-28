@@ -93,10 +93,24 @@ public sealed class HellForgeWarbonds
     }
     static string Hash(byte[] bytes) => Convert.ToHexString(SHA256.HashData(bytes)).ToLowerInvariant();
 
+    static string ResolveCatalogueDataPath(string appDir)
+    {
+        var legacy = Path.Combine(appDir, "progression-data.json");
+        if (File.Exists(legacy)) return FileSafety.Child(appDir, "progression-data.json");
+        var defaultCatDir = Path.Combine(appDir, "catalogue-default");
+        if (File.Exists(Path.Combine(defaultCatDir, "progression-data.json")))
+            return FileSafety.Child(FileSafety.Child(appDir, "catalogue-default"), "progression-data.json");
+        if (File.Exists(Path.Combine(appDir, "catalogue-pinned.json")))
+            return FileSafety.Child(appDir, "catalogue-pinned.json");
+        return FileSafety.Child(appDir, "progression-data.json");
+    }
+
     public async Task<int> OpenAsync(CancellationToken ct = default)
     {
         await RequireIdleAsync(ct);
         using var operation = account.Lease(); // excludes this launcher's imports, reviews and launches
+        var template = HellForgeAccount.ReadProfileTemplateFromDir(profile);
+        if (!HellForgeAccount.TemplateEarnsWarbonds(template)) return 0; // live-like opens owned warbonds natively via OwnershipFilter
         var path = FileSafety.Child(profile, "profile.json");
         var lockPath = FileSafety.Child(profile, "profile.lock");
         using var lease = new FileStream(lockPath, FileMode.OpenOrCreate, FileAccess.ReadWrite, FileShare.None);
@@ -110,7 +124,7 @@ public sealed class HellForgeWarbonds
             throw new InvalidDataException("The account snapshot is incomplete or corrupt. Sync your HD2 account again.");
         // The official verifier checks the machine seal and signed-in Steam account, and validates the saved profile.
         await account.VerifySnapshotAsync(ct);
-        var dataPath = FileSafety.Child(FileSafety.Child(root, "app"), "progression-data.json");
+        var dataPath = ResolveCatalogueDataPath(FileSafety.Child(root, "app"));
         var dataBytes = Read(dataPath);
         using var data = JsonDocument.Parse(dataBytes);
         using var inventory = JsonDocument.Parse(captured["real-inventory.json"]);

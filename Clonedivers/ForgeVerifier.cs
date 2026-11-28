@@ -61,7 +61,7 @@ public static class ForgeVerifier
         long bytesReclaimed = 0;
 
         // ── Step 1/5: Forge install & build 25480438 check ──
-        progress?.Report(new("Verifying Forge installation", "Checking HellForge 0.4.0-beta and game build 25480438…", 1, 5, CanCancel: true));
+        progress?.Report(new("Verifying Forge installation", "Checking HellForge 0.5.0-beta and game build 25480438…", 1, 5, CanCancel: true));
         string validatedRoot;
         HellForgeClient client;
         HellForgeStatus status;
@@ -95,6 +95,8 @@ public static class ForgeVerifier
                 steps.Add(new(1, "Forge install & game build", false, false, "HellForge game copy or session runner is not ready yet."));
                 return FailEarly(steps, "Finish initial game copy setup before running Verify & Repair.");
             }
+
+            HellForgeRelease.SyncShippedBundledMods(validatedRoot);
 
             if (client.InterruptedGameplayProblem() != null)
             {

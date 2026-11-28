@@ -9,6 +9,7 @@ using Clonedivers;
 
 var root = Path.Combine(Path.GetTempPath(), "clonedivers-linux-tests-" + Guid.NewGuid().ToString("N"));
 Directory.CreateDirectory(root);
+Game.IsRunningCheck = () => false; // unit fixtures must not depend on an active host game session
 var passed = 0;
 void Check(bool ok, string name)
 {

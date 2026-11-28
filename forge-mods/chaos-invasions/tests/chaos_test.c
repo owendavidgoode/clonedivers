@@ -38,7 +38,9 @@ static HfEventCallback g_mock_on_entities_ready = NULL;
 static int MockRead(uintptr_t address, void* buffer, size_t size)
 {
     if (!address || !buffer) return 1;
-    if (g_mock_fail_em_bulk_read && size == UK_EM_DESCRIPTOR_CAP * UK_EM_DESCRIPTOR_STRIDE) return 1;
+    if (g_mock_fail_em_bulk_read &&
+        (size == UK_EM_DESCRIPTOR_CAP * UK_EM_DESCRIPTOR_STRIDE ||
+         size == UK_EM_MAX_DESCRIPTOR_CAP * UK_EM_DESCRIPTOR_STRIDE)) return 1;
     memcpy(buffer, (const void*)address, size);
     if (g_mock_corrupt_readback_once == 1 && address == g_mock_corrupt_readback_addr && size > 0u) {
         ((uint8_t*)buffer)[0] ^= 0xFFu;
@@ -3109,6 +3111,134 @@ static void TestV050GenuineDifficulty12SlotAndGating(HfApi* api)
     VirtualFree(hf_table, 0, MEM_RELEASE);
 }
 
+static void TestV052HellForge05RelocatedEmAndPools(HfApi* api)
+{
+    InitMockGameArenas(CHAOS_NATIVE_BOTS_BIT, 11u);
+    ResetMockCountersAndModState();
+
+    /* 1. Verify SDK 20 handshake */
+    api->version = 20u;
+    subscriptions = ticks = 0u;
+    CHECK(hellforge_mod_init(api, (HfMod*)1) == 0);
+
+    /* 2. Verify Engine 0.1.58 physics pool values (0x10000 ragdoll_actors, 0x800 ragdolls) patch cleanly */
+    uintptr_t gbase = (uintptr_t)g_arena_game;
+    uint64_t zero_setup = 0ULL;
+    memcpy(g_arena_game + UK_PHYSICS_SETUP_RVA, &zero_setup, sizeof zero_setup);
+    for (unsigned i = 0; i < 6u; ++i) {
+        const UkPhysicsPoolPatch* p = &kUkPhysicsPools[i];
+        memcpy(g_arena_game + p->rva, p->prefix, p->value_off);
+        memcpy(g_arena_game + p->rva + p->value_off, &p->hf0158_val, 4u);
+    }
+    CHECK(UltrakillPatchPoolsWithOps(gbase, kArenaGameSize, MockRead, MockWrite) == 1);
+    for (unsigned i = 0; i < 6u; ++i) {
+        const UkPhysicsPoolPatch* p = &kUkPhysicsPools[i];
+        uint32_t after = 0u;
+        memcpy(&after, g_arena_game + p->rva + p->value_off, 4u);
+        CHECK(after == p->ultrakill_val);
+    }
+
+    /* 3. Verify relocated 4,096-record EntityManager (negative & positive offsets), GwNav reserve scaling (3,228),
+     *    and player avatar resolution at descriptor slot 3,000 (> 2,048). */
+    uint8_t* big_block = (uint8_t*)calloc(1, 0x1200000u);
+    CHECK(big_block != NULL);
+    uint8_t* em_root = big_block + 0x100000u; /* records relocated at -0x80000 (-524,288, multiple of 24? align!) */
+    int32_t neg_off = -((int32_t)(24 * 16384)); /* -393,216: exact multiple of 24 and 8 */
+    uint8_t* reloc_recs = em_root + neg_off;
+    void* p_em = em_root;
+    memcpy(g_arena_game + CHAOS_ENTITIES_RVA, &p_em, 8u);
+    uint32_t inv_ent = 0xFFFFFFFFu;
+    memcpy(g_arena_game + UK_INVALID_ENTITY_RVA, &inv_ent, 4u);
+
+    /* Populate the 4 SDK-20 moved-EntityManager witness sites */
+    int32_t neg_off8 = neg_off / 8;
+    uint32_t cap4096 = 4096u;
+    uint8_t s_rec8[7] = {0x48u, 0x8Du, 0x80u, 0, 0, 0, 0};
+    uint8_t s_rec1[7] = {0x49u, 0x8Du, 0x85u, 0, 0, 0, 0};
+    uint8_t s_cnt1[7] = {0x8Bu, 0xD0u, 0xBAu, 0, 0, 0, 0};
+    uint8_t s_cnt2[7] = {0xF3u, 0x00u, 0x3Du, 0, 0, 0, 0};
+    memcpy(s_rec8 + 3u, &neg_off8, 4u);
+    memcpy(s_rec1 + 3u, &neg_off, 4u);
+    memcpy(s_cnt1 + 3u, &cap4096, 4u);
+    memcpy(s_cnt2 + 3u, &cap4096, 4u);
+    memcpy(g_arena_game + CD_EM_SITE_REC8_RVA, s_rec8, 7u);
+    memcpy(g_arena_game + CD_EM_SITE_REC1_RVA, s_rec1, 7u);
+    memcpy(g_arena_game + CD_EM_SITE_CNT1_RVA, s_cnt1, 7u);
+    memcpy(g_arena_game + CD_EM_SITE_CNT2_RVA, s_cnt2, 7u);
+
+    for (uint32_t i = 0; i < 4096u; ++i) {
+        memcpy(reloc_recs + (size_t)i * 24u + 8u, &inv_ent, 4u);
+    }
+    for (uint32_t i = 0; i < 500u; ++i) {
+        uint64_t r = 0x1111222233334444ULL;
+        uint32_t e = 0x2000u + i;
+        memcpy(reloc_recs + (size_t)i * 24u + 0u, &r, 8u);
+        memcpy(reloc_recs + (size_t)i * 24u + 8u, &e, 4u);
+    }
+    /* Put living player avatar at descriptor slot 3,000 (> 2,048!) via 8,192-slot network map */
+    uint8_t* net_buckets = (uint8_t*)calloc(8192u, 8u);
+    CHECK(net_buckets != NULL);
+    memset(net_buckets, 0xFF, 8192u * 8u);
+    uint32_t net_id = 0x77u, slot3000 = 3000u, avatar_eid = 0x4242u;
+    uint64_t av_res = 0x4D1C334D294DFA97ULL;
+    memcpy(reloc_recs + (size_t)slot3000 * 24u + 0u, &av_res, 8u);
+    memcpy(reloc_recs + (size_t)slot3000 * 24u + 8u, &avatar_eid, 4u);
+    memcpy(reloc_recs + (size_t)slot3000 * 24u + 16u, &net_id, 4u);
+    memcpy(net_buckets + (size_t)(net_id & 8191u) * 8u + 0u, &net_id, 4u);
+    memcpy(net_buckets + (size_t)(net_id & 8191u) * 8u + 4u, &slot3000, 4u);
+    uintptr_t nb_ptr = (uintptr_t)net_buckets;
+    uint32_t nb_cap = 8192u, nb_empty = 0xFFFFFFFFu, nb_mult = 1u;
+    memcpy(em_root + 0xF22EC8u + 0u, &nb_ptr, 8u);
+    memcpy(em_root + 0xF22EC8u + 8u, &nb_cap, 4u);
+    memcpy(em_root + 0xF22EC8u + 12u, &nb_empty, 4u);
+    memcpy(em_root + 0xF22EC8u + 16u, &nb_mult, 4u);
+
+    /* Configure PlayerManager slot 0 -> net_id 0x77 and TransformManager for avatar_eid */
+    uintptr_t pm = 0, tm = 0, tm_buckets = 0, tm_rows = 0;
+    memcpy(&pm, g_arena_game + CHAOS_PLAYERS_RVA, 8u);
+    memcpy(&tm, g_arena_game + CHAOS_TRANSFORM_RVA, 8u);
+    uint32_t pcnt = 1u, plife = 3u;
+    memcpy((void*)(pm + 0x84u), &pcnt, 4u);
+    memcpy((void*)(pm + 0x2E0u), &plife, 4u);
+    memcpy((void*)(pm + 0x3A8u), &net_id, 4u);
+    memcpy(&tm_buckets, (const void*)(tm + 0x40u), 8u);
+    memcpy(&tm_rows, (const void*)(tm + 0x68u), 8u);
+    uint32_t tm_cap = 0u, tm_mult = 0u, tm_idx = 0u;
+    memcpy(&tm_cap, (const void*)(tm + 0x48u), 4u);
+    memcpy(&tm_mult, (const void*)(tm + 0x50u), 4u);
+    uint32_t bslot = (avatar_eid * tm_mult) & (tm_cap - 1u);
+    memcpy((void*)(tm_buckets + (size_t)bslot * 8u + 0u), &avatar_eid, 4u);
+    memcpy((void*)(tm_buckets + (size_t)bslot * 8u + 4u), &tm_idx, 4u);
+    float av_pos[3] = {12.0f, -34.0f, 5.0f};
+    memcpy((void*)(tm_rows + 0x2E0u), av_pos, 12u);
+
+    memset(&g_em_snap, 0, sizeof g_em_snap);
+    g_tracker.total_live = 0;
+    ChaosRefreshEmSnapshot(gbase, 10.0);
+    CHECK(g_em_snap.valid == 1);
+    CHECK(g_em_snap.em_cap == 4096u);
+    CHECK(g_em_snap.gwnav_reserve == 3228u);
+    CHECK(g_em_snap.live_slots == 501u);
+    CHECK(g_em_snap.free_slots == 4096u - 501u);
+
+    float out_pos[4][3] = {{0}};
+    uint32_t out_av[4] = {0};
+    int living = CollectLivingPlayers(gbase, out_pos, out_av);
+    CHECK(living == 1 && out_av[0] == avatar_eid && fabsf(out_pos[0][0] - 12.0f) < 1e-3f);
+
+    memset(g_arena_game + CD_EM_SITE_REC8_RVA, 0, 7u);
+    memset(g_arena_game + CD_EM_SITE_REC1_RVA, 0, 7u);
+    memset(g_arena_game + CD_EM_SITE_CNT1_RVA, 0, 7u);
+    memset(g_arena_game + CD_EM_SITE_CNT2_RVA, 0, 7u);
+    api->version = 16u;
+    free(net_buckets);
+    free(big_block);
+    InitMockGameArenas(CHAOS_NATIVE_BUGS_BIT, 5u);
+    ResetMockCountersAndModState();
+    subscriptions = ticks = 0u;
+    CHECK(hellforge_mod_init(api, (HfMod*)1) == 0);
+}
+
 int main(int argc, char** argv)
 {
     CHECK(argc == 2 && strlen(argv[1]) < sizeof fixture);
@@ -3167,6 +3297,7 @@ int main(int argc, char** argv)
     TestV035Mission2PreloadRearmAndCoopSafeRoster();
     TestV040UltrakillD12PoolsAndCloneWarsTheater(&api);
     TestV050GenuineDifficulty12SlotAndGating(&api);
+    TestV052HellForge05RelocatedEmAndPools(&api);
 
     /* Kill switch latch & token mismatch tests */
     FILE* f = fopen(bridge, "wb"); CHECK(f != NULL);

@@ -396,7 +396,7 @@ internal sealed class LinuxForgeHost : IForgeUiHost
         var viewState = player?.State;
         if (preview && previewState is "sync" or "recovery")
         {
-            viewState = new(new("/home/player/forge/pfx/drive_c/HellForge", "0.4.0-beta", "25480438", true, true, false, true, true, null, null,
+            viewState = new(new("/home/player/forge/pfx/drive_c/HellForge", "0.5.0-beta", "25480438", true, true, false, true, true, null, null,
                 RecoveryProblem: previewState == "recovery" ? "Gameplay installation interrupted" : null),
                 false, "", new(false, false, ""), null);
         }
@@ -445,7 +445,7 @@ internal sealed class LinuxForgeHost : IForgeUiHost
             : active ? "Session Active"
             : lost ? "Disconnected"
             : isUpdateAndLaunch ? "Update & Launch"
-            : view.Action == ForgeAction.Launch ? "Forge 0.4.0 · Ready"
+            : view.Action == ForgeAction.Launch ? "Forge 0.5.0 · Ready"
             : view.Action == ForgeAction.Setup ? "Setup Needed"
             : "Action Needed";
 
@@ -558,7 +558,9 @@ internal sealed class LinuxForgeHost : IForgeUiHost
             MinimizeToTray: preferences.MinimizeToTray,
             SquidSkin: preferences.SquidSkin,
             DeathTrooperVoice: preferences.DeathTrooperVoice,
-            HostTheaterPreset: preferences.HostTheaterPreset);
+            HostTheaterPreset: preferences.HostTheaterPreset,
+            PlayWithoutAccountSync: preferences.PlayWithoutAccountSync,
+            GalacticWar: viewState?.Status.GalacticWar ?? preferences.GalacticWar ?? "hellforge");
     }
 
     public ForgeSetupState GetSetupState() => throw new NotSupportedException("Linux uses native official setup.");
@@ -630,6 +632,21 @@ internal sealed class LinuxForgeHost : IForgeUiHost
                 await RunOpAsync(ct => player.ApplySelectionAsync(ct));
         }
         catch (Exception e) { toastNotice = "Couldn't save host rules: " + e.Message; }
+        Notify();
+    }
+
+    public async Task SetGalacticWarAsync(string warMode)
+    {
+        if (preview || operations.Busy || player?.SessionActive == true) return;
+        if (warMode is not ("hellforge" or "open" or "live" or "custom" or "frozen")) return;
+        try
+        {
+            preferences.GalacticWar = warMode;
+            preferences.Save();
+            if (player != null)
+                await RunOpAsync(ct => player.SetGalacticWarAsync(warMode, ct));
+        }
+        catch (Exception e) { toastNotice = "Couldn't update Galactic War mode: " + e.Message; }
         Notify();
     }
 
@@ -961,7 +978,7 @@ internal sealed class LinuxForgeHost : IForgeUiHost
         await RunOpAsync(async ct =>
         {
             var throttler = new ProgressThrottler(p => SetProgress(p));
-            throttler.Report(new("Verifying Forge installation", "Checking HellForge 0.4.0-beta & build 25480438…", 1, 5, CanCancel: true));
+            throttler.Report(new("Verifying Forge installation", "Checking HellForge 0.5.0-beta & build 25480438…", 1, 5, CanCancel: true));
             await player.RefreshAsync(ct);
 
             if (player.State?.Status.RecoveryProblem != null)
@@ -1009,6 +1026,7 @@ internal sealed class LinuxForgeHost : IForgeUiHost
     public Task BrowseSetupFolderAsync(bool existing) => Task.CompletedTask;
     public Task SetSetupTextureAsync(string texture) => Task.CompletedTask;
     public Task TriggerSetupPrimaryActionAsync() => Task.CompletedTask;
+    public Task SkipSetupAccountSyncAsync() => Task.CompletedTask;
     public void CancelSetupWork() { }
     public Task OpenOfficialSetupFallbackAsync() => Task.CompletedTask;
 

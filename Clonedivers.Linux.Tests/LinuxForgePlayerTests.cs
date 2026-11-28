@@ -7,9 +7,9 @@ internal static class LinuxForgePlayerTests
     internal static async Task Run(string root, Action<bool, string> check)
     {
         const string hello = "{\"bridge\":\"clonedivers-forge\",\"format\":1}\n";
-        check(HellForgeGameplayCatalog.Pinned.Id == "build25480438-r15" && HellForgeGameplayCatalog.Pinned.Artifacts.Count == 18 &&
+        check(HellForgeGameplayCatalog.Pinned.Id == "build25480438-r16" && HellForgeGameplayCatalog.Pinned.Artifacts.Count == 18 &&
             HellForgeGameplayCatalog.Pinned.Artifacts.Where(a => a.Optional).Select(a => a.Id).ToHashSet(StringComparer.Ordinal).SetEquals(HellForgePreset.Optional),
-            "Linux embeds and validates the r15 gameplay catalog with all nine optional mods");
+            "Linux embeds and validates the r16 gameplay catalog with all nine optional mods");
         var brandNewLinux = LinuxForgePreferences.Load(Path.Combine(root, "brand-new-linux", "forge.json"));
         check(brandNewLinux.Mode == "clonedivers" && brandNewLinux.EnemySkin == "mixed-droids" && brandNewLinux.Covenant &&
             brandNewLinux.SquidSkin == "mixed-covenant" && brandNewLinux.DeathTrooperVoice &&
@@ -76,6 +76,17 @@ internal static class LinuxForgePlayerTests
                   $"LinuxForgePreferences accepts texture '{tex}', emits --squid-skin/--deathtrooper, and resolves Empire r54 natively");
         }
 
+        // HellForge 0.5: PlayWithoutAccountSync & GalacticWar preferences validate, persist, and propagate to SelectionCommand
+        var syncLaterPrefs = new LinuxForgePreferences { Mode = "empire", PlayWithoutAccountSync = true, GalacticWar = "open" };
+        syncLaterPrefs.Validate();
+        var syncLaterPath = Path.Combine(root, "linux-05-sync-later.json");
+        syncLaterPrefs.Save(syncLaterPath);
+        var syncLaterLoaded = LinuxForgePreferences.Load(syncLaterPath);
+        var syncLaterCmd = syncLaterLoaded.SelectionCommand();
+        check(syncLaterLoaded.PlayWithoutAccountSync && syncLaterLoaded.GalacticWar == "open" &&
+              syncLaterCmd.Skip(1).Chunk(2).Any(p => p[0] == "--play-without-sync" && p[1] == "yes"),
+              "LinuxForgePreferences persists PlayWithoutAccountSync=true & GalacticWar='open' and emits --play-without-sync yes");
+
         // #67 Pre-window launching UX on LinuxForgeHost ("Launching Helldivers 2 — please wait…" + "Cancel Launch" -> "Helldivers 2 is running" + "END SESSION")
         await using (var linuxLaunching = new LinuxForgeHost(["--forge-preview", "launching"]))
         {
@@ -127,9 +138,9 @@ internal static class LinuxForgePlayerTests
         {
             check(linuxHostH4.GetHomeState().MinimizeToTray, "LinuxForgeHost exposes MinimizeToTray in ForgeHomeState on startup (H4)");
         }
-        check(SquadFingerprint.Compute(HellForgeGameplayCatalog.Current).StartsWith("r15-", StringComparison.Ordinal) &&
+        check(SquadFingerprint.Compute(HellForgeGameplayCatalog.Current).StartsWith("r16-", StringComparison.Ordinal) &&
             PerformanceTierAdvisor.Tiers.Count == 5 &&
-            DiscordReportFormatter.Format("0.11.2", "r15-a05a", "clonedivers", "mixed-droids", true, true, "auto", "lighter",
+            DiscordReportFormatter.Format("0.12.0", "r16-a26f", "clonedivers", "mixed-droids", true, true, "auto", "lighter",
                 PerformanceTierAdvisor.Recommend("AMD Radeon GPU", 8.0, 16.0), "/home/deck/HellForge", null).Split('\n').Length is >= 10 and <= 14,
             "Linux shares SquadFingerprint, 5-tier PerformanceTierAdvisor, and 10–14 line DiscordReportFormatter");
         foreach (var texture in new[] { "full", "lighter", "reduced1024", "reduced512", "potato256" })

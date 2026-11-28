@@ -11,9 +11,9 @@ internal static class GameplayNativeTests
         try
         {
             var root = Path.Combine(fixture, "gameplay-native", "pfx", "drive_c", "Forge Folder");
-            check(HellForgeGameplayCatalog.Pinned.Id == "build25480438-r15" && HellForgeGameplayCatalog.Pinned.Artifacts.Count == 18 &&
+            check(HellForgeGameplayCatalog.Pinned.Id == "build25480438-r16" && HellForgeGameplayCatalog.Pinned.Artifacts.Count == 18 &&
                 HellForgeGameplayCatalog.Pinned.Artifacts.Where(a => a.Optional).Select(a => a.Id).ToHashSet(StringComparer.Ordinal).SetEquals(HellForgePreset.Optional),
-                "bridge embeds and validates the r15 gameplay catalog with all nine optional mods");
+                "bridge embeds and validates the r16 gameplay catalog with all nine optional mods");
             var connection = new Connection(root);
             var player = new LinuxForgePlayer(connection, new() { InstallRoot = root });
             await player.InstallGameplayAsync();
@@ -51,7 +51,7 @@ internal static class GameplayNativeTests
                 "select-mode" => new { selected = true },
                 "gameplay-status" => Missing,
                 "install-gameplay" => Install(args[2]),
-                "player-status" => new ForgePlayerState(new(root, "0.4.0-beta", HellForgePack.SupportedBuild, true, true, Running, true, true, null, null), false, "Fixture requires own account", null, null),
+                "player-status" => new ForgePlayerState(new(root, "0.5.0-beta", HellForgePack.SupportedBuild, true, true, Running, true, true, null, null), false, "Fixture requires own account", null, null),
                 _ => throw new InvalidOperationException("Unexpected fixture command: " + args[0])
             };
             return Task.FromResult(JsonSerializer.SerializeToElement(reply, HellForgePack.Json));

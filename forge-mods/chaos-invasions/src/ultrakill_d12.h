@@ -35,6 +35,7 @@
 #include "hellforge_mod.h"
 #include "hellforge_content.h"
 #include "policy.h"
+#include "clonedivers_em_layout.h"
 
 #define UK_PHYSICS_SETUP_RVA        0x3326380u
 #define UK_ENGINE_API_RVA           0x3326308u
@@ -51,9 +52,10 @@
 
 #define UK_EM_DESCRIPTORS_OFF       0xF32F18u
 #define UK_EM_DESCRIPTOR_CAP        2048u
+#define UK_EM_MAX_DESCRIPTOR_CAP    4096u
 #define UK_EM_DESCRIPTOR_STRIDE     24u
 /* Keeps live EntityManager slots <= 868 (~600-720 GwNav::Bots), staying >300 below the 1,024 GwNav::Bot
- * hard allocator crash at helldivers2.exe+0x801b03 and >1,180 below the 2,048 EntityManager cap. */
+ * hard allocator crash at helldivers2.exe+0x801b03 (1,180 free on 2,048 table; 3,228 free on 4,096 table). */
 #define UK_EM_RESERVE_SLOTS         1180u
 
 #define UK_SPAWN_QUEUE_CAP          256u
@@ -68,22 +70,23 @@ typedef struct UkPhysicsPoolPatch {
     uint8_t prefix[6];
     uint32_t vanilla_val;
     uint32_t hf0147_val;
+    uint32_t hf0158_val;
     uint32_t ultrakill_val;
 } UkPhysicsPoolPatch;
 
 static const UkPhysicsPoolPatch kUkPhysicsPools[6] = {
-    /* config +0x2C ragdoll_actors: 8,192 / 32,768 -> 262,144 */
-    {0x4EE32Bu, 7u,  3u, {0xC7, 0x45, 0x9C, 0, 0, 0},       0x00002000u, 0x00008000u, 0x00040000u},
-    /* config +0x3C ragdolls: 512 / 1,024 -> 8,192 */
-    {0x4EE35Cu, 7u,  3u, {0xC7, 0x45, 0xAC, 0, 0, 0},       0x00000200u, 0x00000400u, 0x00002000u},
+    /* config +0x2C ragdoll_actors: 8,192 / 32,768 (0.1.47) / 65,536 (0.1.58) -> 262,144 */
+    {0x4EE32Bu, 7u,  3u, {0xC7, 0x45, 0x9C, 0, 0, 0},       0x00002000u, 0x00008000u, 0x00010000u, 0x00040000u},
+    /* config +0x3C ragdolls: 512 / 1,024 (0.1.47) / 2,048 (0.1.58) -> 8,192 */
+    {0x4EE35Cu, 7u,  3u, {0xC7, 0x45, 0xAC, 0, 0, 0},       0x00000200u, 0x00000400u, 0x00000800u, 0x00002000u},
     /* Havok world motions: 36,864 / 131,072 -> 262,144 */
-    {0xAB19F8u, 10u, 6u, {0xC7, 0x85, 0x20, 0x05, 0x00, 0x00}, 0x00009000u, 0x00020000u, 0x00040000u},
+    {0xAB19F8u, 10u, 6u, {0xC7, 0x85, 0x20, 0x05, 0x00, 0x00}, 0x00009000u, 0x00020000u, 0x00020000u, 0x00040000u},
     /* Havok world bodies (< 2^21 bit-width cap): 131,072 / 262,144 -> 524,288 */
-    {0xAB19EEu, 10u, 6u, {0xC7, 0x85, 0x1C, 0x05, 0x00, 0x00}, 0x00020000u, 0x00040000u, 0x00080000u},
+    {0xAB19EEu, 10u, 6u, {0xC7, 0x85, 0x1C, 0x05, 0x00, 0x00}, 0x00020000u, 0x00040000u, 0x00040000u, 0x00080000u},
     /* config +0x24 dynamic_actors: 32,768 / 131,072 -> 262,144 */
-    {0x4EE31Du, 7u,  3u, {0xC7, 0x45, 0x94, 0, 0, 0},       0x00008000u, 0x00020000u, 0x00040000u},
+    {0x4EE31Du, 7u,  3u, {0xC7, 0x45, 0x94, 0, 0, 0},       0x00008000u, 0x00020000u, 0x00020000u, 0x00040000u},
     /* config +0x20 keyframed_actors: 8,192 / 32,768 -> 65,536 */
-    {0x4EE332u, 7u,  3u, {0xC7, 0x45, 0x90, 0, 0, 0},       0x00002000u, 0x00008000u, 0x00010000u},
+    {0x4EE332u, 7u,  3u, {0xC7, 0x45, 0x90, 0, 0, 0},       0x00002000u, 0x00008000u, 0x00008000u, 0x00010000u},
 };
 
 typedef int (*UkReadFn)(uintptr_t address, void* buffer, size_t size);
@@ -106,7 +109,8 @@ static inline int UltrakillPatchPoolsWithOps(uintptr_t gbase, size_t gsize, UkRe
         if (read_fn(gbase + p->rva, insn, p->length) != 0) return -1;
         if (memcmp(insn, p->prefix, p->value_off) != 0) return -1;
         memcpy(&cur_val, insn + p->value_off, 4u);
-        if (cur_val != p->vanilla_val && cur_val != p->hf0147_val && cur_val != p->ultrakill_val) {
+        if (cur_val != p->vanilla_val && cur_val != p->hf0147_val &&
+            cur_val != p->hf0158_val && cur_val != p->ultrakill_val) {
             return -1;
         }
     }
@@ -124,12 +128,14 @@ typedef struct ChaosEmSnapshot {
     uintptr_t em_root;
     uintptr_t desc_base;
     uintptr_t desc_end;
+    uint32_t em_cap;
+    uint32_t gwnav_reserve;
     uint32_t invalid_entity;
     uint32_t live_slots;
     uint32_t free_slots;
     int valid;
     double captured_age;
-    uint8_t raw[UK_EM_DESCRIPTOR_CAP * UK_EM_DESCRIPTOR_STRIDE];
+    uint8_t raw[UK_EM_MAX_DESCRIPTOR_CAP * UK_EM_DESCRIPTOR_STRIDE];
 } ChaosEmSnapshot;
 
 typedef struct ChaosSpawnJob {

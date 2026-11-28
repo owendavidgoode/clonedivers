@@ -77,7 +77,9 @@ public sealed partial class HellForgeClient
         if (InterruptedPackProblem() is { } problem) throw new InvalidOperationException(problem);
     }
 
-    internal Action RequireCliQuiescent { get; set; } = () =>
+    internal static Action? DefaultCliQuiescentOverride { get; set; }
+    internal Action RequireCliQuiescent { get; set; } = DefaultCliQuiescentOverride ?? CheckCliQuiescent;
+    static void CheckCliQuiescent()
     {
         // A CLI orphaned by a crashed frontend can still be copying files. Never
         // recover over it or kill it blindly; all matching CLIs must finish first.
@@ -91,7 +93,7 @@ public sealed partial class HellForgeClient
                 throw new InvalidOperationException("A Forge CLI is still running. Wait for it to finish before changing or recovering mods.");
             }
         }
-    };
+    }
     // Official linux.md has users leave `HellForge.Cli steam-bridge host` (hf-bridge-host.sh) running; the relay
     // never touches mods, and the official pre-PLAY check exempts it too. An unreadable command line stays busy.
     internal static bool SteamRelay(IReadOnlyList<string>? argv) => argv is [_, "steam-bridge", "host" or "inner" or "check", ..];

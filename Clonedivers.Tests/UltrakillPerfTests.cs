@@ -597,7 +597,7 @@ internal static class UltrakillPerfTests
             hostChaosIntensity: "total-war", hostHeavySeaf: "constant", hostFasterCorpseCleanup: true,
             squidSkin: "mixed-covenant", deathTrooperVoice: true, hostTheaterPreset: "clone-wars");
         var empDiscord = DiscordReportFormatter.Format(
-            appVersion: AppInfo.Version, squadMatchCode: "r15-a05a", mode: "empire", enemySkin: "mixed-droids",
+            appVersion: AppInfo.Version, squadMatchCode: "r16-a26f", mode: "empire", enemySkin: "mixed-droids",
             covenant: true, deltaSquad: false, performanceTier: "auto", packTexture: "full", hardware: demoHw,
             installRoot: @"D:\HellForge", triage: null, redactUserPaths: true, squidSkin: "mixed-covenant",
             deathTrooperVoice: true, hostTheaterPreset: "clone-wars");

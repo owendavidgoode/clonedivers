@@ -537,7 +537,14 @@ static void test_code_pins_and_dll_handshake(uint8_t *eng) {
     g_dll_fake_peer_base = 0x7FFE12340000ULL;
     g_dll_fake_peer_size = 0x28000u;
 
+    api.version = 15u;
+    TEST_ASSERT(init_fn(&api, (HfMod *)&fake_mod_slot) != 0, "hellforge_mod_init refuses SDK < 16");
+    api.version = 16u;
     TEST_ASSERT(init_fn(&api, (HfMod *)&fake_mod_slot) == 0, "hellforge_mod_init valid SDK-16 handshake");
+    g_dll_game_loaded_cb = NULL;
+    g_dll_session_end_cb = NULL;
+    api.version = 20u;
+    TEST_ASSERT(init_fn(&api, (HfMod *)&fake_mod_slot) == 0, "hellforge_mod_init forward-compatible SDK-20 handshake");
     TEST_ASSERT(g_dll_game_loaded_cb != NULL && g_dll_session_end_cb != NULL, "registered load & session callbacks");
     g_dll_game_loaded_cb((HfMod *)&fake_mod_slot, HF_EVENT_GAME_LOADED, NULL);
     TEST_ASSERT(g_dll_hook_count == 3u, "OnGameLoaded registered all 3 hooks");

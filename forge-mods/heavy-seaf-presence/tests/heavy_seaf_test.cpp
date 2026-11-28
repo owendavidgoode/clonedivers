@@ -226,8 +226,54 @@ static void init_mock_world(void)
     memcpy(g_seaf_template + 80u, ttail, 16u);
 }
 
+static int g_mock_reloc_em_enabled = 0;
+static uintptr_t g_mock_factory_override = 0u;
+static int32_t g_mock_reloc_em_offset = 0;
+static uint32_t g_mock_reloc_em_cap = 4096u;
+static uint8_t* g_mock_reloc_em_base = NULL;
+static size_t g_mock_reloc_em_bytes = 0u;
+
 static int mock_read(uintptr_t at, void* out, size_t n)
 {
+    if (g_mock_reloc_em_enabled && n == 7u) {
+        if (at == g_fake_game + CD_EM_SITE_REC8_RVA) {
+            uint8_t b[7] = {0x48u, 0x8Du, 0x80u, 0, 0, 0, 0};
+            int32_t v = g_mock_reloc_em_offset / 8;
+            memcpy(b + 3u, &v, 4u);
+            memcpy(out, b, 7u);
+            return 0;
+        }
+        if (at == g_fake_game + CD_EM_SITE_REC1_RVA) {
+            uint8_t b[7] = {0x49u, 0x8Du, 0x85u, 0, 0, 0, 0};
+            memcpy(b + 3u, &g_mock_reloc_em_offset, 4u);
+            memcpy(out, b, 7u);
+            return 0;
+        }
+        if (at == g_fake_game + CD_EM_SITE_CNT1_RVA) {
+            uint8_t b[7] = {0x8Bu, 0xD0u, 0xBAu, 0, 0, 0, 0};
+            memcpy(b + 3u, &g_mock_reloc_em_cap, 4u);
+            memcpy(out, b, 7u);
+            return 0;
+        }
+        if (at == g_fake_game + CD_EM_SITE_CNT2_RVA) {
+            uint8_t b[7] = {0xF3u, 0x00u, 0x3Du, 0, 0, 0, 0};
+            memcpy(b + 3u, &g_mock_reloc_em_cap, 4u);
+            memcpy(out, b, 7u);
+            return 0;
+        }
+    }
+    if (g_mock_factory_override != 0u &&
+        at >= g_mock_factory_override &&
+        at + n <= g_mock_factory_override + 0x2000000u) {
+        memcpy(out, (const void*)at, n);
+        return 0;
+    }
+    if (g_mock_reloc_em_base != NULL &&
+        at >= (uintptr_t)g_mock_reloc_em_base &&
+        at + n <= (uintptr_t)g_mock_reloc_em_base + g_mock_reloc_em_bytes) {
+        memcpy(out, (const void*)at, n);
+        return 0;
+    }
     static const unsigned char SEARCH_BYTES[] = { 0x40,0x55,0x53,0x56,0x57,0x41,0x54,0x41,0x55,0x41,0x56,0x48,0x8d,0x6c,0x24,0x80,0x48,0x81,0xec,0x80,0x01,0x00,0x00,0x48,0x8b,0x05,0xf2,0x30,0xf9,0x01 };
     static const unsigned char QUERY_BYTES[] = { 0x48,0x8b,0xc4,0x48,0x89,0x58,0x20,0x55,0x56,0x57,0x41,0x54,0x41,0x55,0x41,0x56,0x41,0x57,0x48,0x8d,0xa8,0x48,0xfe,0xff,0xff };
     static const unsigned char DISPATCH_BYTES[] = { 0x48,0x89,0x5c,0x24,0x18,0x55,0x56,0x57,0x41,0x54,0x41,0x55,0x41,0x56,0x41,0x57,0x48,0x8d,0xac,0x24,0xb0,0xfc,0xff,0xff,0x48,0x81,0xec,0x50,0x04,0x00,0x00,0x48,0x8b,0x05,0x3a,0x02,0xf9,0x01 };
@@ -250,7 +296,9 @@ static int mock_read(uintptr_t at, void* out, size_t n)
     if (at == g_fake_game + 0x3326468u && n == 8) { uintptr_t p = (uintptr_t)g_players_obj; memcpy(out, &p, 8); return 0; }
     if (at == g_fake_game + 0x346BF98u && n == 8) {
         if (g_mock_fail_factory_read) return 1;
-        uintptr_t p = (uintptr_t)g_factory_obj; memcpy(out, &p, 8); return 0;
+        uintptr_t p = g_mock_factory_override ? g_mock_factory_override : (uintptr_t)g_factory_obj;
+        memcpy(out, &p, 8);
+        return 0;
     }
     if (g_mock_fail_desc_read && at == (uintptr_t)g_factory_obj + 0xF32F18u) return 1;
     if (at == g_fake_game + 0x347CEF0u && n == 8) { uintptr_t p = (uintptr_t)g_user_obj; memcpy(out, &p, 8); return 0; }
@@ -716,6 +764,68 @@ int main(int argc, char** argv)
         CHECK(ecw == 1 && econ == 1 && esq == 2 && eiv == 75000 && eceil == 78 &&
               OptionsEffectiveCloneWars(12) == 1 && SquadStepForDifficulty(12) == 10,
               "Difficulty 12 activates Clone Wars while preserving explicit 75s session interval edit");
+    }
+
+    /* 4e. HellForge 0.5.0-beta relocated 4,096-record EntityManager: GwNav reserve scaling (1180 -> 3228)
+     *     and ResolveLivingHostMissionGround at descriptor slot 2,800 (> 2,048). */
+    {
+        init_mock_world();
+        g_mock_state = HF_STATE_MISSION;
+        g_mock_mission_mode = 3u;
+        g_mock_player_life = 3u;
+        g_mock_avatar_hp = 100;
+        uint8_t* near_mem = (uint8_t*)calloc(1u, 0x2000000u);
+        CHECK(near_mem != NULL, "allocated relocated 4,096-record EM arena for heavy_seaf_test");
+        if (near_mem != NULL) {
+            memcpy(near_mem, g_factory_obj, sizeof g_factory_obj);
+            g_mock_factory_override = (uintptr_t)near_mem;
+            g_mock_reloc_em_base = near_mem + 0x1500000u; /* 0x1500000 is divisible by 24 */
+            g_mock_reloc_em_bytes = 4096u * 24u;
+            g_mock_reloc_em_offset = 0x1500000;
+            g_mock_reloc_em_enabled = 1;
+
+            uint32_t inv = 0xFFFFFFFFu;
+            for (uint32_t i = 0; i < 4096u; ++i) {
+                memcpy(g_mock_reloc_em_base + (size_t)i * 24u + 8u, &inv, 4u);
+            }
+            /* Populate 800 live entities (<= 868 GwNav safe ceiling -> 3,296 free >= 3,228 scaled reserve -> PASS) */
+            for (uint32_t i = 0; i < 800u; ++i) {
+                uint64_t res = 0x123456789ABCDEF0ULL;
+                uint32_t eid = 0x5000u + i;
+                memcpy(g_mock_reloc_em_base + (size_t)i * 24u + 0u, &res, 8u);
+                memcpy(g_mock_reloc_em_base + (size_t)i * 24u + 8u, &eid, 4u);
+            }
+            CHECK(HeavyHasEntityHeadroom(g_fake_game, 1180u) == 1,
+                  "4,096-slot relocated EM allows wave with 800 live entities (3,296 free >= 3,228 scaled reserve)");
+            /* Add 100 more live entities (900 live > 868 ceiling -> 3,196 free < 3,228 scaled reserve -> BLOCK!) */
+            for (uint32_t i = 800u; i < 900u; ++i) {
+                uint64_t res = 0x123456789ABCDEF0ULL;
+                uint32_t eid = 0x5000u + i;
+                memcpy(g_mock_reloc_em_base + (size_t)i * 24u + 0u, &res, 8u);
+                memcpy(g_mock_reloc_em_base + (size_t)i * 24u + 8u, &eid, 4u);
+            }
+            CHECK(HeavyHasEntityHeadroom(g_fake_game, 1180u) == 0,
+                  "4,096-slot relocated EM blocks wave at 900 live entities to protect <1,024 GwNav::Bot ceiling");
+
+            /* Move local host player's network map entry (net_id=0x33 -> char_id=0x555) to relocated slot 2,800 (> 2,048!) */
+            uint32_t net_id = 0x33u, slot2800 = 2800u, char_id = 0x555u;
+            g_net_map_buckets[(net_id & 15u) * 2u] = net_id;
+            g_net_map_buckets[(net_id & 15u) * 2u + 1u] = slot2800;
+            uint64_t av_res = 0x4D1C334D294DFA97ULL;
+            memcpy(g_mock_reloc_em_base + (size_t)slot2800 * 24u + 0u, &av_res, 8u);
+            memcpy(g_mock_reloc_em_base + (size_t)slot2800 * 24u + 8u, &char_id, 4u);
+            memcpy(g_mock_reloc_em_base + (size_t)slot2800 * 24u + 16u, &net_id, 4u);
+
+            uint32_t out_owner = 0u, out_char = 0u;
+            float out_origin[3] = {0};
+            CHECK(ResolveLivingHostMissionGround(g_fake_game, &out_owner, &out_char, out_origin) == 1 && out_char == char_id,
+                  "ResolveLivingHostMissionGround resolves local host avatar at relocated descriptor slot 2,800");
+
+            g_mock_reloc_em_enabled = 0;
+            g_mock_factory_override = 0u;
+            g_mock_reloc_em_base = NULL;
+            free(near_mem);
+        }
     }
 
     /* 5. Session end stops worker flag */

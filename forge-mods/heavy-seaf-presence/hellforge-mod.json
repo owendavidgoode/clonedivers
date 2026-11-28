@@ -2,8 +2,8 @@
   "format": 1,
   "id": "local.heavy-seaf-presence",
   "name": "Heavy SEAF Presence Everywhere",
-  "version": "1.2.0-clonedivers.7",
-  "description": "MP-hardened Heavy SEAF Presence (1.2.0-clonedivers.7, SDK 16, build 25480438): Difficulty-12-gated Clone Wars Grand Army mode, mission-paused heap scanner, in-process RW weapon maintenance, 4-bucket soldier tick slicing, 1,024-unit census, and 10-arg ActivateStratagemBeacon ABI.",
+  "version": "1.2.0-clonedivers.8",
+  "description": "MP-hardened Heavy SEAF Presence (1.2.0-clonedivers.8, SDK 16-20+, build 25480438): HellForge 0.4/0.5 (4,096 relocated EntityManager + GwNav reserve scaling), Difficulty-12-gated Clone Wars Grand Army mode, mission-paused heap scanner, in-process RW weapon maintenance, 4-bucket soldier tick slicing, 1,024-unit census, and 10-arg ActivateStratagemBeacon ABI.",
   "gameplay": true,
   "code": {
     "dll": "heavy_seaf_presence.dll",

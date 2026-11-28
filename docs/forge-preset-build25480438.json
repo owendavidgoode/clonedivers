@@ -1,12 +1,12 @@
 {
   "Format": 1,
   "GameBuild": "25480438",
-  "HellForge": "0.4.0-beta",
-  "Engine": "0.1.47",
-  "Sdk": 16,
-  "GameplayCatalog": "build25480438-r15",
+  "HellForge": "0.5.0-beta",
+  "Engine": "0.1.58",
+  "Sdk": 20,
+  "GameplayCatalog": "build25480438-r16",
   "ContainsAccountData": false,
-  "Qualification": "Exact offline preset metadata (build25480438-r15 + 90-combination Empire r54 & 90-combination Clones r25 across Full/Lighter/reduced1024/reduced512/potato256, All-CIS/Mixed 80-20/Native, Mixed/All/Native Covenant, Delta Squad, Death Trooper voice on by default, Total War Chaos & Constant SEAF host goodies on by default, and genuine Difficulty 12 Slot 'LEVEL 12: STORMTROOPER' in EmpireDivers / 'LEVEL 12: CLONE WARS' in Clonedivers 2.79 km² Theater armed by default while keeping D1..11 intact); zero-syscall SDK-16 performance refactor + Windows Direct3D 2,000–3,000 unit theater, Parade Stormtrooper helmet, & film-scale AT-ST QA",
+  "Qualification": "Exact offline preset metadata (HellForge 0.5.0-beta / Engine 0.1.58 / Mod SDK 20 + build25480438-r16 + 90-combination Empire r54 & 90-combination Clones r25 across Full/Lighter/reduced1024/reduced512/potato256, All-CIS/Mixed 80-20/Native, Mixed/All/Native Covenant, Delta Squad, Death Trooper voice on by default, Total War Chaos & Constant SEAF host goodies on by default, genuine Difficulty 12 Slot 'LEVEL 12: STORMTROOPER' in EmpireDivers / 'LEVEL 12: CLONE WARS' in Clonedivers 2.79 km² Theater armed by default while keeping D1..11 intact, Shared HellForge Galactic War default, and relocated 4,096-record EntityManager support)",
   "Appearance": {
     "Mode": "empire",
     "Variants": [
@@ -107,11 +107,11 @@
     {
       "Id": "clonedivers.lego-compact-leaf-writer",
       "Name": "LEGO Compact Leaf Writer",
-      "Version": "0.2.3",
-      "ArchiveSha256": "450cd9900baf936f1a8e9580ae235f2de13cb9746185f6aed1b0edaa0ad1dcc6",
-      "Source": "https://github.com/owendavidgoode/clonedivers/releases/download/forge-mods-2026-11-26/lego-compact-leaf-writer-0.2.3.zip",
-      "License": "Project-owned client-only SDK-16 code mod (0.2.3 scoped per-handle CoopRetireHandle eliminating global 5s render probe storms, fast-gated RenderRemoveObserved, 4096-slice CoopScan, 79 Empire + Clone Compact LEGO garments; gameplay: false, coop: per-player, optional default)",
-      "NativeContentHash": "c0a6c18f7ae5e282c67cb4448bf3a1ccd12f74706c62010feadd26525533e214",
+      "Version": "0.2.4",
+      "ArchiveSha256": "49cda096ac5ae858fcb4fb1c09d4fda6ef0157e03078cdf90a502ac898cd7401",
+      "Source": "https://github.com/owendavidgoode/clonedivers/releases/download/forge-mods-2026-11-28/lego-compact-leaf-writer-0.2.4.zip",
+      "License": "Project-owned client-only SDK-20 code mod (0.2.4 HellForge 0.5.0 relocated 4,096-record EntityManager support + scoped per-handle CoopRetireHandle eliminating global 5s render probe storms, fast-gated RenderRemoveObserved, 4096-slice CoopScan, 79 Empire + Clone Compact LEGO garments; gameplay: false, coop: per-player, optional default)",
+      "NativeContentHash": "4287eff52df086c4b0493723e63edb26a9f4c9d1284df43e93c6bdfbe0eeabd2",
       "Optional": true,
       "Options": []
     },
@@ -121,7 +121,7 @@
       "Version": "0.2.2",
       "ArchiveSha256": "f97b33e109bffc9f9c9f77d48a83c7d2b094f30e543f1cf8a1f42b0e7cfbdd68",
       "Source": "https://github.com/owendavidgoode/clonedivers/releases/download/forge-mods-2026-11-26/empire-lego-yoda-0.2.2.zip",
-      "License": "Project-owned client-only SDK-16 code mod (0.2.2 cached Armor kit validation + O(1) hash-indexed Life lookup across 30 Empire + Clone Compact LEGO torso visuals + local death routing; gameplay: false, coop: per-player, optional default; audio excluded from git source)",
+      "License": "Project-owned client-only code mod (0.2.2 cached Armor kit validation + O(1) hash-indexed Life lookup across 30 Empire + Clone Compact LEGO torso visuals + local death routing; gameplay: false, coop: per-player, optional default; audio excluded from git source)",
       "NativeContentHash": "25b9df01a07e94fc79cfb2b820f13f013ccb05a5399048db2fa31e893b37d5af",
       "Optional": true,
       "Options": []
@@ -129,11 +129,11 @@
     {
       "Id": "clonedivers.empire-atst-writer",
       "Name": "Empire AT-ST Film-Scale Leaf Writer",
-      "Version": "0.2.5",
-      "ArchiveSha256": "57a90b04e8e06d1fc120cbafd7493bcfd2407fb4e6edd035375d408a008fd099",
-      "Source": "https://github.com/owendavidgoode/clonedivers/releases/download/forge-mods-2026-11-27/empire-atst-writer-0.2.5.zip",
-      "License": "Project-owned client-only SDK-16 code mod (0.2.5 instant HF_ON_SPAWN Mega-City walker admission < 50ms + 524,288-unit scan ceiling + sticky SSE MXCSR bit mask ~0x3Fu + pre-resolved 64-slot seqlock MeshObject hash filter across EXO-45/49/51/55; gameplay: false, coop: per-player, optional default)",
-      "NativeContentHash": "4b60b561b4092ce52469d78eda1dcf162d61365649884717f70f7054e4e283d5",
+      "Version": "0.2.6",
+      "ArchiveSha256": "22179f06145c135e695c3042853553f4318dfac2e69f40d827eb51611924766d",
+      "Source": "https://github.com/owendavidgoode/clonedivers/releases/download/forge-mods-2026-11-28/empire-atst-writer-0.2.6.zip",
+      "License": "Project-owned client-only SDK-20 code mod (0.2.6 HellForge 0.5.0 relocated 4,096-record EntityManager support + instant HF_ON_SPAWN Mega-City walker admission < 50ms + 524,288-unit scan ceiling + sticky SSE MXCSR bit mask ~0x3Fu + pre-resolved 64-slot seqlock MeshObject hash filter across EXO-45/49/51/55; gameplay: false, coop: per-player, optional default)",
+      "NativeContentHash": "b0b7837d5c64a76e1a9e8c983076788feff448d3c1bab66d62abdd49b0c83c66",
       "Optional": true,
       "Options": []
     },
@@ -143,7 +143,7 @@
       "Version": "0.3.2",
       "ArchiveSha256": "2269fb9c913f0f3da03fb4ab24be9e1af66599594f49a83d035f167cf53cbefd",
       "Source": "https://github.com/owendavidgoode/clonedivers/releases/download/forge-mods-2026-11-26/empire-tie-switch-0.3.2.zip",
-      "License": "Project-owned client-only SDK-16 code mod (0.3.2 zero-CreateFileW mission-time asset guard once armed + 5-tier Empire r52 Full..potato256 135-part lockstep SHA-256 TIE Fighter & TIE Bomber per-attack switching; gameplay: false, coop: per-player, optional default)",
+      "License": "Project-owned client-only code mod (0.3.2 zero-CreateFileW mission-time asset guard once armed + 5-tier Empire r52 Full..potato256 135-part lockstep SHA-256 TIE Fighter & TIE Bomber per-attack switching; gameplay: false, coop: per-player, optional default)",
       "NativeContentHash": "ef62a3fc3e65ce392ea55d14495eba57e1543b5db28940cac519bf3a4c5eb6df",
       "Optional": true,
       "Options": []
@@ -151,11 +151,11 @@
     {
       "Id": "clonedivers.empire-camera-pullback",
       "Name": "Empire & Clone Camera Pullback",
-      "Version": "0.1.4",
-      "ArchiveSha256": "b062c013f94adca066328fba4ace29a63668fea821d3587b6adac0594328847c",
-      "Source": "https://github.com/owendavidgoode/clonedivers/releases/download/forge-mods-2026-11-23/empire-camera-pullback-0.1.4.zip",
-      "License": "Project-owned client-only SDK-16 code mod (0.1.4 Linux/Proton MinHook MH_ERROR_MEMORY_ALLOC fallback hook on helldivers2.exe+0x1c6900 with single-apply per-frame guard, 79 Compact LEGO garment pins, hot-prefix D11 camera acquisition, O(1) EntityManager lookup, Havok wall-collision clamping, ADS/FPV/cutscene bypass; gameplay: false, coop: per-player, optional default)",
-      "NativeContentHash": "9aee365522984f2cc19344b6be1cdc0ac2cccdac64a776cc9b079ac2d40d99eb",
+      "Version": "0.1.5",
+      "ArchiveSha256": "ca58387566fc31e64cfabfa8380f0c9439c6ceb6b871fa5007926c786c582bf2",
+      "Source": "https://github.com/owendavidgoode/clonedivers/releases/download/forge-mods-2026-11-28/empire-camera-pullback-0.1.5.zip",
+      "License": "Project-owned client-only SDK-20 code mod (0.1.5 HellForge 0.5.0 relocated 4,096-record EntityManager session-cached O(1) lookup, Linux/Proton MinHook MH_ERROR_MEMORY_ALLOC fallback hook on helldivers2.exe+0x1c6900, 79 Compact LEGO garment pins, hot-prefix D11 camera acquisition, Havok wall-collision clamping, ADS/FPV/cutscene bypass; gameplay: false, coop: per-player, optional default)",
+      "NativeContentHash": "d973fb81e72618642e5d4fa2670f1d85f75eacf8fcdd36758214b4d2776a9d66",
       "Optional": true,
       "Options": []
     },
@@ -165,7 +165,7 @@
       "Version": "0.1.1",
       "ArchiveSha256": "b0ff55d0464ee6fa3b72693bd04b0bc28384773af04d21740e4e1f5a5ee9ddba",
       "Source": "https://github.com/owendavidgoode/clonedivers/releases/download/forge-mods-2026-11-25/starwars-localization-0.1.1.zip",
-      "License": "Project-owned client-only SDK-16 code mod (0.1.1 runtime US TEXT diff bridge across all 14 US tables restoring EmpireDivers and Clonedivers Armory/armor/helmet/weapon/SEAF-free Imperial & GAR strings when HellForge forge-credits stages last while keeping Forge Credits and WARBOND LOCKED intact; gameplay: false, coop: per-player, optional default)",
+      "License": "Project-owned client-only code mod (0.1.1 runtime US TEXT diff bridge across all 14 US tables restoring EmpireDivers and Clonedivers Armory/armor/helmet/weapon/SEAF-free Imperial & GAR strings when HellForge forge-credits stages last while keeping Forge Credits and WARBOND LOCKED intact; gameplay: false, coop: per-player, optional default)",
       "NativeContentHash": "1590c83d7907fbc033d62e3a896d2dda2bddc2c935d3e6acd7715d9bf0dc3362",
       "Optional": true,
       "Options": []
@@ -173,22 +173,22 @@
     {
       "Id": "vibeslacker.dedicated-melee-slot",
       "Name": "Dedicated Melee Slot",
-      "Version": "1.5.2-clonedivers.3",
-      "ArchiveSha256": "3735be44909bc6a6618a9dbb40ddcbb1a3a396b9660ffe7871b36e59c6f2909b",
-      "Source": "https://github.com/owendavidgoode/clonedivers/releases/download/forge-mods-2026-11-26/dedicated-melee-slot-1.5.2-clonedivers.3.zip",
-      "License": "MIT; VibeSlacker 4-player co-op hardened SDK-16 build (1.5.2-clonedivers.3 zero-syscall SpawnReqDetour pre-filter & clean disarm when unset + single-thread game-tick sync, non-colliding patch_920 picker; gameplay: false, coop: per-player, optional default)",
-      "NativeContentHash": "380ab571b27b024ee73e2e3718540162f57c78fa8dcc0a5c5851a0b50982ab6c",
+      "Version": "1.5.2-clonedivers.4",
+      "ArchiveSha256": "2523782a17941ce2ebf3ac0df8381171c05fb40b58b8c295e38d13a38362d676",
+      "Source": "https://github.com/owendavidgoode/clonedivers/releases/download/forge-mods-2026-11-28/dedicated-melee-slot-1.5.2-clonedivers.4.zip",
+      "License": "MIT; VibeSlacker 4-player co-op hardened SDK-20 build (1.5.2-clonedivers.4 HellForge 0.5.0 relocated 4,096-record EntityManager support + zero-syscall SpawnReqDetour pre-filter & clean disarm when unset + single-thread game-tick sync, non-colliding patch_920 picker; gameplay: false, coop: per-player, optional default)",
+      "NativeContentHash": "42c7235aee004ea6c7a348e80a855606406b3f00acd8a21cf0021cbdaa29b997",
       "Optional": true,
       "Options": []
     },
     {
       "Id": "clonedivers.chaos-invasions",
       "Name": "Chaos Invasions",
-      "Version": "0.5.1",
-      "ArchiveSha256": "5cc71e43a04cde1b5ab1a56a5532b15372a6872ded80a4e0f3d3ac8775931d18",
-      "Source": "https://github.com/owendavidgoode/clonedivers/releases/download/forge-mods-2026-11-27/chaos-invasions-0.5.1.zip",
-      "License": "Project-owned gameplay SDK-16 code mod (0.5.1 genuine 12th Difficulty Slot 'LEVEL 12: STORMTROOPER' in EmpireDivers / 'LEVEL 12: CLONE WARS' in Clonedivers after Hell Forge D11 with D1..11 preserved intact, live mission difficulty >= 12 gating, 942m/2.79km2 theater, Havok 8192-ragdoll & Wwise 512-voice uncap, 6-syscall bulk perception hostility, fail-closed 1180-slot / <1024-GwNav::Bot governor, multi-ring battalion spawner + 225 outer virtual laser regiments sustaining 2k-3k theater units; gameplay: true, optional default)",
-      "NativeContentHash": "3d2fc0f17d881f2077f54b670d6d752c0fb2995b5666435b7163a9b44e3852b8",
+      "Version": "0.5.2",
+      "ArchiveSha256": "e57017ca9f42f67f0a09d9e5659c048ebd3efc135fdd0e31e170db6b49bdfd68",
+      "Source": "https://github.com/owendavidgoode/clonedivers/releases/download/forge-mods-2026-11-28/chaos-invasions-0.5.2.zip",
+      "License": "Project-owned gameplay SDK-20 code mod (0.5.2 HellForge 0.5.0 relocated 4,096-record EntityManager & scaled 3,228-slot GwNav::Bot reserve, genuine 12th Difficulty Slot 'LEVEL 12: STORMTROOPER' in EmpireDivers / 'LEVEL 12: CLONE WARS' in Clonedivers after Hell Forge D11 with D1..11 preserved intact, live mission difficulty >= 12 gating, 942m/2.79km2 theater, Havok 8192-ragdoll & Wwise 512-voice uncap, 6-syscall bulk perception hostility, multi-ring battalion spawner + 225 outer virtual laser regiments sustaining 2k-3k theater units; gameplay: true, optional default)",
+      "NativeContentHash": "3d0975b9fe222b32452d784e7fb7c2b126319742d352fcd6b564b17374784b98",
       "Optional": true,
       "Options": []
     },
@@ -215,11 +215,11 @@
     {
       "Id": "local.faster-corpse-cleanup",
       "Name": "Faster Corpse Cleanup",
-      "Version": "1.0.6-clonedivers.3",
-      "ArchiveSha256": "9c1f72aa9b53fee4411e24ce4e838c1f0868c8e65939551731312f13e177cdcc",
-      "Source": "https://github.com/owendavidgoode/clonedivers/releases/download/forge-mods-2026-11-27/faster-corpse-cleanup-1.0.6-clonedivers.3.zip",
-      "License": "MIT; enochlophobianumerophobia SDK-16 host-gated build (1.0.6-clonedivers.3 live mission difficulty >= 12 gating preserving 5.0s decay on D1..11 while honoring positive corpseDelaySeconds overrides across all pressure tiers on D12, 2048-wreck BSS snapshot, O(1) 4096-slot hash table, binary search cc_targets, 4-tier 0.15s/0.0s ULTRAKILL Emergency Turbo-Reaper @ 16/frame)",
-      "NativeContentHash": "3bb17c339eebcd6b168148585d0bc7eb85a1c595c2a3d95f111fc49da959f476",
+      "Version": "1.0.6-clonedivers.4",
+      "ArchiveSha256": "6c6d59f62d222fa393697e8bdff4436bf2b4a8833d487c948bb8f0eebe957284",
+      "Source": "https://github.com/owendavidgoode/clonedivers/releases/download/forge-mods-2026-11-28/faster-corpse-cleanup-1.0.6-clonedivers.4.zip",
+      "License": "MIT; enochlophobianumerophobia SDK-20 host-gated build (1.0.6-clonedivers.4 HellForge 0.5.0 relocated 4,096-record EntityManager support, live mission difficulty >= 12 gating preserving 5.0s decay on D1..11 while honoring positive corpseDelaySeconds overrides across all pressure tiers on D12, O(1) 4096-slot hash table, binary search cc_targets, 4-tier 0.15s/0.0s ULTRAKILL Emergency Turbo-Reaper @ 16/frame)",
+      "NativeContentHash": "f09456ccff0da17fd87dcf44dd0ea3f261f79d09eb48812e2d6bcc967c71de5b",
       "Options": []
     },
     {
@@ -235,11 +235,11 @@
     {
       "Id": "local.heavy-seaf-presence",
       "Name": "Heavy SEAF Presence Everywhere",
-      "Version": "1.2.0-clonedivers.7",
-      "ArchiveSha256": "2f79a96e7a0358ace7808bc8aa400ed9fc8a5609f5f9f19cdf94119b4de11f1e",
-      "Source": "https://github.com/owendavidgoode/clonedivers/releases/download/forge-mods-2026-11-27/Clonedivers-Heavy-SEAF-1.2.0-clonedivers.7.zip",
-      "License": "MP-hardened compatibility distribution permitted per project owner confirmation of written author permission (NontoxicKappa, 2026-11-05; 1.2.0-clonedivers.7 live mission difficulty >= 12 gating preserving native 12/18 SEAF caps and standard waves on D1..11 even across unrelated session menu edits, 24s 2-squad Clone Wars drops @ 50-220m, 85% 1-slot Clone Patrol + 15% 10Hz-sliced Elite squads, fail-closed 1180-slot GwNav::Bot headroom gate)",
-      "NativeContentHash": "3e54e6d1a2e3cef1def003325b728203e015c9e3f56c54a986108e639841caef",
+      "Version": "1.2.0-clonedivers.8",
+      "ArchiveSha256": "3aa65e16f59dc8c8c8bd0125ff5a3035ca29e4a43536a1a0565342a776022e63",
+      "Source": "https://github.com/owendavidgoode/clonedivers/releases/download/forge-mods-2026-11-28/Clonedivers-Heavy-SEAF-1.2.0-clonedivers.8.zip",
+      "License": "MP-hardened SDK-20 compatibility distribution permitted per project owner confirmation of written author permission (NontoxicKappa, 2026-11-05; 1.2.0-clonedivers.8 HellForge 0.5.0 relocated 4,096-record EntityManager & scaled 3,228-slot GwNav::Bot reserve, live mission difficulty >= 12 gating preserving native 12/18 SEAF caps and standard waves on D1..11 even across unrelated session menu edits, 24s 2-squad Clone Wars drops @ 50-220m, 85% 1-slot Clone Patrol + 15% 10Hz-sliced Elite squads)",
+      "NativeContentHash": "52db31f447286d6687ab9e27cb3790b7a780a97c8599a9a6ee7c57618f0422bf",
       "Options": []
     },
     {
@@ -257,9 +257,9 @@
       "Name": "HellForge Editor",
       "Version": "0.4.2",
       "ArchiveSha256": null,
-      "Source": "Official HellForge 0.4.0-beta bundled mod",
+      "Source": "Official HellForge 0.5.0-beta bundled mod",
       "License": "Not included in launcher package; author acquisition required",
-      "NativeContentHash": "71e706a88dee20912d7b19f51e47db7daff44cd78f1607d88bfb88d08079e1de",
+      "NativeContentHash": "34563c081cdc53e36027bf51862832dda7a69c13b9c89e745cf5359e7f5a9fdb",
       "Options": []
     },
     {
@@ -267,9 +267,9 @@
       "Name": "Hell Forge Difficulty",
       "Version": "0.16.1",
       "ArchiveSha256": null,
-      "Source": "Official HellForge 0.4.0-beta bundled mod",
+      "Source": "Official HellForge 0.5.0-beta bundled mod",
       "License": "Not included in launcher package; author acquisition required",
-      "NativeContentHash": "85c761aae8564a27eaf906050a57321c9eed6fd96a97aecfdd243b77d2550ae5",
+      "NativeContentHash": "a97dc30adbb4ba8250eb83a1782b4ac26afa24cb59df8dbdfd4784d6e13f9ea6",
       "Options": []
     },
     {
@@ -277,9 +277,9 @@
       "Name": "Vanilla Plus",
       "Version": "0.2.0",
       "ArchiveSha256": null,
-      "Source": "Official HellForge 0.4.0-beta bundled mod",
+      "Source": "Official HellForge 0.5.0-beta bundled mod",
       "License": "Not included in launcher package; author acquisition required",
-      "NativeContentHash": "cdc33d057e3ff0490b0be5b3275137430cd8cc9867ce60775cfbaff19193fc1b",
+      "NativeContentHash": "0726ef1b980b6b0c81ae8f4020c24207d6b7bb2dd57169452ed753b46b5b89be",
       "Options": []
     },
     {
@@ -407,14 +407,14 @@
     }
   ],
   "RequiredHostingShare": false,
-  "InstallerQualification": "18-download build25480438-r15 preset (9 required + 9 optional SDK-16 defaults, zero hf-mod.com URLs, Bingus Shared Loader last) + Empire r54 & Clones r25 across 5 texture tiers verified offline and played-through in Windows Direct3D",
+  "InstallerQualification": "18-download build25480438-r16 preset (9 required + 9 optional SDK-20 defaults, zero hf-mod.com URLs, Bingus Shared Loader last) + HellForge 0.5.0-beta (Engine 0.1.58 / Mod SDK 20) + Empire r54 & Clones r25 across 5 texture tiers",
   "NonShippingBoundaries": [
-    "clear-skies-0.5.4: bundled ee6b1ba7e22d71ed.patch_0 not cleared for public redistribution; excluded from r5..r15",
+    "clear-skies-0.5.4: bundled ee6b1ba7e22d71ed.patch_0 not cleared for public redistribution; excluded from r5..r16",
     "simple-armor-passive-picker-1.4.2: read_cache() reads slot 0 / locals==1 only; excluded from default co-op preset",
     "empire-weapons: standalone E-11 / DLT-19 rifle .unit art remains shelved offline"
   ],
   "RetiredMods": [
-    "local.clonedivers-mine-boundary: disabled; engine 0.1.47 supplies the bounds fix",
+    "local.clonedivers-mine-boundary: disabled; engine 0.1.47+ supplies the bounds fix",
     "chef.smarter-seaf: disabled; hf-mod.com File/144 retired 2026-11-19 and replaced by official GitHub Smarter SEAF 1.0.4",
     "pack.95ef276a-6287-465f-ac5b-8512d2227b74: disabled; Mod Options Menu v1.2.1 integrated natively in Vanilla Plus Megapack 0.2.1",
     "pack.80a03e3b-a671-4e54-a2ce-52c35bb64c91: disabled; Reinforcement Beacons Fixed 4.6.1 superseded by Vanilla Plus / Vanilla Plus Megapack 0.2.1"

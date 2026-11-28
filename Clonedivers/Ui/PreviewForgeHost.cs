@@ -16,6 +16,8 @@ public sealed class PreviewForgeHost : IForgeUiHost
     string hostSeaf = "constant";
     bool hostCorpseCleanup = true;
     string hostTheater = "clone-wars";
+    string galacticWar = "hellforge";
+    bool playWithoutSync;
     bool soundEffectsEnabled = true;
     bool discordRpcEnabled = true;
     bool minimizeToTray;
@@ -163,7 +165,7 @@ public sealed class PreviewForgeHost : IForgeUiHost
             "error" => ("Needs Attention", ForgeHeroTone.Danger, "Download service didn't respond", "GitHub timed out while fetching verified pack assets. Your saved files are intact.", "RETRY", ForgeHeroTone.Action, "View Diagnostics"),
             "home-stepdown" => ("Last Run Notice", ForgeHeroTone.Warning, "Last session ended unexpectedly", "GPU ran out of video memory or hung (D3D12) — try stepping down to High for smoother play.", "LAUNCH CLONEDIVERS", ForgeHeroTone.Ready, (string?)null),
             "home-resume" => ("Update & Launch", ForgeHeroTone.Action, "Switch to EmpireDivers & launch", "Resumes the remaining 4.2 GB download, applies your loadout, and launches automatically.", "UPDATE & LAUNCH", ForgeHeroTone.Action, (string?)null),
-            _ => ("Forge 0.4.0 · Ready", ForgeHeroTone.Ready, "Ready to play", ForgeTacticalCopy.ReadyDetail(mode, hostTheaterPreset: hostTheater),
+            _ => ("Forge 0.5.0 · Ready", ForgeHeroTone.Ready, "Ready to play", ForgeTacticalCopy.ReadyDetail(mode, hostTheaterPreset: hostTheater),
                 mode == "regular" ? "LAUNCH REGULAR HELLFORGE" : mode == "empire" ? "LAUNCH EMPIREDIVERS" : "LAUNCH CLONEDIVERS",
                 ForgeHeroTone.Ready, (string?)null)
         };
@@ -223,7 +225,9 @@ public sealed class PreviewForgeHost : IForgeUiHost
             MinimizeToTray: minimizeToTray,
             SquidSkin: squidSkin,
             DeathTrooperVoice: deathTrooperVoice,
-            HostTheaterPreset: hostTheater);
+            HostTheaterPreset: hostTheater,
+            PlayWithoutAccountSync: playWithoutSync,
+            GalacticWar: galacticWar);
     }
 
     public ForgeSetupState GetSetupState()
@@ -285,7 +289,8 @@ public sealed class PreviewForgeHost : IForgeUiHost
             PrimaryActionEnabled: setupStep != 2,
             ShowOfficialFallback: setupStep <= 2,
             Progress: prog,
-            QrRows: qrRows);
+            QrRows: qrRows,
+            CanSkipAccountSync: setupStep == 3);
     }
 
     public Task<ForgeDiagnosticsState> GetDiagnosticsAsync(CancellationToken ct = default)
@@ -315,7 +320,7 @@ public sealed class PreviewForgeHost : IForgeUiHost
             AccountSummary: "HD2 account imported · Forge rewards save locally",
             HealthChecks:
             [
-                new ForgeHealthItem("HellForge", "0.4.0-beta · SDK 16", Healthy: true),
+                new ForgeHealthItem("HellForge", "0.5.0-beta · SDK 20", Healthy: true),
                 new ForgeHealthItem("Game Copy", "Build 25480438", Healthy: true),
                 new ForgeHealthItem("Gameplay Preset", $"{HellForgeGameplayCatalog.Current.Artifacts.Count}/{HellForgeGameplayCatalog.Current.Artifacts.Count} ({matchCode})", Healthy: true),
                 new ForgeHealthItem("Account Sync", "Imported", Healthy: true),
@@ -368,6 +373,15 @@ public sealed class PreviewForgeHost : IForgeUiHost
         StateChanged?.Invoke();
         return Task.CompletedTask;
     }
+    public Task SetGalacticWarAsync(string warMode)
+    {
+        if (HellForgeRelease.IsValidWarMode(warMode))
+        {
+            galacticWar = warMode;
+            StateChanged?.Invoke();
+        }
+        return Task.CompletedTask;
+    }
     public Task ApplyCustomizationNowAsync() => Task.CompletedTask;
     public Task TriggerPrimaryActionAsync() => Task.CompletedTask;
     public Task TriggerSecondaryActionAsync() => Task.CompletedTask;
@@ -384,7 +398,7 @@ public sealed class PreviewForgeHost : IForgeUiHost
             "EmpireDivers Difficulty 12 ('LEVEL 12: STORMTROOPER') + Clonedivers ('LEVEL 12: CLONE WARS') armed by default right after D11.",
             "All Star Wars & host gameplay goodies enabled by default: Total War Chaos Invasions, Constant Reinforcements, Encrypted Death Trooper Voice, Delta Squad, 80/20 CIS Droids & Mixed Covenant.",
             "EmpireDivers r54 & Clonedivers r25: film-scale AT-ST visibility & Parade Stormtrooper frustum culling across all 5 texture tiers.",
-            "Automatic completed-backup & staging disk reclamation on low-space installs (Squad Code r15)."
+            "HellForge 0.5.0-beta (Engine 0.1.58 / Mod SDK 20): Shared Galactic War, 4,096-record EntityManager support, and 'Play Now, Sync Later' instant onboarding (Squad Code r16)."
         ],
         IsFallback: false,
         ReleaseUrl: $"https://github.com/owendavidgoode/clonedivers/releases/tag/v{AppInfo.Version}"));
@@ -396,6 +410,7 @@ public sealed class PreviewForgeHost : IForgeUiHost
     public Task BrowseSetupFolderAsync(bool existing) => Task.CompletedTask;
     public Task SetSetupTextureAsync(string tex) { texture = tex; StateChanged?.Invoke(); return Task.CompletedTask; }
     public Task TriggerSetupPrimaryActionAsync() { if (setupStep < 4) { setupStep++; StateChanged?.Invoke(); } else SetupVisibilityChanged?.Invoke(false); return Task.CompletedTask; }
+    public Task SkipSetupAccountSyncAsync() { if (setupStep == 3) { playWithoutSync = true; setupStep = 4; StateChanged?.Invoke(); } return Task.CompletedTask; }
     public void CancelSetupWork() { }
     public Task OpenOfficialSetupFallbackAsync() => Task.CompletedTask;
     public Task LocateInstallAsync() => Task.CompletedTask;

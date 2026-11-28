@@ -327,19 +327,19 @@ internal static class Milestone1CoreTests
         Directory.CreateDirectory(dir);
 
         var catalogCode = SquadFingerprint.Compute(HellForgeGameplayCatalog.Current);
-        check(System.Text.RegularExpressions.Regex.IsMatch(catalogCode, @"^r15-[0-9a-f]{4}$"),
-              $"SquadFingerprint.Compute(Current) produces short deterministic r15 match code ({catalogCode})");
+        check(System.Text.RegularExpressions.Regex.IsMatch(catalogCode, @"^r16-[0-9a-f]{4}$"),
+              $"SquadFingerprint.Compute(Current) produces short deterministic r16 match code ({catalogCode})");
 
         // Build two player mod lists:
-        // Player A: Clonedivers pack + all gameplay:false client code mods enabled + r15 gameplay preset
-        // Player B: EmpireDivers pack + 0 gameplay:false client code mods enabled + r15 gameplay preset (reversed order)
+        // Player A: Clonedivers pack + all gameplay:false client code mods enabled + r16 gameplay preset
+        // Player B: EmpireDivers pack + 0 gameplay:false client code mods enabled + r16 gameplay preset (reversed order)
         HellForgeMods BuildPlayerMods(string? starWarsMode, bool enableClientCodeMods, string difficultyVersion = "0.16.1", bool enableChaos = true)
         {
             var list = new List<HellForgeMod>();
             foreach (var req in HellForgePreset.Required)
                 list.Add(new(req.Id, req.Name, true, "fixture", ["gameplay"], req.Id == "skyeshade.hell-forge" ? difficultyVersion : req.Version));
             list.Add(new("skyeshade.vanilla-plus", "Vanilla Plus", true, "fixture", ["gameplay"], ""));
-            list.Add(new(HellForgePreset.ChaosInvasions, "Chaos Invasions", enableChaos, "fixture", ["gameplay", "code"], "0.5.1"));
+            list.Add(new(HellForgePreset.ChaosInvasions, "Chaos Invasions", enableChaos, "fixture", ["gameplay", "code"], "0.5.2"));
 
             foreach (var clientId in new[] { HellForgePreset.CleanExit, HellForgePreset.LegoCompactLeafWriter, HellForgePreset.EmpireLegoYoda, HellForgePreset.EmpireAtstWriter, HellForgePreset.EmpireTieSwitch, HellForgePreset.EmpireCameraPullback, HellForgePreset.StarWarsLocalization, HellForgePreset.DedicatedMeleeSlot })
                 list.Add(new(clientId, clientId, enableClientCodeMods, "fixture", ["code"], "0.2.1"));
@@ -512,14 +512,14 @@ internal static class Milestone1CoreTests
             extraSearchFolders: [localSourceDir]);
 
         check(report.Healthy && report.Steps.Count == 5 && report.Steps.All(s => s.Passed) &&
-              report.Steps[2].Name == "Gameplay preset (r15)" &&
+              report.Steps[2].Name == "Gameplay preset (r16)" &&
               !report.Steps[2].Detail.Contains("r8", StringComparison.OrdinalIgnoreCase) &&
               report.GameplayModsRepaired >= 1 && report.PackVerified && report.PackRepaired &&
               report.BytesReclaimed >= 512 && !File.Exists(stalePartial) &&
               File.ReadAllText(profilePath) == profileBytes &&
               File.ReadAllText(sealPath) == sealBytes &&
               progressEvents.Count >= 5,
-              "ForgeVerifier runs all 5 check & repair steps, labels Step 3 with dynamic r15 tag, repairs drifted preset & pack, reclaims stale cache, and leaves saves/account untouched");
+              "ForgeVerifier runs all 5 check & repair steps, labels Step 3 with dynamic r16 tag, repairs drifted preset & pack, reclaims stale cache, and leaves saves/account untouched");
 
         // Second run when already healthy performs 0 repairs
         var second = await ForgeVerifier.VerifyAndRepairCoreAsync(
@@ -532,9 +532,9 @@ internal static class Milestone1CoreTests
             selectionOverride: () => fixtureSelection,
             extraSearchFolders: [localSourceDir]);
         check(second.Healthy && second.Steps.Count == 5 && second.GameplayModsRepaired == 0 && !second.PackRepaired &&
-              second.Summary.Contains("r15 gameplay preset", StringComparison.Ordinal) &&
+              second.Summary.Contains("r16 gameplay preset", StringComparison.Ordinal) &&
               !second.Summary.Contains("r8", StringComparison.OrdinalIgnoreCase),
-              "ForgeVerifier second pass confirms clean state with zero redundant repairs and dynamic r15 summary");
+              "ForgeVerifier second pass confirms clean state with zero redundant repairs and dynamic r16 summary");
 
         // Step 2 capture block stops safely before mutating mods
         var blocked = await ForgeVerifier.VerifyAndRepairCoreAsync(

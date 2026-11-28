@@ -66,9 +66,38 @@ static int RequestFile(const wchar_t *path)
 #include "stable_pins.h"
 #include "invocation_pins.h"
 
+static void PatchOwnerPinSite(uint32_t pinRva,uint32_t pinSize,unsigned char expected[32],uint32_t siteRva,uint32_t val)
+{
+    if(siteRva>=pinRva && siteRva+4u<=pinRva+pinSize)
+        memcpy(expected+(siteRva-pinRva),&val,4u);
+}
+static void ExpectedOwnerPinBytes(const OwnerPin *pin,const CdEmLayout *lay,uint32_t mapSlots,unsigned char expected[32])
+{
+    memcpy(expected,pin->bytes,pin->size);
+    if(!pin->game || !lay || !lay->relocated || lay->records_offset<=0)return;
+    uint32_t rec=(uint32_t)lay->records_offset;
+    uint32_t cap=lay->capacity;
+    uint32_t maps=(rec+cap*24u+0xFu)&~0xFu;
+    uint32_t mapStride=mapSlots*8u;
+    PatchOwnerPinSite(pin->rva,pin->size,expected,0x6065D2u,rec+8u);
+    PatchOwnerPinSite(pin->rva,pin->size,expected,0xFD9C53u,(rec+8u)/8u);
+    PatchOwnerPinSite(pin->rva,pin->size,expected,0xFD9967u,rec+12u);
+    PatchOwnerPinSite(pin->rva,pin->size,expected,0xFD93D9u,(rec+16u)/24u);
+    PatchOwnerPinSite(pin->rva,pin->size,expected,0x6F41F7u,rec);
+    PatchOwnerPinSite(pin->rva,pin->size,expected,0xFDA1C5u,cap);
+    PatchOwnerPinSite(pin->rva,pin->size,expected,0xFDA20Au,rec+16u);
+    PatchOwnerPinSite(pin->rva,pin->size,expected,0xFDA232u,maps+0u*mapStride);
+    PatchOwnerPinSite(pin->rva,pin->size,expected,0xFDA245u,mapSlots);
+    PatchOwnerPinSite(pin->rva,pin->size,expected,0xFDA24Cu,maps+1u*mapStride);
+    PatchOwnerPinSite(pin->rva,pin->size,expected,0xFDA270u,mapSlots);
+    PatchOwnerPinSite(pin->rva,pin->size,expected,0xFDA2C9u,mapSlots);
+    PatchOwnerPinSite(pin->rva,pin->size,expected,0xFDA2D0u,maps+2u*mapStride);
+    PatchOwnerPinSite(pin->rva,pin->size,expected,0xFDA2EBu,maps+3u*mapStride);
+    PatchOwnerPinSite(pin->rva,pin->size,expected,0xFDA2FCu,mapSlots);
+}
 static int Pins(void)
 {
-    unsigned char bytes[32]; uintptr_t value=0;
+    unsigned char bytes[32],expected[32]; uintptr_t value=0;
     static const unsigned char leafPrologue[16]={0x48,0x8b,0xc4,0x48,0x89,0x58,0x18,0x48,0x89,0x70,0x20,0x57,0x48,0x83,0xec,0x40};
     if(hf->read_code(engine+0x5b2990,bytes,16)||memcmp(bytes,leafPrologue,16))return 0;
     for(unsigned i=0;i<sizeof invocationPins/sizeof invocationPins[0];i++)
@@ -76,10 +105,21 @@ static int Pins(void)
            memcmp(bytes,invocationPins[i].bytes,invocationPins[i].size))return 0;
     for(unsigned i=0;i<sizeof pins/sizeof pins[0];i++)
         if(Stopped() || hf->read_code(engine+pins[i].rva,bytes,pins[i].size) || memcmp(bytes,pins[i].bytes,pins[i].size))return 0;
+    CdEmLayout emLayout=ResolveLiveEmLayout();
+    uint32_t mapSlots=(emLayout.capacity>2048u)?0x2000u:0x1000u;
+    if(emLayout.relocated) {
+        uint8_t slotInsn[7];
+        if(hf->read_code(gameModule+0xB4ABFBu,slotInsn,sizeof slotInsn)==0 &&
+           slotInsn[0]==0xF2u && slotInsn[1]==0x00u && slotInsn[2]==0xBFu) {
+            uint32_t s=0u;memcpy(&s,slotInsn+3u,4u);
+            if(s>=0x1000u && s<=0x100000u && (s&(s-1u))==0u)mapSlots=s;
+        }
+    }
     for(unsigned i=0;i<sizeof ownerPins/sizeof ownerPins[0];i++) {
         uintptr_t base=ownerPins[i].game?gameModule:engine;
+        ExpectedOwnerPinBytes(&ownerPins[i],&emLayout,mapSlots,expected);
         if(Stopped() || hf->read_code(base+ownerPins[i].rva,bytes,ownerPins[i].size) ||
-           memcmp(bytes,ownerPins[i].bytes,ownerPins[i].size))return 0;
+           memcmp(bytes,expected,ownerPins[i].size))return 0;
     }
     for(unsigned i=0;i<sizeof renderPins/sizeof renderPins[0];i++)
         if(Stopped() || hf->read_code(engine+renderPins[i].rva,bytes,renderPins[i].size) ||
@@ -145,12 +185,13 @@ static void Loaded(HfMod *mod,HfEvent event,void *user)
 }
 HF_MOD_EXPORT int hellforge_mod_init(const HfApi *api,HfMod *mod)
 {
-    if(!api||api->version!=16||api->size<offsetof(HfApi,load_phase)+sizeof api->load_phase ||
+    if(!api||api->version<16||api->size<offsetof(HfApi,load_phase)+sizeof api->load_phase ||
        !api->build_id||!api->mod_id||!api->load_phase||!api->read||!api->read_code||!api->module_base||
        !api->on||!api->on_game_thread||!api->hook_ex||!api->logs_folder||!api->log||!api->build_id()||
        strcmp(api->build_id(),"25480438")||!api->mod_id(mod)||strcmp(api->mod_id(mod),OBS_ID)||
        api->load_phase(mod)!=HF_LOAD_BOOT)return 1;
     hf=api;
+    s_hasCachedEmLayout=0;
     cm_reset_dynamic_garments();
     lp_reset_dynamic_assets();
     if(api->size>=offsetof(HfApi,mod_folder)+sizeof api->mod_folder && api->mod_folder) {

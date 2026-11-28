@@ -76,7 +76,7 @@ static class HellForgeTests
                 CompatibilityProblem: "Fixture engine/SDK/isolation mismatch."));
             type.GetMethod("UpdateView", members)!.Invoke(form, null);
             check(end.Enabled && end.Text == "END SESSION", "compatibility mismatch never hides active-session cleanup");
-            Set("lastStatus", new HellForgeStatus(Path.GetTempPath(), "0.4.0-beta (4a5373b)", HellForgePack.SupportedBuild, false, true, false, true, true, null, null,
+            Set("lastStatus", new HellForgeStatus(Path.GetTempPath(), "0.5.0-beta (4a5373b)", HellForgePack.SupportedBuild, false, true, false, true, true, null, null,
                 CompatibilityProblem: "Official WFP isolation has not been set up yet."));
             type.GetMethod("UpdateView", members)!.Invoke(form, null);
             check(end.Enabled && end.Text == "FINISH SETUP" && !recover.Enabled && !sync.Enabled, "fresh pinned Forge offers guided setup while copy/isolation and account steps remain incomplete");
@@ -596,13 +596,13 @@ static class HellForgeTests
         }
         commands.Mods.Add(new("skyeshade.vanilla-plus", "Vanilla Plus", true, Path.Combine(install, "mods", "vanilla-plus"), ["code"]));
         commands.Mods.Add(new(HellForgePreset.CleanExit, "Clonedivers Clean Exit", true, Path.Combine(install, "mods", "clean-exit"), ["code"], "0.2.1"));
-        commands.Mods.Add(new(HellForgePreset.LegoCompactLeafWriter, "LEGO Compact Leaf Writer", true, Path.Combine(install, "mods", "lego-compact-leaf-writer"), ["code"], "0.2.3"));
+        commands.Mods.Add(new(HellForgePreset.LegoCompactLeafWriter, "LEGO Compact Leaf Writer", true, Path.Combine(install, "mods", "lego-compact-leaf-writer"), ["code"], "0.2.4"));
         commands.Mods.Add(new(HellForgePreset.EmpireLegoYoda, "Empire LEGO Yoda Death", true, Path.Combine(install, "mods", "empire-lego-yoda"), ["code"], "0.2.2"));
-        commands.Mods.Add(new(HellForgePreset.EmpireAtstWriter, "Empire AT-ST Film-Scale Leaf Writer", true, Path.Combine(install, "mods", "empire-atst-writer"), ["code"], "0.2.4"));
+        commands.Mods.Add(new(HellForgePreset.EmpireAtstWriter, "Empire AT-ST Film-Scale Leaf Writer", true, Path.Combine(install, "mods", "empire-atst-writer"), ["code"], "0.2.6"));
         commands.Mods.Add(new(HellForgePreset.EmpireTieSwitch, "Empire per-attack TIE (lab candidate)", true, Path.Combine(install, "mods", "empire-tie-switch"), ["code"], "0.3.2"));
-        commands.Mods.Add(new(HellForgePreset.EmpireCameraPullback, "Empire & Clone Camera Pullback", true, Path.Combine(install, "mods", "empire-camera-pullback"), ["code"], "0.1.4"));
+        commands.Mods.Add(new(HellForgePreset.EmpireCameraPullback, "Empire & Clone Camera Pullback", true, Path.Combine(install, "mods", "empire-camera-pullback"), ["code"], "0.1.5"));
         commands.Mods.Add(new(HellForgePreset.StarWarsLocalization, "Star Wars Localization Bridge", true, Path.Combine(install, "mods", "starwars-localization"), ["code"], "0.1.1"));
-        commands.Mods.Add(new(HellForgePreset.ChaosInvasions, "Chaos Invasions", true, Path.Combine(install, "mods", "chaos-invasions"), ["gameplay", "code"], "0.4.0"));
+        commands.Mods.Add(new(HellForgePreset.ChaosInvasions, "Chaos Invasions", true, Path.Combine(install, "mods", "chaos-invasions"), ["gameplay", "code"], "0.5.2"));
         commands.Mods.Add(new("pack.80a03e3b-a671-4e54-a2ce-52c35bb64c91", "Reinforcement Beacons Fixed", true, Path.Combine(install, "mods", "beacons"), ["data"]));
         var conflictPlays = commands.Calls.Count(c => c[0] == "play");
         check(await Reject(() => client.PlayAsync(selection)) && conflictPlays == commands.Calls.Count(c => c[0] == "play"),
@@ -1577,7 +1577,7 @@ static class HellForgeTests
             object result;
             switch (args[0])
             {
-                case "status": result = new { install = root, hellforge = "0.4.0-beta (d8a8b46)", engine = "0.1.47", modSdk = 16, networkBlock = "wfp", gameBuild = Build, ready = new { gameCopy = Ready, sessionRunner = true, linuxNamespace = false },
+                case "status": result = new { install = root, hellforge = "0.5.0-beta (d8a8b46)", engine = "0.1.58", modSdk = 20, networkBlock = "wfp", gameBuild = Build, ready = new { gameCopy = Ready, sessionRunner = true, linuxNamespace = false },
                     session = new { running = Running, lastStatus = LastStatus, lastFailure = (string?)null, lastRun = LastRun }, settings = new { multiplayer = Multiplayer, localPlayFab = true, sandbox = true } }; break;
                 case "mods": result = new { mods = Mods.Select(m => new { id = m.Id, name = m.Name, enabled = m.Enabled, folder = m.Folder, tags = m.Tags, version = m.Version,
                     options = m.Options?.Select(o => new { name = o.Name, on = o.On }) }), problems = Array.Empty<string>(), modlist = "fixture-code" }; break;

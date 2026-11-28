@@ -1,4 +1,4 @@
-/* Dedicated Melee Slot 1.5.2-clonedivers.3 (vibeslacker.dedicated-melee-slot).
+/* Dedicated Melee Slot 1.5.2-clonedivers.4 (vibeslacker.dedicated-melee-slot).
  * Original work Copyright (c) 2026 vibeslacker (MIT License, tag v1.5.2 + LoadSlotKeys from v1.6.3).
  * Clonedivers 4-player co-op & SDK-16 patches Copyright (c) 2026 Clonedivers Contributors (MIT License).
  *
@@ -22,6 +22,7 @@
 #include <string.h>
 
 #include "hellforge_mod.h"
+#include "clonedivers_em_layout.h"
 
 #define DMS_EXPECTED_BUILD    "25480438"
 #define INV_GLOBAL            0x3326738u
@@ -267,8 +268,10 @@ static uint32_t ResolveEntityFromNetId(uintptr_t game, uint32_t net_id)
     }
     uintptr_t em = 0;
     uint32_t slot = 0, ent = 0;
-    if (game != 0 && Ptr(game + ENTITIES_GLOBAL, &em) && MapGet(em + EM_NETWORK_MAP, net_id, &slot)) {
-        if (g_hf->read(em + EM_NETWORK_ENTITIES + (uintptr_t)slot * 24u, &ent, 4) == 0 &&
+    if (game != 0 && g_hf != NULL && Ptr(game + ENTITIES_GLOBAL, &em) && MapGet(em + EM_NETWORK_MAP, net_id, &slot)) {
+        CdEmLayout layout = cd_em_resolve_hf(game, g_hf->read);
+        uintptr_t rec = (slot < layout.capacity) ? cd_em_record_at(em, layout.records_offset, slot) : 0u;
+        if (rec != 0u && g_hf->read(rec + 8u, &ent, 4) == 0 &&
             ent != 0u && ent != 0xFFFFFFFFu) {
             return ent;
         }
@@ -772,11 +775,16 @@ static uint64_t SpawnReqDetour(uint64_t a, uint64_t b, uint64_t c, uint64_t d, u
 
 static int UnitOfEntity(uintptr_t game, uint32_t entity, uint64_t* resource, uint32_t* unit)
 {
-    uintptr_t em = 0;
+    uintptr_t em = 0, rec = 0;
     uint32_t index = 0;
     uint8_t d[24];
-    if (!entity || !Ptr(game + ENTITIES_GLOBAL, &em) || !MapGet(em + EM_ENTITY_MAP, entity, &index) ||
-        index >= 0x100000u || g_hf->read(em + EM_DESCRIPTORS + (uintptr_t)index * 24u, d, sizeof(d)) != 0) {
+    if (!entity || !g_hf || !Ptr(game + ENTITIES_GLOBAL, &em) || !MapGet(em + EM_ENTITY_MAP, entity, &index)) {
+        return 0;
+    }
+    CdEmLayout layout = cd_em_resolve_hf(game, g_hf->read);
+    if (index >= layout.capacity) return 0;
+    rec = cd_em_record_at(em, layout.records_offset, index);
+    if (!rec || g_hf->read(rec, d, sizeof(d)) != 0) {
         return 0;
     }
     uint32_t named = 0;
@@ -1419,7 +1427,7 @@ static void GameLoaded(HfMod* mod, HfEvent event, void* user)
         hf->game_state(mod) == HF_STATE_MISSION) {
         ResetMissionState(1);
     }
-    hf->log(mod, "Dedicated Melee Slot 1.5.2-clonedivers.3 hooks ready");
+    hf->log(mod, "Dedicated Melee Slot 1.5.2-clonedivers.4 hooks ready");
 }
 
 HF_MOD_EXPORT int hellforge_mod_init(const HfApi* hf, HfMod* mod)
@@ -1456,7 +1464,7 @@ HF_MOD_EXPORT int hellforge_mod_init(const HfApi* hf, HfMod* mod)
     /* H3a: No InvThread! SyncLocalAvatarAndRespawn runs strictly on the game thread via Tick & OnPlayer. */
     g_keyThread = CreateThread(NULL, 0, KeyThread, NULL, 0, NULL);
 #endif
-    hf->log(mod, "Dedicated Melee Slot 1.5.2-clonedivers.3 loaded (weapon=%d, tick=%d)", ok, tick);
+    hf->log(mod, "Dedicated Melee Slot 1.5.2-clonedivers.4 loaded (weapon=%d, tick=%d)", ok, tick);
     return 0;
 }
 

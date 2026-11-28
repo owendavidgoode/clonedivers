@@ -7,12 +7,14 @@ $sdk=Join-Path $workspace 'app\sdk'
 $tools=Join-Path $workspace 'tools'
 $out=Join-Path $PSScriptRoot 'dist'
 New-Item -ItemType Directory -Force $stage,$sdk,$tools,$out | Out-Null
-$SdkSource = if (Test-Path -LiteralPath (Join-Path $PSScriptRoot 'sdk')) { Join-Path $PSScriptRoot 'sdk' } else { Join-Path (Split-Path (Split-Path $Cli -Parent) -Parent) 'sdk' }
+$cliSdk = Join-Path (Split-Path (Split-Path $Cli -Parent) -Parent) 'sdk'
+$SdkSource = if (Test-Path -LiteralPath (Join-Path $cliSdk 'hellforge_mod.h')) { $cliSdk } elseif (Test-Path -LiteralPath (Join-Path $PSScriptRoot 'sdk\hellforge_mod.h')) { Join-Path $PSScriptRoot 'sdk' } else { 'D:\ClaudeWork\hellforge-src\native\mod-sdk' }
 Copy-Item -Path (Join-Path $SdkSource '*.h') -Destination $sdk -Force
 $compiler=Join-Path $tools 'zig'
 if(!(Test-Path -LiteralPath $compiler)){New-Item -ItemType Junction -Path $compiler -Target $Zig | Out-Null}
 if(@((Get-Item -LiteralPath $compiler).Target)[0] -ne $Zig){throw 'Compiler junction differs'}
 Copy-Item -LiteralPath (Join-Path $PSScriptRoot 'src'),(Join-Path $PSScriptRoot 'tests') -Destination $stage -Recurse -Force
+Copy-Item -LiteralPath (Join-Path $PSScriptRoot '..\shared\clonedivers_em_layout.h') -Destination (Join-Path $stage 'src\clonedivers_em_layout.h') -Force
 Copy-Item -LiteralPath (Join-Path $PSScriptRoot 'hellforge-mod.json'),(Join-Path $PSScriptRoot 'README.md') -Destination $stage -Force
 Copy-Item -LiteralPath (Join-Path $PSScriptRoot 'PROTOCOL.md'),(Join-Path $PSScriptRoot 'FAULT-PROTOCOL.md') -Destination $stage -Force
 Copy-Item -LiteralPath (Join-Path $PSScriptRoot 'SAMPLER-PROTOCOL.md') -Destination $stage -Force
@@ -33,7 +35,7 @@ try {
   $sources+=Join-Path $PSScriptRoot 'src\leaf_plan.c'
   if($fixture -eq 'leaf_test'){$sources+=Join-Path $PSScriptRoot 'src\envelope.c'}
   $binary=Join-Path $PSScriptRoot ('build\'+$fixture+'.exe')
-  & "$Zig\zig.exe" cc -std=c11 -DGW_TEST_FATAL_CAS_PAUSE -target x86_64-windows-gnu -O2 -ffp-contract=off -fno-fast-math -Wall -Werror -Wno-unused-parameter -Wno-unused-function -I $sdk @sources -o $binary
+  & "$Zig\zig.exe" cc -std=c11 -DGW_TEST_FATAL_CAS_PAUSE -target x86_64-windows-gnu -O2 -ffp-contract=off -fno-fast-math -Wall -Werror -Wno-unused-parameter -Wno-unused-function -I $sdk -I (Join-Path $PSScriptRoot '..\shared') @sources -o $binary
   if($LASTEXITCODE -ne 0){throw "Fixture compile failed: $fixture"}
   if($fixture -eq 'leaf_test') {
    & $binary $RetainedRun | Set-Content -LiteralPath (Join-Path $PSScriptRoot 'build\leaf-test.log')
@@ -53,7 +55,7 @@ try {
  }
  & $Cli package-mod --mod $stage --out $out | Set-Content -LiteralPath (Join-Path $PSScriptRoot 'build\package.log')
  if($LASTEXITCODE -ne 0){throw 'Package failed'}
- $zipPath=Join-Path $out 'lego-compact-leaf-writer-0.2.3.zip'
+ $zipPath=Join-Path $out 'lego-compact-leaf-writer-0.2.4.zip'
  $zipItem=Get-Item -LiteralPath $zipPath
  $zipSha=(Get-FileHash -LiteralPath $zipPath -Algorithm SHA256).Hash.ToLowerInvariant()
  $folderHash=($(& $Cli mod-hash --mod $stage) | ConvertFrom-Json).hash

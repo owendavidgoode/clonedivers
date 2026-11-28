@@ -25,9 +25,9 @@ internal static class LinuxForgeBootstrap
         var missing = MissingTools();
         if (process.ExitCode != 0 || missing.Length != 0) throw new IOException(InstallToolsFailureMessage(missing));
     }
-    internal static PackFile Installer => new() { Name = "HellForge-Linux-Installer-0.4.0.tar.gz",
-        Url = "https://github.com/SkyeShade/HellForge/releases/download/v0.4.0-beta/HellForge-Linux-Installer.tar.gz",
-        Size = 439876336, Sha256 = "62e599c39cf9f102c4efecfc73311e8bf02dc74d1d559cfe6506ed023ac5b5d5" };
+    internal static PackFile Installer => new() { Name = "HellForge-Linux-Installer-0.5.0.tar.gz",
+        Url = "https://github.com/SkyeShade/HellForge/releases/download/v0.5.0-beta/HellForge-Linux-Installer.tar.gz",
+        Size = 451363890, Sha256 = "2688d0382086839f540046cce68c1d16dd44ccf5b476f4b5d3ee80de7cf06532" };
     internal static string? Detect(string? preferred = null, string? home = null)
     {
         if (preferred != null && File.Exists(Path.Combine(preferred, "hellforge-install.json"))) return preferred;
@@ -96,22 +96,34 @@ internal static class LinuxForgeBootstrap
             richProgress?.Report(new("Installing Linux prerequisites", "Waiting for desktop package approval…", IsIndeterminate: true, CanCancel: false));
             await InstallToolsAsync(ct);
         }
-        var cache = Path.Combine(PlatformPaths.ConfigDirectory, "installers", "forge-0.4.0"); HellForgeGameplayCatalog.RejectLinks(cache); Directory.CreateDirectory(cache);
+        var cache = Path.Combine(PlatformPaths.ConfigDirectory, "installers", "forge-0.5.0"); HellForgeGameplayCatalog.RejectLinks(cache); Directory.CreateDirectory(cache);
         using var lease = new FileStream(Path.Combine(cache, "setup.lock"), FileMode.OpenOrCreate, FileAccess.ReadWrite, FileShare.None);
         SweepStaging(cache);
         var archive = Path.Combine(cache, Installer.Name);
-        progress?.Report("Downloading and verifying official native Forge 0.4.0 setup…");
+        progress?.Report("Downloading and verifying official native Forge 0.5.0 setup…");
         var speed = new SpeedTracker();
-        richProgress?.Report(new("Downloading HellForge 0.4.0", "Official Linux installer (440 MB)", 0, 0, 0, Installer.Size, CanCancel: true));
+        richProgress?.Report(new("Downloading HellForge 0.5.0", "Official Linux installer (431 MB)", 0, 0, 0, Installer.Size, CanCancel: true));
         await Pack.DownloadAsync(Installer, archive, new SyncProgress<(long Done, long Total)>(p =>
         {
             var (rate, eta) = speed.Update(p.Done, p.Total);
-            richProgress?.Report(new("Downloading HellForge 0.4.0", "Official Linux installer", 0, 0, p.Done, p.Total, rate, eta, CanCancel: true));
+            richProgress?.Report(new("Downloading HellForge 0.5.0", "Official Linux installer", 0, 0, p.Done, p.Total, rate, eta, CanCancel: true));
         }), ct);
         if (Game.IsRunning()) throw new InvalidOperationException("HD2 started during download. Close it; the verified installer is saved.");
         richProgress?.Report(new("Verifying HellForge installer", "Checking SHA-256 signature…", IsIndeterminate: true, CanCancel: false));
         using var pinned = File.Open(archive, FileMode.Open, FileAccess.Read, FileShare.Read);
         if (pinned.Length != Installer.Size || await HellForgePack.HashAsync(archive, ct) != Installer.Sha256) throw new InvalidDataException("Native installer verification failed.");
+        byte[]? existingModListBytes = null;
+        if (existing != null)
+        {
+            var existingModListPath = Path.Combine(existing, "mods", "hellforge-mods.json");
+            try
+            {
+                HellForgeGameplayCatalog.RejectLinks(existingModListPath);
+                if (File.Exists(existingModListPath) && new FileInfo(existingModListPath).Length <= 4 * 1024 * 1024)
+                    existingModListBytes = await File.ReadAllBytesAsync(existingModListPath, ct);
+            }
+            catch (Exception e) when (e is IOException or UnauthorizedAccessException or InvalidDataException) { }
+        }
         var staging = Path.Combine(cache, "unpacked-" + Guid.NewGuid().ToString("N"));
         Process? process = null;
         try
@@ -134,7 +146,35 @@ internal static class LinuxForgeBootstrap
         }
         var root = Detect(existing);
         if (root == null) throw new IOException("Setup did not leave a discoverable installation. Use Locate to select the folder containing hellforge-install.json.");
+        try { HellForgeRelease.SyncShippedBundledMods(root); }
+        catch (Exception e) when (e is IOException or UnauthorizedAccessException or InvalidDataException) { }
+        if (existing != null && existingModListBytes != null && string.Equals(Path.GetFullPath(root), Path.GetFullPath(existing), StringComparison.Ordinal))
+            TryRestoreModListAfter05Upgrade(root, existingModListBytes);
         return root;
+    }
+
+    internal static void TryRestoreModListAfter05Upgrade(string root, byte[] savedModListBytes)
+    {
+        try
+        {
+            var appBuild = Path.Combine(root, "app", "app-build.json");
+            HellForgeGameplayCatalog.RejectLinks(appBuild);
+            if (!File.Exists(appBuild)) return;
+            using var buildDoc = System.Text.Json.JsonDocument.Parse(File.ReadAllText(appBuild));
+            if (!HellForgeRelease.Supports(buildDoc.RootElement.GetProperty("version").GetString())) return;
+            HellForgeRelease.SyncShippedBundledMods(root);
+            var modListPath = Path.Combine(root, "mods", "hellforge-mods.json");
+            var temp = modListPath + ".linux-upgrade.tmp";
+            HellForgeGameplayCatalog.RejectLinks(modListPath);
+            HellForgeGameplayCatalog.RejectLinks(temp);
+            var text = System.Text.Encoding.UTF8.GetString(savedModListBytes).TrimStart('\uFEFF');
+            if (System.Text.Json.Nodes.JsonNode.Parse(text) is not System.Text.Json.Nodes.JsonObject savedObj) return;
+            savedObj["importDone"] = true;
+            Directory.CreateDirectory(Path.GetDirectoryName(modListPath)!);
+            File.WriteAllBytes(temp, System.Text.Json.JsonSerializer.SerializeToUtf8Bytes(savedObj, HellForgePack.Json));
+            File.Move(temp, modListPath, overwrite: true);
+        }
+        catch (Exception e) when (e is IOException or UnauthorizedAccessException or InvalidDataException or System.Text.Json.JsonException or KeyNotFoundException) { }
     }
     internal static string PrefixFor(string root)
     {

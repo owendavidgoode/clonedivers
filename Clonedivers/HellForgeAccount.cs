@@ -16,6 +16,50 @@ public sealed class HellForgeAccount
     public const string Profile = "default";
     internal const string ReceiptName = "clonedivers-account-import.json";
     internal const string PendingName = "clonedivers-account-import.pending.json";
+
+    public static bool IsSupportedAccountTemplate(string? template) => template is "starter" or "live-like";
+    public static bool TemplateEarnsWarbonds(string? template) =>
+        template == null || !(template.Contains("unlock-all", StringComparison.Ordinal) || template == "live-like");
+
+    public static bool CanPlayWithoutSync(string? root)
+    {
+        if (string.IsNullOrWhiteSpace(root)) return false;
+        try
+        {
+            var normalized = Path.TrimEndingDirectorySeparator(Path.GetFullPath(root));
+            var app = Path.Combine(normalized, "app");
+            return File.Exists(Path.Combine(app, "catalogue-default", "progression-data.json")) ||
+                   File.Exists(Path.Combine(app, "catalogue-pinned.json"));
+        }
+        catch (Exception e) when (e is IOException or UnauthorizedAccessException or ArgumentException or NotSupportedException)
+        {
+            return false;
+        }
+    }
+
+    public static string ReadProfileTemplateFromDir(string profileDir)
+    {
+        try
+        {
+            var launcherPath = FileSafety.Child(profileDir, "launcher.json");
+            if (!File.Exists(launcherPath) || new FileInfo(launcherPath).Length > 64 * 1024) return "starter";
+            using var doc = JsonDocument.Parse(File.ReadAllText(launcherPath));
+            if (doc.RootElement.ValueKind == JsonValueKind.Object &&
+                doc.RootElement.TryGetProperty("template", out var prop) &&
+                prop.ValueKind == JsonValueKind.String &&
+                prop.GetString() is { } t && IsSupportedAccountTemplate(t))
+                return t;
+        }
+        catch (Exception e) when (e is IOException or UnauthorizedAccessException or JsonException or InvalidDataException) { }
+        return "starter";
+    }
+
+    public string ReadProfileTemplate() => ReadProfileTemplateFromDir(profile);
+    public bool HasPendingJournal()
+    {
+        try { return File.Exists(Checked(profile, PendingName, 64 * 1024)); }
+        catch (Exception e) when (e is IOException or UnauthorizedAccessException or InvalidDataException) { return true; }
+    }
     sealed record Receipt(
         [property: JsonPropertyName("policy")] string Policy,
         [property: JsonPropertyName("capture")] string Capture,
@@ -207,7 +251,8 @@ public sealed class HellForgeAccount
         var key = CaptureKey();
         if (key == null) return null;
         // Verifies the seal against this PC and the currently signed-in Steam account. No local entitlement inference.
-        using var preview = JsonDocument.Parse(await backend(["profile", "import-preview", profile, "starter"], ct));
+        var template = ReadProfileTemplate();
+        using var preview = JsonDocument.Parse(await backend(["profile", "import-preview", profile, template], ct));
         if (!preview.RootElement.TryGetProperty("categories", out var categories) || categories.ValueKind != JsonValueKind.Object ||
             !categories.TryGetProperty("level", out var level) || !level.TryGetProperty("vanilla", out var experience) ||
             experience.ValueKind != JsonValueKind.String || experience.GetString() is null or "not captured")
@@ -416,7 +461,8 @@ public sealed class HellForgeAccount
             File.Move(temporary, settings, true);
             ct.ThrowIfCancellationRequested();
             if (CaptureKey() != key) throw new InvalidDataException("The capture changed before import. Retry after sync finishes.");
-            await backend(["profile", "import", profile, "starter"], ct);
+            var template = ReadProfileTemplate();
+            await backend(["profile", "import", profile, template], ct);
             backendSucceeded = true;
             WriteJson(PendingName, pending with { Phase = "committed" });
             if (CaptureKey() != key) throw new InvalidDataException("The account capture changed during import. Review it before applying again.");

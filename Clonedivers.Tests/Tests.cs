@@ -95,6 +95,13 @@ static class TestProgram
         {
             Console.WriteLine(HellForgeSetup.InstallAsync(setupTarget, null, CancellationToken.None, setupCache).GetAwaiter().GetResult()); return 0;
         }
+        if (args is ["--forge-upgrade-rehearsal", var rehRoot, var rehCache])
+        {
+            Game.IsRunningCheck = () => false;
+            ForgeSetupTests.RehearseRealUpgradeAsync(rehRoot, rehCache, Check).GetAwaiter().GetResult();
+            Console.WriteLine(failures == 0 ? "ALL REAL UPGRADE REHEARSAL CHECKS PASSED" : $"{failures} REHEARSAL CHECK(S) FAILED");
+            return failures == 0 ? 0 : 1;
+        }
         if (args.Contains("--forge-setup-preview"))
         {
             var ui = new Thread(() => {
@@ -149,6 +156,8 @@ static class TestProgram
             return 0;
         }
         Game.IsRunningCheck = () => false;   // the engine refuses to move files while helldivers2.exe runs; tests must not depend on the host PC
+        HellForgeWarbonds.AnyProcessNamed = _ => false;
+        HellForgeClient.DefaultCliQuiescentOverride = () => { };
         var root = Path.Combine(Path.GetTempPath(), "clonedivers-test-" + Guid.NewGuid().ToString("N"));
         Directory.CreateDirectory(root);
         try

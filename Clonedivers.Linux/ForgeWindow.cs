@@ -374,7 +374,7 @@ internal sealed class ForgeWindow : Window
         var version = !updateDeferred ? launcherUpdate?.Available?.Version : null;
         if (preview && previewState is "update-available" or "update-failed") version = "1.0.0";
         var viewState = player?.State;
-        if (preview && previewState is "sync" or "recovery") viewState = new(new("/home/player/forge/pfx/drive_c/HellForge", "0.4.0-beta", "25480438", true, true, false, true, true, null, null,
+        if (preview && previewState is "sync" or "recovery") viewState = new(new("/home/player/forge/pfx/drive_c/HellForge", "0.5.0-beta", "25480438", true, true, false, true, true, null, null,
             RecoveryProblem: previewState == "recovery" ? "Gameplay installation interrupted" : null), false, "", new(false, false, ""), null);
         var view = ForgePresentation.Resolve(viewState, connected: preview ? previewState != "setup" : player != null,
             disconnected: lost, active: active, ownsSession: preview ? active : player?.OwnsSession == true,

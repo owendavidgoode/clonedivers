@@ -51,6 +51,8 @@ internal sealed class LinuxForgePreferences
     public bool HostFasterCorpseCleanup { get; set; } = true;
     public string HostTheaterPreset { get; set; } = "clone-wars";
     public int HostTheaterDefaultVersion { get; set; } = 3;
+    public bool PlayWithoutAccountSync { get; set; }
+    public string? GalacticWar { get; set; }
     public string? PlayerLabel { get; set; }
     internal static string PathName => Path.Combine(PlatformPaths.ConfigDirectory, "forge.json");
 
@@ -94,6 +96,7 @@ internal sealed class LinuxForgePreferences
         if (string.IsNullOrWhiteSpace(PendingStepDownReason)) PendingStepDownReason = null;
         if (string.IsNullOrWhiteSpace(PlayerLabel)) PlayerLabel = null;
         else PlayerLabel = PlayerLabel.Trim();
+        if (string.IsNullOrWhiteSpace(GalacticWar)) GalacticWar = null;
 
         if (Format != 1 || Mode is not ("regular" or "clonedivers" or "empire") ||
             Texture is not ("full" or "lighter" or "reduced1024" or "reduced512" or "potato256") ||
@@ -105,6 +108,7 @@ internal sealed class LinuxForgePreferences
             !HostMutatorConfig.IsValidChaosIntensity(HostChaosIntensity) ||
             !HostMutatorConfig.IsValidHeavySeaf(HostHeavySeaf) ||
             !HostMutatorConfig.IsValidTheaterPreset(HostTheaterPreset) ||
+            (GalacticWar != null && GalacticWar is not ("hellforge" or "open" or "live" or "custom" or "frozen")) ||
             (PlayerLabel != null && PlayerLabel.Length > 40))
             throw new InvalidDataException("Unsupported Forge preferences; restore forge.json from backup.");
     }
@@ -212,7 +216,8 @@ internal sealed class LinuxForgePreferences
         ["select-mode", "--mode", Mode, "--delta", DeltaSquad ? "yes" : "no", "--texture", Texture,
             "--droids", Droids ? "yes" : "no", "--covenant", Covenant ? "yes" : "no", "--enemy-skin", EnemySkin,
             "--squid-skin", SquidSkin, "--deathtrooper", DeathTrooperVoice ? "yes" : "no",
-            "--theater", HostMutatorConfig.IsUltrakillTheater(HostTheaterPreset, HostChaosIntensity) ? "clone-wars" : "standard"];
+            "--theater", HostMutatorConfig.IsUltrakillTheater(HostTheaterPreset, HostChaosIntensity) ? "clone-wars" : "standard",
+            "--play-without-sync", PlayWithoutAccountSync ? "yes" : "no"];
     internal HellForgePack.Selection PackSelection()
     {
         var options = new Dictionary<string, bool>
@@ -323,6 +328,12 @@ internal sealed class LinuxForgePlayer(IForgeConnection connection, LinuxForgePr
     }
     // The bridge keeps its own selection; re-send ours so an earlier refused select-mode can never play or apply a stale mode.
     Task SelectAsync(CancellationToken ct) { Preferences.Validate(); return connection.RunAsync(Preferences.SelectionCommand(), ct); }
+    internal async Task SetGalacticWarAsync(string warMode, CancellationToken ct = default)
+    {
+        if (SessionActive) throw new InvalidOperationException("End the current session before changing Galactic War mode.");
+        await connection.RunAsync(["settings", "--war", warMode], ct);
+        await RefreshAsync(ct);
+    }
     internal async Task LaunchAsync(CancellationToken ct = default)
     {
         try

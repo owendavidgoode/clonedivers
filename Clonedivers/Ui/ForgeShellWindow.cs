@@ -217,6 +217,7 @@ public sealed class ForgeShellWindow : Window
     readonly TextBlock theaterDescLabel = ForgeTheme.Label("Difficulty 12 ('LEVEL 12: CLONE WARS') unlocks a 2.79 km² map, 2–3k hybrid Clone Wars battalions, and 0.0s turbo corpse cleanup.", 10.5, ForgeTheme.TextSecondary);
     readonly Dictionary<string, ToggleButton> chaosPills = new();
     readonly Dictionary<string, ToggleButton> seafPills = new();
+    readonly Dictionary<string, ToggleButton> warPills = new();
     readonly ToggleSwitch corpseCleanupToggle = new() { OnContent = "On", OffContent = "Off" };
 
     readonly Border drawerPreviewBox = new()
@@ -304,6 +305,7 @@ public sealed class ForgeShellWindow : Window
         Foreground = ForgeTheme.ClonesAccent
     };
     readonly Button setupPrimaryButton = ForgeTheme.PrimaryButton("CONTINUE", 48, 15);
+    readonly Button setupSkipSyncButton = ForgeTheme.GhostButton("Play Now, Sync Later", 12.5, new Thickness(16, 12));
     readonly Button setupCancelWorkButton = ForgeTheme.GhostButton("Pause Download", 12.5, new Thickness(16, 12));
 
     // Settings & Diagnostics Modal (#3 Disk Usage, #13 Verify & Repair, #12 Discord Copy Report, #6/#7/#15 toggles)
@@ -339,7 +341,7 @@ public sealed class ForgeShellWindow : Window
     readonly Button settingsGuidedSetupButton = ForgeTheme.GhostButton("Guided Setup…", 11.5, new Thickness(9, 5));
     readonly Button settingsCleanCacheButton = ForgeTheme.GhostButton("Clean Cache", 11.5, new Thickness(9, 5));
     readonly Button settingsVerifyRepairButton = ForgeTheme.GhostButton("Verify & Repair", 11.5, new Thickness(10, 5));
-    readonly Button settingsSyncAccountButton = ForgeTheme.GhostButton("Sync Account", 11.5, new Thickness(11, 5));
+    readonly Button settingsSyncAccountButton = ForgeTheme.GhostButton("Sync HD2 Warbonds", 11.5, new Thickness(11, 5));
     readonly Button settingsCheckUpdatesButton = ForgeTheme.GhostButton("Check Updates", 11.5, new Thickness(11, 5));
 
     // What's New Dark Overlay (#5)
@@ -1432,6 +1434,31 @@ public sealed class ForgeShellWindow : Window
             await host.UpdateHostMutatorsAsync(s.HostChaosIntensity, s.HostHeavySeaf, corpseCleanupToggle.IsChecked == true, s.HostTheaterPreset);
         };
 
+        var warWrap = new UniformGrid { Columns = 2, Rows = 2 };
+        var warSpecs = new[]
+        {
+            ("hellforge", "HellForge War"),
+            ("open", "All Planets Open"),
+            ("live", "Live Mirror"),
+            ("custom", "Custom")
+        };
+        for (int i = 0; i < warSpecs.Length; i++)
+        {
+            var (id, label) = warSpecs[i];
+            var pill = BuildSegmentedPill(label, (i % 2) == 0);
+            pill.FontSize = 11;
+            if (i < 2) pill.Margin = new Thickness(0, 0, (i % 2) == 0 ? 5 : 0, 5);
+            AutomationProperties.SetAutomationId(pill, $"WarPill-{id}");
+            pill.Click += async (_, _) =>
+            {
+                if (updatingControls) return;
+                UiSoundEffects.PlayButtonBlip();
+                await host.SetGalacticWarAsync(id);
+            };
+            warPills[id] = pill;
+            warWrap.Children.Add(pill);
+        }
+
         var hostCard = new Border
         {
             Background = ForgeTheme.BgElevated,
@@ -1445,6 +1472,8 @@ public sealed class ForgeShellWindow : Window
                 Children =
                 {
                     ForgeTheme.Label("Applies when you host missions · Squad match code stays identical.", 11, ForgeTheme.TextSecondary),
+                    ForgeTheme.Label("Galactic War Campaign", 11.5, ForgeTheme.TextPrimary, FontWeight.SemiBold),
+                    warWrap,
                     ForgeTheme.Label("Theater Scale (Experimental)", 11.5, ForgeTheme.ClonesAccent, FontWeight.SemiBold),
                     theaterWrap,
                     theaterDescLabel,
@@ -1653,7 +1682,7 @@ public sealed class ForgeShellWindow : Window
             Padding = new Thickness(14, 10)
         };
         var substepStack = new StackPanel { Spacing = 5 };
-        string[] substepNames = ["Download & install HellForge 0.4.0 (502 MB)", "Copy or download Helldivers 2 build 25480438", "Enable isolated sandbox & verify runner"];
+        string[] substepNames = ["Download & install HellForge 0.5.0 (518 MB)", "Copy or download Helldivers 2 build 25480438", "Enable isolated sandbox & verify runner"];
         for (int i = 0; i < 3; i++)
         {
             var dot = new Border { Width = 9, Height = 9, CornerRadius = new CornerRadius(5), Background = ForgeTheme.BorderStrong, VerticalAlignment = VerticalAlignment.Center };
@@ -1807,6 +1836,15 @@ public sealed class ForgeShellWindow : Window
             UiSoundEffects.PlayButtonBlip();
             await host.TriggerSetupPrimaryActionAsync();
         };
+        AutomationProperties.SetAutomationId(setupSkipSyncButton, "SetupPlayNowSyncLaterButton");
+        setupSkipSyncButton.Click += async (_, _) =>
+        {
+            UiSoundEffects.PlayButtonBlip();
+            await host.SkipSetupAccountSyncAsync();
+        };
+        setupSkipSyncButton.IsVisible = false;
+        setupSkipSyncButton.Margin = new Thickness(10, 0, 0, 0);
+
         setupCancelWorkButton.Click += (_, _) =>
         {
             UiSoundEffects.PlayButtonBlip();
@@ -1815,9 +1853,11 @@ public sealed class ForgeShellWindow : Window
         setupCancelWorkButton.IsVisible = false;
         setupCancelWorkButton.Margin = new Thickness(10, 0, 0, 0);
 
-        var ctaGrid = new Grid { ColumnDefinitions = new ColumnDefinitions("*,Auto") };
+        var ctaGrid = new Grid { ColumnDefinitions = new ColumnDefinitions("*,Auto,Auto") };
         ctaGrid.Children.Add(setupPrimaryButton);
-        Grid.SetColumn(setupCancelWorkButton, 1);
+        Grid.SetColumn(setupSkipSyncButton, 1);
+        ctaGrid.Children.Add(setupSkipSyncButton);
+        Grid.SetColumn(setupCancelWorkButton, 2);
         ctaGrid.Children.Add(setupCancelWorkButton);
 
         var topRow = new Grid { ColumnDefinitions = new ColumnDefinitions("Auto,*"), ColumnSpacing = 12, Margin = new Thickness(28, 2, 28, 10) };
@@ -2652,6 +2692,15 @@ public sealed class ForgeShellWindow : Window
                 pill.IsEnabled = !s.ControlsLocked;
             }
 
+            foreach (var (id, pill) in warPills)
+            {
+                bool on = string.Equals(s.GalacticWar, id, StringComparison.OrdinalIgnoreCase);
+                pill.IsChecked = on;
+                pill.Background = on ? ForgeTheme.BgSelected : ForgeTheme.BgCanvas;
+                pill.BorderBrush = on ? ForgeTheme.ClonesAccent : ForgeTheme.BorderSubtle;
+                pill.IsEnabled = !s.ControlsLocked;
+            }
+
             corpseCleanupToggle.IsChecked = s.HostFasterCorpseCleanup;
             corpseCleanupToggle.IsEnabled = !s.ControlsLocked;
 
@@ -2847,6 +2896,9 @@ public sealed class ForgeShellWindow : Window
         AutomationProperties.SetName(setupPrimaryButton, st.PrimaryActionLabel);
         setupPrimaryButton.IsEnabled = st.PrimaryActionEnabled;
         ApplyCtaTone(setupPrimaryButton, st.PackReady ? ForgeHeroTone.Ready : ForgeHeroTone.Action, "clonedivers", st.PrimaryActionEnabled);
+
+        setupSkipSyncButton.IsVisible = st.Step == 3 && st.CanSkipAccountSync;
+        setupSkipSyncButton.IsEnabled = !st.IsBusy && st.CanSkipAccountSync;
 
         setupCancelWorkButton.IsVisible = st.IsBusy && st.CanCancel;
         setupCancelWorkButton.IsEnabled = st.IsBusy && st.CanCancel;

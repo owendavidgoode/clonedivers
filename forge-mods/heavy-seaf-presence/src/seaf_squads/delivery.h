@@ -66,7 +66,7 @@ struct Delivery {
 inline std::vector<std::unique_ptr<Delivery>> deliveries;
 inline uint32_t deliver(const float* position,const Loadout* roster,uint64_t shuttle){
  require(api->game_state(mod)==HF_STATE_MISSION,"delivery outside mission");require(deliveries.size()<128,"delivery session capacity exhausted");
- auto root=ptr(game+0x346BF98);require(read<uint16_t>(root+0xF3F828)==1,"constructor busy");auto free=read<unsigned>(root+0xF32F14);require(free<2048&&read<unsigned>(root+0xF32F18+free*24+8)==read<unsigned>(game+0x348456C),"no free shuttle slot");
+ auto root=ptr(game+0x346BF98);require(read<uint16_t>(root+0xF3F828)==1,"constructor busy");require(has_free_entity_slot(root,em_layout()),"no free shuttle slot");
  auto defaults=bytes(root+15986472,0x8A0);require(std::all_of(defaults.begin(),defaults.end(),[](unsigned char b){return b==0;}),"default spawn context changed");
  auto d=std::make_unique<Delivery>(position,roster);auto p=d.get();deliveries.push_back(std::move(d));
  native<uint32_t*(*)(uint32_t*,uint64_t,void*)>(0xFD9710)(&p->out,shuttle,p->creation);auto desc=network_descriptor(p->out);

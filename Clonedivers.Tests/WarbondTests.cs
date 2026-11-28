@@ -91,6 +91,21 @@ static class WarbondTests
         var saved = File.ReadAllBytes(fixture.ProfilePath);
         check(await fixture.Open() == 0 && File.ReadAllBytes(fixture.ProfilePath).SequenceEqual(saved) && Directory.GetFiles(fixture.Backups, "*-warbonds.json").Length == 1, "repeated opening is byte-identical and creates no extra backup");
 
+        // HellForge 0.5 live-like profile skips Warbond token writes natively via OwnershipFilter (zero backend calls, zero writes)
+        var liveLike = new Fixture(Path.Combine(area, "live-like-skip"));
+        File.WriteAllText(Path.Combine(Path.GetDirectoryName(liveLike.ProfilePath)!, "launcher.json"), """{"template":"live-like"}""");
+        var liveLikeBefore = File.ReadAllBytes(liveLike.ProfilePath);
+        check(await liveLike.Open() == 0 && liveLike.Verifications == 0 &&
+              File.ReadAllBytes(liveLike.ProfilePath).SequenceEqual(liveLikeBefore) && !Directory.Exists(liveLike.Backups),
+            "live-like profile template skips OpenAsync with zero backend calls and zero profile writes");
+
+        // HellForge 0.5 app/catalogue-default/progression-data.json layout (without legacy app/progression-data.json) opens owned Warbonds
+        var cat05 = new Fixture(Path.Combine(area, "catalogue-default-05"));
+        File.Delete(Path.Combine(cat05.Root, "app", "progression-data.json"));
+        Directory.CreateDirectory(Path.Combine(cat05.Root, "app", "catalogue-default"));
+        File.WriteAllText(Path.Combine(cat05.Root, "app", "catalogue-default", "progression-data.json"), Data);
+        check(await cat05.Open() == 3, "HellForge 0.5 app/catalogue-default/progression-data.json layout opens owned Warbonds on starter profiles");
+
         async Task Refuses(string name, Action<Fixture> prepare, bool verified = false)
         {
             var blocked = new Fixture(Path.Combine(area, name)); prepare(blocked);

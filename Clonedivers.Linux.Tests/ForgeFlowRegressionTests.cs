@@ -66,7 +66,7 @@ internal static class ForgeFlowRegressionTests
             switch (args[0])
             {
                 case "player-status":
-                    result = new ForgePlayerState(new("/fixture", "0.4.0-beta", "25480438", true, true, Running, true, true, "observed", LastFailure, LastNotice),
+                    result = new ForgePlayerState(new("/fixture", "0.5.0-beta", "25480438", true, true, Running, true, true, "observed", LastFailure, LastNotice),
                         Account.Imported && !Running, "Fixture ready", Account, null); break;
                 case "select-account": Selections++; break;
                 case "open-manager": Managers++; break;

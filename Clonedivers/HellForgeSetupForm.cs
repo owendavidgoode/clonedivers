@@ -107,7 +107,7 @@ internal sealed class HellForgeSetupForm : Form
         folder.BackColor = Disabled; folder.ForeColor = TextMain; change.Margin = new Padding(8, 0, 0, 0);
         layout.Controls.Add(pathRow);
 
-        storage.Text = "New installs save the 502 MB installer beside Forge. Choose a folder outside Steam and OneDrive.";
+        storage.Text = "New installs save the 518 MB installer beside Forge. Choose a folder outside Steam and OneDrive.";
         storage.ForeColor = TextMute;
         storage.Margin = new Padding(0, 0, 0, 8);
         layout.Controls.Add(storage);
@@ -262,7 +262,7 @@ internal sealed class HellForgeSetupForm : Form
         var steamReady = preview || HellForgeForm.SteamReadyCheck();
         steam.Text = "Steam — " + (steamReady ? "signed in" : "open Steam and sign in");
         space.Text = DescribeSpace();
-        installed.Text = "Forge — " + (status != null && HellForgeSetup.IsPrevious(status.Version) ? "update available (0.3 -> 0.4)" : InstallationRoot != null ? "installed (0.4.0-beta)" : "ready to install");
+        installed.Text = "Forge — " + (status != null && HellForgeSetup.IsPrevious(status.Version) ? $"update available ({HellForgeSetup.PreviousShortLabel(status.Version)} -> 0.5)" : InstallationRoot != null ? "installed (0.5.0-beta)" : "ready to install");
         game.Text = "Game copy — " + (gameReady ? "ready (build 25480438)" : managerOpened ? "finish in the Forge window" : "ready to copy or download");
 
         bool onStep1 = step == WizardStep.Preflight;

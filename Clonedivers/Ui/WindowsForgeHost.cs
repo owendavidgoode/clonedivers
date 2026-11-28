@@ -168,6 +168,13 @@ public sealed class WindowsForgeHost : IForgeUiHost
 
     bool IsPreWindowLaunching => lastStatus?.Running == true && !SyncGameProcessObserved();
 
+    bool CanPlayWithoutSync =>
+        preferences.PlayWithoutAccountSync &&
+        preferences.InstallRoot is { } r &&
+        !installationMissing &&
+        HellForgeAccount.CanPlayWithoutSync(r) &&
+        lastAccount is not { Captured: true, Imported: false };
+
     public bool CanClose(out string? reason)
     {
         if (working || setupBusy)
@@ -611,7 +618,9 @@ public sealed class WindowsForgeHost : IForgeUiHost
             MinimizeToTray: preferences.MinimizeToTray,
             SquidSkin: preferences.SquidSkin,
             DeathTrooperVoice: preferences.DeathTrooperVoice,
-            HostTheaterPreset: preferences.HostTheaterPreset);
+            HostTheaterPreset: preferences.HostTheaterPreset,
+            PlayWithoutAccountSync: CanPlayWithoutSync,
+            GalacticWar: lastStatus?.GalacticWar ?? preferences.GalacticWar ?? "hellforge");
     }
 
     (string Badge, ForgeHeroTone BadgeTone, string Headline, string Detail, string Cta, bool Enabled, ForgeHeroTone CtaTone, string? Secondary) ResolveHomePresentation()
@@ -650,8 +659,8 @@ public sealed class WindowsForgeHost : IForgeUiHost
                 "An earlier Forge upgrade was interrupted. Restore the previous app before continuing.",
                 "RECOVER FORGE UPGRADE", true, ForgeHeroTone.Action, null);
         if (lastStatus is { } old && HellForgeSetup.IsPrevious(old.Version))
-            return ("Forge 0.3 → 0.4", ForgeHeroTone.Warning, "Upgrade HellForge to 0.4.0",
-                "Upgrades Forge in place with automatic rollback backup. Your game copy & account stay intact.",
+            return ($"Forge {HellForgeSetup.PreviousShortLabel(old.Version)} → 0.5", ForgeHeroTone.Warning, "Upgrade HellForge to 0.5.0",
+                "Upgrades Forge in place with automatic rollback backup. Your game copy, mods & account stay intact.",
                 "UPGRADE HELLFORGE", true, ForgeHeroTone.Action, null);
         if (preferences.InstallRoot == null)
             return ("Setup Needed", ForgeHeroTone.Action, "Let's get you ready",
@@ -694,8 +703,9 @@ public sealed class WindowsForgeHost : IForgeUiHost
                 "HellForge flagged mod conflicts. Resolve them in HellForge's Mods page, then retry.",
                 "OPEN HELLFORGE MODS", true, ForgeHeroTone.Action, null);
 
-        // #32 True 1-Click UPDATE & LAUNCH when account is already imported!
-        if (lastAccount?.Imported == true && (NeedsGameplaySetup() || lastMods?.HostingProblem != null || NeedsModeSetup()))
+        // #32 True 1-Click UPDATE & LAUNCH when account is already imported (or Play Now, Sync Later is active)!
+        bool accountReady = lastAccount?.Imported == true || CanPlayWithoutSync;
+        if (accountReady && (NeedsGameplaySetup() || lastMods?.HostingProblem != null || NeedsModeSetup()))
         {
             var modeName = preferences.IsRegular ? "Regular" : preferences.Mode == "empire" ? "EmpireDivers" : "Clonedivers";
             var headline = NeedsGameplaySetup() || lastMods?.HostingProblem != null
@@ -721,7 +731,7 @@ public sealed class WindowsForgeHost : IForgeUiHost
                 dlHint,
                 $"SET UP {modeName.ToUpperInvariant()} MODE", true, ForgeHeroTone.Action, null);
         }
-        if (lastAccount?.Imported != true)
+        if (!accountReady)
             return ("Sync Account", ForgeHeroTone.Action,
                 lastAccount?.Captured == true ? "Apply verified HD2 import" : "Sync your HD2 account",
                 accountReviewFailed ? HellForgeForm.FailureSummary(lastAccount?.Message ?? "")
@@ -729,12 +739,13 @@ public sealed class WindowsForgeHost : IForgeUiHost
                 lastAccount?.Captured == true ? "FINISH ACCOUNT SYNC" : "SYNC HD2 ACCOUNT", true, ForgeHeroTone.Action, null);
 
         var playLabel = "LAUNCH " + (preferences.IsRegular ? "REGULAR HELLFORGE" : preferences.Mode == "empire" ? "EMPIREDIVERS" : "CLONEDIVERS");
+        var syncLaterSecondary = CanPlayWithoutSync && lastAccount?.Imported != true ? "Sync HD2 Warbonds" : null;
 
         // #11 Plain-English Crash Triage on Home
         if (lastTriage is { Kind: CrashKind.HarmlessQuit })
         {
-            return ("Forge 0.4.0 · Ready", ForgeHeroTone.Ready, "Ready to play",
-                CrashTriage.HarmlessQuitMessage, playLabel, true, ForgeHeroTone.Ready, null);
+            return ("Forge 0.5.0 · Ready", ForgeHeroTone.Ready, "Ready to play",
+                CrashTriage.HarmlessQuitMessage, playLabel, true, ForgeHeroTone.Ready, syncLaterSecondary);
         }
         if (lastTriage != null && lastTriage.Kind != CrashKind.Clean)
         {
@@ -742,16 +753,18 @@ public sealed class WindowsForgeHost : IForgeUiHost
                 ? lastTriage.Summary
                 : $"{lastTriage.Summary} {lastTriage.RecommendedAction}";
             return ("Last Run Notice", ForgeHeroTone.Warning, "Last session ended unexpectedly",
-                msg, playLabel, true, ForgeHeroTone.Ready, null);
+                msg, playLabel, true, ForgeHeroTone.Ready, syncLaterSecondary);
         }
         if (lastStatus.LastStatus is "failed" or "cleanup_failed" || lastStatus.LastFailure != null)
+        {
             return ("Last Run Warning", ForgeHeroTone.Warning, "Last session exited unexpectedly",
                 lastStatus.LastFailure != null ? HellForgeForm.FailureSummary(lastStatus.LastFailure) : "Review Settings → Diagnostics before launching again.",
-                playLabel, true, ForgeHeroTone.Ready, null);
+                playLabel, true, ForgeHeroTone.Ready, syncLaterSecondary);
+        }
 
         // #21 Crisp, understated faction-aware tactical ready line
         var readyDetail = lastStatus.LastNotice ?? ForgeTacticalCopy.ReadyDetail(preferences.Mode, firstLaunch: !lastStatus.HasRun, hostTheaterPreset: preferences.HostTheaterPreset);
-        return ("Forge 0.4.0 · Ready", ForgeHeroTone.Ready, "Ready to play", readyDetail, playLabel, true, ForgeHeroTone.Ready, null);
+        return ("Forge 0.5.0 · Ready", ForgeHeroTone.Ready, "Ready to play", readyDetail, playLabel, true, ForgeHeroTone.Ready, syncLaterSecondary);
     }
 
     public Task SelectModeAsync(string mode)
@@ -838,6 +851,27 @@ public sealed class WindowsForgeHost : IForgeUiHost
             }
         }
         catch (Exception e) { toastNotice = "Couldn't update host rules: " + e.Message; }
+        Notify();
+    }
+
+    public async Task SetGalacticWarAsync(string warMode)
+    {
+        if (working || lastStatus?.Running == true) return;
+        if (!HellForgeClient.IsValidWarMode(warMode)) return;
+        try
+        {
+            operationFailure = null;
+            preferences.GalacticWar = warMode;
+            SavePrefs();
+            if (preferences.InstallRoot is { } root && !installationMissing && !IsGameProcessRunning() &&
+                lastStatus is { CompatibilityProblem: null, Running: false })
+            {
+                var client = CreateClient(root);
+                await client.SetGalacticWarAsync(warMode, lifetime.Token);
+                lastStatus = lastStatus with { GalacticWar = warMode };
+            }
+        }
+        catch (Exception e) { toastNotice = "Couldn't update Galactic War mode: " + e.Message; }
         Notify();
     }
 
@@ -980,13 +1014,13 @@ public sealed class WindowsForgeHost : IForgeUiHost
         if (lastMods?.Problems.Length > 0) { await OpenManagerAsync(); return; }
         if (NeedsGameplaySetup() || lastMods?.HostingProblem != null || NeedsModeSetup())
         {
-            if (lastAccount?.Imported == true)
+            if (lastAccount?.Imported == true || CanPlayWithoutSync)
                 await PrepareAndLaunchAsync();
             else
                 await PrepareSelectedModeAsync();
             return;
         }
-        if (lastAccount?.Imported != true)
+        if (lastAccount?.Imported != true && !CanPlayWithoutSync)
         {
             await EnterSetupAsync(forceStep: 3);
             return;
@@ -1000,6 +1034,11 @@ public sealed class WindowsForgeHost : IForgeUiHost
         if (IsPreWindowLaunching)
         {
             await EndSessionAsync();
+            return;
+        }
+        if (!installationMissing && preferences.InstallRoot != null && CanPlayWithoutSync && lastAccount?.Imported != true)
+        {
+            await SyncAccountFromSettingsAsync();
             return;
         }
         await LocateInstallAsync();
@@ -1062,7 +1101,7 @@ public sealed class WindowsForgeHost : IForgeUiHost
         await InstallGameplayWithProgressAsync(client, p => SetProgress(p), ct);
         UiSoundEffects.PlayCompletion();
         requestAttention?.Invoke();
-        toastNotice = "HellForge upgraded to 0.4.0 and verified.";
+        toastNotice = "HellForge upgraded to 0.5.0 and verified.";
     });
 
     async Task InstallGameplayWithProgressAsync(HellForgeClient client, Action<OperationProgress> report, CancellationToken ct)
@@ -1196,7 +1235,14 @@ public sealed class WindowsForgeHost : IForgeUiHost
         }
 
         SetProgress(new("Verifying account & loadout", "Checking verified pack integrity…", IsIndeterminate: true, CanCancel: true));
-        var profile = await HellForgeForm.EnsureAccountAction(client, ct);
+        if (preferences.GalacticWar is { } war && HellForgeClient.IsValidWarMode(war) &&
+            !string.Equals(lastStatus?.GalacticWar, war, StringComparison.Ordinal))
+        {
+            await client.SetGalacticWarAsync(war, ct);
+        }
+        var profile = lastAccount?.Imported != true && CanPlayWithoutSync
+            ? await client.EnsureStarterOrImportedAccountAsync(ct)
+            : await HellForgeForm.EnsureAccountAction(client, ct);
         if (preferences.IsRegular)
         {
             SetProgress(new(ForgeTacticalCopy.LaunchingHeadline, ForgeTacticalCopy.LaunchingDetail, IsIndeterminate: true, CanCancel: false));
@@ -1414,7 +1460,9 @@ public sealed class WindowsForgeHost : IForgeUiHost
         setupDetail = null;
         setupPackReady = false;
         setupGameReady = lastStatus is { GameCopyReady: true, RunnerReady: true, CompatibilityProblem: null };
-        setupStep = forceStep ?? (setupInstallRoot == null ? 1 : !setupGameReady ? 2 : lastAccount?.Imported != true ? 3 : 4);
+        bool setupAccountReady = lastAccount?.Imported == true ||
+            (preferences.PlayWithoutAccountSync && setupInstallRoot != null && HellForgeAccount.CanPlayWithoutSync(setupInstallRoot) && lastAccount is not { Captured: true, Imported: false });
+        setupStep = forceStep ?? (setupInstallRoot == null ? 1 : !setupGameReady ? 2 : !setupAccountReady ? 3 : 4);
         inSetup = true;
         SetupVisibilityChanged?.Invoke(true);
         setupTimer.Start();
@@ -1526,7 +1574,7 @@ public sealed class WindowsForgeHost : IForgeUiHost
             detail = setupDetail ?? "Pick a local drive with at least 70 GB free outside Steam and OneDrive.";
             cta = !steamReady ? "OPEN STEAM & SIGN IN"
                 : setupInstallRoot == null ? "INSTALL FORGE & COPY GAME"
-                : lastStatus != null && HellForgeSetup.IsPrevious(lastStatus.Version) ? "UPGRADE HELLFORGE TO 0.4.0"
+                : lastStatus != null && HellForgeSetup.IsPrevious(lastStatus.Version) ? "UPGRADE HELLFORGE TO 0.5.0"
                 : setupGameReady ? "CONTINUE TO ACCOUNT SYNC" : "CONTINUE GAME COPY";
         }
         else if (setupStep == 2)
@@ -1557,6 +1605,9 @@ public sealed class WindowsForgeHost : IForgeUiHost
                 : "INSTALL MODS & FINISH";
         }
 
+        bool canSkipSync = setupStep == 3 && !setupBusy && captureBlock == null &&
+            lastAccount is not { Captured: true } && setupInstallRoot != null && HellForgeAccount.CanPlayWithoutSync(setupInstallRoot);
+
         return new ForgeSetupState(
             Step: setupStep,
             SteamReady: steamReady,
@@ -1582,7 +1633,8 @@ public sealed class WindowsForgeHost : IForgeUiHost
             PrimaryActionEnabled: ctaEnabled,
             ShowOfficialFallback: setupStep <= 2 && setupInstallRoot != null,
             Progress: setupProgress,
-            QrRows: setupQrRows);
+            QrRows: setupQrRows,
+            CanSkipAccountSync: canSkipSync);
     }
 
     async Task PollSetupAsync()
@@ -1669,6 +1721,20 @@ public sealed class WindowsForgeHost : IForgeUiHost
             return;
         }
         await RunSetupStep4Async(allowDownload: setupPendingPlan is { Missing.Count: > 0 });
+    }
+
+    public async Task SkipSetupAccountSyncAsync()
+    {
+        if (setupBusy || setupStep != 3 || setupInstallRoot == null || captureBlock != null || lastAccount is { Captured: true })
+            return;
+        if (!HellForgeAccount.CanPlayWithoutSync(setupInstallRoot)) return;
+        preferences.PlayWithoutAccountSync = true;
+        SavePrefs();
+        syncRequested = false;
+        setupStep = 4;
+        setupDetail = null;
+        Notify();
+        await RunSetupStep4Async(allowDownload: false);
     }
 
     async Task RunSetupStep2Async()
@@ -1965,9 +2031,9 @@ public sealed class WindowsForgeHost : IForgeUiHost
             new("Gameplay Preset", lastMods == null ? "Unknown" : NeedsGameplaySetup() ? "Needs install" : $"{HellForgeGameplayCatalog.Current.Artifacts.Count}/{HellForgeGameplayCatalog.Current.Artifacts.Count} ({matchHash})",
                 Healthy: lastMods != null && !NeedsGameplaySetup(),
                 Warning: lastMods == null),
-            new("Account Sync", lastAccount?.Imported == true ? "Imported" : lastAccount?.Captured == true ? "Captured" : "Not synced",
-                Healthy: lastAccount?.Imported == true,
-                Warning: lastAccount?.Imported != true),
+            new("Account Sync", lastAccount?.Imported == true ? "Imported" : lastAccount?.Captured == true ? "Captured" : CanPlayWithoutSync ? "Starter (Sync optional)" : "Not synced",
+                Healthy: lastAccount?.Imported == true || CanPlayWithoutSync,
+                Warning: lastAccount?.Imported != true && !CanPlayWithoutSync),
             new("Steam", HellForgeForm.SteamReadyCheck() ? "Signed in" : "Not signed in",
                 Healthy: HellForgeForm.SteamReadyCheck(),
                 Warning: !HellForgeForm.SteamReadyCheck())

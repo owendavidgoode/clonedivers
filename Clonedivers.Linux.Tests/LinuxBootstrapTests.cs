@@ -6,8 +6,8 @@ internal static class LinuxBootstrapTests
 {
     internal static async Task Run(string root, Action<bool, string> check)
     {
-        check(LinuxForgeBootstrap.Installer.Size == 439876336 && LinuxForgeBootstrap.Installer.Sha256 == "62e599c39cf9f102c4efecfc73311e8bf02dc74d1d559cfe6506ed023ac5b5d5",
-            "native Linux setup uses the released author artifact's independent byte/hash pins");
+        check(LinuxForgeBootstrap.Installer.Size == 451363890 && LinuxForgeBootstrap.Installer.Sha256 == "2688d0382086839f540046cce68c1d16dd44ccf5b476f4b5d3ee80de7cf06532",
+            "native Linux setup uses the released 0.5.0-beta author artifact's independent byte/hash pins");
         var home = Path.Combine(root, "bootstrap-home");
         var install = Path.Combine(home, ".local", "share", "hellforge-prefix", "pfx", "drive_c", "users", "steamuser", "Documents", "HellForge");
         Directory.CreateDirectory(install); File.WriteAllText(Path.Combine(install, "hellforge-install.json"), "{}");
@@ -52,5 +52,21 @@ internal static class LinuxBootstrapTests
             }
             catch (InvalidDataException) { check(unsafeEntry.Length > 0 && !File.Exists(Path.Combine(root, "outside")), "unsafe archive entry cannot escape staging: " + unsafeEntry); }
         }
+
+        // HellForge 0.5: TryRestoreModListAfter05Upgrade restores custom hellforge-mods.json (including UTF-8 BOM), sets importDone=true, and syncs app/bundled-mods
+        var upgLinuxRoot = Path.Combine(root, "bootstrap-05-modlist", "pfx", "drive_c", "HellForge");
+        Directory.CreateDirectory(Path.Combine(upgLinuxRoot, "app", "bundled-mods", "hell-forge"));
+        Directory.CreateDirectory(Path.Combine(upgLinuxRoot, "mods"));
+        File.WriteAllText(Path.Combine(upgLinuxRoot, "app", "app-build.json"), """{"version":"0.5.0-beta","engine":"0.1.58"}""");
+        File.WriteAllText(Path.Combine(upgLinuxRoot, "app", "bundled-mods", "hell-forge", "hellforge-mod.json"), """{"id":"skyeshade.hell-forge","version":"0.16.1"}""");
+        File.WriteAllText(Path.Combine(upgLinuxRoot, "mods", "hellforge-mods.json"), """{"format":1,"share":true,"order":["hellforge.editor"]}""");
+        var bomSaved = new byte[] { 0xEF, 0xBB, 0xBF }.Concat(System.Text.Encoding.UTF8.GetBytes("""{"format":1,"share":false,"order":["clonedivers.chaos-invasions"]}""")).ToArray();
+        LinuxForgeBootstrap.TryRestoreModListAfter05Upgrade(upgLinuxRoot, bomSaved);
+        using var restoredLinuxDoc = System.Text.Json.JsonDocument.Parse(File.ReadAllText(Path.Combine(upgLinuxRoot, "mods", "hellforge-mods.json")));
+        check(!restoredLinuxDoc.RootElement.GetProperty("share").GetBoolean() &&
+              restoredLinuxDoc.RootElement.GetProperty("importDone").GetBoolean() &&
+              restoredLinuxDoc.RootElement.GetProperty("order")[0].GetString() == "clonedivers.chaos-invasions" &&
+              File.Exists(Path.Combine(upgLinuxRoot, "mods", "hell-forge", "hellforge-mod.json")),
+              "LinuxForgeBootstrap.TryRestoreModListAfter05Upgrade restores BOM-prefixed mod list with importDone=true and syncs app/bundled-mods on 0.5.0-beta");
     }
 }

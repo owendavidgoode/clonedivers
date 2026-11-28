@@ -7,12 +7,15 @@
 #ifndef CC_FACTORY_CLEANUP_H
 #define CC_FACTORY_CLEANUP_H
 
+#include "clonedivers_em_layout.h"
+
 #define CC_MAX_LIVES 2048u
 #define CC_UNIT_HT_SIZE 4096u
 #define CC_UNIT_HT_MASK (CC_UNIT_HT_SIZE - 1u)
 #define CC_MAX_WRECK_ROWS 2048u
 #define CC_EM_DESC_CAP 2048u
-#define CC_EM_HT_SIZE 4096u
+#define CC_EM_MAX_DESC_CAP 4096u
+#define CC_EM_HT_SIZE 8192u
 #define CC_EM_HT_MASK (CC_EM_HT_SIZE - 1u)
 
 typedef struct CcFactoryLife {
@@ -29,8 +32,10 @@ static uint16_t factory_unit_ht[CC_UNIT_HT_SIZE];
 static unsigned factory_free_cursor;
 static uint8_t s_initial_rows[32][64];
 static uint8_t s_wreck_rows[CC_MAX_WRECK_ROWS][64];
-static uint8_t s_em_desc_buf[CC_EM_DESC_CAP * 24u];
+static uint8_t s_em_desc_buf[CC_EM_MAX_DESC_CAP * 24u];
 static uint16_t s_em_entity_ht[CC_EM_HT_SIZE];
+static uintptr_t s_em_desc_base;
+static uint32_t s_em_desc_cap = CC_EM_DESC_CAP;
 static int s_em_bulk_valid;
 static uint32_t s_live_entity_count;
 static uint32_t s_last_wreck_count;
@@ -52,7 +57,7 @@ static unsigned factory_reported_observed,factory_reported_expired;
 static int pending_state;
 static uintptr_t pending_root,pending_list;
 static uint32_t pending_count_snapshot;
-static uint8_t pending_bits[2048/8];
+static uint8_t pending_bits[CC_EM_MAX_DESC_CAP/8];
 typedef void (*CcQueueUpdate)(uintptr_t,float);
 typedef void (*CcRemoveEntity)(uintptr_t,uint32_t);
 static CcQueueUpdate original_queue_update;
@@ -125,14 +130,27 @@ static int cc_factory_resource(uint64_t resource)
     return 0;
 }
 
+static uintptr_t cc_em_base_for(uintptr_t root)
+{
+    return (s_em_desc_base && root==factory_registry) ? s_em_desc_base : (root+0xF32F18u);
+}
+
+static uint32_t cc_em_cap_for(uintptr_t root)
+{
+    uint32_t cap=(s_em_desc_base && root==factory_registry) ? s_em_desc_cap : CC_EM_DESC_CAP;
+    return (cap>0u && cap<=CC_EM_MAX_DESC_CAP) ? cap : CC_EM_DESC_CAP;
+}
+
 static void cc_snapshot_em_descriptors(uintptr_t root)
 {
     s_em_bulk_valid=0;
     s_live_entity_count=0;
-    if(!root||!cc_memory(root+0xF32F18,s_em_desc_buf,sizeof s_em_desc_buf))return;
+    uintptr_t em_base=cc_em_base_for(root);
+    uint32_t em_cap=cc_em_cap_for(root);
+    if(!root||!em_base||!cc_memory(em_base,s_em_desc_buf,(size_t)em_cap*24u))return;
     memset(s_em_entity_ht,0,sizeof s_em_entity_ht);
     uint32_t live=0;
-    for(unsigned idx=0;idx<CC_EM_DESC_CAP;++idx)
+    for(unsigned idx=0;idx<em_cap;++idx)
     {
         const uint8_t *d=s_em_desc_buf+idx*24u;
         uint64_t res=cc_u64(d);
@@ -153,6 +171,9 @@ static void cc_snapshot_em_descriptors(uintptr_t root)
 static int cc_factory_descriptor(uintptr_t root,uint32_t entity,uint8_t out[24],uintptr_t *address)
 {
     if(!root||!entity||entity==UINT32_MAX)return 0;
+    uintptr_t em_base=cc_em_base_for(root);
+    uint32_t em_cap=cc_em_cap_for(root);
+    if(!em_base)return 0;
     if(s_em_bulk_valid)
     {
         uint32_t h=cc_hash_u32(entity)&CC_EM_HT_MASK;
@@ -161,10 +182,11 @@ static int cc_factory_descriptor(uintptr_t root,uint32_t entity,uint8_t out[24],
             uint16_t slot=s_em_entity_ht[(h+p)&CC_EM_HT_MASK];
             if(!slot)break;
             unsigned idx=(unsigned)slot-1u;
+            if(idx>=em_cap)continue;
             const uint8_t *d=s_em_desc_buf+idx*24u;
             if(cc_u32(d+8)==entity)
             {
-                *address=root+0xF32F18+24u*(uintptr_t)idx;
+                *address=em_base+24u*(uintptr_t)idx;
                 memcpy(out,d,24);
                 return 1;
             }
@@ -180,8 +202,8 @@ static int cc_factory_descriptor(uintptr_t root,uint32_t entity,uint8_t out[24],
         if(!cc_memory(entries+8u*((entity*mult+probe)&(count-1)),row,8))return 0;
         if(cc_u32(row)==entity)
         {
-            uint32_t index=cc_u32(row+4);if(index>=2048)return 0;
-            *address=root+0xF32F18+24u*index;
+            uint32_t index=cc_u32(row+4);if(index>=em_cap)return 0;
+            *address=em_base+24u*(uintptr_t)index;
             return cc_memory(*address,out,24)&&cc_u32(out+8)==entity;
         }
         if(cc_u32(row)==empty)return 0;
@@ -225,6 +247,8 @@ static int cc_corpse_wrapper(uint64_t resource)
  * this update. An existing request is a backoff, not more work per frame. */
 static int cc_factory_pending(uintptr_t root,uint32_t index)
 {
+    uint32_t em_cap=cc_em_cap_for(root);
+    if(index>=em_cap)return -1;
     if(pending_state&&pending_root!=root)return -1;
     if(!pending_state)
     {
@@ -234,7 +258,7 @@ static int cc_factory_pending(uintptr_t root,uint32_t index)
         if(!pending_list||(pending_count_snapshot&&!cc_memory(pending_list,rows,(size_t)pending_count_snapshot*4)))return -1;
         memset(pending_bits,0,sizeof pending_bits);
         for(unsigned i=0;i<pending_count_snapshot;++i)
-        {if(rows[i]>=2048)return -1;pending_bits[rows[i]/8]|=(uint8_t)(1u<<(rows[i]%8));}
+        {if(rows[i]>=em_cap)return -1;pending_bits[rows[i]/8]|=(uint8_t)(1u<<(rows[i]%8));}
         pending_state=1;
     }
     if(pending_state<0)return -1;
@@ -258,10 +282,13 @@ static void cc_factory_row(uintptr_t root,uintptr_t queue,uintptr_t at,const uin
     if(!changed&&life->elapsed<life->next_check&&!(due&&removal_budget))return;
     if(!factory_resolves_left)return;
     --factory_resolves_left;
+    uintptr_t em_base=cc_em_base_for(root);
+    uint32_t em_cap=cc_em_cap_for(root);
+    uintptr_t em_end=em_base+(uintptr_t)em_cap*24u;
     uint8_t identity[24];uintptr_t descriptor=life->descriptor;
-    int cached=life->classified&&life->entity==entity&&descriptor&&
-        ((s_em_bulk_valid&&descriptor>=root+0xF32F18&&descriptor<root+0xF3EF18&&((descriptor-root-0xF32F18)%24u==0u))
-            ?(memcpy(identity,s_em_desc_buf+(descriptor-root-0xF32F18),24),1)
+    int cached=life->classified&&life->entity==entity&&descriptor&&em_base&&
+        ((s_em_bulk_valid&&descriptor>=em_base&&descriptor<em_end&&((descriptor-em_base)%24u==0u))
+            ?(memcpy(identity,s_em_desc_buf+(descriptor-em_base),24),1)
             :cc_memory(descriptor,identity,24))&&
         cc_u32(identity+8)==entity&&cc_u32(identity+12)==unit;
     if(!cached&&(!cc_factory_descriptor(root,entity,identity,&descriptor)||cc_u32(identity+12)!=unit))
@@ -280,9 +307,9 @@ static void cc_factory_row(uintptr_t root,uintptr_t queue,uintptr_t at,const uin
     /* Phase 1 contributes to age; only phase 2 on SOLO/HOST may request removal. */
     if(!cc_is_host_or_solo()||!cc_extra_enabled()||!supported||kind!=2||life->elapsed<s_effective_delay_s||!native_remove_entity||!removal_budget||
        life->elapsed<life->retry_at||!(identity[20]&1))return;
-    if(!root||descriptor<root+0xF32F18||descriptor>=root+0xF3EF18||
-       (descriptor-root-0xF32F18)%24)return;
-    uint32_t index=(uint32_t)((descriptor-root-0xF32F18)/24);
+    if(!root||!em_base||descriptor<em_base||descriptor>=em_end||
+       (descriptor-em_base)%24u)return;
+    uint32_t index=(uint32_t)((descriptor-em_base)/24u);
     int queued=cc_factory_pending(root,index);
     if(queued){life->retry_at=life->elapsed+(queued>0?1.f:.25f);life->next_check=life->retry_at;return;}
     uint8_t again[24],current[64];uint32_t count;
@@ -333,6 +360,10 @@ static void cc_factory_before(uintptr_t queue,float dt)
     if(!registry){cc_clear_factory_lives();factory_credit=0;return;}
     if(registry!=factory_registry)
     {cc_clear_factory_lives();factory_registry=registry;factory_cursor=0;}
+    CdEmLayout em_layout=cd_em_resolve_hf(factory_game,hf?hf->read:NULL);
+    uintptr_t next_em_base=cd_em_records_base(registry,em_layout.records_offset);
+    if(next_em_base!=s_em_desc_base||em_layout.bounded_capacity!=s_em_desc_cap)
+    {cc_clear_factory_lives();s_em_desc_base=next_em_base;s_em_desc_cap=em_layout.bounded_capacity;factory_cursor=0;}
 
     uint32_t raw_count=0;
     if(!cc_memory(queue+0x818,&raw_count,4)||raw_count>65536u)return;

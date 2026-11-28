@@ -46,8 +46,8 @@ struct WeaponConstruction {alignas(16) unsigned char context[0x8A0]{};alignas(8)
 inline std::vector<std::unique_ptr<WeaponConstruction>> weapon_buffers;
 inline uint32_t replace(uint32_t soldier,uint64_t resource,unsigned slot=1){
  require(resource&&(slot==1||slot==3||slot==6),"invalid replacement");auto inv=inventory(soldier);auto before=bytes(inv.row,16);require(!empty(read<uint32_t>(inv.row)),"inventory not initialized");
- auto root=ptr(game+0x346BF98);require(read<uint16_t>(root+0xF3F828)==1,"constructor busy");auto free=read<unsigned>(root+0xF32F14);
- require(free<2048&&read<unsigned>(root+0xF32F18+free*24+8)==read<unsigned>(game+0x348456C),"no free entity slot");require(weapon_buffers.size()<768,"weapon session capacity exhausted");
+ auto root=ptr(game+0x346BF98);require(read<uint16_t>(root+0xF3F828)==1,"constructor busy");
+ require(has_free_entity_slot(root,em_layout()),"no free entity slot");require(weapon_buffers.size()<768,"weapon session capacity exhausted");
  auto c=std::make_unique<WeaponConstruction>();auto p=c.get();weapon_buffers.push_back(std::move(c));
  auto desc=native<void*(*)(uint32_t)>(0xFD9D40)(soldier);require(desc&&read<uint32_t>((uintptr_t)desc+8)==soldier,"soldier descriptor changed");
  native<void*(*)(void*,uint64_t,uint8_t,uint8_t)>(0x9A6630)(p->creation,resource,1,0);auto context=p->context;memcpy(p->creation+0x48,&context,8);

@@ -9,9 +9,9 @@ internal sealed record ForgeSetupProgress(string Message, long Done = 0, long To
 /// <summary>Bootstrap the pinned author installer and drive the official game downloader.</summary>
 internal static partial class HellForgeSetup
 {
-    internal const string InstallerUrl = "https://github.com/SkyeShade/HellForge/releases/download/v0.4.0-beta/HellForge-Setup.exe";
-    internal const string InstallerSha256 = "97dbdd07638e5198b98bf2ad74a1ba907c53f569fcdcdcff330e6c74359f04d7";
-    internal const long InstallerBytes = 526467508;
+    internal const string InstallerUrl = "https://github.com/SkyeShade/HellForge/releases/download/v0.5.0-beta/HellForge-Setup.exe";
+    internal const string InstallerSha256 = "9b145622d56afe191724b5af00553f6ffe0ec641dd429fd7839cc4e0b01c677f";
+    internal const long InstallerBytes = 543508916;
     internal static string DefaultRoot => Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.UserProfile), "HellForge");
     internal static string SeparateDefaultRoot()
     {
@@ -242,6 +242,7 @@ internal static partial class HellForgeSetup
             // Official --unpack does not open a window, copy a game, change networking or authenticate.
             await (unpack ?? UnpackAsync)(installer, staging);
             await CreateLayoutAsync(staging, ct);
+            HellForgeRelease.SyncShippedBundledMods(staging);
             HellForgeCommands.ValidateRoot(staging);
             using (var marker = JsonDocument.Parse(File.ReadAllText(Path.Combine(staging, "hellforge-install.json"))))
                 if (marker.RootElement.GetProperty("buildId").GetString() != HellForgePack.SupportedBuild)
@@ -264,7 +265,7 @@ internal static partial class HellForgeSetup
         RedirectStandardOutput = true, RedirectStandardError = true, ArgumentList = { "--unpack", folder }
     };
 
-    static async Task UnpackAsync(string installer, string folder)
+    internal static async Task UnpackAsync(string installer, string folder)
     {
         using var process = Process.Start(UnpackStartInfo(installer, folder)) ?? throw new IOException("Official Forge installer did not start.");
         using var timeout = new CancellationTokenSource(TimeSpan.FromMinutes(5));

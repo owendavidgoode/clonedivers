@@ -103,6 +103,7 @@ internal sealed class PlayerCommands
                 if (values.TryGetValue("--squid-skin", out var squid)) requested.SquidSkin = squid;
                 if (values.TryGetValue("--deathtrooper", out var dt)) requested.DeathTrooperVoice = dt == "yes";
                 if (values.TryGetValue("--theater", out var th)) requested.HostTheaterPreset = th;
+                if (values.TryGetValue("--play-without-sync", out var pws)) requested.PlayWithoutAccountSync = pws == "yes";
                 requested.Validate();
                 var nowUltrakill = HostMutatorConfig.IsUltrakillTheater(requested.HostTheaterPreset, requested.HostChaosIntensity);
                 if (prevUltrakill != nowUltrakill)
@@ -111,9 +112,10 @@ internal sealed class PlayerCommands
                 selection.Texture = requested.Texture; selection.EnemySkin = requested.EnemySkin;
                 selection.SquidSkin = requested.SquidSkin; selection.DeathTrooperVoice = requested.DeathTrooperVoice;
                 selection.HostTheaterPreset = requested.HostTheaterPreset;
+                selection.PlayWithoutAccountSync = requested.PlayWithoutAccountSync;
                 if (companionSyncPending && await SyncTheaterCompanionsIfReadyAsync(nowUltrakill, ct))
                     companionSyncPending = false;
-                return JsonSerializer.SerializeToElement(new { selection.Mode, selection.DeltaSquad, selection.Texture, selection.Droids, selection.EnemySkin, selection.Covenant, selection.SquidSkin, selection.DeathTrooperVoice, selection.HostTheaterPreset });
+                return JsonSerializer.SerializeToElement(new { selection.Mode, selection.DeltaSquad, selection.Texture, selection.Droids, selection.EnemySkin, selection.Covenant, selection.SquidSkin, selection.DeathTrooperVoice, selection.HostTheaterPreset, selection.PlayWithoutAccountSync });
             case "prepare-regular":
                 if (!selection.IsRegular) throw new InvalidOperationException("Select Regular before applying that mode.");
                 await client.PrepareRegularAsync(ct); return JsonSerializer.SerializeToElement(new { prepared = true });
@@ -135,9 +137,13 @@ internal sealed class PlayerCommands
             case "player-status": return await StateAsync(ct);
             case "play":
             {
-                // No direct CLI shortcut can skip the one-way account or full appearance verification.
+                // No direct CLI shortcut can skip the one-way account or full appearance verification unless PlayWithoutAccountSync is opted in on a 0.5+ catalogue install.
                 string profile;
-                try { profile = await (EnsureAccount ?? client.EnsureAccountAsync)(ct); }
+                try
+                {
+                    var ensure = EnsureAccount ?? (CanPlayWithoutSync(null) ? client.EnsureStarterOrImportedAccountAsync : client.EnsureAccountAsync);
+                    profile = await ensure(ct);
+                }
                 catch { lastAccount = null; lastAccountFingerprint = null; throw; }
                 await RetryPendingWarbondsAsync(ct);
                 var playUk = HostMutatorConfig.IsUltrakillTheater(selection.HostTheaterPreset, selection.HostChaosIntensity) || client.IsUltrakillHostTheaterActive();
@@ -241,7 +247,7 @@ internal sealed class PlayerCommands
             if (HellForgePreset.Problem(catalog, ultrakillTheaterActive: ultrakillActive) is { } preset) throw new InvalidDataException(preset);
             if (HellForgePreset.ModeCompanionProblem(catalog, selection.IsRegular ? "regular" : selection.PackMode) is { } companionIssue) throw new InvalidDataException(companionIssue);
             if (!status.Multiplayer || !status.LocalBackend) throw new InvalidDataException("Enable the official local backend and Steam multiplayer in HellForge.");
-            if (!imported.Imported) throw new InvalidDataException(imported.Message);
+            if (!imported.Imported && !CanPlayWithoutSync(imported)) throw new InvalidDataException(imported.Message);
         }
         catch (Exception error) when (error is IOException or InvalidDataException or InvalidOperationException or JsonException) { problem = error.Message; }
         return JsonSerializer.SerializeToElement(new { status, mods = catalog, account = imported, ready = problem == null,
@@ -252,6 +258,11 @@ internal sealed class PlayerCommands
         var message = warbondMessage; warbondMessage = null;
         return message == null ? state : state with { Message = message + " " + state.Message };
     }
+    bool CanPlayWithoutSync(HellForgeAccountState? acct) =>
+        selection.PlayWithoutAccountSync &&
+        HellForgeAccount.CanPlayWithoutSync(root) &&
+        acct is not { Captured: true, Imported: false } &&
+        !account.HasPendingJournal();
     async Task<bool> SyncTheaterCompanionsIfReadyAsync(bool enableUltrakill, CancellationToken ct)
     {
         UltrakillRuntimeProfile.SyncEngineFiles(root, enableUltrakill);

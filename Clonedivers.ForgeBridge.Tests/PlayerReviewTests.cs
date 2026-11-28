@@ -410,7 +410,7 @@ internal static class PlayerReviewTests
             }
             object result = args[0] == "mods"
                 ? new { mods = IncludeGameplayMods ? ReadyMods() : Array.Empty<object>(), problems = Array.Empty<string>(), modlist = (string?)null }
-                : new { install = root, gameBuild = "25480438", hellforge = "0.4.0-beta", engine = "0.1.47", modSdk = 16,
+                : new { install = root, gameBuild = "25480438", hellforge = "0.5.0-beta", engine = "0.1.58", modSdk = 20,
                     networkBlock = "linux-netns", ready = new { linuxNamespace = true, gameCopy = true, sessionRunner = true },
                     settings = new { sandbox = true, multiplayer = true, localPlayFab = true },
                     session = new { running = statusRunning, lastRun = (string?)null, lastStatus = (string?)null, lastFailure = (string?)null } };

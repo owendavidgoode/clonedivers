@@ -1027,26 +1027,30 @@ static int FarFromWave(const float* g)
     return 1;
 }
 
+#include "clonedivers_em_layout.h"
+
 static int HeavyHasEntityHeadroom(uintptr_t game, uint32_t min_free)
 {
-    static uint8_t s_em_desc_buf[2048u * 24u];
-    uintptr_t factory = 0;
+    static uint8_t s_em_desc_buf[CD_EM_MAX_CAPACITY * CD_EM_RECORD_STRIDE];
+    uintptr_t factory = 0, desc_base = 0;
     uint32_t invalid = 0xffffffffu;
     uint32_t free_slots = 0u;
-    if (game == 0 || !ApiRd(game + 0x346bf98u, &factory, 8) || factory < 0x10000u) return 0;
+    if (game == 0 || !g_api || !ApiRd(game + 0x346bf98u, &factory, 8) || factory < 0x10000u) return 0;
     if (!ApiRd(game + 0x348456cu, &invalid, 4)) return 0;
-    if (!ApiRd(factory + 0xf32f18u, s_em_desc_buf, sizeof s_em_desc_buf)) return 0;
-    for (uint32_t i = 0; i < 2048u; i++) {
+    CdEmLayout layout = cd_em_resolve_hf(game, g_api->read);
+    desc_base = cd_em_records_base(factory, layout.records_offset);
+    if (!desc_base || !ApiRd(desc_base, s_em_desc_buf, (size_t)layout.bounded_capacity * CD_EM_RECORD_STRIDE)) return 0;
+    for (uint32_t i = 0; i < layout.bounded_capacity; i++) {
         uint64_t res = 0;
         uint32_t eid = 0;
-        const uint8_t* slot = s_em_desc_buf + (size_t)i * 24u;
+        const uint8_t* slot = s_em_desc_buf + (size_t)i * CD_EM_RECORD_STRIDE;
         memcpy(&res, slot + 0u, 8);
         memcpy(&eid, slot + 8u, 4);
         if (res == 0ULL || eid == 0u || eid == 0xffffffffu || eid == invalid) {
             ++free_slots;
         }
     }
-    return free_slots >= min_free;
+    return free_slots >= cd_em_scale_reserve(layout.bounded_capacity, min_free);
 }
 
 static int ResolveLivingHostMissionGround(uintptr_t game, uint32_t* out_owner, uint32_t* out_character, float out_origin[3])
@@ -1070,10 +1074,11 @@ static int ResolveLivingHostMissionGround(uintptr_t game, uint32_t* out_owner, u
         return 0;
     if (ApiRd(game + 0x347cef0u, &user_ptr, 8) && user_ptr >= 0x10000u)
         ApiRd((uintptr_t)user_ptr + 0xb398u, &local_peer, 8);
+    CdEmLayout em_layout = cd_em_resolve_hf(game, g_api ? g_api->read : NULL);
     for (s = 0; s < pcount && !picked; s++) {
         uint64_t speer = 0;
         uint32_t slife = 0, snet = 0, sowner = 0, sidx = 0, ptable_idx = 0;
-        uintptr_t ptable = 0;
+        uintptr_t ptable = 0, drec = 0;
         uint32_t pmap[3];
         uint32_t char_id = 0, chk = 0;
         if (!ApiRd(players + 0x2c8u + (uintptr_t)s * 0x38u, &speer, 8)) continue;
@@ -1083,9 +1088,9 @@ static int ResolveLivingHostMissionGround(uintptr_t game, uint32_t* out_owner, u
         if (!ApiRd(players + 0xe8u + (uintptr_t)s * 8u, &player, 8) || player == 0 || !ApiRd(player + 8u, &sowner, 4)) continue;
         if (!ApiRd(players + 0xd0u, &ptable, 8) || !ApiRd(players + 0xd8u, pmap, 12) ||
             !MapFind(ptable, pmap[0], pmap[1], pmap[2], sowner, &ptable_idx) || ptable_idx >= 4u) continue;
-        if (!MapFind(table, map[0], map[1], map[2], snet, &sidx) || sidx >= 2048u) continue;
-        if (!ApiRd(factory + 0xf32f18u + (uintptr_t)sidx * 24u + 8u, &char_id, 4) ||
-            !ApiRd(factory + 0xf32f18u + (uintptr_t)sidx * 24u + 16u, &chk, 4) ||
+        if (!MapFind(table, map[0], map[1], map[2], snet, &sidx) || sidx >= em_layout.capacity) continue;
+        drec = cd_em_record_at(factory, em_layout.records_offset, sidx);
+        if (!drec || !ApiRd(drec + 8u, &char_id, 4) || !ApiRd(drec + 16u, &chk, 4) ||
             chk != snet || char_id == 0xffffffffu || char_id == invalid) continue;
         owner = sowner;
         character = char_id;
@@ -1779,7 +1784,7 @@ HF_MOD_EXPORT int hellforge_mod_init(const HfApi* hf, HfMod* mod)
     InitializeCriticalSection(&g_lock);
     build = hf->build_id();
     OptionsMenuStart(hf, mod);
-    Log("Heavy SEAF Presence Everywhere 1.2.0-clonedivers.6: modifier %u and map tag %u on every planet, extra squads %d, constant=%d, ceiling=%d (build %s)",
+    Log("Heavy SEAF Presence Everywhere 1.2.0-clonedivers.8: modifier %u and map tag %u on every planet, extra squads %d, constant=%d, ceiling=%d (build %s)",
         MODIFIER, MARKER, SquadStep(), OptionsConstant(), OptionsWaveCeiling(), build != NULL ? build : "?");
     g_squads_tick_joined = (heavy_seaf_squads_init(hf, mod) == 0) ? 1 : 0;
     if (!g_squads_tick_joined) Log("custom squad delivery did not initialize; waves will use regular SEAF");

@@ -10,6 +10,11 @@
 #include <algorithm>
 #include <cmath>
 #include "pins.h"
+#if __has_include("../clonedivers_em_layout.h")
+#include "../clonedivers_em_layout.h"
+#else
+#include "clonedivers_em_layout.h"
+#endif
 namespace seaf {
 inline const HfApi* api; inline HfMod* mod; inline uintptr_t game;
 inline void require(bool value,const char* why){if(!value)throw std::runtime_error(why);}
@@ -47,8 +52,17 @@ inline int index(uintptr_t at,uint32_t key){
  return -1;
 }
 struct Descriptor{uint64_t type;uint32_t id,unit,network,flags;};
-inline Descriptor descriptor(uint32_t id){auto root=ptr(game+0x346BF98);int i=index(root+15838896,id);require(i>=0&&i<0x100000,"entity missing");auto d=read<Descriptor>(root+15937304+(size_t)i*24);require(d.id==id,"entity identity reused");return d;}
-inline Descriptor network_descriptor(uint32_t id){auto d=descriptor(id);require(d.network!=0x7FFF,"entity has no network identity");auto root=ptr(game+54968216);auto n=index(root+15871688,d.network);require(n>=0&&n<0x100000&&read<unsigned>(root+15937312+(size_t)n*24)==id,"network identity no longer resolves to entity");return d;}
+inline CdEmLayout em_layout(){return cd_em_resolve_hf(game,api?api->read:nullptr);}
+inline bool has_free_entity_slot(uintptr_t root,const CdEmLayout& lay){
+ auto empty_id=read<unsigned>(game+0x348456C);auto next=read<unsigned>(root+0xF32F14);
+ if(next<lay.capacity){auto r=cd_em_record_at(root,lay.records_offset,next);if(r&&read<unsigned>(r+8u)==empty_id)return true;}
+ auto base=cd_em_records_base(root,lay.records_offset);if(!base)return false;
+ auto buf=bytes(base,(size_t)lay.bounded_capacity*24u);
+ for(uint32_t i=0;i<lay.bounded_capacity;++i){unsigned eid=0;memcpy(&eid,buf.data()+(size_t)i*24u+8u,4u);if(eid==empty_id)return true;}
+ return false;
+}
+inline Descriptor descriptor(uint32_t id){auto root=ptr(game+0x346BF98);auto lay=em_layout();int i=index(root+15838896,id);require(i>=0&&(uint32_t)i<lay.capacity,"entity missing");auto rec=cd_em_record_at(root,lay.records_offset,(uint32_t)i);require(rec!=0,"entity record invalid");auto d=read<Descriptor>(rec);require(d.id==id,"entity identity reused");return d;}
+inline Descriptor network_descriptor(uint32_t id){auto d=descriptor(id);require(d.network!=0x7FFF,"entity has no network identity");auto root=ptr(game+54968216);auto lay=em_layout();auto n=index(root+15871688,d.network);auto rec=(n>=0&&(uint32_t)n<lay.capacity)?cd_em_record_at(root,lay.records_offset,(uint32_t)n):0u;require(rec!=0&&read<unsigned>(rec+8u)==id,"network identity no longer resolves to entity");return d;}
 struct Instance{uintptr_t manager,row,desc;unsigned index;bool owned;};
 inline Instance instance(unsigned global,unsigned hash,unsigned desc,unsigned rows,unsigned stride,uint32_t id){
  auto m=ptr(game+global);int i=index(m+hash,id);require(i>=0&&i<65536,"component missing");auto d=ptr(ptr(m+desc)+(size_t)i*8);auto value=read<Descriptor>(d);require(value.id==id,"component owner changed");return {m,ptr(m+rows)+(size_t)i*stride,d,(unsigned)i,(value.flags&1)!=0};
@@ -67,6 +81,7 @@ template<class T> T native(unsigned rva){return reinterpret_cast<T>(game+rva);}
 #endif
 inline void prove(){
  require(api->build_id()&&!strcmp(api->build_id(),"25480438"),"unsupported game layout");
- for(auto& pin:seaf_pins){size_t n=strlen(pin.hex)/2;auto b=bytes(game+pin.rva,n);for(size_t i=0;i<n;i++){auto digit=[](char c){return c<='9'?c-'0':(c|32)-'a'+10;};require(b[i]==(digit(pin.hex[2*i])*16+digit(pin.hex[2*i+1])),"native implementation differs from reviewed build");}}
+ auto rd=(api->size>=offsetof(HfApi,read_code)+sizeof(api->read_code)&&api->read_code)?api->read_code:api->read;
+ for(auto& pin:seaf_pins){size_t n=strlen(pin.hex)/2;std::vector<unsigned char> b(n);require(!rd(game+pin.rva,b.data(),n),"unreadable code pin");for(size_t i=0;i<n;i++){auto digit=[](char c){return c<='9'?c-'0':(c|32)-'a'+10;};require(b[i]==(digit(pin.hex[2*i])*16+digit(pin.hex[2*i+1])),"native implementation differs from reviewed build");}}
 }
 }

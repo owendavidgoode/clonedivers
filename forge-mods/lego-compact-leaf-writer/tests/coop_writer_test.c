@@ -192,10 +192,48 @@ static int MockRead(uintptr_t at, void *out, size_t bytes) {
     return 1;
 }
 
+static int g_mockHf05RelocatedEm = 0;
+static uint32_t g_mockHf05RecordsOff = 0x8179C80u;
+static uint32_t g_mockHf05RecordsCap = 4096u;
+static uint32_t g_mockHf05MapSlots = 0x2000u;
+
 static int MockCodeRead(uintptr_t at, void *out, size_t bytes) {
     static const unsigned char leafPrologue[16] = {
         0x48,0x8b,0xc4,0x48,0x89,0x58,0x18,0x48,0x89,0x70,0x20,0x57,0x48,0x83,0xec,0x40
     };
+    if (g_mockHf05RelocatedEm && bytes == 7) {
+        if (at == MOCK_GAME + CD_EM_SITE_REC8_RVA) {
+            uint8_t b[7] = {0x48u, 0x8Du, 0x80u, 0, 0, 0, 0};
+            uint32_t v = g_mockHf05RecordsOff / 8u;
+            memcpy(b + 3, &v, 4);
+            memcpy(out, b, 7);
+            return 0;
+        }
+        if (at == MOCK_GAME + CD_EM_SITE_REC1_RVA) {
+            uint8_t b[7] = {0x49u, 0x8Du, 0x85u, 0, 0, 0, 0};
+            memcpy(b + 3, &g_mockHf05RecordsOff, 4);
+            memcpy(out, b, 7);
+            return 0;
+        }
+        if (at == MOCK_GAME + CD_EM_SITE_CNT1_RVA) {
+            uint8_t b[7] = {0x8Bu, 0xD0u, 0xBAu, 0, 0, 0, 0};
+            memcpy(b + 3, &g_mockHf05RecordsCap, 4);
+            memcpy(out, b, 7);
+            return 0;
+        }
+        if (at == MOCK_GAME + CD_EM_SITE_CNT2_RVA) {
+            uint8_t b[7] = {0xF3u, 0x00u, 0x3Du, 0, 0, 0, 0};
+            memcpy(b + 3, &g_mockHf05RecordsCap, 4);
+            memcpy(out, b, 7);
+            return 0;
+        }
+        if (at == MOCK_GAME + 0xB4ABFBu) {
+            uint8_t b[7] = {0xF2u, 0x00u, 0xBFu, 0, 0, 0, 0};
+            memcpy(b + 3, &g_mockHf05MapSlots, 4);
+            memcpy(out, b, 7);
+            return 0;
+        }
+    }
     if (at == MOCK_ENGINE + 0x5b2990 && bytes == 16) { memcpy(out, leafPrologue, 16); return 0; }
     for (unsigned i = 0; i < sizeof(invocationPins)/sizeof(invocationPins[0]); i++)
         if (at == MOCK_ENGINE + invocationPins[i].rva && bytes == invocationPins[i].size) {
@@ -208,7 +246,19 @@ static int MockCodeRead(uintptr_t at, void *out, size_t bytes) {
     for (unsigned i = 0; i < sizeof(ownerPins)/sizeof(ownerPins[0]); i++) {
         uintptr_t base = ownerPins[i].game ? MOCK_GAME : MOCK_ENGINE;
         if (at == base + ownerPins[i].rva && bytes == ownerPins[i].size) {
-            memcpy(out, ownerPins[i].bytes, bytes); return 0;
+            if (g_mockHf05RelocatedEm && ownerPins[i].game) {
+                CdEmLayout lay;
+                lay.records_offset = (int64_t)g_mockHf05RecordsOff;
+                lay.capacity = g_mockHf05RecordsCap;
+                lay.bounded_capacity = g_mockHf05RecordsCap;
+                lay.relocated = 1;
+                unsigned char patched[32];
+                ExpectedOwnerPinBytes(&ownerPins[i], &lay, g_mockHf05MapSlots, patched);
+                memcpy(out, patched, bytes);
+            } else {
+                memcpy(out, ownerPins[i].bytes, bytes);
+            }
+            return 0;
         }
     }
     for (unsigned i = 0; i < sizeof(renderPins)/sizeof(renderPins[0]); i++)
@@ -1413,9 +1463,9 @@ int main(int argc, char **argv) {
         PutU32(sMgr, 0x98u, COOP_UNIT_CAPACITY_LIMIT + 1u);
         TCHECK(!CoopManagerRead(&lm));
 
-        /* Legacy HashLookup vs CoopHashLookup */
+        /* HashLookup (0.5.0 16384-cap / 4096-desc) vs 0.4.0 2048-desc vs CoopHashLookup */
         MockSlab *hHdr = AllocSlab(32);
-        MockSlab *hBkt = AllocSlab(8192u * 8u);
+        MockSlab *hBkt = AllocSlab(32768u * 8u);
         memset(hBkt->bytes, 0xFF, hBkt->size);
         PutU64(hHdr, 0u, hBkt->address);
         PutU32(hHdr, 8u, 8192u);
@@ -1424,9 +1474,15 @@ int main(int argc, char **argv) {
         PutU32(hBkt, ((77u * 2u) % 8192u) * 8u, 77u);
         PutU32(hBkt, ((77u * 2u) % 8192u) * 8u + 4u, 3000u);
         Lookup lk;
+        TCHECK(!HashLookupWithLimit(hHdr->address, 77u, &lk, 2048u));
+        TCHECK(HashLookup(hHdr->address, 77u, &lk) && lk.index == 3000u);
+        PutU32(hHdr, 8u, 32768u);
+        memset(hBkt->bytes, 0xFF, hBkt->size);
+        PutU32(hBkt, ((77u * 2u) % 32768u) * 8u, 77u);
+        PutU32(hBkt, ((77u * 2u) % 32768u) * 8u + 4u, 5000u);
         TCHECK(!HashLookup(hHdr->address, 77u, &lk));
-        TCHECK(CoopHashLookup(hHdr->address, 77u, &lk) && lk.index == 3000u);
-        PutU32(hBkt, ((77u * 2u) % 8192u) * 8u + 4u, COOP_DESCRIPTOR_LIMIT);
+        TCHECK(CoopHashLookup(hHdr->address, 77u, &lk) && lk.index == 5000u);
+        PutU32(hBkt, ((77u * 2u) % 32768u) * 8u + 4u, COOP_DESCRIPTOR_LIMIT);
         TCHECK(!CoopHashLookup(hHdr->address, 77u, &lk));
 
         /* Legacy ChainRead vs CoopChainRead */
@@ -1950,6 +2006,88 @@ int main(int argc, char **argv) {
             InvokeActorMesh(&d11Player, 0, 4, 0, 1);
             TCHECK(coopReg.active_targets == 28u && coopFast.need_handle_probe == 0u && writer.fatal == 0);
         }
+    }
+
+    /* Test 20: HellForge 0.5.0-beta (SDK 20, EntityTableRaise code rewrites, 8,192-slot hash maps,
+     *          and 4,096 relocated EntityManager records at descriptor slot 2,500 > 2,048). */
+    {
+        InitMockHost(argv[2]);
+        g_mockHf05RelocatedEm = 1;
+        api.version = 20u;
+        installed = 0;
+        stopped = 0;
+        memset(&writer, 0, sizeof writer);
+        memset(&invocationEnvelope, 0, sizeof invocationEnvelope);
+        TCHECK(hellforge_mod_init(&api, &mod) == 0);
+        TCHECK(Pins() == 1);
+
+        /* Allocate relocated 4,096-record slab at sEntities->address + g_mockHf05RecordsOff and 8,192-slot maps */
+        MockSlab *relocRecs = AllocSlabAt(sEntities->address + g_mockHf05RecordsOff, 4096u * 24u);
+        MockSlab *net8k = AllocSlab(8192u * 8u);
+        MockSlab *ent8k = AllocSlab(8192u * 8u);
+        memset(net8k->bytes, 0xFF, net8k->size);
+        memset(ent8k->bytes, 0xFF, ent8k->size);
+        PutU64(sEntities, 0xF22EC8u, net8k->address);
+        PutU32(sEntities, 0xF22EC8u + 8u, 8192u);
+        PutU32(sEntities, 0xF22EC8u + 12u, 0xFFFFFFFFu);
+        PutU32(sEntities, 0xF22EC8u + 16u, 1u);
+        PutU64(sEntities, 0xF1AEB0u, ent8k->address);
+        PutU32(sEntities, 0xF1AEB0u + 8u, 8192u);
+        PutU32(sEntities, 0xF1AEB0u + 12u, 0xFFFFFFFFu);
+        PutU32(sEntities, 0xF1AEB0u + 16u, 1u);
+
+        /* Populate avatar unit at manager index 77, descriptor slot 2,500 (> 2,048!) */
+        MockSlab *avUnit = AllocSlab(0x200u);
+        MockSlab *avRes = AllocSlab(16u);
+        PutU64(avRes, 0u, AVATAR_RESOURCE);
+        PutU64(avUnit, 0u, MOCK_ENGINE + VTABLE_RVA);
+        PutU64(avUnit, 0x30u, avRes->address);
+        PutU64(sSlots, 77u * 8u, avUnit->address);
+        PutU8(sGens, 77u, 5u);
+        initial.address = sMgr->address;
+        initial.slots = sSlots->address;
+        initial.generations = sGens->address;
+        initial.capacity = 512u;
+
+        const uint32_t kSlotIdx = 2500u;
+        const uint32_t kNetId = 0x135u;
+        const uint32_t kEntId = 0x900055u;
+        const uint32_t kHandle = 77u | (5u << 22);
+        PutU64(relocRecs, (size_t)kSlotIdx * 24u + 0u, AVATAR_RESOURCE);
+        PutU32(relocRecs, (size_t)kSlotIdx * 24u + 8u, kEntId);
+        PutU32(relocRecs, (size_t)kSlotIdx * 24u + 12u, kHandle);
+        PutU32(relocRecs, (size_t)kSlotIdx * 24u + 16u, kNetId);
+        PutU32(relocRecs, (size_t)kSlotIdx * 24u + 20u, 1u);
+
+        PutU32(net8k, (kNetId & 8191u) * 8u + 0u, kNetId);
+        PutU32(net8k, (kNetId & 8191u) * 8u + 4u, kSlotIdx);
+        PutU32(ent8k, (kEntId & 8191u) * 8u + 0u, kEntId);
+        PutU32(ent8k, (kEntId & 8191u) * 8u + 4u, kSlotIdx);
+
+        PutU32(sPlayerRow, 0x84u, 1u);
+        PutU64(sContext, 0xB398u, 0xCAFEBEEF11223344ULL);
+        PutU64(sPlayerRow, 0x2C8u, 0xCAFEBEEF11223344ULL);
+        PutU32(sPlayerRow, 0x2E0u, 3u);
+        PutU32(sPlayerRow, 0x3A8u, kNetId);
+        PutU64(sPlayerRow, 0xE8u, sPlayerDesc[0]->address);
+        PutU32(sPlayerDesc[0], 8u, 1u);
+        PutU8(sPlayerDesc[0], 20u, 1u);
+
+        logicalTick = readTick = byteTick = 0u;
+        Owner resolvedOwner;
+        TCHECK(OwnerRead(&resolvedOwner) == 1);
+        TCHECK(resolvedOwner.networkLookup.index == kSlotIdx && resolvedOwner.entityLookup.index == kSlotIdx);
+        TCHECK(resolvedOwner.unit.unit == avUnit->address);
+
+        CoopRoster roster;
+        Manager mgrSnap;
+        TCHECK(CoopManagerRead(&mgrSnap) == 1);
+        logicalTick = readTick = byteTick = 0u;
+        TCHECK(CoopPlayersRead(&mgrSnap, &roster) == 1);
+        TCHECK(roster.count == 1u && roster.entries[0].avatar_unit == avUnit->address && roster.entries[0].local == 1u);
+
+        g_mockHf05RelocatedEm = 0;
+        api.version = 16u;
     }
 
     if (invocationDirectoryHandle != INVALID_HANDLE_VALUE) {

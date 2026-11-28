@@ -626,13 +626,15 @@ static void ChaosRefreshEmSnapshot(uintptr_t gbase, double now_age)
         return;
     }
     uint32_t inv = ReadU32(gbase + UK_INVALID_ENTITY_RVA, 0xFFFFFFFFu);
-    uintptr_t dbase = em + UK_EM_DESCRIPTORS_OFF;
-    if (!ReadMem(dbase, g_em_snap.raw, sizeof g_em_snap.raw)) {
+    CdEmLayout layout = cd_em_resolve_hf(gbase, hf ? hf->read : NULL);
+    uintptr_t dbase = cd_em_records_base(em, layout.records_offset);
+    size_t snap_bytes = (size_t)layout.bounded_capacity * UK_EM_DESCRIPTOR_STRIDE;
+    if (!dbase || !ReadMem(dbase, g_em_snap.raw, snap_bytes)) {
         g_em_snap.valid = 0;
         return;
     }
     uint32_t live = 0u;
-    for (uint32_t i = 0; i < UK_EM_DESCRIPTOR_CAP; i++) {
+    for (uint32_t i = 0; i < layout.bounded_capacity; i++) {
         uint32_t eid = 0;
         uint64_t res = 0;
         const uint8_t* slot = g_em_snap.raw + (size_t)i * UK_EM_DESCRIPTOR_STRIDE;
@@ -644,16 +646,18 @@ static void ChaosRefreshEmSnapshot(uintptr_t gbase, double now_age)
     }
 #ifdef CHAOS_UNIT_TEST
     /* In synthetic arenas where descriptors[] aren't populated per spawn, conservatively fold in tracked live count. */
-    if ((uint32_t)g_tracker.total_live > live && (uint32_t)g_tracker.total_live <= UK_EM_DESCRIPTOR_CAP) {
+    if ((uint32_t)g_tracker.total_live > live && (uint32_t)g_tracker.total_live <= layout.bounded_capacity) {
         live = (uint32_t)g_tracker.total_live;
     }
 #endif
     g_em_snap.em_root = em;
     g_em_snap.desc_base = dbase;
-    g_em_snap.desc_end = dbase + sizeof(g_em_snap.raw);
+    g_em_snap.desc_end = dbase + snap_bytes;
+    g_em_snap.em_cap = layout.bounded_capacity;
+    g_em_snap.gwnav_reserve = cd_em_scale_reserve(layout.bounded_capacity, UK_EM_RESERVE_SLOTS);
     g_em_snap.invalid_entity = inv;
     g_em_snap.live_slots = live;
-    g_em_snap.free_slots = (live < UK_EM_DESCRIPTOR_CAP) ? (UK_EM_DESCRIPTOR_CAP - live) : 0u;
+    g_em_snap.free_slots = (live < layout.bounded_capacity) ? (layout.bounded_capacity - live) : 0u;
     g_em_snap.captured_age = now_age;
     g_em_snap.valid = 1;
 }
@@ -678,13 +682,17 @@ static int CollectLivingPlayers(uintptr_t gbase, float positions_out[4][3], uint
     if (!ReadPtr(gbase + CHAOS_PLAYERS_RVA, &pm) || !ReadMem(pm + 0x84u, &count, 4) || count == 0 || count > 4u)
         return 0;
     ReadPtr(gbase + CHAOS_ENTITIES_RVA, &em);
+    CdEmLayout layout = cd_em_resolve_hf(gbase, hf ? hf->read : NULL);
     for (uint32_t i = 0; i < count; i++) {
         uint32_t life = ReadU32(pm + 0x2E0u + 0x38u * i, 0u);
         uint32_t net = ReadU32(pm + 0x3A8u + 0x20u * i, 0x7FFFu);
         uint32_t slot = 0, avatar = 0;
+        uintptr_t rec = 0;
         if (life != 3u || net == 0x7FFFu || !em) continue;
-        if (!HashFindU32(em + 0xF22EC8u, net, &slot)) continue;
-        avatar = ReadU32(em + 0xF32F20u + (uintptr_t)slot * 24u, 0u);
+        if (!HashFindU32(em + 0xF22EC8u, net, &slot) || slot >= layout.capacity) continue;
+        rec = cd_em_record_at(em, layout.records_offset, slot);
+        if (!rec) continue;
+        avatar = ReadU32(rec + 8u, 0u);
         if (!avatar || !EntityAlive(avatar, NULL)) continue;
         float pos[3];
         if (!EntityPosition(gbase, avatar, pos)) continue;
@@ -2236,15 +2244,16 @@ static void DrainTheaterSpawnQueue(uintptr_t gbase, uintptr_t director)
 {
     if (g_spawn_queue.count == 0u) return;
     ChaosRefreshEmSnapshot(gbase, clock_state.age);
-    if (!g_em_snap.valid || g_em_snap.free_slots < UK_EM_RESERVE_SLOTS) {
-        return; /* Hard 2,048-slot / <1,024-GwNav::Bot safety floor: fail closed on invalid read or low headroom! */
+    uint32_t reserve_floor = g_em_snap.gwnav_reserve ? g_em_snap.gwnav_reserve : UK_EM_RESERVE_SLOTS;
+    if (!g_em_snap.valid || g_em_snap.free_slots < reserve_floor) {
+        return; /* Hard <1,024-GwNav::Bot / EntityManager safety floor: fail closed on invalid read or low headroom! */
     }
     if (!CallHasHeadroom(gbase, (void*)director, 3u, 1u)) {
         return;
     }
 
     uint32_t budget = UK_MAX_SPAWNS_PER_FRAME;
-    uint32_t avail = g_em_snap.free_slots - UK_EM_RESERVE_SLOTS;
+    uint32_t avail = g_em_snap.free_slots - reserve_floor;
     if (avail < budget) budget = avail;
 
     ChaosSpawnJob job;
@@ -2336,9 +2345,10 @@ static void ServiceVirtualBattalions(uintptr_t gbase, int native, int diff,
 
     g_ultrakill.salvo_budget_tokens += dt * 3.0f;
     if (g_ultrakill.salvo_budget_tokens > 2.0f) g_ultrakill.salvo_budget_tokens = 2.0f;
+    uint32_t reserve_floor = g_em_snap.gwnav_reserve ? g_em_snap.gwnav_reserve : UK_EM_RESERVE_SLOTS;
     int can_fire_proj = (hf && hf->size >= offsetof(HfApi, spawn_projectile) + sizeof(hf->spawn_projectile) &&
                          hf->spawn_projectile != NULL &&
-                         g_em_snap.valid && g_em_snap.free_slots >= UK_EM_RESERVE_SLOTS);
+                         g_em_snap.valid && g_em_snap.free_slots >= reserve_floor);
 
     uint32_t active_regs = 0u, active_units = 0u;
     int first_free = -1;
@@ -2383,7 +2393,7 @@ static void ServiceVirtualBattalions(uintptr_t gbase, int native, int diff,
         if (b->faction < CHAOS_FACTIONS && nearest_d2 < 185.0f * 185.0f &&
             g_rosters_loaded[b->faction] && g_faction_resident[b->faction] &&
             g_spawn_queue.count + b->unit_count < UK_SPAWN_QUEUE_CAP &&
-            g_em_snap.valid && g_em_snap.free_slots >= UK_EM_RESERVE_SLOTS + 36u) {
+            g_em_snap.valid && g_em_snap.free_slots >= reserve_floor + 36u) {
             uint32_t flags = (b->faction == CHAOS_BUGS) ? 0x24u : 0x3Cu;
             int promoted = EnqueueTheaterPlatoon((int)b->faction, diff, (int)b->unit_count, flags,
                                                  b->pos, players[nearest_p]);
@@ -2515,10 +2525,11 @@ static void ServiceUltrakillTheater(uintptr_t gbase, uintptr_t director, int nat
     g_ultrakill.surge_accum_s += dt;
     if (g_ultrakill.surge_accum_s >= 0.65f && living_players > 0) {
         g_ultrakill.surge_accum_s = 0.0f;
+        uint32_t surge_reserve = g_em_snap.gwnav_reserve ? g_em_snap.gwnav_reserve : UK_EM_RESERVE_SLOTS;
         if (g_em_snap.valid &&
             cur_real < target_real &&
             g_spawn_queue.count < 96u &&
-            g_em_snap.free_slots >= UK_EM_RESERVE_SLOTS + 24u) {
+            g_em_snap.free_slots >= surge_reserve + 24u) {
             int chosen = ChaosChooseEx(&config, native, diff, 1, NextRand());
             if (chosen >= 0 && chosen < CHAOS_FACTIONS && chosen != native &&
                 (!g_rosters_loaded[chosen] || !g_faction_resident[chosen] || !PeersReadyForFaction(gbase, chosen))) {
@@ -3285,9 +3296,10 @@ static void Tick(HfMod* mod, float dt, void* user)
     {
         uint8_t bypass_hr = 0u;
         int is_uk = ChaosIsUltrakillActiveInMission(gbase);
-        uint32_t min_free = is_uk ? UK_EM_RESERVE_SLOTS : 32u;
         ChaosRefreshEmSnapshot(gbase, clock_state.age);
-        if (is_uk && g_em_snap.valid && g_em_snap.free_slots >= UK_EM_RESERVE_SLOTS) {
+        uint32_t uk_reserve = g_em_snap.gwnav_reserve ? g_em_snap.gwnav_reserve : UK_EM_RESERVE_SLOTS;
+        uint32_t min_free = is_uk ? uk_reserve : 32u;
+        if (is_uk && g_em_snap.valid && g_em_snap.free_slots >= uk_reserve) {
             bypass_hr = 1u;
         }
         ev.constructor = (chosen >= 0) &&
@@ -3420,8 +3432,8 @@ HF_MOD_EXPORT int hellforge_mod_init(const HfApi* api, HfMod* mod)
     if (HasChannelSend()) api->subscribe(mod, HF_ON_MESSAGE, OnMessage, NULL, 0);
     if (HasChannelShare()) api->subscribe(mod, HF_ON_SHARE, OnShare, NULL, 0);
 
-    SetStatusOnce("Chaos Invasions 0.5.1 ready");
-    api->log(mod, "CHAOS_INIT: version=0.5.1 build=25480438 sdk=16 preset=%s d12_name=\"%s\" enabled=%d cooldown=%d grace=%d cap=%d faction_cap=%d squad=%d budget=%d",
+    SetStatusOnce("Chaos Invasions 0.5.2 ready");
+    api->log(mod, "CHAOS_INIT: version=0.5.2 build=25480438 sdk=16 preset=%s d12_name=\"%s\" enabled=%d cooldown=%d grace=%d cap=%d faction_cap=%d squad=%d budget=%d",
              cd_theater_preset_name(g_host_opts.theater_preset),
              ChaosD12DisplayName(),
              config.enabled, config.cooldown, config.grace, config.total_cap, config.faction_cap,

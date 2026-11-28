@@ -1,12 +1,17 @@
 param(
-    [string]$Zig = 'D:\ClaudeWork\workstreams-v21\code-mods\tools\zig\zig.exe'
+    [string]$Zig = $(if (Test-Path -LiteralPath 'D:\HellForge\tools\zig\zig.exe') { 'D:\HellForge\tools\zig\zig.exe' } else { 'D:\ClaudeWork\workstreams-v21\code-mods\tools\zig\zig.exe' }),
+    [string]$Sdk = ''
 )
 
 $ErrorActionPreference = 'Stop'
 $TestsDir = $PSScriptRoot
 $ModRoot = Split-Path $TestsDir -Parent
 $WriterSrc = Join-Path $ModRoot 'src'
-$WriterSdk = if (Test-Path -LiteralPath 'D:\ClaudeWork\hellforge-src\native\mod-sdk\hellforge_mod.h') {
+$WriterSdk = if ($Sdk -and (Test-Path -LiteralPath (Join-Path $Sdk 'hellforge_mod.h'))) {
+    $Sdk
+} elseif (Test-Path -LiteralPath 'D:\ClaudeWork\hellforge-0.5-probe\hf05\app\sdk\hellforge_mod.h') {
+    'D:\ClaudeWork\hellforge-0.5-probe\hf05\app\sdk'
+} elseif (Test-Path -LiteralPath 'D:\ClaudeWork\hellforge-src\native\mod-sdk\hellforge_mod.h') {
     'D:\ClaudeWork\hellforge-src\native\mod-sdk'
 } elseif (Test-Path -LiteralPath (Join-Path $ModRoot 'sdk')) {
     Join-Path $ModRoot 'sdk'

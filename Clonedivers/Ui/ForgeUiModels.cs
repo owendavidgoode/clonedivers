@@ -60,7 +60,9 @@ public sealed record ForgeHomeState(
     bool MinimizeToTray = false,
     string SquidSkin = "mixed-covenant",
     bool DeathTrooperVoice = false,
-    string HostTheaterPreset = "clone-wars");
+    string HostTheaterPreset = "clone-wars",
+    bool PlayWithoutAccountSync = false,
+    string GalacticWar = "hellforge");
 
 public sealed record ForgeSetupState(
     int Step, // 1..4
@@ -87,7 +89,8 @@ public sealed record ForgeSetupState(
     bool PrimaryActionEnabled,
     bool ShowOfficialFallback,
     OperationProgress? Progress,
-    string[]? QrRows);
+    string[]? QrRows,
+    bool CanSkipAccountSync = false);
 
 public sealed record ForgeHealthItem(string Name, string Status, bool Healthy, bool Warning = false);
 
@@ -147,6 +150,7 @@ public interface IForgeUiHost : IAsyncDisposable
     Task UpdateCustomizationAsync(string enemySkin, bool deltaSquad, bool covenant, string texture, string? squidSkin = null, bool? deathTrooperVoice = null);
     Task SetPerformanceTierAsync(string tierId);
     Task UpdateHostMutatorsAsync(string chaosIntensity, string heavySeaf, bool fasterCorpseCleanup, string? theaterPreset = null);
+    Task SetGalacticWarAsync(string warMode);
     Task ApplyCustomizationNowAsync();
     Task TriggerPrimaryActionAsync();
     Task TriggerSecondaryActionAsync();
@@ -167,6 +171,7 @@ public interface IForgeUiHost : IAsyncDisposable
     Task BrowseSetupFolderAsync(bool existing);
     Task SetSetupTextureAsync(string texture);
     Task TriggerSetupPrimaryActionAsync();
+    Task SkipSetupAccountSyncAsync();
     void CancelSetupWork();
     Task OpenOfficialSetupFallbackAsync();
 

@@ -138,7 +138,7 @@ internal static class ForgePolishTests
         }
         finally { Game.IsRunningCheck = original; }
 
-        var status = new HellForgeStatus("/fixture", "0.4.0-beta", "25480438", true, true, false, true, true, null, "old crash", "old quit notice");
+        var status = new HellForgeStatus("/fixture", "0.5.0-beta", "25480438", true, true, false, true, true, null, "old crash", "old quit notice");
         var state = new ForgePlayerState(status, false, "", new(true, true, "Imported"), null);
         var prepare = ForgePresentation.Resolve(state, connected: true);
         check(prepare.Action == ForgeAction.Prepare && prepare.Detail == "Install the verified appearance and required gameplay mods before playing.", "session failure and quit notice leave mode preparation and its instruction intact");
@@ -161,9 +161,9 @@ internal static class ForgePolishTests
         check(ForgePresentation.FailureSummary("UnauthorizedAccessException: Access to '/home/pasta/forge' is denied").Contains("folder permissions"),
             "permission errors still map to folder permissions even if a path mentions pasta");
 
-        // QA Bugfix #2 & #4 + Version 0.10.0 checks on Linux
-        check(AppInfo.Version == (ForgeEntryPolicy.ForgeEdition ? "0.11.2" : "0.5.0"),
-            "Linux Forge assembly version is bumped to 0.11.2 (0.5.0 when ForgeEdition=false)");
+        // QA Bugfix #2 & #4 + Version 0.12.0 checks on Linux
+        check(AppInfo.Version == (ForgeEntryPolicy.ForgeEdition ? "0.12.0" : "0.5.0"),
+            "Linux Forge assembly version is bumped to 0.12.0 (0.5.0 when ForgeEdition=false)");
         using (var linuxIco = typeof(LinuxForgePlayer).Assembly.GetManifestResourceStream("Clonedivers.Icon.ico"))
         {
             check(linuxIco != null, "Clonedivers.Icon.ico is embedded in Clonedivers.Linux assembly");
@@ -204,7 +204,7 @@ internal static class ForgePolishTests
         foreach (var relative in new[] { "hellforge-install.json", "app/app-build.json", "app/cli-linux/HellForge.Cli", "app/backend-linux/HellForge.LocalBackend", "app/launcher-linux/HellForge.Launcher", "app/linux/hellforge-linux.sh", "app/linux/hf-sandbox" })
         { var file = Path.Combine(install, relative); Directory.CreateDirectory(Path.GetDirectoryName(file)!); File.WriteAllText(file, "fixture"); }
         File.WriteAllText(Path.Combine(install, "hellforge-install.json"), """{"schemaVersion":1,"buildId":"25480438"}""");
-        File.WriteAllText(Path.Combine(install, "app", "app-build.json"), """{"version":"0.4.0-beta","engine":"0.1.47"}""");
+        File.WriteAllText(Path.Combine(install, "app", "app-build.json"), """{"version":"0.5.0-beta","engine":"0.1.58"}""");
         var bridge = Path.Combine(area, "bridge"); File.WriteAllText(bridge, "fixture, never executed");
         var hash = Convert.ToHexString(SHA256.HashData(File.ReadAllBytes(bridge)));
 
@@ -284,7 +284,7 @@ internal static class ForgePolishTests
             }
             object result = args[0] switch
             {
-                "player-status" => new ForgePlayerState(new("/fixture", "0.4.0-beta", "25480438", GameCopyReady, true, Running, true, true, null, null), Account.Imported && GameCopyReady && !Running, "", Account, null),
+                "player-status" => new ForgePlayerState(new("/fixture", "0.5.0-beta", "25480438", GameCopyReady, true, Running, true, true, null, null), Account.Imported && GameCopyReady && !Running, "", Account, null),
                 "gameplay-status" => Array.Empty<GameplayArtifact>(),
                 _ => new { fixture = true }
             };

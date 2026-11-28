@@ -26,12 +26,13 @@ New-Item -ItemType Directory -Force $StageMod, $StageSdk, $StageTools | Out-Null
 New-Item -ItemType Junction -Path $StageZig -Target $Zig | Out-Null
 
 Copy-Item -LiteralPath (Join-Path $ModRoot 'src') -Destination $StageMod -Recurse -Force
-$SdkRoot = if (Test-Path -LiteralPath 'D:\ClaudeWork\hellforge-src\native\mod-sdk\hellforge_mod.h') {
-    'D:\ClaudeWork\hellforge-src\native\mod-sdk'
-} elseif (Test-Path -LiteralPath (Join-Path $ModRoot 'sdk')) {
+$CliSdk = Join-Path (Split-Path (Split-Path $Cli -Parent) -Parent) 'sdk'
+$SdkRoot = if (Test-Path -LiteralPath (Join-Path $CliSdk 'hellforge_mod.h')) {
+    $CliSdk
+} elseif (Test-Path -LiteralPath (Join-Path $ModRoot 'sdk\hellforge_mod.h')) {
     Join-Path $ModRoot 'sdk'
 } else {
-    Join-Path (Split-Path (Split-Path $Cli -Parent) -Parent) 'sdk'
+    'D:\ClaudeWork\hellforge-src\native\mod-sdk'
 }
 Copy-Item -Path (Join-Path $SdkRoot '*') -Destination $StageSdk -Force
 Copy-Item -LiteralPath (Join-Path $ModRoot 'hellforge-mod.json') -Destination $StageMod -Force
@@ -65,8 +66,8 @@ try {
 
     Copy-Item -LiteralPath (Join-Path $StageMod 'empire_atst_writer.dll') -Destination (Join-Path $BuildDir 'empire_atst_writer.dll') -Force
 
-    # 3. Package via HellForge CLI (v0.2.5)
-    $ZipFile = Join-Path $DistDir 'empire-atst-writer-0.2.5.zip'
+    # 3. Package via HellForge CLI (v0.2.6)
+    $ZipFile = Join-Path $DistDir 'empire-atst-writer-0.2.6.zip'
     if (Test-Path -LiteralPath $ZipFile) { Remove-Item -LiteralPath $ZipFile -Force }
     & $Cli package-mod --mod $StageMod --out $DistDir | Tee-Object -FilePath (Join-Path $BuildDir 'package.log')
     if ($LASTEXITCODE -ne 0) { throw "HellForge.Cli package-mod failed" }
@@ -74,7 +75,7 @@ try {
 
     $SharedDist = Join-Path (Split-Path $ModRoot -Parent) 'dist'
     if (Test-Path -LiteralPath $SharedDist) {
-        Copy-Item -LiteralPath $ZipFile -Destination (Join-Path $SharedDist 'empire-atst-writer-0.2.5.zip') -Force
+        Copy-Item -LiteralPath $ZipFile -Destination (Join-Path $SharedDist 'empire-atst-writer-0.2.6.zip') -Force
     }
 
     $HashOut = & $Cli mod-hash --mod $StageMod | Tee-Object -FilePath (Join-Path $BuildDir 'mod-hash.log')
@@ -85,9 +86,9 @@ try {
     $DllSha = (Get-FileHash -Algorithm SHA256 -LiteralPath (Join-Path $BuildDir 'empire_atst_writer.dll')).Hash.ToLowerInvariant()
 
     [ordered]@{
-        version = '0.2.5'
+        version = '0.2.6'
         zip_path = $ZipFile
-        shared_dist_path = (Join-Path $SharedDist 'empire-atst-writer-0.2.5.zip')
+        shared_dist_path = (Join-Path $SharedDist 'empire-atst-writer-0.2.6.zip')
         zip_bytes = $ZipBytes
         zip_sha256 = $ZipSha
         content_hash = $ContentHash

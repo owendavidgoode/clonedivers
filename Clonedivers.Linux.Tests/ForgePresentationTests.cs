@@ -4,7 +4,7 @@ internal static class ForgePresentationTests
 {
     internal static void Run(Action<bool, string> check)
     {
-        var status = new HellForgeStatus("/fixture", "0.4.0-beta", "25480438", true, true, false, true, true, null, null);
+        var status = new HellForgeStatus("/fixture", "0.5.0-beta", "25480438", true, true, false, true, true, null, null);
         var state = new ForgePlayerState(status, false, "raw internal diagnostic", new(false, true, "Imported"), null);
         check(ForgePresentation.Resolve().Action == ForgeAction.Setup, "a new Forge player gets one setup action");
         check(ForgePresentation.Resolve(state, connected: true).Action == ForgeAction.Prepare, "an incomplete mode offers setup");

@@ -400,6 +400,7 @@ internal static class Milestone2Tests
         typeof(ForgeShellWindow).GetMethod("RefreshAll", priv)!.Invoke(win, null);
 
         var squidPills = (Dictionary<string, ToggleButton>)typeof(ForgeShellWindow).GetField("squidPills", priv)!.GetValue(win)!;
+        var warPills = (Dictionary<string, ToggleButton>)typeof(ForgeShellWindow).GetField("warPills", priv)!.GetValue(win)!;
         var deltaRow = (Border)typeof(ForgeShellWindow).GetField("deltaRow", priv)!.GetValue(win)!;
         var deathTrooperRow = (Border)typeof(ForgeShellWindow).GetField("deathTrooperRow", priv)!.GetValue(win)!;
         var step4Tex = (Dictionary<string, Button>)typeof(ForgeShellWindow).GetField("setupStep4TextureButtons", priv)!.GetValue(win)!;
@@ -407,37 +408,58 @@ internal static class Milestone2Tests
         check(squidPills.Count == 3 &&
               squidPills.ContainsKey("mixed-covenant") && squidPills["mixed-covenant"].IsChecked == true &&
               squidPills.ContainsKey("all-covenant") && squidPills.ContainsKey("native-squids") &&
+              warPills.Count == 4 && warPills["hellforge"].IsChecked == true &&
+              warPills.ContainsKey("open") && warPills.ContainsKey("live") && warPills.ContainsKey("custom") &&
               deltaRow.IsVisible && !deathTrooperRow.IsVisible &&
               step4Tex.Count == 5 && step4Tex.ContainsKey("reduced1024") && step4Tex.ContainsKey("potato256"),
-              "ForgeShellWindow Customize renders 3-pill Squid Skin (Mixed Covenant default), Clones Delta Squad visible, Empire Death Trooper hidden on Clones, and 5 Step-4 texture buttons");
+              "ForgeShellWindow Customize renders 3-pill Squid Skin, 4-pill Galactic War (HellForge War default), Clones Delta Squad, and 5 Step-4 texture buttons");
+
+        previewHost.SetGalacticWarAsync("open").GetAwaiter().GetResult();
+        Avalonia.Threading.Dispatcher.UIThread.RunJobs();
+        check(warPills["open"].IsChecked == true && warPills["hellforge"].IsChecked != true,
+            "selecting All Planets Open updates Galactic War pills in Customize -> Advanced");
 
         previewHost.SelectModeAsync("empire").GetAwaiter().GetResult();
         Avalonia.Threading.Dispatcher.UIThread.RunJobs();
         check(!deltaRow.IsVisible && deathTrooperRow.IsVisible,
             "switching to Empire hides Clones Delta Squad and reveals Empire-only Encrypted Death Trooper Voice toggle");
         win.Close();
+
+        // HellForge 0.5 Step 3 'Play Now, Sync Later' secondary action advances directly to Step 4
+        var step3Host = new PreviewForgeHost("setup-step3-sync");
+        var step3Win = new ForgeShellWindow(step3Host, "setup");
+        step3Host.EnterSetupAsync().GetAwaiter().GetResult();
+        Avalonia.Threading.Dispatcher.UIThread.RunJobs();
+        var skipBtn = (Button)typeof(ForgeShellWindow).GetField("setupSkipSyncButton", priv)!.GetValue(step3Win)!;
+        check(skipBtn.IsVisible && skipBtn.IsEnabled && skipBtn.Content?.ToString() == "Play Now, Sync Later",
+            "Guided Setup Step 3 renders enabled 'Play Now, Sync Later' secondary button on HellForge 0.5");
+        step3Host.SkipSetupAccountSyncAsync().GetAwaiter().GetResult();
+        Avalonia.Threading.Dispatcher.UIThread.RunJobs();
+        check(step3Host.GetSetupState().Step == 4 && !skipBtn.IsVisible,
+            "clicking 'Play Now, Sync Later' advances setup to Step 4 and hides the Step 3 skip button");
+        step3Win.Close();
     }
 
     static void TestR8CatalogDraftAndSources(Action<bool, string> check)
     {
-        check(HellForgeGameplayCatalog.Pinned.Id == "build25480438-r15" &&
-              HellForgeGameplayCatalog.Current.Id == "build25480438-r15" &&
+        check(HellForgeGameplayCatalog.Pinned.Id == "build25480438-r16" &&
+              HellForgeGameplayCatalog.Current.Id == "build25480438-r16" &&
               HellForgeGameplayCatalog.Pinned.Artifacts.Count == 18,
-              "HellForgeGameplayCatalog activates build25480438-r15 (18 artifacts) as the pinned default");
+              "HellForgeGameplayCatalog activates build25480438-r16 (18 artifacts) as the pinned default");
 
-        var r15Json = Encoding.UTF8.GetString(ReadResourceBytes("Clonedivers.Forge.Gameplay.json"));
-        var r15 = JsonSerializer.Deserialize<HellForgeGameplayCatalog>(r15Json, HellForgePack.Json)!;
-        r15.ValidateDraft();
+        var r16Json = Encoding.UTF8.GetString(ReadResourceBytes("Clonedivers.Forge.Gameplay.json"));
+        var r16 = JsonSerializer.Deserialize<HellForgeGameplayCatalog>(r16Json, HellForgePack.Json)!;
+        r16.ValidateDraft();
 
-        check(r15.Id == "build25480438-r15" &&
-              r15.GameBuild == HellForgePack.SupportedBuild &&
-              r15.Artifacts.Count == 18 &&
-              r15.Order.Count == 21 &&
-              r15.Order[^1] == HellForgePreset.BingusSharedLoader &&
-              !r15.Artifacts.Any(a => a.Url.Contains("hf-mod.com", StringComparison.OrdinalIgnoreCase)),
-              "forge-gameplay-build25480438-r15.json passes ValidateDraft with 18 artifacts, 21 ordered IDs, zero hf-mod.com URLs, and Bingus Shared Loader last");
+        check(r16.Id == "build25480438-r16" &&
+              r16.GameBuild == HellForgePack.SupportedBuild &&
+              r16.Artifacts.Count == 18 &&
+              r16.Order.Count == 21 &&
+              r16.Order[^1] == HellForgePreset.BingusSharedLoader &&
+              !r16.Artifacts.Any(a => a.Url.Contains("hf-mod.com", StringComparison.OrdinalIgnoreCase)),
+              "forge-gameplay-build25480438-r16.json passes ValidateDraft with 18 artifacts, 21 ordered IDs, zero hf-mod.com URLs, and Bingus Shared Loader last");
 
-        // Verify all 9 updated/new v2.1..v2.2.2 code-mod manifests match r15 IDs, versions, and co-op/gameplay flags
+        // Verify all 9 updated/new v2.1..v2.3.0 code-mod manifests match r16 IDs, versions, and co-op/gameplay flags
         var expectedMods = new (string Resource, string Id, bool ExpectedGameplay, bool ExpectedOptional)[]
         {
             ("Clonedivers.Tests.CleanExit.json", HellForgePreset.CleanExit, false, true),
@@ -453,7 +475,7 @@ internal static class Milestone2Tests
 
         foreach (var (resName, id, expectedGameplay, expectedOptional) in expectedMods)
         {
-            var art = r15.Artifacts.Single(a => a.Id == id);
+            var art = r16.Artifacts.Single(a => a.Id == id);
             using var doc = JsonDocument.Parse(ReadResourceBytes(resName));
             var rootEl = doc.RootElement;
             check(rootEl.GetProperty("id").GetString() == id &&
@@ -464,21 +486,22 @@ internal static class Milestone2Tests
                    art.Url.Contains("/releases/download/forge-mods-2026-11-23/", StringComparison.Ordinal) ||
                    art.Url.Contains("/releases/download/forge-mods-2026-11-25/", StringComparison.Ordinal) ||
                    art.Url.Contains("/releases/download/forge-mods-2026-11-26/", StringComparison.Ordinal) ||
-                   art.Url.Contains("/releases/download/forge-mods-2026-11-27/", StringComparison.Ordinal)) &&
+                   art.Url.Contains("/releases/download/forge-mods-2026-11-27/", StringComparison.Ordinal) ||
+                   art.Url.Contains("/releases/download/forge-mods-2026-11-28/", StringComparison.Ordinal)) &&
                   art.Bytes > 0 &&
                   FileSafety.IsSha256(art.Sha256) &&
                   FileSafety.IsSha256(art.ContentHash),
-                  $"r15 artifact '{id}' ({art.Version}) matches forge-mods hellforge-mod.json, targets forge-mods-2026-11-22..27, and pins valid hashes");
+                  $"r16 artifact '{id}' ({art.Version}) matches forge-mods hellforge-mod.json, targets forge-mods-2026-11-22..28, and pins valid hashes");
         }
 
-        // SquadFingerprint client-only vs gameplay classification for r15 mods
+        // SquadFingerprint client-only vs gameplay classification for r16 mods
         var camMod = new HellForgeMod(HellForgePreset.EmpireCameraPullback, "Empire & Clone Camera Pullback", true, "f", []);
         var meleeMod = new HellForgeMod(HellForgePreset.DedicatedMeleeSlot, "Dedicated Melee Slot", true, "f", []);
         var corpseMod = new HellForgeMod(HellForgePreset.FasterCorpseCleanup, "Faster Corpse Cleanup", true, "f", ["gameplay"]);
         check(!SquadFingerprint.IsGameplayMod(camMod) &&
               !SquadFingerprint.IsGameplayMod(meleeMod) &&
               SquadFingerprint.IsGameplayMod(corpseMod) &&
-              SquadFingerprint.Compute(r15).StartsWith("r15-", StringComparison.Ordinal),
+              SquadFingerprint.Compute(r16).StartsWith("r16-", StringComparison.Ordinal),
               "SquadFingerprint excludes per-player camera pullback & melee slot from squad hash while including gameplay corpse cleanup");
     }
 
@@ -601,7 +624,7 @@ internal static class Milestone2Tests
         File.WriteAllText(Path.Combine(install, "hellforge-install.json"), """{"schemaVersion":1,"buildId":"25480438"}""");
         File.WriteAllText(Path.Combine(install, "HellForge.exe"), "stub");
         File.WriteAllText(Path.Combine(install, "app", "cli", "HellForge.Cli.exe"), "stub");
-        File.WriteAllText(Path.Combine(install, "app", "app-build.json"), """{"version":"0.4.0-beta","engine":"0.1.47"}""");
+        File.WriteAllText(Path.Combine(install, "app", "app-build.json"), """{"version":"0.5.0-beta","engine":"0.1.58"}""");
 
         var fakeCmds = new StrayPackCommands(install, strayDemo with { Folder = Path.Combine(install, "mods", "stray-demo") });
         var client = new HellForgeClient(install, fakeCmds) { RequireCliQuiescent = () => { } };
@@ -628,7 +651,7 @@ internal static class Milestone2Tests
         {
             const BindingFlags fPriv = BindingFlags.Instance | BindingFlags.NonPublic;
             typeof(HellForgeForm).GetField("lastStatus", fPriv)!.SetValue(classicForm,
-                new HellForgeStatus(install, "0.4.0-beta", HellForgePack.SupportedBuild, true, true, Running: true, true, true, null, null, GameLaunched: null));
+                new HellForgeStatus(install, "0.5.0-beta", HellForgePack.SupportedBuild, true, true, Running: true, true, true, null, null, GameLaunched: null));
             typeof(HellForgeForm).GetField("awaitingGameWindow", fPriv)!.SetValue(classicForm, true);
             var msgLbl = (System.Windows.Forms.Label)typeof(HellForgeForm).GetField("message", fPriv)!.GetValue(classicForm)!;
             var progBar = (System.Windows.Forms.ProgressBar)typeof(HellForgeForm).GetField("progress", fPriv)!.GetValue(classicForm)!;
@@ -648,7 +671,7 @@ internal static class Milestone2Tests
 
             // Transition to gameLaunched = true -> progress.Visible & later.Visible clear cleanly
             typeof(HellForgeForm).GetField("lastStatus", fPriv)!.SetValue(classicForm,
-                new HellForgeStatus(install, "0.4.0-beta", HellForgePack.SupportedBuild, true, true, Running: true, true, true, null, null, GameLaunched: true));
+                new HellForgeStatus(install, "0.5.0-beta", HellForgePack.SupportedBuild, true, true, Running: true, true, true, null, null, GameLaunched: true));
             typeof(HellForgeForm).GetMethod("UpdateView", fPriv)!.Invoke(classicForm, null);
             var closingAfter = new System.Windows.Forms.FormClosingEventArgs(System.Windows.Forms.CloseReason.UserClosing, false);
             typeof(HellForgeForm).GetMethod("OnFormClosing", fPriv)!.Invoke(classicForm, [closingAfter]);
@@ -670,7 +693,7 @@ internal static class Milestone2Tests
         await using (var overlapHost = new WindowsForgeHost(hostPrefs) { IsGameProcessRunning = () => false })
         {
             typeof(WindowsForgeHost).GetField("lastStatus", priv)!.SetValue(overlapHost,
-                new HellForgeStatus(@"D:\FixtureForge", "0.4.0-beta", HellForgePack.SupportedBuild, true, true, false, true, true, null, null));
+                new HellForgeStatus(@"D:\FixtureForge", "0.5.0-beta", HellForgePack.SupportedBuild, true, true, false, true, true, null, null));
             typeof(WindowsForgeHost).GetField("lastMods", priv)!.SetValue(overlapHost,
                 new HellForgeMods([officialClones, strayDemo], [], null));
             check(!overlapHost.GetHomeState().IsModeAppliedOnDisk,
@@ -682,7 +705,7 @@ internal static class Milestone2Tests
         await using var winHost = new WindowsForgeHost(prefs) { IsGameProcessRunning = () => fakeGameRunning };
 
         typeof(WindowsForgeHost).GetField("lastStatus", priv)!.SetValue(winHost,
-            new HellForgeStatus(@"D:\FixtureForge", "0.4.0-beta", HellForgePack.SupportedBuild, true, true, Running: true, true, true, null, null, GameLaunched: null));
+            new HellForgeStatus(@"D:\FixtureForge", "0.5.0-beta", HellForgePack.SupportedBuild, true, true, Running: true, true, true, null, null, GameLaunched: null));
 
         // 1. Pre-window launching state (HellForge session accepted & staging mods, helldivers2.exe not yet running)
         var launchingState = winHost.GetHomeState();
@@ -775,6 +798,7 @@ internal static class Milestone2Tests
         public Task UpdateCustomizationAsync(string enemySkin, bool deltaSquad, bool covenant, string texture, string? squidSkin = null, bool? deathTrooperVoice = null) => Task.CompletedTask;
         public Task SetPerformanceTierAsync(string tierId) => Task.CompletedTask;
         public Task UpdateHostMutatorsAsync(string chaosIntensity, string heavySeaf, bool fasterCorpseCleanup, string? theaterPreset = null) => Task.CompletedTask;
+        public Task SetGalacticWarAsync(string warMode) => Task.CompletedTask;
         public Task ApplyCustomizationNowAsync() => Task.CompletedTask;
         public Task TriggerPrimaryActionAsync() { PrimaryCalls++; return Task.CompletedTask; }
         public Task TriggerSecondaryActionAsync() { SecondaryCalls++; return Task.CompletedTask; }
@@ -793,6 +817,7 @@ internal static class Milestone2Tests
         public Task BrowseSetupFolderAsync(bool existing) => Task.CompletedTask;
         public Task SetSetupTextureAsync(string texture) => Task.CompletedTask;
         public Task TriggerSetupPrimaryActionAsync() => Task.CompletedTask;
+        public Task SkipSetupAccountSyncAsync() => Task.CompletedTask;
         public void CancelSetupWork() { }
         public Task OpenOfficialSetupFallbackAsync() => Task.CompletedTask;
         public Task LocateInstallAsync() => Task.CompletedTask;
@@ -829,9 +854,9 @@ internal static class Milestone2Tests
                 return Task.FromResult(JsonDocument.Parse(JsonSerializer.Serialize(new
                 {
                     install = installRoot,
-                    hellforge = "0.4.0-beta",
-                    engine = "0.1.47",
-                    modSdk = 16,
+                    hellforge = "0.5.0-beta",
+                    engine = "0.1.58",
+                    modSdk = 20,
                     gameBuild = HellForgePack.SupportedBuild,
                     networkBlock = "wfp",
                     ready = new { gameCopy = true, sessionRunner = true },

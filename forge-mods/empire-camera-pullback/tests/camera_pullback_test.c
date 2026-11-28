@@ -1393,6 +1393,86 @@ static void test_proton_fallback_substep_caller_filter(void)
     g_origSubStep = NULL;
 }
 
+static void test_hellforge_05_relocated_4096_entity_manager(void)
+{
+    ResetHarnessScene();
+    g_mock_api.version = 20u;
+    TEST_CHECK(hellforge_mod_init(&g_mock_api, (HfMod*)&g_mock_mod_obj) == 0, "SDK 20 handshake succeeds");
+    ecp_test_bind_engine_fns(
+        (uintptr_t)g_mock_exe_module,
+        (uintptr_t)g_mock_game_module,
+        MockOrigStep,
+        MockSetLocalPose,
+        MockUpdateUnit,
+        MockLookupUnit,
+        MockMainWorld,
+        MockRaycast,
+        1);
+
+    const size_t arena_size = 0x2000000u;
+    uint8_t* combo = (uint8_t*)calloc(1, arena_size);
+    TEST_CHECK(combo != NULL, "allocated relocated 4,096-record EntityManager slab");
+    memcpy(combo, g_mock_entity_mgr, sizeof(g_mock_entity_mgr));
+    int32_t off1 = 0x1200000; /* +18 MB, exact multiple of 24 & 8 */
+    uint8_t* reloc_recs = combo + (size_t)off1;
+    int32_t off8 = off1 / 8;
+    uint32_t cap = 4096u;
+
+    uint8_t s_rec8[7] = {0x48u, 0x8Du, 0x80u, 0, 0, 0, 0};
+    uint8_t s_rec1[7] = {0x49u, 0x8Du, 0x85u, 0, 0, 0, 0};
+    uint8_t s_cnt1[7] = {0x8Bu, 0xD0u, 0xBAu, 0, 0, 0, 0};
+    uint8_t s_cnt2[7] = {0xF3u, 0x00u, 0x3Du, 0, 0, 0, 0};
+    memcpy(s_rec8 + 3u, &off8, 4u);
+    memcpy(s_rec1 + 3u, &off1, 4u);
+    memcpy(s_cnt1 + 3u, &cap, 4u);
+    memcpy(s_cnt2 + 3u, &cap, 4u);
+    memcpy(g_mock_game_module + CD_EM_SITE_REC8_RVA, s_rec8, 7u);
+    memcpy(g_mock_game_module + CD_EM_SITE_REC1_RVA, s_rec1, 7u);
+    memcpy(g_mock_game_module + CD_EM_SITE_CNT1_RVA, s_cnt1, 7u);
+    memcpy(g_mock_game_module + CD_EM_SITE_CNT2_RVA, s_cnt2, 7u);
+    g_emLayoutResolved = 0;
+
+    const uint32_t kSlot = 3500u;
+    const uint32_t kNet = 0x79u;
+    const uint32_t kEnt = 0x200079u;
+    EcpEntityDescriptor want = {kEcpWalkerResources[0], kEnt, 0x400010u, kNet, 1u};
+    memcpy(reloc_recs + (size_t)kSlot * 24u, &want, sizeof(want));
+
+    memset(combo + ECP_EM_NETWORK_MAP, 0, 20u);
+    memset(combo + ECP_EM_ENTITY_MAP, 0, 20u);
+    uintptr_t netPtr = (uintptr_t)g_mock_em_net_buckets;
+    uintptr_t entPtr = (uintptr_t)g_mock_em_ent_buckets;
+    uint32_t bCap = 64u, bEmpty = 0xFFFFFFFFu, bMult = 1u;
+    memcpy(combo + ECP_EM_NETWORK_MAP + 0u, &netPtr, 8u);
+    memcpy(combo + ECP_EM_NETWORK_MAP + 8u, &bCap, 4u);
+    memcpy(combo + ECP_EM_NETWORK_MAP + 12u, &bEmpty, 4u);
+    memcpy(combo + ECP_EM_NETWORK_MAP + 16u, &bMult, 4u);
+    memcpy(combo + ECP_EM_ENTITY_MAP + 0u, &entPtr, 8u);
+    memcpy(combo + ECP_EM_ENTITY_MAP + 8u, &bCap, 4u);
+    memcpy(combo + ECP_EM_ENTITY_MAP + 12u, &bEmpty, 4u);
+    memcpy(combo + ECP_EM_ENTITY_MAP + 16u, &bMult, 4u);
+
+    memset(g_mock_em_net_buckets, 0xFF, sizeof(g_mock_em_net_buckets));
+    memset(g_mock_em_ent_buckets, 0xFF, sizeof(g_mock_em_ent_buckets));
+    memcpy(g_mock_em_net_buckets + (kNet & 63u) * 8u + 0u, &kNet, 4u);
+    memcpy(g_mock_em_net_buckets + (kNet & 63u) * 8u + 4u, &kSlot, 4u);
+    memcpy(g_mock_em_ent_buckets + (kEnt & 63u) * 8u + 0u, &kEnt, 4u);
+    memcpy(g_mock_em_ent_buckets + (kEnt & 63u) * 8u + 4u, &kSlot, 4u);
+
+    EcpEntityDescriptor gotNet = {0}, gotEnt = {0};
+    TEST_CHECK(EcpReadDescriptorByNetwork((uintptr_t)combo, kNet, &gotNet) == 1 && gotNet.entity == kEnt,
+               "EcpReadDescriptorByNetwork resolves relocated slot 3,500 (> 2,048)");
+    TEST_CHECK(EcpReadDescriptorByEntity((uintptr_t)combo, kEnt, &gotEnt) == 1 && gotEnt.resource == kEcpWalkerResources[0],
+               "EcpReadDescriptorByEntity resolves relocated slot 3,500 (> 2,048)");
+
+    memset(g_mock_game_module + CD_EM_SITE_REC8_RVA, 0, 7u);
+    memset(g_mock_game_module + CD_EM_SITE_REC1_RVA, 0, 7u);
+    memset(g_mock_game_module + CD_EM_SITE_CNT1_RVA, 0, 7u);
+    memset(g_mock_game_module + CD_EM_SITE_CNT2_RVA, 0, 7u);
+    g_emLayoutResolved = 0;
+    free(combo);
+}
+
 int main(int argc, char** argv)
 {
     const char* temp_dir = argc > 1 ? argv[1] : NULL;
@@ -1411,7 +1491,8 @@ int main(int argc, char** argv)
     test_health_telemetry_and_hard_watchdog();
     test_h1_h2_m3_concurrency_and_vtable_guards();
     test_proton_fallback_substep_caller_filter();
+    test_hellforge_05_relocated_4096_entity_manager();
 
-    printf("empire-camera-pullback v0.1.3 unit suite: %d checks run, %d failed\n", g_tests_run, g_tests_failed);
+    printf("empire-camera-pullback v0.1.5 unit suite: %d checks run, %d failed\n", g_tests_run, g_tests_failed);
     return g_tests_failed == 0 ? 0 : 1;
 }

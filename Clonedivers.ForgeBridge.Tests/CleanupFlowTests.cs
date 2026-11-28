@@ -20,7 +20,7 @@ internal static class CleanupFlowTests
                     object result;
                     // Reuse even the SAME run folder after failed cleanup: only cleared ownership can refuse this stop.
                     if (args[0] == "status" && stops == 1) running = ++statusesAfterStop == 2;
-                    if (args[0] == "status") result = new { install = root, gameBuild = BridgeSession.Build, hellforge = "0.4.0-beta (d8a8b46)", engine = "0.1.47", modSdk = 16,
+                    if (args[0] == "status") result = new { install = root, gameBuild = BridgeSession.Build, hellforge = "0.5.0-beta (d8a8b46)", engine = "0.1.58", modSdk = 20,
                         networkBlock = "linux-netns", ready = new { linuxNamespace = true, gameCopy = true }, settings = new { sandbox = true },
                         session = new { running, lastRun = run, lastStatus = "observed", lastFailure = (string?)null } };
                     else if (args[0] == "play") { running = true; result = new { @event = "started", run }; }

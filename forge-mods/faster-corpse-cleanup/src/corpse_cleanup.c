@@ -13,7 +13,7 @@
 #include "clonedivers_host_options.h"
 
 #define CC_BUILD "25480438"
-#define CC_VERSION "1.0.6-clonedivers.3"
+#define CC_VERSION "1.0.6-clonedivers.4"
 #define CC_DEFAULT_ENDPOINT 120
 #define CC_COUNT(a) (sizeof(a)/sizeof((a)[0]))
 #define CC_STRIDE 22096u

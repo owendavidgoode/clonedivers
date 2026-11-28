@@ -509,6 +509,30 @@ static int EcpHashLookupU32(uintptr_t map_header, uint32_t key, uint32_t stride,
     return 0;
 }
 
+#include "clonedivers_em_layout.h"
+
+static CdEmLayout g_emLayout;
+static int g_emLayoutResolved = 0;
+
+static CdEmLayout EcpGetEmLayout(void)
+{
+    if (!g_emLayoutResolved) {
+        CdEmLayout lay = cd_em_default_layout();
+        if (g_gameBase != 0 && g_hf != NULL) {
+            if (g_hf->read_code != NULL) {
+                lay = cd_em_resolve_hf(g_gameBase, g_hf->read_code);
+            }
+            if (!lay.relocated && g_hf->read != NULL) {
+                lay = cd_em_resolve_hf(g_gameBase, g_hf->read);
+            }
+            g_emLayout = lay;
+            g_emLayoutResolved = 1;
+        }
+        return lay;
+    }
+    return g_emLayout;
+}
+
 static uintptr_t EcpGetEntityManager(void)
 {
     uintptr_t em = g_mod != NULL ? (uintptr_t)hf_global_EntityManager(g_mod) : 0;
@@ -521,12 +545,14 @@ static uintptr_t EcpGetEntityManager(void)
 static int EcpReadDescriptorByNetwork(uintptr_t em, uint32_t net_id, EcpEntityDescriptor* out_desc)
 {
     if (em == 0 || net_id == 0 || net_id == ECP_NET_ID_NONE || !out_desc) return 0;
+    CdEmLayout layout = EcpGetEmLayout();
     uint32_t idx = 0;
-    if (!EcpHashLookupU32(em + ECP_EM_NETWORK_MAP, net_id, 8u, 4u, &idx) || idx >= ECP_EM_DESC_MAX) {
+    if (!EcpHashLookupU32(em + ECP_EM_NETWORK_MAP, net_id, 8u, 4u, &idx) || idx >= layout.capacity) {
         return 0;
     }
+    uintptr_t rec = cd_em_record_at(em, layout.records_offset, idx);
     EcpEntityDescriptor d;
-    if (!EcpRead(em + ECP_EM_DESCRIPTORS + (uintptr_t)idx * ECP_EM_DESC_STRIDE, &d, sizeof(d))) {
+    if (!rec || !EcpRead(rec, &d, sizeof(d))) {
         return 0;
     }
     if (d.entity == 0u || d.entity == 0xFFFFFFFFu || d.network != net_id) return 0;
@@ -537,12 +563,14 @@ static int EcpReadDescriptorByNetwork(uintptr_t em, uint32_t net_id, EcpEntityDe
 static int EcpReadDescriptorByEntity(uintptr_t em, uint32_t entity_id, EcpEntityDescriptor* out_desc)
 {
     if (em == 0 || entity_id == 0 || entity_id == 0xFFFFFFFFu || !out_desc) return 0;
+    CdEmLayout layout = EcpGetEmLayout();
     uint32_t idx = 0;
-    if (!EcpHashLookupU32(em + ECP_EM_ENTITY_MAP, entity_id, 8u, 4u, &idx) || idx >= ECP_EM_DESC_MAX) {
+    if (!EcpHashLookupU32(em + ECP_EM_ENTITY_MAP, entity_id, 8u, 4u, &idx) || idx >= layout.capacity) {
         return 0;
     }
+    uintptr_t rec = cd_em_record_at(em, layout.records_offset, idx);
     EcpEntityDescriptor d;
-    if (!EcpRead(em + ECP_EM_DESCRIPTORS + (uintptr_t)idx * ECP_EM_DESC_STRIDE, &d, sizeof(d))) {
+    if (!rec || !EcpRead(rec, &d, sizeof(d))) {
         return 0;
     }
     if (d.entity != entity_id) return 0;
@@ -1839,6 +1867,7 @@ static void EcpOnGameLoaded(HfMod* mod, HfEvent event, void* user)
     size_t exe_sz = 0, game_sz = 0;
     g_exeBase = g_hf->module_base("helldivers2.exe", &exe_sz);
     g_gameBase = g_hf->module_base("game.dll", &game_sz);
+    g_emLayoutResolved = 0;
     if (g_exeBase == 0 || g_gameBase == 0) {
         if (g_hf->log) g_hf->log(mod, "off: helldivers2.exe or game.dll base unavailable");
         EcpSetStatus("off: module base unavailable");
@@ -1908,10 +1937,10 @@ static void EcpOnGameLoaded(HfMod* mod, HfEvent event, void* user)
     EcpUpdateArmForState(cur_state);
 
     if (g_opts.allow_experimental_spring_arm && g_hf->log) {
-        g_hf->log(mod, "note: allow_experimental_spring_arm is set, but raw game.dll .data spring-arm writes remain disabled in 0.1.4; using verified post-solve Havok raycast clamp");
+        g_hf->log(mod, "note: allow_experimental_spring_arm is set, but raw game.dll .data spring-arm writes remain disabled in 0.1.5; using verified post-solve Havok raycast clamp");
     }
     if (g_hf->log) {
-        g_hf->log(mod, "ready v0.1.4 (O(1) lookup + hot-prefix cam + Proton fallback, watchdog=%lluus): walker=%.2fm/+%.2fm (AT-ST=%.2fm/+%.2fm), lego=%s (%.2fm/%+.2fm), margin=%.2fm",
+        g_hf->log(mod, "ready v0.1.5 (O(1) lookup + hot-prefix cam + Proton fallback, watchdog=%lluus): walker=%.2fm/+%.2fm (AT-ST=%.2fm/+%.2fm), lego=%s (%.2fm/%+.2fm), margin=%.2fm",
             (unsigned long long)ECP_WATCHDOG_WARN_US,
             g_opts.walker_pullback_distance, g_opts.walker_lift_z,
             g_opts.atst_scaled_pullback_distance, g_opts.atst_scaled_lift_z,
@@ -1928,6 +1957,7 @@ HF_MOD_EXPORT int hellforge_mod_init(const HfApi* api, HfMod* mod)
 
     g_hf = api;
     g_mod = mod;
+    g_emLayoutResolved = 0;
     g_hookInstalled = 0;
     g_hookedRva = 0u;
     g_origStep = NULL;
@@ -2008,6 +2038,8 @@ static void ecp_test_bind_engine_fns(
 {
     g_exeBase = exe_base;
     g_gameBase = game_base;
+    g_emLayoutResolved = 0;
+    EcpGetEmLayout();
     g_origStep = orig_step;
     g_setLocalPose = set_pose;
     g_updateUnit = update_unit;

@@ -7,7 +7,7 @@ namespace Clonedivers.ForgeBridge.Tests;
 internal static class CompatibilityTests
 {
     static JsonObject Status(string root) => JsonSerializer.SerializeToNode(new {
-        install = root, hellforge = "0.4.0-beta (d8a8b46)", engine = "0.1.47", modSdk = 16, gameBuild = HellForgePack.SupportedBuild,
+        install = root, hellforge = "0.5.0-beta (d8a8b46)", engine = "0.1.58", modSdk = 20, gameBuild = HellForgePack.SupportedBuild,
         networkBlock = "wfp", ready = new { gameCopy = true, sessionRunner = true, linuxNamespace = false },
         settings = new { sandbox = true, multiplayer = true, localPlayFab = true },
         session = new { running = false, lastStatus = (string?)null, lastFailure = (string?)null }
@@ -18,16 +18,17 @@ internal static class CompatibilityTests
         var root = Path.Combine(Path.GetTempPath(), "clonedivers-compatibility-" + Guid.NewGuid().ToString("N"));
         var install = Path.Combine(root, "installation");
         check(HellForgeClient.PinnedProblem(Element(Status(install))) == null, "the pinned Windows HF/engine/SDK/WFP/sandbox status is accepted");
-        foreach (var name in new[] { "engine", "sdk", "sdk-string", "sdk-overflow", "hf", "missing-engine", "missing-sdk", "sandbox-off", "missing-sandbox", "no-isolation", "linux-marker-in-windows" })
+        foreach (var name in new[] { "engine", "sdk", "sdk-string", "sdk-overflow", "hf", "hf-040", "missing-engine", "missing-sdk", "sandbox-off", "missing-sandbox", "no-isolation", "linux-marker-in-windows" })
         {
             var status = Status(install);
             switch (name)
             {
-                case "engine": status["engine"] = "0.1.42"; break;
-                case "sdk": status["modSdk"] = 17; break;
-                case "sdk-string": status["modSdk"] = "15"; break;
+                case "engine": status["engine"] = "0.1.47"; break;
+                case "sdk": status["modSdk"] = 16; break;
+                case "sdk-string": status["modSdk"] = "20"; break;
                 case "sdk-overflow": status["modSdk"] = long.MaxValue; break;
-                case "hf": status["hellforge"] = "0.4.0"; break;
+                case "hf": status["hellforge"] = "0.5.0"; break;
+                case "hf-040": status["hellforge"] = "0.4.0-beta"; break;
                 case "missing-engine": status.Remove("engine"); break;
                 case "missing-sdk": status.Remove("modSdk"); break;
                 case "sandbox-off": status["settings"]!["sandbox"] = false; break;

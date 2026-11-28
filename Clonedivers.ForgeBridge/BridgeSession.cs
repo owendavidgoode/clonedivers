@@ -179,10 +179,10 @@ internal sealed class BridgeSession(Func<IReadOnlyList<string>, CancellationToke
             "mod-add" => ["--file"],
             "prepare-pack" => ["--file"],
             "install-gameplay" => ["--file"],
-            "select-mode" => ["--mode", "--delta", "--texture", "--droids", "--covenant", "--enemy-skin", "--squid-skin", "--deathtrooper", "--theater"],
-            "settings" => ["--profile", "--local-playfab", "--multiplayer", "--war"],
-            _ => throw new ArgumentException("Unsupported bridge command.")
-        };
+                "select-mode" => ["--mode", "--delta", "--texture", "--droids", "--covenant", "--enemy-skin", "--squid-skin", "--deathtrooper", "--theater", "--play-without-sync"],
+                "settings" => ["--profile", "--local-playfab", "--multiplayer", "--war"],
+                _ => throw new ArgumentException("Unsupported bridge command.")
+            };
         var values = new Dictionary<string, string>(StringComparer.Ordinal);
         for (var i = 1; i < args.Length; i += 2)
             if (i + 1 == args.Length || !allowed.Contains(args[i]) || !values.TryAdd(args[i], args[i + 1]))
@@ -195,18 +195,19 @@ internal sealed class BridgeSession(Func<IReadOnlyList<string>, CancellationToke
         if (args[0] is "mod-add" or "prepare-pack" or "install-gameplay" && (!values.TryGetValue("--file", out var file) ||
             (OperatingSystem.IsLinux() ? !Path.IsPathFullyQualified(file) || file.Split('/').Contains("..") : !file.StartsWith("C:\\", StringComparison.OrdinalIgnoreCase) || file.Split('\\').Contains(".."))))
             throw new ArgumentException("Import the verified artifact from this platform's staging cache.");
-        if (args[0] == "select-mode" && (values.Count is < 5 or > 9 ||
+        if (args[0] == "select-mode" && (values.Count is < 5 or > 10 ||
             values.GetValueOrDefault("--mode") is not ("regular" or "clonedivers" or "empire") ||
             values.GetValueOrDefault("--texture") is not ("full" or "lighter" or "reduced1024" or "reduced512" or "potato256") ||
             new[] { "--delta", "--droids", "--covenant" }.Any(k => values.GetValueOrDefault(k) is not ("yes" or "no")) ||
             (values.TryGetValue("--enemy-skin", out var skin) && skin is not ("all-droids" or "mixed-droids" or "native-automatons")) ||
             (values.TryGetValue("--squid-skin", out var squid) && squid is not ("all-covenant" or "mixed-covenant" or "native-squids")) ||
             (values.TryGetValue("--deathtrooper", out var dt) && dt is not ("yes" or "no")) ||
-            (values.TryGetValue("--theater", out var th) && !HostMutatorConfig.IsValidTheaterPreset(th))))
+            (values.TryGetValue("--theater", out var th) && !HostMutatorConfig.IsValidTheaterPreset(th)) ||
+            (values.TryGetValue("--play-without-sync", out var pws) && pws is not ("yes" or "no"))))
             throw new ArgumentException("Choose Regular, Clones or Empire with known texture/options values.");
         if (args[0] == "settings")
             foreach (var (key, value) in values)
-                if (key == "--profile" && value != "default" || key is "--local-playfab" or "--multiplayer" && value != "yes" || key == "--war" && value != "live")
-                    throw new ArgumentException("Player settings use the default account, local backend, Steam multiplayer and live war.");
+                if (key == "--profile" && value != "default" || key is "--local-playfab" or "--multiplayer" && value != "yes" || key == "--war" && !Clonedivers.HellForgeClient.IsValidWarMode(value))
+                    throw new ArgumentException("Player settings use the default account, local backend, Steam multiplayer and a supported Galactic War mode.");
     }
 }

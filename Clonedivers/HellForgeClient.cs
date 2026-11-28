@@ -48,6 +48,8 @@ public sealed class HellForgePreferences
     public bool HostFasterCorpseCleanup { get; set; } = true;
     public string HostTheaterPreset { get; set; } = "clone-wars";
     public int HostTheaterDefaultVersion { get; set; } = 3;
+    public bool PlayWithoutAccountSync { get; set; }
+    public string? GalacticWar { get; set; }
     public string? PlayerLabel { get; set; }
     public string? PreparedPack { get; set; }
     public string? AppliedSelection { get; set; }
@@ -200,6 +202,7 @@ public sealed class HellForgePreferences
         if (string.IsNullOrWhiteSpace(PendingStepDownReason)) PendingStepDownReason = null;
         if (string.IsNullOrWhiteSpace(PlayerLabel)) PlayerLabel = null;
         else PlayerLabel = PlayerLabel.Trim();
+        if (string.IsNullOrWhiteSpace(GalacticWar)) GalacticWar = null;
 
         if (Format != 1 || Mode is not ("regular" or "clonedivers" or "empire") ||
             Loadout is not ("account" or "armory" or "progression") ||
@@ -212,6 +215,7 @@ public sealed class HellForgePreferences
             !HostMutatorConfig.IsValidChaosIntensity(HostChaosIntensity) ||
             !HostMutatorConfig.IsValidHeavySeaf(HostHeavySeaf) ||
             !HostMutatorConfig.IsValidTheaterPreset(HostTheaterPreset) ||
+            (GalacticWar != null && !HellForgeClient.IsValidWarMode(GalacticWar)) ||
             (PlayerLabel != null && PlayerLabel.Length > 40))
             throw new InvalidDataException("Unsupported HellForge preferences. Restore hellforge.json from backup.");
         Loadout = "account";
@@ -499,7 +503,8 @@ public sealed partial class HellForgeClient(string root, IHellForgeCommands comm
         return new(returned, Text(json, "hellforge"), Text(json, "gameBuild"), Bool(ready, "gameCopy"), Bool(ready, "sessionRunner"),
             running, Bool(settings, "multiplayer"), Bool(settings, "localPlayFab"), lastStatus, failure, notice, InterruptedGameplayProblem() ?? InterruptedPackProblem(), PinnedProblem(json, LinuxNamespace),
             OptionalText(json, "engine"), json.TryGetProperty("modSdk", out var sdk) && sdk.ValueKind == JsonValueKind.Number && sdk.TryGetInt32(out var number) ? number : null,
-            HasRun: !string.IsNullOrWhiteSpace(lastRun) || !string.IsNullOrWhiteSpace(lastStatus), GameLaunched: gameLaunched);
+            HasRun: !string.IsNullOrWhiteSpace(lastRun) || !string.IsNullOrWhiteSpace(lastStatus), GameLaunched: gameLaunched,
+            GalacticWar: OptionalText(settings, "war"));
     }
 
     (string? Failure, string? Notice) CompletedGameDiagnostic(string? run, string build)
@@ -702,11 +707,20 @@ public sealed partial class HellForgeClient(string root, IHellForgeCommands comm
         { hostingProblem = "Could not verify HellForge mod-sharing settings: " + e.Message; }
         return new(mods, json.GetProperty("problems").EnumerateArray().Select(p => p.ToString()).ToArray(), OptionalText(json, "modlist"), hostingProblem);
     }
+    public static bool IsValidWarMode(string? value) => value is "hellforge" or "open" or "live" or "custom" or "frozen";
+
+    public async Task SetGalacticWarAsync(string warMode, CancellationToken ct = default)
+    {
+        if (!IsValidWarMode(warMode)) throw new ArgumentException($"Unsupported Galactic War mode: {warMode}", nameof(warMode));
+        await RequireIdleAsync(ct);
+        await commands.RunAsync(["settings", "--war", warMode], ct);
+    }
+
     internal static string? PinnedProblem(JsonElement json, bool linuxNamespace = false)
     {
         if (!HellForgeRelease.Supports(OptionalText(json, "hellforge")) || OptionalText(json, "engine") != HellForgeRelease.Engine ||
             !json.TryGetProperty("modSdk", out var sdk) || sdk.ValueKind != JsonValueKind.Number || !sdk.TryGetInt32(out var sdkNumber) || sdkNumber != HellForgeRelease.Sdk)
-            return "This preset requires HellForge 0.4.0-beta, engine0.1.47 and SDK16. Review the installed version in official HellForge before preparing or launching; the launcher will not change engines.";
+            return "This preset requires HellForge 0.5.0-beta, engine 0.1.58 and SDK 20. Use Upgrade HellForge or review the installed version in official HellForge before preparing or launching.";
         static bool True(JsonElement parent, string key) => parent.ValueKind == JsonValueKind.Object && parent.TryGetProperty(key, out var value) && value.ValueKind == JsonValueKind.True;
         if (!json.TryGetProperty("settings", out var settings) || !True(settings, "sandbox") ||
             (linuxNamespace ? OptionalText(json, "networkBlock") != "linux-netns" : OptionalText(json, "networkBlock") is not ("wfp" or "firewall")) ||
@@ -799,7 +813,7 @@ public sealed partial class HellForgeClient(string root, IHellForgeCommands comm
         if (HellForgeAccount.CaptureBlock() is { } capture) throw new InvalidOperationException(capture);
         var profiles = await commands.RunAsync(["profiles"], ct);
         var account = profiles.GetProperty("profiles").EnumerateArray().FirstOrDefault(p => Text(p, "name") == HellForgeAccount.Profile);
-        if (account.ValueKind == JsonValueKind.Undefined || Text(account, "template") != "starter")
+        if (account.ValueKind == JsonValueKind.Undefined || !HellForgeAccount.IsSupportedAccountTemplate(Text(account, "template")))
             throw new InvalidDataException("The default account profile is missing or uses a test template. Restore it in HellForge before syncing; existing characters will not be reset.");
         if (reviewCapture) await new HellForgeAccount(Root).BindLegacyReceiptAsync(ct);
         else new HellForgeAccount(Root).DisableAutoApply();
@@ -812,6 +826,21 @@ public sealed partial class HellForgeClient(string root, IHellForgeCommands comm
         await SelectAccountAsync(ct);
         var account = await new HellForgeAccount(Root).ReadAsync(ct);
         if (!account.Imported) throw new InvalidOperationException(account.Message);
+        return HellForgeAccount.Profile;
+    }
+
+    public async Task<string> EnsureStarterOrImportedAccountAsync(CancellationToken ct = default)
+    {
+        var acct = new HellForgeAccount(Root);
+        if (!HellForgeAccount.CanPlayWithoutSync(Root))
+            return await EnsureAccountAsync(ct);
+        if (acct.HasPendingJournal())
+        {
+            var pendingState = await acct.ReadAsync(ct);
+            if (!pendingState.Imported) throw new InvalidOperationException(pendingState.Message);
+            return HellForgeAccount.Profile;
+        }
+        await SelectAccountAsync(ct, reviewCapture: false);
         return HellForgeAccount.Profile;
     }
 
@@ -1400,6 +1429,7 @@ public sealed partial class HellForgeClient(string root, IHellForgeCommands comm
             var version = OptionalText(doc.RootElement, "version");
             var engine = OptionalText(doc.RootElement, "engine");
             return HellForgeRelease.Supports(version) && engine == HellForgeRelease.Engine ||
+                version != null && System.Text.RegularExpressions.Regex.IsMatch(version, @"^0\.4\.0-beta(?: \([0-9a-f]{7,40}\))?$") && engine == "0.1.47" ||
                 version != null && (version == "0.3.0-beta" || System.Text.RegularExpressions.Regex.IsMatch(version, @"^0\.3\.0-beta \([0-9a-f]{7,40}\)$")) && engine == "0.1.41";
         }
         var engineJson = Path.Combine(root, "app", "engine.json");
@@ -1410,7 +1440,7 @@ public sealed partial class HellForgeClient(string root, IHellForgeCommands comm
             using var doc = JsonDocument.Parse(File.ReadAllText(engineJson));
             var version = OptionalText(doc.RootElement, "version");
             var build = OptionalText(doc.RootElement, "build");
-            return version is HellForgeRelease.Engine or "0.1.41" && (build == null || build == HellForgePack.SupportedBuild);
+            return version is HellForgeRelease.Engine or "0.1.47" or "0.1.41" && (build == null || build == HellForgePack.SupportedBuild);
         }
         return false;
     }

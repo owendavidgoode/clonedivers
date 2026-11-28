@@ -12,7 +12,7 @@ internal sealed record LinuxForgePlan(string Install, string Prefix, string Wind
     internal bool NativeControl { get; init; }
     internal const string NativeBridgeName = "HellForge.Launcher.ClonediversBridge";
     internal const string BridgeName = "HellForge.Launcher.ClonediversBridge.exe";
-    internal const string BridgeVersion = "0.4.0";
+    internal const string BridgeVersion = "0.5.0";
     internal const string GameBuild = "25480438";
     internal static bool SupportsArchitecture(Architecture architecture) => architecture == Architecture.X64;
     internal static readonly string[] Scripts = ["hellforge-linux.sh", "hellforge-offline.sh", "hf-inner.sh", "hf-bridge-host.sh", "allow-namespace.sh"];
@@ -29,10 +29,10 @@ internal sealed record LinuxForgePlan(string Install, string Prefix, string Wind
         }
         if (drive?.Parent?.Parent is not { } prefix) throw new InvalidDataException("Choose Forge inside its dedicated prefix's pfx/drive_c folder.");
         foreach (var relative in new[] { "hellforge-install.json", "app/app-build.json", "app/cli-linux/HellForge.Cli", "app/backend-linux/HellForge.LocalBackend", "app/launcher-linux/HellForge.Launcher", "app/linux/hellforge-linux.sh", "app/linux/hf-sandbox" })
-        { var file = Path.Combine(root, relative); RejectLinks(file); if (!File.Exists(file)) throw new FileNotFoundException("Upgrade through Forge setup: native 0.4 component missing: " + relative); }
+        { var file = Path.Combine(root, relative); RejectLinks(file); if (!File.Exists(file)) throw new FileNotFoundException("Upgrade through Forge setup: native 0.5 component missing: " + relative); }
         using var build = JsonDocument.Parse(File.ReadAllText(Path.Combine(root, "app", "app-build.json")));
-        if (build.RootElement.GetProperty("version").GetString() != "0.4.0-beta" || build.RootElement.GetProperty("engine").GetString() != "0.1.47")
-            throw new InvalidDataException("Use Setup to upgrade this installation to official Forge 0.4.0-beta/engine0.1.47.");
+        if (!HellForgeRelease.Supports(build.RootElement.GetProperty("version").GetString()) || build.RootElement.GetProperty("engine").GetString() != HellForgeRelease.Engine)
+            throw new InvalidDataException("Use Setup to upgrade this installation to official Forge 0.5.0-beta/engine 0.1.58.");
         using var marker = JsonDocument.Parse(File.ReadAllText(Path.Combine(root, "hellforge-install.json")));
         if (marker.RootElement.GetProperty("schemaVersion").GetInt32() != 1 || marker.RootElement.GetProperty("buildId").GetString() != GameBuild)
             throw new InvalidDataException("Unsupported Forge installation/build.");

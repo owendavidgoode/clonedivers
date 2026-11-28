@@ -82,14 +82,53 @@ static uintptr_t mock_component_record(const char* comp, uint64_t res, uint32_t*
     return 0;
 }
 
+static int g_mock_reloc_em_enabled = 0;
+static int32_t g_mock_reloc_em_offset = 0;
+static uint32_t g_mock_reloc_em_cap = 4096u;
+static uintptr_t g_fake_registry_override = 0u;
+static size_t g_fake_registry_override_size = 0u;
+
 static int mock_read(uintptr_t at, void* out, size_t n)
 {
+    if (g_mock_reloc_em_enabled && n == 7u) {
+        if (at == g_fake_game_base + CD_EM_SITE_REC8_RVA) {
+            uint8_t b[7] = {0x48u, 0x8Du, 0x80u, 0, 0, 0, 0};
+            int32_t v = g_mock_reloc_em_offset / 8;
+            memcpy(b + 3u, &v, 4u);
+            memcpy(out, b, 7u);
+            return 0;
+        }
+        if (at == g_fake_game_base + CD_EM_SITE_REC1_RVA) {
+            uint8_t b[7] = {0x49u, 0x8Du, 0x85u, 0, 0, 0, 0};
+            memcpy(b + 3u, &g_mock_reloc_em_offset, 4u);
+            memcpy(out, b, 7u);
+            return 0;
+        }
+        if (at == g_fake_game_base + CD_EM_SITE_CNT1_RVA) {
+            uint8_t b[7] = {0x8Bu, 0xD0u, 0xBAu, 0, 0, 0, 0};
+            memcpy(b + 3u, &g_mock_reloc_em_cap, 4u);
+            memcpy(out, b, 7u);
+            return 0;
+        }
+        if (at == g_fake_game_base + CD_EM_SITE_CNT2_RVA) {
+            uint8_t b[7] = {0xF3u, 0x00u, 0x3Du, 0, 0, 0, 0};
+            memcpy(b + 3u, &g_mock_reloc_em_cap, 4u);
+            memcpy(out, b, 7u);
+            return 0;
+        }
+    }
+    if (g_fake_registry_override != 0u &&
+        at >= g_fake_registry_override &&
+        at + n <= g_fake_registry_override + g_fake_registry_override_size) {
+        memcpy(out, (const void*)at, n);
+        return 0;
+    }
     if (at >= (uintptr_t)g_health_record && at + n <= (uintptr_t)g_health_record + sizeof g_health_record) {
         memcpy(out, (const void*)at, n);
         return 0;
     }
     if (at == g_fake_game_base + 0x346BF98u && n == 8) {
-        uintptr_t p = (uintptr_t)g_fake_registry;
+        uintptr_t p = g_fake_registry_override ? g_fake_registry_override : (uintptr_t)g_fake_registry;
         memcpy(out, &p, 8);
         return 0;
     }
@@ -582,6 +621,50 @@ int main(int argc, char** argv)
                   removal_budget == exp_budgets[ti],
                   "corpseTurboReaper=false + corpseDelaySeconds=2 preserves 2.0s delay and entity-threshold tier budget");
         }
+    }
+
+    /* 7b. HellForge 0.5.0-beta relocated 4,096-record EntityManager: phase-2 corpse at slot 3,100 (> 2,048) */
+    {
+        const size_t arena_size = 0x2000000u;
+        uint8_t* combo = (uint8_t*)calloc(1, arena_size);
+        CHECK(combo != NULL, "allocate contiguous EM + relocated records arena");
+        const uint32_t kSlot = 3100u;
+        const uint32_t kUnit = 0x910u;
+        const uint32_t kEntity = 0x920u;
+        setup_corpse_in_queue(kUnit, kEntity, 2u, 1u);
+        uint32_t bslot = (kEntity * 1u) & 63u;
+        memcpy(g_fake_buckets + bslot * 8u, &kEntity, 4u);
+        memcpy(g_fake_buckets + bslot * 8u + 4u, &kSlot, 4u);
+        uint32_t eight_wrecks = 8u;
+        memcpy(g_fake_queue + 0x818u, &eight_wrecks, 4u);
+
+        memcpy(combo, g_fake_registry, sizeof g_fake_registry);
+        g_mock_reloc_em_offset = 0x1200000; /* +18 MB, exact multiple of 24 & 8 */
+        uint8_t* d = combo + (size_t)g_mock_reloc_em_offset + (size_t)kSlot * 24u;
+        uint64_t res = cc_targets[0].resource;
+        memcpy(d + 0u, &res, 8u);
+        memcpy(d + 8u, &kEntity, 4u);
+        memcpy(d + 12u, &kUnit, 4u);
+        d[20] = 1u;
+
+        g_fake_registry_override = (uintptr_t)combo;
+        g_fake_registry_override_size = arena_size;
+        g_mock_reloc_em_enabled = 1;
+
+        unsigned prev_removed = g_mock_remove_calls;
+        for (int step = 0; step < 30; ++step) {
+            factory_credit = 4.0f;
+            cc_factory_update((uintptr_t)g_fake_queue, 0.25f);
+        }
+        CHECK(s_em_desc_cap == 4096u && g_mock_remove_calls > prev_removed && g_last_removed_entity == kEntity,
+              "HellForge 0.5 relocated 4,096-slot EM reaps phase-2 corpse at descriptor slot 3,100");
+        CHECK(((pending_bits[kSlot / 8u] >> (kSlot % 8u)) & 1u) == 1u,
+              "pending_bits records descriptor slot 3,100 without OOB");
+
+        g_mock_reloc_em_enabled = 0;
+        g_fake_registry_override = 0u;
+        g_fake_registry_override_size = 0u;
+        free(combo);
     }
 
     /* 8. HF_EVENT_SESSION_END disarms cleanly */

@@ -2,8 +2,8 @@
   "format": 1,
   "id": "clonedivers.empire-atst-writer",
   "name": "Empire AT-ST Film-Scale Leaf Writer",
-  "version": "0.2.5",
-  "description": "SDK-16 visual-only S2c joint-aware leaf writer (0.2.5) for film-scale Patriot EXO-45 (79E4B3D2DA5E45E3), Emancipator EXO-49 (C2D449ECF7FACAB1), Lumberer EXO-51 (7B2326F6FD9C8069), and Breakthrough EXO-55 (35DBF54F016F3624): HF_ON_SPAWN + 524k-unit Mega City burst admission (<50 ms), sticky SSE flag resilience, 4 concurrent co-op walkers, pre-resolved MeshObject seqlock, RenderHandle 1E7CD0 retirement, and fail-closed passthrough.",
+  "version": "0.2.6",
+  "description": "SDK-16+ visual-only S2c joint-aware leaf writer (0.2.6) for film-scale Patriot EXO-45 (79E4B3D2DA5E45E3), Emancipator EXO-49 (C2D449ECF7FACAB1), Lumberer EXO-51 (7B2326F6FD9C8069), and Breakthrough EXO-55 (35DBF54F016F3624): HellForge 0.4/0.5 (SDK 16-20+) forward-compatible handshake, HF_ON_SPAWN + 524k-unit Mega City burst admission (<50 ms), sticky SSE flag resilience, 4 concurrent co-op walkers, pre-resolved MeshObject seqlock, RenderHandle 1E7CD0 retirement, and fail-closed passthrough.",
   "gameplay": false,
   "coop": "per-player",
   "code": {
