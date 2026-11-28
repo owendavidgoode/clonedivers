@@ -59,7 +59,7 @@ static class ForgeClarityTests
     static List<HellForgeMod> BuildReadyMods(string root)
     {
         var mods = HellForgePreset.Required.Select(item => new HellForgeMod(item.Id, item.Name, true, Path.Combine(root, "mods", item.Id), [], item.Version,
-            item.Id == HellForgePreset.GuardDogs ? [new("Smarter Guard Dogs and Sentries", true), new("Guard Dogs", true), new("Sentries", true), new("Intelligence", true), new("Safety", true), new("Sentry Safety", true), new("SEAF Safety", true), new("Targeting Marker", false)] : null)).ToList();
+            item.Id == HellForgePreset.GuardDogs ? [new("Smarter Guard Dogs and Sentries", true), new("Guard Dogs", true), new("Sentries", true), new("Intelligence", true), new("Safety", true), new("Sentry Safety", false), new("SEAF Safety", false), new("Targeting Laser", false), new("Targeting Marker", false)] : null)).ToList();
         mods.Add(new("skyeshade.vanilla-plus", "Vanilla Plus", true, Path.Combine(root, "mods", "vanilla-plus"), []));
         mods.Sort((a, b) => HellForgeGameplayCatalog.Pinned.Order.IndexOf(a.Id).CompareTo(HellForgeGameplayCatalog.Pinned.Order.IndexOf(b.Id)));
         return mods;

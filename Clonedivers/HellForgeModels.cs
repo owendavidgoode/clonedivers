@@ -81,6 +81,94 @@ public static class HellForgeRelease
                 File.WriteAllLines(listFile, files);
             }
         }
+        PatchLinuxInnerWrapper(fullRoot);
+    }
+
+    const string UnpatchedLinuxInnerAnchor =
+        "while [[ \"$parent\" =~ ^[0-9]+$ ]] && [ \"$parent\" -gt 1 ]; do\n" +
+        "    wrapper_pids+=\" $parent\"\n" +
+        "    parent=\"$(awk '/^PPid:/ { print $2 }' \"/proc/$parent/status\" 2>/dev/null || true)\"\n" +
+        "done\n\n" +
+        "of_this_install() {\n" +
+        "    local pid=\"$1\" text exe cwd\n" +
+        "    for w in $wrapper_pids; do [ \"$pid\" = \"$w\" ] && return 1; done\n" +
+        "    text=\"$({ tr '\\0' '\\n' < \"/proc/$pid/cmdline\"; } 2>/dev/null || true)\"";
+
+    const string PatchedLinuxInnerReplacement =
+        "while [[ \"$parent\" =~ ^[0-9]+$ ]] && [ \"$parent\" -gt 1 ]; do\n" +
+        "    wrapper_pids+=\" $parent\"\n" +
+        "    parent=\"$(awk '/^PPid:/ { print $2 }' \"/proc/$parent/status\" 2>/dev/null || true)\"\n" +
+        "done\n" +
+        "self_cmdline=\"$({ tr '\\0' '\\n' < \"/proc/$$/cmdline\"; } 2>/dev/null || true)\"\n\n" +
+        "of_this_install() {\n" +
+        "    local pid=\"$1\" text exe cwd\n" +
+        "    for w in $wrapper_pids; do [ \"$pid\" = \"$w\" ] && return 1; done\n" +
+        "    text=\"$({ tr '\\0' '\\n' < \"/proc/$pid/cmdline\"; } 2>/dev/null || true)\"\n" +
+        "    [ -n \"$self_cmdline\" ] && [ \"$text\" = \"$self_cmdline\" ] && return 1";
+
+    /// <summary>
+    /// Idempotently patches deployed &lt;root&gt;/app/linux/hf-inner.sh (and &lt;root&gt;/hf-inner.sh if present)
+    /// with the Issue #44 self_cmdline command-substitution subshell exclusion guard so post-crash cleanup
+    /// never deadlocks matching its own $(all_ gone) subshell. Leaves future upstream fixes untouched.
+    /// </summary>
+    public static int PatchLinuxInnerWrapper(string? root)
+    {
+        if (string.IsNullOrWhiteSpace(root)) return 0;
+        var fullRoot = Path.GetFullPath(root);
+        int patched = 0;
+        foreach (var relative in new[] { Path.Combine("app", "linux", "hf-inner.sh"), "hf-inner.sh" })
+        {
+            var candidate = Path.Combine(fullRoot, relative);
+            if (PatchLinuxInnerScriptFile(candidate))
+                patched++;
+        }
+        return patched;
+    }
+
+    public static bool PatchLinuxInnerScriptFile(string scriptPath)
+    {
+        if (string.IsNullOrWhiteSpace(scriptPath)) return false;
+        var full = Path.GetFullPath(scriptPath);
+        HellForgeGameplayCatalog.RejectLinks(full);
+        if (!File.Exists(full)) return false;
+        var info = new FileInfo(full);
+        if (info.Length <= 0 || info.Length > 512 * 1024) return false;
+
+        var raw = File.ReadAllText(full, new System.Text.UTF8Encoding(encoderShouldEmitUTF8Identifier: false));
+        // Already patched by Clonedivers or fixed upstream (e.g. self_cmdline or BASHPID).
+        if (raw.Contains("self_cmdline", StringComparison.Ordinal) || raw.Contains("BASHPID", StringComparison.Ordinal))
+            return false;
+
+        var lf = raw.Replace("\r\n", "\n", StringComparison.Ordinal);
+        int idx = lf.IndexOf(UnpatchedLinuxInnerAnchor, StringComparison.Ordinal);
+        if (idx < 0)
+            return false;
+
+        var updated = string.Concat(lf.AsSpan(0, idx), PatchedLinuxInnerReplacement, lf.AsSpan(idx + UnpatchedLinuxInnerAnchor.Length));
+        var temp = full + ".clonedivers-" + Guid.NewGuid().ToString("N") + ".tmp";
+        HellForgeGameplayCatalog.RejectLinks(temp);
+        UnixFileMode? existingMode = null;
+        if (OperatingSystem.IsLinux())
+        {
+            try { existingMode = File.GetUnixFileMode(full); }
+            catch (Exception e) when (e is IOException or UnauthorizedAccessException) { }
+        }
+        try
+        {
+            File.WriteAllBytes(temp, new System.Text.UTF8Encoding(encoderShouldEmitUTF8Identifier: false).GetBytes(updated));
+            if (OperatingSystem.IsLinux())
+            {
+                var mode = existingMode ?? (UnixFileMode.UserRead | UnixFileMode.UserWrite | UnixFileMode.UserExecute | UnixFileMode.GroupRead | UnixFileMode.GroupExecute | UnixFileMode.OtherRead | UnixFileMode.OtherExecute);
+                File.SetUnixFileMode(temp, mode | UnixFileMode.UserExecute);
+            }
+            File.Move(temp, full, overwrite: true);
+            return true;
+        }
+        finally
+        {
+            try { if (File.Exists(temp)) File.Delete(temp); }
+            catch (Exception e) when (e is IOException or UnauthorizedAccessException) { }
+        }
     }
 
     static bool SameShippedBytes(string a, string b)

@@ -198,9 +198,11 @@ public static class UltrakillRuntimeProfile
     }
 
     /// <summary>
-    /// Suppresses Smarter SEAF 1.0.4's 500k–900k/sec Lua FFI ReadProcessMemory storm and Guard Dogs'
-    /// "SEAF Safety" Lua scan when Level 12 ULTRAKILL / Clone Wars theater is armed (keeping both mods
-    /// enabled in HellForge so Squad Match Codes stay identical), and restores them when disarmed.
+    /// Suppresses Smarter SEAF 1.0.4's 500k–900k/sec Lua FFI ReadProcessMemory storm when Level 12 ULTRAKILL /
+    /// Clone Wars theater is armed (keeping the mod enabled so Squad Match Codes stay identical), restores it
+    /// when disarmed, and ensures Smarter Guard Dogs &amp; Sentries keeps SEAF Safety, Sentry Safety, Targeting
+    /// Laser, and Targeting Marker OFF so turrets shoot enemies in heavy Clone/Stormtrooper SEAF battles and
+    /// Star Wars Guard Dog lasers have no barrel-laser visual conflict.
     /// </summary>
     public static async Task SyncCompanionModOptionsAsync(
         Func<string[], CancellationToken, Task> runCliAsync,
@@ -225,10 +227,11 @@ public static class UltrakillRuntimeProfile
         var dogs = catalog.Mods.SingleOrDefault(m => m.Id == HellForgePreset.GuardDogs && m.Enabled);
         if (dogs != null)
         {
-            var seafSafetyOn = dogs.Options?.SingleOrDefault(o => o.Name == "SEAF Safety")?.On;
-            bool desired = !enableUltrakill;
-            if (seafSafetyOn != desired)
-                await runCliAsync(["mod-pack", "--id", HellForgePreset.GuardDogs, "--option", "SEAF Safety", "--on", desired ? "yes" : "no"], ct).ConfigureAwait(false);
+            foreach (var offOption in HellForgePreset.GuardDogsRequiredOffOptions.Concat(HellForgePreset.GuardDogsAuxiliaryOffOptions))
+            {
+                if (dogs.Options?.SingleOrDefault(o => o.Name == offOption) is { On: true })
+                    await runCliAsync(["mod-pack", "--id", HellForgePreset.GuardDogs, "--option", offOption, "--on", "no"], ct).ConfigureAwait(false);
+            }
         }
     }
 

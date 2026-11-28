@@ -192,25 +192,24 @@ internal static class PlayerReviewTests
             check(backendCalls == backendBeforeDefault + 1 && official.StatusCalls == 3,
                 "default OpenOwnedWarbondsAsync wrapper retries Warbonds on cached polls without re-running backend review");
 
-            // v2.0/v2.1 select-mode accepts all 5 texture tiers, --enemy-skin, --squid-skin, and --deathtrooper while retaining 5-arg backwards compatibility.
+            // v2.0/v2.3 select-mode accepts all 5 texture tiers, --enemy-skin, and --squid-skin (with --deathtrooper removed) while retaining 5-arg backwards compatibility.
             var v2Resp = await playPlayer.RunAsync(["select-mode", "--mode", "clonedivers", "--delta", "yes", "--texture", "reduced512", "--droids", "yes", "--covenant", "yes", "--enemy-skin", "mixed-droids"], CancellationToken.None);
             var v2Prefs = new HellForgePreferences { Mode = v2Resp.GetProperty("Mode").GetString()!, Texture = v2Resp.GetProperty("Texture").GetString()!, EnemySkin = v2Resp.GetProperty("EnemySkin").GetString()!, Droids = v2Resp.GetProperty("Droids").GetBoolean(), Covenant = v2Resp.GetProperty("Covenant").GetBoolean() };
             var v2Selected = v2Prefs.Selection();
             check(v2Prefs.Mode == "clonedivers" && v2Prefs.Texture == "reduced512" && v2Prefs.EnemySkin == "mixed-droids" && v2Prefs.Droids && v2Prefs.Covenant &&
                 v2Selected.Version == "2026.11.27-r25" && v2Selected.Texture == "reduced512" && v2Selected.Options["mixed-droids"] && v2Selected.Options["droids"] && v2Selected.Options["covenant"] && v2Selected.Files.Count == 132,
                 "bridge select-mode resolves reduced512, mixed-droids, and covenant natively against Clones r25");
-            var v21EmpResp = await playPlayer.RunAsync(["select-mode", "--mode", "empire", "--delta", "no", "--texture", "potato256", "--droids", "yes", "--covenant", "yes", "--enemy-skin", "mixed-droids", "--squid-skin", "mixed-covenant", "--deathtrooper", "no"], CancellationToken.None);
+            var v21EmpResp = await playPlayer.RunAsync(["select-mode", "--mode", "empire", "--delta", "no", "--texture", "potato256", "--droids", "yes", "--covenant", "yes", "--enemy-skin", "mixed-droids", "--squid-skin", "mixed-covenant"], CancellationToken.None);
             var v21EmpPrefs = new HellForgePreferences
             {
                 Mode = v21EmpResp.GetProperty("Mode").GetString()!,
                 Texture = v21EmpResp.GetProperty("Texture").GetString()!,
                 EnemySkin = v21EmpResp.GetProperty("EnemySkin").GetString()!,
-                SquidSkin = v21EmpResp.GetProperty("SquidSkin").GetString()!,
-                DeathTrooperVoice = v21EmpResp.GetProperty("DeathTrooperVoice").GetBoolean()
+                SquidSkin = v21EmpResp.GetProperty("SquidSkin").GetString()!
             };
             var v21EmpSel = v21EmpPrefs.Selection();
             check(v21EmpSel.Version == "2026.11.27-r54" && v21EmpSel.Texture == "potato256" && v21EmpSel.Options["mixed-covenant"] && v21EmpSel.Options["covenant"] && !v21EmpSel.Options["deathtrooper"] && v21EmpSel.Files.Count == 144,
-                "bridge select-mode resolves potato256, mixed-covenant, and deathtrooper=false natively against Empire r54");
+                "bridge select-mode resolves potato256, mixed-covenant, and forces deathtrooper=false against Empire r54");
             var backResp = await playPlayer.RunAsync(["select-mode", "--mode", "empire", "--delta", "no", "--texture", "lighter", "--droids", "no", "--covenant", "no"], CancellationToken.None);
             check(backResp.GetProperty("Mode").GetString() == "empire" && backResp.GetProperty("Texture").GetString() == "lighter" &&
                 !backResp.GetProperty("Droids").GetBoolean() && backResp.GetProperty("EnemySkin").GetString() == "native-automatons",
@@ -317,10 +316,12 @@ internal static class PlayerReviewTests
             }
             finally { HellForgeWarbonds.AnyProcessNamed = prevProcProbe; }
 
-            // v2.2.0 Linux theater switching synchronizes Smarter SEAF & Guard Dogs SEAF Safety companion options symmetrically.
+            // v2.3 Linux theater switching synchronizes Smarter SEAF while keeping Guard Dogs SEAF Safety, Sentry Safety, Targeting Laser, and Targeting Marker OFF across both theaters!
             official.IncludeGameplayMods = true;
             official.SmarterSeafAllOn = true;
             official.GuardDogsSeafSafetyOn = true;
+            official.GuardDogsSentrySafetyOn = true;
+            official.GuardDogsTargetingLaserOn = true;
             official.ModPackCalls.Clear();
             var ukPlayer = new PlayerCommands(root, official, backend: Backend, reviewWarbondsWithStatus: _ => Task.FromResult<int?>(0))
             {
@@ -329,19 +330,22 @@ internal static class PlayerReviewTests
             await ukPlayer.RunAsync(["select-mode", "--mode", "regular", "--delta", "yes", "--texture", "full", "--droids", "yes", "--covenant", "no", "--theater", "clone-wars"], CancellationToken.None);
             var ukStatus = await ukPlayer.RunAsync(["player-status"], CancellationToken.None);
             check(!official.SmarterSeafAllOn && !official.GuardDogsSeafSafetyOn &&
+                  !official.GuardDogsSentrySafetyOn && !official.GuardDogsTargetingLaserOn &&
                   official.ModPackCalls.Contains($"mod-pack --id {HellForgePreset.SmarterSeaf} --all no") &&
                   official.ModPackCalls.Contains($"mod-pack --id {HellForgePreset.GuardDogs} --option SEAF Safety --on no") &&
+                  official.ModPackCalls.Contains($"mod-pack --id {HellForgePreset.GuardDogs} --option Sentry Safety --on no") &&
+                  official.ModPackCalls.Contains($"mod-pack --id {HellForgePreset.GuardDogs} --option Targeting Laser --on no") &&
                   ukStatus.GetProperty("ready").GetBoolean(),
-                  "v2.2.0 Linux select-mode --theater clone-wars suppresses Smarter SEAF & Guard Dogs SEAF Safety and stays ready");
+                  "v2.3 Linux select-mode --theater clone-wars suppresses Smarter SEAF & turns off Guard Dogs SEAF Safety, Sentry Safety, and Targeting Laser");
 
             official.ModPackCalls.Clear();
             await ukPlayer.RunAsync(["select-mode", "--mode", "regular", "--delta", "yes", "--texture", "full", "--droids", "yes", "--covenant", "no"], CancellationToken.None);
             var stdStatus = await ukPlayer.RunAsync(["player-status"], CancellationToken.None);
-            check(official.SmarterSeafAllOn && official.GuardDogsSeafSafetyOn &&
+            check(official.SmarterSeafAllOn && !official.GuardDogsSeafSafetyOn &&
+                  !official.GuardDogsSentrySafetyOn && !official.GuardDogsTargetingLaserOn &&
                   official.ModPackCalls.Contains($"mod-pack --id {HellForgePreset.SmarterSeaf} --all yes") &&
-                  official.ModPackCalls.Contains($"mod-pack --id {HellForgePreset.GuardDogs} --option SEAF Safety --on yes") &&
                   stdStatus.GetProperty("ready").GetBoolean(),
-                  "v2.2.0 Linux select-mode returning to Standard restores Smarter SEAF & Guard Dogs SEAF Safety and stays ready");
+                  "v2.3 Linux select-mode returning to Standard restores Smarter SEAF while keeping Guard Dogs SEAF Safety, Sentry Safety, and Targeting Laser OFF");
 
             // Injected failure during Clone Wars -> Standard restoration retries cleanly on repeated Standard select-mode AND across fresh bridge restart + play!
             await ukPlayer.RunAsync(["select-mode", "--mode", "regular", "--delta", "yes", "--texture", "full", "--droids", "yes", "--covenant", "no", "--theater", "clone-wars"], CancellationToken.None);
@@ -349,14 +353,16 @@ internal static class PlayerReviewTests
             var failedDisarm = false;
             try { await ukPlayer.RunAsync(["select-mode", "--mode", "regular", "--delta", "yes", "--texture", "full", "--droids", "yes", "--covenant", "no"], CancellationToken.None); }
             catch (IOException) { failedDisarm = true; }
-            check(failedDisarm && !official.GuardDogsSeafSafetyOn, "injected mod-pack failure leaves Standard companion restoration incomplete");
+            check(failedDisarm && !official.SmarterSeafAllOn, "injected mod-pack failure leaves Standard Smarter SEAF restoration incomplete");
             await ukPlayer.RunAsync(["select-mode", "--mode", "regular", "--delta", "yes", "--texture", "full", "--droids", "yes", "--covenant", "no"], CancellationToken.None);
-            check(official.SmarterSeafAllOn && official.GuardDogsSeafSafetyOn,
+            check(official.SmarterSeafAllOn && !official.GuardDogsSeafSafetyOn,
                 "repeating Standard select-mode after failed disarm retries companion restoration until reconciled");
 
-            // Simulate bridge restart while companions are still suppressed on disk -> Standard play repairs before PlayRegularAsync!
+            // Simulate bridge restart while companions are still suppressed/legacy-enabled on disk -> Standard play repairs before PlayRegularAsync!
             official.SmarterSeafAllOn = false;
-            official.GuardDogsSeafSafetyOn = false;
+            official.GuardDogsSeafSafetyOn = true;
+            official.GuardDogsSentrySafetyOn = true;
+            official.GuardDogsTargetingLaserOn = true;
             var restartedBridge = new PlayerCommands(root, official, backend: Backend, reviewWarbondsWithStatus: _ => Task.FromResult<int?>(0))
             {
                 UtcNow = () => now, CaptureBlockCheck = () => null, SteamUserProbe = () => "active:111",
@@ -364,8 +370,8 @@ internal static class PlayerReviewTests
             };
             await restartedBridge.RunAsync(["select-mode", "--mode", "regular", "--delta", "yes", "--texture", "full", "--droids", "yes", "--covenant", "no"], CancellationToken.None);
             await restartedBridge.RunAsync(["play", "--profile", "default"], CancellationToken.None);
-            check(official.SmarterSeafAllOn && official.GuardDogsSeafSafetyOn && official.Running,
-                "fresh bridge restart in Standard mode repairs suppressed ULTRAKILL companions during play before preset validation");
+            check(official.SmarterSeafAllOn && !official.GuardDogsSeafSafetyOn && !official.GuardDogsSentrySafetyOn && !official.GuardDogsTargetingLaserOn && official.Running,
+                "fresh bridge restart in Standard mode repairs Smarter SEAF and clears Guard Dogs SEAF Safety / Sentry Safety / Targeting Laser during play before preset validation");
             official.Running = false;
             official.IncludeGameplayMods = false;
         }
@@ -374,7 +380,7 @@ internal static class PlayerReviewTests
 
     sealed class Commands(string root) : IHellForgeCommands
     {
-        internal bool Running, BadProfile, IncludeGameplayMods, SmarterSeafAllOn = true, GuardDogsSeafSafetyOn = true;
+        internal bool Running, BadProfile, IncludeGameplayMods, SmarterSeafAllOn = true, GuardDogsSeafSafetyOn = false, GuardDogsSentrySafetyOn = false, GuardDogsTargetingLaserOn = false;
         internal int FailModPackRemaining;
         internal readonly List<string> ModPackCalls = [];
         internal int Calls, StatusCalls, PlayCalls, StatusRunningOnCall;
@@ -390,6 +396,10 @@ internal static class PlayerReviewTests
                     SmarterSeafAllOn = args[4] == "yes";
                 else if (args.Count >= 7 && args[2] == HellForgePreset.GuardDogs && args[4] == "SEAF Safety")
                     GuardDogsSeafSafetyOn = args[6] == "yes";
+                else if (args.Count >= 7 && args[2] == HellForgePreset.GuardDogs && args[4] == "Sentry Safety")
+                    GuardDogsSentrySafetyOn = args[6] == "yes";
+                else if (args.Count >= 7 && args[2] == HellForgePreset.GuardDogs && args[4] == "Targeting Laser")
+                    GuardDogsTargetingLaserOn = args[6] == "yes";
                 return Task.FromResult(JsonSerializer.SerializeToElement(new { ok = true }));
             }
             if (args[0] == "profiles")
@@ -428,12 +438,13 @@ internal static class PlayerReviewTests
                 ? new object[]
                 {
                     new { name = "Targeting Marker", on = false },
+                    new { name = "Targeting Laser", on = GuardDogsTargetingLaserOn },
                     new { name = "Smarter Guard Dogs and Sentries", on = true },
                     new { name = "Guard Dogs", on = true },
                     new { name = "Sentries", on = true },
                     new { name = "Intelligence", on = true },
                     new { name = "Safety", on = true },
-                    new { name = "Sentry Safety", on = true },
+                    new { name = "Sentry Safety", on = GuardDogsSentrySafetyOn },
                     new { name = "SEAF Safety", on = GuardDogsSeafSafetyOn }
                 }
                 : id == HellForgePreset.SmarterSeaf

@@ -383,15 +383,21 @@ internal static class UltrakillPerfTests
         File.Delete(badManifestPath);
         File.Delete(sentinelOrig);
 
-        // Companion Lua scan suppression preserves Squad Match Code (Enabled stays true; only options toggle)
+        // Companion Lua scan suppression preserves Squad Match Code (Enabled stays true; Smarter SEAF toggles while Guard Dogs SEAF Safety, Sentry Safety, Targeting Laser, and Targeting Marker stay OFF)
         var cliCalls = new List<string>();
         var mockCatalog = new HellForgeMods(
             Mods:
             [
                 new HellForgeMod(HellForgePreset.SmarterSeaf, "Smarter SEAF", true, @"D:\HellForge\mods\smarter", ["gameplay"], "1.0.4",
                     Options: [new HellForgeOption("Main", true)]),
-                new HellForgeMod(HellForgePreset.GuardDogs, "Guard Dogs", true, @"D:\HellForge\mods\dogs", ["gameplay"], "1.0.2",
-                    Options: [new HellForgeOption("SEAF Safety", true)])
+                new HellForgeMod(HellForgePreset.GuardDogs, "Guard Dogs", true, @"D:\HellForge\mods\dogs", ["gameplay"], "5.2.0",
+                    Options:
+                    [
+                        new HellForgeOption("SEAF Safety", true),
+                        new HellForgeOption("Sentry Safety", true),
+                        new HellForgeOption("Targeting Laser", true),
+                        new HellForgeOption("Targeting Marker", false)
+                    ])
             ],
             Problems: [],
             Code: null);
@@ -399,10 +405,12 @@ internal static class UltrakillPerfTests
             (args, _) => { cliCalls.Add(string.Join(" ", args)); return Task.CompletedTask; },
             mockCatalog,
             enableUltrakill: true);
-        check(cliCalls.Count == 2 &&
+        check(cliCalls.Count == 4 &&
               cliCalls[0] == $"mod-pack --id {HellForgePreset.SmarterSeaf} --all no" &&
-              cliCalls[1] == $"mod-pack --id {HellForgePreset.GuardDogs} --option SEAF Safety --on no",
-              "UltrakillRuntimeProfile.SyncCompanionModOptionsAsync suppresses Smarter SEAF & SEAF Safety options without disabling mods");
+              cliCalls.Contains($"mod-pack --id {HellForgePreset.GuardDogs} --option SEAF Safety --on no") &&
+              cliCalls.Contains($"mod-pack --id {HellForgePreset.GuardDogs} --option Sentry Safety --on no") &&
+              cliCalls.Contains($"mod-pack --id {HellForgePreset.GuardDogs} --option Targeting Laser --on no"),
+              "UltrakillRuntimeProfile.SyncCompanionModOptionsAsync suppresses Smarter SEAF & turns off Guard Dogs SEAF Safety, Sentry Safety, and Targeting Laser");
     }
 
     static void TestUltrakillCopyFormatting(Action<bool, string> check)
@@ -411,13 +419,13 @@ internal static class UltrakillPerfTests
         var summary = ForgeTacticalCopy.FormatLoadoutSummary(
             "clonedivers", "mixed-droids", true, true, true, "auto", demoHw,
             hostChaosIntensity: "clone-wars", hostHeavySeaf: "clone-wars", hostFasterCorpseCleanup: true,
-            squidSkin: "mixed-covenant", deathTrooperVoice: false, hostTheaterPreset: "clone-wars");
+            squidSkin: "mixed-covenant", hostTheaterPreset: "clone-wars");
         var readyLine = ForgeTacticalCopy.ReadyDetail("clonedivers", firstLaunch: false, hostTheaterPreset: "clone-wars");
         var discord = DiscordReportFormatter.Format(
             appVersion: AppInfo.Version, squadMatchCode: "r14-1234", mode: "clonedivers", enemySkin: "mixed-droids",
             covenant: true, deltaSquad: true, performanceTier: "auto", packTexture: "full", hardware: demoHw,
             installRoot: @"D:\HellForge", triage: null, redactUserPaths: true, squidSkin: "mixed-covenant",
-            deathTrooperVoice: false, hostTheaterPreset: "clone-wars");
+            hostTheaterPreset: "clone-wars");
 
         check(summary == "Full Star Wars Mix · Auto (Ultra) · L12 ULTRAKILL · Clone Wars (2–3k)" &&
               readyLine == "Venator in orbit · D12 ULTRAKILL ready · Steam co-op enabled" &&
@@ -430,23 +438,31 @@ internal static class UltrakillPerfTests
     {
         Directory.CreateDirectory(dir);
 
-        // 1. Default Clone Wars migration for pre-v2.2.1 configs vs preserved v2.2.1+ 'standard' choice
+        // 1. Default Clone Wars + v4 mixed-droids/mixed-covenant migration vs preserved v4+ choices
         var freshPath = Path.Combine(dir, "fresh-v221", "hellforge.json");
         var fresh = HellForgePreferences.Load(freshPath);
-        check(fresh.HostTheaterPreset == "clone-wars" && fresh.HostTheaterDefaultVersion == 3,
-            "Brand-new HellForgePreferences defaults HostTheaterPreset to 'clone-wars' (HostTheaterDefaultVersion=3)");
+        check(fresh.HostTheaterPreset == "clone-wars" && fresh.HostTheaterDefaultVersion == 4,
+            "Brand-new HellForgePreferences defaults HostTheaterPreset to 'clone-wars' (HostTheaterDefaultVersion=4)");
 
         var pre221Path = Path.Combine(dir, "pre221-hellforge.json");
-        await File.WriteAllTextAsync(pre221Path, """{"Format":1,"Mode":"empire","HostTheaterPreset":"standard"}""");
+        await File.WriteAllTextAsync(pre221Path, """{"Format":1,"Mode":"empire","HostTheaterPreset":"standard","EnemySkin":"all-droids","SquidSkin":"native-squids"}""");
         var migrated = HellForgePreferences.Load(pre221Path);
-        check(migrated.HostTheaterPreset == "clone-wars" && migrated.HostTheaterDefaultVersion == 3,
-            "Pre-v2.2.1 hellforge.json without HostTheaterDefaultVersion migrates 'standard' once to 'clone-wars'");
+        check(migrated.HostTheaterPreset == "clone-wars" &&
+              migrated.EnemySkin == "mixed-droids" &&
+              migrated.SquidSkin == "mixed-covenant" &&
+              migrated.HostTheaterDefaultVersion == 4,
+            "Pre-v4 hellforge.json migrates 'standard', 'all-droids', and 'native-squids' once to 'clone-wars', 'mixed-droids', and 'mixed-covenant'");
 
         migrated.HostTheaterPreset = "standard";
+        migrated.EnemySkin = "all-droids";
+        migrated.SquidSkin = "native-squids";
         migrated.Save(pre221Path);
         var preservedStd = HellForgePreferences.Load(pre221Path);
-        check(preservedStd.HostTheaterPreset == "standard" && preservedStd.HostTheaterDefaultVersion == 3,
-            "v2.2.2+ hellforge.json with HostTheaterDefaultVersion=3 preserves an explicit user switch back to 'standard'");
+        check(preservedStd.HostTheaterPreset == "standard" &&
+              preservedStd.EnemySkin == "all-droids" &&
+              preservedStd.SquidSkin == "native-squids" &&
+              preservedStd.HostTheaterDefaultVersion == 4,
+            "v2.3+ hellforge.json with HostTheaterDefaultVersion=4 preserves explicit user switches back to 'standard', 'all-droids', and 'native-squids'");
 
         // 2. ForgeDiskManager reclaims 'applied' / 'restored' backups, '.json.retired-*' records, and 'gameplay-*' backups
         //    while strictly protecting 'pending' transaction backups and failing closed on corrupt JSON!
@@ -595,18 +611,19 @@ internal static class UltrakillPerfTests
         var empSummary = ForgeTacticalCopy.FormatLoadoutSummary(
             "empire", "mixed-droids", false, true, true, "auto", demoHw,
             hostChaosIntensity: "total-war", hostHeavySeaf: "constant", hostFasterCorpseCleanup: true,
-            squidSkin: "mixed-covenant", deathTrooperVoice: true, hostTheaterPreset: "clone-wars");
+            squidSkin: "mixed-covenant", hostTheaterPreset: "clone-wars");
         var empDiscord = DiscordReportFormatter.Format(
             appVersion: AppInfo.Version, squadMatchCode: "r16-a26f", mode: "empire", enemySkin: "mixed-droids",
             covenant: true, deltaSquad: false, performanceTier: "auto", packTexture: "full", hardware: demoHw,
             installRoot: @"D:\HellForge", triage: null, redactUserPaths: true, squidSkin: "mixed-covenant",
-            deathTrooperVoice: true, hostTheaterPreset: "clone-wars");
+            hostTheaterPreset: "clone-wars");
 
         check(empReady == "Imperial garrison online · D12 Stormtrooper ready · Steam co-op enabled" &&
               empSummary == "Full Star Wars Mix · Auto (Ultra) · L12 ULTRAKILL · Stormtrooper (2–3k)" &&
               empDiscord.Contains("· L12 ULTRAKILL (Stormtrooper)", StringComparison.Ordinal) &&
-              empDiscord.Contains("EmpireDivers (Death Trooper VO)", StringComparison.Ordinal),
-              "EmpireDivers D12 copy displays Stormtrooper across ReadyDetail, FormatLoadoutSummary, and DiscordReportFormatter");
+              empDiscord.Contains("EmpireDivers · Mixed Droids+Bots", StringComparison.Ordinal) &&
+              !empDiscord.Contains("Death Trooper", StringComparison.OrdinalIgnoreCase),
+              "EmpireDivers D12 copy displays Stormtrooper across ReadyDetail, FormatLoadoutSummary, and DiscordReportFormatter with Death Trooper VO removed");
 
         var hostDir = Path.Combine(dir, "HellForge");
         Directory.CreateDirectory(Path.Combine(hostDir, "mods"));
@@ -622,24 +639,116 @@ internal static class UltrakillPerfTests
 
         var v221Path = Path.Combine(dir, "v221-hellforge.json");
         await File.WriteAllTextAsync(v221Path,
-            """{"Format":1,"Mode":"empire","HostTheaterPreset":"standard","HostChaosIntensity":"standard","HostHeavySeaf":"standard","DeathTrooperVoice":false,"HostTheaterDefaultVersion":2}""");
+            """{"Format":1,"Mode":"empire","HostTheaterPreset":"standard","HostChaosIntensity":"standard","HostHeavySeaf":"standard","EnemySkin":"all-droids","SquidSkin":"native-squids","DeathTrooperVoice":true,"HostTheaterDefaultVersion":2}""");
         var upgraded = HellForgePreferences.Load(v221Path);
         check(upgraded.HostTheaterPreset == "standard" &&
               upgraded.HostChaosIntensity == "total-war" &&
               upgraded.HostHeavySeaf == "constant" &&
-              upgraded.DeathTrooperVoice &&
-              upgraded.HostTheaterDefaultVersion == 3,
-              "Upgrading v2.2.1 (HostTheaterDefaultVersion=2) preserves explicit HostTheaterPreset='standard' while migrating Chaos='total-war', SEAF='constant', and DeathTrooperVoice=true once");
+              upgraded.EnemySkin == "mixed-droids" &&
+              upgraded.SquidSkin == "mixed-covenant" &&
+              upgraded.HostTheaterDefaultVersion == 4,
+              "Upgrading v2.2.1 (HostTheaterDefaultVersion=2) preserves explicit HostTheaterPreset='standard' while migrating Chaos='total-war', SEAF='constant', and mixed factions to v4");
 
         upgraded.HostChaosIntensity = "standard";
         upgraded.HostHeavySeaf = "standard";
-        upgraded.DeathTrooperVoice = false;
+        upgraded.EnemySkin = "all-droids";
+        upgraded.SquidSkin = "native-squids";
         upgraded.Save(v221Path);
         var reloadedExplicit = HellForgePreferences.Load(v221Path);
         check(reloadedExplicit.HostChaosIntensity == "standard" &&
               reloadedExplicit.HostHeavySeaf == "standard" &&
-              !reloadedExplicit.DeathTrooperVoice &&
-              reloadedExplicit.HostTheaterDefaultVersion == 3,
-              "v2.2.2+ (HostTheaterDefaultVersion=3) preserves explicit user opt-outs for Chaos, Heavy SEAF, and DeathTrooperVoice");
+              reloadedExplicit.EnemySkin == "all-droids" &&
+              reloadedExplicit.SquidSkin == "native-squids" &&
+              reloadedExplicit.HostTheaterDefaultVersion == 4,
+              "v2.3+ (HostTheaterDefaultVersion=4) preserves explicit user opt-outs for Chaos, Heavy SEAF, all-droids, and native-squids");
+
+        // v2.3: Guard Dogs preset rejects enabled Sentry Safety, SEAF Safety, or Targeting Laser, and accepts all 4 OFF
+        var baseDogsMods = HellForgePreset.Required.Select(item => new HellForgeMod(item.Id, item.Name, true, "fixture", [], item.Version,
+            item.Id == HellForgePreset.GuardDogs
+                ? [new("Smarter Guard Dogs and Sentries", true), new("Guard Dogs", true), new("Sentries", true), new("Intelligence", true), new("Safety", true),
+                   new("Sentry Safety", false), new("SEAF Safety", false), new("Targeting Laser", false), new("Targeting Marker", false)]
+                : null)).Append(new("skyeshade.vanilla-plus", "Vanilla Plus", true, "fixture", [])).ToList();
+        check(HellForgePreset.Problem(new HellForgeMods(baseDogsMods, [], null), checkOrder: false, ultrakillTheaterActive: false) == null &&
+              HellForgePreset.Problem(new HellForgeMods(baseDogsMods, [], null), checkOrder: false, ultrakillTheaterActive: true) == null,
+              "v2.3 HellForgePreset.Problem passes when Sentry Safety, SEAF Safety, Targeting Laser, and Targeting Marker are OFF across both theaters");
+        foreach (var badOpt in new[] { "Sentry Safety", "SEAF Safety", "Targeting Laser", "Targeting Marker", "Laser Color" })
+        {
+            var brokenMods = baseDogsMods.Select(m => m.Id == HellForgePreset.GuardDogs
+                ? m with { Options = m.Options!.Where(o => o.Name != badOpt).Append(new(badOpt, true)).ToArray() }
+                : m).ToList();
+            check(HellForgePreset.Problem(new HellForgeMods(brokenMods, [], null))?.Contains(badOpt, StringComparison.Ordinal) == true,
+                $"v2.3 HellForgePreset.Problem flags enabled Guard Dogs '{badOpt}' for automatic re-sync");
+        }
+
+        // v2.3: Legacy Full (Ultra) spillover advisory on <=16 GB VRAM / <=32 GB RAM + ProcessMemorySampler & SessionMemoryTracker (#43, #45, #46)
+        var prevHwOverride = PerformanceTierAdvisor.HardwareOverride;
+        try
+        {
+            PerformanceTierAdvisor.HardwareOverride = () => PerformanceTierAdvisor.Recommend("NVIDIA GeForce RTX 4080", 16.0, 32.0);
+            var legacyFullPath = Path.Combine(dir, "legacy-16gb-full.json");
+            await File.WriteAllTextAsync(legacyFullPath, """{"Format":1,"Mode":"empire","AutoPerformanceTier":false,"PerformanceTier":"ultra","Texture":"full"}""");
+            var legacyFullPrefs = HellForgePreferences.Load(legacyFullPath);
+            await using (var host16 = new Clonedivers.Ui.WindowsForgeHost(legacyFullPrefs))
+            {
+                var st16 = host16.GetHomeState();
+                check(st16.StepDownBanner is { NextTierId: PerformanceTierAdvisor.High } &&
+                      legacyFullPrefs.VramTierAdvisoryVersion == 1,
+                      "v2.3 WindowsForgeHost surfaces one-time High (Streamed) step-down advisory when <=16 GB VRAM / <=32 GB RAM PC has legacy manual Full selected");
+            }
+            var legacyAutoPath = Path.Combine(dir, "legacy-16gb-auto.json");
+            await File.WriteAllTextAsync(legacyAutoPath, """{"Format":1,"Mode":"empire","AutoPerformanceTier":true,"PerformanceTier":"auto","Texture":"full"}""");
+            var legacyAutoPrefs = HellForgePreferences.Load(legacyAutoPath);
+            await using (var hostAuto16 = new Clonedivers.Ui.WindowsForgeHost(legacyAutoPrefs))
+            {
+                var stAuto16 = hostAuto16.GetHomeState();
+                check(legacyAutoPrefs.Texture == "lighter" &&
+                      stAuto16.ToastNotice != null && stAuto16.ToastNotice.Contains("streamed", StringComparison.OrdinalIgnoreCase),
+                      "v2.3 WindowsForgeHost auto-migrates saved Auto+Full to lighter (High Streamed) with explanatory notice on 16 GB VRAM / 32 GB RAM PC");
+            }
+        }
+        finally { PerformanceTierAdvisor.HardwareOverride = prevHwOverride; }
+
+        // Synthetic Linux /proc/meminfo + /proc/<pid>/status + deduplicated fdinfo DRM VRAM/GTT telemetry (#43, #45, #46)
+        var fakeProc43 = Path.Combine(dir, "proc-43");
+        var pidDir = Path.Combine(fakeProc43, "7777");
+        Directory.CreateDirectory(Path.Combine(pidDir, "fdinfo"));
+        await File.WriteAllTextAsync(Path.Combine(fakeProc43, "meminfo"),
+            "MemTotal:       31680512 kB\n" +
+            "MemFree:          512000 kB\n" +
+            "MemAvailable:    1048576 kB\n" +
+            "Buffers:          131072 kB\n" +
+            "Cached:          2097152 kB\n" +
+            "Shmem:            262144 kB\n" +
+            "SReclaimable:     262144 kB\n" +
+            "AnonPages:      13631488 kB\n" +
+            "SwapTotal:       8388608 kB\n" +
+            "SwapFree:         524288 kB\n" +
+            "Committed_AS:   36700160 kB\n" +
+            "CommitLimit:    24228864 kB\n");
+        await File.WriteAllTextAsync(Path.Combine(pidDir, "status"),
+            "Name:\tMain\nVmHWM:\t14680064 kB\nVmRSS:\t13631488 kB\nRssAnon:\t12582912 kB\nRssFile:\t786432 kB\nRssShmem:\t262144 kB\nVmSwap:\t4194304 kB\nThreads:\t94\n");
+        await File.WriteAllTextAsync(Path.Combine(pidDir, "cmdline"), "C:\\HellForge\\game\\bin\\helldivers2.exe\0");
+        const string drmFdText =
+            "pos:\t0\ndrm-driver:\tamdgpu\ndrm-client-id:\t42\ndrm-pdev:\t0000:03:00.0\n" +
+            "drm-resident-vram:\t14680064 KiB\ndrm-resident-gtt:\t13631488 KiB\namd-evicted-vram:\t2097152 KiB\n";
+        // Duplicate FDs sharing client-id 42 must NOT double-count VRAM/GTT!
+        await File.WriteAllTextAsync(Path.Combine(pidDir, "fdinfo", "12"), drmFdText);
+        await File.WriteAllTextAsync(Path.Combine(pidDir, "fdinfo", "19"), drmFdText);
+
+        var obs43 = ProcessMemorySampler.CaptureObservation(fakeProc43, includeSessionProcesses: true);
+        var hd2Sample = obs43.Processes.Single(p => p.Pid == 7777);
+        var tracker = new SessionMemoryTracker();
+        tracker.Ingest(obs43);
+        var summaryLine = tracker.FormatSummaryLine();
+        check(hd2Sample.Name == "helldivers2.exe" &&
+              hd2Sample.DrmResidentVramBytes == 14680064UL * 1024UL &&
+              hd2Sample.DrmResidentGttBytes == 13631488UL * 1024UL &&
+              hd2Sample.AmdEvictedVramBytes == 2097152UL * 1024UL &&
+              obs43.System.SwapUsedBytes == (8388608UL - 524288UL) * 1024UL &&
+              obs43.System.LinuxUnattributedBytes is > (10UL << 30) &&
+              summaryLine.Contains("DRM-VRAM=14.00 GiB", StringComparison.Ordinal) &&
+              summaryLine.Contains("DRM-GTT=13.00 GiB", StringComparison.Ordinal) &&
+              summaryLine.Contains("PeakKernel/TTM=", StringComparison.Ordinal),
+              "Issue #43/#45/#46: ProcessMemorySampler & SessionMemoryTracker deduplicate drm-client-id VRAM/GTT, measure VmSwap, and surface kernel TTM pool usage");
     }
 }

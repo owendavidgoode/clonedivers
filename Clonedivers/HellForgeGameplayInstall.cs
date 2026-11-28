@@ -288,7 +288,15 @@ public sealed partial class HellForgeClient
             !(HellForgeGameplayCatalog.Pinned.Artifacts.Any(a => a.Id == mod.Id && a.Optional) && !requiredForMode.Contains(mod.Id) && installed.All(a => a.Id != mod.Id)) &&
             (wanted.Contains(mod.Id) || HellForgePreset.IsConflictingAlternative(mod)) &&
             mod.Enabled != wanted.Contains(mod.Id)).ToList();
-        var dogOptions = new[] { "Smarter Guard Dogs and Sentries", "Guard Dogs", "Sentries", "Intelligence", "Safety", "Sentry Safety", "SEAF Safety", "Targeting Marker" };
+        var installedDogs = catalog.Mods.SingleOrDefault(m => m.Id == HellForgePreset.GuardDogs);
+        var presentAuxOff = HellForgePreset.GuardDogsAuxiliaryOffOptions
+            .Where(aux => installedDogs?.Options?.Any(o => o.Name == aux) == true)
+            .ToArray();
+        var dogOptions = HellForgePreset.GuardDogsRequiredOnOptions
+            .Select(name => (Name: name, On: true))
+            .Concat(HellForgePreset.GuardDogsRequiredOffOptions.Select(name => (Name: name, On: false)))
+            .Concat(presentAuxOff.Select(name => (Name: name, On: false)))
+            .ToArray();
         int totalSteps = switches.Count + 2 + dogOptions.Length + 2;
         int step = 0;
         void ReportStep(string detail) => richProgress?.Report(new("Configuring gameplay preset", detail, ++step, totalSteps, CanCancel: false));
@@ -307,11 +315,10 @@ public sealed partial class HellForgeClient
             var wantAllOn = !(ultrakillActive && id == HellForgePreset.SmarterSeaf);
             await commands.RunAsync(["mod-pack", "--id", id, "--all", wantAllOn ? "yes" : "no"], ct);
         }
-        foreach (var option in dogOptions)
+        foreach (var (option, wantDogOption) in dogOptions)
         {
             ReportStep("Configuring Guard Dogs: " + option);
             await RequireGameplayIdleAsync(ct);
-            bool wantDogOption = option != "Targeting Marker" && !(ultrakillActive && option == "SEAF Safety");
             await commands.RunAsync(["mod-pack", "--id", HellForgePreset.GuardDogs, "--option", option, "--on", wantDogOption ? "yes" : "no"], ct);
         }
         ReportStep("Applying gameplay load order");

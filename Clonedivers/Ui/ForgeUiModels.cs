@@ -59,7 +59,6 @@ public sealed record ForgeHomeState(
     ForgeSelfInstallBannerState? SelfInstallBanner = null,
     bool MinimizeToTray = false,
     string SquidSkin = "mixed-covenant",
-    bool DeathTrooperVoice = false,
     string HostTheaterPreset = "clone-wars",
     bool PlayWithoutAccountSync = false,
     string GalacticWar = "hellforge");
@@ -147,7 +146,7 @@ public interface IForgeUiHost : IAsyncDisposable
 
     // Home & Customize actions
     Task SelectModeAsync(string mode);
-    Task UpdateCustomizationAsync(string enemySkin, bool deltaSquad, bool covenant, string texture, string? squidSkin = null, bool? deathTrooperVoice = null);
+    Task UpdateCustomizationAsync(string enemySkin, bool deltaSquad, bool covenant, string texture, string? squidSkin = null);
     Task SetPerformanceTierAsync(string tierId);
     Task UpdateHostMutatorsAsync(string chaosIntensity, string heavySeaf, bool fasterCorpseCleanup, string? theaterPreset = null);
     Task SetGalacticWarAsync(string warMode);

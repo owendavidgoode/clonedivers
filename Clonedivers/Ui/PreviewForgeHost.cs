@@ -8,7 +8,6 @@ public sealed class PreviewForgeHost : IForgeUiHost
     string enemySkin = "mixed-droids";
     string squidSkin = "mixed-covenant";
     bool deltaSquad = true;
-    bool deathTrooperVoice = true;
     string texture = "full";
     bool autoPerformanceTier = true;
     string performanceTier = PerformanceTierAdvisor.Auto;
@@ -224,7 +223,6 @@ public sealed class PreviewForgeHost : IForgeUiHost
             SelfInstallBanner: selfInstall,
             MinimizeToTray: minimizeToTray,
             SquidSkin: squidSkin,
-            DeathTrooperVoice: deathTrooperVoice,
             HostTheaterPreset: hostTheater,
             PlayWithoutAccountSync: playWithoutSync,
             GalacticWar: galacticWar);
@@ -311,7 +309,6 @@ public sealed class PreviewForgeHost : IForgeUiHost
             triage: triage,
             redactUserPaths: true,
             squidSkin: squidSkin,
-            deathTrooperVoice: deathTrooperVoice,
             hostTheaterPreset: hostTheater);
 
         return Task.FromResult(new ForgeDiagnosticsState(
@@ -346,12 +343,11 @@ public sealed class PreviewForgeHost : IForgeUiHost
     public Task InitializeAsync() => Task.CompletedTask;
     public bool CanClose(out string? reason) { reason = null; return true; }
     public Task SelectModeAsync(string newMode) { mode = newMode; StateChanged?.Invoke(); return Task.CompletedTask; }
-    public Task UpdateCustomizationAsync(string skin, bool delta, bool cov, string tex, string? squid = null, bool? dtVoice = null)
+    public Task UpdateCustomizationAsync(string skin, bool delta, bool cov, string tex, string? squid = null)
     {
         enemySkin = skin;
         deltaSquad = delta;
         squidSkin = squid ?? (cov ? "all-covenant" : "native-squids");
-        if (dtVoice is { } dt) deathTrooperVoice = dt;
         texture = tex;
         StateChanged?.Invoke();
         return Task.CompletedTask;

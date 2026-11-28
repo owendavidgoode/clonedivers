@@ -38,7 +38,6 @@ internal sealed class LinuxForgePreferences
         get => squidSkin;
         set { squidSkin = value; squidSkinExplicit = true; }
     }
-    public bool DeathTrooperVoice { get; set; } = true;
     public bool AutoPerformanceTier { get; set; } = true;
     public string PerformanceTier { get; set; } = PerformanceTierAdvisor.Auto;
     public bool SoundEffectsEnabled { get; set; } = true;
@@ -46,11 +45,12 @@ internal sealed class LinuxForgePreferences
     public bool MinimizeToTray { get; set; }
     public string? LastStepDownSuggestedTier { get; set; }
     public string? PendingStepDownReason { get; set; }
+    public int VramTierAdvisoryVersion { get; set; } = 1;
     public string HostChaosIntensity { get; set; } = "total-war";
     public string HostHeavySeaf { get; set; } = "constant";
     public bool HostFasterCorpseCleanup { get; set; } = true;
     public string HostTheaterPreset { get; set; } = "clone-wars";
-    public int HostTheaterDefaultVersion { get; set; } = 3;
+    public int HostTheaterDefaultVersion { get; set; } = 4;
     public bool PlayWithoutAccountSync { get; set; }
     public string? GalacticWar { get; set; }
     public string? PlayerLabel { get; set; }
@@ -134,11 +134,12 @@ internal sealed class LinuxForgePreferences
             {
                 Mode = legacy.Options.GetValueOrDefault("empire") ? "empire" : "clonedivers",
                 DeltaSquad = legacy.Options.GetValueOrDefault("commandos", true),
-                EnemySkin = legacy.Options.TryGetValue("droids", out var legacyDroids) ? (legacyDroids ? "all-droids" : "native-automatons") : "mixed-droids",
-                SquidSkin = legacy.Options.TryGetValue("covenant", out var legacyCov) ? (legacyCov ? "all-covenant" : "native-squids") : "mixed-covenant",
+                EnemySkin = legacy.Options.TryGetValue("droids", out var legacyDroids) ? (legacyDroids ? "mixed-droids" : "native-automatons") : "mixed-droids",
+                SquidSkin = legacy.Options.TryGetValue("covenant", out var legacyCov) ? (legacyCov ? "all-covenant" : "mixed-covenant") : "mixed-covenant",
                 Texture = legacyTexture ?? "full",
                 AutoPerformanceTier = !hasExplicitTexture,
-                PerformanceTier = !hasExplicitTexture ? PerformanceTierAdvisor.Auto : PerformanceTierAdvisor.TierFromPackTexture(legacyTexture)
+                PerformanceTier = !hasExplicitTexture ? PerformanceTierAdvisor.Auto : PerformanceTierAdvisor.TierFromPackTexture(legacyTexture),
+                VramTierAdvisoryVersion = hasExplicitTexture && legacyTexture == "full" ? 0 : 1
             };
         }
         if (new FileInfo(file).Length > 65536) throw new InvalidDataException("Forge preferences are oversized.");
@@ -147,6 +148,16 @@ internal sealed class LinuxForgePreferences
         var value = JsonSerializer.Deserialize<LinuxForgePreferences>(raw, HellForgePack.Json) ?? throw new InvalidDataException("Empty Forge preferences.");
         if (doc.RootElement.ValueKind == JsonValueKind.Object)
         {
+            if (!TryGetJsonProperty(doc.RootElement, "VramTierAdvisoryVersion", out var vramVerProp) ||
+                vramVerProp.ValueKind != JsonValueKind.Number ||
+                !vramVerProp.TryGetInt32(out var vramVer))
+            {
+                value.VramTierAdvisoryVersion = 0;
+            }
+            else
+            {
+                value.VramTierAdvisoryVersion = vramVer;
+            }
             if (!TryGetJsonProperty(doc.RootElement, "EnemySkin", out _))
             {
                 value.EnemySkin = TryGetJsonProperty(doc.RootElement, "Droids", out var droidsProp) && droidsProp.ValueKind is JsonValueKind.True or JsonValueKind.False
@@ -197,8 +208,21 @@ internal sealed class LinuxForgePreferences
                 {
                     value.HostHeavySeaf = "constant";
                 }
-                value.DeathTrooperVoice = true;
                 value.HostTheaterDefaultVersion = 3;
+            }
+            if (thVer < 4)
+            {
+                if (string.IsNullOrWhiteSpace(value.EnemySkin) ||
+                    string.Equals(value.EnemySkin, "all-droids", StringComparison.OrdinalIgnoreCase))
+                {
+                    value.EnemySkin = "mixed-droids";
+                }
+                if (string.IsNullOrWhiteSpace(value.SquidSkin) ||
+                    string.Equals(value.SquidSkin, "native-squids", StringComparison.OrdinalIgnoreCase))
+                {
+                    value.SquidSkin = "mixed-covenant";
+                }
+                value.HostTheaterDefaultVersion = 4;
             }
         }
         value.Validate(); return value;
@@ -215,7 +239,7 @@ internal sealed class LinuxForgePreferences
     internal string[] SelectionCommand() =>
         ["select-mode", "--mode", Mode, "--delta", DeltaSquad ? "yes" : "no", "--texture", Texture,
             "--droids", Droids ? "yes" : "no", "--covenant", Covenant ? "yes" : "no", "--enemy-skin", EnemySkin,
-            "--squid-skin", SquidSkin, "--deathtrooper", DeathTrooperVoice ? "yes" : "no",
+            "--squid-skin", SquidSkin,
             "--theater", HostMutatorConfig.IsUltrakillTheater(HostTheaterPreset, HostChaosIntensity) ? "clone-wars" : "standard",
             "--play-without-sync", PlayWithoutAccountSync ? "yes" : "no"];
     internal HellForgePack.Selection PackSelection()
@@ -227,8 +251,6 @@ internal sealed class LinuxForgePreferences
             ["mixed-droids"] = EnemySkin == "mixed-droids",
             ["mixed-covenant"] = SquidSkin == "mixed-covenant"
         };
-        if (Mode == "empire")
-            options["deathtrooper"] = DeathTrooperVoice;
         return HellForgePack.PinnedSelection(Mode == "empire" ? "empire" : DeltaSquad ? "commandos" : "clonedivers", Texture, options);
     }
 }
@@ -243,6 +265,7 @@ internal sealed class LinuxForgePlayer(IForgeConnection connection, LinuxForgePr
     internal const string PastaGuidance = "pasta (the passt package) requires Ubuntu 24.04 or newer, Debian 13 or newer, or a distribution providing passt. This launcher requires it for both solo and co-op.";
     internal LinuxForgePreferences Preferences { get; } = preferences;
     internal string? ResolvedInstallRoot { get; } = resolvedInstallRoot ?? preferences.InstallRoot;
+    internal Action<string, string>? StaleCleanupLogger { get; init; }
     internal ForgePlayerState? State { get; private set; }
     internal bool OwnsSession { get; private set; }
     internal bool RequestedAccountSync { get; private set; }
@@ -340,6 +363,15 @@ internal sealed class LinuxForgePlayer(IForgeConnection connection, LinuxForgePr
         {
         await SelectAsync(ct);
         await RefreshAsync(ct);
+        if (OperatingSystem.IsLinux() && State?.Status.Running == false && !Game.IsRunning() && !string.IsNullOrWhiteSpace(ResolvedInstallRoot))
+        {
+            var cleaned = LinuxStaleSessionGuard.CleanupStaleOrphans(ResolvedInstallRoot);
+            if (cleaned.Count > 0)
+            {
+                StaleCleanupLogger?.Invoke("stale-session-cleanup", $"Cleaned {cleaned.Count} post-crash orphaned session wrapper(s) before launch: {string.Join(", ", cleaned)}");
+                await RefreshAsync(ct);
+            }
+        }
         if (!CanLaunch) throw new InvalidOperationException(State?.Detail ?? Error ?? "Finish Forge setup before launching.");
         var result = await connection.RunAsync(["play", "--profile", "default"], ct);
         if (result.GetProperty("event").GetString() != "started") throw new InvalidDataException("Forge did not acknowledge starting a session.");
@@ -583,5 +615,251 @@ internal sealed class LinuxForgePlayer(IForgeConnection connection, LinuxForgePr
         if (Disconnected) { try { await connection.DisposeAsync(); } catch (IOException) { } return; } // fault already reported; an abnormal wrapper exit is expected
         if (OwnsSession) await EndSessionAsync();
         await connection.DisposeAsync();
+    }
+}
+
+/// <summary>
+/// Detects and cleans up stale orphaned hf-inner.sh / hellforge-offline.sh / steam-bridge inner processes
+/// left behind after a crashed Linux session (#44) ONLY when status is not running and no game/session runner is alive.
+/// Never touches steam-bridge host, active games, HellForge.Session, or ClonediversBridge.
+/// </summary>
+internal static class LinuxStaleSessionGuard
+{
+    internal sealed record OrphanProcess(int Pid, string Name);
+
+    internal static (bool LiveSessionProcessFound, IReadOnlyList<OrphanProcess> Orphans) ScanOrphans(
+        string installRoot,
+        string procRoot = "/proc",
+        int? selfPid = null)
+    {
+        if (string.IsNullOrWhiteSpace(installRoot) || !Directory.Exists(procRoot))
+            return (false, []);
+
+        var normalizedRoot = Path.TrimEndingDirectorySeparator(Path.GetFullPath(installRoot));
+        var ignored = new HashSet<int>();
+        int startPid = selfPid ?? Environment.ProcessId;
+        int? walk = startPid;
+        while (walk is int p && p > 1 && ignored.Add(p))
+            walk = ReadParentPid(procRoot, p);
+
+        var orphans = new List<OrphanProcess>();
+        try
+        {
+            foreach (var entry in Directory.EnumerateDirectories(procRoot))
+            {
+                if (!int.TryParse(Path.GetFileName(entry), System.Globalization.NumberStyles.None, System.Globalization.CultureInfo.InvariantCulture, out var pid) ||
+                    pid <= 1 || ignored.Contains(pid))
+                    continue;
+
+                var cmdline = ReadNullSeparated(Path.Combine(entry, "cmdline"), 8192);
+                var environ = ReadNullSeparated(Path.Combine(entry, "environ"), 16384);
+                var comm = ReadTextSafe(Path.Combine(entry, "comm"), 128).Trim();
+                if (comm.Length == 0 && cmdline.Count == 0) continue;
+
+                var cwd = ReadLinkSafe(Path.Combine(entry, "cwd"));
+                var exe = ReadLinkSafe(Path.Combine(entry, "exe"));
+
+                if (!BelongsToInstall(normalizedRoot, cmdline, environ, cwd, exe))
+                    continue;
+
+                if (IsPersistentSteamBridgeHost(normalizedRoot, cmdline, exe))
+                    continue;
+
+                if (IsLiveGameOrController(comm, cmdline, exe))
+                    return (true, []);
+
+                if (IsOrphanWrapperOrInnerBridge(comm, cmdline, exe) is { } label)
+                    orphans.Add(new(pid, label));
+            }
+        }
+        catch (Exception e) when (e is IOException or UnauthorizedAccessException) { }
+
+        return (false, orphans);
+    }
+
+    internal static bool HasCrashedIncompleteSession(string installRoot)
+    {
+        if (string.IsNullOrWhiteSpace(installRoot)) return false;
+        try
+        {
+            var sessionsDir = Path.Combine(Path.GetFullPath(installRoot), "logs", "sessions");
+            if (!Directory.Exists(sessionsDir)) return false;
+            var latest = new DirectoryInfo(sessionsDir)
+                .EnumerateDirectories()
+                .OrderByDescending(d => d.LastWriteTimeUtc)
+                .FirstOrDefault();
+            if (latest == null) return false;
+            var resultFile = Path.Combine(latest.FullName, "result.json");
+            if (!File.Exists(resultFile))
+                return File.Exists(Path.Combine(latest.FullName, "play-session.json"));
+            if (new FileInfo(resultFile).Length > 1024 * 1024) return false;
+            using var doc = JsonDocument.Parse(File.ReadAllText(resultFile));
+            if (doc.RootElement.ValueKind != JsonValueKind.Object) return false;
+            return !doc.RootElement.TryGetProperty("completedUtc", out var completed) ||
+                   completed.ValueKind == JsonValueKind.Null ||
+                   string.IsNullOrWhiteSpace(completed.ToString());
+        }
+        catch (Exception e) when (e is IOException or UnauthorizedAccessException or JsonException)
+        {
+            return false;
+        }
+    }
+
+    internal static IReadOnlyList<string> CleanupStaleOrphans(
+        string installRoot,
+        string procRoot = "/proc",
+        int? selfPid = null,
+        Action<int>? killOverride = null)
+    {
+        var (liveFound, orphans) = ScanOrphans(installRoot, procRoot, selfPid);
+        if (liveFound || orphans.Count == 0)
+            return [];
+
+        var ended = new List<string>();
+        foreach (var orphan in orphans)
+        {
+            try
+            {
+                if (killOverride != null)
+                {
+                    killOverride(orphan.Pid);
+                }
+                else
+                {
+                    using var proc = System.Diagnostics.Process.GetProcessById(orphan.Pid);
+                    proc.Kill(entireProcessTree: false);
+                    proc.WaitForExit(2000);
+                }
+                ended.Add($"{orphan.Name}({orphan.Pid})");
+            }
+            catch (Exception e) when (e is ArgumentException or InvalidOperationException or System.ComponentModel.Win32Exception or NotSupportedException) { }
+        }
+        return ended;
+    }
+
+    static bool BelongsToInstall(string root, IReadOnlyList<string> cmdline, IReadOnlyList<string> environ, string? cwd, string? exe)
+    {
+        if (environ.Any(kv => kv.Equals("INSTALL=" + root, StringComparison.Ordinal)))
+            return true;
+        if (IsUnder(exe, root) || IsUnder(cwd, root))
+            return true;
+        foreach (var arg in cmdline)
+        {
+            if (IsUnder(arg, root)) return true;
+        }
+        return false;
+    }
+
+    static bool IsPersistentSteamBridgeHost(string root, IReadOnlyList<string> cmdline, string? exe)
+    {
+        if (cmdline is [var prog, "steam-bridge", "host"] &&
+            IsUnder(prog, root))
+            return true;
+        var bridgeHostScript = Path.Combine(root, "app", "linux", "hf-bridge-host.sh");
+        if (!IsUnder(exe, root) && cmdline.Any(a => PathEquals(a, bridgeHostScript)))
+            return true;
+        return false;
+    }
+
+    static bool IsLiveGameOrController(string comm, IReadOnlyList<string> cmdline, string? exe)
+    {
+        static string Leaf(string? p) => string.IsNullOrEmpty(p) ? "" : p[(p.LastIndexOfAny(['/', '\\']) + 1)..];
+        var candidates = cmdline.Select(Leaf).Append(Leaf(exe)).Append(comm);
+        foreach (var leaf in candidates)
+        {
+            if (string.IsNullOrEmpty(leaf)) continue;
+            if (leaf.Equals("helldivers2.exe", StringComparison.OrdinalIgnoreCase) ||
+                leaf.Equals("helldivers2", StringComparison.OrdinalIgnoreCase) ||
+                leaf.Equals("HellForge.Session.exe", StringComparison.OrdinalIgnoreCase) ||
+                leaf.Equals("HellForge.Session", StringComparison.OrdinalIgnoreCase) ||
+                leaf.StartsWith("HellForge.Sessi", StringComparison.OrdinalIgnoreCase) ||
+                leaf.Equals("HellForge.Launcher.ClonediversBridge", StringComparison.OrdinalIgnoreCase) ||
+                leaf.Equals("HellForge.Launcher.ClonediversBridge.exe", StringComparison.OrdinalIgnoreCase) ||
+                leaf.Equals("HellForge.Launcher", StringComparison.OrdinalIgnoreCase) ||
+                leaf.Equals("HellForge.exe", StringComparison.OrdinalIgnoreCase))
+            {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    static string? IsOrphanWrapperOrInnerBridge(string comm, IReadOnlyList<string> cmdline, string? exe)
+    {
+        static string Leaf(string? p) => string.IsNullOrEmpty(p) ? "" : p[(p.LastIndexOfAny(['/', '\\']) + 1)..];
+        foreach (var arg in cmdline)
+        {
+            var leaf = Leaf(arg);
+            if (leaf is "hf-inner.sh" or "hellforge-offline.sh" or "hellforge-linux.sh")
+                return leaf;
+        }
+        if (comm is "hf-inner.sh" or "hellforge-offli" or "hellforge-linux")
+            return comm;
+        var exeLeaf = Leaf(exe);
+        if ((exeLeaf.Equals("HellForge.Cli", StringComparison.OrdinalIgnoreCase) ||
+             cmdline.Any(a => Leaf(a).Equals("HellForge.Cli", StringComparison.OrdinalIgnoreCase))) &&
+            cmdline.Contains("steam-bridge", StringComparer.Ordinal) &&
+            cmdline.Contains("inner", StringComparer.Ordinal))
+        {
+            return "steam-bridge-inner";
+        }
+        return null;
+    }
+
+    static bool IsUnder(string? candidate, string root)
+    {
+        if (string.IsNullOrEmpty(candidate) || !Path.IsPathRooted(candidate)) return false;
+        try
+        {
+            var full = Path.TrimEndingDirectorySeparator(Path.GetFullPath(candidate));
+            var comp = OperatingSystem.IsWindows() ? StringComparison.OrdinalIgnoreCase : StringComparison.Ordinal;
+            return full.Equals(root, comp) || full.StartsWith(root + Path.DirectorySeparatorChar, comp);
+        }
+        catch { return false; }
+    }
+
+    static bool PathEquals(string? a, string expected)
+    {
+        if (string.IsNullOrEmpty(a) || !Path.IsPathRooted(a)) return false;
+        try
+        {
+            var comp = OperatingSystem.IsWindows() ? StringComparison.OrdinalIgnoreCase : StringComparison.Ordinal;
+            return Path.GetFullPath(a).Equals(Path.GetFullPath(expected), comp);
+        }
+        catch { return false; }
+    }
+
+    static int? ReadParentPid(string procRoot, int pid)
+    {
+        var status = ReadTextSafe(Path.Combine(procRoot, pid.ToString(System.Globalization.CultureInfo.InvariantCulture), "status"), 4096);
+        var m = System.Text.RegularExpressions.Regex.Match(status, @"^PPid:\s*(\d+)", System.Text.RegularExpressions.RegexOptions.Multiline);
+        return m.Success && int.TryParse(m.Groups[1].Value, System.Globalization.NumberStyles.None, System.Globalization.CultureInfo.InvariantCulture, out var ppid)
+            ? ppid
+            : null;
+    }
+
+    static string ReadTextSafe(string path, int maxBytes)
+    {
+        try
+        {
+            if (!File.Exists(path)) return "";
+            using var fs = new FileStream(path, FileMode.Open, FileAccess.Read, FileShare.ReadWrite | FileShare.Delete);
+            var buf = new byte[maxBytes];
+            int n = fs.Read(buf, 0, buf.Length);
+            return n <= 0 ? "" : System.Text.Encoding.UTF8.GetString(buf, 0, n);
+        }
+        catch { return ""; }
+    }
+
+    static IReadOnlyList<string> ReadNullSeparated(string path, int maxBytes)
+    {
+        var text = ReadTextSafe(path, maxBytes);
+        return string.IsNullOrEmpty(text) ? [] : text.Split('\0', StringSplitOptions.RemoveEmptyEntries);
+    }
+
+    static string? ReadLinkSafe(string path)
+    {
+        try { return new FileInfo(path).ResolveLinkTarget(returnFinalTarget: true)?.FullName; }
+        catch { return null; }
     }
 }

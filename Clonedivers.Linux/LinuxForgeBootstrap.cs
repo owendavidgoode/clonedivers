@@ -146,7 +146,7 @@ internal static class LinuxForgeBootstrap
         }
         var root = Detect(existing);
         if (root == null) throw new IOException("Setup did not leave a discoverable installation. Use Locate to select the folder containing hellforge-install.json.");
-        try { HellForgeRelease.SyncShippedBundledMods(root); }
+        try { HellForgeRelease.SyncShippedBundledMods(root); HellForgeRelease.PatchLinuxInnerWrapper(root); }
         catch (Exception e) when (e is IOException or UnauthorizedAccessException or InvalidDataException) { }
         if (existing != null && existingModListBytes != null && string.Equals(Path.GetFullPath(root), Path.GetFullPath(existing), StringComparison.Ordinal))
             TryRestoreModListAfter05Upgrade(root, existingModListBytes);

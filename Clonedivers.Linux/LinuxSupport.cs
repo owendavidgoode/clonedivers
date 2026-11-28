@@ -112,7 +112,7 @@ public static class LinuxSupport
         _ => node?.DeepClone()
     };
 
-    public sealed record ForgeReport(string? InstallRoot, string Mode, object? ObservedState, string? Error);
+    public sealed record ForgeReport(string? InstallRoot, string Mode, object? ObservedState, string? Error, object? SessionMemory = null);
     public static string SaveReport(string? gameDir, Settings settings, string? output = null, string? configDirectory = null, string? home = null, ForgeReport? forge = null)
     {
         var config = configDirectory ?? PlatformPaths.ConfigDirectory;
@@ -149,6 +149,11 @@ public static class LinuxSupport
                 Privacy = "Local export only. No raw settings, environment dump, game memory or automatic upload. Credential-like lines are filtered; text redaction is best-effort. Inspect before sharing."
             }, Json));
             Add("launcher-history.json", JsonSerializer.Serialize(ReadHistory(config), Json));
+            Add("memory-telemetry.json", JsonSerializer.Serialize(new
+            {
+                CapturedAtReportUtc = ProcessMemorySampler.CaptureObservation(includeSessionProcesses: true),
+                ForgeSessionMemory = forge?.SessionMemory
+            }, Json));
             try
             {
             var session = forge != null || gameDir is null ? null : LinuxRecording.LatestSession(gameDir);

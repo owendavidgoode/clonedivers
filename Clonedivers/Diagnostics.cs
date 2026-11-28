@@ -11,7 +11,8 @@ public static class Diagnostics
 {
     public sealed record Adapter(string Name, ulong DedicatedBytes, bool Software);
     public sealed record Hardware(string Cpu, int LogicalProcessors, ulong? PhysicalBytes,
-        string Windows, IReadOnlyList<string> Displays, IReadOnlyList<Adapter> Adapters);
+        string Windows, IReadOnlyList<string> Displays, IReadOnlyList<Adapter> Adapters,
+        ulong? AvailablePhysicalBytes = null, ulong? TotalPageFileBytes = null);
 
     public static string Build(Settings settings, string? gameDir, Manifest? manifest, string? lastError = null)
     {
@@ -61,6 +62,10 @@ public static class Diagnostics
         b.Append(SessionLog.Format(SessionLog.Read()));
         b.AppendLine();
         b.Append(FormatHardware(ReadHardware()));
+        var memObs = ProcessMemorySampler.CaptureObservation(includeSessionProcesses: true);
+        b.AppendLine($"System memory now: available {GiB(memObs.System.AvailableRamBytes)} / total {GiB(memObs.System.TotalRamBytes)}; pagefile/swap used {GiB(memObs.System.SwapUsedBytes)}; committed {GiB(memObs.System.CommittedBytes)}");
+        foreach (var proc in memObs.Processes)
+            b.AppendLine($"Process memory ({OneLine(proc.Name)}): working set {ProcessMemorySampler.FormatGiB(proc.WorkingSetBytes)}, private {ProcessMemorySampler.FormatGiB(proc.PrivateBytes)}, pagefile {ProcessMemorySampler.FormatGiB(proc.PagefileOrSwapBytes)}");
         b.AppendLine("Gameplay FPS / frame times / current VRAM usage: unavailable (requires gameplay capture)");
         b.AppendLine("Armor body type / equipped armor / audio language: unavailable (not read from game memory)");
         b.AppendLine("Performance sharing: " + (settings.Telemetry.Ready ? "enabled; separate session reports upload to the configured private collector" : "off"));
@@ -122,8 +127,18 @@ public static class Diagnostics
     {
         string cpu = "unavailable";
         try { using var key = Registry.LocalMachine.OpenSubKey(@"HARDWARE\DESCRIPTION\System\CentralProcessor\0"); cpu = key?.GetValue("ProcessorNameString") as string ?? cpu; } catch { }
-        ulong? ram = null;
-        try { var mem = new MemoryStatus { Length = (uint)Marshal.SizeOf<MemoryStatus>() }; if (GlobalMemoryStatusEx(ref mem)) ram = mem.TotalPhysical; } catch { }
+        ulong? ram = null, availRam = null, totalPageFile = null;
+        try
+        {
+            var mem = new MemoryStatus { Length = (uint)Marshal.SizeOf<MemoryStatus>() };
+            if (GlobalMemoryStatusEx(ref mem))
+            {
+                ram = mem.TotalPhysical;
+                availRam = mem.AvailablePhysical;
+                totalPageFile = mem.TotalPageFile;
+            }
+        }
+        catch { }
         var displays = new List<string>();
         try { displays.AddRange(Screen.AllScreens.Select(s => $"{s.Bounds.Width}x{s.Bounds.Height}{(s.Primary ? " primary" : "")}")); } catch { }
         var adapters = new List<Adapter>();
@@ -149,7 +164,7 @@ public static class Diagnostics
         }
         catch { }
         finally { if (factory != IntPtr.Zero) Marshal.Release(factory); }
-        return new(cpu, Environment.ProcessorCount, ram, RuntimeInformation.OSDescription, displays, adapters);
+        return new(cpu, Environment.ProcessorCount, ram, RuntimeInformation.OSDescription, displays, adapters, availRam, totalPageFile);
     }
 
     static T Method<T>(IntPtr obj, int slot) where T : Delegate => Marshal.GetDelegateForFunctionPointer<T>(Marshal.ReadIntPtr(Marshal.ReadIntPtr(obj), slot * IntPtr.Size));

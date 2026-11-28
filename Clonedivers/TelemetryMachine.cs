@@ -42,10 +42,25 @@ public sealed class TelemetryMachine : IDisposable
             f["gameCpuPercentAllCores"] = lastCpu is double previous && clock > lastClock ? Math.Clamp(100 * (cpu - previous) * Stopwatch.Frequency / (clock - lastClock) / Environment.ProcessorCount, 0, 100) : null;
             lastCpu = cpu;
         }); lastClock = clock;
-        Try(() => { f["workingSetBytes"] = process.WorkingSet64; f["privateBytes"] = process.PrivateMemorySize64; f["handles"] = process.HandleCount; f["threads"] = process.Threads.Count; });
+        Try(() => {
+            f["workingSetBytes"] = process.WorkingSet64;
+            f["peakWorkingSetBytes"] = process.PeakWorkingSet64;
+            f["privateBytes"] = process.PrivateMemorySize64;
+            f["pagefileBytes"] = process.PagedMemorySize64;
+            f["peakPagefileBytes"] = process.PeakPagedMemorySize64;
+            f["handles"] = process.HandleCount;
+            f["threads"] = process.Threads.Count;
+        });
         Try(() => { if (GetProcessIoCounters(process.Handle, out var io)) { f["readBytesCumulative"] = io.ReadTransfer; f["writeBytesCumulative"] = io.WriteTransfer; f["otherBytesCumulative"] = io.OtherTransfer; } });
         var mem = new MemoryStatus { Length = (uint)Marshal.SizeOf<MemoryStatus>() };
-        if (GlobalMemoryStatusEx(ref mem)) { f["systemAvailableRamBytes"] = mem.AvailablePhysical; f["systemRamLoadPercent"] = mem.Load; }
+        if (GlobalMemoryStatusEx(ref mem))
+        {
+            f["systemTotalRamBytes"] = mem.TotalPhysical;
+            f["systemAvailableRamBytes"] = mem.AvailablePhysical;
+            f["systemTotalPageFileBytes"] = mem.TotalPageFile;
+            f["systemAvailablePageFileBytes"] = mem.AvailablePageFile;
+            f["systemRamLoadPercent"] = mem.Load;
+        }
         var perf = new PerformanceInfo { Size = (uint)Marshal.SizeOf<PerformanceInfo>() };
         if (GetPerformanceInfo(ref perf, perf.Size)) { f["systemCommittedBytes"] = perf.CommitTotal.ToUInt64() * perf.PageSize.ToUInt64(); f["systemCommitLimitBytes"] = perf.CommitLimit.ToUInt64() * perf.PageSize.ToUInt64(); }
         if (GetSystemTimes(out var idle, out var kernel, out var user))

@@ -35,7 +35,6 @@ public sealed class HellForgePreferences
         get => squidSkin;
         set { squidSkin = value; squidSkinExplicit = true; }
     }
-    public bool DeathTrooperVoice { get; set; } = true;
     public bool AutoPerformanceTier { get; set; } = true;
     public string PerformanceTier { get; set; } = PerformanceTierAdvisor.Auto;
     public bool SoundEffectsEnabled { get; set; } = true;
@@ -43,11 +42,12 @@ public sealed class HellForgePreferences
     public bool MinimizeToTray { get; set; }
     public string? LastStepDownSuggestedTier { get; set; }
     public string? PendingStepDownReason { get; set; }
+    public int VramTierAdvisoryVersion { get; set; } = 1;
     public string HostChaosIntensity { get; set; } = "total-war";
     public string HostHeavySeaf { get; set; } = "constant";
     public bool HostFasterCorpseCleanup { get; set; } = true;
     public string HostTheaterPreset { get; set; } = "clone-wars";
-    public int HostTheaterDefaultVersion { get; set; } = 3;
+    public int HostTheaterDefaultVersion { get; set; } = 4;
     public bool PlayWithoutAccountSync { get; set; }
     public string? GalacticWar { get; set; }
     public string? PlayerLabel { get; set; }
@@ -57,9 +57,8 @@ public sealed class HellForgePreferences
     public string PackMode => IsRegular ? "regular" : Mode == "empire" ? "empire" : DeltaSquad ? "commandos" : "clonedivers";
     string EnemyKeySegment => enemySkin == "mixed-droids" ? "mixed-droids" : Droids.ToString();
     string SquidKeySegment => squidSkin == "mixed-covenant" ? "mixed-covenant" : Covenant.ToString();
-    string EmpireVoiceSuffix => DeathTrooperVoice ? "/deathtrooper" : "";
     public string SelectionKey => IsRegular ? $"regular/{HellForgePack.SupportedBuild}" :
-        Mode == "empire" ? $"r54/{HellForgePack.SupportedBuild}/empire/{Texture}/{EnemyKeySegment}/{SquidKeySegment}{EmpireVoiceSuffix}" :
+        Mode == "empire" ? $"r54/{HellForgePack.SupportedBuild}/empire/{Texture}/{EnemyKeySegment}/{SquidKeySegment}" :
         $"r25/{HellForgePack.SupportedBuild}/{PackMode}/{Texture}/{EnemyKeySegment}/{SquidKeySegment}";
     internal static string? CustomPreferencesPath()
     {
@@ -120,11 +119,12 @@ public sealed class HellForgePreferences
             {
                 Mode = legacy.Options.GetValueOrDefault("empire") ? "empire" : "clonedivers",
                 DeltaSquad = legacy.Options.GetValueOrDefault("commandos", true),
-                EnemySkin = legacy.Options.TryGetValue("droids", out var legacyDroids) ? (legacyDroids ? "all-droids" : "native-automatons") : "mixed-droids",
-                SquidSkin = legacy.Options.TryGetValue("covenant", out var legacyCov) ? (legacyCov ? "all-covenant" : "native-squids") : "mixed-covenant",
+                EnemySkin = legacy.Options.TryGetValue("droids", out var legacyDroids) ? (legacyDroids ? "mixed-droids" : "native-automatons") : "mixed-droids",
+                SquidSkin = legacy.Options.TryGetValue("covenant", out var legacyCov) ? (legacyCov ? "all-covenant" : "mixed-covenant") : "mixed-covenant",
                 Texture = legacyTexture ?? "full",
                 AutoPerformanceTier = !hasExplicitTexture,
-                PerformanceTier = !hasExplicitTexture ? PerformanceTierAdvisor.Auto : PerformanceTierAdvisor.TierFromPackTexture(legacyTexture)
+                PerformanceTier = !hasExplicitTexture ? PerformanceTierAdvisor.Auto : PerformanceTierAdvisor.TierFromPackTexture(legacyTexture),
+                VramTierAdvisoryVersion = hasExplicitTexture && legacyTexture == "full" ? 0 : 1
             };
         }
         if (new FileInfo(path).Length > 64 * 1024) throw new InvalidDataException("HellForge preferences are oversized.");
@@ -134,6 +134,16 @@ public sealed class HellForgePreferences
             ?? throw new InvalidDataException("HellForge preferences are empty.");
         if (doc.RootElement.ValueKind == JsonValueKind.Object)
         {
+            if (!TryGetJsonProperty(doc.RootElement, "VramTierAdvisoryVersion", out var vramVerProp) ||
+                vramVerProp.ValueKind != JsonValueKind.Number ||
+                !vramVerProp.TryGetInt32(out var vramVer))
+            {
+                preferences.VramTierAdvisoryVersion = 0;
+            }
+            else
+            {
+                preferences.VramTierAdvisoryVersion = vramVer;
+            }
             if (!TryGetJsonProperty(doc.RootElement, "EnemySkin", out _))
             {
                 preferences.EnemySkin = TryGetJsonProperty(doc.RootElement, "Droids", out var droidsProp) && droidsProp.ValueKind is JsonValueKind.True or JsonValueKind.False
@@ -184,8 +194,21 @@ public sealed class HellForgePreferences
                 {
                     preferences.HostHeavySeaf = "constant";
                 }
-                preferences.DeathTrooperVoice = true;
                 preferences.HostTheaterDefaultVersion = 3;
+            }
+            if (thVer < 4)
+            {
+                if (string.IsNullOrWhiteSpace(preferences.EnemySkin) ||
+                    string.Equals(preferences.EnemySkin, "all-droids", StringComparison.OrdinalIgnoreCase))
+                {
+                    preferences.EnemySkin = "mixed-droids";
+                }
+                if (string.IsNullOrWhiteSpace(preferences.SquidSkin) ||
+                    string.Equals(preferences.SquidSkin, "native-squids", StringComparison.OrdinalIgnoreCase))
+                {
+                    preferences.SquidSkin = "mixed-covenant";
+                }
+                preferences.HostTheaterDefaultVersion = 4;
             }
         }
         preferences.Validate();
@@ -241,8 +264,6 @@ public sealed class HellForgePreferences
             ["mixed-droids"] = EnemySkin == "mixed-droids",
             ["mixed-covenant"] = SquidSkin == "mixed-covenant"
         };
-        if (Mode == "empire")
-            options["deathtrooper"] = DeathTrooperVoice;
         return HellForgePack.PinnedSelection(PackMode, Texture, options);
     }
 }

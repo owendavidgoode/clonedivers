@@ -48,6 +48,7 @@
     <Compile Include="../Clonedivers/UltrakillRuntimeProfile.cs" Link="Core/UltrakillRuntimeProfile.cs" />
     <Compile Include="../Clonedivers/HellForgeGameplayCatalog.cs" Link="Core/HellForgeGameplayCatalog.cs" />
     <Compile Include="../Clonedivers/PerformanceTierAdvisor.cs" Link="Core/PerformanceTierAdvisor.cs" />
+    <Compile Include="../Clonedivers/ProcessMemorySampler.cs" Link="Core/ProcessMemorySampler.cs" />
     <Compile Include="../Clonedivers/ForgeDiskManager.cs" Link="Core/ForgeDiskManager.cs" />
     <Compile Include="../Clonedivers/SquadFingerprint.cs" Link="Core/SquadFingerprint.cs" />
     <Compile Include="../Clonedivers/CrashTriage.cs" Link="Core/CrashTriage.cs" />

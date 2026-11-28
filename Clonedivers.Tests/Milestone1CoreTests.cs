@@ -46,8 +46,8 @@ internal static class Milestone1CoreTests
                   p.EnemySkin == "mixed-droids" &&
                   p.Droids &&
                   p.Covenant &&
+                  p.SquidSkin == "mixed-covenant" &&
                   p.DeltaSquad &&
-                  p.DeathTrooperVoice &&
                   p.AutoPerformanceTier &&
                   p.PerformanceTier == "auto" &&
                   p.SoundEffectsEnabled &&
@@ -59,28 +59,30 @@ internal static class Milestone1CoreTests
                   p.HostHeavySeaf == "constant" &&
                   p.HostFasterCorpseCleanup &&
                   p.HostTheaterPreset == "clone-wars" &&
-                  p.HostTheaterDefaultVersion == 3 &&
+                  p.HostTheaterDefaultVersion == 4 &&
                   p.PlayerLabel == null,
-                  $"{label} defaults to all Star Wars & host goodies on (mixed-droids, mixed-covenant, DeltaSquad, DeathTrooperVoice, total-war, constant, clone-wars) and AutoPerformanceTier=true");
+                  $"{label} defaults to all Star Wars & host goodies on (mixed-droids, mixed-covenant, DeltaSquad, total-war, constant, clone-wars, v4) and AutoPerformanceTier=true");
         }
 
-        // 2. Existing pre-v2.0 hellforge.json preserves legacy defaults without turning on Covenant, mixed-droids, or AutoPerformanceTier
+        // 2. Existing pre-v4 hellforge.json migrates default all-droids/native-squids once to mixed-droids/mixed-covenant without mutating disk file
         var v1Path = Path.Combine(dir, "existing-v1.json");
         const string v1Json = """{"Format":1,"Mode":"clonedivers","Texture":"lighter"}""";
         File.WriteAllText(v1Path, v1Json);
         var loadedV1 = HellForgePreferences.Load(v1Path);
-        check(loadedV1.EnemySkin == "all-droids" && !loadedV1.Covenant && !loadedV1.AutoPerformanceTier &&
-              loadedV1.PerformanceTier == "high" && loadedV1.Texture == "lighter" &&
+        check(loadedV1.EnemySkin == "mixed-droids" && loadedV1.SquidSkin == "mixed-covenant" && loadedV1.Covenant &&
+              !loadedV1.AutoPerformanceTier && loadedV1.PerformanceTier == "high" && loadedV1.Texture == "lighter" &&
+              loadedV1.HostTheaterDefaultVersion == 4 &&
               File.ReadAllText(v1Path) == v1Json,
-              "existing v1 hellforge.json preserves saved choices cleanly without mutating disk file");
+              "existing pre-v4 hellforge.json migrates all-droids/native-squids to mixed-droids/mixed-covenant without mutating disk file");
 
-        // 3. Existing v2.0.2 hellforge.json preserves explicit saved choices and AutoPerformanceTier=false
+        // 3. Existing v2.0.2 hellforge.json preserves explicit native-automatons while migrating legacy Covenant=false once to mixed-covenant, and post-v4 preserves explicit native-squids
         var v202Path = Path.Combine(dir, "existing-v202.json");
         File.WriteAllText(v202Path, """{"Format":1,"Mode":"empire","Texture":"reduced512","Droids":false,"EnemySkin":"native-automatons","Covenant":false}""");
         var loadedV202 = HellForgePreferences.Load(v202Path);
         check(loadedV202.Mode == "empire" && loadedV202.EnemySkin == "native-automatons" && !loadedV202.Droids &&
-              !loadedV202.Covenant && !loadedV202.AutoPerformanceTier && loadedV202.PerformanceTier == "low-512",
-              "existing v2.0.2 hellforge.json preserves native-automatons, Covenant=false, and maps reduced512 to low-512");
+              loadedV202.SquidSkin == "mixed-covenant" && !loadedV202.AutoPerformanceTier && loadedV202.PerformanceTier == "low-512" &&
+              loadedV202.HostTheaterDefaultVersion == 4,
+              "existing pre-v4 hellforge.json preserves native-automatons, migrates native-squids to mixed-covenant, and maps reduced512 to low-512");
 
         // 4. Full round-trip of all new Milestone 1 fields
         var m1Path = Path.Combine(dir, "m1-full.json");
@@ -122,7 +124,7 @@ internal static class Milestone1CoreTests
         check(rejectedTier && rejectedChaos && rejectedSeaf && rejectedLabel,
               "HellForgePreferences.Validate rejects unsupported tier, mutator enums, and oversized player labels");
 
-        // 6. L8: Legacy config.json with TextureProfile="reduced512" migrates cleanly to Texture="reduced512" / PerformanceTier="low-512"
+        // 6. L8: Legacy config.json with TextureProfile="reduced512" migrates cleanly to Texture="reduced512" / PerformanceTier="low-512" and mixed factions
         var legacy512Dir = Path.Combine(dir, "legacy-reduced512");
         Directory.CreateDirectory(legacy512Dir);
         File.WriteAllText(Path.Combine(legacy512Dir, "config.json"),
@@ -132,8 +134,9 @@ internal static class Milestone1CoreTests
               migrated512.Texture == "reduced512" &&
               !migrated512.AutoPerformanceTier &&
               migrated512.PerformanceTier == PerformanceTierAdvisor.Low512 &&
-              !migrated512.Covenant,
-              "legacy config.json TextureProfile='reduced512' migrates to Texture='reduced512' and PerformanceTier='low-512' (L8)");
+              migrated512.EnemySkin == "mixed-droids" &&
+              migrated512.SquidSkin == "mixed-covenant",
+              "legacy config.json TextureProfile='reduced512' migrates to Texture='reduced512', PerformanceTier='low-512', and mixed-droids/mixed-covenant (L8/v2.3)");
     }
 
     static void TestPerformanceTierAdvisor(string dir, Action<bool, string> check)
@@ -156,14 +159,17 @@ internal static class Milestone1CoreTests
               PerformanceTierAdvisor.NextLowerTier("ultra-potato") == null,
               "PerformanceTierAdvisor.NextLowerTier steps down one notch at a time and stops at ultra-potato");
 
-        check(PerformanceTierAdvisor.Recommend("NVIDIA GeForce RTX 4080", 15.8, 32.0).RecommendedTierId == "ultra" &&
+        check(PerformanceTierAdvisor.Recommend("NVIDIA GeForce RTX 4090", 24.0, 64.0).RecommendedTierId == "ultra" &&
+              PerformanceTierAdvisor.Recommend("NVIDIA GeForce RTX 4090", 24.0, 32.0).RecommendedTierId == "high" &&
+              PerformanceTierAdvisor.Recommend("NVIDIA GeForce RTX 4080", 15.8, 32.0).RecommendedTierId == "high" &&
+              PerformanceTierAdvisor.Recommend("AMD Radeon RX 9070", 16.0, 30.2, false, swapGb: 8.0, isLinux: true).RecommendedTierId == "high" &&
               PerformanceTierAdvisor.Recommend("NVIDIA GeForce RTX 3070", 7.85, 16.0).RecommendedTierId == "high" &&
               PerformanceTierAdvisor.Recommend("NVIDIA GeForce RTX 2060", 5.85, 16.0).RecommendedTierId == "balanced" &&
               PerformanceTierAdvisor.Recommend("NVIDIA GeForce GTX 1650", 3.85, 16.0).RecommendedTierId == "low-512" &&
               PerformanceTierAdvisor.Recommend("NVIDIA GeForce MX150", 1.95, 8.0).RecommendedTierId == "ultra-potato" &&
               PerformanceTierAdvisor.Recommend("Intel(R) UHD Graphics 620", 0.12, 8.0, true).RecommendedTierId == "ultra-potato" &&
               PerformanceTierAdvisor.Recommend("Unknown GPU", 0, 16.0).RecommendedTierId == "balanced",
-              "PerformanceTierAdvisor.Recommend classifies 16GB/8GB/6GB/4GB/2GB/iGPU/unknown-VRAM hardware accurately");
+              "PerformanceTierAdvisor.Recommend requires >18GB VRAM & >=40GB RAM for Ultra and assigns High (lighter) to 8–18GB GPUs");
 
         // Linux /proc/meminfo + /sys/class/drm fixture test
         var memInfo = Path.Combine(dir, "meminfo");
@@ -1044,8 +1050,9 @@ internal static class Milestone1CoreTests
                         new("Sentries", true),
                         new("Intelligence", true),
                         new("Safety", true),
-                        new("Sentry Safety", true),
-                        new("SEAF Safety", true),
+                        new("Sentry Safety", false),
+                        new("SEAF Safety", false),
+                        new("Targeting Laser", false),
                         new("Targeting Marker", false)
                     ]
                     : null;
