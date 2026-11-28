@@ -12,9 +12,9 @@ internal static class GameplayInstallTests
     {
         var catalog = HellForgeGameplayCatalog.Pinned;
         catalog.Validate();
-        check(catalog.Id == "build25480438-r14" && catalog.Artifacts.Count == 18 && catalog.Artifacts.Sum(a => a.Bytes) == 8567133 &&
-            SquadFingerprint.Compute(catalog) == "r14-4470",
-            "the r14 preset pairs nine optional SDK-16 mods with nine required gameplay and author archives and computes match code r14-4470");
+        check(catalog.Id == "build25480438-r15" && catalog.Artifacts.Count == 18 && catalog.Artifacts.Sum(a => a.Bytes) == 8568853 &&
+            SquadFingerprint.Compute(catalog) == "r15-a05a",
+            "the r15 preset pairs nine optional SDK-16 mods with nine required gameplay and author archives and computes match code r15-a05a");
         check(catalog.Artifacts.Count(a => a.Url.Contains("/owendavidgoode/clonedivers/")) == 15 && catalog.Artifacts.Count(a => !a.Url.Contains("/owendavidgoode/clonedivers/")) == 3 &&
             catalog.Artifacts.All(a => !a.Url.Contains("hf-mod.com", StringComparison.OrdinalIgnoreCase)) &&
             catalog.Artifacts.All(a => !a.FileName.Contains("clear-skies", StringComparison.OrdinalIgnoreCase)),
@@ -72,18 +72,18 @@ internal static class GameplayInstallTests
             swLoc.ContentHash == "1590c83d7907fbc033d62e3a896d2dda2bddc2c935d3e6acd7715d9bf0dc3362" &&
             swLoc.Url == "https://github.com/owendavidgoode/clonedivers/releases/download/forge-mods-2026-11-25/starwars-localization-0.1.1.zip",
             "Star Wars Localization Bridge is optional with the exact 0.1.1 SEAF-free release pins");
-        check(chaos.Name == "Chaos Invasions" && chaos.Version == "0.5.0" && chaos.Bytes == 80446 &&
-            chaos.Sha256 == "6b72089e1b6774271418bf24c1f9652925bcd8d4261947029f0a6725451ae670" &&
-            chaos.ContentHash == "398398358369e8452b626f53dee92db68801b025a900e40d4ca59d4a239149f7" &&
-            chaos.Url == "https://github.com/owendavidgoode/clonedivers/releases/download/forge-mods-2026-11-27/chaos-invasions-0.5.0.zip",
-            "Chaos Invasions is optional with the exact 0.5.0 genuine Difficulty 12 Clone Wars slot release pins");
+        check(chaos.Name == "Chaos Invasions" && chaos.Version == "0.5.1" && chaos.Bytes == 82166 &&
+            chaos.Sha256 == "5cc71e43a04cde1b5ab1a56a5532b15372a6872ded80a4e0f3d3ac8775931d18" &&
+            chaos.ContentHash == "3d2fc0f17d881f2077f54b670d6d752c0fb2995b5666435b7163a9b44e3852b8" &&
+            chaos.Url == "https://github.com/owendavidgoode/clonedivers/releases/download/forge-mods-2026-11-27/chaos-invasions-0.5.1.zip",
+            "Chaos Invasions is optional with the exact 0.5.1 Stormtrooper & Clone Wars Difficulty 12 slot release pins");
         check(!corpseCleanup.Optional && corpseCleanup.Version == "1.0.6-clonedivers.3" && corpseCleanup.Bytes == 78395 &&
             corpseCleanup.Sha256 == "9c1f72aa9b53fee4411e24ce4e838c1f0868c8e65939551731312f13e177cdcc" &&
             corpseCleanup.ContentHash == "3bb17c339eebcd6b168148585d0bc7eb85a1c595c2a3d95f111fc49da959f476" &&
             !heavySeaf.Optional && heavySeaf.Version == "1.2.0-clonedivers.7" && heavySeaf.Bytes == 110382 &&
             heavySeaf.Sha256 == "2f79a96e7a0358ace7808bc8aa400ed9fc8a5609f5f9f19cdf94119b4de11f1e" &&
             heavySeaf.ContentHash == "3e54e6d1a2e3cef1def003325b728203e015c9e3f56c54a986108e639841caef",
-            "Faster Corpse Cleanup (1.0.6-clonedivers.3) and Heavy SEAF Presence (1.2.0-clonedivers.7) are required in r14");
+            "Faster Corpse Cleanup (1.0.6-clonedivers.3) and Heavy SEAF Presence (1.2.0-clonedivers.7) are required in r15");
         using (var stream = typeof(GameplayInstallTests).Assembly.GetManifestResourceStream("Clonedivers.Tests.CleanExit.json")!)
         using (var manifest = JsonDocument.Parse(stream))
             check(manifest.RootElement.GetProperty("id").GetString() == cleanExit.Id && manifest.RootElement.GetProperty("version").GetString() == cleanExit.Version &&

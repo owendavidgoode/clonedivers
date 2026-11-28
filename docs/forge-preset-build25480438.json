@@ -4,9 +4,9 @@
   "HellForge": "0.4.0-beta",
   "Engine": "0.1.47",
   "Sdk": 16,
-  "GameplayCatalog": "build25480438-r14",
+  "GameplayCatalog": "build25480438-r15",
   "ContainsAccountData": false,
-  "Qualification": "Exact offline preset metadata (build25480438-r14 + 90-combination Empire r54 & 90-combination Clones r25 across Full/Lighter/reduced1024/reduced512/potato256, All-CIS/Mixed 80-20/Native, Mixed/All/Native Covenant, Delta Squad, Death Trooper voice, and genuine Difficulty 12 Slot 'LEVEL 12: CLONE WARS' 2.79 km² Theater armed by default while keeping D1..11 intact); zero-syscall SDK-16 performance refactor + Windows Direct3D 2,000–3,000 unit theater, Parade Stormtrooper helmet, & film-scale AT-ST QA",
+  "Qualification": "Exact offline preset metadata (build25480438-r15 + 90-combination Empire r54 & 90-combination Clones r25 across Full/Lighter/reduced1024/reduced512/potato256, All-CIS/Mixed 80-20/Native, Mixed/All/Native Covenant, Delta Squad, Death Trooper voice on by default, Total War Chaos & Constant SEAF host goodies on by default, and genuine Difficulty 12 Slot 'LEVEL 12: STORMTROOPER' in EmpireDivers / 'LEVEL 12: CLONE WARS' in Clonedivers 2.79 km² Theater armed by default while keeping D1..11 intact); zero-syscall SDK-16 performance refactor + Windows Direct3D 2,000–3,000 unit theater, Parade Stormtrooper helmet, & film-scale AT-ST QA",
   "Appearance": {
     "Mode": "empire",
     "Variants": [
@@ -184,11 +184,11 @@
     {
       "Id": "clonedivers.chaos-invasions",
       "Name": "Chaos Invasions",
-      "Version": "0.5.0",
-      "ArchiveSha256": "6b72089e1b6774271418bf24c1f9652925bcd8d4261947029f0a6725451ae670",
-      "Source": "https://github.com/owendavidgoode/clonedivers/releases/download/forge-mods-2026-11-27/chaos-invasions-0.5.0.zip",
-      "License": "Project-owned gameplay SDK-16 code mod (0.5.0 genuine 12th Difficulty Slot 'LEVEL 12: CLONE WARS' after Hell Forge D11 with D1..11 preserved intact, live mission difficulty >= 12 gating, 942m/2.79km2 Clone Wars theater, Havok 8192-ragdoll & Wwise 512-voice uncap, 6-syscall bulk perception hostility, fail-closed 1180-slot / <1024-GwNav::Bot governor, multi-ring battalion spawner + 225 outer virtual laser regiments sustaining 2k-3k theater units; gameplay: true, optional default)",
-      "NativeContentHash": "398398358369e8452b626f53dee92db68801b025a900e40d4ca59d4a239149f7",
+      "Version": "0.5.1",
+      "ArchiveSha256": "5cc71e43a04cde1b5ab1a56a5532b15372a6872ded80a4e0f3d3ac8775931d18",
+      "Source": "https://github.com/owendavidgoode/clonedivers/releases/download/forge-mods-2026-11-27/chaos-invasions-0.5.1.zip",
+      "License": "Project-owned gameplay SDK-16 code mod (0.5.1 genuine 12th Difficulty Slot 'LEVEL 12: STORMTROOPER' in EmpireDivers / 'LEVEL 12: CLONE WARS' in Clonedivers after Hell Forge D11 with D1..11 preserved intact, live mission difficulty >= 12 gating, 942m/2.79km2 theater, Havok 8192-ragdoll & Wwise 512-voice uncap, 6-syscall bulk perception hostility, fail-closed 1180-slot / <1024-GwNav::Bot governor, multi-ring battalion spawner + 225 outer virtual laser regiments sustaining 2k-3k theater units; gameplay: true, optional default)",
+      "NativeContentHash": "3d2fc0f17d881f2077f54b670d6d752c0fb2995b5666435b7163a9b44e3852b8",
       "Optional": true,
       "Options": []
     },
@@ -407,9 +407,9 @@
     }
   ],
   "RequiredHostingShare": false,
-  "InstallerQualification": "18-download build25480438-r14 preset (9 required + 9 optional SDK-16 defaults, zero hf-mod.com URLs, Bingus Shared Loader last) + Empire r54 & Clones r25 across 5 texture tiers verified offline and played-through in Windows Direct3D",
+  "InstallerQualification": "18-download build25480438-r15 preset (9 required + 9 optional SDK-16 defaults, zero hf-mod.com URLs, Bingus Shared Loader last) + Empire r54 & Clones r25 across 5 texture tiers verified offline and played-through in Windows Direct3D",
   "NonShippingBoundaries": [
-    "clear-skies-0.5.4: bundled ee6b1ba7e22d71ed.patch_0 not cleared for public redistribution; excluded from r5..r14",
+    "clear-skies-0.5.4: bundled ee6b1ba7e22d71ed.patch_0 not cleared for public redistribution; excluded from r5..r15",
     "simple-armor-passive-picker-1.4.2: read_cache() reads slot 0 / locals==1 only; excluded from default co-op preset",
     "empire-weapons: standalone E-11 / DLT-19 rifle .unit art remains shelved offline"
   ],

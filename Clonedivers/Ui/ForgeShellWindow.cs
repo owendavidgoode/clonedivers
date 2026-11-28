@@ -214,6 +214,7 @@ public sealed class ForgeShellWindow : Window
 
     // Host Gameplay Controls (#20 + v2.2 Level 12 ULTRAKILL Theater Scale)
     readonly Dictionary<string, ToggleButton> theaterPills = new();
+    readonly TextBlock theaterDescLabel = ForgeTheme.Label("Difficulty 12 ('LEVEL 12: CLONE WARS') unlocks a 2.79 km² map, 2–3k hybrid Clone Wars battalions, and 0.0s turbo corpse cleanup.", 10.5, ForgeTheme.TextSecondary);
     readonly Dictionary<string, ToggleButton> chaosPills = new();
     readonly Dictionary<string, ToggleButton> seafPills = new();
     readonly ToggleSwitch corpseCleanupToggle = new() { OnContent = "On", OffContent = "Off" };
@@ -1446,7 +1447,7 @@ public sealed class ForgeShellWindow : Window
                     ForgeTheme.Label("Applies when you host missions · Squad match code stays identical.", 11, ForgeTheme.TextSecondary),
                     ForgeTheme.Label("Theater Scale (Experimental)", 11.5, ForgeTheme.ClonesAccent, FontWeight.SemiBold),
                     theaterWrap,
-                    ForgeTheme.Label("L12 ULTRAKILL unlocks a 2.79 km² map, 2–3k hybrid Clone Wars battalions, and 0.0s turbo corpse cleanup.", 10.5, ForgeTheme.TextSecondary),
+                    theaterDescLabel,
                     ForgeTheme.Label("Chaos Invasions", 11.5, ForgeTheme.TextPrimary, FontWeight.SemiBold),
                     chaosWrap,
                     ForgeTheme.Label("Heavy SEAF Reinforcements", 11.5, ForgeTheme.TextPrimary, FontWeight.SemiBold),
@@ -2611,6 +2612,17 @@ public sealed class ForgeShellWindow : Window
             deathTrooperRow.IsVisible = s.Mode == "empire";
             deathTrooperToggle.IsChecked = s.DeathTrooperVoice;
             deathTrooperToggle.IsEnabled = !s.ControlsLocked;
+
+            bool isEmpireMode = string.Equals(s.Mode, "empire", StringComparison.OrdinalIgnoreCase);
+            var d12PillLabel = isEmpireMode ? "L12 ULTRAKILL · Stormtrooper" : "L12 ULTRAKILL · Clone Wars";
+            if (theaterPills.TryGetValue("clone-wars", out var d12Pill))
+            {
+                d12Pill.Content = d12PillLabel;
+                AutomationProperties.SetName(d12Pill, d12PillLabel);
+            }
+            theaterDescLabel.Text = isEmpireMode
+                ? "Difficulty 12 ('LEVEL 12: STORMTROOPER') unlocks a 2.79 km² map, 2–3k hybrid Imperial battalions, and 0.0s turbo corpse cleanup."
+                : "Difficulty 12 ('LEVEL 12: CLONE WARS') unlocks a 2.79 km² map, 2–3k hybrid Clone Wars battalions, and 0.0s turbo corpse cleanup.";
 
             bool isUltrakillTheater = HostMutatorConfig.IsUltrakillTheater(s.HostTheaterPreset, s.HostChaosIntensity);
             foreach (var (id, pill) in theaterPills)

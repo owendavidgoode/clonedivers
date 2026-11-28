@@ -20,6 +20,7 @@ internal static class UltrakillPerfTests
         await TestUltrakillRuntimeProfileAsync(Path.Combine(area, "runtime-profile"), check);
         TestUltrakillCopyFormatting(check);
         await TestV221DefaultTheaterAndDiskReclaimAsync(Path.Combine(area, "v221-disk-reclaim"), check);
+        await TestV222StormtrooperAndGoodiesDefaultsAsync(Path.Combine(area, "v222-stormtrooper-goodies"), check);
     }
 
     internal static void RunHeadlessUiChecks(Action<bool, string> check)
@@ -31,10 +32,20 @@ internal static class UltrakillPerfTests
         typeof(ForgeShellWindow).GetField("showingAdvanced", priv)!.SetValue(win, true);
         typeof(ForgeShellWindow).GetMethod("RefreshAll", priv)!.Invoke(win, null);
         var theaterPills = (Dictionary<string, ToggleButton>)typeof(ForgeShellWindow).GetField("theaterPills", priv)!.GetValue(win)!;
+        var theaterDesc = (Avalonia.Controls.TextBlock)typeof(ForgeShellWindow).GetField("theaterDescLabel", priv)!.GetValue(win)!;
         check(theaterPills.Count == 2 &&
               theaterPills.ContainsKey("standard") && theaterPills["standard"].IsChecked == false &&
-              theaterPills.ContainsKey("clone-wars") && theaterPills["clone-wars"].IsChecked == true,
-              "ForgeShellWindow Customize -> Advanced defaults Theater Scale to L12 ULTRAKILL · Clone Wars");
+              theaterPills.ContainsKey("clone-wars") && theaterPills["clone-wars"].IsChecked == true &&
+              theaterPills["clone-wars"].Content?.ToString() == "L12 ULTRAKILL · Clone Wars" &&
+              theaterDesc.Text?.Contains("LEVEL 12: CLONE WARS", StringComparison.Ordinal) == true,
+              "ForgeShellWindow Customize -> Advanced defaults Theater Scale to L12 ULTRAKILL · Clone Wars in Clones mode");
+
+        host.SelectModeAsync("empire").GetAwaiter().GetResult();
+        Avalonia.Threading.Dispatcher.UIThread.RunJobs();
+        typeof(ForgeShellWindow).GetMethod("RefreshAll", priv)!.Invoke(win, null);
+        check(theaterPills["clone-wars"].Content?.ToString() == "L12 ULTRAKILL · Stormtrooper" &&
+              theaterDesc.Text?.Contains("LEVEL 12: STORMTROOPER", StringComparison.Ordinal) == true,
+              "Switching ForgeShellWindow to Empire updates D12 pill & description to Stormtrooper ('LEVEL 12: STORMTROOPER')");
 
         host.UpdateHostMutatorsAsync("standard", "standard", true, "standard").GetAwaiter().GetResult();
         Avalonia.Threading.Dispatcher.UIThread.RunJobs();
@@ -422,20 +433,20 @@ internal static class UltrakillPerfTests
         // 1. Default Clone Wars migration for pre-v2.2.1 configs vs preserved v2.2.1+ 'standard' choice
         var freshPath = Path.Combine(dir, "fresh-v221", "hellforge.json");
         var fresh = HellForgePreferences.Load(freshPath);
-        check(fresh.HostTheaterPreset == "clone-wars" && fresh.HostTheaterDefaultVersion == 2,
-            "Brand-new HellForgePreferences defaults HostTheaterPreset to 'clone-wars' (HostTheaterDefaultVersion=2)");
+        check(fresh.HostTheaterPreset == "clone-wars" && fresh.HostTheaterDefaultVersion == 3,
+            "Brand-new HellForgePreferences defaults HostTheaterPreset to 'clone-wars' (HostTheaterDefaultVersion=3)");
 
         var pre221Path = Path.Combine(dir, "pre221-hellforge.json");
         await File.WriteAllTextAsync(pre221Path, """{"Format":1,"Mode":"empire","HostTheaterPreset":"standard"}""");
         var migrated = HellForgePreferences.Load(pre221Path);
-        check(migrated.HostTheaterPreset == "clone-wars" && migrated.HostTheaterDefaultVersion == 2,
+        check(migrated.HostTheaterPreset == "clone-wars" && migrated.HostTheaterDefaultVersion == 3,
             "Pre-v2.2.1 hellforge.json without HostTheaterDefaultVersion migrates 'standard' once to 'clone-wars'");
 
         migrated.HostTheaterPreset = "standard";
         migrated.Save(pre221Path);
         var preservedStd = HellForgePreferences.Load(pre221Path);
-        check(preservedStd.HostTheaterPreset == "standard" && preservedStd.HostTheaterDefaultVersion == 2,
-            "v2.2.1+ hellforge.json with HostTheaterDefaultVersion=2 preserves an explicit user switch back to 'standard'");
+        check(preservedStd.HostTheaterPreset == "standard" && preservedStd.HostTheaterDefaultVersion == 3,
+            "v2.2.2+ hellforge.json with HostTheaterDefaultVersion=3 preserves an explicit user switch back to 'standard'");
 
         // 2. ForgeDiskManager reclaims 'applied' / 'restored' backups, '.json.retired-*' records, and 'gameplay-*' backups
         //    while strictly protecting 'pending' transaction backups and failing closed on corrupt JSON!
@@ -573,5 +584,62 @@ internal static class UltrakillPerfTests
         {
             Game.IsRunningCheck = prevRunning;
         }
+    }
+
+    static async Task TestV222StormtrooperAndGoodiesDefaultsAsync(string dir, Action<bool, string> check)
+    {
+        Directory.CreateDirectory(dir);
+        var demoHw = new HardwarePerformanceRecommendation("NVIDIA GeForce RTX 5090", 32.0, 64.0, "ultra", "reason");
+
+        var empReady = ForgeTacticalCopy.ReadyDetail("empire", firstLaunch: false, hostTheaterPreset: "clone-wars");
+        var empSummary = ForgeTacticalCopy.FormatLoadoutSummary(
+            "empire", "mixed-droids", false, true, true, "auto", demoHw,
+            hostChaosIntensity: "total-war", hostHeavySeaf: "constant", hostFasterCorpseCleanup: true,
+            squidSkin: "mixed-covenant", deathTrooperVoice: true, hostTheaterPreset: "clone-wars");
+        var empDiscord = DiscordReportFormatter.Format(
+            appVersion: AppInfo.Version, squadMatchCode: "r15-a05a", mode: "empire", enemySkin: "mixed-droids",
+            covenant: true, deltaSquad: false, performanceTier: "auto", packTexture: "full", hardware: demoHw,
+            installRoot: @"D:\HellForge", triage: null, redactUserPaths: true, squidSkin: "mixed-covenant",
+            deathTrooperVoice: true, hostTheaterPreset: "clone-wars");
+
+        check(empReady == "Imperial garrison online · D12 Stormtrooper ready · Steam co-op enabled" &&
+              empSummary == "Full Star Wars Mix · Auto (Ultra) · L12 ULTRAKILL · Stormtrooper (2–3k)" &&
+              empDiscord.Contains("· L12 ULTRAKILL (Stormtrooper)", StringComparison.Ordinal) &&
+              empDiscord.Contains("EmpireDivers (Death Trooper VO)", StringComparison.Ordinal),
+              "EmpireDivers D12 copy displays Stormtrooper across ReadyDetail, FormatLoadoutSummary, and DiscordReportFormatter");
+
+        var hostDir = Path.Combine(dir, "HellForge");
+        Directory.CreateDirectory(Path.Combine(hostDir, "mods"));
+        var empOpts = HostMutatorConfig.BuildOptions("total-war", "constant", true, "clone-wars", activeMode: "empire");
+        HostMutatorConfig.Write(hostDir, empOpts);
+        var empRead = HostMutatorConfig.Read(hostDir);
+        check(empRead.IsUltrakillTheater &&
+              empRead.TheaterPreset == "clone-wars" &&
+              empRead.ChaosIntensity == "total-war" &&
+              empRead.HeavySeaf == "constant" &&
+              empRead.ActiveMode == "empire",
+              "HostMutatorConfig.BuildOptions preserves total-war & constant on D1–11 alongside clone-wars D12 and activeMode='empire'");
+
+        var v221Path = Path.Combine(dir, "v221-hellforge.json");
+        await File.WriteAllTextAsync(v221Path,
+            """{"Format":1,"Mode":"empire","HostTheaterPreset":"standard","HostChaosIntensity":"standard","HostHeavySeaf":"standard","DeathTrooperVoice":false,"HostTheaterDefaultVersion":2}""");
+        var upgraded = HellForgePreferences.Load(v221Path);
+        check(upgraded.HostTheaterPreset == "standard" &&
+              upgraded.HostChaosIntensity == "total-war" &&
+              upgraded.HostHeavySeaf == "constant" &&
+              upgraded.DeathTrooperVoice &&
+              upgraded.HostTheaterDefaultVersion == 3,
+              "Upgrading v2.2.1 (HostTheaterDefaultVersion=2) preserves explicit HostTheaterPreset='standard' while migrating Chaos='total-war', SEAF='constant', and DeathTrooperVoice=true once");
+
+        upgraded.HostChaosIntensity = "standard";
+        upgraded.HostHeavySeaf = "standard";
+        upgraded.DeathTrooperVoice = false;
+        upgraded.Save(v221Path);
+        var reloadedExplicit = HellForgePreferences.Load(v221Path);
+        check(reloadedExplicit.HostChaosIntensity == "standard" &&
+              reloadedExplicit.HostHeavySeaf == "standard" &&
+              !reloadedExplicit.DeathTrooperVoice &&
+              reloadedExplicit.HostTheaterDefaultVersion == 3,
+              "v2.2.2+ (HostTheaterDefaultVersion=3) preserves explicit user opt-outs for Chaos, Heavy SEAF, and DeathTrooperVoice");
     }
 }

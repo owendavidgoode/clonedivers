@@ -7,36 +7,38 @@ internal static class LinuxForgePlayerTests
     internal static async Task Run(string root, Action<bool, string> check)
     {
         const string hello = "{\"bridge\":\"clonedivers-forge\",\"format\":1}\n";
-        check(HellForgeGameplayCatalog.Pinned.Id == "build25480438-r14" && HellForgeGameplayCatalog.Pinned.Artifacts.Count == 18 &&
+        check(HellForgeGameplayCatalog.Pinned.Id == "build25480438-r15" && HellForgeGameplayCatalog.Pinned.Artifacts.Count == 18 &&
             HellForgeGameplayCatalog.Pinned.Artifacts.Where(a => a.Optional).Select(a => a.Id).ToHashSet(StringComparer.Ordinal).SetEquals(HellForgePreset.Optional),
-            "Linux embeds and validates the r14 gameplay catalog with all nine optional mods");
+            "Linux embeds and validates the r15 gameplay catalog with all nine optional mods");
         var brandNewLinux = LinuxForgePreferences.Load(Path.Combine(root, "brand-new-linux", "forge.json"));
         check(brandNewLinux.Mode == "clonedivers" && brandNewLinux.EnemySkin == "mixed-droids" && brandNewLinux.Covenant &&
-            brandNewLinux.SquidSkin == "mixed-covenant" && !brandNewLinux.DeathTrooperVoice &&
+            brandNewLinux.SquidSkin == "mixed-covenant" && brandNewLinux.DeathTrooperVoice &&
             brandNewLinux.DeltaSquad && brandNewLinux.AutoPerformanceTier && brandNewLinux.PerformanceTier == "auto" &&
             brandNewLinux.SoundEffectsEnabled && brandNewLinux.DiscordRpcEnabled && !brandNewLinux.MinimizeToTray &&
-            brandNewLinux.HostChaosIntensity == "standard" && brandNewLinux.HostHeavySeaf == "standard" && brandNewLinux.HostFasterCorpseCleanup &&
-            brandNewLinux.HostTheaterPreset == "clone-wars" && brandNewLinux.HostTheaterDefaultVersion == 2,
-            "brand-new Linux installs default to the full-variety mix, AutoPerformanceTier=true, and HostTheaterPreset='clone-wars'");
+            brandNewLinux.HostChaosIntensity == "total-war" && brandNewLinux.HostHeavySeaf == "constant" && brandNewLinux.HostFasterCorpseCleanup &&
+            brandNewLinux.HostTheaterPreset == "clone-wars" && brandNewLinux.HostTheaterDefaultVersion == 3,
+            "brand-new Linux installs default to all Star Wars & host goodies on, AutoPerformanceTier=true, and HostTheaterPreset='clone-wars'");
         var legacyLinuxPath = Path.Combine(root, "legacy-linux-forge.json");
         File.WriteAllText(legacyLinuxPath, """{"Format":1,"Mode":"clonedivers","Texture":"lighter"}""");
         var legacyLinux = LinuxForgePreferences.Load(legacyLinuxPath);
         check(legacyLinux.EnemySkin == "all-droids" && !legacyLinux.Covenant && legacyLinux.SquidSkin == "native-squids" &&
             !legacyLinux.AutoPerformanceTier && legacyLinux.PerformanceTier == "high" &&
-            legacyLinux.HostTheaterPreset == "clone-wars" && legacyLinux.HostTheaterDefaultVersion == 2,
-            "existing saved Linux forge.json files preserve legacy EnemySkin, Covenant=false, and AutoPerformanceTier=false while migrating HostTheaterPreset to 'clone-wars'");
+            legacyLinux.HostTheaterPreset == "clone-wars" && legacyLinux.HostChaosIntensity == "total-war" &&
+            legacyLinux.HostHeavySeaf == "constant" && legacyLinux.DeathTrooperVoice && legacyLinux.HostTheaterDefaultVersion == 3,
+            "existing saved pre-v2.2.2 Linux forge.json files preserve legacy EnemySkin, Covenant=false, and AutoPerformanceTier=false while migrating default host goodies once");
         var explicitStdLinuxPath = Path.Combine(root, "v221-explicit-std-linux.json");
-        var explicitStdLinux = new LinuxForgePreferences { Mode = "clonedivers", HostTheaterPreset = "standard" };
+        var explicitStdLinux = new LinuxForgePreferences { Mode = "clonedivers", HostTheaterPreset = "standard", HostChaosIntensity = "standard", HostHeavySeaf = "standard", DeathTrooperVoice = false };
         explicitStdLinux.Save(explicitStdLinuxPath);
         var reloadedStdLinux = LinuxForgePreferences.Load(explicitStdLinuxPath);
-        check(reloadedStdLinux.HostTheaterPreset == "standard" && reloadedStdLinux.HostTheaterDefaultVersion == 2,
-            "v2.2.1+ Linux forge.json with HostTheaterDefaultVersion=2 preserves an explicit 'standard' theater choice");
+        check(reloadedStdLinux.HostTheaterPreset == "standard" && reloadedStdLinux.HostChaosIntensity == "standard" &&
+            reloadedStdLinux.HostHeavySeaf == "standard" && !reloadedStdLinux.DeathTrooperVoice && reloadedStdLinux.HostTheaterDefaultVersion == 3,
+            "v2.2.2+ Linux forge.json with HostTheaterDefaultVersion=3 preserves explicit 'standard' / DeathTrooperVoice=false choices");
 
         var legacyLinuxCovTruePath = Path.Combine(root, "legacy-linux-cov-true.json");
         File.WriteAllText(legacyLinuxCovTruePath, """{"Format":1,"Mode":"clonedivers","Covenant":true}""");
         var legacyLinuxCovTrue = LinuxForgePreferences.Load(legacyLinuxCovTruePath);
-        check(legacyLinuxCovTrue.SquidSkin == "all-covenant" && legacyLinuxCovTrue.Covenant && !legacyLinuxCovTrue.DeathTrooperVoice,
-            "existing Linux forge.json with Covenant=true (no SquidSkin) upgrades cleanly to SquidSkin='all-covenant'");
+        check(legacyLinuxCovTrue.SquidSkin == "all-covenant" && legacyLinuxCovTrue.Covenant && legacyLinuxCovTrue.DeathTrooperVoice,
+            "existing pre-v2.2.2 Linux forge.json with Covenant=true (no SquidSkin) upgrades cleanly to SquidSkin='all-covenant' and DeathTrooperVoice=true");
 
         // M4: Upgrading v2.0.3 manual PerformanceTier ('balanced'+'lighter' and 'ultra-potato'+'reduced512') reconciles PerformanceTier on Linux
         var linuxM4BalPath = Path.Combine(root, "linux-m4-balanced.json");
@@ -125,9 +127,9 @@ internal static class LinuxForgePlayerTests
         {
             check(linuxHostH4.GetHomeState().MinimizeToTray, "LinuxForgeHost exposes MinimizeToTray in ForgeHomeState on startup (H4)");
         }
-        check(SquadFingerprint.Compute(HellForgeGameplayCatalog.Current).StartsWith("r14-", StringComparison.Ordinal) &&
+        check(SquadFingerprint.Compute(HellForgeGameplayCatalog.Current).StartsWith("r15-", StringComparison.Ordinal) &&
             PerformanceTierAdvisor.Tiers.Count == 5 &&
-            DiscordReportFormatter.Format("0.11.1", "r14-d05d", "clonedivers", "mixed-droids", true, true, "auto", "lighter",
+            DiscordReportFormatter.Format("0.11.2", "r15-a05a", "clonedivers", "mixed-droids", true, true, "auto", "lighter",
                 PerformanceTierAdvisor.Recommend("AMD Radeon GPU", 8.0, 16.0), "/home/deck/HellForge", null).Split('\n').Length is >= 10 and <= 14,
             "Linux shares SquadFingerprint, 5-tier PerformanceTierAdvisor, and 10–14 line DiscordReportFormatter");
         foreach (var texture in new[] { "full", "lighter", "reduced1024", "reduced512", "potato256" })

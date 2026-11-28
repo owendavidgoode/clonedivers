@@ -35,7 +35,7 @@ public sealed class HellForgePreferences
         get => squidSkin;
         set { squidSkin = value; squidSkinExplicit = true; }
     }
-    public bool DeathTrooperVoice { get; set; } = false;
+    public bool DeathTrooperVoice { get; set; } = true;
     public bool AutoPerformanceTier { get; set; } = true;
     public string PerformanceTier { get; set; } = PerformanceTierAdvisor.Auto;
     public bool SoundEffectsEnabled { get; set; } = true;
@@ -43,11 +43,11 @@ public sealed class HellForgePreferences
     public bool MinimizeToTray { get; set; }
     public string? LastStepDownSuggestedTier { get; set; }
     public string? PendingStepDownReason { get; set; }
-    public string HostChaosIntensity { get; set; } = "standard";
-    public string HostHeavySeaf { get; set; } = "standard";
+    public string HostChaosIntensity { get; set; } = "total-war";
+    public string HostHeavySeaf { get; set; } = "constant";
     public bool HostFasterCorpseCleanup { get; set; } = true;
     public string HostTheaterPreset { get; set; } = "clone-wars";
-    public int HostTheaterDefaultVersion { get; set; } = 2;
+    public int HostTheaterDefaultVersion { get; set; } = 3;
     public string? PlayerLabel { get; set; }
     public string? PreparedPack { get; set; }
     public string? AppliedSelection { get; set; }
@@ -76,7 +76,7 @@ public sealed class HellForgePreferences
     }
 
     public HostMutatorOptions ToHostMutatorOptions(DateTimeOffset? updatedUtc = null) =>
-        HostMutatorConfig.BuildOptions(HostChaosIntensity, HostHeavySeaf, HostFasterCorpseCleanup, HostTheaterPreset, updatedUtc);
+        HostMutatorConfig.BuildOptions(HostChaosIntensity, HostHeavySeaf, HostFasterCorpseCleanup, HostTheaterPreset, updatedUtc, activeMode: Mode);
 
     static bool TryGetJsonProperty(JsonElement obj, string name, out JsonElement value)
     {
@@ -156,17 +156,34 @@ public sealed class HellForgePreferences
             }
             if (!preferences.AutoPerformanceTier)
                 preferences.PerformanceTier = PerformanceTierAdvisor.ReconcileManualTier(preferences.PerformanceTier, preferences.Texture);
-            if (!TryGetJsonProperty(doc.RootElement, "HostTheaterDefaultVersion", out var thVerProp) ||
-                thVerProp.ValueKind != JsonValueKind.Number ||
-                !thVerProp.TryGetInt32(out var thVer) ||
-                thVer < 2)
+            int thVer = 0;
+            if (TryGetJsonProperty(doc.RootElement, "HostTheaterDefaultVersion", out var thVerProp) &&
+                thVerProp.ValueKind == JsonValueKind.Number)
+            {
+                thVerProp.TryGetInt32(out thVer);
+            }
+            if (thVer < 2)
             {
                 if (string.IsNullOrWhiteSpace(preferences.HostTheaterPreset) ||
                     string.Equals(preferences.HostTheaterPreset, "standard", StringComparison.OrdinalIgnoreCase))
                 {
                     preferences.HostTheaterPreset = "clone-wars";
                 }
-                preferences.HostTheaterDefaultVersion = 2;
+            }
+            if (thVer < 3)
+            {
+                if (string.IsNullOrWhiteSpace(preferences.HostChaosIntensity) ||
+                    string.Equals(preferences.HostChaosIntensity, "standard", StringComparison.OrdinalIgnoreCase))
+                {
+                    preferences.HostChaosIntensity = "total-war";
+                }
+                if (string.IsNullOrWhiteSpace(preferences.HostHeavySeaf) ||
+                    string.Equals(preferences.HostHeavySeaf, "standard", StringComparison.OrdinalIgnoreCase))
+                {
+                    preferences.HostHeavySeaf = "constant";
+                }
+                preferences.DeathTrooperVoice = true;
+                preferences.HostTheaterDefaultVersion = 3;
             }
         }
         preferences.Validate();
@@ -176,8 +193,8 @@ public sealed class HellForgePreferences
     {
         if (string.IsNullOrEmpty(PerformanceTier))
             PerformanceTier = AutoPerformanceTier ? PerformanceTierAdvisor.Auto : PerformanceTierAdvisor.TierFromPackTexture(Texture);
-        if (string.IsNullOrEmpty(HostChaosIntensity)) HostChaosIntensity = "standard";
-        if (string.IsNullOrEmpty(HostHeavySeaf)) HostHeavySeaf = "standard";
+        if (string.IsNullOrEmpty(HostChaosIntensity)) HostChaosIntensity = "total-war";
+        if (string.IsNullOrEmpty(HostHeavySeaf)) HostHeavySeaf = "constant";
         if (string.IsNullOrEmpty(HostTheaterPreset)) HostTheaterPreset = "clone-wars";
         if (string.IsNullOrWhiteSpace(LastStepDownSuggestedTier)) LastStepDownSuggestedTier = null;
         if (string.IsNullOrWhiteSpace(PendingStepDownReason)) PendingStepDownReason = null;

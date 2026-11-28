@@ -570,6 +570,7 @@ internal sealed class LinuxForgeHost : IForgeUiHost
         {
             preferences.Mode = mode;
             preferences.Save();
+            TrySyncHostMutatorFile();
             if (player != null) await player.ApplySelectionAsync(ct);
             ScheduleSizeEstimate();
         });

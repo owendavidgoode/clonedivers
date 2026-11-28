@@ -409,13 +409,13 @@ internal static class TurnkeySetupTests
                 "RecoverGameplayAsync after an interrupted r4->r8 upgrade restores 0.0.9/0.2.0 and still offers the enabled retired-default upgrades on retry");
             fake.Calls.Clear(); await postRecovery.InstallGameplayAsync(postRecovery.GameplayCache);
             check(fake.Mods.Single(m => m.Id == leafWriter.Id) is { Enabled: true, Version: "0.2.3" } &&
-                fake.Mods.Single(m => m.Id == chaos.Id) is { Enabled: true, Version: "0.5.0" } &&
+                fake.Mods.Single(m => m.Id == chaos.Id) is { Enabled: true, Version: "0.5.1" } &&
                 fake.Mods.Single(m => m.Id == atst.Id) is { Enabled: true, Version: "0.2.5" } &&
                 newInR5.All(id => fake.Mods.Single(m => m.Id == id).Enabled) &&
                 fake.Mods.Single(m => m.Id == yoda.Id) is { Enabled: false, Version: "0.1.2" } &&
                 fake.Mods.All(m => m.Id != cleanExit.Id) &&
                 fake.Calls.Count(c => c[0] == "mod-add") == expectedR4Upgrade.Count,
-                "r4->r14 retry after RecoverGameplayAsync imports 0.2.3/0.2.5/0.5.0 upgrades and new AT-ST/TIE Switch/Camera Pullback/Star Wars Localization/Dedicated Melee defaults while leaving disabled Yoda 0.1.2 and removed Clean Exit untouched");
+                "r4->r15 retry after RecoverGameplayAsync imports 0.2.3/0.2.5/0.5.1 upgrades and new AT-ST/TIE Switch/Camera Pullback/Star Wars Localization/Dedicated Melee defaults while leaving disabled Yoda 0.1.2 and removed Clean Exit untouched");
 
             // Upgrading from r5 upgrades enabled 0.1.0 LEGO leaf writer and AT-ST writer while offering Camera Pullback + Star Wars Localization + Dedicated Melee and preserving disabled/removed optionals.
             var r5OptionalIds = new[] { cleanExit.Id, leafWriter.Id, yoda.Id, atst.Id, tieSwitch.Id, chaos.Id };

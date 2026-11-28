@@ -735,6 +735,10 @@ static void ResetMockCountersAndModState(void)
     g_d12_config_active = 0;
     g_last_bridge_seen_mtime = 0ULL;
     g_last_bridge_seen_text[0] = 0;
+    g_hellforge_mods_path[0] = 0;
+    g_hellforge_mods_mtime = 0ULL;
+    g_detected_mods_mode = CD_MODE_AUTO;
+    InterlockedExchange(&g_empire_mode_active, 0L);
     g_host_opts = cd_host_options_defaults();
     g_ultrakill.d11_snapshot_valid = 0;
     g_ultrakill.d12_applied = 0;
@@ -2519,12 +2523,58 @@ static void TestV050GenuineDifficulty12SlotAndGating(HfApi* api)
     memcpy(&max_bound, g_arena_game + kD12DifficultyBounds[0].rva + kD12DifficultyBounds[0].imm_at, 4u);
     CHECK(obj_hi == 12u && op_hi == 12u && mis_hi == 12u && max_bound == 12u);
 
-    /* Verify UltrakillTextDetour serves D12 text on ALL roles (including Joiner) while keeping D11 as "HELL FORGE" */
+    /* Verify UltrakillTextDetour serves D12 text on ALL roles (including Joiner) while keeping D11 as "HELL FORGE",
+     * and serves "LEVEL 12: STORMTROOPER" in EmpireDivers vs "LEVEL 12: CLONE WARS" in Clonedivers / Regular! */
     g_d12_slot.state = 1;
     role = HF_SESSION_JOINER;
     CHECK(strcmp(UltrakillTextDetour(D12_NAME_TEXT_ID, NULL, NULL, NULL), "LEVEL 12: CLONE WARS") == 0);
     CHECK(strcmp(UltrakillTextDetour(D12_NUM_TEXT_ID, NULL, NULL, NULL), "12") == 0);
     CHECK(strcmp(UltrakillTextDetour(0x55AA0011u, NULL, NULL, NULL), "HELL FORGE") == 0);
+
+    /* Explicit activeMode="empire" in CdHostOptions -> "LEVEL 12: STORMTROOPER" on both Joiner & Host */
+    {
+        CdHostOptions parsed_emp;
+        const char* emp_json = "{\"format\":1,\"theaterPreset\":\"clone-wars\",\"chaosIntensity\":\"total-war\",\"heavySeaf\":\"constant\",\"activeMode\":\"empire\",\"fasterCorpseCleanup\":true}";
+        CHECK(cd_parse_host_options_json(emp_json, strlen(emp_json), &parsed_emp) == 1);
+        CHECK(parsed_emp.active_mode == CD_MODE_EMPIRE);
+        CHECK(cd_effective_chaos_for_difficulty(&parsed_emp, 10) == CD_CHAOS_TOTAL_WAR);
+        CHECK(cd_effective_chaos_for_difficulty(&parsed_emp, 12) == CD_CHAOS_CLONE_WARS);
+        CHECK(cd_effective_heavy_seaf_for_difficulty(&parsed_emp, 10) == CD_HEAVY_SEAF_CONSTANT);
+        CHECK(cd_effective_heavy_seaf_for_difficulty(&parsed_emp, 12) == CD_HEAVY_SEAF_CLONE_WARS);
+
+        CdHostOptions bad_mode;
+        const char* bad_json = "{\"format\":1,\"activeMode\":\"rebel-alliance\",\"fasterCorpseCleanup\":true}";
+        CHECK(cd_parse_host_options_json(bad_json, strlen(bad_json), &bad_mode) == -1);
+
+        g_host_opts = parsed_emp;
+        RefreshActivePackMode(0);
+        CHECK(strcmp(UltrakillTextDetour(D12_NAME_TEXT_ID, NULL, NULL, NULL), "LEVEL 12: STORMTROOPER") == 0);
+
+        /* Forced level12-ultrakill still displays "LEVEL 12: ULTRAKILL" */
+        g_host_opts.theater_preset = CD_THEATER_LEVEL12_ULTRAKILL;
+        CHECK(strcmp(UltrakillTextDetour(D12_NAME_TEXT_ID, NULL, NULL, NULL), "LEVEL 12: ULTRAKILL") == 0);
+
+        /* hellforge-mods.json auto-detection (including stray disabled demo Empire pack + enabled r54 Empire pack) */
+        CdActiveMode det_mode = CD_MODE_AUTO;
+        const char* hf_emp_mods =
+            "{\"format\":1,\"disabled\":[\"pack.b7b312b3-d764-4c7e-a287-3ce7e6b65851\",\"pack.ef3458f5-f409-4f24-8933-05fdc10a2101\"],"
+            "\"order\":[\"clonedivers.chaos-invasions\",\"pack.b7b312b3-d764-4c7e-a287-3ce7e6b65851\",\"pack.ef3458f5-f409-4f24-8933-05fdc10a0061\"]}";
+        CHECK(cd_parse_hellforge_mods_mode(hf_emp_mods, strlen(hf_emp_mods), &det_mode) == 1 && det_mode == CD_MODE_EMPIRE);
+
+        const char* hf_clones_mods =
+            "{\"format\":1,\"disabled\":[\"pack.ef3458f5-f409-4f24-8933-05fdc10a0061\"],"
+            "\"order\":[\"clonedivers.chaos-invasions\",\"pack.b7b312b3-d764-4c7e-a287-3ce7e6b65851\",\"pack.ef3458f5-f409-4f24-8933-05fdc10a0061\"]}";
+        CHECK(cd_parse_hellforge_mods_mode(hf_clones_mods, strlen(hf_clones_mods), &det_mode) == 1 && det_mode == CD_MODE_CLONES);
+
+        const char* hf_reg_mods =
+            "{\"format\":1,\"disabled\":[\"pack.ef3458f5-f409-4f24-8933-05fdc10a0061\",\"pack.b7b312b3-d764-4c7e-a287-3ce7e6b65851\"],"
+            "\"order\":[\"clonedivers.chaos-invasions\",\"pack.b7b312b3-d764-4c7e-a287-3ce7e6b65851\",\"pack.ef3458f5-f409-4f24-8933-05fdc10a0061\"]}";
+        CHECK(cd_parse_hellforge_mods_mode(hf_reg_mods, strlen(hf_reg_mods), &det_mode) == 1 && det_mode == CD_MODE_REGULAR);
+
+        g_host_opts = cd_host_options_defaults();
+        RefreshActivePackMode(0);
+        CHECK(strcmp(UltrakillTextDetour(D12_NAME_TEXT_ID, NULL, NULL, NULL), "LEVEL 12: CLONE WARS") == 0);
+    }
     g_d12_slot.state = 0;
 
     /* 3b. Execute the actual PAGE_EXECUTE_READ machine-code stubs on the CPU (d12_extra + all 3 D12EmitBoardStub kinds) */
