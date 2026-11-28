@@ -107,17 +107,23 @@ def load_reverse_names(rnames_path: Path, bk_root: Path) -> dict[int, str]:
     return rev64
 
 
-# Explicit 14 native MATERIALs dyed blue in patch_1000..1031:
+# Explicit 34 stock-backed MATERIALs dyed blue in patch_1000..1031 (14 len==stock + 20 len!=stock):
 MAT14_ROLES = {
-    # Orbital / Laser Cannon / Sentry / Ship Turbolaser materials -> Imperial Green
+    # Orbital / Laser Cannon / Sentry / Ship Turbolaser / Quasar materials -> Imperial Green
     0x4D66532712E63799: "GREEN",
     0xBE9AFFBE62259A60: "GREEN",
     0xDA5F9F5B3370080A: "GREEN",
     0x0391253BA6A0AE8A: "GREEN",
+    0x45831B095ED84A0A: "GREEN",
+    0x7F6740A9DDDEC2CB: "GREEN",
+    0xFFAEE482184249FD: "GREEN",
     # Handheld Blaster / Plasma materials -> Imperial Crimson Red
     0x9E6E861E2E6539D1: "RED",
     0x7A1C3F81D8871516: "RED",
-    # Shared volumetric smoke / spore-cloud / explosion scatter materials -> clean stock neutral scatter
+    0x9213C4FCE50E0F9B: "RED",
+    0xA57C18EF2C462584: "RED",
+    0x45E0B1D5266A1FED: "RED",
+    # Shared volumetric smoke / spore-cloud / explosion / multi-weapon scatter materials -> stock neutral uniforms
     0x0B5568BD29017072: "STOCK_SCATTER",
     0x288933897138A1F0: "STOCK_SCATTER",
     0x7AA7D0DDCF913278: "STOCK_SCATTER",
@@ -126,6 +132,29 @@ MAT14_ROLES = {
     0x88FA986529A8EB9D: "STOCK_SCATTER",
     0x20E6A80A52599F43: "STOCK_SCATTER",
     0x5335E7A1FB0587BB: "STOCK_SCATTER",
+    0x2186E5B4FC0374BE: "STOCK_SCATTER",
+    0x354C68A7928C5E89: "STOCK_SCATTER",
+    0x39AC8AAD5AD42F33: "STOCK_SCATTER",
+    0x3D5E7E65ADFBDD88: "STOCK_SCATTER",
+    0x56C36AB93297805E: "STOCK_SCATTER",
+    0x6FC8BEE4791D36D0: "STOCK_SCATTER",
+    0x75A0F11ECC2BAA94: "STOCK_SCATTER",
+    0x84964A833211B927: "STOCK_SCATTER",
+    0x8D273AB3CA71AA4C: "STOCK_SCATTER",
+    0xBC5BB03378E5BE75: "STOCK_SCATTER",
+    0xBE7A5690C9A17B35: "STOCK_SCATTER",
+    0xC27B6095174FC770: "STOCK_SCATTER",
+    0xCAAF72E428B53EFF: "STOCK_SCATTER",
+    0xF564E60E3776BE4F: "STOCK_SCATTER",
+}
+
+SKIP_CUSTOM_UNIT_MATS = {
+    0x80C9A26670D38A4D,
+    0x92BAA8D52A333885,
+    0xC2A04DCA6982B9E9,
+    0x09125D48E65AE866,
+    0x0EFD2249BA57E908,
+    0xF710010057A162AA,
 }
 
 
@@ -173,22 +202,44 @@ def warm_to_role_rgb(r: float, g: float, b: float, role: str) -> tuple[float, fl
     raise ValueError(f"Unexpected role {role}")
 
 
+def parse_stock_var_map(sraw: bytes | None) -> dict[tuple[int, int], tuple[float, ...]]:
+    """Map (nhash, vtype) -> float tuple for vec3/vec4 shader uniforms in stock MATERIAL."""
+    if not sraw or len(sraw) < 136:
+        return {}
+    _nt, _nv, svd_off, srecs = parse_material_vars(sraw)
+    svd_end = svd_off + struct.unpack_from("<I", sraw, 120)[0]
+    out: dict[tuple[int, int], tuple[float, ...]] = {}
+    for _vi, vt, nh, aoff in srecs:
+        if vt in (2, 3):
+            nf = 3 if vt == 2 else 4
+            if aoff + 4 * nf <= svd_end:
+                out[(nh, vt)] = struct.unpack_from(f"<{nf}f", sraw, aoff)
+    return out
+
+
 def recolor_material(mraw: bytes, role: str, sraw: bytes | None = None) -> tuple[bytes, int]:
-    """Recolor ONLY vtype in (2, 3) (vec3/vec4) shader uniforms, or restore stock scatter uniforms."""
+    """Recolor ONLY vtype in (2, 3) (vec3/vec4) shader uniforms, or restore stock scatter uniforms by (nhash, vtype)."""
+    s_vars = parse_stock_var_map(sraw)
     if role == "STOCK_SCATTER":
         if sraw is None:
             raise ValueError("STOCK_SCATTER requires stock material bytes")
-        nt_r, nv_r, vd_off_r, _ = parse_material_vars(mraw)
-        nt_s, nv_s, vd_off_s, _ = parse_material_vars(sraw)
-        vd_sz_r = struct.unpack_from("<I", mraw, 120)[0]
-        vd_sz_s = struct.unpack_from("<I", sraw, 120)[0]
+        _nt_r, _nv_r, vd_off_r, recs_r = parse_material_vars(mraw)
+        _nt_s, _nv_s, vd_off_s, _ = parse_material_vars(sraw)
         if len(mraw) == len(sraw) and mraw[:vd_off_r] == sraw[:vd_off_s]:
             return sraw, 1 if mraw != sraw else 0
-        if vd_off_r > 0 and vd_sz_r == vd_sz_s and vd_off_r + vd_sz_r <= len(mraw) and vd_off_s + vd_sz_s <= len(sraw):
-            out = bytearray(mraw)
-            out[vd_off_r : vd_off_r + vd_sz_r] = sraw[vd_off_s : vd_off_s + vd_sz_s]
-            return bytes(out), 1 if bytes(out) != mraw else 0
-        return sraw, 1
+        vd_end_r = vd_off_r + struct.unpack_from("<I", mraw, 120)[0]
+        out = bytearray(mraw)
+        edits = 0
+        for _vi, vt, nh, aoff in recs_r:
+            if vt in (2, 3) and (nh, vt) in s_vars:
+                nf = 3 if vt == 2 else 4
+                if aoff + 4 * nf <= vd_end_r:
+                    cur = struct.unpack_from(f"<{nf}f", out, aoff)
+                    sv = s_vars[(nh, vt)]
+                    if cur != sv:
+                        struct.pack_into(f"<{nf}f", out, aoff, *sv)
+                        edits += 1
+        return bytes(out), edits
 
     _nt, _nv, vd_off, recs = parse_material_vars(mraw)
     if not recs:
@@ -197,7 +248,7 @@ def recolor_material(mraw: bytes, role: str, sraw: bytes | None = None) -> tuple
     vd_end = vd_off + vd_sz
     out = bytearray(mraw)
     edits = 0
-    for _vi, vtype, _nhash, abs_off in recs:
+    for _vi, vtype, nhash, abs_off in recs:
         if vtype not in (2, 3):
             continue
         n_f = 3 if vtype == 2 else 4
@@ -207,14 +258,18 @@ def recolor_material(mraw: bytes, role: str, sraw: bytes | None = None) -> tuple
         r, g, b = vals[0], vals[1], vals[2]
         if not all(math.isfinite(x) and x >= 0.0 for x in (r, g, b)):
             continue
+        sv = s_vars.get((nhash, vtype))
+        # Skip Z-normal vectors where stock is already (0.0, 0.0, 1.0) (e.g. 0xf32ad38b)
+        if sv is not None and abs(sv[0]) < 1e-5 and abs(sv[1]) < 1e-5 and abs(sv[2] - 1.0) < 1e-5:
+            if abs(r) < 1e-5 and abs(g) < 1e-5 and abs(b - 1.0) < 1e-5:
+                continue
         if b > 1.18 * max(r, g) and b > 0.02:
             nr, ng, nb = blue_to_role_rgb(r, g, b, role)
             vals[0], vals[1], vals[2] = nr, ng, nb
             struct.pack_into(f"<{n_f}f", out, abs_off, *vals)
             edits += 1
-        elif sraw and len(sraw) == len(mraw) and abs_off + 12 <= len(sraw):
-            # Also check if stock was yellow/orange laser in a GREEN/RED laser material and r54 left warm/cyan
-            sr, sg, sb = struct.unpack_from("<3f", sraw, abs_off)
+        elif sv is not None:
+            sr, sg, sb = sv[0], sv[1], sv[2]
             if (r, g, b) == (sr, sg, sb) and max(r, g) > 0.25 and max(r, g, b) - min(r, g, b) > 0.15 * max(r, g, b):
                 if role == "GREEN" and not (g > 1.2 * max(r, b)):
                     nr, ng, nb = warm_to_role_rgb(r, g, b, role)
@@ -363,30 +418,35 @@ def recolor_pfx(
                     nr, ng, nb = blue_to_role_rgb(rr, rg, rb, role)
                     struct.pack_into("<3f", out, off, nr, ng, nb)
                     edits += 1
-    else:
-        off = 64
-        while off <= len(out) - 12:
-            if off not in cg_ranges:
-                rr, rg, rb = struct.unpack_from("<3f", out, off)
-                if (
-                    all(math.isfinite(x) and 0.0 <= x <= 255.5 for x in (rr, rg, rb))
-                    and 50.0 <= rb <= 255.0
-                    and rb > 1.5 * max(rr, rg)
-                    and (rb in (255.0, 200.0, 100.0) or abs(rb - 183.6) < 1.0 or abs(rg - 98.0) < 2.0 or abs(rg - 15.3) < 1.0)
-                ):
-                    nr, ng, nb = blue_to_role_rgb(rr, rg, rb, role)
-                    struct.pack_into("<3f", out, off, nr, ng, nb)
-                    edits += 1
-                    off += 12
-                    continue
-            off += 4
+    # NOTE: When len(sraw) != len(out) or sraw is None, never run an unaligned 4-byte sliding window outside
+    # ColorGraphs: 10-slot ScalarGraph X-knot arrays ([0.0, 0.135, 1.0, 10000.0...]) and +4B phase-shifted
+    # Vector3(100, 0, 0) blocks ([u32(1), u32(1), 100.0] / [y_i=0, z_i=0, x_{i+1}=100]) are non-color curves!
 
     return bytes(out), edits
 
 
-def classify_r54_blue_pfx(pk: int, pfx_name: str, archive_topics: list[str]) -> str:
+def classify_r54_blue_pfx(pk: int, pfx_name: str, archive_topics: list[str], has_stock: bool = True) -> str:
     """Classify a blue-dyed PFX from patch_1000..1031 into GREEN, RED, or RESTORE_STOCK."""
+    if pk == 0x9B4AAE5E1359FAD9 or not has_stock:
+        return "RED"
     joined = (pfx_name + " | " + " | ".join(archive_topics)).lower()
+
+    # 0. Explicit ballistic/explosive weapons -> RESTORE_STOCK before generic vehicle/ship keywords
+    restore_first = (
+        "grenade_launcher",
+        "frag_grenade",
+        "he_grenade",
+        "smoke_grenade",
+        "stun_grenade",
+        "thermite",
+        "autocannon",
+        "recoilless",
+        "spear_",
+        "mortar_",
+        "flamethrower",
+    )
+    if any(kw in joined for kw in restore_first):
+        return "RESTORE_STOCK"
 
     # 1. Imperial Green Turbolasers: Orbital strikes, Star Destroyer / Super Destroyer, Extraction/Pelican/Eagle,
     #    LAS-98 Laser Cannon, Laser Sentry/Turret, Guard Dog Rover, Quasar Cannon, Heavy Cannon
@@ -451,14 +511,17 @@ def classify_r54_blue_pfx(pk: int, pfx_name: str, archive_topics: list[str]) -> 
 
 
 def pfx_has_blue(raw: bytes, sraw: bytes | None = None, orig_r54: bytes | None = None) -> int:
-    """Count remaining blue-dominant ColorGraph or aligned diffed RGB triples."""
+    """Count remaining blue-dominant ColorGraph (including unit-scale [0..1]) or aligned diffed RGB triples."""
     cnt = 0
     cgs = find_color_graphs(raw)
     cg_ranges = {b_off for cg_off, _ in cgs for b_off in range(cg_off, cg_off + 160, 4)}
     for cg_off, n_active in cgs:
         for j in range(n_active):
-            r, g, b = struct.unpack_from("<3f", raw, cg_off + 40 + 12 * j)
-            if b > 1.2 * max(r, g) and b >= 8.0:
+            c_off = cg_off + 40 + 12 * j
+            r, g, b = struct.unpack_from("<3f", raw, c_off)
+            if b > 1.2 * max(r, g) and b >= 0.08:
+                if b < 8.0 and sraw is not None and len(sraw) == len(raw) and raw[c_off : c_off + 12] == sraw[c_off : c_off + 12]:
+                    continue
                 cnt += 1
     ref_for_offs = orig_r54 if orig_r54 is not None else raw
     if sraw is not None and len(sraw) == len(raw):
@@ -513,7 +576,9 @@ def build_patch_1035(
             nms = []
             for rk, _rt in steam_arch_rows(a):
                 nm = rev64.get(rk, "")
-                if nm and not nm.startswith(("content/art_shared", "core/", "content/effects/materials/smoke")):
+                if nm and not nm.startswith(
+                    ("content/art_shared", "core/", "content/effects/materials/smoke", "content/env_ship/")
+                ):
                     nms.append(nm)
             topics.append(f"{a}:{'|'.join(nms[:5])}")
         return topics
@@ -609,7 +674,7 @@ def build_patch_1035(
             "edits": edits,
         })
 
-    # 5. Scan ALL PARTICLES in patch_1000..1031 that were dyed blue vs stock and override in patch_1035
+    # 5. Scan ALL PARTICLES in patch_1000..1031 (including len!=stock & custom s_b=None) dyed blue and override in patch_1035
     for (pk, tid), ents in sorted(stack.items()):
         if tid != PARTICLES:
             continue
@@ -618,15 +683,13 @@ def build_patch_1035(
             continue
         r_b = read_r54_parts((pk, PARTICLES))[0]
         s_b = read_stock(pk, PARTICLES)
-        if s_b is None:
-            continue
         n_blue = pfx_has_blue(r_b, s_b)
         if n_blue == 0:
             continue
         topics = archive_topics(pk, PARTICLES)
         nm = rev64.get(pk, "")
-        role = classify_r54_blue_pfx(pk, nm, topics)
-        if role == "RESTORE_STOCK":
+        role = classify_r54_blue_pfx(pk, nm, topics, has_stock=(s_b is not None))
+        if role == "RESTORE_STOCK" and s_b is not None:
             resources[(pk, PARTICLES)] = P.Generated((s_b, b"", b""))
             stats["r54_blue_pfx_restored_stock"] += 1
             pfx_decisions.append({
@@ -663,7 +726,7 @@ def build_patch_1035(
     if clobbered:
         raise RuntimeError(f"Resources in patch_1035 clobbered by higher patches: {clobbered}")
 
-    # 7. Verify zero blue ColorGraph keys remain on any GREEN or RED PFX or MAT in patch_1035
+    # 7. Verify zero blue ColorGraph keys remain on any GREEN or RED PFX, and zero unpatched stock-backed blue MATERIALs remain across the entire stack!
     residual_blue_pfx = []
     for d in pfx_decisions:
         if d["role"] in ("GREEN", "RED"):
@@ -677,25 +740,28 @@ def build_patch_1035(
         raise RuntimeError(f"Residual blue RGB keys in GREEN/RED PFXs: {residual_blue_pfx}")
 
     residual_blue_mat = []
-    for (mq, tid), res in resources.items():
-        if tid != MATERIAL:
+    for (mq, tid) in sorted(set(k for k in stack if k[1] == MATERIAL and stack[k][-1][0] <= 1035) | {k for k in resources if k[1] == MATERIAL}):
+        if mq in SKIP_CUSTOM_UNIT_MATS:
             continue
-        mraw = res.parts()[0]
+        mraw = resources[(mq, MATERIAL)].parts()[0] if (mq, MATERIAL) in resources else read_r54_parts((mq, MATERIAL))[0]
         sraw_m = read_stock(mq, MATERIAL)
+        if sraw_m is None and (mq, MATERIAL) not in resources:
+            continue
         if sraw_m is not None and mraw == sraw_m:
             continue
+        s_vars_m = parse_stock_var_map(sraw_m)
         _, _, vd_off, recs = parse_material_vars(mraw)
-        _, _, s_vd_off, _ = parse_material_vars(sraw_m) if sraw_m else (0, 0, 0, [])
         vd_end = vd_off + (struct.unpack_from("<I", mraw, 120)[0] if len(mraw) >= 136 else 0)
-        for _vi, vtype, _nh, abs_off in recs:
+        for _vi, vtype, nh, abs_off in recs:
             if vtype in (2, 3) and abs_off + 12 <= vd_end:
-                if sraw_m and len(sraw_m) == len(mraw) and mraw[abs_off : abs_off + 12] == sraw_m[abs_off : abs_off + 12]:
-                    continue
                 r, g, b = struct.unpack_from("<3f", mraw, abs_off)
+                sv = s_vars_m.get((nh, vtype))
+                if sv is not None and all(abs(a - b_) < 1e-5 for a, b_ in zip((r, g, b), sv)):
+                    continue
                 if all(math.isfinite(x) and x >= 0 for x in (r, g, b)) and b > 1.25 * max(r, g) and b > 0.05:
-                    residual_blue_mat.append((f"{mq:016x}", round(r, 3), round(g, 3), round(b, 3)))
+                    residual_blue_mat.append((f"{mq:016x}", f"{nh:08x}", round(r, 3), round(g, 3), round(b, 3)))
     if residual_blue_mat:
-        raise RuntimeError(f"Residual blue vec3/vec4 shader uniforms in patch_1035 MATERIALs: {residual_blue_mat}")
+        raise RuntimeError(f"Residual blue vec3/vec4 shader uniforms in stack MATERIALs: {residual_blue_mat}")
 
     # 8. Write staged archive
     out_dir.mkdir(parents=True, exist_ok=True)
