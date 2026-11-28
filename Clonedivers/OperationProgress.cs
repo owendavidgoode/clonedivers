@@ -709,7 +709,9 @@ public static class ForgeTacticalCopy
 {
     public static string ReadyDetail(string mode, bool firstLaunch = false, string? hostTheaterPreset = null)
     {
-        var dRange = HostMutatorConfig.IsUltrakillTheater(hostTheaterPreset) ? "D12 ULTRAKILL ready" : "D1–11 ready";
+        var dRange = HostMutatorConfig.IsUltrakillTheater(hostTheaterPreset)
+            ? (string.Equals(mode, "empire", StringComparison.OrdinalIgnoreCase) ? "D12 Stormtrooper ready" : "D12 ULTRAKILL ready")
+            : "D1–11 ready";
         var line = mode switch
         {
             "empire" => $"Imperial garrison online · {dRange} · Steam co-op enabled",
@@ -738,10 +740,10 @@ public static class ForgeTacticalCopy
         string hostHeavySeaf = "standard",
         bool hostFasterCorpseCleanup = true,
         string? squidSkin = null,
-        bool deathTrooperVoice = false,
+        bool deathTrooperVoice = true,
         string? hostTheaterPreset = null)
     {
-        var hostNote = FormatHostMutatorNote(hostChaosIntensity, hostHeavySeaf, hostFasterCorpseCleanup, hostTheaterPreset);
+        var hostNote = FormatHostMutatorNote(hostChaosIntensity, hostHeavySeaf, hostFasterCorpseCleanup, hostTheaterPreset, mode);
         if (string.Equals(mode, "regular", StringComparison.OrdinalIgnoreCase))
         {
             const string baseRegular = "Original Helldivers 2 visuals · Pinned gameplay preset";
@@ -754,7 +756,7 @@ public static class ForgeTacticalCopy
         bool isDefaultFullMix = string.Equals(enemySkin, "mixed-droids", StringComparison.OrdinalIgnoreCase) &&
                                 string.Equals(effectiveSquid, "mixed-covenant", StringComparison.OrdinalIgnoreCase) &&
                                 (!isClones || deltaSquad) &&
-                                (!isEmpire || !deathTrooperVoice);
+                                (!isEmpire || deathTrooperVoice);
 
         string mixPart;
         if (isDefaultFullMix)
@@ -785,8 +787,8 @@ public static class ForgeTacticalCopy
             {
                 segments.Add("Covenant");
             }
-            if (isEmpire && deathTrooperVoice)
-                segments.Add("Death Trooper Voice");
+            if (isEmpire)
+                segments.Add(deathTrooperVoice ? "Death Trooper Voice" : "Standard Imperial Voice");
             mixPart = string.Join(" · ", segments);
         }
 
@@ -802,10 +804,12 @@ public static class ForgeTacticalCopy
             : $"{mixPart} · {tierPart} · {hostNote}";
     }
 
-    public static string FormatHostMutatorNote(string chaosIntensity, string heavySeaf, bool fasterCorpseCleanup, string? theaterPreset = null)
+    public static string FormatHostMutatorNote(string chaosIntensity, string heavySeaf, bool fasterCorpseCleanup, string? theaterPreset = null, string? mode = null)
     {
         if (HostMutatorConfig.IsUltrakillTheater(theaterPreset, chaosIntensity))
-            return "L12 ULTRAKILL · Clone Wars (2–3k)";
+            return string.Equals(mode, "empire", StringComparison.OrdinalIgnoreCase)
+                ? "L12 ULTRAKILL · Stormtrooper (2–3k)"
+                : "L12 ULTRAKILL · Clone Wars (2–3k)";
 
         var notes = new List<string>(3);
         if (!string.Equals(chaosIntensity, "standard", StringComparison.OrdinalIgnoreCase))

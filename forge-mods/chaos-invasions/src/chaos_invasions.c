@@ -112,6 +112,10 @@ static int g_has_session_config = 0;
 static int g_d12_config_active = 0;
 static char g_host_options_path[CD_HOST_OPTIONS_MAX_PATH];
 static uint64_t g_host_options_mtime = 0ULL;
+static char g_hellforge_mods_path[CD_HOST_OPTIONS_MAX_PATH];
+static uint64_t g_hellforge_mods_mtime = 0ULL;
+static CdActiveMode g_detected_mods_mode = CD_MODE_AUTO;
+static volatile LONG g_empire_mode_active = 0;
 static uint64_t g_published_bridge_mtime = 0ULL;
 static char g_published_bridge_text[320];
 static uint64_t g_last_bridge_seen_mtime = 0ULL;
@@ -1966,16 +1970,25 @@ static int ChaosIsUltrakillActiveInMission(uintptr_t gbase)
     return cd_host_options_active_for_difficulty(&g_host_opts, live_diff);
 }
 
+static const char* ChaosD12DisplayName(void)
+{
+    if (g_host_opts.chaos_intensity == CD_CHAOS_ULTRAKILL ||
+        (g_host_opts.theater_preset == CD_THEATER_LEVEL12_ULTRAKILL &&
+         g_host_opts.chaos_intensity != CD_CHAOS_CLONE_WARS)) {
+        return "LEVEL 12: ULTRAKILL";
+    }
+    return (InterlockedCompareExchange(&g_empire_mode_active, 0, 0) != 0)
+           ? "LEVEL 12: STORMTROOPER"
+           : "LEVEL 12: CLONE WARS";
+}
+
 static const char* UltrakillTextDetour(uint32_t id, void* a, void* b, void* c)
 {
     if (id == D12_NUM_TEXT_ID) {
         return "12";
     }
     if (id == D12_NAME_TEXT_ID) {
-        return (g_host_opts.theater_preset == CD_THEATER_LEVEL12_ULTRAKILL ||
-                g_host_opts.chaos_intensity == CD_CHAOS_ULTRAKILL)
-               ? "LEVEL 12: ULTRAKILL"
-               : "LEVEL 12: CLONE WARS";
+        return ChaosD12DisplayName();
     }
     if (g_d12_slot.state != 1 && g_ultrakill.d12_applied && id != 0u) {
         if (id == g_ultrakill.d11_num_text_id && Host()) {
@@ -1983,7 +1996,7 @@ static const char* UltrakillTextDetour(uint32_t id, void* a, void* b, void* c)
         }
         if (id == g_ultrakill.d11_name_text_id && Host()) {
             return (cd_effective_chaos_intensity(&g_host_opts) == CD_CHAOS_CLONE_WARS)
-                   ? "LEVEL 12: CLONE WARS"
+                   ? ChaosD12DisplayName()
                    : "LEVEL 12: ULTRAKILL";
         }
     }
@@ -2762,19 +2775,61 @@ static void ChaosSyncLiveDifficultyConfig(uintptr_t gbase)
     }
 }
 
+static void RefreshActivePackMode(int is_poll)
+{
+    if (g_hellforge_mods_path[0]) {
+        uint64_t mm = 0ULL;
+        int mst = cd_get_file_mtime_100ns(g_hellforge_mods_path, &mm);
+        if (mst == 0) {
+            g_hellforge_mods_mtime = 0ULL;
+            g_detected_mods_mode = CD_MODE_AUTO;
+        } else if (mst == 1 && (!is_poll || mm != g_hellforge_mods_mtime)) {
+            uint64_t read_mtime = 0ULL;
+            CdActiveMode det = CD_MODE_AUTO;
+            int drc = cd_detect_hellforge_mods_mode_file(g_hellforge_mods_path, &read_mtime, &det);
+            if (drc >= 0) {
+                g_hellforge_mods_mtime = read_mtime ? read_mtime : mm;
+                g_detected_mods_mode = det;
+            }
+        }
+    } else {
+        g_hellforge_mods_mtime = 0ULL;
+        g_detected_mods_mode = CD_MODE_AUTO;
+    }
+
+    CdActiveMode eff = (g_detected_mods_mode != CD_MODE_AUTO) ? g_detected_mods_mode : g_host_opts.active_mode;
+    InterlockedExchange(&g_empire_mode_active, (eff == CD_MODE_EMPIRE) ? 1L : 0L);
+}
+
 static void LoadHostOptions(int is_poll)
 {
-    if (!g_host_options_path[0]) return;
+    if (!g_host_options_path[0]) {
+        RefreshActivePackMode(is_poll);
+        return;
+    }
     uint64_t hm = 0ULL;
     int st = cd_get_file_mtime_100ns(g_host_options_path, &hm);
-    if (st != 1) return;
-    if (is_poll && hm == g_host_options_mtime) return;
+    if (st != 1) {
+        RefreshActivePackMode(is_poll);
+        return;
+    }
+    if (is_poll && hm == g_host_options_mtime) {
+        RefreshActivePackMode(is_poll);
+        return;
+    }
     g_host_options_mtime = hm;
-    if (is_poll && cd_session_override_is_newer(hm, g_bridge_user_edit_mtime)) return;
+    if (is_poll && cd_session_override_is_newer(hm, g_bridge_user_edit_mtime)) {
+        RefreshActivePackMode(is_poll);
+        return;
+    }
 
     CdHostOptions ho;
-    if (cd_load_host_options_file(g_host_options_path, &ho) != 1) return;
+    if (cd_load_host_options_file(g_host_options_path, &ho) != 1) {
+        RefreshActivePackMode(is_poll);
+        return;
+    }
     g_host_opts = ho;
+    RefreshActivePackMode(is_poll);
     g_has_session_config = 0;
     int live_diff = 0;
     if (hf && self && hf->game_state && hf->game_state(self) == HF_STATE_MISSION) {
@@ -3307,6 +3362,10 @@ HF_MOD_EXPORT int hellforge_mod_init(const HfApi* api, HfMod* mod)
     g_d12_config_active = 0;
     g_host_options_path[0] = 0;
     g_host_options_mtime = 0ULL;
+    g_hellforge_mods_path[0] = 0;
+    g_hellforge_mods_mtime = 0ULL;
+    g_detected_mods_mode = CD_MODE_AUTO;
+    InterlockedExchange(&g_empire_mode_active, 0L);
     g_published_bridge_mtime = 0ULL;
     g_published_bridge_text[0] = 0;
     g_last_bridge_seen_mtime = 0ULL;
@@ -3324,7 +3383,9 @@ HF_MOD_EXPORT int hellforge_mod_init(const HfApi* api, HfMod* mod)
     snprintf(stop_file, sizeof stop_file, "%s\\chaos.stop", folder);
     LoadOptions(options, 0);
     cd_resolve_host_options_path(folder, g_host_options_path, sizeof g_host_options_path);
+    cd_resolve_hellforge_mods_path(folder, g_hellforge_mods_path, sizeof g_hellforge_mods_path);
     LoadHostOptions(0);
+    RefreshActivePackMode(0);
 
     char base[1600];
     DWORD n = GetEnvironmentVariableA("LOCALAPPDATA", base, sizeof base);
@@ -3359,9 +3420,10 @@ HF_MOD_EXPORT int hellforge_mod_init(const HfApi* api, HfMod* mod)
     if (HasChannelSend()) api->subscribe(mod, HF_ON_MESSAGE, OnMessage, NULL, 0);
     if (HasChannelShare()) api->subscribe(mod, HF_ON_SHARE, OnShare, NULL, 0);
 
-    SetStatusOnce("Chaos Invasions 0.5.0 ready");
-    api->log(mod, "CHAOS_INIT: version=0.5.0 build=25480438 sdk=16 preset=%s enabled=%d cooldown=%d grace=%d cap=%d faction_cap=%d squad=%d budget=%d",
+    SetStatusOnce("Chaos Invasions 0.5.1 ready");
+    api->log(mod, "CHAOS_INIT: version=0.5.1 build=25480438 sdk=16 preset=%s d12_name=\"%s\" enabled=%d cooldown=%d grace=%d cap=%d faction_cap=%d squad=%d budget=%d",
              cd_theater_preset_name(g_host_opts.theater_preset),
+             ChaosD12DisplayName(),
              config.enabled, config.cooldown, config.grace, config.total_cap, config.faction_cap,
              config.squad_size, config.mission_budget);
     return 0;

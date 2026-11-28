@@ -8,12 +8,12 @@ public sealed class PreviewForgeHost : IForgeUiHost
     string enemySkin = "mixed-droids";
     string squidSkin = "mixed-covenant";
     bool deltaSquad = true;
-    bool deathTrooperVoice = false;
+    bool deathTrooperVoice = true;
     string texture = "full";
     bool autoPerformanceTier = true;
     string performanceTier = PerformanceTierAdvisor.Auto;
-    string hostChaos = "standard";
-    string hostSeaf = "standard";
+    string hostChaos = "total-war";
+    string hostSeaf = "constant";
     bool hostCorpseCleanup = true;
     string hostTheater = "clone-wars";
     bool soundEffectsEnabled = true;
@@ -163,7 +163,7 @@ public sealed class PreviewForgeHost : IForgeUiHost
             "error" => ("Needs Attention", ForgeHeroTone.Danger, "Download service didn't respond", "GitHub timed out while fetching verified pack assets. Your saved files are intact.", "RETRY", ForgeHeroTone.Action, "View Diagnostics"),
             "home-stepdown" => ("Last Run Notice", ForgeHeroTone.Warning, "Last session ended unexpectedly", "GPU ran out of video memory or hung (D3D12) — try stepping down to High for smoother play.", "LAUNCH CLONEDIVERS", ForgeHeroTone.Ready, (string?)null),
             "home-resume" => ("Update & Launch", ForgeHeroTone.Action, "Switch to EmpireDivers & launch", "Resumes the remaining 4.2 GB download, applies your loadout, and launches automatically.", "UPDATE & LAUNCH", ForgeHeroTone.Action, (string?)null),
-            _ => ("Forge 0.4.0 · Ready", ForgeHeroTone.Ready, "Ready to play", ForgeTacticalCopy.ReadyDetail(mode),
+            _ => ("Forge 0.4.0 · Ready", ForgeHeroTone.Ready, "Ready to play", ForgeTacticalCopy.ReadyDetail(mode, hostTheaterPreset: hostTheater),
                 mode == "regular" ? "LAUNCH REGULAR HELLFORGE" : mode == "empire" ? "LAUNCH EMPIREDIVERS" : "LAUNCH CLONEDIVERS",
                 ForgeHeroTone.Ready, (string?)null)
         };
@@ -306,7 +306,8 @@ public sealed class PreviewForgeHost : IForgeUiHost
             triage: triage,
             redactUserPaths: true,
             squidSkin: squidSkin,
-            deathTrooperVoice: deathTrooperVoice);
+            deathTrooperVoice: deathTrooperVoice,
+            hostTheaterPreset: hostTheater);
 
         return Task.FromResult(new ForgeDiagnosticsState(
             InstallRoot: @"D:\HellForge",
@@ -380,10 +381,10 @@ public sealed class PreviewForgeHost : IForgeUiHost
         Tag: WhatsNewFetcher.NormalizeTag(versionOrTag ?? AppInfo.Version, isLinux: false),
         Bullets:
         [
-            "Genuine Difficulty 12 Slot ('LEVEL 12: CLONE WARS') right after D11, armed by default while keeping D1–11 intact.",
-            "EmpireDivers r54 & Clonedivers r25: fixed Parade Stormtrooper helmet pop-in & film-scale AT-ST walker culling across all 5 tiers.",
-            "Instant Mega-City AT-ST spawn admission (< 50 ms) in empire-atst-writer 0.2.5 + preserved full-detail close-up armor LODs.",
-            "Automatic completed-backup & staging disk reclamation on low-space Clonedivers and EmpireDivers installs (Squad Code r14)."
+            "EmpireDivers Difficulty 12 ('LEVEL 12: STORMTROOPER') + Clonedivers ('LEVEL 12: CLONE WARS') armed by default right after D11.",
+            "All Star Wars & host gameplay goodies enabled by default: Total War Chaos Invasions, Constant Reinforcements, Encrypted Death Trooper Voice, Delta Squad, 80/20 CIS Droids & Mixed Covenant.",
+            "EmpireDivers r54 & Clonedivers r25: film-scale AT-ST visibility & Parade Stormtrooper frustum culling across all 5 texture tiers.",
+            "Automatic completed-backup & staging disk reclamation on low-space installs (Squad Code r15)."
         ],
         IsFallback: false,
         ReleaseUrl: $"https://github.com/owendavidgoode/clonedivers/releases/tag/v{AppInfo.Version}"));

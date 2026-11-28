@@ -230,11 +230,11 @@ static class HellForgeTests
                         var applied = preferences.SelectionKey;
                         covenant.Checked = false; nativeAutomatons.Checked = true; Application.DoEvents();
                         check(!preferences.Droids && preferences.EnemySkin == "native-automatons" && !preferences.Selection().Options["droids"] && preferences.SelectionKey != applied &&
-                            preferences.SelectionKey == $"r54/{HellForgePack.SupportedBuild}/empire/full/False/False" && preferences.Selection().Files.Count == 132 && primaryAction.Enabled,
+                            preferences.SelectionKey == $"r54/{HellForgePack.SupportedBuild}/empire/full/False/False/deathtrooper" && preferences.Selection().Files.Count == 132 && primaryAction.Enabled,
                             "Empire Native Automatons option reaches native 132-file Automaton composition without blocking launch");
                         mixedDroids.Checked = true; Application.DoEvents();
                         check(preferences.Droids && preferences.EnemySkin == "mixed-droids" && preferences.Selection().Options["droids"] && preferences.Selection().Options["mixed-droids"] &&
-                            preferences.SelectionKey == $"r54/{HellForgePack.SupportedBuild}/empire/full/mixed-droids/False" && preferences.Selection().Files.Count == 144,
+                            preferences.SelectionKey == $"r54/{HellForgePack.SupportedBuild}/empire/full/mixed-droids/False/deathtrooper" && preferences.Selection().Files.Count == 144,
                             "Empire Mixed Bots + CIS Droids selects dedicated 144-file 80/20 mixed-droids composition on r54");
                         potatoTextures.Checked = true; Application.DoEvents();
                         check(preferences.Texture == "reduced512" && preferences.Selection().Texture == "reduced512" && preferences.Selection().Options["mixed-droids"] &&
@@ -242,19 +242,19 @@ static class HellForgeTests
                             "Johnson Ultra-Potato (512px) selects native reduced512 tier on r54 and updates advisor text");
                         covenant.Checked = true; Application.DoEvents();
                         check(preferences.Covenant && preferences.Selection().Options["covenant"] &&
-                            preferences.SelectionKey == $"r54/{HellForgePack.SupportedBuild}/empire/reduced512/mixed-droids/True",
+                            preferences.SelectionKey == $"r54/{HellForgePack.SupportedBuild}/empire/reduced512/mixed-droids/True/deathtrooper",
                             "Empire Covenant toggle updates SelectionKey and enables Wwise-deconflicted Covenant 1670 layer");
                         covenant.Checked = false; lighterTextures.Checked = true; nativeAutomatons.Checked = true; Application.DoEvents();
                         check(preferences.Texture == "lighter" && preferences.Selection().Texture == "lighter" && !preferences.Selection().Options["droids"] &&
-                            preferences.SelectionKey == $"r54/{HellForgePack.SupportedBuild}/empire/lighter/False/False",
+                            preferences.SelectionKey == $"r54/{HellForgePack.SupportedBuild}/empire/lighter/False/False/deathtrooper",
                             "Empire Lighter with Native Automatons reaches its pinned streamed Automaton selection");
                         allDroids.Checked = true; Application.DoEvents();
                         check(preferences.Selection().Texture == "lighter" && preferences.Selection().Options["droids"] && !preferences.Selection().Options["mixed-droids"] &&
-                            preferences.SelectionKey == $"r54/{HellForgePack.SupportedBuild}/empire/lighter/True/False",
+                            preferences.SelectionKey == $"r54/{HellForgePack.SupportedBuild}/empire/lighter/True/False/deathtrooper",
                             "Empire Lighter with All CIS Droids reaches its pinned streamed selection");
                         fullTextures.Checked = true; Application.DoEvents();
                         check(preferences.Selection().Texture == "full" && preferences.Selection().Options["droids"] &&
-                            preferences.SelectionKey == $"r54/{HellForgePack.SupportedBuild}/empire/full/True/False",
+                            preferences.SelectionKey == $"r54/{HellForgePack.SupportedBuild}/empire/full/True/False/deathtrooper",
                             "restoring Empire Full returns to its full-texture selection cleanly");
                     }
                 }
@@ -787,17 +787,18 @@ static class HellForgeTests
             new[] { "full", "lighter", "reduced1024", "reduced512", "potato256" }.All(t =>
                 HellForgePack.PinnedSelection("clonedivers", t).Files.Sum(f => f.Size) - HellForgePack.PinnedSelection("commandos", t).Files.Sum(f => f.Size) == 157857724L),
             "turning off Delta Squad in Clones r25 selects clones-r21-delta-off across all five texture tiers despite combinedRoster=true");
-        var oldEmpire = new HellForgePreferences { Mode = "empire", Texture = "lighter", Droids = false, Covenant = true,
+        var oldEmpire = new HellForgePreferences { Mode = "empire", Texture = "lighter", Droids = false, Covenant = true, DeathTrooperVoice = false,
             AppliedSelection = $"r48/{HellForgePack.SupportedBuild}/empire/lighter/False/False" };
         var savedEmpire = Path.Combine(area, "empire-options.json"); oldEmpire.Save(savedEmpire);
         oldEmpire = HellForgePreferences.Load(savedEmpire);
         var newEmpire = oldEmpire.Selection();
         check(oldEmpire.SelectionKey == $"r54/{HellForgePack.SupportedBuild}/empire/lighter/False/True" &&
+            new HellForgePreferences { Mode = "empire", Texture = "lighter" }.SelectionKey.EndsWith("/deathtrooper", StringComparison.Ordinal) &&
             oldEmpire.AppliedSelection != oldEmpire.SelectionKey && newEmpire.Version == "2026.11.27-r54" &&
             newEmpire.ManifestSha256 == "73b729e3b2b73b2b4387ab11c618c74f0277c6f8af27488086a4e8a3965ee2f0" &&
             newEmpire.Texture == "lighter" && !newEmpire.Options["droids"] && newEmpire.Options["covenant"] && newEmpire.Files.Count == 132 &&
             newEmpire.Files.Sum(f => f.Size) == 13055695818L,
-            "Empire honors saved texture, droid and Covenant choices while requiring preparation of the r54 catalog");
+            "Empire honors saved texture, droid, Covenant and DeathTrooperVoice choices while requiring preparation of the r54 catalog");
         var empireFull = HellForgePack.PinnedSelection("empire", "full");
         var empireLighter = HellForgePack.PinnedSelection("empire", "lighter");
         var empireReduced1024 = HellForgePack.PinnedSelection("empire", "reduced1024");

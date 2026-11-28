@@ -1,6 +1,6 @@
 {
   "Format": 1,
-  "Id": "build25480438-r14",
+  "Id": "build25480438-r15",
   "GameBuild": "25480438",
   "Artifacts": [
     {
@@ -94,12 +94,12 @@
     {
       "Id": "clonedivers.chaos-invasions",
       "Name": "Chaos Invasions",
-      "Version": "0.5.0",
-      "Url": "https://github.com/owendavidgoode/clonedivers/releases/download/forge-mods-2026-11-27/chaos-invasions-0.5.0.zip",
-      "Bytes": 80446,
-      "Sha256": "6b72089e1b6774271418bf24c1f9652925bcd8d4261947029f0a6725451ae670",
-      "ContentHash": "398398358369e8452b626f53dee92db68801b025a900e40d4ca59d4a239149f7",
-      "Source": "Project-owned gameplay code mod (0.5.0 genuine 12th Difficulty Slot 'LEVEL 12: CLONE WARS' after Hell Forge D11 with D1..11 preserved intact, live mission difficulty >= 12 gating, 942m/2.79km2 Clone Wars theater, Havok 8192-ragdoll & Wwise 512-voice uncap, 6-syscall bulk perception hostility, fail-closed 1180-slot / <1024-GwNav::Bot governor, multi-ring battalion spawner + 225 outer virtual laser regiments sustaining 2k-3k theater units); optional default",
+      "Version": "0.5.1",
+      "Url": "https://github.com/owendavidgoode/clonedivers/releases/download/forge-mods-2026-11-27/chaos-invasions-0.5.1.zip",
+      "Bytes": 82166,
+      "Sha256": "5cc71e43a04cde1b5ab1a56a5532b15372a6872ded80a4e0f3d3ac8775931d18",
+      "ContentHash": "3d2fc0f17d881f2077f54b670d6d752c0fb2995b5666435b7163a9b44e3852b8",
+      "Source": "Project-owned gameplay code mod (0.5.1 genuine 12th Difficulty Slot 'LEVEL 12: STORMTROOPER' in EmpireDivers / 'LEVEL 12: CLONE WARS' in Clonedivers after Hell Forge D11 with D1..11 preserved intact, live mission difficulty >= 12 gating, 942m/2.79km2 theater, Havok 8192-ragdoll & Wwise 512-voice uncap, 6-syscall bulk perception hostility, fail-closed 1180-slot / <1024-GwNav::Bot governor, multi-ring battalion spawner + 225 outer virtual laser regiments sustaining 2k-3k theater units); optional default",
       "Optional": true
     },
     {

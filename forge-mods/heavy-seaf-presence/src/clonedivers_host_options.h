@@ -21,9 +21,11 @@
 extern "C" {
 #endif
 
-#define CD_HOST_OPTIONS_FILENAME  "clonedivers-host-options.json"
-#define CD_HOST_OPTIONS_MAX_BYTES 65536u
-#define CD_HOST_OPTIONS_MAX_PATH  4096u
+#define CD_HOST_OPTIONS_FILENAME   "clonedivers-host-options.json"
+#define CD_HELLFORGE_MODS_FILENAME "hellforge-mods.json"
+#define CD_HOST_OPTIONS_MAX_BYTES  65536u
+#define CD_HELLFORGE_MODS_MAX_BYTES 262144u
+#define CD_HOST_OPTIONS_MAX_PATH   4096u
 
 typedef enum CdChaosIntensity {
     CD_CHAOS_STANDARD   = 0,
@@ -46,11 +48,19 @@ typedef enum CdTheaterPreset {
     CD_THEATER_CLONE_WARS        = 2
 } CdTheaterPreset;
 
+typedef enum CdActiveMode {
+    CD_MODE_AUTO    = 0,
+    CD_MODE_CLONES  = 1,
+    CD_MODE_EMPIRE  = 2,
+    CD_MODE_REGULAR = 3
+} CdActiveMode;
+
 typedef struct CdHostOptions {
     int format;
     CdChaosIntensity chaos_intensity;
     CdHeavySeafMode heavy_seaf;
     CdTheaterPreset theater_preset;
+    CdActiveMode active_mode;
     int faster_corpse_cleanup;
     int corpse_delay_seconds;    /* -1 when omitted; 0..120 when overridden */
     int corpse_turbo_reaper;     /* 1 when explicit or theater_preset != standard */
@@ -71,6 +81,7 @@ static inline CdHostOptions cd_host_options_defaults(void)
     o.chaos_intensity = CD_CHAOS_STANDARD;
     o.heavy_seaf = CD_HEAVY_SEAF_STANDARD;
     o.theater_preset = CD_THEATER_CLONE_WARS;
+    o.active_mode = CD_MODE_AUTO;
     o.faster_corpse_cleanup = 1;
     o.corpse_delay_seconds = -1;
     o.corpse_turbo_reaper = 1;
@@ -202,6 +213,16 @@ static inline const char* cd_theater_preset_name(CdTheaterPreset v)
     }
 }
 
+static inline const char* cd_active_mode_name(CdActiveMode v)
+{
+    switch (v) {
+        case CD_MODE_CLONES:  return "clonedivers";
+        case CD_MODE_EMPIRE:  return "empire";
+        case CD_MODE_REGULAR: return "regular";
+        default:              return "auto";
+    }
+}
+
 static inline int cd_ascii_ieq_span_(const char* a, size_t alen, const char* b)
 {
     size_t blen = strlen(b);
@@ -219,11 +240,11 @@ static inline int cd_is_sep_(char c)
     return c == '\\' || c == '/';
 }
 
-static inline int cd_resolve_host_options_path(const char* mod_folder, char* out_path, size_t out_cap)
+static inline int cd_resolve_mods_sibling_path(const char* mod_folder, const char* filename, char* out_path, size_t out_cap)
 {
     if (!out_path || out_cap == 0) return 0;
     out_path[0] = '\0';
-    if (!mod_folder || !mod_folder[0]) return 0;
+    if (!mod_folder || !mod_folder[0] || !filename || !filename[0]) return 0;
 
     size_t len = strlen(mod_folder);
     if (len >= CD_HOST_OPTIONS_MAX_PATH - 64u) return 0;
@@ -273,15 +294,25 @@ static inline int cd_resolve_host_options_path(const char* mod_folder, char* out
     }
 
     size_t prefix_len = seg_end[mods_seg_idx];
-    const char* suffix = "\\" CD_HOST_OPTIONS_FILENAME;
-    size_t suffix_len = strlen(suffix);
-    if (prefix_len + suffix_len + 1u > out_cap) return 0;
+    size_t fn_len = strlen(filename);
+    if (prefix_len + 1u + fn_len + 1u > out_cap) return 0;
 
     for (size_t p = 0; p < prefix_len; ++p) {
         out_path[p] = (mod_folder[p] == '/') ? '\\' : mod_folder[p];
     }
-    memcpy(out_path + prefix_len, suffix, suffix_len + 1u);
+    out_path[prefix_len] = '\\';
+    memcpy(out_path + prefix_len + 1u, filename, fn_len + 1u);
     return 1;
+}
+
+static inline int cd_resolve_host_options_path(const char* mod_folder, char* out_path, size_t out_cap)
+{
+    return cd_resolve_mods_sibling_path(mod_folder, CD_HOST_OPTIONS_FILENAME, out_path, out_cap);
+}
+
+static inline int cd_resolve_hellforge_mods_path(const char* mod_folder, char* out_path, size_t out_cap)
+{
+    return cd_resolve_mods_sibling_path(mod_folder, CD_HELLFORGE_MODS_FILENAME, out_path, out_cap);
 }
 
 static inline int cd_get_file_mtime_100ns(const char* utf8_path, uint64_t* mtime_out)
@@ -588,6 +619,17 @@ static inline int cd_parse_host_options_json(const char* text, size_t len, CdHos
                     parsed.theater_preset = CD_THEATER_CLONE_WARS;
                 else return -1;
             }
+        } else if (cd_ascii_ieq_span_(key, klen, "activeMode")) {
+            if (!cd_json_parse_null_(&c)) {
+                char val[32];
+                if (!cd_json_parse_string_(&c, val, sizeof val)) return -1;
+                if (strcmp(val, "empire") == 0) parsed.active_mode = CD_MODE_EMPIRE;
+                else if (strcmp(val, "clonedivers") == 0 || strcmp(val, "commandos") == 0)
+                    parsed.active_mode = CD_MODE_CLONES;
+                else if (strcmp(val, "regular") == 0) parsed.active_mode = CD_MODE_REGULAR;
+                else if (strcmp(val, "auto") == 0) parsed.active_mode = CD_MODE_AUTO;
+                else return -1;
+            }
         } else if (cd_ascii_ieq_span_(key, klen, "fasterCorpseCleanup")) {
             int b = 0;
             if (!cd_json_parse_bool_(&c, &b)) return -1;
@@ -726,6 +768,200 @@ static inline int cd_load_host_options_from_mod_folder(const char* mod_folder, C
     char path[CD_HOST_OPTIONS_MAX_PATH];
     if (!cd_resolve_host_options_path(mod_folder, path, sizeof path)) return -1;
     return cd_load_host_options_file(path, out);
+}
+
+static inline int cd_is_sw_overhaul_pack_id_(const char* s)
+{
+    if (!s) return 0;
+    return strncmp(s, "pack.ef3458f5-f409-4f24-8933-", 29u) == 0 ||
+           strncmp(s, "pack.b7b312b3-d764-4c7e-a287-", 29u) == 0;
+}
+
+static inline int cd_parse_sw_pack_array_(CdJsonCursor_* c, char out_ids[32][80], size_t* out_count)
+{
+    *out_count = 0u;
+    if (cd_json_parse_null_(c)) return 1;
+    cd_json_skip_ws_(c);
+    if (c->p >= c->end || *c->p != '[') return 0;
+    ++c->p;
+    cd_json_skip_ws_(c);
+    if (c->p < c->end && *c->p == ']') { ++c->p; return 1; }
+    for (;;) {
+        char item[160];
+        if (!cd_json_parse_string_(c, item, sizeof item)) return 0;
+        if (cd_is_sw_overhaul_pack_id_(item)) {
+            if (*out_count >= 32u || strlen(item) >= 80u) return 0;
+            memcpy(out_ids[*out_count], item, strlen(item) + 1u);
+            ++(*out_count);
+        }
+        cd_json_skip_ws_(c);
+        if (c->p >= c->end) return 0;
+        if (*c->p == ']') { ++c->p; return 1; }
+        if (*c->p != ',') return 0;
+        ++c->p;
+    }
+}
+
+/* Parses <installRoot>\mods\hellforge-mods.json to determine which Star Wars overhaul pack
+ * is enabled in the active mod order (1 = resolved Empire/Clones/Regular, 0 = order omitted
+ * or ambiguous, -1 = malformed JSON). */
+static inline int cd_parse_hellforge_mods_mode(const char* text, size_t len, CdActiveMode* out)
+{
+    if (out) *out = CD_MODE_AUTO;
+    if (!text || !out || len == 0 || len > CD_HELLFORGE_MODS_MAX_BYTES) return -1;
+
+    const unsigned char* u = (const unsigned char*)text;
+    size_t offset = 0;
+    if (len >= 3u && u[0] == 0xEFu && u[1] == 0xBBu && u[2] == 0xBFu) {
+        offset = 3u;
+    }
+
+    CdJsonCursor_ c;
+    c.p = text + offset;
+    c.end = text + len;
+
+    cd_json_skip_ws_(&c);
+    if (c.p >= c.end || *c.p != '{') return -1;
+    ++c.p;
+
+    char disabled_sw[32][80];
+    char order_sw[32][80];
+    size_t disabled_count = 0u;
+    size_t order_count = 0u;
+    int saw_order = 0;
+
+    cd_json_skip_ws_(&c);
+    if (c.p < c.end && *c.p == '}') {
+        ++c.p;
+        cd_json_skip_ws_(&c);
+        return (c.p == c.end) ? 0 : -1;
+    }
+
+    for (;;) {
+        char key[64];
+        if (!cd_json_parse_string_(&c, key, sizeof key)) return -1;
+        size_t klen = strlen(key);
+        cd_json_skip_ws_(&c);
+        if (c.p >= c.end || *c.p != ':') return -1;
+        ++c.p;
+
+        if (cd_ascii_ieq_span_(key, klen, "disabled")) {
+            if (!cd_parse_sw_pack_array_(&c, disabled_sw, &disabled_count)) return -1;
+        } else if (cd_ascii_ieq_span_(key, klen, "order")) {
+            saw_order = 1;
+            if (!cd_parse_sw_pack_array_(&c, order_sw, &order_count)) return -1;
+        } else {
+            if (!cd_json_skip_value_(&c, 1)) return -1;
+        }
+
+        cd_json_skip_ws_(&c);
+        if (c.p >= c.end) return -1;
+        if (*c.p == '}') {
+            ++c.p;
+            break;
+        }
+        if (*c.p != ',') return -1;
+        ++c.p;
+    }
+
+    cd_json_skip_ws_(&c);
+    if (c.p != c.end) return -1;
+    if (!saw_order) return 0;
+
+    int has_empire = 0;
+    int has_clones = 0;
+    for (size_t i = 0; i < order_count; ++i) {
+        int is_disabled = 0;
+        for (size_t d = 0; d < disabled_count; ++d) {
+            if (strcmp(order_sw[i], disabled_sw[d]) == 0) {
+                is_disabled = 1;
+                break;
+            }
+        }
+        if (is_disabled) continue;
+        if (strncmp(order_sw[i], "pack.ef3458f5-f409-4f24-8933-", 29u) == 0) has_empire = 1;
+        else if (strncmp(order_sw[i], "pack.b7b312b3-d764-4c7e-a287-", 29u) == 0) has_clones = 1;
+    }
+
+    if (has_empire && !has_clones) { *out = CD_MODE_EMPIRE; return 1; }
+    if (has_clones && !has_empire) { *out = CD_MODE_CLONES; return 1; }
+    if (!has_empire && !has_clones) { *out = CD_MODE_REGULAR; return 1; }
+    return 0;
+}
+
+static inline int cd_detect_hellforge_mods_mode_file(const char* utf8_path, uint64_t* mtime_out, CdActiveMode* out)
+{
+    if (mtime_out) *mtime_out = 0ULL;
+    if (out) *out = CD_MODE_AUTO;
+    if (!utf8_path || !utf8_path[0] || !out) return -1;
+
+    wchar_t wpath[CD_HOST_OPTIONS_MAX_PATH];
+    int wn = MultiByteToWideChar(CP_UTF8, MB_ERR_INVALID_CHARS, utf8_path, -1, wpath, CD_HOST_OPTIONS_MAX_PATH);
+    if (wn <= 0 || wn >= (int)CD_HOST_OPTIONS_MAX_PATH) return -1;
+
+    WIN32_FILE_ATTRIBUTE_DATA fad;
+    if (!GetFileAttributesExW(wpath, GetFileExInfoStandard, &fad)) {
+        DWORD err = GetLastError();
+        if (err == ERROR_FILE_NOT_FOUND || err == ERROR_PATH_NOT_FOUND) return 0;
+        return -1;
+    }
+    if ((fad.dwFileAttributes & FILE_ATTRIBUTE_REPARSE_POINT) != 0 ||
+        (fad.dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY) != 0) {
+        return -1;
+    }
+
+    HANDLE h = CreateFileW(
+        wpath,
+        GENERIC_READ,
+        FILE_SHARE_READ | FILE_SHARE_WRITE | FILE_SHARE_DELETE,
+        NULL,
+        OPEN_EXISTING,
+        FILE_ATTRIBUTE_NORMAL | FILE_FLAG_OPEN_REPARSE_POINT,
+        NULL);
+    if (h == INVALID_HANDLE_VALUE) {
+        DWORD err = GetLastError();
+        if (err == ERROR_FILE_NOT_FOUND || err == ERROR_PATH_NOT_FOUND) return 0;
+        return -1;
+    }
+
+    BY_HANDLE_FILE_INFORMATION bhfi;
+    if (!GetFileInformationByHandle(h, &bhfi) ||
+        (bhfi.dwFileAttributes & FILE_ATTRIBUTE_REPARSE_POINT) != 0 ||
+        (bhfi.dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY) != 0 ||
+        bhfi.nFileSizeHigh != 0 ||
+        bhfi.nFileSizeLow == 0 ||
+        bhfi.nFileSizeLow > CD_HELLFORGE_MODS_MAX_BYTES) {
+        CloseHandle(h);
+        return -1;
+    }
+
+    DWORD want = bhfi.nFileSizeLow;
+    HANDLE heap = GetProcessHeap();
+    char* buf = heap ? (char*)HeapAlloc(heap, 0, (SIZE_T)want + 1u) : NULL;
+    if (!buf) {
+        CloseHandle(h);
+        return -1;
+    }
+    DWORD got = 0;
+    BOOL ok = ReadFile(h, buf, want, &got, NULL);
+    CloseHandle(h);
+    if (!ok || got != want) {
+        HeapFree(heap, 0, buf);
+        return -1;
+    }
+    buf[got] = '\0';
+
+    CdActiveMode detected = CD_MODE_AUTO;
+    int rc = cd_parse_hellforge_mods_mode(buf, (size_t)got, &detected);
+    HeapFree(heap, 0, buf);
+    if (rc < 0) return -1;
+
+    if (mtime_out) {
+        *mtime_out = ((uint64_t)bhfi.ftLastWriteTime.dwHighDateTime << 32) |
+                     (uint64_t)bhfi.ftLastWriteTime.dwLowDateTime;
+    }
+    *out = detected;
+    return rc;
 }
 
 #ifdef __cplusplus

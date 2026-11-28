@@ -28,7 +28,7 @@ public sealed class HellForgeGameplayCatalog
     }
     public void Validate()
     {
-        if (Format != 1 || Id != "build25480438-r14" || GameBuild != HellForgePack.SupportedBuild || Artifacts.Count != 18 || Artifacts.Select(a => a.Id).Distinct().Count() != 18 || Order.Distinct().Count() != Order.Count)
+        if (Format != 1 || Id != "build25480438-r15" || GameBuild != HellForgePack.SupportedBuild || Artifacts.Count != 18 || Artifacts.Select(a => a.Id).Distinct().Count() != 18 || Order.Distinct().Count() != Order.Count)
             throw new InvalidDataException("Unsupported gameplay catalog.");
         var supplied = Artifacts.Select(a => a.Id).ToHashSet(StringComparer.Ordinal);
         var bundled = new[] { "hellforge.editor", "skyeshade.hell-forge", "skyeshade.vanilla-plus" };

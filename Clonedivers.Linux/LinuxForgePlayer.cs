@@ -38,7 +38,7 @@ internal sealed class LinuxForgePreferences
         get => squidSkin;
         set { squidSkin = value; squidSkinExplicit = true; }
     }
-    public bool DeathTrooperVoice { get; set; } = false;
+    public bool DeathTrooperVoice { get; set; } = true;
     public bool AutoPerformanceTier { get; set; } = true;
     public string PerformanceTier { get; set; } = PerformanceTierAdvisor.Auto;
     public bool SoundEffectsEnabled { get; set; } = true;
@@ -46,11 +46,11 @@ internal sealed class LinuxForgePreferences
     public bool MinimizeToTray { get; set; }
     public string? LastStepDownSuggestedTier { get; set; }
     public string? PendingStepDownReason { get; set; }
-    public string HostChaosIntensity { get; set; } = "standard";
-    public string HostHeavySeaf { get; set; } = "standard";
+    public string HostChaosIntensity { get; set; } = "total-war";
+    public string HostHeavySeaf { get; set; } = "constant";
     public bool HostFasterCorpseCleanup { get; set; } = true;
     public string HostTheaterPreset { get; set; } = "clone-wars";
-    public int HostTheaterDefaultVersion { get; set; } = 2;
+    public int HostTheaterDefaultVersion { get; set; } = 3;
     public string? PlayerLabel { get; set; }
     internal static string PathName => Path.Combine(PlatformPaths.ConfigDirectory, "forge.json");
 
@@ -64,7 +64,7 @@ internal sealed class LinuxForgePreferences
     }
 
     internal HostMutatorOptions ToHostMutatorOptions(DateTimeOffset? updatedUtc = null) =>
-        HostMutatorConfig.BuildOptions(HostChaosIntensity, HostHeavySeaf, HostFasterCorpseCleanup, HostTheaterPreset, updatedUtc);
+        HostMutatorConfig.BuildOptions(HostChaosIntensity, HostHeavySeaf, HostFasterCorpseCleanup, HostTheaterPreset, updatedUtc, activeMode: Mode);
 
     static bool TryGetJsonProperty(JsonElement obj, string name, out JsonElement value)
     {
@@ -87,8 +87,8 @@ internal sealed class LinuxForgePreferences
     {
         if (string.IsNullOrEmpty(PerformanceTier))
             PerformanceTier = AutoPerformanceTier ? PerformanceTierAdvisor.Auto : PerformanceTierAdvisor.TierFromPackTexture(Texture);
-        if (string.IsNullOrEmpty(HostChaosIntensity)) HostChaosIntensity = "standard";
-        if (string.IsNullOrEmpty(HostHeavySeaf)) HostHeavySeaf = "standard";
+        if (string.IsNullOrEmpty(HostChaosIntensity)) HostChaosIntensity = "total-war";
+        if (string.IsNullOrEmpty(HostHeavySeaf)) HostHeavySeaf = "constant";
         if (string.IsNullOrEmpty(HostTheaterPreset)) HostTheaterPreset = "clone-wars";
         if (string.IsNullOrWhiteSpace(LastStepDownSuggestedTier)) LastStepDownSuggestedTier = null;
         if (string.IsNullOrWhiteSpace(PendingStepDownReason)) PendingStepDownReason = null;
@@ -167,17 +167,34 @@ internal sealed class LinuxForgePreferences
             }
             if (!value.AutoPerformanceTier)
                 value.PerformanceTier = PerformanceTierAdvisor.ReconcileManualTier(value.PerformanceTier, value.Texture);
-            if (!TryGetJsonProperty(doc.RootElement, "HostTheaterDefaultVersion", out var thVerProp) ||
-                thVerProp.ValueKind != JsonValueKind.Number ||
-                !thVerProp.TryGetInt32(out var thVer) ||
-                thVer < 2)
+            int thVer = 0;
+            if (TryGetJsonProperty(doc.RootElement, "HostTheaterDefaultVersion", out var thVerProp) &&
+                thVerProp.ValueKind == JsonValueKind.Number)
+            {
+                thVerProp.TryGetInt32(out thVer);
+            }
+            if (thVer < 2)
             {
                 if (string.IsNullOrWhiteSpace(value.HostTheaterPreset) ||
                     string.Equals(value.HostTheaterPreset, "standard", StringComparison.OrdinalIgnoreCase))
                 {
                     value.HostTheaterPreset = "clone-wars";
                 }
-                value.HostTheaterDefaultVersion = 2;
+            }
+            if (thVer < 3)
+            {
+                if (string.IsNullOrWhiteSpace(value.HostChaosIntensity) ||
+                    string.Equals(value.HostChaosIntensity, "standard", StringComparison.OrdinalIgnoreCase))
+                {
+                    value.HostChaosIntensity = "total-war";
+                }
+                if (string.IsNullOrWhiteSpace(value.HostHeavySeaf) ||
+                    string.Equals(value.HostHeavySeaf, "standard", StringComparison.OrdinalIgnoreCase))
+                {
+                    value.HostHeavySeaf = "constant";
+                }
+                value.DeathTrooperVoice = true;
+                value.HostTheaterDefaultVersion = 3;
             }
         }
         value.Validate(); return value;

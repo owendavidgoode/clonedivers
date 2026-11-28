@@ -135,11 +135,13 @@ public static class DiscordReportFormatter
 
     static string FormatModeSummary(string mode, string enemySkin, bool covenant, bool deltaSquad, string? squidSkin, bool deathTrooperVoice, string? hostTheaterPreset)
     {
-        var theaterSuffix = HostMutatorConfig.IsUltrakillTheater(hostTheaterPreset) ? " · L12 ULTRAKILL" : "";
+        bool isEmpire = string.Equals(mode, "empire", StringComparison.OrdinalIgnoreCase);
+        var theaterSuffix = HostMutatorConfig.IsUltrakillTheater(hostTheaterPreset)
+            ? (isEmpire ? " · L12 ULTRAKILL (Stormtrooper)" : " · L12 ULTRAKILL")
+            : "";
         if (string.Equals(mode, "regular", StringComparison.OrdinalIgnoreCase))
             return "Regular HellForge (Vanilla visuals)" + theaterSuffix;
 
-        bool isEmpire = string.Equals(mode, "empire", StringComparison.OrdinalIgnoreCase);
         var universe = isEmpire
             ? (deathTrooperVoice ? "EmpireDivers (Death Trooper VO)" : "EmpireDivers")
             : (deltaSquad ? "Clonedivers (Delta Squad)" : "Clonedivers");

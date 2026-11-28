@@ -2,8 +2,8 @@
   "format": 1,
   "id": "clonedivers.chaos-invasions",
   "name": "Chaos Invasions",
-  "version": "0.5.0",
-  "description": "Genuine Difficulty 12 ('LEVEL 12: CLONE WARS') slot & cross-faction Chaos Mode (0.5.0): extends HellForge's difficulty carousel to 12 slots (keeping D11 'HELL FORGE' intact), Havok ragdoll/body pool uncap, Wwise 512-voice uncap, 942m playable battlefield radius, and 2,000-3,000 unit Hybrid Real+Virtual Battalion theater.",
+  "version": "0.5.1",
+  "description": "Genuine Difficulty 12 ('LEVEL 12: STORMTROOPER' in EmpireDivers / 'LEVEL 12: CLONE WARS' in Clonedivers) slot & cross-faction Chaos Mode (0.5.1): extends HellForge's difficulty carousel to 12 slots (keeping D11 'HELL FORGE' intact), Havok ragdoll/body pool uncap, Wwise 512-voice uncap, 942m playable battlefield radius, and 2,000-3,000 unit Hybrid Real+Virtual Battalion theater.",
   "gameplay": true,
   "code": { "dll": "chaos_invasions.dll", "sdk": 16, "game": "25480438" }
 }

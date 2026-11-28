@@ -22,6 +22,10 @@ public sealed record HostMutatorOptions
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     public string? TheaterPreset { get; init; }
 
+    [JsonPropertyName("activeMode")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public string? ActiveMode { get; init; }
+
     [JsonPropertyName("corpseDelaySeconds")]
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     public int? CorpseDelaySeconds { get; init; }
@@ -66,6 +70,7 @@ public sealed record HostMutatorOptions
             !HostMutatorConfig.IsValidChaosIntensity(ChaosIntensity) ||
             !HostMutatorConfig.IsValidHeavySeaf(HeavySeaf) ||
             (TheaterPreset != null && !HostMutatorConfig.IsValidTheaterPreset(TheaterPreset)) ||
+            (ActiveMode != null && !HostMutatorConfig.IsValidActiveMode(ActiveMode)) ||
             CorpseDelaySeconds is < 0 or > 120 ||
             TargetActiveUnits is < 12 or > 8000 ||
             VirtualTheaterBudget is < 12 or > 20000 ||
@@ -105,6 +110,9 @@ public static class HostMutatorConfig
     public static bool IsValidTheaterPreset(string? value) =>
         value is "standard" or "level12-ultrakill" or "clone-wars";
 
+    public static bool IsValidActiveMode(string? value) =>
+        value is "empire" or "clonedivers" or "commandos" or "regular" or "auto";
+
     public static bool IsUltrakillTheater(string? theaterPreset, string? chaosIntensity = null) =>
         theaterPreset is "level12-ultrakill" or "clone-wars" ||
         chaosIntensity is "ultrakill" or "clone-wars";
@@ -114,9 +122,11 @@ public static class HostMutatorConfig
         string heavySeaf,
         bool fasterCorpseCleanup,
         string? theaterPreset = null,
-        DateTimeOffset? updatedUtc = null)
+        DateTimeOffset? updatedUtc = null,
+        string? activeMode = null)
     {
         var normalizedTheater = string.IsNullOrWhiteSpace(theaterPreset) ? "standard" : theaterPreset.Trim();
+        var normalizedMode = string.IsNullOrWhiteSpace(activeMode) ? null : activeMode.Trim();
         bool isCloneWars = normalizedTheater == "clone-wars";
         bool isUltrakill = isCloneWars || normalizedTheater == "level12-ultrakill";
 
@@ -128,16 +138,22 @@ public static class HostMutatorConfig
                 ChaosIntensity = chaosIntensity,
                 HeavySeaf = heavySeaf,
                 FasterCorpseCleanup = fasterCorpseCleanup,
+                ActiveMode = normalizedMode,
                 UpdatedUtc = updatedUtc ?? DateTimeOffset.UtcNow
             };
             std.Validate();
             return std;
         }
 
-        var effectiveChaos = chaosIntensity == "off"
-            ? "off"
-            : isCloneWars ? "clone-wars" : "ultrakill";
-        var effectiveSeaf = isCloneWars ? "clone-wars" : (heavySeaf == "standard" ? "constant" : heavySeaf);
+        var effectiveChaos = chaosIntensity switch
+        {
+            "off" => "off",
+            "total-war" => isCloneWars ? "total-war" : "ultrakill",
+            _ => isCloneWars ? "clone-wars" : "ultrakill"
+        };
+        var effectiveSeaf = isCloneWars
+            ? (heavySeaf == "standard" ? "clone-wars" : heavySeaf)
+            : (heavySeaf == "standard" ? "constant" : heavySeaf);
 
         var uk = new HostMutatorOptions
         {
@@ -146,6 +162,7 @@ public static class HostMutatorConfig
             HeavySeaf = effectiveSeaf,
             FasterCorpseCleanup = true,
             TheaterPreset = normalizedTheater,
+            ActiveMode = normalizedMode,
             CorpseDelaySeconds = 0,
             CorpseTurboReaper = true,
             TargetActiveUnits = isCloneWars ? 820 : 720,

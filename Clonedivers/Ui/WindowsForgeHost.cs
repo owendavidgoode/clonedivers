@@ -763,6 +763,7 @@ public sealed class WindowsForgeHost : IForgeUiHost
             toastNotice = null;
             preferences.Mode = mode;
             SavePrefs();
+            TrySyncHostMutatorFile(preferences.InstallRoot);
             ScheduleSizeEstimate();
         }
         catch (Exception e) { toastNotice = "Couldn't save preferences: " + e.Message; }
