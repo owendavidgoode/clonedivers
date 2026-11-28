@@ -585,26 +585,44 @@ static class HellForgeTests
         File.WriteAllText(sharingFile, "{\"format\":1,\"share\":false}");
         check(await Reject(() => client.PlayAsync(selection)) && commands.Calls.Count(c => c[0] == "play") == beforePreset,
             "a cosmetic-only fresh installation cannot launch as the complete player preset");
+        static HellForgeMod SeedModOnDisk(string installRoot, string id, string name, string folderLeaf, string[] tags, string version = "", HellForgeOption[]? options = null)
+        {
+            var folder = Path.Combine(installRoot, "mods", folderLeaf);
+            Directory.CreateDirectory(folder);
+            if (id.StartsWith("pack.", StringComparison.Ordinal))
+            {
+                File.WriteAllText(Path.Combine(folder, "manifest.json"), JsonSerializer.Serialize(new { Version = 1, Guid = id["pack.".Length..], Name = name }));
+                File.WriteAllBytes(Path.Combine(folder, "0000000000000001.patch_0"), [1, 2, 3, 4]);
+            }
+            else
+            {
+                File.WriteAllText(Path.Combine(folder, "hellforge-mod.json"), JsonSerializer.Serialize(new { id, name, version }));
+            }
+            return new HellForgeMod(id, name, true, folder, tags, version, options, Archive: null);
+        }
         foreach (var item in HellForgePreset.Required)
         {
             var index = commands.Mods.FindIndex(m => m.Id == item.Id);
-            var mod = new HellForgeMod(item.Id, item.Name, true, Path.Combine(install, "mods", item.Id), ["fixture"], item.Version);
-            if (item.Id == HellForgePreset.GuardDogs) mod = mod with { Options = [
-                new("Smarter Guard Dogs and Sentries", true), new("Guard Dogs", true), new("Sentries", true),
-                new("Intelligence", true), new("Safety", true), new("Sentry Safety", false), new("SEAF Safety", false), new("Targeting Laser", false), new("Targeting Marker", false)] };
+            var opts = item.Id == HellForgePreset.GuardDogs
+                ? new HellForgeOption[] {
+                    new("Smarter Guard Dogs and Sentries", true), new("Guard Dogs", true), new("Sentries", true),
+                    new("Intelligence", true), new("Safety", true), new("Sentry Safety", false), new("SEAF Safety", false), new("Targeting Laser", false), new("Targeting Marker", false) }
+                : null;
+            var mod = SeedModOnDisk(install, item.Id, item.Name, item.Id, ["fixture"], item.Version, opts);
             if (index < 0) commands.Mods.Add(mod); else commands.Mods[index] = mod;
         }
-        commands.Mods.Add(new("skyeshade.vanilla-plus", "Vanilla Plus", true, Path.Combine(install, "mods", "vanilla-plus"), ["code"]));
-        commands.Mods.Add(new(HellForgePreset.CleanExit, "Clonedivers Clean Exit", true, Path.Combine(install, "mods", "clean-exit"), ["code"], "0.2.1"));
-        commands.Mods.Add(new(HellForgePreset.LegoCompactLeafWriter, "LEGO Compact Leaf Writer", true, Path.Combine(install, "mods", "lego-compact-leaf-writer"), ["code"], "0.2.4"));
-        commands.Mods.Add(new(HellForgePreset.EmpireLegoYoda, "Empire LEGO Yoda Death & Stormtrooper Salute", true, Path.Combine(install, "mods", "empire-lego-yoda"), ["code"], "0.2.3"));
-        commands.Mods.Add(new(HellForgePreset.EmpireAtstWriter, "Empire AT-ST Film-Scale Leaf Writer", true, Path.Combine(install, "mods", "empire-atst-writer"), ["code"], "0.2.7"));
-        commands.Mods.Add(new(HellForgePreset.EmpireTieSwitch, "Star Wars Per-Attack Air Wing (TIE & Republic)", true, Path.Combine(install, "mods", "empire-tie-switch"), ["code"], "0.4.0"));
-        commands.Mods.Add(new(HellForgePreset.EmpireCameraPullback, "Empire & Clone Camera Pullback", true, Path.Combine(install, "mods", "empire-camera-pullback"), ["code"], "0.1.6"));
-        commands.Mods.Add(new(HellForgePreset.TitanfallWalkerHud, "AT-TE Titanfall Tactical Cockpit HUD", true, Path.Combine(install, "mods", "titanfall-walker-hud"), ["code"], "0.1.0"));
-        commands.Mods.Add(new(HellForgePreset.StarWarsLocalization, "Star Wars Localization Bridge", true, Path.Combine(install, "mods", "starwars-localization"), ["code"], "0.2.0"));
-        commands.Mods.Add(new(HellForgePreset.ChaosInvasions, "Chaos Invasions", true, Path.Combine(install, "mods", "chaos-invasions"), ["gameplay", "code"], "0.5.2"));
-        commands.Mods.Add(new("pack.80a03e3b-a671-4e54-a2ce-52c35bb64c91", "Reinforcement Beacons Fixed", true, Path.Combine(install, "mods", "beacons"), ["data"]));
+        commands.Mods.Add(SeedModOnDisk(install, "skyeshade.vanilla-plus", "Vanilla Plus", "vanilla-plus", ["code"]));
+        commands.Mods.Add(SeedModOnDisk(install, HellForgePreset.CleanExit, "Clonedivers Clean Exit", "clean-exit", ["code"], "0.2.1"));
+        commands.Mods.Add(SeedModOnDisk(install, HellForgePreset.LegoCompactLeafWriter, "LEGO Compact Leaf Writer", "lego-compact-leaf-writer", ["code"], "0.2.4"));
+        commands.Mods.Add(SeedModOnDisk(install, HellForgePreset.EmpireLegoYoda, "Empire LEGO Yoda Death & Stormtrooper Salute", "empire-lego-yoda", ["code"], "0.2.3"));
+        commands.Mods.Add(SeedModOnDisk(install, HellForgePreset.EmpireAtstWriter, "Empire AT-ST Film-Scale Leaf Writer", "empire-atst-writer", ["code"], "0.2.7"));
+        commands.Mods.Add(SeedModOnDisk(install, HellForgePreset.EmpireTieSwitch, "Star Wars Per-Attack Air Wing (TIE & Republic)", "empire-tie-switch", ["code"], "0.4.0"));
+        commands.Mods.Add(SeedModOnDisk(install, HellForgePreset.EmpireCameraPullback, "Empire & Clone Camera Pullback", "empire-camera-pullback", ["code"], "0.1.6"));
+        commands.Mods.Add(SeedModOnDisk(install, HellForgePreset.TitanfallWalkerHud, "AT-TE Titanfall Tactical Cockpit HUD", "titanfall-walker-hud", ["code"], "0.1.0"));
+        commands.Mods.Add(SeedModOnDisk(install, HellForgePreset.StarWarsLocalization, "Star Wars Localization Bridge", "starwars-localization", ["code"], "0.2.0"));
+        commands.Mods.Add(SeedModOnDisk(install, HellForgePreset.DedicatedMeleeSlot, "Dedicated Melee Slot", "dedicated-melee-slot", ["code"], "1.5.2-clonedivers.5"));
+        commands.Mods.Add(SeedModOnDisk(install, HellForgePreset.ChaosInvasions, "Chaos Invasions", "chaos-invasions", ["gameplay", "code"], "0.5.2"));
+        commands.Mods.Add(SeedModOnDisk(install, "pack.80a03e3b-a671-4e54-a2ce-52c35bb64c91", "Reinforcement Beacons Fixed", "beacons", ["data"]));
         var conflictPlays = commands.Calls.Count(c => c[0] == "play");
         check(await Reject(() => client.PlayAsync(selection)) && conflictPlays == commands.Calls.Count(c => c[0] == "play"),
             "overlapping reinforcement fixes cannot reach the official Clone launch");
@@ -1581,10 +1599,39 @@ static class HellForgeTests
             {
                 case "status": result = new { install = root, hellforge = "0.5.0-beta (d8a8b46)", engine = "0.1.58", modSdk = 20, networkBlock = "wfp", gameBuild = Build, ready = new { gameCopy = Ready, sessionRunner = true, linuxNamespace = false },
                     session = new { running = Running, lastStatus = LastStatus, lastFailure = (string?)null, lastRun = LastRun }, settings = new { multiplayer = Multiplayer, localPlayFab = true, sandbox = true } }; break;
-                case "mods": result = new { mods = Mods.Select(m => new { id = m.Id, name = m.Name, enabled = m.Enabled, folder = m.Folder, tags = m.Tags, version = m.Version,
+                case "mods": result = new { mods = Mods.Select(m => new { id = m.Id, name = m.Name, enabled = m.Enabled, folder = m.Folder, archive = m.Archive, tags = m.Tags, version = m.Version,
                     options = m.Options?.Select(o => new { name = o.Name, on = o.On }) }), problems = Array.Empty<string>(), modlist = "fixture-code" }; break;
                 case "mod-hash":
-                    result = new { hash = HellForgeGameplayCatalog.Pinned.Artifacts.Single(a => Mods.Any(m => m.Id == a.Id && m.Folder == args[2])).ContentHash }; break;
+                {
+                    var target = args[2];
+                    string hashedId;
+                    if (target.EndsWith(".zip", StringComparison.OrdinalIgnoreCase))
+                    {
+                        using var zip = System.IO.Compression.ZipFile.OpenRead(target);
+                        if (zip.GetEntry("hellforge-mod.json") is { } hfEntry)
+                        {
+                            using var s = hfEntry.Open();
+                            using var doc = JsonDocument.Parse(s);
+                            hashedId = doc.RootElement.GetProperty("id").GetString()!;
+                        }
+                        else if (zip.GetEntry("manifest.json") is { } packEntry)
+                        {
+                            using var s = packEntry.Open();
+                            using var doc = JsonDocument.Parse(s);
+                            hashedId = "pack." + doc.RootElement.GetProperty("Guid").GetString()!;
+                        }
+                        else throw new InvalidDataException("Archive holds no mod.");
+                    }
+                    else
+                    {
+                        var mf = Path.Combine(target, "hellforge-mod.json");
+                        if (!File.Exists(mf)) throw new FileNotFoundException($"HellForge: Could not find file '{mf}'.");
+                        using var doc = JsonDocument.Parse(File.ReadAllText(mf));
+                        hashedId = doc.RootElement.GetProperty("id").GetString()!;
+                    }
+                    result = new { hash = HellForgeGameplayCatalog.Pinned.Artifacts.Single(a => a.Id == hashedId).ContentHash };
+                    break;
+                }
                 case "profiles":
                     if (args.Count > 1) Profiles.Add(args[2], args[4]);
                     result = new { profiles = Profiles.Select(p => new { name = p.Key, template = p.Value }) };

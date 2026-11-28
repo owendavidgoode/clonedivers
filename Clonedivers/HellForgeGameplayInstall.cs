@@ -81,15 +81,57 @@ public sealed partial class HellForgeClient
         if (!FileSafety.IsSha256(hash)) throw new InvalidDataException("Official mod content hash was invalid.");
         return hash;
     }
+    string? ResolveExistingModArchive(string? archive)
+    {
+        if (string.IsNullOrWhiteSpace(archive)) return null;
+        var resolved = Path.IsPathRooted(archive) ? archive : Path.Combine(Root, "mods", archive);
+        return File.Exists(resolved) ? resolved : null;
+    }
+
+    async Task<string> InstalledPackFolderHashAsync(string folder, CancellationToken ct)
+    {
+        ValidateModFolder(folder);
+        if (!Directory.Exists(folder)) throw new DirectoryNotFoundException("Installed data mod folder is missing: " + folder);
+        var tempDir = Path.Combine(CacheRoot, "temp");
+        RejectAncestors(tempDir);
+        Directory.CreateDirectory(tempDir);
+        var tempZip = FileSafety.Child(tempDir, "pack-hash-" + Guid.NewGuid().ToString("N") + ".zip");
+        try
+        {
+            await SnapshotGameplayAsync(folder, tempZip, ct, CompressionLevel.Fastest);
+            return await GameplayHashAsync(tempZip, ct);
+        }
+        finally
+        {
+            try { if (File.Exists(tempZip)) File.Delete(tempZip); }
+            catch (Exception e) when (e is IOException or UnauthorizedAccessException) { }
+        }
+    }
+
+    async Task<string> ExistingGameplayContentHashAsync(HellForgeMod mod, CancellationToken ct)
+    {
+        ValidateModFolder(mod.Folder);
+        if (!mod.Id.StartsWith("pack.", StringComparison.Ordinal))
+            return await GameplayHashAsync(mod.Folder, ct);
+        if (ResolveExistingModArchive(mod.Archive) is { } archivePath)
+        {
+            ValidateModFolder(archivePath);
+            return await GameplayHashAsync(archivePath, ct);
+        }
+        return await InstalledPackFolderHashAsync(mod.Folder, ct);
+    }
+
     async Task<string> InstalledGameplayHashAsync(HellForgeMod mod, GameplayArtifact artifact, CancellationToken ct)
     {
         ValidateModFolder(mod.Folder);
-        if (!mod.Id.StartsWith("pack.", StringComparison.Ordinal) || mod.Archive == null) return await GameplayHashAsync(mod.Folder, ct);
-        ValidateModFolder(mod.Archive);
-        await HellForgeGameplayCatalog.VerifyArchiveAsync(mod.Archive, artifact, ct);
-        // The official hash command takes cosmetic ZIPs, not their unpacked
-        // folders. Also attest the cache the runner will actually consume.
-        using var zip = ZipFile.OpenRead(mod.Archive);
+        if (!mod.Id.StartsWith("pack.", StringComparison.Ordinal)) return await GameplayHashAsync(mod.Folder, ct);
+        if (ResolveExistingModArchive(mod.Archive) is not { } archivePath)
+            return await InstalledPackFolderHashAsync(mod.Folder, ct);
+        ValidateModFolder(archivePath);
+        await HellForgeGameplayCatalog.VerifyArchiveAsync(archivePath, artifact, ct);
+        // On older Forge layouts that retain the cosmetic ZIP beside its unpacked
+        // folder, attest both the ZIP and the unpacked files the runner consumes.
+        using var zip = ZipFile.OpenRead(archivePath);
         foreach (var entry in zip.Entries.Where(e => e.Name.Length > 0))
         {
             var target = Path.GetFullPath(Path.Combine(mod.Folder, entry.FullName.Replace('/', Path.DirectorySeparatorChar)));
@@ -101,7 +143,7 @@ public sealed partial class HellForgeClient
             if (!System.Security.Cryptography.CryptographicOperations.FixedTimeEquals(expectedHash, actualHash))
                 throw new InvalidDataException("Unpacked data mod content changed: " + mod.Name);
         }
-        return await GameplayHashAsync(mod.Archive, ct);
+        return await GameplayHashAsync(archivePath, ct);
     }
 
     public Task<List<GameplayArtifact>> MissingGameplayAsync(CancellationToken ct = default) =>
@@ -211,13 +253,13 @@ public sealed partial class HellForgeClient
             ValidateModFolder(old.Folder);
             var name = artifact.Sha256 + ".zip"; var path = FileSafety.Child(backup, name);
             string content;
-            if (old.Id.StartsWith("pack.", StringComparison.Ordinal) && old.Archive != null)
+            if (old.Id.StartsWith("pack.", StringComparison.Ordinal) && ResolveExistingModArchive(old.Archive) is { } oldArchive)
             {
-                ValidateModFolder(old.Archive);
-                var size = new FileInfo(old.Archive).Length;
+                ValidateModFolder(oldArchive);
+                var size = new FileInfo(oldArchive).Length;
                 if (size > 256L * 1024 * 1024) throw new InvalidDataException("Previous gameplay archive exceeds the backup limit.");
-                await HellForgePack.CopyLocalAsync(old.Archive, path, size, ct);
-                content = await GameplayHashAsync(old.Archive, ct);
+                await HellForgePack.CopyLocalAsync(oldArchive, path, size, ct);
+                content = await GameplayHashAsync(oldArchive, ct);
             }
             else { await SnapshotGameplayAsync(old.Folder, path, ct); content = await GameplayHashAsync(BackupHashSource(old, path), ct); }
             if (await GameplayHashAsync(path, ct) != content) throw new InvalidDataException("Could not produce a restorable backup of " + old.Name);
@@ -377,20 +419,29 @@ public sealed partial class HellForgeClient
     // The official hash command cannot read a cosmetic pack folder (it wants
     // hellforge-mod.json); its backup ZIP is what recovery imports, so attest that.
     internal static string BackupHashSource(HellForgeMod old, string backupZip) => old.Id.StartsWith("pack.", StringComparison.Ordinal) ? backupZip : old.Folder;
-    static async Task SnapshotGameplayAsync(string folder, string archive, CancellationToken ct)
+    static async Task SnapshotGameplayAsync(string folder, string archive, CancellationToken ct, CompressionLevel compression = CompressionLevel.Optimal)
     {
         using var output = new FileStream(archive, FileMode.CreateNew, FileAccess.Write, FileShare.None);
         using var zip = new ZipArchive(output, ZipArchiveMode.Create);
         var queue = new Queue<string>(); queue.Enqueue(folder); long bytes = 0; int count = 0;
         while (queue.TryDequeue(out var directory))
-            foreach (var path in Directory.EnumerateFileSystemEntries(directory))
+            foreach (var path in Directory.EnumerateFileSystemEntries(directory).OrderBy(p => p, StringComparer.Ordinal))
             {
                 ct.ThrowIfCancellationRequested(); FileSafety.RejectLink(path);
-                if (Directory.Exists(path)) { queue.Enqueue(path); continue; }
+                if (Directory.Exists(path))
+                {
+                    if (!Directory.EnumerateFileSystemEntries(path).Any())
+                        zip.CreateEntry(Path.GetRelativePath(folder, path).Replace('\\', '/') + "/");
+                    else
+                        queue.Enqueue(path);
+                    continue;
+                }
                 bytes = checked(bytes + new FileInfo(path).Length);
                 if (++count > 20000 || bytes > 256L * 1024 * 1024) throw new InvalidDataException("Gameplay backup exceeds the supported inventory size.");
-                var entry = zip.CreateEntry(Path.GetRelativePath(folder, path).Replace('\\', '/'), CompressionLevel.Optimal);
-                using var input = File.OpenRead(path); using var stream = entry.Open(); await input.CopyToAsync(stream, ct);
+                var entry = zip.CreateEntry(Path.GetRelativePath(folder, path).Replace('\\', '/'), compression);
+                using var input = new FileStream(path, FileMode.Open, FileAccess.Read, FileShare.ReadWrite | FileShare.Delete);
+                using var stream = entry.Open();
+                await input.CopyToAsync(stream, ct);
             }
     }
 
@@ -440,7 +491,7 @@ public sealed partial class HellForgeClient
             if (found.Enabled != old.Enabled) { await RequireGameplayIdleAsync(ct); await commands.RunAsync(["mod-switch", "--id", old.Id, "--on", old.Enabled ? "yes" : "no"], ct); }
             if (old.Options == null) continue;
             foreach (var option in old.Options)
-                if (found.Options?.SingleOrDefault(o => o.Name == option.Name)?.On != option.On)
+                if (found.Options?.FirstOrDefault(o => o.Name == option.Name)?.On != option.On)
                 { await RequireGameplayIdleAsync(ct); await commands.RunAsync(["mod-pack", "--id", old.Id, "--option", option.Name, "--on", option.On ? "yes" : "no"], ct); }
         }
         await RequireGameplayIdleAsync(ct); await commands.RunAsync(["mod-order", "--ids", string.Join(",", snapshot.Mods.Mods.Select(m => m.Id))], ct);
@@ -451,16 +502,13 @@ public sealed partial class HellForgeClient
         foreach (var old in snapshot.Mods.Mods)
         {
             var actual = verified.Mods.Single(m => m.Id == old.Id);
-            if (actual.Enabled != old.Enabled || (old.Options ?? []).Any(option => actual.Options?.SingleOrDefault(o => o.Name == option.Name)?.On != option.On))
+            if (actual.Enabled != old.Enabled || (old.Options ?? []).Any(option => actual.Options?.FirstOrDefault(o => o.Name == option.Name)?.On != option.On))
                 throw new InvalidDataException("Previous gameplay options could not be confirmed restored: " + old.Name);
         }
         foreach (var copy in snapshot.Backups)
         {
             var actual = verified.Mods.Single(m => m.Id == copy.Id);
-            var restoredPath = !actual.Id.StartsWith("pack.", StringComparison.Ordinal) ? actual.Folder
-                : actual.Archive ?? throw new InvalidDataException("Previous gameplay content could not be confirmed restored: " + actual.Name);
-            ValidateModFolder(restoredPath);
-            if (await GameplayHashAsync(restoredPath, ct) != copy.ContentHash)
+            if (await ExistingGameplayContentHashAsync(actual, ct) != copy.ContentHash)
                 throw new InvalidDataException("Previous gameplay content could not be confirmed restored: " + actual.Name);
         }
         if (intent.PriorCatalog == "none")

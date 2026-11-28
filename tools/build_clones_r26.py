@@ -1431,7 +1431,9 @@ class ClonesR26Builder:
 
             stm_p = tier_out.with_name(tier_out.name + ".stream")
             gpu_p = tier_out.with_name(tier_out.name + ".gpu_resources")
-            PREFLIGHT.inspect_path(tier_out, (stm_p.stat().st_size, gpu_p.stat().st_size))
+            pf = PREFLIGHT.inspect_path(tier_out, (stm_p.stat().st_size, gpu_p.stat().st_size))
+            if not pf["passed"]:
+                raise RuntimeError(f"patch_40 eagle preflight failed ({tier}): {pf['issues']}")
             tier_built_paths[tier] = (tier_out, stm_p, gpu_p)
 
             for (rname, rkind), gen in sorted(resources.items()):
@@ -1516,7 +1518,9 @@ class ClonesR26Builder:
             P.write_archive(out_p, header_72, resources, stream_alignment=64 if tier != "full" else 16)
             stm_p = out_p.with_name(out_p.name + ".stream")
             gpu_p = out_p.with_name(out_p.name + ".gpu_resources")
-            PREFLIGHT.inspect_path(out_p, (stm_p.stat().st_size, gpu_p.stat().st_size))
+            pf = PREFLIGHT.inspect_path(out_p, (stm_p.stat().st_size, gpu_p.stat().st_size))
+            if not pf["passed"]:
+                raise RuntimeError(f"patch_41 helmet preflight failed ({tier}): {pf['issues']}")
             tier_paths[tier] = (out_p, stm_p, gpu_p)
 
         entries = self._emit_deduped_manifest_entries(
@@ -1665,7 +1669,9 @@ class ClonesR26Builder:
             P.write_archive(out_p, header_72, all_droids_res, stream_alignment=64 if tier != "full" else 16)
             stm_p = out_p.with_name(out_p.name + ".stream")
             gpu_p = out_p.with_name(out_p.name + ".gpu_resources")
-            PREFLIGHT.inspect_path(out_p, (stm_p.stat().st_size, gpu_p.stat().st_size))
+            pf = PREFLIGHT.inspect_path(out_p, (stm_p.stat().st_size, gpu_p.stat().st_size))
+            if not pf["passed"]:
+                raise RuntimeError(f"patch_47 all-droids preflight failed ({tier}): {pf['issues']}")
             ad_tier_paths[tier] = (out_p, stm_p, gpu_p)
 
         # 2) `patch_47` for `mixed-droids` (`option: "mixed-droids"`): 9 closure resources + 16 shared hiders
@@ -1693,7 +1699,9 @@ class ClonesR26Builder:
             P.write_archive(out_p, header_72, resources, stream_alignment=64 if tier != "full" else 16)
             stm_p = out_p.with_name(out_p.name + ".stream")
             gpu_p = out_p.with_name(out_p.name + ".gpu_resources")
-            PREFLIGHT.inspect_path(out_p, (stm_p.stat().st_size, gpu_p.stat().st_size))
+            pf = PREFLIGHT.inspect_path(out_p, (stm_p.stat().st_size, gpu_p.stat().st_size))
+            if not pf["passed"]:
+                raise RuntimeError(f"patch_47 mixed-droids preflight failed ({tier}): {pf['issues']}")
             md_tier_paths[tier] = (out_p, stm_p, gpu_p)
 
         entries = self._emit_deduped_manifest_entries(
@@ -1761,6 +1769,9 @@ class ClonesR26Builder:
             shutil.rmtree(self.blobs_dir)
         self.blobs_dir.mkdir(parents=True, exist_ok=True)
         r26 = copy.deepcopy(self.r25)
+        for opt in r26["pack"]["options"]:
+            if opt.get("id") in {"droids", "mixed-droids", "covenant", "mixed-covenant"}:
+                opt["default"] = True
         files = r26["pack"]["files"]
 
         # Step A:

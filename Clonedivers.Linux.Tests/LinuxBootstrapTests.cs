@@ -127,10 +127,22 @@ internal static class LinuxBootstrapTests
               File.ReadAllText(futureUpstreamScript) == futureUpstream,
               "Issue #44: PatchLinuxInnerScriptFile leaves upstream BASHPID-fixed scripts untouched");
 
-        // Synthetic /proc test for LinuxStaleSessionGuard: cleans orphaned hf-inner.sh (even when its cmdline holds HellForge.Session.exe) & steam-bridge inner,
-        // preserves BOTH steam-bridge host AND Clonedivers' own live ClonediversBridge child, and aborts if helldivers2.exe or HellForge.Session.exe is alive
+        // Synthetic /proc test for LinuxStaleSessionGuard (#44 + Codex Findings #4 & #11):
+        // - Requires HasCrashedIncompleteSession(installRoot) before killing anything
+        // - Cleans orphaned hf-inner.sh & steam-bridge inner when crashed incomplete session exists
+        // - Preserves steam-bridge host AND ClonediversBridge child
+        // - Aborts if helldivers2.exe, HellForge.Cli play, proton, or pressure-vessel is alive
+        // - Verifies /proc/<pid>/stat starttime (field 22) right before Kill to block PID-reuse races
         var fakeProc = Path.Combine(root, "fake-proc-44");
-        void WriteProc(int pid, string comm, string[] cmdline, string[] environ, int ppid = 1, string? cwdPath = null)
+        void WriteProcStat(int pid, string comm, int ppid, long startTicks)
+        {
+            var pDir = Path.Combine(fakeProc, pid.ToString());
+            Directory.CreateDirectory(pDir);
+            // Fields after "(comm) ": 3=S, 4=ppid, 5..21=zeros (17 fields), 22=starttime
+            var middle = string.Join(" ", Enumerable.Repeat("0", 17));
+            File.WriteAllText(Path.Combine(pDir, "stat"), $"{pid} ({comm}) S {ppid} {middle} {startTicks} 0 0\n");
+        }
+        void WriteProc(int pid, string comm, string[] cmdline, string[] environ, int ppid = 1, string? cwdPath = null, long startTicks = 123456)
         {
             var pDir = Path.Combine(fakeProc, pid.ToString());
             Directory.CreateDirectory(pDir);
@@ -138,16 +150,31 @@ internal static class LinuxBootstrapTests
             File.WriteAllText(Path.Combine(pDir, "status"), $"Name:\t{comm}\nPPid:\t{ppid}\n");
             File.WriteAllText(Path.Combine(pDir, "cmdline"), string.Join("\0", cmdline) + "\0");
             File.WriteAllText(Path.Combine(pDir, "environ"), string.Join("\0", environ) + "\0");
+            WriteProcStat(pid, comm, ppid, startTicks);
             if (cwdPath != null && OperatingSystem.IsLinux())
                 File.CreateSymbolicLink(Path.Combine(pDir, "cwd"), cwdPath);
         }
         var normRoot = Path.TrimEndingDirectorySeparator(Path.GetFullPath(innerRoot));
-        WriteProc(9999, "Clonedivers", ["/opt/clonedivers/Clonedivers"], [], ppid: 1000);
-        WriteProc(4100, "HellForge.Launc", [Path.Combine(root, "ClonediversLauncher", "HellForge.Launcher.ClonediversBridge"), "--install", normRoot], [$"INSTALL={normRoot}"], ppid: 9999, cwdPath: normRoot);
-        WriteProc(4101, "hf-inner.sh", ["bash", Path.Combine(normRoot, "app", "linux", "hf-inner.sh"), @"C:\HellForge\app\HellForge.Session.exe", "play"], [$"INSTALL={normRoot}"]);
-        WriteProc(4102, "HellForge.Cli", [Path.Combine(normRoot, "app", "cli-linux", "HellForge.Cli"), "steam-bridge", "inner"], [$"INSTALL={normRoot}"]);
-        WriteProc(4103, "HellForge.Cli", [Path.Combine(normRoot, "app", "cli-linux", "HellForge.Cli"), "steam-bridge", "host"], [$"INSTALL={normRoot}"]);
+        WriteProc(9999, "Clonedivers", ["/opt/clonedivers/Clonedivers"], [], ppid: 1000, startTicks: 10000);
+        WriteProc(4100, "HellForge.Launc", [Path.Combine(root, "ClonediversLauncher", "HellForge.Launcher.ClonediversBridge"), "--install", normRoot], [$"INSTALL={normRoot}"], ppid: 9999, cwdPath: normRoot, startTicks: 10010);
+        WriteProc(4101, "hf-inner.sh", ["bash", Path.Combine(normRoot, "app", "linux", "hf-inner.sh"), @"C:\HellForge\app\HellForge.Session.exe", "play"], [$"INSTALL={normRoot}"], startTicks: 20001);
+        WriteProc(4102, "HellForge.Cli", [Path.Combine(normRoot, "app", "cli-linux", "HellForge.Cli"), "steam-bridge", "inner"], [$"INSTALL={normRoot}"], startTicks: 20002);
+        WriteProc(4103, "HellForge.Cli", [Path.Combine(normRoot, "app", "cli-linux", "HellForge.Cli"), "steam-bridge", "host"], [$"INSTALL={normRoot}"], startTicks: 20003);
+
+        // 1. Without a crashed incomplete session on disk, CleanupStaleOrphans MUST NOT kill a healthy starting wrapper (Finding #4)
         var killedPids = new List<int>();
+        var noCrashClean = LinuxStaleSessionGuard.CleanupStaleOrphans(normRoot, fakeProc, selfPid: 9999, killOverride: killedPids.Add);
+        check(noCrashClean.Count == 0 && killedPids.Count == 0,
+              "Finding #4: LinuxStaleSessionGuard does not kill hf-inner.sh when no crashed incomplete session exists");
+
+        // 2. Seed crashed incomplete session (result.json missing completedUtc) -> orphans 4101 & 4102 are cleaned
+        var crashSessDir = Path.Combine(normRoot, "logs", "sessions", "0da73d9f111122223333444455556666");
+        Directory.CreateDirectory(crashSessDir);
+        File.WriteAllText(Path.Combine(crashSessDir, "result.json"), """{"exitCode":139}""");
+        check(LinuxStaleSessionGuard.HasCrashedIncompleteSession(normRoot) &&
+              LinuxStaleSessionGuard.ReadProcStartTime(fakeProc, 4101) == "20001",
+              "Issue #44: HasCrashedIncompleteSession detects crashed session lacking completedUtc and ReadProcStartTime parses stat field 22");
+
         var cleanedLabels = LinuxStaleSessionGuard.CleanupStaleOrphans(normRoot, fakeProc, selfPid: 9999, killOverride: killedPids.Add);
         check(killedPids.OrderBy(x => x).SequenceEqual(new[] { 4101, 4102 }) &&
               !killedPids.Contains(4100) &&
@@ -155,22 +182,42 @@ internal static class LinuxBootstrapTests
               cleanedLabels.Count == 2,
               "Issue #44: LinuxStaleSessionGuard cleans orphaned hf-inner.sh and steam-bridge inner while preserving steam-bridge host and live ClonediversBridge child");
 
-        // When helldivers2.exe is live for this install, CleanupStaleOrphans MUST NOT kill anything
-        WriteProc(4104, "Main", [@"C:\HellForge\game\bin\helldivers2.exe"], [$"INSTALL={normRoot}"]);
+        // 3. PID reuse guard (Finding #11): if starttime changes before Kill runs, that PID is skipped!
         killedPids.Clear();
-        var liveScan = LinuxStaleSessionGuard.CleanupStaleOrphans(normRoot, fakeProc, selfPid: 9999, killOverride: killedPids.Add);
-        check(liveScan.Count == 0 && killedPids.Count == 0,
-              "Issue #44: LinuxStaleSessionGuard aborts without killing anything when helldivers2.exe is alive");
+        var reusedClean = LinuxStaleSessionGuard.CleanupStaleOrphans(normRoot, fakeProc, selfPid: 9999, killOverride: pid =>
+        {
+            killedPids.Add(pid);
+            if (pid == 4101)
+                WriteProcStat(4102, "unrelated-reused", 1, 999999); // Simulate PID 4102 reused while 4101 was terminating!
+        });
+        check(killedPids.SequenceEqual(new[] { 4101 }) && reusedClean.Count == 1,
+              "Finding #11: LinuxStaleSessionGuard verifies /proc/<pid>/stat starttime before Kill and skips reused PIDs");
+        WriteProcStat(4102, "HellForge.Cli", 1, 20002);
 
-        // Crashed session result.json missing completedUtc detection
-        var crashSessDir = Path.Combine(normRoot, "logs", "sessions", "0da73d9f111122223333444455556666");
-        Directory.CreateDirectory(crashSessDir);
-        File.WriteAllText(Path.Combine(crashSessDir, "result.json"), """{"exitCode":139}""");
-        check(LinuxStaleSessionGuard.HasCrashedIncompleteSession(normRoot),
-              "Issue #44: HasCrashedIncompleteSession detects crashed session result.json lacking completedUtc");
+        // 4. Active HellForge.Cli play / proton / pressure-vessel / helldivers2.exe aborts cleanup (Finding #4)
+        foreach (var (livePid, liveComm, liveCmd) in new (int, string, string[])[]
+        {
+            (4104, "HellForge.Cli", [Path.Combine(normRoot, "app", "cli-linux", "HellForge.Cli"), "play", "--install", normRoot]),
+            (4105, "proton", ["/home/deck/.steam/compatibilitytools.d/GE-Proton/proton", "waitforexitandrun"]),
+            (4106, "pressure-vessel", ["/usr/libexec/steam-runtime-tools-0/pressure-vessel-wrap", "--"]),
+            (4107, "Main", [@"C:\HellForge\game\bin\helldivers2.exe"])
+        })
+        {
+            WriteProc(livePid, liveComm, liveCmd, [$"INSTALL={normRoot}"], startTicks: 30000 + livePid);
+            killedPids.Clear();
+            var liveScan = LinuxStaleSessionGuard.CleanupStaleOrphans(normRoot, fakeProc, selfPid: 9999, killOverride: killedPids.Add);
+            check(liveScan.Count == 0 && killedPids.Count == 0,
+                  $"Finding #4: LinuxStaleSessionGuard aborts without killing anything when {liveComm} is active");
+            Directory.Delete(Path.Combine(fakeProc, livePid.ToString()), recursive: true);
+        }
+
+        // 5. Once completedUtc is recorded, HasCrashedIncompleteSession returns false and CleanupStaleOrphans is a no-op
         File.WriteAllText(Path.Combine(crashSessDir, "result.json"), """{"exitCode":0,"completedUtc":"2026-11-28T05:00:00Z"}""");
-        check(!LinuxStaleSessionGuard.HasCrashedIncompleteSession(normRoot),
-              "Issue #44: HasCrashedIncompleteSession returns false once completedUtc is recorded");
+        killedPids.Clear();
+        check(!LinuxStaleSessionGuard.HasCrashedIncompleteSession(normRoot) &&
+              LinuxStaleSessionGuard.CleanupStaleOrphans(normRoot, fakeProc, selfPid: 9999, killOverride: killedPids.Add).Count == 0 &&
+              killedPids.Count == 0,
+              "Issue #44: HasCrashedIncompleteSession returns false once completedUtc is recorded and blocks orphan kills");
 
         // Issues #43/#45/#46: Ethan's RX 9070 (16 GB VRAM / 30.2 GiB RAM + 8 GiB swap) Auto -> High (lighter) + /proc DRM VRAM/GTT & TTM sampler
         var ethanRec = PerformanceTierAdvisor.Recommend("AMD Radeon RX 9070", 16.0, 30.21, isSoftwareOrIntegrated: false, swapGb: 8.0, isLinux: true);

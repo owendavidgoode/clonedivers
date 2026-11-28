@@ -73,9 +73,11 @@ public static class ProcessMemorySampler
                 : 0UL;
         }
 
+        bool hasMemFree = Regex.IsMatch(memInfoText, @"^MemFree:\s*\d+\s*kB", RegexOptions.Multiline | RegexOptions.IgnoreCase);
         ulong memTotal = FieldBytes("MemTotal");
+        ulong memFree = FieldBytes("MemFree");
         ulong memAvail = FieldBytes("MemAvailable");
-        if (memAvail == 0) memAvail = FieldBytes("MemFree");
+        if (memAvail == 0) memAvail = memFree;
         ulong swapTotal = FieldBytes("SwapTotal");
         ulong swapFree = FieldBytes("SwapFree");
         ulong swapUsed = swapTotal > swapFree ? swapTotal - swapFree : 0UL;
@@ -85,16 +87,15 @@ public static class ProcessMemorySampler
         ulong cached = FieldBytes("Cached");
         ulong buffers = FieldBytes("Buffers");
         ulong sreclaimable = FieldBytes("SReclaimable");
-        ulong shmem = FieldBytes("Shmem");
 
+        // Estimate physical RAM not accounted for by AnonPages + page cache (Cached already includes Shmem) + Buffers + SReclaimable.
+        // Uses MemTotal - MemFree rather than MemTotal - MemAvailable so reclaimable page cache is never subtracted twice.
         ulong? unattributed = null;
-        if (memTotal > 0 && memTotal >= memAvail)
+        if (memTotal > 0 && hasMemFree && memTotal >= memFree)
         {
-            ulong used = memTotal - memAvail;
-            ulong pageCache = cached + buffers + sreclaimable;
-            ulong nonShmemCache = pageCache > shmem ? pageCache - shmem : 0UL;
-            ulong accounted = anonPages + nonShmemCache;
-            unattributed = used > accounted ? used - accounted : 0UL;
+            ulong physUsed = memTotal - memFree;
+            ulong accounted = anonPages + cached + buffers + sreclaimable;
+            unattributed = physUsed > accounted ? physUsed - accounted : 0UL;
         }
 
         return new(memTotal, memAvail, swapTotal, swapUsed, committed, commitLimit, unattributed);
@@ -165,7 +166,9 @@ public static class ProcessMemorySampler
             Threads: threads);
     }
 
-    public static (ulong? ResidentVramBytes, ulong? ResidentGttBytes, ulong? AmdEvictedVramBytes) ReadLinuxDrmFdInfo(string fdInfoDirectory)
+    public static (ulong? ResidentVramBytes, ulong? ResidentGttBytes, ulong? AmdEvictedVramBytes) ReadLinuxDrmFdInfo(
+        string fdInfoDirectory,
+        Func<FileSystemInfo, string?>? resolveFdTarget = null)
     {
         if (!Directory.Exists(fdInfoDirectory))
             return (null, null, null);
@@ -173,7 +176,28 @@ public static class ProcessMemorySampler
         var clients = new Dictionary<string, (ulong Vram, ulong Gtt, ulong Evicted)>(StringComparer.Ordinal);
         try
         {
-            foreach (var fdFile in Directory.EnumerateFiles(fdInfoDirectory).Take(256))
+            IEnumerable<string> candidateFdInfos;
+            var parentDir = Path.GetDirectoryName(Path.TrimEndingDirectorySeparator(fdInfoDirectory));
+            var fdDir = !string.IsNullOrEmpty(parentDir) ? Path.Combine(parentDir, "fd") : "";
+            if (!string.IsNullOrEmpty(fdDir) && Directory.Exists(fdDir))
+            {
+                var targetResolver = resolveFdTarget ?? (static entry => entry.LinkTarget);
+                var driFiles = new List<string>();
+                foreach (var fdEntry in new DirectoryInfo(fdDir).EnumerateFileSystemInfos())
+                {
+                    string? target = null;
+                    try { target = targetResolver(fdEntry); } catch { }
+                    if (!string.IsNullOrEmpty(target) && target.Contains("/dev/dri/", StringComparison.Ordinal))
+                        driFiles.Add(Path.Combine(fdInfoDirectory, fdEntry.Name));
+                }
+                candidateFdInfos = driFiles;
+            }
+            else
+            {
+                candidateFdInfos = Directory.EnumerateFiles(fdInfoDirectory);
+            }
+
+            foreach (var fdFile in candidateFdInfos)
             {
                 var text = ReadHeadSafe(fdFile, 8192);
                 if (string.IsNullOrEmpty(text) || !text.Contains("drm-client-id:", StringComparison.Ordinal))
@@ -360,17 +384,29 @@ public static class ProcessMemorySampler
             {
                 totalRam = mem.TotalPhysical;
                 availRam = mem.AvailablePhysical;
-                swapTotal = mem.TotalPageFile > mem.TotalPhysical ? mem.TotalPageFile - mem.TotalPhysical : 0UL;
-                ulong totalCommitUsed = mem.TotalPageFile > mem.AvailablePageFile ? mem.TotalPageFile - mem.AvailablePageFile : 0UL;
-                ulong physUsed = mem.TotalPhysical > mem.AvailablePhysical ? mem.TotalPhysical - mem.AvailablePhysical : 0UL;
-                swapUsed = totalCommitUsed > physUsed ? totalCommitUsed - physUsed : 0UL;
+                committed = mem.TotalPageFile > mem.AvailablePageFile ? mem.TotalPageFile - mem.AvailablePageFile : 0UL;
+                commitLimit = mem.TotalPageFile;
             }
+            ulong page = 4096UL;
             var perf = new WinPerformanceInfo { Size = (uint)Marshal.SizeOf<WinPerformanceInfo>() };
             if (K32GetPerformanceInfo(ref perf, perf.Size))
             {
-                ulong page = perf.PageSize.ToUInt64();
+                page = perf.PageSize.ToUInt64();
                 committed = perf.CommitTotal.ToUInt64() * page;
                 commitLimit = perf.CommitLimit.ToUInt64() * page;
+            }
+            // Query actual Windows paging file occupancy via K32EnumPageFilesW rather than mixing virtual commit charge with physical RAM.
+            ulong pfTotalPages = 0, pfUsedPages = 0;
+            bool CollectPageFile(IntPtr ctx, ref EnumPageFileInformation info, IntPtr filename)
+            {
+                pfTotalPages += info.TotalSize.ToUInt64();
+                pfUsedPages += info.TotalInUse.ToUInt64();
+                return true;
+            }
+            if (K32EnumPageFilesW(CollectPageFile, IntPtr.Zero))
+            {
+                swapTotal = pfTotalPages * page;
+                swapUsed = pfUsedPages * page;
             }
         }
         catch { }
@@ -432,6 +468,19 @@ public static class ProcessMemorySampler
         public UIntPtr PrivateUsage;
     }
 
+    [StructLayout(LayoutKind.Sequential)]
+    struct EnumPageFileInformation
+    {
+        public uint cb;
+        public uint Reserved;
+        public UIntPtr TotalSize;
+        public UIntPtr TotalInUse;
+        public UIntPtr PeakUsage;
+    }
+
+    [UnmanagedFunctionPointer(CallingConvention.Winapi)]
+    delegate bool EnumPageFileCallback(IntPtr context, ref EnumPageFileInformation pageFileInfo, IntPtr filename);
+
     [DllImport("kernel32.dll", SetLastError = true)]
     [return: MarshalAs(UnmanagedType.Bool)]
     static extern bool GlobalMemoryStatusEx(ref WinMemoryStatusEx status);
@@ -439,6 +488,10 @@ public static class ProcessMemorySampler
     [DllImport("kernel32.dll", SetLastError = true)]
     [return: MarshalAs(UnmanagedType.Bool)]
     static extern bool K32GetPerformanceInfo(ref WinPerformanceInfo info, uint size);
+
+    [DllImport("kernel32.dll", ExactSpelling = true, SetLastError = true)]
+    [return: MarshalAs(UnmanagedType.Bool)]
+    static extern bool K32EnumPageFilesW(EnumPageFileCallback callback, IntPtr context);
 
     [DllImport("kernel32.dll", SetLastError = true)]
     [return: MarshalAs(UnmanagedType.Bool)]
@@ -561,7 +614,7 @@ public sealed class SessionMemoryTracker
                 var launcher = snap.Processes.FirstOrDefault();
                 var launcherWs = launcher != null ? ProcessMemorySampler.FormatGiB(launcher.WorkingSetBytes) : "n/a";
                 var unattrPart = snap.System.LinuxUnattributedBytes is ulong u && u >= (4UL << 30)
-                    ? $" · Kernel/TTM Pool={ProcessMemorySampler.FormatGiB(u)}"
+                    ? $" · UnattributedEst={ProcessMemorySampler.FormatGiB(u)}"
                     : "";
                 return $"Idle (Sys Avail={ProcessMemorySampler.FormatGiB(snap.System.AvailableRamBytes)}/{ProcessMemorySampler.FormatGiB(snap.System.TotalRamBytes)} · SwapUsed={ProcessMemorySampler.FormatGiB(snap.System.SwapUsedBytes)} · Launcher WS={launcherWs}{unattrPart})";
             }
@@ -575,8 +628,10 @@ public sealed class SessionMemoryTracker
                     sb.Append($" Evicted={ProcessMemorySampler.FormatGiB(PeakGameEvictedVramBytes)}");
             }
             sb.Append($" · Sys MinAvail={ProcessMemorySampler.FormatGiB(MinSystemAvailableRamBytes)} PeakSwap={ProcessMemorySampler.FormatGiB(PeakSystemSwapUsedBytes)}");
+            if (PeakSystemCommittedBytes > 0)
+                sb.Append($" PeakCommit={ProcessMemorySampler.FormatGiB(PeakSystemCommittedBytes)}");
             if (PeakLinuxUnattributedBytes >= (4UL << 30))
-                sb.Append($" PeakKernel/TTM={ProcessMemorySampler.FormatGiB(PeakLinuxUnattributedBytes)}");
+                sb.Append($" PeakUnattributedEst={ProcessMemorySampler.FormatGiB(PeakLinuxUnattributedBytes)}");
             return sb.ToString();
         }
     }

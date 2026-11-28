@@ -250,13 +250,22 @@ internal static class TurnkeySetupTests
             {
                 var required = HellForgePreset.Required.FirstOrDefault(r => r.Id == id);
                 var artifact = HellForgeGameplayCatalog.Pinned.Artifacts.FirstOrDefault(a => a.Id == id);
-                fake.Mods.Add(new(id, required.Name ?? artifact?.Name ?? "Vanilla Plus", true, Path.Combine(root, "mods", id), [], required.Version ?? artifact?.Version ?? ""));
+                var modName = required.Name ?? artifact?.Name ?? "Vanilla Plus";
+                var modVersion = required.Version ?? artifact?.Version ?? "";
+                var folder = Path.Combine(root, "mods", id);
+                SeedModFolderOnDisk(folder, id, modName, modVersion);
+                fake.Mods.Add(new(id, modName, true, folder, [], modVersion, Archive: null));
             }
             var dogs = fake.Mods.FindIndex(m => m.Id == HellForgePreset.GuardDogs);
             fake.Mods[dogs] = fake.Mods[dogs] with { Options = [new("Smarter Guard Dogs and Sentries", true), new("Guard Dogs", true), new("Sentries", true), new("Intelligence", true), new("Safety", true), new("Sentry Safety", issue == "options"), new("SEAF Safety", false), new("Targeting Laser", issue == "options"), new("Targeting Marker", issue == "options")] };
             if (issue == "difficulty") { var index = fake.Mods.FindIndex(m => m.Id == HellForgeClient.DifficultyId); fake.Mods[index] = fake.Mods[index] with { Enabled = false }; }
             if (issue == "order") fake.Mods.Reverse();
-            if (issue == "overlap") fake.Mods.Add(new("pack.80a03e3b-a671-4e54-a2ce-52c35bb64c91", "Reinforcement Beacons Fixed", true, Path.Combine(root, "mods", "beacons"), []));
+            if (issue == "overlap")
+            {
+                var beaconsFolder = Path.Combine(root, "mods", "beacons");
+                SeedModFolderOnDisk(beaconsFolder, "pack.80a03e3b-a671-4e54-a2ce-52c35bb64c91", "Reinforcement Beacons Fixed", "");
+                fake.Mods.Add(new("pack.80a03e3b-a671-4e54-a2ce-52c35bb64c91", "Reinforcement Beacons Fixed", true, beaconsFolder, [], Archive: null));
+            }
             File.WriteAllText(file, JsonSerializer.Serialize(new { format = 1, share = issue == "sharing", unrelated = "keep" }));
             check(HellForgePreset.Problem(await client.ModsAsync(), checkOrder: true) != null, issue + " drift is detected as a repairable setup state");
             fake.Calls.Clear(); await client.InstallGameplayAsync(client.GameplayCache);
@@ -559,6 +568,20 @@ internal static class TurnkeySetupTests
         finally { foreach (var (pinned, index) in optionalSpecs) catalog.Artifacts[index] = pinned; }
     }
 
+    static void SeedModFolderOnDisk(string folder, string id, string name, string version)
+    {
+        Directory.CreateDirectory(folder);
+        if (id.StartsWith("pack.", StringComparison.Ordinal))
+        {
+            File.WriteAllText(Path.Combine(folder, "manifest.json"), JsonSerializer.Serialize(new { Version = 1, Guid = id["pack.".Length..], Name = name }));
+            File.WriteAllBytes(Path.Combine(folder, "0000000000000001.patch_0"), [1, 2, 3, 4]);
+        }
+        else
+        {
+            File.WriteAllText(Path.Combine(folder, "hellforge-mod.json"), JsonSerializer.Serialize(new { id, name, version }));
+        }
+    }
+
     static async Task Step4WizardTests(string area, Action<bool, string> check)
     {
         var wizRoot = Path.Combine(area, "step4-wizard", "Forge");
@@ -575,8 +598,10 @@ internal static class TurnkeySetupTests
             var required = HellForgePreset.Required.FirstOrDefault(r => r.Id == id);
             var artifact = HellForgeGameplayCatalog.Pinned.Artifacts.FirstOrDefault(a => a.Id == id);
             var folder = Path.Combine(wizRoot, "mods", id);
-            Directory.CreateDirectory(folder);
-            var mod = new HellForgeMod(id, required.Name ?? artifact?.Name ?? "Vanilla Plus", true, folder, ["gameplay"], required.Version ?? artifact?.Version ?? "");
+            var modName = required.Name ?? artifact?.Name ?? "Vanilla Plus";
+            var modVersion = required.Version ?? artifact?.Version ?? "";
+            SeedModFolderOnDisk(folder, id, modName, modVersion);
+            var mod = new HellForgeMod(id, modName, true, folder, ["gameplay"], modVersion, Archive: null);
             if (id == HellForgePreset.GuardDogs)
                 mod = mod with { Options = [new("Smarter Guard Dogs and Sentries", true), new("Guard Dogs", true), new("Sentries", true), new("Intelligence", true), new("Safety", true), new("Sentry Safety", false), new("SEAF Safety", false), new("Targeting Laser", false), new("Targeting Marker", false)] };
             fake.Mods.Add(mod);
@@ -741,21 +766,29 @@ internal static class TurnkeySetupTests
         public Action? OnAppearanceAdd;
         public List<HellForgeMod> Mods = [];
         public List<string[]> Calls = [];
-        static (string Id, string Version)? ReadModManifest(string path)
+        static (string Id, string Version) ReadModOrPackTarget(string path)
         {
-            if (File.Exists(path))
+            if (path.EndsWith(".zip", StringComparison.OrdinalIgnoreCase))
             {
                 using var zip = ZipFile.OpenRead(path);
-                var entry = zip.GetEntry("hellforge-mod.json");
-                if (entry == null) return null;
-                using var stream = entry.Open();
-                using var doc = JsonDocument.Parse(stream);
-                return (doc.RootElement.GetProperty("id").GetString()!, doc.RootElement.GetProperty("version").GetString()!);
+                if (zip.GetEntry("hellforge-mod.json") is { } entry)
+                {
+                    using var stream = entry.Open();
+                    using var doc = JsonDocument.Parse(stream);
+                    return (doc.RootElement.GetProperty("id").GetString()!, doc.RootElement.TryGetProperty("version", out var v) ? v.GetString() ?? "" : "");
+                }
+                if (zip.GetEntry("manifest.json") is { } packEntry)
+                {
+                    using var stream = packEntry.Open();
+                    using var doc = JsonDocument.Parse(stream);
+                    return ("pack." + doc.RootElement.GetProperty("Guid").GetString()!, "");
+                }
+                throw new InvalidDataException("Fixture archive holds neither hellforge-mod.json nor manifest.json.");
             }
             var manifest = Path.Combine(path, "hellforge-mod.json");
-            if (!File.Exists(manifest)) return null;
+            if (!File.Exists(manifest)) throw new FileNotFoundException($"HellForge: Could not find file '{manifest}'.");
             using var folderDoc = JsonDocument.Parse(File.ReadAllText(manifest));
-            return (folderDoc.RootElement.GetProperty("id").GetString()!, folderDoc.RootElement.GetProperty("version").GetString()!);
+            return (folderDoc.RootElement.GetProperty("id").GetString()!, folderDoc.RootElement.TryGetProperty("version", out var fv) ? fv.GetString() ?? "" : "");
         }
         public Task<JsonElement> RunAsync(IReadOnlyList<string> args, CancellationToken ct = default)
         {
@@ -764,18 +797,16 @@ internal static class TurnkeySetupTests
             {
                 case "status": result = new { install = root, hellforge = HellForgeRelease.Version, engine = Engine, modSdk = HellForgeRelease.Sdk, gameBuild = HellForgePack.SupportedBuild, networkBlock = "firewall",
                     ready = new { gameCopy = Ready, sessionRunner = Runner }, session = new { running = Running }, settings = new { multiplayer = true, localPlayFab = true, sandbox = Sandbox } }; break;
-                case "mods": result = new { mods = Mods.Select(m => new { id = m.Id, name = m.Name, enabled = m.Enabled, folder = m.Folder, tags = m.Tags, version = m.Version, options = m.Options?.Select(o => new { name = o.Name, on = o.On }) }), problems = Array.Empty<string>() }; break;
+                case "mods": result = new { mods = Mods.Select(m => new { id = m.Id, name = m.Name, enabled = m.Enabled, folder = m.Folder, archive = m.Archive, tags = m.Tags, version = m.Version, options = m.Options?.Select(o => new { name = o.Name, on = o.On }) }), problems = Array.Empty<string>() }; break;
                 case "mod-hash":
-                    if (ReadModManifest(args[2]) is { } hashed)
-                    {
-                        var pinned = HellForgeGameplayCatalog.Pinned.Artifacts.Single(a => a.Id == hashed.Id);
-                        result = new { hash = hashed.Version == pinned.Version
-                            ? pinned.ContentHash
-                            : Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(hashed.Id + ":" + hashed.Version))).ToLowerInvariant() };
-                    }
-                    else
-                        result = new { hash = HellForgeGameplayCatalog.Pinned.Artifacts.Single(a => Mods.Any(m => m.Id == a.Id && m.Folder == args[2])).ContentHash };
+                {
+                    var hashed = ReadModOrPackTarget(args[2]);
+                    var pinned = HellForgeGameplayCatalog.Pinned.Artifacts.Single(a => a.Id == hashed.Id);
+                    result = new { hash = hashed.Version == pinned.Version
+                        ? pinned.ContentHash
+                        : Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(hashed.Id + ":" + hashed.Version))).ToLowerInvariant() };
                     break;
+                }
                 case "mod-add":
                     if (Path.GetFileName(args[2]).Equals("manifest.json", StringComparison.OrdinalIgnoreCase))
                     {
@@ -788,18 +819,28 @@ internal static class TurnkeySetupTests
                         Directory.CreateDirectory(packFolder);
                         foreach (var p in Directory.EnumerateFiles(packSrc)) File.Copy(p, Path.Combine(packFolder, Path.GetFileName(p)), true);
                         Mods.RemoveAll(m => m.Id == packId);
-                        Mods.Add(new(packId, "Selected pack", true, packFolder, ["pack"]));
+                        Mods.Add(new(packId, "Selected pack", true, packFolder, ["pack"], Archive: null));
                         result = new { id = packId, installed = packFolder };
                         break;
                     }
-                    var added = ReadModManifest(args[2]) ?? throw new InvalidDataException("Fixture archive lacks hellforge-mod.json");
+                    var added = ReadModOrPackTarget(args[2]);
                     var optional = HellForgeGameplayCatalog.Pinned.Artifacts.Single(a => a.Id == added.Id);
                     var modFolder = Path.Combine(root, "mods", optional.Id);
+                    if (Directory.Exists(modFolder)) Directory.Delete(modFolder, true);
                     Directory.CreateDirectory(modFolder);
-                    File.WriteAllText(Path.Combine(modFolder, "hellforge-mod.json"),
-                        JsonSerializer.Serialize(new { id = optional.Id, name = optional.Name, version = added.Version, gameplay = optional.Id == HellForgePreset.ChaosInvasions, coop = "per-player" }));
-                    Mods.RemoveAll(m => m.Id == optional.Id);
-                    Mods.Add(new(optional.Id, optional.Name, false, modFolder, ["code"], added.Version));
+                    if (optional.Id.StartsWith("pack.", StringComparison.Ordinal))
+                    {
+                        ZipFile.ExtractToDirectory(args[2], modFolder);
+                        Mods.RemoveAll(m => m.Id == optional.Id);
+                        Mods.Add(new(optional.Id, optional.Name, false, modFolder, ["pack"], "", Archive: null));
+                    }
+                    else
+                    {
+                        File.WriteAllText(Path.Combine(modFolder, "hellforge-mod.json"),
+                            JsonSerializer.Serialize(new { id = optional.Id, name = optional.Name, version = added.Version, gameplay = optional.Id == HellForgePreset.ChaosInvasions, coop = "per-player" }));
+                        Mods.RemoveAll(m => m.Id == optional.Id);
+                        Mods.Add(new(optional.Id, optional.Name, false, modFolder, ["code"], added.Version, Archive: null));
+                    }
                     if (LoseFirstModAdd) { LoseFirstModAdd = false; throw new HellForgeCommandOutcomeUnknownException("Fixture lost the r4->r5 import acknowledgement."); }
                     break;
                 case "mod-remove": Mods.RemoveAll(m => m.Id == args[2]); break;

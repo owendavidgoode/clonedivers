@@ -793,7 +793,9 @@ internal sealed class LinuxForgeHost : IForgeUiHost
     async Task LaunchCoreAsync(CancellationToken ct)
     {
         if (player == null) return;
-        if (!preview && !string.IsNullOrWhiteSpace(player.ResolvedInstallRoot) && !IsGameProcessRunning())
+        if (!preview && !string.IsNullOrWhiteSpace(player.ResolvedInstallRoot) &&
+            player.State?.Status.Running != true && !IsGameProcessRunning() &&
+            LinuxStaleSessionGuard.HasCrashedIncompleteSession(player.ResolvedInstallRoot))
         {
             var preCleaned = LinuxStaleSessionGuard.CleanupStaleOrphans(player.ResolvedInstallRoot);
             if (preCleaned.Count > 0)

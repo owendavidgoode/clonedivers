@@ -369,6 +369,12 @@ internal static class PlayerReviewTests
                 EnsureAccount = _ => Task.FromResult(HellForgeAccount.Profile)
             };
             await restartedBridge.RunAsync(["select-mode", "--mode", "regular", "--delta", "yes", "--texture", "full", "--droids", "yes", "--covenant", "no"], CancellationToken.None);
+            var gameplayMissing = await restartedBridge.RunAsync(["gameplay-status"], CancellationToken.None);
+            bool packFolderHashRejected = false;
+            try { await official.RunAsync(["mod-hash", "--mod", Path.Combine(root, "mods", HellForgePreset.SmarterSeaf)]); }
+            catch (IOException) { packFolderHashRejected = true; }
+            check(packFolderHashRejected && gameplayMissing.GetArrayLength() == 0,
+                "ForgeBridge gameplay-status hashes archive:null pack.* folders via temporary zip while non-zip pack.* directory mod-hash fails like real 0.5.0-beta");
             await restartedBridge.RunAsync(["play", "--profile", "default"], CancellationToken.None);
             check(official.SmarterSeafAllOn && !official.GuardDogsSeafSafetyOn && !official.GuardDogsSentrySafetyOn && !official.GuardDogsTargetingLaserOn && official.Running,
                 "fresh bridge restart in Standard mode repairs Smarter SEAF and clears Guard Dogs SEAF Safety / Sentry Safety / Targeting Laser during play before preset validation");
@@ -408,7 +414,32 @@ internal static class PlayerReviewTests
                 return Task.FromResult(JsonSerializer.SerializeToElement(new { ok = true }));
             if (args[0] == "mod-hash")
             {
-                var id = Path.GetFileName(args[2]);
+                var target = args[2];
+                string id;
+                if (target.EndsWith(".zip", StringComparison.OrdinalIgnoreCase))
+                {
+                    using var zip = System.IO.Compression.ZipFile.OpenRead(target);
+                    if (zip.GetEntry("hellforge-mod.json") is { } hfEntry)
+                    {
+                        using var s = hfEntry.Open();
+                        using var doc = JsonDocument.Parse(s);
+                        id = doc.RootElement.GetProperty("id").GetString()!;
+                    }
+                    else if (zip.GetEntry("manifest.json") is { } packEntry)
+                    {
+                        using var s = packEntry.Open();
+                        using var doc = JsonDocument.Parse(s);
+                        id = "pack." + doc.RootElement.GetProperty("Guid").GetString()!;
+                    }
+                    else throw new InvalidDataException("Archive holds no mod.");
+                }
+                else
+                {
+                    var mf = Path.Combine(target, "hellforge-mod.json");
+                    if (!File.Exists(mf)) throw new FileNotFoundException($"HellForge: Could not find file '{mf}'.");
+                    using var doc = JsonDocument.Parse(File.ReadAllText(mf));
+                    id = doc.RootElement.GetProperty("id").GetString()!;
+                }
                 var hash = HellForgeGameplayCatalog.Pinned.Artifacts.Single(a => a.Id == id).ContentHash;
                 return Task.FromResult(JsonSerializer.SerializeToElement(new { hash }));
             }
@@ -434,6 +465,21 @@ internal static class PlayerReviewTests
             var version = artifact?.Version ?? req.Version ?? "";
             var folder = Path.Combine(root, "mods", id);
             Directory.CreateDirectory(folder);
+            if (id.StartsWith("pack.", StringComparison.Ordinal))
+            {
+                var manifestPath = Path.Combine(folder, "manifest.json");
+                if (!File.Exists(manifestPath))
+                    File.WriteAllText(manifestPath, JsonSerializer.Serialize(new { Version = 1, Guid = id["pack.".Length..], Name = name }));
+                var patchPath = Path.Combine(folder, "0000000000000001.patch_0");
+                if (!File.Exists(patchPath))
+                    File.WriteAllBytes(patchPath, [1, 2, 3, 4]);
+            }
+            else
+            {
+                var modJson = Path.Combine(folder, "hellforge-mod.json");
+                if (!File.Exists(modJson))
+                    File.WriteAllText(modJson, JsonSerializer.Serialize(new { id, name, version }));
+            }
             object[]? options = id == HellForgePreset.GuardDogs
                 ? new object[]
                 {
@@ -450,7 +496,7 @@ internal static class PlayerReviewTests
                 : id == HellForgePreset.SmarterSeaf
                     ? new object[] { new { name = "Smarter SEAF", on = SmarterSeafAllOn } }
                     : null;
-            return (object)new { id, name, enabled = true, folder, tags = new[] { "gameplay" }, version, options };
+            return (object)new { id, name, enabled = true, folder, archive = (string?)null, tags = new[] { "gameplay" }, version, options };
         }).ToArray();
     }
 }
