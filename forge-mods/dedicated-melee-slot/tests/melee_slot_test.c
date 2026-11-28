@@ -1,4 +1,4 @@
-/* Comprehensive C11 unit & offline-capture verification suite for Dedicated Melee Slot 1.5.2-clonedivers.2.
+/* Comprehensive C11 unit & offline-capture verification suite for Dedicated Melee Slot 1.5.2-clonedivers.5.
  * Exercises ../src/melee_slot.c across:
  *   1. Offline PE pin verification against capture-game.dll-00001000.bin (0xFD9710, 0x12FE350, 0x8BF870).
  *   2. All 25 build-25480438 secondary weapon entity resources + HfContent modded secondary discovery,
@@ -10,7 +10,10 @@
  *      HfPlayerEvent.entity player-entity ID never poisons g_avatar).
  *   5. Preservation of ALL 4 player slots' +0x2E8 renderer words across AttachCopy (0x8BF870).
  *   6. Full secondary <-> melee toggle state machine (DoSwap + SwapStages 1 -> 3 -> 2 -> 4).
- *   7. Death / reinforcement drop & re-arm + input_settings.config custom keybind parsing + clean thread stop. */
+ *   7. Death / reinforcement drop & re-arm + input_settings.config custom keybind parsing + clean thread stop.
+ *   8. Wilderness vs City package preload (HF_STATE_PREPARE_MISSION + HF_ON_MISSION_START without avatar wait),
+ *      RefcountedPackageSystem <75% headroom & dedup, metadata-only (part_count==0) residency, and deferred
+ *      game-thread copy spawning once all package parts reach state == 4 (eliminating wilderness purple '?'). */
 
 #define DMS_UNIT_TEST 1
 #include "../src/melee_slot.c"
@@ -27,9 +30,26 @@ static int g_tests_failed = 0;
     } \
 } while (0)
 
-/* ---- Mock Game Memory & HfApi ----------------------------------------------------------------------------------- */
+/* ---- Mock Game/Exe Memory & HfApi ------------------------------------------------------------------------------- */
+
+#define MOCK_MAX_ENGINE_PKGS 64u
+#define MOCK_MAX_PARTS_PER_PKG 4u
+
+typedef struct {
+    uint8_t part_bytes[MOCK_MAX_PARTS_PER_PKG][0x24];
+    uintptr_t part_ptrs[MOCK_MAX_PARTS_PER_PKG];
+    uint8_t pkg_bytes[0x30];
+} MockEnginePkg;
 
 static uint8_t g_mock_game[0x3500000];
+static uint8_t g_mock_exe[0x1B00000];
+static uint8_t g_mock_engine_obj[0x500];
+static uint8_t g_mock_pkg_mgr[0x300];
+static uint8_t g_mock_pkg_res[0x100];
+static uintptr_t g_mock_pkg_list[MOCK_MAX_ENGINE_PKGS];
+static MockEnginePkg g_mock_pkgs[MOCK_MAX_ENGINE_PKGS];
+static uint32_t g_mock_pkg_count = 0u;
+
 static uint8_t g_mock_lu[0xC000];
 static uint8_t g_mock_pm[0x1000];
 static uint8_t g_mock_em[0xF40000];
@@ -41,6 +61,7 @@ static uint8_t g_mock_ent_state[0x200];
 static uint8_t g_mock_es_buckets[64 * 8];
 static uint8_t g_mock_es_records[8 * 0x30];
 static uint8_t g_mock_pkg_sys[0x100];
+static uint8_t g_mock_pkg_ref_entries[64 * 16];
 
 static uint32_t g_next_spawn_id = 500u;
 static int g_spawn_calls = 0;
@@ -50,8 +71,66 @@ static int g_corrupt_csr_in_spawn = 0;
 static int g_force_zero_clone_spawn = 0;
 static int g_attach_calls = 0;
 static int g_pkg_calls = 0;
+static int g_hf_load_pkg_calls = 0;
+static int g_auto_resident_on_req = 1;
 static uint64_t g_custom_mod_sec_ent = 0xCAFE000012345678ULL;
 static char g_mock_mod_folder[MAX_PATH + 128];
+
+static void SyncMockEnginePkgHeader(void)
+{
+    uintptr_t eng_p = (uintptr_t)g_mock_engine_obj;
+    uintptr_t mgr_p = (uintptr_t)g_mock_pkg_mgr;
+    uintptr_t res_p = (uintptr_t)g_mock_pkg_res;
+    uintptr_t list_p = (uintptr_t)g_mock_pkg_list;
+    memcpy(g_mock_exe + PKG_EXE_ENGINE, &eng_p, sizeof(eng_p));
+    memcpy(g_mock_engine_obj + 0x400u, &mgr_p, sizeof(mgr_p));
+    memcpy(g_mock_pkg_mgr + 0x208u, &res_p, sizeof(res_p));
+    memcpy(g_mock_pkg_res + 0x80u, &g_mock_pkg_count, 4u);
+    memcpy(g_mock_pkg_res + 0x88u, &list_p, sizeof(list_p));
+}
+
+static int UpsertMockEnginePkg(uint64_t pkg_id, uint32_t part_count, uint32_t part_state)
+{
+    if (part_count > MOCK_MAX_PARTS_PER_PKG) part_count = MOCK_MAX_PARTS_PER_PKG;
+    uint32_t idx = g_mock_pkg_count;
+    for (uint32_t i = 0u; i < g_mock_pkg_count; i++) {
+        uint64_t existing = 0ULL;
+        memcpy(&existing, g_mock_pkgs[i].pkg_bytes + 0x10u, 8u);
+        if (existing == pkg_id) {
+            idx = i;
+            break;
+        }
+    }
+    if (idx == g_mock_pkg_count) {
+        if (g_mock_pkg_count >= MOCK_MAX_ENGINE_PKGS) return -1;
+        g_mock_pkg_count++;
+    }
+    MockEnginePkg* mp = &g_mock_pkgs[idx];
+    memset(mp, 0, sizeof(*mp));
+    for (uint32_t p = 0u; p < part_count; p++) {
+        memcpy(mp->part_bytes[p] + 0x1Cu, &part_state, 4u);
+        mp->part_ptrs[p] = (uintptr_t)mp->part_bytes[p];
+    }
+    uintptr_t parts_arr = (uintptr_t)mp->part_ptrs;
+    memcpy(mp->pkg_bytes + 0x10u, &pkg_id, 8u);
+    memcpy(mp->pkg_bytes + 0x18u, &part_count, 4u);
+    memcpy(mp->pkg_bytes + 0x20u, &parts_arr, sizeof(parts_arr));
+    g_mock_pkg_list[idx] = (uintptr_t)mp->pkg_bytes;
+    SyncMockEnginePkgHeader();
+    return (int)idx;
+}
+
+static void SetMockEnginePkgPartState(uint64_t pkg_id, uint32_t part_idx, uint32_t state)
+{
+    for (uint32_t i = 0u; i < g_mock_pkg_count; i++) {
+        uint64_t existing = 0ULL;
+        memcpy(&existing, g_mock_pkgs[i].pkg_bytes + 0x10u, 8u);
+        if (existing == pkg_id && part_idx < MOCK_MAX_PARTS_PER_PKG) {
+            memcpy(g_mock_pkgs[i].part_bytes[part_idx] + 0x1Cu, &state, 4u);
+            return;
+        }
+    }
+}
 
 static int MockRead(uintptr_t addr, void* out, size_t sz)
 {
@@ -91,9 +170,24 @@ static const char* MockModFolder(HfMod* m)
 }
 static uintptr_t MockModuleBase(const char* name, size_t* sz)
 {
-    if (sz) *sz = sizeof(g_mock_game);
-    if (strcmp(name, "game.dll") == 0) return (uintptr_t)g_mock_game;
+    if (!name) return 0;
+    if (strcmp(name, "game.dll") == 0) {
+        if (sz) *sz = sizeof(g_mock_game);
+        return (uintptr_t)g_mock_game;
+    }
+    if (strcmp(name, "helldivers2.exe") == 0) {
+        if (sz) *sz = sizeof(g_mock_exe);
+        return (uintptr_t)g_mock_exe;
+    }
     return 0;
+}
+
+static int MockLoadPackage(HfMod* m, uint64_t package)
+{
+    (void)m;
+    (void)package;
+    g_hf_load_pkg_calls++;
+    return g_auto_resident_on_req ? HF_PACKAGE_RESIDENT : HF_PACKAGE_LOADING;
 }
 
 static uint32_t MockEntityOfNetwork(HfMod* m, uint32_t net)
@@ -190,8 +284,15 @@ static void MockAttachFn(uint64_t tbl, uint64_t entity, uint64_t owner, uint64_t
 
 static void MockPkgReqFn(uint64_t sys, uint64_t id_ptr, uint64_t one, uint64_t d, uint64_t e, uint64_t f)
 {
-    (void)sys; (void)id_ptr; (void)one; (void)d; (void)e; (void)f;
+    (void)sys; (void)one; (void)d; (void)e; (void)f;
     g_pkg_calls++;
+    uint64_t pid = 0ULL;
+    if (id_ptr >= 0x10000ULL) {
+        memcpy(&pid, (const void*)(uintptr_t)id_ptr, 8u);
+    }
+    if (pid != 0ULL) {
+        UpsertMockEnginePkg(pid, 2u, g_auto_resident_on_req ? 4u : 2u);
+    }
 }
 
 static void InitHashHeader(uint8_t* hdr, uint8_t* buckets, uint32_t cap)
@@ -218,7 +319,7 @@ static void PutHashEntry(uint8_t* buckets, uint32_t cap, uint32_t key, uint32_t 
 static HfApi g_api;
 static struct { const HfApi* api; } g_mod_inst;
 
-static void SetupHarness(const char* cfg_dir, const char* weapon_choice)
+static void SetupHarnessEx(const char* cfg_dir, const char* weapon_choice, int auto_resident, int start_mission)
 {
     snprintf(g_testConfigDir, sizeof(g_testConfigDir), "%s", cfg_dir ? cfg_dir : "");
     if (cfg_dir && *cfg_dir && weapon_choice) {
@@ -232,7 +333,7 @@ static void SetupHarness(const char* cfg_dir, const char* weapon_choice)
     }
 
     memset(&g_api, 0, sizeof(g_api));
-    g_api.version = 16;
+    g_api.version = 20;
     g_api.size = sizeof(HfApi);
     g_api.log = MockLog;
     g_api.build_id = MockBuildId;
@@ -243,10 +344,16 @@ static void SetupHarness(const char* cfg_dir, const char* weapon_choice)
     g_api.on = MockOn;
     g_api.subscribe = MockSubscribe;
     g_api.on_game_thread = MockOnGameThread;
+    g_api.load_package = MockLoadPackage;
     g_api.entity_of_network = MockEntityOfNetwork;
     g_api.global = MockGlobal;
     g_api.content = MockContent;
     g_mod_inst.api = &g_api;
+
+    memset(g_mock_pkg_sys, 0, sizeof(g_mock_pkg_sys));
+    memset(g_mock_pkg_ref_entries, 0, sizeof(g_mock_pkg_ref_entries));
+    g_mock_pkg_count = 0u;
+    SyncMockEnginePkgHeader();
 
     uintptr_t lu_p = (uintptr_t)g_mock_lu;
     uintptr_t pm_p = (uintptr_t)g_mock_pm;
@@ -293,6 +400,8 @@ static void SetupHarness(const char* cfg_dir, const char* weapon_choice)
     g_force_zero_clone_spawn = 0;
     g_attach_calls = 0;
     g_pkg_calls = 0;
+    g_hf_load_pkg_calls = 0;
+    g_auto_resident_on_req = auto_resident;
     g_mock_mod_folder[0] = '\0';
     InterlockedExchange(&g_testSentKeyDowns, 0);
     InterlockedExchange(&g_testSentKeyUps, 0);
@@ -304,8 +413,15 @@ static void SetupHarness(const char* cfg_dir, const char* weapon_choice)
     g_pkgReq = MockPkgReqFn;
     g_regOk = 1;
 
-    HfEventInfo mstart = {sizeof(HfStateEvent), HF_ON_MISSION_START, 1};
-    g_ls_mstart((HfMod*)&g_mod_inst, &mstart, NULL);
+    if (start_mission) {
+        HfEventInfo mstart = {sizeof(HfStateEvent), HF_ON_MISSION_START, 1};
+        g_ls_mstart((HfMod*)&g_mod_inst, &mstart, NULL);
+    }
+}
+
+static void SetupHarness(const char* cfg_dir, const char* weapon_choice)
+{
+    SetupHarnessEx(cfg_dir, weapon_choice, 1, 1);
 }
 
 /* ---- Tests ------------------------------------------------------------------------------------------------------ */
@@ -346,6 +462,7 @@ static void test_secondary_table_and_modded_weapons(const char* dir)
 static void test_coop_hotjoin_authority_netid_attach_and_swap(const char* dir)
 {
     SetupHarness(dir, "machete");
+    TEST_CHECK(g_pkg_calls == 9, "HF_ON_MISSION_START preloaded all 9 Machete packages immediately without waiting for avatar");
 
     /* 1. Verify HF_ON_PLAYER_SPAWN does NOT poison g_avatar with p->entity (Player entity = 0x9999)! */
     HfPlayerEvent pev = {{sizeof(pev), HF_ON_PLAYER_SPAWN, 2}, 0xAABBCCDDEEFF0011ULL, 0x9999u, 1u};
@@ -376,14 +493,14 @@ static void test_coop_hotjoin_authority_netid_attach_and_swap(const char* dir)
     SetLastError(0x44556677u);
     SpawnReqDetour((uint64_t)(uintptr_t)&out_id, 0x8D3D52A3B2F19402ULL, (uint64_t)(uintptr_t)local_info, 0, 0, 0);
     TEST_CHECK(GetLastError() == 0x44556677u && _mm_getcsr() == orig_csr, "GetLastError and MXCSR preserved across SpawnReqDetour");
-    TEST_CHECK(g_spawn_calls == 4, "secondary + extra melee clone spawned");
+    TEST_CHECK(g_spawn_calls == 4, "secondary + extra melee clone spawned synchronously when resident");
     TEST_CHECK(g_probeOriginal == 502u && g_probeEntity == 503u, "tracked original pistol 502 and melee clone 503");
 
     uint32_t clone_net = 0u;
     uint64_t clone_stack_ptr = 1ULL;
     memcpy(&clone_net, g_last_spawn_info + 4u, 4);
     memcpy(&clone_stack_ptr, g_last_spawn_info + 0x50u, 8);
-    TEST_CHECK(g_last_spawn_info[0] == 1u && clone_net == NET_ID_NONE,
+    TEST_CHECK(g_last_spawn_info[0] == 1u && clone_net == NET_ID_NONE && clone_stack_ptr == 0ULL,
         "melee clone spawned with local authority=1 and non-networked sentinel 0x7FFF (no EVP_NETWORK_MAP collision)");
 
     /* 5. Populate EntityManager descriptor + ENT_STATE_GLOBAL ownership + InventoryRecord for avatar 0x7001,
@@ -409,7 +526,7 @@ static void test_coop_hotjoin_authority_netid_attach_and_swap(const char* dir)
     g_probeTick = GetTickCount64() - 2000ULL;
     g_cb_tick((HfMod*)&g_mod_inst, 0.016f, NULL);
     TEST_CHECK(g_attach_calls == 1 && g_regDone == 1, "AttachCopy attached melee to co-op slot-2 avatar");
-    TEST_CHECK(g_pkg_calls == 9, "requested all 9 Machete model packages");
+    TEST_CHECK(g_pkg_calls == 9, "no duplicate RefcountedPackageSystem requests after session preload");
 
     for (uint32_t s = 0; s < 4u; s++) {
         uint32_t w = 0u;
@@ -475,12 +592,12 @@ static void test_keybind_parser_and_clean_thread_shutdown(const char* dir)
     /* L3: Verify custom install root (<installRoot>\userdata\profiles\*\cloud\input_settings.config)
      * derived from BOTH folder and .unpacked mod_folder layouts, plus USERPROFILE\Documents\HellForge fallback! */
     char resolved_root[MAX_PATH + 128];
-    TEST_CHECK(ResolveInstallRootFromModFolder("D:\\HellForge\\mods\\dedicated-melee-slot", resolved_root, sizeof(resolved_root)) == 1 &&
-               strcmp(resolved_root, "D:\\HellForge") == 0,
-               "L3: resolved D:\\HellForge from folder install");
-    TEST_CHECK(ResolveInstallRootFromModFolder("D:/HellForge/mods/.unpacked/pkg999/dedicated-melee-slot/", resolved_root, sizeof(resolved_root)) == 1 &&
-               strcmp(resolved_root, "D:\\HellForge") == 0,
-               "L3: resolved D:\\HellForge from .unpacked zip install");
+    TEST_CHECK(ResolveInstallRootFromModFolder("D:\\CustomForge\\mods\\dedicated-melee-slot", resolved_root, sizeof(resolved_root)) == 1 &&
+               strcmp(resolved_root, "D:\\CustomForge") == 0,
+               "L3: resolved install root from folder install");
+    TEST_CHECK(ResolveInstallRootFromModFolder("D:/CustomForge/mods/.unpacked/pkg999/dedicated-melee-slot/", resolved_root, sizeof(resolved_root)) == 1 &&
+               strcmp(resolved_root, "D:\\CustomForge") == 0,
+               "L3: resolved install root from .unpacked zip install");
 
     if (dir && *dir) {
         char custom_cloud[MAX_PATH + 192], custom_cfg[MAX_PATH + 224];
@@ -688,6 +805,177 @@ static void test_hellforge_05_relocated_4096_entity_manager(const char* temp_dir
     free(arena);
 }
 
+static void test_wilderness_preload_and_residency_gated_deferred_spawn(const char* dir)
+{
+    if (!dir || !*dir) return;
+
+    /* Start in non-mission state with wilderness streaming (g_auto_resident_on_req = 0 -> parts enter state = 2 LOADING). */
+    SetupHarnessEx(dir, "saber", 0, 0);
+    TEST_CHECK(g_pkg_calls == 0 && g_avatar == 0u, "clean boot before HF_STATE_PREPARE_MISSION");
+
+    /* 1. Entering HF_STATE_PREPARE_MISSION (6) pre-requests all 7 saber packages immediately with g_avatar == 0
+     *    and ZERO non-catalogue hf->load_package calls! */
+    HfStateEvent prep_ev = {{sizeof(prep_ev), HF_ON_STATE, 1}, HF_STATE_SHIP, HF_STATE_PREPARE_MISSION};
+    g_ls_state((HfMod*)&g_mod_inst, (const HfEventInfo*)&prep_ev, NULL);
+    TEST_CHECK(g_avatar == 0u && g_pkg_calls == 7 && g_hf_load_pkg_calls == 0,
+        "HF_STATE_PREPARE_MISSION preloaded all 7 saber packages via RefcountedPackageSystem with 0 non-catalogue load_package calls");
+
+    /* 1b. Verify unreadable PKG_EXE_ENGINE fails closed (returns 0 = not resident) without calling hf->load_package! */
+    uintptr_t saved_eng = 0u;
+    memcpy(&saved_eng, g_mock_exe + PKG_EXE_ENGINE, sizeof(saved_eng));
+    memset(g_mock_exe + PKG_EXE_ENGINE, 0, sizeof(saved_eng));
+    size_t uninit_res_cnt = 99u;
+    uint64_t dummy_pkg = 0x3cfc68e6bf19f67dULL;
+    TEST_CHECK(AreMeleePackagesResident((HfMod*)&g_mod_inst, &dummy_pkg, 1u, &uninit_res_cnt) == 0 &&
+               uninit_res_cnt == 0u && g_hf_load_pkg_calls == 0,
+        "uninitialized PKG_EXE_ENGINE defers safely (0 resident, 0 load_package calls)");
+    memcpy(g_mock_exe + PKG_EXE_ENGINE, &saved_eng, sizeof(saved_eng));
+
+    /* 2. Verify metadata-only package (part_count == 0) matches exe+0x321330 and reports resident = 1! */
+    UpsertMockEnginePkg(0x1122334455667788ULL, 0u, 0u);
+    uintptr_t elist = 0u;
+    uint32_t ecount = 0u;
+    TEST_CHECK(CanReadEnginePackageList((uintptr_t)g_mock_exe, &elist, &ecount) == 1, "engine package list readable");
+    TEST_CHECK(EnginePackageResidentFromList(elist, ecount, 0x1122334455667788ULL) == 1,
+        "metadata-only package (part_count == 0) reports resident = 1");
+
+    /* 3. Verify RefcountedPackageSystem <75% headroom guard & already-held dedup! */
+    uint64_t ref_ptr = (uint64_t)(uintptr_t)g_mock_pkg_ref_entries;
+    uint32_t ref_cap = 16u;
+    memcpy(g_mock_pkg_sys + 0u, &ref_ptr, 8u);
+    memcpy(g_mock_pkg_sys + 8u, &ref_cap, 4u);
+    /* Pre-mark machete's first package 0x8f295b4d04c3a06c as already held (refcount = 2) in RefcountedPackageSystem */
+    uint64_t held_machete0 = 0x8f295b4d04c3a06cULL;
+    uint32_t refs2 = 2u;
+    memcpy(g_mock_pkg_ref_entries + 0u, &held_machete0, 8u);
+    memcpy(g_mock_pkg_ref_entries + 8u, &refs2, 4u);
+
+    /* Player switches picker to 'machete' (9 packages) during PREPARE_MISSION loadout! */
+    char p[MAX_PATH + 64];
+    snprintf(p, sizeof(p), "%s\\melee-slot-weapon.txt", dir);
+    FILE* f = fopen(p, "wb");
+    if (f) { fprintf(f, "machete\r\n"); fclose(f); }
+    g_nextPkgCheckTick = 0ULL;
+    g_cb_tick((HfMod*)&g_mod_inst, 0.016f, NULL);
+    /* 1 of 9 was already in RefcountedPackageSystem -> only 8 new g_pkgReq calls (7 + 8 = 15)! */
+    TEST_CHECK(g_pkg_calls == 15, "PREPARE_MISSION Tick preloaded machete and skipped already-held package in ref map");
+    /* Seed 0x8f295b4d04c3a06c in mock engine list as LOADING (state = 2) too */
+    UpsertMockEnginePkg(held_machete0, 2u, 2u);
+
+    /* Now fill 12 of 16 slots (75% full: (12 + 1) * 4 = 52 >= 48) and switch to 'shovel' -> g_pkgReq refused safely! */
+    for (uint32_t fill = 1u; fill < 12u; fill++) {
+        uint64_t dummy_id = 0xABCD000000000000ULL + fill;
+        uint32_t r1 = 1u;
+        memcpy(g_mock_pkg_ref_entries + fill * 16u + 0u, &dummy_id, 8u);
+        memcpy(g_mock_pkg_ref_entries + fill * 16u + 8u, &r1, 4u);
+    }
+    f = fopen(p, "wb");
+    if (f) { fprintf(f, "shovel\r\n"); fclose(f); }
+    g_nextPkgCheckTick = 0ULL;
+    g_cb_tick((HfMod*)&g_mod_inst, 0.016f, NULL);
+    TEST_CHECK(g_pkg_calls == 15, "RefcountedPackageSystem >=75% load factor refused unsafe g_pkgReq");
+
+    /* Clear ref map saturation and switch back to 'machete' for wilderness drop test! */
+    memset(g_mock_pkg_sys, 0, sizeof(g_mock_pkg_sys));
+    f = fopen(p, "wb");
+    if (f) { fprintf(f, "machete\r\n"); fclose(f); }
+
+    /* 4. Enter mission on a wilderness map where machete's 9 packages are still streaming (state = 2 != 4)! */
+    HfEventInfo mstart = {sizeof(HfStateEvent), HF_ON_MISSION_START, 2};
+    g_ls_mstart((HfMod*)&g_mod_inst, &mstart, NULL);
+    HfPlayerEvent pev = {{sizeof(pev), HF_ON_PLAYER_SPAWN, 2}, 0xAABBCCDDEEFF0011ULL, 0x9999u, 1u};
+    g_ls_pspawn((HfMod*)&g_mod_inst, (const HfEventInfo*)&pev, NULL);
+    TEST_CHECK(g_avatar == 0x7001u, "avatar 0x7001 spawned on wilderness map");
+
+    /* Stack-allocated SpawnInfo + 0x900-byte stack context that we will WIPE right after SpawnReqDetour returns
+     * to prove deferred spawn never reads dangling caller stack memory! */
+    uint8_t stack_ctx[0x900];
+    uint8_t stack_info[0x200];
+    memset(stack_ctx, 0x5Au, sizeof(stack_ctx));
+    memset(stack_info, 0, sizeof(stack_info));
+    stack_info[0] = 1u;
+    uint32_t pistol_net = 0x333u, out_id = 0u;
+    uint64_t ctx_addr = (uint64_t)(uintptr_t)stack_ctx;
+    memcpy(stack_info + 4u, &pistol_net, 4u);
+    memcpy(stack_info + 0x48u, &ctx_addr, 8u);
+
+    SpawnReqDetour((uint64_t)(uintptr_t)&out_id, 0x8D3D52A3B2F19402ULL, (uint64_t)(uintptr_t)stack_info, 0, 0, 0);
+    /* Destroy caller stack buffers immediately! */
+    memset(stack_ctx, 0xDDu, sizeof(stack_ctx));
+    memset(stack_info, 0xDDu, sizeof(stack_info));
+
+    TEST_CHECK(out_id == 500u && g_spawn_calls == 1,
+        "wilderness drop spawned ONLY real pistol 500 while melee packages are still streaming (no purple '?')");
+    TEST_CHECK(g_pendingSpawn == 1 && g_probeEntity == 0u && g_armed == 0,
+        "extra melee copy gated in g_pendingSpawn until all 9 packages reach state == 4");
+
+    /* Mark 8 of 9 machete packages resident (part 0 & part 1 = 4), leaving the 9th package's part 1 at state = 2! */
+    uint64_t machete_pkgs[DMS_MAX_REQ_PACKAGES];
+    size_t machete_cnt = ParsePackageIdList(kMelee[0].packages, machete_pkgs, DMS_MAX_REQ_PACKAGES);
+    TEST_CHECK(machete_cnt == 9u, "parsed 9 machete packages");
+    for (size_t i = 0u; i < 9u; i++) {
+        SetMockEnginePkgPartState(machete_pkgs[i], 0u, 4u);
+        SetMockEnginePkgPartState(machete_pkgs[i], 1u, (i < 8u) ? 4u : 2u);
+    }
+
+    g_cb_tick((HfMod*)&g_mod_inst, 0.016f, NULL);
+    TEST_CHECK(g_spawn_calls == 1 && g_pendingSpawn == 1 && g_probeEntity == 0u,
+        "Tick still waits when 8/9 packages are resident and 9th has 1 part still streaming");
+
+    /* Final part of 9th package finishes streaming -> state = 4! */
+    SetMockEnginePkgPartState(machete_pkgs[8], 1u, 4u);
+    g_cb_tick((HfMod*)&g_mod_inst, 0.016f, NULL);
+    TEST_CHECK(g_spawn_calls == 2 && g_pendingSpawn == 0 && g_probeOriginal == 500u && g_probeEntity == 501u,
+        "Tick spawned extra melee 501 on game thread the instant 9/9 packages became resident");
+
+    uint32_t clone_net = 0u;
+    uint64_t clone_ctx = 0ULL;
+    memcpy(&clone_net, g_last_spawn_info + 4u, 4u);
+    memcpy(&clone_ctx, g_last_spawn_info + 0x48u, 8u);
+    TEST_CHECK(clone_net == NET_ID_NONE &&
+               clone_ctx == (uint64_t)(uintptr_t)(g_spawnScratch + 0x5000u) &&
+               *(uint8_t*)(uintptr_t)clone_ctx == 0x5Au,
+        "deferred spawn used persistent 0x8A0+ scratch context (0x5A intact) with net_id = 0x7FFF");
+
+    /* Attach & verify full readiness after residency-gated deferred spawn! */
+    PutHashEntry(g_mock_es_buckets, 64u, 500u, 0u);
+    PutHashEntry(g_mock_es_buckets, 64u, 501u, 1u);
+    uint32_t owner_av = 0x7001u;
+    memcpy(g_mock_es_records + 0u * 0x30u + 4u, &owner_av, 4u);
+    PutHashEntry(g_mock_em_buckets, 64u, 501u, 0u);
+    uint64_t machete_res = 0x792D5D2A340FD6E6ULL;
+    uint32_t clone_eid = 501u, clone_unit = 0x400555u;
+    memcpy(g_mock_em + EM_DESCRIPTORS + 0u, &machete_res, 8u);
+    memcpy(g_mock_em + EM_DESCRIPTORS + 8u, &clone_eid, 4u);
+    memcpy(g_mock_em + EM_DESCRIPTORS + 12u, &clone_unit, 4u);
+    PutHashEntry(g_mock_inv_buckets, 64u, 0x7001u, 0u);
+    uint32_t pri_eid = 499u, sec_eid = 500u, sel = 2u;
+    memcpy(g_mock_inv_records + 0u, &pri_eid, 4u);
+    memcpy(g_mock_inv_records + 4u, &sec_eid, 4u);
+    memcpy(g_mock_inv_records + 0x1Cu, &sel, 4u);
+
+    g_probeTick = GetTickCount64() - 2000ULL;
+    g_cb_tick((HfMod*)&g_mod_inst, 0.016f, NULL);
+    TEST_CHECK(g_attach_calls == 1 && g_regDone == 1, "deferred wilderness melee 501 attached cleanly");
+
+    /* 5. Verify death while g_pendingSpawn == 1 cancels stale pending spawn and re-arms cleanly! */
+    DropAttachedMeleeForRespawn("reset for death-during-pending test");
+    SetMockEnginePkgPartState(machete_pkgs[8], 1u, 2u); /* make non-resident again */
+    memset(stack_info, 0, sizeof(stack_info));
+    stack_info[0] = 1u;
+    memcpy(stack_info + 4u, &pistol_net, 4u);
+    SpawnReqDetour((uint64_t)(uintptr_t)&out_id, 0x8D3D52A3B2F19402ULL, (uint64_t)(uintptr_t)stack_info, 0, 0, 0);
+    TEST_CHECK(g_pendingSpawn == 1 && g_armed == 0, "second wilderness spawn deferred");
+
+    HfPlayerEvent pdown = {{sizeof(pdown), HF_ON_PLAYER_DOWN, 3}, 0xAABBCCDDEEFF0011ULL, 0x9999u, 1u};
+    g_ls_pdown((HfMod*)&g_mod_inst, (const HfEventInfo*)&pdown, NULL);
+    TEST_CHECK(g_pendingSpawn == 0 && g_probeEntity == 0u && g_armed == 1,
+        "HF_ON_PLAYER_DOWN cancelled pending wilderness spawn and re-armed cleanly");
+
+    TEST_CHECK(hellforge_mod_unload(&g_api, (HfMod*)&g_mod_inst, HF_UNLOAD_REMOVE) == 0,
+        "clean unload after wilderness deferred spawn suite");
+}
+
 int main(int argc, char** argv)
 {
     const char* temp_dir = argc > 1 ? argv[1] : NULL;
@@ -697,6 +985,7 @@ int main(int argc, char** argv)
     test_keybind_parser_and_clean_thread_shutdown(temp_dir);
     test_h3c_h3d_failed_spawn_and_failed_attach_recovery(temp_dir);
     test_hellforge_05_relocated_4096_entity_manager(temp_dir);
+    test_wilderness_preload_and_residency_gated_deferred_spawn(temp_dir);
 
     printf("dedicated-melee-slot C11 unit suite: %d checks run, %d failed\n", g_tests_run, g_tests_failed);
     return g_tests_failed == 0 ? 0 : 1;

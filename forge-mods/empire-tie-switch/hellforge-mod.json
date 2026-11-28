@@ -1,10 +1,10 @@
 {
   "format": 1,
   "id": "clonedivers.empire-tie-switch",
-  "name": "Empire per-attack TIE (lab candidate)",
-  "version": "0.3.2",
+  "name": "Star Wars Per-Attack Air Wing (TIE & Republic)",
+  "version": "0.4.0",
   "game": "25480438",
-  "description": "Per-attack TIE Fighter (strafe/110mm) and TIE Bomber (airstrike/500kg/cluster/napalm/smoke/gas) switch across all 5 EmpireDivers texture tiers (full, lighter, reduced1024, reduced512, potato256), with build-25480438 RefcountedPackageSystem eagle_base residency and 4-player concurrent sortie tracking.",
+  "description": "Per-attack Eagle aircraft switch across all 5 texture tiers (full, lighter, reduced1024, reduced512, potato256): EmpireDivers TIE Fighter (strafe/110mm) & TIE Bomber (bombing/support), plus Clonedivers r26 ARC-170 Starfighter (strafe/110mm), BTL-B Y-Wing Bomber (airstrike/500kg/cluster), & LAAT/i Gunship (smoke/gas/napalm), with build-25480438 eagle_base residency and 4-player sortie tracking.",
   "gameplay": false,
   "coop": "per-player",
   "code": { "dll": "empire_tie_switch.dll", "sdk": 16 }

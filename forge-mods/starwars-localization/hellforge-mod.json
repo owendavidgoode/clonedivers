@@ -2,8 +2,8 @@
   "format": 1,
   "id": "clonedivers.starwars-localization",
   "name": "Star Wars Localization Bridge",
-  "version": "0.1.1",
-  "description": "Restores EmpireDivers and Clonedivers US English TEXT overrides (Armory, objectives, stratagems, and subtitles) in memory when HellForge's Forge Credits patch overwrites US English TEXT resources, while keeping all Forge Credits labels intact.",
+  "version": "0.2.0",
+  "description": "Restores and completes EmpireDivers and Clonedivers US English TEXT overrides across all 14 US tables: preserves Forge Credits labels, adds 100% vanilla HD2 item/weapon/booster/stratagem references, renames Clonedivers Hellbomb to Overloaded Gonk Droid, and converts EmpireDivers DSS strings to DS-1 Death Star.",
   "gameplay": false,
   "coop": "per-player",
   "code": { "dll": "starwars_localization.dll", "sdk": 16, "game": "25480438" }

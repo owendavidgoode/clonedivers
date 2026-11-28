@@ -1,4 +1,4 @@
-# Empire & Clone Camera Pullback (`0.1.4`)
+# Empire & Clone Camera Pullback (`0.1.6`)
 
 Per-player third-person follow-camera framing mod for **Helldivers 2** (Steam build `25480438`, **HellForge Mod SDK 16**).
 
@@ -14,7 +14,7 @@ Per-player third-person follow-camera framing mod for **Helldivers 2** (Steam bu
   - Emits 30-second QPC health telemetry (`tick_us_avg`, `tick_us_max`, `profile`, `cam_ok`, `avatar_ok`, `walker_ok`, `applied_frames`, `raycast_hits`, `bypass_reason`) and enforces a hard `1000 µs` safety watchdog that fails closed if frame budget is ever exceeded repeatedly.
 - **Occupied Walker Dorsal-Hull Clearance (`AT-TE` & Film-Scale `AT-ST`):**
   - Detects when the local player is actively piloting an `EXO-45 Patriot`, `EXO-49 Emancipator`, `EXO-51 Lumberer`, or `EXO-55 Breakthrough` walker (`+2.80 m` pullback, `+1.65 m` Z lift over the `3.90 m` AT-TE dorsal hull).
-  - Automatically detects the `2.28x` film-scale `AT-ST` (`empire-atst-writer`) via cabin/pelvis world-space elevation (`> 3.50 m` above walker root) and applies `+3.80 m` pullback and `+2.65 m` Z lift.
+  - Automatically detects the `2.28x` film-scale `AT-ST` (`empire-atst-writer`) via cabin/pelvis world-space elevation (`> 3.50 m` above walker root) and applies `+4.10 m` pullback and `+3.35 m` Z lift (aligned with the `0.2.7` raised `Z=6.52 m` AT-ST head cab, with cab-focus look-up scoring and double-lift protection).
   - Ignores unoccupied parked walkers and teammates' walkers in 4-player co-op.
 - **Compact LEGO 3P Framing Preset:**
   - Walks the local avatar's direct child attachment chain (`avatar + 0x1D8 -> child + 0x1E0`, `<= 32` children) and matches all `61` Empire & Clone Compact LEGO garment unit resources **plus** their exact scene-graph `node_count` (`17..47`), ensuring zero false positives on vanilla armors.

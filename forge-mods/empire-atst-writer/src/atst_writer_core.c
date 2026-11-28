@@ -4,7 +4,17 @@
 #include <immintrin.h>
 #include <string.h>
 
+typedef struct {
+    int active;
+    at_writer_state *state;
+    DWORD owner_tid;
+    int hide_all;
+    uint64_t mask_lo;
+    uint64_t mask_hi;
+} at_pilot_tls_frame;
+
 static __thread at_tls_frame *tls_active_frame = NULL;
+static __thread at_pilot_tls_frame *tls_pilot_frame = NULL;
 
 static int span_ok(uintptr_t a, size_t n) {
     return a >= 0x10000ULL && a < 0x0000800000000000ULL && n <= 0x0000800000000000ULL - a;
@@ -61,6 +71,28 @@ static void at_fast_publish(at_writer_state *s) {
     __atomic_store_n(&s->fast.seq, seq + 1u, __ATOMIC_RELEASE); /* odd: writer updating */
     __atomic_thread_fence(__ATOMIC_RELEASE);
     memset(s->fast.mesh_ht, 0, sizeof(s->fast.mesh_ht));
+    for (unsigned i = 0; i < AT_PILOT_MESH_HT_SIZE; i++) {
+        s->fast.pilot_mesh_ht[i] = -1;
+    }
+    uint32_t pcnt = s->pilot_hide_count <= AT_MAX_PILOT_HIDE_MESHES ? s->pilot_hide_count : AT_MAX_PILOT_HIDE_MESHES;
+    s->fast.pilot_mesh_count = pcnt;
+    if (pcnt > 0u) {
+        memcpy(s->fast.pilot_meshes, s->pilot_hide_entries, (size_t)pcnt * sizeof(s->pilot_hide_entries[0]));
+        for (uint32_t pm = 0; pm < pcnt; pm++) {
+            uintptr_t mobj = s->fast.pilot_meshes[pm].mesh;
+            if (!mobj) continue;
+            uint32_t h = at_hash_mesh_ptr(mobj) & AT_PILOT_MESH_HT_MASK;
+            for (unsigned p = 0; p < AT_PILOT_MESH_HT_SIZE; p++) {
+                uint32_t k = (h + p) & AT_PILOT_MESH_HT_MASK;
+                if (s->fast.pilot_mesh_ht[k] < 0) {
+                    s->fast.pilot_mesh_ht[k] = (int16_t)pm;
+                    break;
+                }
+            }
+        }
+    } else {
+        memset(s->fast.pilot_meshes, 0, sizeof(s->fast.pilot_meshes));
+    }
     uint32_t cnt = 0u;
     uint32_t all_resolved = 1u;
     for (unsigned i = 0; i < AT_MAX_WALKERS; i++) {
@@ -100,6 +132,53 @@ static void at_fast_publish(at_writer_state *s) {
     s->fast.count = cnt;
     s->fast.all_meshes_resolved = (cnt > 0u && all_resolved) ? 1u : 0u;
     __atomic_store_n(&s->fast.seq, seq + 2u, __ATOMIC_RELEASE); /* even: snapshot ready */
+}
+
+void at_writer_republish_fast_locked(at_writer_state *s) {
+    if (s) at_fast_publish(s);
+}
+
+static int at_fast_lookup_pilot_hide(const at_writer_state *s, uintptr_t mesh, at_pilot_hide_entry *out_entry) {
+    if (!s || !mesh || !out_entry) return 0;
+    for (unsigned attempt = 0; attempt < 4u; attempt++) {
+        uint32_t seq1 = __atomic_load_n(&s->fast.seq, __ATOMIC_ACQUIRE);
+        if (seq1 & 1u) break;
+        uint32_t pcnt = s->fast.pilot_mesh_count;
+        if (pcnt == 0u) {
+            __atomic_thread_fence(__ATOMIC_ACQUIRE);
+            if (__atomic_load_n(&s->fast.seq, __ATOMIC_ACQUIRE) == seq1) return 0;
+            continue;
+        }
+        uint32_t h = at_hash_mesh_ptr(mesh) & AT_PILOT_MESH_HT_MASK;
+        int hit = 0;
+        at_pilot_hide_entry local_e;
+        memset(&local_e, 0, sizeof(local_e));
+        for (unsigned p = 0; p < AT_PILOT_MESH_HT_SIZE; p++) {
+            int16_t idx = s->fast.pilot_mesh_ht[(h + p) & AT_PILOT_MESH_HT_MASK];
+            if (idx < 0) break;
+            if ((uint32_t)idx < pcnt && s->fast.pilot_meshes[idx].mesh == mesh) {
+                local_e = s->fast.pilot_meshes[idx];
+                hit = 1;
+                break;
+            }
+        }
+        __atomic_thread_fence(__ATOMIC_ACQUIRE);
+        if (__atomic_load_n(&s->fast.seq, __ATOMIC_ACQUIRE) == seq1) {
+            if (hit) *out_entry = local_e;
+            return hit;
+        }
+    }
+    AcquireSRWLockShared((SRWLOCK *)&s->lock);
+    int hit = 0;
+    for (uint32_t i = 0; i < s->pilot_hide_count && i < AT_MAX_PILOT_HIDE_MESHES; i++) {
+        if (s->pilot_hide_entries[i].mesh == mesh) {
+            *out_entry = s->pilot_hide_entries[i];
+            hit = 1;
+            break;
+        }
+    }
+    ReleaseSRWLockShared((SRWLOCK *)&s->lock);
+    return hit;
 }
 
 static int at_fast_may_match_skin(at_writer_state *s, uintptr_t mesh, uintptr_t pool) {
@@ -195,6 +274,9 @@ void at_writer_shutdown(at_writer_state *s) {
     InterlockedExchange(&s->ready, 0);
     AcquireSRWLockExclusive(&s->lock);
     at_registry_reset(&s->reg);
+    s->pilot_hide_count = 0u;
+    memset(s->pilot_hide_entries, 0, sizeof(s->pilot_hide_entries));
+    memset(s->pilot.slots, 0, sizeof(s->pilot.slots));
     at_fast_publish(s);
     ReleaseSRWLockExclusive(&s->lock);
 }
@@ -389,6 +471,29 @@ uint32_t at_writer_dispatch_512B80(
     }
     if (fast_next == s->approved_skin_next &&
         __atomic_load_n(&s->leaf_next, __ATOMIC_ACQUIRE) == s->approved_leaf_next) {
+        at_pilot_hide_entry ph_entry;
+        if (at_fast_lookup_pilot_hide(s, (uintptr_t)mesh, &ph_entry)) {
+            DWORD p_err = GetLastError();
+            uint32_t p_csr = _mm_getcsr();
+            at_pilot_tls_frame pframe;
+            pframe.active = 1;
+            pframe.state = s;
+            pframe.owner_tid = GetCurrentThreadId();
+            pframe.hide_all = ph_entry.hide_all ? 1 : 0;
+            pframe.mask_lo = ph_entry.mask_lo;
+            pframe.mask_hi = ph_entry.mask_hi;
+            at_pilot_tls_frame *prev_p = tls_pilot_frame;
+            tls_pilot_frame = &pframe;
+            SetLastError(p_err);
+            _mm_setcsr(p_csr);
+            uint32_t pret = fast_next ? fast_next(mesh, pool, opt_graph) : UINT32_MAX;
+            DWORD exit_err = GetLastError();
+            uint32_t exit_csr = _mm_getcsr();
+            tls_pilot_frame = prev_p;
+            SetLastError(exit_err);
+            _mm_setcsr(exit_csr);
+            return pret;
+        }
         /* Lock-free fast reject: zero GetLastError, zero _mm_getcsr, zero shared atomic writes,
          * and zero ReadProcessMemory syscalls in steady state across all 14 render threads. */
         if (!at_fast_may_match_skin(s, (uintptr_t)mesh, (uintptr_t)pool)) {
@@ -536,6 +641,27 @@ uint32_t at_writer_leaf_5B2990(
     at_leaf_skin_fn next = __atomic_load_n(&s->leaf_next, __ATOMIC_ACQUIRE);
     at_tls_frame *f = tls_active_frame;
     if (!f || !f->active || f->state != s) {
+        at_pilot_tls_frame *pf = tls_pilot_frame;
+        if (pf && pf->active && pf->state == s && pf->owner_tid == GetCurrentThreadId() &&
+            (void *)next == (void *)s->approved_leaf_next) {
+            DWORD p_err = GetLastError();
+            uint32_t p_csr = _mm_getcsr();
+            tls_pilot_frame = NULL;
+            SetLastError(p_err);
+            _mm_setcsr(p_csr);
+            uint32_t pret = next ? next(dst, factor, graph, bind, palette, map, count) : UINT32_MAX;
+            DWORD exit_err = GetLastError();
+            uint32_t exit_csr = _mm_getcsr();
+            tls_pilot_frame = pf;
+            if (at_pilot_collapse_leaf_output(
+                    dst, palette, map, count, pf->hide_all, pf->mask_lo, pf->mask_hi,
+                    s->read_fn, s->read_user) > 0u) {
+                InterlockedIncrement((LONG *)&s->pilot.hidden_leaf_calls);
+            }
+            SetLastError(exit_err);
+            _mm_setcsr(exit_csr);
+            return pret;
+        }
         return next ? next(dst, factor, graph, bind, palette, map, count) : UINT32_MAX;
     }
     DWORD entry_err = GetLastError();

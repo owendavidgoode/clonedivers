@@ -879,6 +879,19 @@ static void test_walker_profiles_atte_atst_and_parked_rejection(void)
         "film-scale 2.28x AT-ST auto-detected while aiming in 3P");
     TEST_NEAR(g_last_set_pose[10], -2.5f - g_opts.atst_scaled_pullback_distance, 1e-4f, "AT-ST scaled pullback Y");
     TEST_NEAR(g_last_set_pose[11], 2.4f + g_opts.atst_scaled_lift_z, 1e-4f, "AT-ST scaled lift Z");
+
+    /* Raised AT-ST cab pilot (Z=6.52m, cur_link==0 fallback + high camera Z=6.80m looking slightly up):
+     * Must stay active (cab focus Z+5.8m passes dot>=0.45) AND cap lift_z to avoid double-lifting above 7.60m! */
+    g_set_pose_calls = 0;
+    g_diver_unit.graph.link_parent = 0;
+    InitIdentityWorldMatrix(g_diver_unit.world_poses[0], 0.0f, 1.92f, 6.52f);
+    InitIdentityWorldMatrix(g_diver_unit.world_poses[90], 0.0f, 1.92f, 8.07f);
+    InitLocalPoseLookingPlusY(g_cam_unit.local_poses[0], 0.0f, -2.5f, 6.80f);
+    InitIdentityWorldMatrix((float*)(g_mock_world + ECP_WORLD_RENDER_POSE), 0.0f, -2.5f, 6.80f);
+    EcpStepDetour(NULL);
+    TEST_CHECK(g_set_pose_calls == 1 && g_rt.active_profile == ECP_PROFILE_WALKER_ATST_SCALED,
+        "raised Z=6.52m AT-ST cab pilot + high Z=6.80m camera stays active without look-up dropout");
+    TEST_NEAR(g_last_set_pose[11], 7.60f, 1e-3f, "already-elevated AT-ST camera smoothly caps lift at Z=7.60m without double-lifting");
 }
 
 static void test_havok_wall_clamp_and_raycast_fail_closed(void)
@@ -1473,6 +1486,60 @@ static void test_hellforge_05_relocated_4096_entity_manager(void)
     free(combo);
 }
 
+static int g_mock_peer_fp_active = 0;
+static int MockPeerIsFpActive(void) { return g_mock_peer_fp_active; }
+
+static void test_peer_titanfall_1p_coordination_and_base_pose_handoff(void)
+{
+    ResetHarnessScene();
+    g_mutate_cam_pose_in_place = 1;
+    g_mock_peer_fp_active = 0;
+    g_testPeerIsFpOverride = MockPeerIsFpActive;
+
+    /* Frame 1 (3P): Ecp pulls camera back from (0, -2.0, 1.7) to (0, -2.25, 1.64). */
+    EcpStepDetour(NULL);
+    TEST_CHECK(g_set_pose_calls == 1 && g_rt.has_last_written == 1, "3P pullback active before peer 1P");
+    TEST_NEAR(g_cam_unit.local_poses[0][10], -2.0f - g_opts.lego_pullback_distance, 1e-4f, "3P pulled-back Y");
+
+    /* Peer Tfh (-20) peeks pre-pullback base_pose without clearing Ecp ownership while staying in 3P. */
+    float peeked[16];
+    memset(peeked, 0, sizeof(peeked));
+    TEST_CHECK(hellforge_ecp_peek_base_pose(
+                   (uintptr_t)g_mock_world, g_cam_unit.ref, g_cam_unit.local_poses[0], peeked) == 1,
+               "hellforge_ecp_peek_base_pose recognizes Ecp's written pose");
+    TEST_NEAR(peeked[10], -2.0f, 1e-4f, "peeked base_pose Y is exact pre-pullback -2.0m");
+    TEST_NEAR(peeked[11], 1.7f, 1e-4f, "peeked base_pose Z is exact pre-pullback 1.7m");
+    TEST_CHECK(g_rt.has_last_written == 1, "peek leaves has_last_written intact for paused 3P frames");
+
+    /* Peer Tfh (-20) toggles 3P -> 1P: consumes Ecp base_pose & writes 1P pose (0, +1.5, 2.85). */
+    float consumed[16];
+    TEST_CHECK(hellforge_ecp_query_base_pose(
+                   (uintptr_t)g_mock_world, g_cam_unit.ref, g_cam_unit.local_poses[0], consumed, 1) == 1,
+               "consume succeeds and hands off base_pose");
+    TEST_CHECK(g_rt.has_last_written == 0 && g_rt.blend == 0.0f, "consume clears Ecp ownership");
+    InitLocalPoseLookingPlusY(g_cam_unit.local_poses[0], 0.0f, 1.50f, 2.85f);
+    g_mock_peer_fp_active = 1;
+
+    /* Paused & live frames while peer 1P is active: Ecp (-10) yields completely without touching local_poses[0]! */
+    g_set_pose_calls = 0;
+    for (int f = 0; f < 10; f++) {
+        EcpStepDetour(NULL);
+    }
+    TEST_CHECK(g_set_pose_calls == 0 && g_rt.last_bypass == ECP_BYPASS_PEER_FIRST_PERSON,
+               "Ecp yields with zero setLocalPose calls while peer 1P is active");
+    TEST_NEAR(g_cam_unit.local_poses[0][10], 1.50f, 1e-4f, "peer 1P Y untouched across paused frames");
+
+    /* Peer toggles 1P -> 3P (restoring engine base_pose -2.0, 1.7): Ecp resumes 3P pullback cleanly on next frame. */
+    InitLocalPoseLookingPlusY(g_cam_unit.local_poses[0], 0.0f, -2.0f, 1.7f);
+    g_mock_peer_fp_active = 0;
+    EcpStepDetour(NULL);
+    TEST_CHECK(g_set_pose_calls == 1 && g_rt.has_last_written == 1, "Ecp resumes 3P cleanly after peer exits 1P");
+    TEST_NEAR(g_cam_unit.local_poses[0][10], -2.0f - g_opts.lego_pullback_distance, 1e-4f, "resumed 3P Y");
+
+    g_testPeerIsFpOverride = NULL;
+    g_mock_peer_fp_active = 0;
+}
+
 int main(int argc, char** argv)
 {
     const char* temp_dir = argc > 1 ? argv[1] : NULL;
@@ -1492,7 +1559,8 @@ int main(int argc, char** argv)
     test_h1_h2_m3_concurrency_and_vtable_guards();
     test_proton_fallback_substep_caller_filter();
     test_hellforge_05_relocated_4096_entity_manager();
+    test_peer_titanfall_1p_coordination_and_base_pose_handoff();
 
-    printf("empire-camera-pullback v0.1.5 unit suite: %d checks run, %d failed\n", g_tests_run, g_tests_failed);
+    printf("empire-camera-pullback v0.1.6 unit suite: %d checks run, %d failed\n", g_tests_run, g_tests_failed);
     return g_tests_failed == 0 ? 0 : 1;
 }

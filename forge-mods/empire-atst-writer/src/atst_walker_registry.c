@@ -255,7 +255,7 @@ int at_resolve_render_graph(
     return 1;
 }
 
-static int at_resolve_render_mesh_obj(
+int at_resolve_render_mesh_obj(
     const at_walker_registry *reg,
     const at_render_header *hdr,
     uint32_t handle,

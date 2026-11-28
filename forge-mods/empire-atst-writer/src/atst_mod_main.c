@@ -47,6 +47,29 @@ static uint64_t Hook1E7CD0(uintptr_t world, void *packet, uintptr_t aux) {
     return at_writer_retire_1E7CD0(&g_writer, world, packet, aux);
 }
 
+static void HookCameraStep(void *app) {
+    DWORD saved_err = GetLastError();
+    uint32_t saved_csr = _mm_getcsr();
+    at_writer_step_pilots(&g_writer, 0u);
+    _mm_setcsr(saved_csr);
+    SetLastError(saved_err);
+    at_camera_step_fn orig = __atomic_load_n(&g_writer.step_next, __ATOMIC_ACQUIRE);
+    if (orig) orig(app);
+}
+
+static uint64_t HookCameraSubStep(void *rcx, void *rdx, void *r8, uint64_t r9, void *arg5) {
+    uintptr_t caller_ret = (uintptr_t)__builtin_return_address(0);
+    if (caller_ret == g_writer.engine_base + AT_RVA_CAMERA_STEP_RET) {
+        DWORD saved_err = GetLastError();
+        uint32_t saved_csr = _mm_getcsr();
+        at_writer_step_pilots(&g_writer, 0u);
+        _mm_setcsr(saved_csr);
+        SetLastError(saved_err);
+    }
+    at_camera_sub_step_fn orig = __atomic_load_n(&g_writer.sub_step_next, __ATOMIC_ACQUIRE);
+    return orig ? orig(rcx, rdx, r8, r9, arg5) : 0ULL;
+}
+
 static uint64_t g_qpf = 0u;
 static uint64_t g_tick_us_sum = 0u;
 static uint64_t g_tick_us_max = 0u;
@@ -112,9 +135,11 @@ static void WriterTick(HfMod *mod, float dt, void *user) {
         g_tick_us_sum = 0u;
         g_tick_us_max = 0u;
         g_tick_count = 0u;
-        g_hf->log(mod, "ATST_WRITER health row=%u walkers=%u subs=%u leaf_fail=%u math_fail=%u chain_fail=%u env_fail=%u scav=%u ret=%u tick_us_avg=%llu tick_us_max=%llu",
+        g_hf->log(mod, "ATST_WRITER health row=%u walkers=%u subs=%u pilot_lifts=%u pilot_hides=%u leaf_fail=%u math_fail=%u chain_fail=%u env_fail=%u scav=%u ret=%u tick_us_avg=%llu tick_us_max=%llu",
                   g_health_row, __atomic_load_n(&g_writer.fast.count, __ATOMIC_ACQUIRE),
-                  g_writer.substitutions, g_writer.leaf_failures, g_writer.math_failures,
+                  g_writer.substitutions, g_writer.pilot.lifted_frames,
+                  __atomic_load_n(&g_writer.pilot.hidden_leaf_calls, __ATOMIC_RELAXED),
+                  g_writer.leaf_failures, g_writer.math_failures,
                   g_writer.chain_failures, g_writer.env_failures,
                   g_writer.reg.scavenged, g_writer.reg.retirements,
                   (unsigned long long)avg_us, (unsigned long long)max_us);
@@ -186,6 +211,21 @@ static void OnGameLoaded(HfMod *mod, HfEvent event, void *user) {
     g_writer.approved_remove_next = (at_render_remove_fn)InterlockedCompareExchangePointer(
         (PVOID *)&g_writer.remove_next, NULL, NULL);
 
+    g_writer.pilot.set_local_pose = (at_set_local_pose_fn)(engine + AT_RVA_SET_LOCAL_POSE);
+    g_writer.pilot.update_unit = (at_update_unit_fn)(engine + AT_RVA_UPDATE_UNIT);
+    g_writer.pilot.main_world = (at_main_world_fn)(engine + AT_RVA_MAIN_WORLD);
+
+    if (hf->hook_ex(mod, engine + AT_RVA_CAMERA_STEP, (void *)HookCameraStep, (void **)&g_writer.step_next, AT_HOOK_PILOT_PRIORITY) == 0 &&
+        g_writer.step_next) {
+        g_writer.step_hooked_rva = AT_RVA_CAMERA_STEP;
+    } else if (hf->hook_ex(mod, engine + AT_RVA_CAMERA_SUB_STEP, (void *)HookCameraSubStep, (void **)&g_writer.sub_step_next, AT_HOOK_PILOT_PRIORITY) == 0 &&
+               g_writer.sub_step_next) {
+        g_writer.step_hooked_rva = AT_RVA_CAMERA_SUB_STEP;
+    } else {
+        hf->log(mod, "ATST_WRITER refused: hook_camera_step_failed");
+        return;
+    }
+
     if (!hf->on_game_thread(mod, WriterTick, NULL)) {
         hf->log(mod, "ATST_WRITER refused: tick_registration_failed");
         return;
@@ -201,12 +241,25 @@ static void OnGameLoaded(HfMod *mod, HfEvent event, void *user) {
     size_t init_peer_size = (size_t)InterlockedCompareExchangePointer(
         (PVOID *)&g_writer.peer_leaf_size, NULL, NULL);
     InterlockedExchange(&g_writer.ready, 1);
-    hf->log(mod, "ATST_WRITER ready version=0.2.6 build=%s s2c_nodes=%u max_walkers=%u spawn_sub=%d units=79E4B3D2DA5E45E3,C2D449ECF7FACAB1,7B2326F6FD9C8069,35DBF54F016F3624 engine=0x%llX peer_leaf=0x%llX peer_size=0x%llX hook_priority=%d",
-            AT_EXPECTED_BUILD, AT_S2C_NODES, AT_MAX_WALKERS, spawn_sub,
+    hf->log(mod, "ATST_WRITER ready version=0.2.7 build=%s s2c_nodes=%u max_walkers=%u spawn_sub=%d step_rva=0x%X units=79E4B3D2DA5E45E3,C2D449ECF7FACAB1,7B2326F6FD9C8069,35DBF54F016F3624 engine=0x%llX peer_leaf=0x%llX peer_size=0x%llX hook_priority=%d",
+            AT_EXPECTED_BUILD, AT_S2C_NODES, AT_MAX_WALKERS, spawn_sub, g_writer.step_hooked_rva,
             (unsigned long long)engine,
             (unsigned long long)init_peer_base,
             (unsigned long long)init_peer_size,
             (int)AT_HOOK_PRIORITY);
+}
+
+HF_MOD_EXPORT int hellforge_mod_unload(const HfApi *api, HfMod *mod, uint32_t reason) {
+    (void)reason;
+    at_writer_shutdown(&g_writer);
+    if (api && mod && g_writer.engine_base &&
+        api->size >= offsetof(HfApi, unhook) + sizeof(api->unhook) && api->unhook) {
+        if (g_writer.step_hooked_rva) api->unhook(mod, g_writer.engine_base + g_writer.step_hooked_rva);
+        if (g_writer.remove_next) api->unhook(mod, g_writer.engine_base + AT_RVA_RENDER_REMOVE);
+        if (g_writer.skin_next) api->unhook(mod, g_writer.engine_base + AT_RVA_SKIN_JOB);
+        if (g_writer.leaf_next) api->unhook(mod, g_writer.engine_base + AT_RVA_LEAF_SKIN);
+    }
+    return 0;
 }
 
 HF_MOD_EXPORT int hellforge_mod_init(const HfApi *api, HfMod *mod) {

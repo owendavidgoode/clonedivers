@@ -1,15 +1,20 @@
-/* Dedicated Melee Slot 1.5.2-clonedivers.4 (vibeslacker.dedicated-melee-slot).
+/* Dedicated Melee Slot 1.5.2-clonedivers.5 (vibeslacker.dedicated-melee-slot).
  * Original work Copyright (c) 2026 vibeslacker (MIT License, tag v1.5.2 + LoadSlotKeys from v1.6.3).
- * Clonedivers 4-player co-op & SDK-16 patches Copyright (c) 2026 Clonedivers Contributors (MIT License).
+ * Clonedivers 4-player co-op & SDK-16/20 patches Copyright (c) 2026 Clonedivers Contributors (MIT License).
  *
- * How it works on Helldivers 2 build 25480438 (HellForge Mod SDK 16):
+ * How it works on Helldivers 2 build 25480438 (HellForge Mod SDK 16+):
+ *  - Pre-requests all required melee model/material packages immediately during HF_STATE_PREPARE_MISSION,
+ *    HF_ON_MISSION_START, and loadout selection (holding catalogue packages via hf->load_package when available
+ *    plus bounded <75%-headroom RefcountedPackageSystem requests, without waiting for avatar spawn).
  *  - Right after the game spawns the local Helldiver's authoritative secondary weapon (matched against all 25
  *    build-25480438 secondary weapon entities and HfContent modded secondaries, across initial drop, mid-mission
- *    hot-join, and reinforcements), the mod spawns ONE local extra melee weapon (network_id = 0x7FFF sentinel so
- *    EntityManager's network map keeps the real pistol's slot intact), attaches it to the local Helldiver (RVA
- *    0x8BF870, preserving all 4 player slots' +0x2E8 renderer words), and requests its model packages.
- *  - Tapping the secondary weapon key again while the secondary is already drawn holsters to primary, swaps the
- *    secondary inventory slot (+4) between the real secondary and the extra melee, and re-draws secondary. */
+ *    hot-join, and reinforcements), the mod checks engine package residency (helldivers2.exe+0x1A10208 resource
+ *    manager part->state == 4). If already resident, it spawns ONE local extra melee weapon immediately; if still
+ *    streaming on wilderness maps, it defers the copy spawn onto the game thread until 100% of required packages
+ *    are resident so Stingray never binds the purple '?' missing-unit fallback mesh.
+ *  - Spawns with network_id = 0x7FFF sentinel so EntityManager's network map keeps the real pistol's slot intact,
+ *    attaches it to the local Helldiver (RVA 0x8BF870, preserving all 4 player slots' +0x2E8 renderer words), and
+ *    toggles secondary slot (+4) between the real secondary and extra melee when tapping the secondary key while drawn. */
 
 #define WIN32_LEAN_AND_MEAN
 #include <windows.h>
@@ -24,40 +29,45 @@
 #include "hellforge_mod.h"
 #include "clonedivers_em_layout.h"
 
-#define DMS_EXPECTED_BUILD    "25480438"
-#define INV_GLOBAL            0x3326738u
-#define ENT_STATE_GLOBAL      0x3326DC0u
-#define ENTITIES_GLOBAL       0x346BF98u
-#define PLAYERS_GLOBAL        0x3326468u
-#define LOCALUSER_GLOBAL      0x347CEF0u
-#define PKG_SYSTEM_GLOBAL     0x347CEB0u
+#define DMS_EXPECTED_BUILD             "25480438"
+#define INV_GLOBAL                     0x3326738u
+#define ENT_STATE_GLOBAL               0x3326DC0u
+#define ENTITIES_GLOBAL                0x346BF98u
+#define PLAYERS_GLOBAL                 0x3326468u
+#define LOCALUSER_GLOBAL               0x347CEF0u
+#define PKG_SYSTEM_GLOBAL              0x347CEB0u
 
-#define SPAWN_REQ_RVA         0x0FD9710u
-#define ATTACH_RVA            0x08BF870u
-#define PKG_REQUEST_RVA       0x12FE350u
-#define PKG_EXE_ENGINE        0x1A10208u
+#define SPAWN_REQ_RVA                  0x0FD9710u
+#define ATTACH_RVA                     0x08BF870u
+#define PKG_REQUEST_RVA                0x12FE350u
+#define PKG_EXE_ENGINE                 0x1A10208u
 
-#define LOCALUSER_PEER_OFF    0xB398u
-#define PLAYERS_COUNT_OFF     0x84u
-#define PLAYERS_PEER_OFF      0x2C8u
-#define PLAYERS_LIFE_OFF      0x2E0u
-#define PLAYERS_WORD_OFF      0x2E8u
-#define PLAYERS_SLOT_STRIDE   0x38u
-#define PLAYERS_NET_OFF       0x3A8u
-#define PLAYERS_NET_STRIDE    0x20u
-#define PLAYERS_MAX           4u
-#define NET_ID_NONE           0x7FFFu
-#define PLAYER_LIFE_SPAWNED   3u
+#define LOCALUSER_PEER_OFF             0xB398u
+#define PLAYERS_COUNT_OFF              0x84u
+#define PLAYERS_PEER_OFF               0x2C8u
+#define PLAYERS_LIFE_OFF               0x2E0u
+#define PLAYERS_WORD_OFF               0x2E8u
+#define PLAYERS_SLOT_STRIDE            0x38u
+#define PLAYERS_NET_OFF                0x3A8u
+#define PLAYERS_NET_STRIDE             0x20u
+#define PLAYERS_MAX                    4u
+#define NET_ID_NONE                    0x7FFFu
+#define PLAYER_LIFE_SPAWNED            3u
 
-#define EM_NETWORK_MAP        0xF22EC8u
-#define EM_NETWORK_ENTITIES   0xF32F20u
-#define EM_ENTITY_MAP         0xF1AEB0u
-#define EM_DESCRIPTORS        0xF32F18u
+#define EM_NETWORK_MAP                 0xF22EC8u
+#define EM_NETWORK_ENTITIES            0xF32F20u
+#define EM_ENTITY_MAP                  0xF1AEB0u
+#define EM_DESCRIPTORS                 0xF32F18u
 
-#define SWAP_WAIT_MS          2500u
-#define HOLSTER_MS            0u
-#define DRAW_MS               0u
-#define SCRATCH_ALLOC_SIZE    0x8000u
+#define SWAP_WAIT_MS                   2500u
+#define HOLSTER_MS                     0u
+#define DRAW_MS                        0u
+#define SCRATCH_ALLOC_SIZE             0x8000u
+
+#define DMS_MAX_REQ_PACKAGES           40u
+#define DMS_MAX_HELD_PACKAGES          64u
+#define DMS_PKG_PART_RESIDENT_STATE    4u
+#define DMS_PENDING_SPAWN_TIMEOUT_MS   30000ULL
 
 typedef uint64_t (*SpawnReqFn)(uint64_t a, uint64_t b, uint64_t c, uint64_t d, uint64_t e, uint64_t f);
 typedef void (*AttachFn)(uint64_t table, uint64_t entity, uint64_t owner, uint64_t flag, uint64_t e, uint64_t f);
@@ -83,6 +93,25 @@ static volatile LONG g_regOk;
 static volatile LONG g_pkgDone;
 static volatile LONG g_stopThreads;
 static volatile ULONGLONG g_probeTick;
+static volatile ULONGLONG g_copySpawnTick;
+
+/* Deferred wilderness spawn state (armed when SpawnReqDetour fires before melee packages reach state == 4). */
+static volatile LONG g_pendingSpawn;
+static uint32_t g_pendingOriginal;
+static uint64_t g_pendingMeleeRes;
+static uint64_t g_pendingSecondaryRes;
+static ULONGLONG g_pendingSpawnTick;
+static char g_pendingMeleeName[32];
+static uint64_t g_pendingPkgs[DMS_MAX_REQ_PACKAGES];
+static size_t g_pendingPkgCount;
+
+/* Session-scoped held package tracking (prevents duplicate RefcountedPackageSystem ref leaks across missions). */
+static uint64_t g_sessionHeldPkgs[DMS_MAX_HELD_PACKAGES];
+static uint8_t g_sessionHeldSysReq[DMS_MAX_HELD_PACKAGES];
+static uint32_t g_sessionHeldCount;
+static char g_lastRequestedKey[64];
+static ULONGLONG g_nextPkgCheckTick;
+static int g_loggedPkgMapFull;
 
 static volatile LONG g_tapFlag;
 static volatile LONG g_swapStage;
@@ -205,6 +234,18 @@ static int Ptr(uintptr_t at, uintptr_t* out)
     return 1;
 }
 
+static uintptr_t ResolveExeBase(void)
+{
+    uintptr_t exe = 0;
+    if (g_hf != NULL && g_hf->module_base != NULL) {
+        exe = g_hf->module_base("helldivers2.exe", NULL);
+    }
+    if (exe == 0) {
+        exe = (uintptr_t)GetModuleHandleW(NULL);
+    }
+    return exe;
+}
+
 static int MapGet(uintptr_t header, uint32_t key, uint32_t* value)
 {
     uint8_t h[20];
@@ -324,16 +365,29 @@ static int QueryLocalPlayerAvatar(uintptr_t game, uint32_t* out_avatar)
     return -1;
 }
 
+static void CancelPendingSpawn(void)
+{
+    InterlockedExchange(&g_pendingSpawn, 0);
+    g_pendingOriginal = 0u;
+    g_pendingMeleeRes = 0ULL;
+    g_pendingSecondaryRes = 0ULL;
+    g_pendingSpawnTick = 0ULL;
+    g_pendingMeleeName[0] = '\0';
+    g_pendingPkgCount = 0u;
+}
+
 static void DropAttachedMeleeForRespawn(const char* reason)
 {
     int had_probe = (InterlockedExchange(&g_probeEntity, 0) != 0);
+    int had_pending = (InterlockedExchange(&g_pendingSpawn, 0) != 0);
+    CancelPendingSpawn();
     InterlockedExchange(&g_probeOriginal, 0);
     InterlockedExchange(&g_regDone, 1);
     InterlockedExchange(&g_pkgDone, 0);
     InterlockedExchange(&g_swapStage, 0);
     LONG prev_armed = InterlockedExchange(&g_armed, 1);
-    if (g_hf && g_hf->log && reason && (had_probe || prev_armed == 0)) {
-        g_hf->log(g_mod, "respawn (%s): dropped stale melee copy; re-armed for next secondary spawn", reason);
+    if (g_hf && g_hf->log && reason && (had_probe || had_pending || prev_armed == 0)) {
+        g_hf->log(g_mod, "respawn (%s): dropped stale/pending melee copy; re-armed for next secondary spawn", reason);
     }
 }
 
@@ -343,22 +397,25 @@ static void SyncLocalAvatarAndRespawn(uintptr_t game)
     int status = QueryLocalPlayerAvatar(game, &resolved);
     uint32_t prev = (uint32_t)InterlockedCompareExchange(&g_avatar, 0, 0);
     uint32_t probe = (uint32_t)InterlockedCompareExchange(&g_probeEntity, 0, 0);
+    LONG pending = InterlockedCompareExchange(&g_pendingSpawn, 0, 0);
     LONG reg_done = InterlockedCompareExchange(&g_regDone, 0, 0);
     LONG armed = InterlockedCompareExchange(&g_armed, 0, 0);
 
     if (status == 1 && resolved != 0u) {
         if (prev != resolved) {
             /* If an old melee was attached to a previous avatar (or a prior spawn failed and left g_armed == 0
-             * with no pending attach), drop and re-arm; if g_regDone == 0 && probe != 0, the reinforcement
-             * secondary JUST spawned on this exact avatar! */
-            if (g_missionOn && prev != 0u && ((probe != 0u && reg_done != 0) || (probe == 0u && armed == 0))) {
+             * with no pending spawn/attach), drop and re-arm; if g_regDone == 0 && probe != 0 (or pending != 0
+             * with prev == 0), the reinforcement secondary JUST spawned on this exact avatar! */
+            if (g_missionOn && prev != 0u &&
+                ((probe != 0u && reg_done != 0) || pending != 0 || (probe == 0u && armed == 0))) {
                 DropAttachedMeleeForRespawn("new Helldiver avatar");
             }
             InterlockedExchange(&g_avatar, (LONG)resolved);
         }
     } else if (status == 0) {
         /* Local player is dead / waiting to reinforce (lifecycle != 3). */
-        if (g_missionOn && ((probe != 0u && reg_done != 0) || (prev != 0u && probe == 0u && armed == 0))) {
+        if (g_missionOn &&
+            ((probe != 0u && reg_done != 0) || pending != 0 || (prev != 0u && probe == 0u && armed == 0))) {
             DropAttachedMeleeForRespawn("Helldiver down");
         }
         InterlockedExchange(&g_avatar, 0);
@@ -491,16 +548,301 @@ static uint64_t ReadMeleeResource(void)
     return (end && end != t && *end == '\0') ? v : 0ULL;
 }
 
+/* ---- Package Preloading & Engine Package Residency Gate ----------------------------------------------------------- */
+
+static size_t ParsePackageIdList(const char* text, uint64_t* out_ids, size_t max_ids)
+{
+    if (!text || !out_ids || max_ids == 0u) return 0u;
+    size_t count = 0u;
+    const char* p = text;
+    while (*p && count < max_ids) {
+        while (*p == ' ' || *p == '\t' || *p == '\r' || *p == '\n' || *p == ',') p++;
+        if (!*p) break;
+        const char* tok = p;
+        if (tok[0] == '0' && (tok[1] == 'x' || tok[1] == 'X')) tok += 2;
+        char* end = NULL;
+        uint64_t id = strtoull(tok, &end, 16);
+        if (end != tok && (size_t)(end - tok) == 16u &&
+            (*end == '\0' || *end == ' ' || *end == '\t' || *end == '\r' || *end == '\n' || *end == ',') &&
+            id != 0ULL) {
+            int dup = 0;
+            for (size_t k = 0u; k < count; k++) {
+                if (out_ids[k] == id) {
+                    dup = 1;
+                    break;
+                }
+            }
+            if (!dup) {
+                out_ids[count++] = id;
+            }
+            p = end;
+        } else {
+            while (*p && *p != ' ' && *p != '\t' && *p != '\r' && *p != '\n' && *p != ',') p++;
+        }
+    }
+    return count;
+}
+
+static uint32_t DmsFnv1a32(const char* s)
+{
+    uint32_t h = 2166136261u;
+    if (!s) return h;
+    for (; *s; s++) {
+        h ^= (uint32_t)(uint8_t)*s;
+        h *= 16777619u;
+    }
+    return h;
+}
+
+static uint64_t ReadConfiguredMeleeAndPackages(
+    uint64_t* out_pkgs,
+    size_t max_pkgs,
+    size_t* out_pkg_count,
+    char* out_key,
+    size_t key_cap)
+{
+    if (out_pkg_count) *out_pkg_count = 0u;
+    if (out_key && key_cap > 0u) out_key[0] = '\0';
+
+    char override_text[2048];
+    int from_file = ReadConfig("melee-slot-package.txt", override_text, sizeof(override_text));
+    uint64_t melee = ReadMeleeResource();
+    if (melee == 0ULL) return 0ULL;
+
+    const char* src_list = from_file ? override_text : g_meleePackages;
+    size_t n = ParsePackageIdList(src_list, out_pkgs, max_pkgs);
+    if (out_pkg_count) *out_pkg_count = n;
+    if (out_key && key_cap > 0u) {
+        if (from_file) {
+            snprintf(out_key, key_cap, "(file):%08x", DmsFnv1a32(override_text));
+        } else if (*g_meleeName) {
+            snprintf(out_key, key_cap, "%s", g_meleeName);
+        } else {
+            snprintf(out_key, key_cap, "%08x%08x", (unsigned)(melee >> 32), (unsigned)(melee & 0xFFFFFFFFu));
+        }
+    }
+    return melee;
+}
+
+static int FindOrAddSessionPkgSlot(uint64_t pkg_id)
+{
+    for (uint32_t i = 0u; i < g_sessionHeldCount; i++) {
+        if (g_sessionHeldPkgs[i] == pkg_id) return (int)i;
+    }
+    if (g_sessionHeldCount >= DMS_MAX_HELD_PACKAGES) return -1;
+    uint32_t idx = g_sessionHeldCount++;
+    g_sessionHeldPkgs[idx] = pkg_id;
+    g_sessionHeldSysReq[idx] = 0u;
+    return (int)idx;
+}
+
+/* Inspects RefcountedPackageSystem's open-addressed reference map (system+0 entries, system+8 capacity, 16B stride).
+ * Returns:
+ *   2 = pkg_id already present in map with refcount > 0 (skip duplicate g_pkgReq)
+ *   1 = map valid and < 75% full (safe to call g_pkgReq)
+ *   0 = map uninitialized / synthetic harness (rely on session-level g_sessionHeldSysReq guard)
+ *  -1 = map valid and >= 75% full (refuse g_pkgReq to prevent full-table open-addressing crash) */
+static int PkgSystemRefMapQuery(uintptr_t system, uint64_t pkg_id)
+{
+    if (!system || !g_hf || !g_hf->read) return 0;
+    uint64_t entries_u64 = 0ULL;
+    uint32_t cap = 0u;
+    if (g_hf->read(system + 0u, &entries_u64, 8u) != 0 ||
+        g_hf->read(system + 8u, &cap, 4u) != 0) {
+        return 0;
+    }
+    if (entries_u64 < 0x10000ULL || (entries_u64 >> 32) > 0x7FFFULL || cap == 0u || cap > 65536u) {
+        return 0;
+    }
+
+    uintptr_t entries = (uintptr_t)entries_u64;
+    uint32_t used = 0u;
+    for (uint32_t i = 0u; i < cap; i++) {
+        uint8_t row[16];
+        if (g_hf->read(entries + (uintptr_t)i * 16u, row, sizeof(row)) != 0) return 0;
+        uint64_t key = 0ULL;
+        uint32_t refs = 0u;
+        memcpy(&key, row + 0u, 8u);
+        memcpy(&refs, row + 8u, 4u);
+        if (key != 0ULL && key != 0xFFFFFFFFFFFFFFFFULL && refs != 0u) {
+            if (key == pkg_id) return 2;
+            used++;
+        }
+    }
+    if ((used + 1u) * 4u >= cap * 3u) {
+        return -1;
+    }
+    return 1;
+}
+
+static int CanReadEnginePackageList(uintptr_t exe, uintptr_t* out_list, uint32_t* out_count)
+{
+    if (out_list) *out_list = 0u;
+    if (out_count) *out_count = 0u;
+    if (!exe || !g_hf || !g_hf->read) return 0;
+
+    uintptr_t engine = 0u, manager = 0u, resources = 0u, list = 0u;
+    uint32_t count = 0u;
+    if (!Ptr(exe + PKG_EXE_ENGINE, &engine) ||
+        !Ptr(engine + 0x400u, &manager) ||
+        !Ptr(manager + 0x208u, &resources) ||
+        g_hf->read(resources + 0x80u, &count, 4u) != 0 ||
+        count > 16384u) {
+        return 0;
+    }
+    if (count > 0u && !Ptr(resources + 0x88u, &list)) {
+        return 0;
+    }
+    if (out_list) *out_list = list;
+    if (out_count) *out_count = count;
+    return 1;
+}
+
+/* Exact build-25480438 helldivers2.exe+0x321330 package residency semantics:
+ *  - package missing from engine resource list -> 0 (not resident)
+ *  - package part_count == 0 -> 1 (metadata-only package is resident)
+ *  - package part_count > 0 -> 1 iff every part has *(uint32_t*)(part + 0x1C) == 4u (PKG_LOADED) */
+static int EnginePackageResidentFromList(uintptr_t list, uint32_t count, uint64_t pkg_id)
+{
+    if (pkg_id == 0ULL || count == 0u || !list || !g_hf || !g_hf->read) return 0;
+    for (uint32_t i = 0u; i < count; i++) {
+        uintptr_t package = 0u;
+        uint64_t pid = 0ULL;
+        if (!Ptr(list + (uintptr_t)i * 8u, &package) ||
+            g_hf->read(package + 0x10u, &pid, 8u) != 0) {
+            continue;
+        }
+        if (pid != pkg_id) continue;
+
+        uint32_t part_count = 0u;
+        if (g_hf->read(package + 0x18u, &part_count, 4u) != 0 || part_count > 256u) {
+            return 0;
+        }
+        if (part_count == 0u) {
+            return 1; /* metadata-only package (test r8d, r8d; je return_1 at exe+0x321330) */
+        }
+        uintptr_t part_list = 0u;
+        if (!Ptr(package + 0x20u, &part_list)) return 0;
+        for (uint32_t k = 0u; k < part_count; k++) {
+            uintptr_t part = 0u;
+            uint32_t st = 0u;
+            if (!Ptr(part_list + (uintptr_t)k * 8u, &part) ||
+                g_hf->read(part + 0x1Cu, &st, 4u) != 0 ||
+                st != DMS_PKG_PART_RESIDENT_STATE) {
+                return 0;
+            }
+        }
+        return 1;
+    }
+    return 0;
+}
+
+static int AreMeleePackagesResident(
+    HfMod* mod,
+    const uint64_t* pkgs,
+    size_t pkg_count,
+    size_t* out_resident_count)
+{
+    (void)mod;
+    if (out_resident_count) *out_resident_count = pkg_count;
+    if (!pkgs || pkg_count == 0u) return 1;
+
+    uintptr_t exe = ResolveExeBase();
+    uintptr_t list = 0u;
+    uint32_t count = 0u;
+    if (CanReadEnginePackageList(exe, &list, &count)) {
+        size_t res_cnt = 0u;
+        for (size_t i = 0u; i < pkg_count; i++) {
+            if (EnginePackageResidentFromList(list, count, pkgs[i])) {
+                res_cnt++;
+            }
+        }
+        if (out_resident_count) *out_resident_count = res_cnt;
+        return res_cnt == pkg_count ? 1 : 0;
+    }
+
+    /* Engine package resource list is not yet initialized: fail closed (defer spawn) without calling
+     * hf->load_package on non-catalogue melee sub-packages (which would log PKG_FAILED at 60 Hz). */
+    if (out_resident_count) *out_resident_count = 0u;
+    return 0;
+}
+
+/* Pre-requests all packages for the currently configured melee weapon on the game thread via the pinned
+ * RefcountedPackageSystem (<75% headroom guarded, session-deduped, zero non-catalogue hf->load_package log spam).
+ * Does NOT wait for g_avatar != 0, so packages stream during HF_STATE_PREPARE_MISSION & HF_ON_MISSION_START! */
+static void EnsureMeleePackagesRequested(HfMod* mod, int force_now)
+{
+    if (!mod) return;
+    const HfApi* hf = HF_API(mod);
+    ULONGLONG now = GetTickCount64();
+    if (!force_now && now < g_nextPkgCheckTick) return;
+    g_nextPkgCheckTick = now + 500ULL;
+
+    uint64_t pkgs[DMS_MAX_REQ_PACKAGES];
+    size_t pkg_count = 0u;
+    char key[64];
+    uint64_t melee = ReadConfiguredMeleeAndPackages(pkgs, DMS_MAX_REQ_PACKAGES, &pkg_count, key, sizeof(key));
+    if (melee == 0ULL || pkg_count == 0u) return;
+
+    uintptr_t game = hf->module_base ? hf->module_base("game.dll", NULL) : 0u;
+    uintptr_t system = 0u;
+    if (g_pkgReq == NULL || game == 0u || !Ptr(game + PKG_SYSTEM_GLOBAL, &system)) return;
+
+    if (!force_now &&
+        InterlockedCompareExchange(&g_pkgDone, 0, 0) != 0 &&
+        strcmp(key, g_lastRequestedKey) == 0) {
+        return;
+    }
+
+    int sys_requested = 0;
+    int sys_already_held = 0;
+    int map_full = 0;
+
+    for (size_t i = 0u; i < pkg_count; i++) {
+        uint64_t id = pkgs[i];
+        int slot = FindOrAddSessionPkgSlot(id);
+
+        if (slot >= 0 && g_sessionHeldSysReq[slot]) {
+            sys_already_held++;
+            continue;
+        }
+        int map_st = PkgSystemRefMapQuery(system, id);
+        if (map_st == 2) {
+            if (slot >= 0) g_sessionHeldSysReq[slot] = 1u;
+            sys_already_held++;
+        } else if (map_st == -1) {
+            map_full = 1;
+        } else {
+            g_pkgReq((uint64_t)system, (uint64_t)(uintptr_t)&id, 1, 0, 0, 0);
+            if (slot >= 0) g_sessionHeldSysReq[slot] = 1u;
+            sys_requested++;
+        }
+    }
+
+    if (map_full && !g_loggedPkgMapFull && hf->log) {
+        g_loggedPkgMapFull = 1;
+        hf->log(mod, "packages: RefcountedPackageSystem map >= 75%% full; skipped unsafe raw package insert");
+    }
+
+    if ((sys_requested > 0 || strcmp(key, g_lastRequestedKey) != 0) && hf->log) {
+        hf->log(mod, "packages: %d requested (%d already held) of %zu for %s",
+            sys_requested, sys_already_held, pkg_count, key[0] ? key : "(by id)");
+    }
+    snprintf(g_lastRequestedKey, sizeof(g_lastRequestedKey), "%s", key);
+    if (!map_full) {
+        InterlockedExchange(&g_pkgDone, 1);
+    }
+}
+
 static volatile LONG g_dumps;
 static void DumpResident(const char* why)
 {
-    uintptr_t exe = (uintptr_t)GetModuleHandleW(NULL), engine, manager, resources, list;
+    uintptr_t exe = ResolveExeBase(), list = 0u;
     uint32_t count = 0;
     char probe[8];
     if (g_dumps >= 6 || !ReadConfig("melee-slot-probe.txt", probe, sizeof(probe))) return;
     InterlockedIncrement(&g_dumps);
-    if (!Ptr(exe + PKG_EXE_ENGINE, &engine) || !Ptr(engine + 0x400u, &manager) || !Ptr(manager + 0x208u, &resources) ||
-        g_hf->read(resources + 0x80u, &count, 4) != 0 || count > 8192u || !Ptr(resources + 0x88u, &list)) {
+    if (!CanReadEnginePackageList(exe, &list, &count)) {
         g_hf->log(g_mod, "PKGRES %s: engine list unreadable", why);
         return;
     }
@@ -513,17 +855,19 @@ static void DumpResident(const char* why)
             uint64_t pid = 0;
             uint32_t n = 0, loaded = 0;
             if (!Ptr(list + (uintptr_t)i * 8u, &package) || g_hf->read(package + 0x10u, &pid, 8) != 0) continue;
-            if (g_hf->read(package + 0x18u, &n, 4) != 0 || n > 64u) n = 0;
+            if (g_hf->read(package + 0x18u, &n, 4) != 0 || n > 256u) continue;
             if (n && Ptr(package + 0x20u, &partList)) {
                 for (uint32_t k = 0; k < n; k++) {
                     uintptr_t part;
                     uint32_t st = 0;
-                    if (Ptr(partList + (uintptr_t)k * 8u, &part) && g_hf->read(part + 0x1Cu, &st, 4) == 0 && st == 4u) {
+                    if (Ptr(partList + (uintptr_t)k * 8u, &part) &&
+                        g_hf->read(part + 0x1Cu, &st, 4) == 0 &&
+                        st == DMS_PKG_PART_RESIDENT_STATE) {
                         loaded++;
                     }
                 }
             }
-            if ((loaded == n && n) != (pass == 0)) continue;
+            if ((loaded == n) != (pass == 0)) continue;
             size_t len = strlen(line);
             snprintf(line + len, sizeof(line) - len, "%08x%08x ",
                 (unsigned)(pid >> 32), (unsigned)(pid & 0xFFFFFFFFu));
@@ -544,6 +888,7 @@ static void DumpResident(const char* why)
 
 static void ResetMissionState(int arm_mission)
 {
+    CancelPendingSpawn();
     InterlockedExchange(&g_avatar, 0);
     InterlockedExchange(&g_weaponEventAvatar, 0);
     InterlockedExchange(&g_probeEntity, 0);
@@ -551,6 +896,8 @@ static void ResetMissionState(int arm_mission)
     InterlockedExchange(&g_regDone, 1);
     InterlockedExchange(&g_pkgDone, 0);
     InterlockedExchange(&g_swapStage, 0);
+    g_probeTick = 0ULL;
+    g_copySpawnTick = 0ULL;
     g_secondaryRes = 0ULL;
     g_customSecondariesCached = 0;
     InterlockedExchange(&g_tapFlag, 0);
@@ -576,7 +923,8 @@ static void OnMission(HfMod* mod, const HfEventInfo* info, void* user)
     if (!info) return;
     if (info->kind == HF_ON_MISSION_START) {
         ResetMissionState(1);
-        HF_API(mod)->log(mod, "mission start: armed for local secondary weapon spawn");
+        EnsureMeleePackagesRequested(mod, 1);
+        HF_API(mod)->log(mod, "mission start: preloaded melee packages & armed for local secondary weapon spawn");
     } else {
         ResetMissionState(0);
         HF_API(mod)->log(mod, "mission end: disarmed");
@@ -585,12 +933,19 @@ static void OnMission(HfMod* mod, const HfEventInfo* info, void* user)
 
 static void OnState(HfMod* mod, const HfEventInfo* info, void* user)
 {
-    (void)mod;
     (void)user;
     const HfStateEvent* st = (const HfStateEvent*)info;
     if (!st) return;
-    if (st->to == HF_STATE_MISSION) {
+    if (st->to == HF_STATE_PREPARE_MISSION || st->to == HF_STATE_SHIP) {
+        if (g_missionOn) {
+            ResetMissionState(0);
+        }
+        /* Pre-request configured melee packages during ship loadout / mission prep so wilderness drops
+         * already have all model/material packages resident before SpawnReqDetour fires! */
+        EnsureMeleePackagesRequested(mod, 1);
+    } else if (st->to == HF_STATE_MISSION) {
         if (!g_missionOn) ResetMissionState(1);
+        EnsureMeleePackagesRequested(mod, 1);
     } else if (g_missionOn) {
         /* Immediate disarm on 4 -> 5 (MISSION -> PREPARE_SHIP) teardown. */
         ResetMissionState(0);
@@ -604,13 +959,15 @@ static void OnPlayer(HfMod* mod, const HfEventInfo* info, void* user)
     if (!p || !p->local || !g_missionOn) return;
     if (info->kind == HF_ON_PLAYER_DOWN) {
         uint32_t probe = (uint32_t)InterlockedCompareExchange(&g_probeEntity, 0, 0);
+        LONG pending = InterlockedCompareExchange(&g_pendingSpawn, 0, 0);
         LONG reg_done = InterlockedCompareExchange(&g_regDone, 0, 0);
         LONG armed = InterlockedCompareExchange(&g_armed, 0, 0);
-        if ((probe != 0u && reg_done != 0) || (probe == 0u && armed == 0)) {
+        if ((probe != 0u && reg_done != 0) || pending != 0 || (probe == 0u && armed == 0)) {
             DropAttachedMeleeForRespawn("HF_ON_PLAYER_DOWN");
         }
         InterlockedExchange(&g_avatar, 0);
     } else if (info->kind == HF_ON_PLAYER_SPAWN) {
+        EnsureMeleePackagesRequested(mod, 0);
         /* Resolve the Helldiver AVATAR entity (never assign p->entity, which is the Player entity!). */
         uintptr_t game = HF_API(mod)->module_base("game.dll", NULL);
         SyncLocalAvatarAndRespawn(game);
@@ -623,6 +980,7 @@ static void OnSessionEnd(HfMod* mod, HfEvent event, void* user)
     (void)event;
     (void)user;
     InterlockedExchange(&g_stopThreads, 1);
+    CancelPendingSpawn();
     InterlockedExchange(&g_missionOn, 0);
     InterlockedExchange(&g_armed, 0);
     if (g_stopEvent != NULL) {
@@ -666,9 +1024,13 @@ static uint64_t SpawnReqDetour(uint64_t a, uint64_t b, uint64_t c, uint64_t d, u
     saved_csr = _mm_getcsr();
 
     InterlockedExchange(&g_armed, 0);
+    CancelPendingSpawn();
     g_secondaryRes = resource;
 
-    uint64_t melee = ReadMeleeResource();
+    uint64_t req_pkgs[DMS_MAX_REQ_PACKAGES];
+    size_t req_pkg_count = 0u;
+    char req_key[64];
+    uint64_t melee = ReadConfiguredMeleeAndPackages(req_pkgs, DMS_MAX_REQ_PACKAGES, &req_pkg_count, req_key, sizeof(req_key));
     if (melee == 0ULL) {
         InterlockedExchange(&g_armed, 1);
         g_hf->log(g_mod, "no melee set in melee-slot-weapon.txt; staying armed for next respawn");
@@ -687,18 +1049,34 @@ static uint64_t SpawnReqDetour(uint64_t a, uint64_t b, uint64_t c, uint64_t d, u
 
     uint32_t original = 0u, copy = 0u;
     g_hf->read((uintptr_t)a, &original, 4);
+    if (original == 0u) {
+        InterlockedExchange(&g_probeEntity, 0);
+        InterlockedExchange(&g_probeOriginal, 0);
+        InterlockedExchange(&g_regDone, 1);
+        InterlockedExchange(&g_armed, 1);
+        g_hf->log(g_mod, "spawn skipped: original secondary returned entity 0; re-armed for next respawn");
+        _mm_setcsr(saved_csr);
+        SetLastError(saved_err);
+        return r;
+    }
+
+    /* Immediately ensure all required melee packages are requested (covers mid-mission weapon switch too). */
+    EnsureMeleePackagesRequested(g_mod, 1);
 
     if (g_spawnScratch == NULL) {
         g_spawnScratch = (uint8_t*)VirtualAlloc(NULL, SCRATCH_ALLOC_SIZE, MEM_COMMIT | MEM_RESERVE, PAGE_READWRITE);
     }
     uint8_t* region = g_spawnScratch;
     uint8_t* data = region ? region + 0x1000u : NULL;
+    uint8_t* spare = region ? region + 0x5000u : NULL;
     uint64_t ctxPtr = 0ULL;
     size_t span = 0u, ctxSize = 0u;
     memcpy(&ctxPtr, before + 0x48u, 8);
     if (region != NULL) {
         memset(region, 0, SCRATCH_ALLOC_SIZE);
-        for (size_t n = 0x2000u; n >= 0x100u && span == 0u; n -= 0x100u) {
+        static const size_t kMainReadSizes[] = {0x2000u, 0x1000u, 0x800u, 0x400u, 0x200u, 0x100u, 0x58u};
+        for (size_t si = 0u; si < sizeof(kMainReadSizes) / sizeof(kMainReadSizes[0]) && span == 0u; si++) {
+            size_t n = kMainReadSizes[si];
             if (g_hf->read((uintptr_t)c, data, n) == 0) span = n;
         }
         if (span > 0u) {
@@ -711,16 +1089,22 @@ static uint64_t SpawnReqDetour(uint64_t a, uint64_t b, uint64_t c, uint64_t d, u
             uint64_t zero_stack = 0ULL;
             memcpy(data + 0x50u, &zero_stack, 8);
 
+            /* Copy up to the full 0x8A0-byte RequestEntitySpawn context into persistent scratch memory (spare = +0x5000,
+             * 0x3000 bytes available) so deferred wilderness spawns NEVER dereference a popped caller stack pointer! */
             uint64_t mine = 0ULL;
-            if (ctxPtr >= c && ctxPtr < c + span) {
+            if (ctxPtr >= c && ctxPtr < c + span && (c + span - ctxPtr) >= 0x8A0u) {
                 mine = (uint64_t)(uintptr_t)data + (ctxPtr - c);
             } else if (ctxPtr > 0x10000ULL) {
-                uint8_t* spare = region + 0x5000u;
+                static const size_t kCtxReadSizes[] = {0x1000u, 0x900u, 0x8A0u, 0x800u, 0x600u, 0x400u, 0x200u, 0x100u};
                 size_t got = 0u;
-                for (size_t n = 0x600u; n >= 0x100u && got == 0u; n -= 0x100u) {
+                for (size_t ci = 0u; ci < sizeof(kCtxReadSizes) / sizeof(kCtxReadSizes[0]) && got == 0u; ci++) {
+                    size_t n = kCtxReadSizes[ci];
                     if (g_hf->read((uintptr_t)ctxPtr, spare, n) == 0) got = n;
                 }
-                mine = got ? (uint64_t)(uintptr_t)spare : ctxPtr;
+                (void)got;
+                mine = (uint64_t)(uintptr_t)spare;
+            } else {
+                mine = (uint64_t)(uintptr_t)spare;
             }
             memcpy(data + 0x48u, &mine, 8);
             ctxSize = span;
@@ -738,11 +1122,39 @@ static uint64_t SpawnReqDetour(uint64_t a, uint64_t b, uint64_t c, uint64_t d, u
         return r;
     }
 
+    /* Gate copy spawn on engine package residency so wilderness maps never bind the purple '?' fallback mesh! */
+    size_t resident_cnt = 0u;
+    if (!AreMeleePackagesResident(g_mod, req_pkgs, req_pkg_count, &resident_cnt)) {
+        ULONGLONG now_ms = GetTickCount64();
+        g_pendingOriginal = original;
+        g_pendingMeleeRes = melee;
+        g_pendingSecondaryRes = resource;
+        g_pendingSpawnTick = now_ms;
+        snprintf(g_pendingMeleeName, sizeof(g_pendingMeleeName), "%s", *g_meleeName ? g_meleeName : "(by id)");
+        g_pendingPkgCount = req_pkg_count;
+        if (req_pkg_count > 0u) {
+            memcpy(g_pendingPkgs, req_pkgs, req_pkg_count * sizeof(uint64_t));
+        }
+        InterlockedExchange(&g_probeEntity, 0);
+        InterlockedExchange(&g_probeOriginal, (LONG)original);
+        InterlockedExchange(&g_regDone, 1);
+        InterlockedExchange(&g_pendingSpawn, 1);
+        g_hf->log(g_mod,
+            "deferring extra melee %s (%08x%08x) spawn beside secondary entity %u until packages resident (%zu/%zu loaded)",
+            g_pendingMeleeName,
+            (unsigned)(melee >> 32), (unsigned)(melee & 0xFFFFFFFFu),
+            original, resident_cnt, req_pkg_count);
+        DumpResident("at deferred wilderness melee gate");
+        _mm_setcsr(saved_csr);
+        SetLastError(saved_err);
+        return r;
+    }
+
     InterlockedExchange(&g_spawningClone, 1);
     g_spawnReq((uint64_t)(uintptr_t)&copy, melee, (uint64_t)(uintptr_t)data, d, e, f);
     InterlockedExchange(&g_spawningClone, 0);
 
-    if (copy == 0u || original == 0u) {
+    if (copy == 0u) {
         /* H3d: Never permanently disarm the mission if g_spawnReq returned copy == 0; re-arm cleanly for next respawn! */
         InterlockedExchange(&g_probeEntity, 0);
         InterlockedExchange(&g_probeOriginal, 0);
@@ -755,8 +1167,10 @@ static uint64_t SpawnReqDetour(uint64_t a, uint64_t b, uint64_t c, uint64_t d, u
         return r;
     }
 
+    ULONGLONG now_ms = GetTickCount64();
     InterlockedExchange(&g_probeOriginal, (LONG)original);
-    g_probeTick = GetTickCount64();
+    g_probeTick = now_ms;
+    g_copySpawnTick = now_ms;
     g_copyResource = melee;
     InterlockedExchange(&g_regDone, 0);
     InterlockedExchange(&g_probeEntity, (LONG)copy);
@@ -769,6 +1183,79 @@ static uint64_t SpawnReqDetour(uint64_t a, uint64_t b, uint64_t c, uint64_t d, u
     _mm_setcsr(saved_csr);
     SetLastError(saved_err);
     return r;
+}
+
+static void ProcessPendingSpawn(HfMod* mod)
+{
+    if (InterlockedCompareExchange(&g_pendingSpawn, 0, 0) == 0) return;
+    if (!g_missionOn || !g_spawnReq || g_spawnScratch == NULL) {
+        CancelPendingSpawn();
+        return;
+    }
+
+    const HfApi* hf = HF_API(mod);
+    ULONGLONG now = GetTickCount64();
+    EnsureMeleePackagesRequested(mod, 0);
+
+    size_t resident_cnt = 0u;
+    if (!AreMeleePackagesResident(mod, g_pendingPkgs, g_pendingPkgCount, &resident_cnt)) {
+        if (now > g_pendingSpawnTick + DMS_PENDING_SPAWN_TIMEOUT_MS) {
+            hf->log(mod,
+                "deferred melee %s timed out waiting for packages (%zu/%zu resident after %llu ms); re-armed for next respawn",
+                g_pendingMeleeName[0] ? g_pendingMeleeName : "(by id)",
+                resident_cnt, g_pendingPkgCount,
+                (unsigned long long)(now - g_pendingSpawnTick));
+            CancelPendingSpawn();
+            InterlockedExchange(&g_probeEntity, 0);
+            InterlockedExchange(&g_probeOriginal, 0);
+            InterlockedExchange(&g_regDone, 1);
+            InterlockedExchange(&g_armed, 1);
+        }
+        return;
+    }
+
+    uint32_t original = g_pendingOriginal;
+    uint64_t melee = g_pendingMeleeRes;
+    uint64_t sec_res = g_pendingSecondaryRes;
+    ULONGLONG started_ms = g_pendingSpawnTick;
+    char melee_label[32];
+    snprintf(melee_label, sizeof(melee_label), "%s", g_pendingMeleeName[0] ? g_pendingMeleeName : "(by id)");
+    CancelPendingSpawn();
+
+    uint8_t* data = g_spawnScratch + 0x1000u;
+    uint32_t no_net = NET_ID_NONE;
+    uint64_t zero_stack = 0ULL;
+    memcpy(data + 4u, &no_net, 4u);
+    memcpy(data + 0x50u, &zero_stack, 8u);
+
+    uint32_t copy = 0u;
+    InterlockedExchange(&g_spawningClone, 1);
+    g_spawnReq((uint64_t)(uintptr_t)&copy, melee, (uint64_t)(uintptr_t)data, 0, 0, 0);
+    InterlockedExchange(&g_spawningClone, 0);
+
+    if (copy == 0u || original == 0u) {
+        InterlockedExchange(&g_probeEntity, 0);
+        InterlockedExchange(&g_probeOriginal, 0);
+        InterlockedExchange(&g_regDone, 1);
+        InterlockedExchange(&g_armed, 1);
+        hf->log(mod, "deferred spawn failed: extra melee %s returned entity %u (orig %u); re-armed for next respawn",
+            melee_label, copy, original);
+        return;
+    }
+
+    InterlockedExchange(&g_probeOriginal, (LONG)original);
+    g_probeTick = started_ms;
+    g_copySpawnTick = now;
+    g_copyResource = melee;
+    InterlockedExchange(&g_regDone, 0);
+    InterlockedExchange(&g_probeEntity, (LONG)copy);
+    hf->log(mod,
+        "residency gate satisfied (%llu ms): spawned extra melee %s (%08x%08x) as local entity %u beside secondary (%08x%08x, entity %u)",
+        (unsigned long long)(now - started_ms),
+        melee_label,
+        (unsigned)(melee >> 32), (unsigned)(melee & 0xFFFFFFFFu), copy,
+        (unsigned)(sec_res >> 32), (unsigned)(sec_res & 0xFFFFFFFFu), original);
+    DumpResident("at deferred melee clone spawn");
 }
 
 /* ---- Attach Extra Melee & Preserve All 4 Slots' +0x2E8 Words ------------------------------------------------------ */
@@ -806,12 +1293,13 @@ static void AttachCopy(HfMod* mod)
         return;
     }
     if (now < g_probeTick + 1500ULL) return;
+    ULONGLONG timeout_base = g_copySpawnTick > g_probeTick ? g_copySpawnTick : g_probeTick;
 
     uintptr_t game = hf->module_base("game.dll", NULL), tbl = 0, recs = 0, inv = 0, irec = 0;
     uint32_t index = 0u, orig = (uint32_t)InterlockedCompareExchange(&g_probeOriginal, 0, 0), oindex = 0u;
     if (!game || !Ptr(game + ENT_STATE_GLOBAL, &tbl) || !MapGet(tbl + 0x20u, copy, &index) ||
         index >= 0x100000u || !Ptr(tbl + 0x40u, &recs)) {
-        if (now > g_probeTick + 8000ULL) {
+        if (now > timeout_base + 8000ULL) {
             DropAttachedMeleeForRespawn("melee entity missing from state table");
         }
         return;
@@ -821,7 +1309,7 @@ static void AttachCopy(HfMod* mod)
      * If after 8 s a locally spawned secondary belongs to someone else (e.g. a non-player prop), re-arm cleanly! */
     if (!MapGet(tbl + 0x20u, orig, &oindex) || oindex >= 0x100000u ||
         hf->read(recs + (uintptr_t)oindex * 0x30u + 4u, &owner, 4) != 0 || owner != avatar) {
-        if (now > g_probeTick + 8000ULL && owner != 0u && owner != avatar) {
+        if (now > timeout_base + 8000ULL && owner != 0u && owner != avatar) {
             DropAttachedMeleeForRespawn("probed secondary owned by non-local entity");
         }
         return;
@@ -872,45 +1360,6 @@ static void AttachCopy(HfMod* mod)
     InterlockedExchange(&g_regDone, 1);
     hf->log(mod, "melee entity %u attached to local Helldiver avatar %u (%d player word(s) restored)",
         copy, avatar, restored);
-}
-
-static void RequestPackages(HfMod* mod)
-{
-    static ULONGLONG nextCheck;
-    static char requestedFor[40];
-    ULONGLONG now = GetTickCount64();
-    if (!InterlockedCompareExchange(&g_avatar, 0, 0) || !g_pkgReq || now < nextCheck) return;
-    nextCheck = now + 500ULL;
-
-    char text[2048], key[40];
-    int fromFile = ReadConfig("melee-slot-package.txt", text, sizeof(text));
-    ReadMeleeResource();
-    snprintf(key, sizeof(key), "%s", fromFile ? "(file)" : g_meleeName);
-    if (InterlockedCompareExchange(&g_pkgDone, 0, 0) != 0 && strcmp(key, requestedFor) == 0) return;
-    InterlockedExchange(&g_pkgDone, 1);
-    snprintf(requestedFor, sizeof(requestedFor), "%s", key);
-    if (!fromFile) {
-        if (!*g_meleePackages) return;
-        snprintf(text, sizeof(text), "%s", g_meleePackages);
-    }
-    uintptr_t game = HF_API(mod)->module_base("game.dll", NULL), system = 0;
-    if (!game || !Ptr(game + PKG_SYSTEM_GLOBAL, &system)) return;
-
-    int requested = 0;
-    for (char* p = text; *p && requested < 40;) {
-        while (*p == ' ' || *p == '\r' || *p == '\n' || *p == '\t') p++;
-        if (!*p) break;
-        char* end = p;
-        uint64_t id = strtoull(p, &end, 16);
-        if (end == p || end - p != 16) {
-            while (*p && *p != ' ' && *p != '\n' && *p != '\r') p++;
-            continue;
-        }
-        p = end;
-        g_pkgReq((uint64_t)system, (uint64_t)(uintptr_t)&id, 1, 0, 0, 0);
-        requested++;
-    }
-    HF_API(mod)->log(mod, "packages: %d requested for %s", requested, key[0] ? key : "(by id)");
 }
 
 /* ---- Secondary <-> Extra Melee Swap State Machine ----------------------------------------------------------------- */
@@ -1006,11 +1455,16 @@ static void Tick(HfMod* mod, float dt, void* user)
 {
     (void)dt;
     (void)user;
-    if (!g_missionOn) return;
+    if (!g_missionOn) {
+        /* Throttled 500ms preload check during ship / PREPARE_MISSION loadout selection. */
+        EnsureMeleePackagesRequested(mod, 0);
+        return;
+    }
     uintptr_t game = HF_API(mod)->module_base("game.dll", NULL);
 #ifndef DMS_UNIT_TEST
     static uint32_t s_syncDiv;
     int needFastSync = (InterlockedCompareExchange(&g_avatar, 0, 0) == 0) ||
+                       (InterlockedCompareExchange(&g_pendingSpawn, 0, 0) != 0) ||
                        (InterlockedCompareExchange(&g_regDone, 0, 0) == 0) ||
                        (g_swapStage != 0) ||
                        (((++s_syncDiv) & 7u) == 0u);
@@ -1018,8 +1472,9 @@ static void Tick(HfMod* mod, float dt, void* user)
 #else
     if (game) SyncLocalAvatarAndRespawn(game);
 #endif
+    EnsureMeleePackagesRequested(mod, 0);
+    ProcessPendingSpawn(mod);
     AttachCopy(mod);
-    RequestPackages(mod);
     if (InterlockedExchange(&g_tapFlag, 0)) DoSwap(mod);
     SwapStages(mod);
 }
@@ -1378,6 +1833,16 @@ static DWORD WINAPI KeyThread(LPVOID unused)
 
 /* ---- Load & Unload ------------------------------------------------------------------------------------------------ */
 
+static void ResetSessionPackageCache(void)
+{
+    memset(g_sessionHeldPkgs, 0, sizeof(g_sessionHeldPkgs));
+    memset(g_sessionHeldSysReq, 0, sizeof(g_sessionHeldSysReq));
+    g_sessionHeldCount = 0u;
+    g_lastRequestedKey[0] = '\0';
+    g_nextPkgCheckTick = 0ULL;
+    g_loggedPkgMapFull = 0;
+}
+
 static void GameLoaded(HfMod* mod, HfEvent event, void* user)
 {
     (void)event;
@@ -1423,11 +1888,16 @@ static void GameLoaded(HfMod* mod, HfEvent event, void* user)
         hf->log(mod, "attach function 0x8BF870 mismatch; melee attach disabled");
     }
 
-    if (hf->size >= offsetof(HfApi, game_state) + sizeof(void*) && hf->game_state != NULL &&
-        hf->game_state(mod) == HF_STATE_MISSION) {
-        ResetMissionState(1);
+    if (hf->size >= offsetof(HfApi, game_state) + sizeof(void*) && hf->game_state != NULL) {
+        uint32_t st = hf->game_state(mod);
+        if (st == HF_STATE_MISSION) {
+            ResetMissionState(1);
+            EnsureMeleePackagesRequested(mod, 1);
+        } else if (st == HF_STATE_PREPARE_MISSION || st == HF_STATE_SHIP) {
+            EnsureMeleePackagesRequested(mod, 1);
+        }
     }
-    hf->log(mod, "Dedicated Melee Slot 1.5.2-clonedivers.4 hooks ready");
+    hf->log(mod, "Dedicated Melee Slot 1.5.2-clonedivers.5 hooks ready");
 }
 
 HF_MOD_EXPORT int hellforge_mod_init(const HfApi* hf, HfMod* mod)
@@ -1438,6 +1908,7 @@ HF_MOD_EXPORT int hellforge_mod_init(const HfApi* hf, HfMod* mod)
     g_hookInstalled = 0;
     memset(&g_lastKeysWhen, 0, sizeof(g_lastKeysWhen));
     g_lastKeysPath[0] = '\0';
+    ResetSessionPackageCache();
     InterlockedExchange(&g_stopThreads, 0);
     if (g_stopEvent != NULL) {
         CloseHandle(g_stopEvent);
@@ -1464,7 +1935,7 @@ HF_MOD_EXPORT int hellforge_mod_init(const HfApi* hf, HfMod* mod)
     /* H3a: No InvThread! SyncLocalAvatarAndRespawn runs strictly on the game thread via Tick & OnPlayer. */
     g_keyThread = CreateThread(NULL, 0, KeyThread, NULL, 0, NULL);
 #endif
-    hf->log(mod, "Dedicated Melee Slot 1.5.2-clonedivers.4 loaded (weapon=%d, tick=%d)", ok, tick);
+    hf->log(mod, "Dedicated Melee Slot 1.5.2-clonedivers.5 loaded (weapon=%d, tick=%d)", ok, tick);
     return 0;
 }
 
@@ -1476,6 +1947,7 @@ HF_MOD_EXPORT int hellforge_mod_unload(const HfApi* hf, HfMod* mod, uint32_t rea
         SetEvent(g_stopEvent);
     }
     ResetMissionState(0);
+    ResetSessionPackageCache();
 
     if (g_keyThread) {
         WaitForSingleObject(g_keyThread, 2000);
