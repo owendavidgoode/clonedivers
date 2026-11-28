@@ -2,8 +2,8 @@
   "format": 1,
   "id": "vibeslacker.dedicated-melee-slot",
   "name": "Dedicated Melee Slot",
-  "version": "1.5.2-clonedivers.4",
-  "description": "Carry a pistol and a melee weapon at once (Clonedivers 4-player co-op & HellForge 0.4/0.5 hardened build of v1.5.2). Pick machete, stun-lance, saber, stun-baton, hatchet or shovel from the loadout card box (packed at non-colliding patch_920; requires Bingus Shared Loader v15+) or melee-slot-weapon.txt; tap your secondary key again while drawn to toggle.",
+  "version": "1.5.2-clonedivers.5",
+  "description": "Carry a pistol and a melee weapon at once (Clonedivers 4-player co-op & HellForge 0.4/0.5 hardened build of v1.5.2). Preloads melee packages at mission prep/start and gates extra melee spawn on engine package residency so wilderness maps never show a missing-mesh marker. Pick machete, stun-lance, saber, stun-baton, hatchet or shovel from the loadout card box (patch_920; requires Bingus Shared Loader v15+) or melee-slot-weapon.txt; tap your secondary key again while drawn to toggle.",
   "gameplay": false,
   "coop": "per-player",
   "code": {

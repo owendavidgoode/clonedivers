@@ -879,6 +879,19 @@ static void test_walker_profiles_atte_atst_and_parked_rejection(void)
         "film-scale 2.28x AT-ST auto-detected while aiming in 3P");
     TEST_NEAR(g_last_set_pose[10], -2.5f - g_opts.atst_scaled_pullback_distance, 1e-4f, "AT-ST scaled pullback Y");
     TEST_NEAR(g_last_set_pose[11], 2.4f + g_opts.atst_scaled_lift_z, 1e-4f, "AT-ST scaled lift Z");
+
+    /* Raised AT-ST cab pilot (Z=6.52m, cur_link==0 fallback + high camera Z=6.80m looking slightly up):
+     * Must stay active (cab focus Z+5.8m passes dot>=0.45) AND cap lift_z to avoid double-lifting above 7.60m! */
+    g_set_pose_calls = 0;
+    g_diver_unit.graph.link_parent = 0;
+    InitIdentityWorldMatrix(g_diver_unit.world_poses[0], 0.0f, 1.92f, 6.52f);
+    InitIdentityWorldMatrix(g_diver_unit.world_poses[90], 0.0f, 1.92f, 8.07f);
+    InitLocalPoseLookingPlusY(g_cam_unit.local_poses[0], 0.0f, -2.5f, 6.80f);
+    InitIdentityWorldMatrix((float*)(g_mock_world + ECP_WORLD_RENDER_POSE), 0.0f, -2.5f, 6.80f);
+    EcpStepDetour(NULL);
+    TEST_CHECK(g_set_pose_calls == 1 && g_rt.active_profile == ECP_PROFILE_WALKER_ATST_SCALED,
+        "raised Z=6.52m AT-ST cab pilot + high Z=6.80m camera stays active without look-up dropout");
+    TEST_NEAR(g_last_set_pose[11], 7.60f, 1e-3f, "already-elevated AT-ST camera smoothly caps lift at Z=7.60m without double-lifting");
 }
 
 static void test_havok_wall_clamp_and_raycast_fail_closed(void)
@@ -1493,6 +1506,6 @@ int main(int argc, char** argv)
     test_proton_fallback_substep_caller_filter();
     test_hellforge_05_relocated_4096_entity_manager();
 
-    printf("empire-camera-pullback v0.1.5 unit suite: %d checks run, %d failed\n", g_tests_run, g_tests_failed);
+    printf("empire-camera-pullback v0.1.6 unit suite: %d checks run, %d failed\n", g_tests_run, g_tests_failed);
     return g_tests_failed == 0 ? 0 : 1;
 }

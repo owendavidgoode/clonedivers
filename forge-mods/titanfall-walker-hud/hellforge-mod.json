@@ -1,0 +1,10 @@
+{
+  "format": 1,
+  "id": "clonedivers.titanfall-walker-hud",
+  "name": "AT-TE Titanfall Tactical Cockpit HUD",
+  "version": "0.1.0",
+  "description": "Titanfall-style armored tactical cockpit visor HUD (compass tape, hull-vs-look indicator, pitch ladder, hull integrity bar, live ordnance counters, 6-leg AT-TE chassis telemetry, optical boot sequence) and optional F7 1P forward-canopy / 3P dual-view toggle for Clonedivers AT-TE combat walkers.",
+  "gameplay": false,
+  "coop": "per-player",
+  "code": { "dll": "titanfall_walker_hud.dll", "sdk": 17, "game": "25480438" }
+}

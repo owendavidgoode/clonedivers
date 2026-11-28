@@ -55,8 +55,8 @@ static inline void ecp_options_defaults(EcpOptions* out)
 
     out->walker_pullback_distance = 2.80f;
     out->walker_lift_z = 1.65f;
-    out->atst_scaled_pullback_distance = 3.80f;
-    out->atst_scaled_lift_z = 2.65f;
+    out->atst_scaled_pullback_distance = 4.10f;
+    out->atst_scaled_lift_z = 3.35f;
 
     out->lego_pullback_distance = 0.25f;
     out->lego_lift_z = -0.06f;
@@ -91,8 +91,8 @@ static inline void ecp_options_sanitize(EcpOptions* opts)
 
     opts->walker_pullback_distance = ecp_clampf(opts->walker_pullback_distance, -2.0f, 12.0f, 2.80f);
     opts->walker_lift_z = ecp_clampf(opts->walker_lift_z, -2.0f, 8.0f, 1.65f);
-    opts->atst_scaled_pullback_distance = ecp_clampf(opts->atst_scaled_pullback_distance, -2.0f, 14.0f, 3.80f);
-    opts->atst_scaled_lift_z = ecp_clampf(opts->atst_scaled_lift_z, -2.0f, 10.0f, 2.65f);
+    opts->atst_scaled_pullback_distance = ecp_clampf(opts->atst_scaled_pullback_distance, -2.0f, 14.0f, 4.10f);
+    opts->atst_scaled_lift_z = ecp_clampf(opts->atst_scaled_lift_z, -2.0f, 10.0f, 3.35f);
 
     opts->lego_pullback_distance = ecp_clampf(opts->lego_pullback_distance, -1.5f, 4.0f, 0.25f);
     opts->lego_lift_z = ecp_clampf(opts->lego_lift_z, -1.5f, 2.5f, -0.06f);

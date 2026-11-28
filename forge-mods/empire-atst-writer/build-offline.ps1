@@ -1,6 +1,6 @@
 param(
-    [string]$Cli = 'D:\HellForge\app\cli\HellForge.Cli.exe',
-    [string]$Zig = $(if (Test-Path -LiteralPath 'D:\HellForge\tools\zig\zig.exe') { 'D:\HellForge\tools\zig' } else { 'D:\ClaudeWork\workstreams-v21\code-mods\tools\zig' }),
+    [string]$Zig = 'D:\ClaudeWork\empire-forge\tie-prerequisites-astra\source\tools\zig',
+    [string]$SdkRoot = 'D:\ClaudeWork\hellforge-0.5-probe\hf05\app\sdk',
     [string]$WorkStage = 'D:\ClaudeWork\cache\tmp\atst-hf-stage'
 )
 
@@ -11,34 +11,13 @@ $BuildDir = Join-Path $ModRoot 'build'
 $DistDir = Join-Path $ModRoot 'dist'
 New-Item -ItemType Directory -Force $BuildDir, $DistDir | Out-Null
 
-# Prepare isolated child offline stage inside $WorkStage (never writes into D:\HellForge\ or deletes $WorkStage itself)
-# ModSdk.Find expects <root>\app\sdk\hellforge_mod.h and <root>\tools\zig\zig.exe
-$StageRoot = Join-Path $WorkStage 'empire-atst-writer-stage'
-$StageMod = Join-Path $StageRoot 'mods\empire-atst-writer'
-$StageSdk = Join-Path $StageRoot 'app\sdk'
-$StageTools = Join-Path $StageRoot 'tools'
-$StageZig = Join-Path $StageTools 'zig'
-if (Test-Path -LiteralPath $StageRoot) {
-    if (Test-Path -LiteralPath $StageZig) { cmd /c rmdir "`"$StageZig`"" 2>$null }
-    Remove-Item -LiteralPath $StageRoot -Recurse -Force
-}
-New-Item -ItemType Directory -Force $StageMod, $StageSdk, $StageTools | Out-Null
-New-Item -ItemType Junction -Path $StageZig -Target $Zig | Out-Null
+$ZigExe = Join-Path $Zig 'zig.exe'
+if (!(Test-Path -LiteralPath $ZigExe)) { throw "Offline Zig compiler not found at $ZigExe" }
+if (!(Test-Path -LiteralPath (Join-Path $SdkRoot 'hellforge_mod.h'))) { throw "SDK v20 headers not found at $SdkRoot" }
 
-Copy-Item -LiteralPath (Join-Path $ModRoot 'src') -Destination $StageMod -Recurse -Force
-$CliSdk = Join-Path (Split-Path (Split-Path $Cli -Parent) -Parent) 'sdk'
-$SdkRoot = if (Test-Path -LiteralPath (Join-Path $CliSdk 'hellforge_mod.h')) {
-    $CliSdk
-} elseif (Test-Path -LiteralPath (Join-Path $ModRoot 'sdk\hellforge_mod.h')) {
-    Join-Path $ModRoot 'sdk'
-} else {
-    'D:\ClaudeWork\hellforge-src\native\mod-sdk'
-}
-Copy-Item -Path (Join-Path $SdkRoot '*') -Destination $StageSdk -Force
-Copy-Item -LiteralPath (Join-Path $ModRoot 'hellforge-mod.json') -Destination $StageMod -Force
-if (Test-Path -LiteralPath (Join-Path $ModRoot 'README.md')) {
-    Copy-Item -LiteralPath (Join-Path $ModRoot 'README.md') -Destination $StageMod -Force
-}
+$Manifest = Get-Content -LiteralPath (Join-Path $ModRoot 'hellforge-mod.json') -Raw | ConvertFrom-Json
+$Version = $Manifest.version
+$DllName = $Manifest.code.dll
 
 $oldGlobal = $env:ZIG_GLOBAL_CACHE_DIR
 $oldLocal = $env:ZIG_LOCAL_CACHE_DIR
@@ -54,57 +33,88 @@ try {
     $env:TEMP = $TmpRun
     $env:TMP = $TmpRun
 
-    # 1. Strict bare zig cc check (-Wall -Werror with NO -Wno-unused-parameter)
-    $Sources = Get-ChildItem (Join-Path $ModRoot 'src') -Filter '*.c' | ForEach-Object { $_.FullName }
-    $StrictDll = Join-Path $BuildDir 'empire_atst_writer.strict.dll'
-    & "$Zig\zig.exe" cc -std=c11 -target x86_64-windows-gnu -shared -O2 -ffp-contract=off -fno-fast-math -Wall -Werror -I $SdkRoot @Sources -o $StrictDll
-    if ($LASTEXITCODE -ne 0) { throw "Strict zig cc -Wall -Werror compile failed" }
+    # 1. Strict zig cc build (-Wall -Wextra -Werror against SDK v20)
+    $Sources = Get-ChildItem -LiteralPath (Join-Path $ModRoot 'src') -Filter '*.c' | Sort-Object Name | ForEach-Object { $_.FullName }
+    $BuiltDll = Join-Path $BuildDir $DllName
+    & $ZigExe cc -std=c11 -target x86_64-windows-gnu -shared -O2 -ffp-contract=off -fno-fast-math -Wall -Wextra -Werror -s -I $SdkRoot -I (Join-Path $ModRoot 'src') @Sources -o $BuiltDll
+    if ($LASTEXITCODE -ne 0) { throw "Strict zig cc -Wall -Wextra -Werror DLL compile failed" }
 
-    # 2. Build via HellForge CLI SDK-16 builder (outputs DLL beside manifest in $StageMod)
-    & $Cli build-mod --mod $StageMod | Tee-Object -FilePath (Join-Path $BuildDir 'build.log')
-    if ($LASTEXITCODE -ne 0) { throw "HellForge.Cli build-mod failed" }
-
-    Copy-Item -LiteralPath (Join-Path $StageMod 'empire_atst_writer.dll') -Destination (Join-Path $BuildDir 'empire_atst_writer.dll') -Force
-
-    # 3. Package via HellForge CLI (v0.2.6)
-    $ZipFile = Join-Path $DistDir 'empire-atst-writer-0.2.6.zip'
-    if (Test-Path -LiteralPath $ZipFile) { Remove-Item -LiteralPath $ZipFile -Force }
-    & $Cli package-mod --mod $StageMod --out $DistDir | Tee-Object -FilePath (Join-Path $BuildDir 'package.log')
-    if ($LASTEXITCODE -ne 0) { throw "HellForge.Cli package-mod failed" }
-    if (!(Test-Path -LiteralPath $ZipFile)) { throw "Expected zip not found: $ZipFile" }
-
-    $SharedDist = Join-Path (Split-Path $ModRoot -Parent) 'dist'
-    if (Test-Path -LiteralPath $SharedDist) {
-        Copy-Item -LiteralPath $ZipFile -Destination (Join-Path $SharedDist 'empire-atst-writer-0.2.6.zip') -Force
+    # 2. Build & run full C11 unit suite (-Wall -Wextra -Werror)
+    $CoreSources = $Sources | Where-Object { [IO.Path]::GetFileName($_) -ne 'atst_mod_main.c' }
+    $TestExe = Join-Path $BuildDir 'test_empire_atst_writer.exe'
+    & $ZigExe cc -std=c11 -target x86_64-windows-gnu -O2 -ffp-contract=off -fno-fast-math -Wall -Wextra -Werror -I $SdkRoot -I (Join-Path $ModRoot 'src') -I (Join-Path $ModRoot 'tests') (Join-Path $ModRoot 'tests\test_empire_atst_writer.c') @CoreSources -o $TestExe
+    if ($LASTEXITCODE -ne 0) { throw "Unit test compile failed" }
+    Push-Location $BuildDir
+    try {
+        & $TestExe | Tee-Object -FilePath (Join-Path $BuildDir 'tests.log')
+        if ($LASTEXITCODE -ne 0) { throw "Unit test suite failed" }
+    } finally {
+        Pop-Location
     }
 
-    $HashOut = & $Cli mod-hash --mod $StageMod | Tee-Object -FilePath (Join-Path $BuildDir 'mod-hash.log')
-    if ($LASTEXITCODE -ne 0) { throw "HellForge.Cli mod-hash failed" }
-    $ContentHash = (($HashOut -join "`n") | ConvertFrom-Json).hash
+    # 3. Deterministic zip packaging & ModSets.ContentHash (exact match to HellForge.Core/ModPackage.cs)
+    $StageMod = Join-Path $WorkStage 'empire-atst-writer-pkg'
+    if (Test-Path -LiteralPath $StageMod) { Remove-Item -LiteralPath $StageMod -Recurse -Force }
+    New-Item -ItemType Directory -Force $StageMod | Out-Null
+    Copy-Item -LiteralPath (Join-Path $ModRoot 'src') -Destination $StageMod -Recurse -Force
+    Copy-Item -LiteralPath (Join-Path $ModRoot 'hellforge-mod.json') -Destination $StageMod -Force
+    if (Test-Path -LiteralPath (Join-Path $ModRoot 'README.md')) {
+        Copy-Item -LiteralPath (Join-Path $ModRoot 'README.md') -Destination $StageMod -Force
+    }
+
+    $ZipFile = Join-Path $DistDir ("empire-atst-writer-$Version.zip")
+    if (Test-Path -LiteralPath $ZipFile) { Remove-Item -LiteralPath $ZipFile -Force }
+
+    $PyScript = Join-Path $TmpRun 'pack_mod.py'
+    @'
+import hashlib, os, sys, zipfile
+
+stage, out_zip, mod_id, mod_ver, dll_name = sys.argv[1], sys.argv[2], sys.argv[3], sys.argv[4], sys.argv[5]
+
+def collect_source_files(root):
+    rels = []
+    for dp, dns, fns in os.walk(root):
+        dns[:] = [d for d in dns if not d.startswith('.') and d.lower() != 'build' and d.lower() != 'dist']
+        for fn in fns:
+            if fn.startswith('.') or fn.startswith('~$'): continue
+            low = fn.lower()
+            if low.endswith(('.user', '.tmp', '.lib', '.pdb')) or low == dll_name.lower(): continue
+            full = os.path.join(dp, fn)
+            rel = os.path.relpath(full, root).replace('\\', '/')
+            rels.append(rel)
+    rels.sort()
+    return rels
+
+src_rels = collect_source_files(stage)
+block_lines = [f"{mod_id}|{mod_ver}\n"]
+for rel in src_rels:
+    with open(os.path.join(stage, rel.replace('/', os.sep)), 'rb') as fp:
+        f_sha = hashlib.sha256(fp.read()).hexdigest().upper()
+    block_lines.append(f"{rel}|{f_sha}\n")
+content_hash = hashlib.sha256("".join(block_lines).encode('utf-8')).hexdigest().lower()
+
+with zipfile.ZipFile(out_zip, 'w', compression=zipfile.ZIP_DEFLATED) as zf:
+    for rel in src_rels:
+        zi = zipfile.ZipInfo(f"empire-atst-writer/{rel}", date_time=(2026, 1, 1, 0, 0, 0))
+        zi.compress_type = zipfile.ZIP_DEFLATED
+        src_p = os.path.join(stage, rel.replace('/', os.sep))
+        with open(src_p, 'rb') as fp:
+            zf.writestr(zi, fp.read())
+
+print(content_hash)
+'@ | Set-Content -LiteralPath $PyScript -Encoding utf8
+
+    $ContentHash = (& uv run python $PyScript $StageMod $ZipFile $Manifest.id $Version $DllName).Trim()
+    if ($LASTEXITCODE -ne 0 -or $ContentHash.Length -ne 64) { throw "Deterministic packaging failed" }
+
     $ZipBytes = (Get-Item -LiteralPath $ZipFile).Length
     $ZipSha = (Get-FileHash -Algorithm SHA256 -LiteralPath $ZipFile).Hash.ToLowerInvariant()
-    $DllSha = (Get-FileHash -Algorithm SHA256 -LiteralPath (Join-Path $BuildDir 'empire_atst_writer.dll')).Hash.ToLowerInvariant()
+    $DllSha = (Get-FileHash -Algorithm SHA256 -LiteralPath $BuiltDll).Hash.ToLowerInvariant()
 
-    [ordered]@{
-        version = '0.2.6'
-        zip_path = $ZipFile
-        shared_dist_path = (Join-Path $SharedDist 'empire-atst-writer-0.2.6.zip')
-        zip_bytes = $ZipBytes
-        zip_sha256 = $ZipSha
-        content_hash = $ContentHash
-        dll_path = (Join-Path $BuildDir 'empire_atst_writer.dll')
-        dll_sha256 = $DllSha
-        cli_mod_hash = ($HashOut -join "`n")
-    } | ConvertTo-Json | Set-Content -LiteralPath (Join-Path $BuildDir 'build-receipt.json') -Encoding utf8
-
-    Write-Output "BUILD_OK zip=$ZipFile bytes=$ZipBytes zip_sha256=$ZipSha content_hash=$ContentHash dll_sha256=$DllSha"
+    Write-Output "BUILD_OK version=$Version zip=$ZipFile bytes=$ZipBytes zip_sha256=$ZipSha content_hash=$ContentHash dll_sha256=$DllSha"
 } finally {
     $env:ZIG_GLOBAL_CACHE_DIR = $oldGlobal
     $env:ZIG_LOCAL_CACHE_DIR = $oldLocal
     $env:TEMP = $oldTemp
     $env:TMP = $oldTmp
-    if (Test-Path -LiteralPath $StageRoot) {
-        if (Test-Path -LiteralPath $StageZig) { cmd /c rmdir "`"$StageZig`"" 2>$null }
-        Remove-Item -LiteralPath $StageRoot -Recurse -Force -ErrorAction SilentlyContinue
-    }
 }

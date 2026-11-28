@@ -1,13 +1,17 @@
-/* Star Wars Localization Bridge (clonedivers.starwars-localization 0.1.1)
- * Target: Helldivers 2 Steam build 25480438, HellForge Mod SDK 16.
+/* Star Wars Localization Bridge (clonedivers.starwars-localization 0.2.0)
+ * Target: Helldivers 2 Steam build 25480438, HellForge Mod SDK 16-20.
  *
  * Restores EmpireDivers / Clonedivers US English TEXT overrides in memory whenever
  * HellForge's auto-generated forge-credits patch stages last and overwrites US English
- * TEXT resources in 9ba626afa44a3aa3, while keeping every Forge Credits string intact and
- * never touching HellForge's engine-API text vtable slot (table + 1000). */
+ * TEXT resources in 9ba626afa44a3aa3, AND serves curated v2.3 overrides (100% vanilla HD2
+ * item/weapon/booster/stratagem references, Clonedivers Overloaded Gonk Droid Hellbomb, and
+ * EmpireDivers DS-1 Death Star) in both clobbered and unclobbered Star Wars configurations,
+ * while keeping every Forge Credits string intact and never touching HellForge's engine-API
+ * text vtable slot (table + 1000). */
 
 #define WIN32_LEAN_AND_MEAN
 #include <windows.h>
+#include <stddef.h>
 #include <stdint.h>
 #include <stdio.h>
 #include <string.h>
@@ -27,6 +31,7 @@ static const HfApi* g_api;
 static HfMod* g_mod;
 static SwLocTable g_table;
 static SwEngineTextFn g_orig_text;
+static uintptr_t g_hooked_target;
 static volatile LONG g_hook_state; /* 0 = pending, 1 = installing, 2 = hooked, -1 = failed */
 static volatile LONG64 g_hits;
 static volatile LONG64 g_misses;
@@ -92,7 +97,7 @@ static void TryInstallTextHook(const char* where) {
     if (InterlockedCompareExchange(&g_hook_state, 1, 0) != 0) return;
 
     /* Verify text_fn is in readable executable code (helldivers2.exe or HellForge's TextDetour). */
-    uint8_t probe[4] = {0};
+    uint8_t probe[4] = {0, 0, 0, 0};
     if (g_api->read(text_fn, probe, sizeof probe) != 0) {
         InterlockedExchange(&g_hook_state, 0);
         return;
@@ -106,6 +111,7 @@ static void TryInstallTextHook(const char* where) {
         return;
     }
 
+    g_hooked_target = text_fn;
     InterlockedExchange(&g_hook_state, 2);
 
     const char* owner = "unknown";
@@ -179,10 +185,12 @@ static void OnGameThread(HfMod* mod, float dt, void* user) {
 
 HF_MOD_EXPORT int hellforge_mod_init(const HfApi* api, HfMod* mod) {
     if (api == NULL || mod == NULL) return 1;
-    if (api->version < 16 || api->size < sizeof(HfApi) || api->log == NULL) return 1;
+    if (api->version < 16u || api->size < offsetof(HfApi, hook_ex) + sizeof(api->hook_ex) || api->log == NULL) {
+        return 1;
+    }
     if (api->on == NULL || api->on_game_thread == NULL || api->module_base == NULL ||
         api->read == NULL || api->hook_ex == NULL || api->build_id == NULL) {
-        api->log(mod, "starwars-localization: missing required SDK 16 API pointers; staying inactive");
+        api->log(mod, "starwars-localization: missing required SDK 16+ API pointers; staying inactive");
         return 0;
     }
 
@@ -195,6 +203,14 @@ HF_MOD_EXPORT int hellforge_mod_init(const HfApi* api, HfMod* mod) {
 
     g_api = api;
     g_mod = mod;
+    g_hooked_target = 0;
+    InterlockedExchange(&g_hook_state, 0);
+    InterlockedExchange64(&g_hits, 0);
+    InterlockedExchange64(&g_misses, 0);
+    InterlockedExchange(&g_tick_attempts, 0);
+    InterlockedExchange(&g_logged_first_hit, 0);
+    g_stats_elapsed = 0.0f;
+    g_last_logged_hits = 0;
 
     char data_dir[MAX_PATH];
     if (!ResolveDataDirFromExe(data_dir, sizeof data_dir)) {
@@ -214,17 +230,27 @@ HF_MOD_EXPORT int hellforge_mod_init(const HfApi* api, HfMod* mod) {
                 data_dir, report.scanned_patches);
             return 0;
         case SW_LOC_ALREADY_TOPMOST:
-            api->log(mod, "starwars-localization: pack TEXT patch_%d is already topmost (%u strings); no hook needed",
-                report.base_patch_index, report.base_string_count);
+            api->log(mod, "starwars-localization: pack TEXT patch_%d is already topmost (%u strings, mode=%s); no hook needed",
+                report.base_patch_index, report.base_string_count, SwLocModeName(report.mode));
             return 0;
         case SW_LOC_VANILLA_ONLY:
             api->log(mod, "starwars-localization: forge-credits patch_%d has no Star Wars TEXT beneath it; inactive",
                 report.base_patch_index);
             return 0;
+        case SW_LOC_CURATED_LOADED:
+            api->log(mod,
+                "starwars-localization: pack TEXT patch_%d is topmost (%s mode, %u strings); serving %u curated v2.3 overrides",
+                report.base_patch_index,
+                SwLocModeName(report.mode),
+                report.base_string_count,
+                report.curated_applied);
+            break;
         case SW_LOC_DIFF_LOADED:
             api->log(mod,
-                "starwars-localization: loaded %u overrides from patch_%d (%u strings) beneath forge-credits patch_%d (%u strings; %u Forge Credits labels preserved)",
+                "starwars-localization: loaded %u overrides (%u curated v2.3, mode=%s) from patch_%d (%u strings) beneath forge-credits patch_%d (%u strings; %u Forge Credits labels preserved)",
                 report.diff_count,
+                report.curated_applied,
+                SwLocModeName(report.mode),
                 report.pack_patch_index,
                 report.pack_string_count,
                 report.base_patch_index,
@@ -238,10 +264,24 @@ HF_MOD_EXPORT int hellforge_mod_init(const HfApi* api, HfMod* mod) {
 
     api->on(mod, HF_EVENT_GAME_LOADED, OnEvent, NULL);
     api->on(mod, HF_EVENT_ENTITIES_READY, OnEvent, NULL);
-    if (api->version >= 16) {
+    if (api->version >= 16u) {
         api->on(mod, HF_EVENT_SESSION_END, OnEvent, NULL);
     }
     api->on_game_thread(mod, OnGameThread, NULL);
     TryInstallTextHook("init");
+    return 0;
+}
+
+HF_MOD_EXPORT int hellforge_mod_unload(const HfApi* api, HfMod* mod, uint32_t reason) {
+    (void)reason;
+    if (InterlockedCompareExchange(&g_hook_state, 0, 0) == 2 &&
+        g_hooked_target != 0 && api != NULL &&
+        api->size >= offsetof(HfApi, unhook) + sizeof(api->unhook) && api->unhook != NULL) {
+        api->unhook(mod, g_hooked_target);
+    }
+    InterlockedExchange(&g_hook_state, 0);
+    g_hooked_target = 0;
+    g_orig_text = NULL;
+    SwLocFreeTable(&g_table);
     return 0;
 }

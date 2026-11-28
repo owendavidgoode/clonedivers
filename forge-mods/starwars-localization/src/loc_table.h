@@ -1,5 +1,7 @@
-/* Star Wars Localization Bridge (0.1.1) — Stingray 0xF0000011 + TEXT (0x0d972bab10b40fd3)
- * multi-table US English archive parser and ForgeCredits-preserving diff table.
+/* Star Wars Localization Bridge (0.2.0) — Stingray 0xF0000011 + TEXT (0x0d972bab10b40fd3)
+ * multi-table US English archive parser, ForgeCredits-preserving diff table, and curated
+ * v2.3 Clonedivers / EmpireDivers overrides (100% vanilla HD2 references, Overloaded Gonk Droid,
+ * and EmpireDivers DS-1 Death Star).
  * Pure C11 + Win32 FindFirstFileA. */
 #ifndef SW_LOC_TABLE_H
 #define SW_LOC_TABLE_H
@@ -14,6 +16,8 @@
 #define WIN32_LEAN_AND_MEAN
 #include <windows.h>
 #endif
+
+#include "sw_curated_overrides.h"
 
 #define SW_LOC_ARCHIVE_MAGIC       0xF0000011u
 #define SW_LOC_US_TEXT_NAME        0x7C7587B563F10985ULL
@@ -32,7 +36,8 @@ typedef enum SwLocStatus {
     SW_LOC_ALREADY_TOPMOST = 1,
     SW_LOC_VANILLA_ONLY = 2,
     SW_LOC_DIFF_LOADED = 3,
-    SW_LOC_ERROR = 4
+    SW_LOC_ERROR = 4,
+    SW_LOC_CURATED_LOADED = 5
 } SwLocStatus;
 
 typedef struct SwLocEntry {
@@ -49,6 +54,7 @@ typedef struct SwLocTable {
 
 typedef struct SwLocLoadReport {
     SwLocStatus status;
+    SwLocMode mode;
     int scanned_patches;
     int base_patch_index;
     int pack_patch_index;
@@ -56,6 +62,7 @@ typedef struct SwLocLoadReport {
     uint32_t pack_string_count;
     uint32_t diff_count;
     uint32_t preserved_forge_credits;
+    uint32_t curated_applied;
 } SwLocLoadReport;
 
 typedef struct SwRawTextView {
@@ -73,6 +80,27 @@ typedef struct SwRawTextSet {
     SwRawTextView* views;
     uint32_t count;
 } SwRawTextSet;
+
+static inline const char* SwLocModeName(SwLocMode mode) {
+    switch (mode) {
+        case SW_LOC_MODE_EMPIRE: return "empire";
+        case SW_LOC_MODE_CLONES: return "clones";
+        default: return "none";
+    }
+}
+
+static inline uint32_t SwLocGetCuratedSpan(SwLocMode mode, const SwCuratedOverride** out_arr) {
+    if (mode == SW_LOC_MODE_EMPIRE) {
+        if (out_arr != NULL) *out_arr = kSwEmpireCuratedOverrides;
+        return SW_EMPIRE_CURATED_COUNT;
+    }
+    if (mode == SW_LOC_MODE_CLONES) {
+        if (out_arr != NULL) *out_arr = kSwClonesCuratedOverrides;
+        return SW_CLONES_CURATED_COUNT;
+    }
+    if (out_arr != NULL) *out_arr = NULL;
+    return 0u;
+}
 
 static inline uint32_t SwLocReadU32(const uint8_t* p) {
     uint32_t v;
@@ -389,6 +417,27 @@ static inline const char* SwLocRawLookup(const SwRawTextView* view, uint32_t id)
     return NULL;
 }
 
+static inline const char* SwLocRawLookupAcrossViews(const SwRawTextView* views, uint32_t view_count, uint32_t id) {
+    if (views == NULL) return NULL;
+    for (uint32_t i = 0; i < view_count; i++) {
+        const char* s = SwLocRawLookup(&views[i], id);
+        if (s != NULL) return s;
+    }
+    return NULL;
+}
+
+static inline SwLocMode SwLocDetectModeFromViews(const SwRawTextView* views, uint32_t view_count) {
+    if (views == NULL || view_count == 0) return SW_LOC_MODE_NONE;
+    for (uint32_t i = 0; i < view_count; i++) {
+        const char* probe = SwLocRawLookup(&views[i], SW_LOC_MODE_PROBE_ID);
+        if (probe != NULL) {
+            if (strcmp(probe, "Imperial Artillery: Explosive") == 0) return SW_LOC_MODE_EMPIRE;
+            if (strcmp(probe, "Republic Artillery: Explosive") == 0) return SW_LOC_MODE_CLONES;
+        }
+    }
+    return SW_LOC_MODE_NONE;
+}
+
 static inline int SwLocIsProtectedHellForgeEntry(uint32_t id, const char* s) {
     if (id == SW_LOC_WARBOND_LOCKED_ID) return 1;
     if (s != NULL && SwLocContainsCI(s, "forge credit")) return 1;
@@ -427,6 +476,142 @@ static inline int SwLocIsProtectedAcrossBases(uint32_t id, const SwRawTextView* 
         const char* bstr = SwLocRawLookup(&bases[b], id);
         if (bstr != NULL && SwLocContainsCI(bstr, "forge credit")) return 1;
     }
+    return 0;
+}
+
+/* Deterministic O(N + M) sorted two-pointer merge of mode-specific curated v2.3 overrides onto an existing
+ * sorted SwLocTable (or empty SwLocTable when the Star Wars pack is already topmost).
+ *  - Curated overrides win over pack entries on equal ID.
+ *  - Protected Forge Credits & WARBOND LOCKED IDs across `protected_bases` are NEVER overridden.
+ *  - When `skip_if_equal_in_bases` != 0 (unclobbered pack already topmost), curated entries already byte-identical
+ *    to the topmost pack's text are omitted so no redundant overrides are held. */
+static inline int SwLocApplyCuratedOverrides(
+    SwLocMode mode,
+    const SwRawTextView* protected_bases,
+    uint32_t protected_base_count,
+    int skip_if_equal_in_bases,
+    SwLocTable* io_tbl,
+    uint32_t* out_curated_applied,
+    uint32_t* io_preserved_fc)
+{
+    if (out_curated_applied != NULL) *out_curated_applied = 0u;
+    const SwCuratedOverride* curated = NULL;
+    uint32_t curated_count = SwLocGetCuratedSpan(mode, &curated);
+    if (curated == NULL || curated_count == 0u) return 0;
+
+    /* Pass 1: compute exact merged entry count and string pool size. */
+    uint32_t a = 0u, b = 0u;
+    uint32_t merged_count = 0u;
+    size_t merged_pool = 0u;
+    uint32_t applied = 0u;
+
+    while (a < io_tbl->count || b < curated_count) {
+        if (b >= curated_count || (a < io_tbl->count && io_tbl->entries[a].id < curated[b].id)) {
+            merged_count++;
+            merged_pool += strlen(io_tbl->entries[a].text) + 1u;
+            a++;
+        } else if (a >= io_tbl->count || curated[b].id < io_tbl->entries[a].id) {
+            uint32_t cid = curated[b].id;
+            const char* ctxt = curated[b].text;
+            if (SwLocIsProtectedAcrossBases(cid, protected_bases, protected_base_count)) {
+                if (io_preserved_fc != NULL) (*io_preserved_fc)++;
+            } else {
+                const char* existing = skip_if_equal_in_bases
+                    ? SwLocRawLookupAcrossViews(protected_bases, protected_base_count, cid)
+                    : NULL;
+                if (existing == NULL || strcmp(existing, ctxt) != 0) {
+                    merged_count++;
+                    merged_pool += strlen(ctxt) + 1u;
+                    applied++;
+                }
+            }
+            b++;
+        } else {
+            /* Equal ID in both io_tbl and curated: curated override wins unless protected. */
+            uint32_t cid = curated[b].id;
+            const char* ctxt = curated[b].text;
+            if (SwLocIsProtectedAcrossBases(cid, protected_bases, protected_base_count)) {
+                if (io_preserved_fc != NULL) (*io_preserved_fc)++;
+            } else {
+                merged_count++;
+                merged_pool += strlen(ctxt) + 1u;
+                applied++;
+            }
+            a++;
+            b++;
+        }
+    }
+
+    if (applied == 0u) {
+        return 0;
+    }
+    if (merged_count == 0u) {
+        SwLocFreeTable(io_tbl);
+        return 0;
+    }
+
+    SwLocEntry* new_entries = (SwLocEntry*)malloc((size_t)merged_count * sizeof(SwLocEntry));
+    char* new_pool = (char*)malloc(merged_pool);
+    if (new_entries == NULL || new_pool == NULL) {
+        free(new_entries);
+        free(new_pool);
+        return -1;
+    }
+
+    /* Pass 2: populate merged sorted entries & pool. */
+    a = 0u;
+    b = 0u;
+    uint32_t out_idx = 0u;
+    size_t pos = 0u;
+    while (a < io_tbl->count || b < curated_count) {
+        if (b >= curated_count || (a < io_tbl->count && io_tbl->entries[a].id < curated[b].id)) {
+            const char* s = io_tbl->entries[a].text;
+            size_t len = strlen(s) + 1u;
+            memcpy(new_pool + pos, s, len);
+            new_entries[out_idx].id = io_tbl->entries[a].id;
+            new_entries[out_idx].text = new_pool + pos;
+            out_idx++;
+            pos += len;
+            a++;
+        } else if (a >= io_tbl->count || curated[b].id < io_tbl->entries[a].id) {
+            uint32_t cid = curated[b].id;
+            const char* ctxt = curated[b].text;
+            if (!SwLocIsProtectedAcrossBases(cid, protected_bases, protected_base_count)) {
+                const char* existing = skip_if_equal_in_bases
+                    ? SwLocRawLookupAcrossViews(protected_bases, protected_base_count, cid)
+                    : NULL;
+                if (existing == NULL || strcmp(existing, ctxt) != 0) {
+                    size_t len = strlen(ctxt) + 1u;
+                    memcpy(new_pool + pos, ctxt, len);
+                    new_entries[out_idx].id = cid;
+                    new_entries[out_idx].text = new_pool + pos;
+                    out_idx++;
+                    pos += len;
+                }
+            }
+            b++;
+        } else {
+            uint32_t cid = curated[b].id;
+            const char* ctxt = curated[b].text;
+            if (!SwLocIsProtectedAcrossBases(cid, protected_bases, protected_base_count)) {
+                size_t len = strlen(ctxt) + 1u;
+                memcpy(new_pool + pos, ctxt, len);
+                new_entries[out_idx].id = cid;
+                new_entries[out_idx].text = new_pool + pos;
+                out_idx++;
+                pos += len;
+            }
+            a++;
+            b++;
+        }
+    }
+
+    SwLocFreeTable(io_tbl);
+    io_tbl->entries = new_entries;
+    io_tbl->count = out_idx;
+    io_tbl->pool = new_pool;
+    io_tbl->pool_size = merged_pool;
+    if (out_curated_applied != NULL) *out_curated_applied = applied;
     return 0;
 }
 
@@ -590,7 +775,8 @@ static int SwLocCmpPatch(const void* a, const void* b) {
     return pa->index - pb->index;
 }
 
-/* Scans <data_dir>\9ba626afa44a3aa3.patch_* and loads multi-table diff if ForgeCredits clobbered pack US TEXTs. */
+/* Scans <data_dir>\9ba626afa44a3aa3.patch_*, restores multi-table diff if ForgeCredits clobbered pack US TEXTs,
+ * and merges curated v2.3 Clones/Empire overrides in both clobbered and unclobbered Star Wars pack configurations. */
 static inline int SwLocLoadFromDataDir(const char* data_dir, SwLocTable* out, SwLocLoadReport* report) {
     memset(out, 0, sizeof *out);
     memset(report, 0, sizeof *report);
@@ -651,8 +837,9 @@ static inline int SwLocLoadFromDataDir(const char* data_dir, SwLocTable* out, Sw
 
     qsort(list, (size_t)count, sizeof(SwPatchCandidate), SwLocCmpPatch);
 
-    /*Find topmost patch containing at least one US English TEXT resource; fail closed on corrupt/overflowed patch.*/
-    SwRawTextSet base_set = {0};
+    /* Find topmost patch containing at least one US English TEXT resource; fail closed on corrupt/overflowed patch. */
+    SwRawTextSet base_set;
+    memset(&base_set, 0, sizeof base_set);
     int base_pos = -1;
     for (int i = count - 1; i >= 0; i--) {
         int rc = SwLocReadAllUsTextsFromPatch(list[i].path, &base_set);
@@ -681,8 +868,29 @@ static inline int SwLocLoadFromDataDir(const char* data_dir, SwLocTable* out, Sw
     report->base_string_count = base_total_strings;
 
     if (!SwLocSetHasForgeCredits(&base_set)) {
-        SwLocFreeSet(&base_set);
-        free(list);
+        SwLocMode top_mode = SwLocDetectModeFromViews(base_set.views, base_set.count);
+        report->mode = top_mode;
+        if (top_mode != SW_LOC_MODE_NONE) {
+            int cur_rc = SwLocApplyCuratedOverrides(
+                top_mode, base_set.views, base_set.count, 1, out, &report->curated_applied, &report->preserved_forge_credits);
+            SwLocFreeSet(&base_set);
+            free(list);
+            if (cur_rc != 0) {
+                SwLocFreeTable(out);
+                report->status = SW_LOC_ERROR;
+                return -1;
+            }
+            if (out->count > 0) {
+                report->pack_patch_index = report->base_patch_index;
+                report->pack_string_count = report->base_string_count;
+                report->diff_count = out->count;
+                report->status = SW_LOC_CURATED_LOADED;
+                return 0;
+            }
+        } else {
+            SwLocFreeSet(&base_set);
+            free(list);
+        }
         report->status = SW_LOC_ALREADY_TOPMOST;
         return 0;
     }
@@ -707,7 +915,8 @@ static inline int SwLocLoadFromDataDir(const char* data_dir, SwLocTable* out, Sw
     for (uint32_t b = 0; b < base_set.count; b++) {
         uint64_t target_nh = base_set.views[b].name_hash;
         for (int i = base_pos - 1; i >= 0; i--) {
-            SwRawTextView cand = {0};
+            SwRawTextView cand;
+            memset(&cand, 0, sizeof cand);
             int rc = SwLocReadNamedTextFromPatch(list[i].path, target_nh, &cand);
             if (rc == 1) {
                 if (!SwLocViewHasForgeCredits(&cand)) {
@@ -736,9 +945,15 @@ static inline int SwLocLoadFromDataDir(const char* data_dir, SwLocTable* out, Sw
 
     report->pack_patch_index = max_pack_patch_idx;
     report->pack_string_count = total_pack_strings;
+    report->mode = SwLocDetectModeFromViews(matched_packs, matched_pairs);
 
     int build_rc = SwLocBuildMultiDiffWithProtectedBases(
         matched_packs, matched_bases, matched_pairs, base_set.views, base_set.count, out, &report->preserved_forge_credits);
+
+    if (build_rc == 0 && report->mode != SW_LOC_MODE_NONE) {
+        build_rc = SwLocApplyCuratedOverrides(
+            report->mode, base_set.views, base_set.count, 0, out, &report->curated_applied, &report->preserved_forge_credits);
+    }
 
     for (uint32_t m = 0; m < matched_pairs; m++) {
         SwLocFreeView(&matched_packs[m]);
@@ -749,6 +964,7 @@ static inline int SwLocLoadFromDataDir(const char* data_dir, SwLocTable* out, Sw
     free(list);
 
     if (build_rc != 0) {
+        SwLocFreeTable(out);
         report->status = SW_LOC_ERROR;
         return -1;
     }

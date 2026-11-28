@@ -2,8 +2,8 @@
   "format": 1,
   "id": "clonedivers.empire-camera-pullback",
   "name": "Empire & Clone Camera Pullback",
-  "version": "0.1.5",
-  "description": "Per-player third-person follow-camera pullback and dorsal-hull clearance for occupied AT-TE / AT-ST combat walkers and Compact LEGO 3P kits on build 25480438 (HellForge 0.4/0.5, Windows & Linux Proton), with O(1) 2,048/4,096 relocated EntityManager lookup, Havok wall-collision clamping, instant ADS/FPV/cutscene bypass, QPC health telemetry, and frame-budget watchdog.",
+  "version": "0.1.6",
+  "description": "Per-player third-person follow-camera pullback and dorsal-hull clearance for occupied AT-TE / raised-cab 2.28x AT-ST combat walkers and Compact LEGO 3P kits on build 25480438 (HellForge 0.4/0.5, Windows & Linux Proton), with O(1) 2,048/4,096 relocated EntityManager lookup, Havok wall-collision clamping, instant ADS/FPV/cutscene bypass, QPC health telemetry, and frame-budget watchdog.",
   "gameplay": false,
   "coop": "per-player",
   "code": { "dll": "empire_camera_pullback.dll", "sdk": 16, "game": "25480438" }

@@ -1,8 +1,10 @@
 /* SDK 16 native driver using the exported bridge's raw-field ownership/replay layer.
- * 0.3.1: Expands staged-closure verification across all 5 EmpireDivers texture tiers ([0]=full, [1]=lighter,
+ * 0.4.0: Adds Clonedivers r26 Republic air wing closure support (ARC-170 strafe/110mm, BTL-B Y-Wing
+ * airstrike/500kg/cluster, LAAT/i Gunship smoke/gas/napalm) alongside EmpireDivers r52 TIE Fighter/Bomber.
+ * 0.3.1: Expands staged-closure verification across all 5 texture tiers ([0]=full, [1]=lighter,
  * [2]=reduced1024, [3]=reduced512, [4]=potato256) with cross-part tier coherence.
  * 0.3.0: Acquires/holds 0x2C26BC4C6592FA14 (eagle_base) residency via SDK load_package() first, falling back to
- * build-25480438 pinned game.dll RefcountedPackageSystem when stock 0.4.0-beta kRefPackages omits eagle_base
+ * build-25480438 pinned game.dll RefcountedPackageSystem when kRefPackages omits eagle_base
  * (fail-closed if pins mismatch), plus 4-player concurrent Eagle sortie tracking. */
 #include "hellforge_mod.h"
 #include "hellforge_lua.h"
@@ -13,6 +15,7 @@
 #include <string.h>
 #include <wchar.h>
 #include "assets.h"
+#include "clone_eagle_assets.h"
 #include "asset_gate.h"
 #include "package_pin.h"
 
@@ -21,18 +24,30 @@
 #define UNIT "UnitComponentData"
 #define EAGLE "EagleComponentData"
 
-typedef struct Delivery { const char* name; uint64_t entity, model; } Delivery;
+typedef struct Delivery { const char* name; uint64_t entity, model, cloneModel; } Delivery;
 static const Delivery deliveries[] = {
-    {"strafe", 0x23a60681dd4383ecull, TIE_FIGHTER},
-    {"airstrike", 0x2ea01cb1676aca29ull, TIE_BOMBER},
-    {"smoke", 0x1b3bcadabc7ef8d6ull, TIE_BOMBER},
-    {"500kg", 0xe44b691dc039a505ull, TIE_BOMBER},
-    {"cluster", 0x9d4f7cb4eb34515dull, TIE_BOMBER},
-    {"gas", 0xdbb286ad7ed9df96ull, TIE_BOMBER},
-    {"napalm", 0x27bb558c893383ccull, TIE_BOMBER},
-    {"110mm", 0x397792815583da29ull, TIE_FIGHTER}
+    {"strafe",    0x23a60681dd4383ecull, TIE_FIGHTER, CLONE_FIGHTER},
+    {"airstrike", 0x2ea01cb1676aca29ull, TIE_BOMBER,  CLONE_BOMBER},
+    {"smoke",     0x1b3bcadabc7ef8d6ull, TIE_BOMBER,  CLONE_GUNSHIP},
+    {"500kg",     0xe44b691dc039a505ull, TIE_BOMBER,  CLONE_BOMBER},
+    {"cluster",   0x9d4f7cb4eb34515dull, TIE_BOMBER,  CLONE_BOMBER},
+    {"gas",       0xdbb286ad7ed9df96ull, TIE_BOMBER,  CLONE_GUNSHIP},
+    {"napalm",    0x27bb558c893383ccull, TIE_BOMBER,  CLONE_GUNSHIP},
+    {"110mm",     0x397792815583da29ull, TIE_FIGHTER, CLONE_FIGHTER}
 };
 #define DELIVERY_COUNT (sizeof deliveries / sizeof deliveries[0])
+
+static uint64_t DeliveryModel(size_t i)
+{
+    return (g_activePack == TIE_PACK_CLONES) ? deliveries[i].cloneModel : deliveries[i].model;
+}
+
+static const char* IdleReadyStatus(void)
+{
+    return (g_activePack == TIE_PACK_CLONES)
+        ? "ARC-170 strafe/110mm, Y-Wing bombing, LAAT/i support; package resident"
+        : "Fighter strafe/110mm, Bomber bombing; package resident";
+}
 
 typedef struct Snapshot { uintptr_t unitAt, eagleAt; unsigned char unit[136], eagle[152]; } Snapshot;
 
@@ -105,7 +120,7 @@ static int SnapshotAll(Snapshot out[DELIVERY_COUNT])
 static uint64_t Model(const Snapshot* s) { uint64_t value; memcpy(&value, s->unit, 8); return value; }
 static int ModelsCorrect(const Snapshot all[DELIVERY_COUNT])
 {
-    for (size_t i = 0; i < DELIVERY_COUNT; i++) if (Model(&all[i]) != deliveries[i].model) return 0;
+    for (size_t i = 0; i < DELIVERY_COUNT; i++) if (Model(&all[i]) != DeliveryModel(i)) return 0;
     return 1;
 }
 
@@ -134,6 +149,20 @@ static void RefreshSortieCount(void)
     if (count > g_peakConcurrentSorties) g_peakConcurrentSorties = count;
 }
 
+static void UpdateActiveSortieStatus(HfMod* mod)
+{
+    if (!armed || failed || !hf || !hf->set_status) return;
+    if (g_activeSortieCount > 0)
+    {
+        char status[128];
+        snprintf(status, sizeof status, "%s active sorties=%u (peak=%u); package resident",
+                 g_activePack == TIE_PACK_CLONES ? "Republic air wing" : "TIE",
+                 g_activeSortieCount, g_peakConcurrentSorties);
+        hf->set_status(mod, status);
+    }
+    else hf->set_status(mod, IdleReadyStatus());
+}
+
 static void PruneExpiredSorties(HfMod* mod, uint64_t now)
 {
     int changed = 0;
@@ -151,17 +180,7 @@ static void PruneExpiredSorties(HfMod* mod, uint64_t now)
     if (changed)
     {
         RefreshSortieCount();
-        if (armed && !failed && hf && hf->set_status)
-        {
-            if (g_activeSortieCount > 0)
-            {
-                char status[128];
-                snprintf(status, sizeof status, "TIE active sorties=%u (peak=%u); package resident",
-                         g_activeSortieCount, g_peakConcurrentSorties);
-                hf->set_status(mod, status);
-            }
-            else hf->set_status(mod, "Fighter strafe/110mm, Bomber bombing; package resident");
-        }
+        UpdateActiveSortieStatus(mod);
     }
 }
 
@@ -198,27 +217,34 @@ static int Apply(HfMod* mod)
     { Fail(mod, "delivery records absent, shared or wrong stride"); return 0; }
     for (size_t i = 0; i < DELIVERY_COUNT; i++)
     {
-        uint64_t current = Model(&before[i]); HfLuaValue live = {0};
+        uint64_t target = DeliveryModel(i);
+        uint64_t current = Model(&before[i]);
+        HfLuaValue live;
+        memset(&live, 0, sizeof live);
         if (!bridgeGet(bridgeMod, UNIT, deliveries[i].entity, 0, HF_TYPE_U64, &live) || live.now_u64 != current ||
-            (current != FLIGHT && !(applied && current == deliveries[i].model)))
+            (current != FLIGHT && !(applied && current == target)))
         { Fail(mod, "delivery model conflict or unreadable bridge field"); return 0; }
     }
     for (size_t i = 0; i < DELIVERY_COUNT; i++)
-        if (!bridgeSet(bridgeMod, UNIT, deliveries[i].entity, 0, HF_TYPE_U64, 0, deliveries[i].model, 0))
+    {
+        uint64_t target = DeliveryModel(i);
+        if (!bridgeSet(bridgeMod, UNIT, deliveries[i].entity, 0, HF_TYPE_U64, 0, target, 0))
         { Fail(mod, "model assignment refused, rollback requested"); return 0; }
+    }
     if (!SnapshotAll(after) || !ModelsCorrect(after))
     { Fail(mod, "model readback failed, rollback requested"); return 0; }
     for (size_t i = 0; i < DELIVERY_COUNT; i++)
     {
+        uint64_t target = DeliveryModel(i);
         if (after[i].unitAt != before[i].unitAt || after[i].eagleAt != before[i].eagleAt ||
             memcmp(after[i].unit+8, before[i].unit+8, 128) || memcmp(after[i].eagle, before[i].eagle, 152))
         { Fail(mod, "delivery storage or non-model controls changed"); return 0; }
         hf->log(mod, "assigned delivery=%s entity=%016llx model=%016llx unit=%p eagle=%p controls=exact package=resident",
-            deliveries[i].name, (unsigned long long)deliveries[i].entity, (unsigned long long)deliveries[i].model,
+            deliveries[i].name, (unsigned long long)deliveries[i].entity, (unsigned long long)target,
             (void*)after[i].unitAt, (void*)after[i].eagleAt);
     }
     applied = armed = 1;
-    hf->set_status(mod, "Fighter strafe/110mm, Bomber bombing; package resident");
+    hf->set_status(mod, IdleReadyStatus());
     return 1;
 }
 
@@ -253,7 +279,8 @@ static int AcquireEagleDirect(HfMod* mod, uint64_t now)
     uintptr_t ebase = hf->module_base("helldivers2.exe", &esize);
 
     if (!directPinsChecked) {
-        char err[192] = {0};
+        char err[192];
+        err[0] = 0;
         directPinsChecked = 1;
         directPinsOk = TieVerifyPackagePins(hf->read_code, gbase, gsize, ebase, esize, err, sizeof err);
         if (!directPinsOk) {
@@ -354,7 +381,7 @@ static void StateChange(HfMod* mod, const HfStateEvent* event, void* user)
         hf->log(mod, "cleared %u active Eagle sorties on mission exit (to=%u)", g_activeSortieCount, event->to);
         ClearSorties();
         if (armed && !failed && hf && hf->set_status)
-            hf->set_status(mod, "Fighter strafe/110mm, Bomber bombing; package resident");
+            hf->set_status(mod, IdleReadyStatus());
     }
 }
 
@@ -395,7 +422,7 @@ static void Tick(HfMod* mod, float dt, void* user)
     if (package != lastPackage)
     {
         hf->log(mod, "Eagle package=%016llx state=%d direct=%d closure_parts=%zu",
-            (unsigned long long)EAGLE_PACKAGE, package, directPkgMode, ASSET_COUNT);
+            (unsigned long long)EAGLE_PACKAGE, package, directPkgMode, activeAssetCount);
         lastPackage = package;
     }
     if (!package) { Fail(mod, "Eagle package request failed"); return; }
@@ -419,6 +446,7 @@ static void Spawn(HfMod* mod, const HfSpawnEvent* event, void* user)
     {
         Snapshot current[DELIVERY_COUNT];
         int correct = armed && SnapshotAll(current) && ModelsCorrect(current);
+        uint64_t expectedModel = DeliveryModel(i);
 
         int matchedSlot = -1;
         int bestBeacon = -1;
@@ -458,21 +486,14 @@ static void Spawn(HfMod* mod, const HfSpawnEvent* event, void* user)
         slot->deliveryIdx = (int)i;
         slot->playerSlot = matchedSlot;
         slot->resource = event->resource;
-        slot->model = deliveries[i].model;
+        slot->model = expectedModel;
         slot->startedMs = now;
         RefreshSortieCount();
-
-        if (armed && !failed && hf && hf->set_status && g_activeSortieCount > 0)
-        {
-            char status[128];
-            snprintf(status, sizeof status, "TIE active sorties=%u (peak=%u); package resident",
-                     g_activeSortieCount, g_peakConcurrentSorties);
-            hf->set_status(mod, status);
-        }
+        UpdateActiveSortieStatus(mod);
 
         hf->log(mod, "spawn delivery=%s resource=%016llx entity=%u network=%u authority=%u slot=%d expected_model=%016llx definition_verified=%d package_state=%d sortie_id=%u active_sorties=%u",
             deliveries[i].name, (unsigned long long)event->resource, event->entity, event->network,
-            event->authority, matchedSlot, (unsigned long long)deliveries[i].model, correct, lastPackage,
+            event->authority, matchedSlot, (unsigned long long)expectedModel, correct, lastPackage,
             slot->sortieId, g_activeSortieCount);
     }
 }
@@ -514,7 +535,9 @@ HF_MOD_EXPORT int hellforge_mod_init(const HfApi* api, HfMod* mod)
     BIND(bridgeInfo, "hellforge_lua_info"); BIND(bridgeRegister, "hellforge_lua_mod");
     BIND(bridgeSet, "hellforge_lua_set"); BIND(bridgeClear, "hellforge_lua_clear"); BIND(bridgeGet, "hellforge_lua_get");
 #undef BIND
-    HfLuaInfo info = {sizeof info};
+    HfLuaInfo info;
+    memset(&info, 0, sizeof info);
+    info.size = sizeof info;
     if (!bridgeInfo || !bridgeRegister || !bridgeSet || !bridgeClear || !bridgeGet || !bridgeInfo(&info) ||
         info.sdk < 16 || info.bridge != 3 || !info.build || strcmp(info.build, "25480438")) return 1;
     HMODULE bcrypt = LoadLibraryW(L"bcrypt.dll");
@@ -531,6 +554,7 @@ HF_MOD_EXPORT int hellforge_mod_init(const HfApi* api, HfMod* mod)
     if (hf_on_entities_ready(mod, Ready, NULL) || hf_on_game_thread(mod, Tick, NULL) ||
         hf_on_spawn(mod, Spawn, NULL, 0) || hf_on_stratagem(mod, Stratagem, NULL, 0)) return 1;
     hf_on_state(mod, StateChange, NULL, 0);
-    hf->log(mod, "qualified staged closure parts=%zu; waiting for Eagle package residency (v0.3.2)", ASSET_COUNT);
+    hf->log(mod, "qualified staged closure parts=%zu pack=%s; waiting for Eagle package residency (v0.4.0)",
+        activeAssetCount, g_activePack == TIE_PACK_CLONES ? "clones" : "empire");
     return 0;
 }

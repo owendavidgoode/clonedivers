@@ -3,6 +3,7 @@
 #define ATST_WRITER_CORE_H
 
 #include "atst_code_pins.h"
+#include "atst_pilot_seat.h"
 #include "atst_policy.h"
 #include "atst_walker_registry.h"
 
@@ -62,9 +63,12 @@ typedef struct __attribute__((aligned(64))) {
     uint32_t count;
     uint32_t all_meshes_resolved;
     uint32_t filter_epoch;
+    uint32_t pilot_mesh_count;
     uint32_t handles[AT_MAX_WALKERS];
     uintptr_t worlds[AT_MAX_WALKERS];
     uintptr_t mesh_ht[AT_FAST_MESH_HT_SIZE];
+    at_pilot_hide_entry pilot_meshes[AT_MAX_PILOT_HIDE_MESHES];
+    int16_t pilot_mesh_ht[AT_PILOT_MESH_HT_SIZE]; /* -1 = empty, else index into pilot_meshes */
 } at_fast_filter;
 
 typedef struct at_writer_state {
@@ -75,6 +79,9 @@ typedef struct at_writer_state {
     uintptr_t engine_base;
     at_rig rig;
     at_walker_registry reg;
+    at_pilot_state pilot;
+    uint32_t pilot_hide_count;
+    at_pilot_hide_entry pilot_hide_entries[AT_MAX_PILOT_HIDE_MESHES];
     at_safe_read_fn read_fn;
     void *read_user;
     uintptr_t peer_leaf_base;
@@ -88,6 +95,9 @@ typedef struct at_writer_state {
     at_leaf_skin_fn approved_leaf_next;
     at_render_remove_fn remove_next;
     at_render_remove_fn approved_remove_next;
+    at_camera_step_fn step_next;
+    at_camera_sub_step_fn sub_step_next;
+    uint32_t step_hooked_rva;
 
     uint32_t substitutions;
     uint32_t passthroughs;
@@ -177,6 +187,12 @@ uint64_t at_writer_retire_1E7CD0(
 
 /** Periodic game-thread reconciliation scan of UnitManager. */
 uint32_t at_writer_tick(at_writer_state *s, uint32_t max_scan);
+
+/** Pre-render step pass lifting mounted AT-ST pilots into the 2.28x cab & refreshing pilot hide meshes. */
+void at_writer_step_pilots(at_writer_state *s, uintptr_t explicit_world);
+
+/** Republish lock-free seqlock snapshot (caller must hold s->lock exclusive). */
+void at_writer_republish_fast_locked(at_writer_state *s);
 
 /** Read TLS receipt pointer if inside active 512B80 frame (diagnostic/test inspection). */
 const at_tls_frame *at_writer_current_frame(void);

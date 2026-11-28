@@ -1053,13 +1053,24 @@ static int EcpScoreWalkerUnit(uintptr_t u, EcpVec3 cam_pos, EcpVec3 cam_fwd, uin
         }
     }
 
-    EcpVec3 focus = ecp_add(wroot, ecp_v3(0.0f, 0.0f, 2.0f));
-    EcpVec3 to_focus = ecp_sub(focus, cam_pos);
-    float sq = ecp_dot(to_focus, to_focus);
-    if (sq < 1.44f || sq > *inout_best_sq) return 0;
-    EcpVec3 dir = to_focus;
-    if (!ecp_normalize(&dir) || ecp_dot(dir, cam_fwd) < 0.45f) return 0;
-    *inout_best_sq = sq;
+    EcpVec3 focus_low = ecp_add(wroot, ecp_v3(0.0f, 0.0f, 2.0f));
+    EcpVec3 to_low = ecp_sub(focus_low, cam_pos);
+    float sq_low = ecp_dot(to_low, to_low);
+    EcpVec3 dir_low = to_low;
+    int ok_low = (sq_low >= 1.44f && sq_low <= *inout_best_sq &&
+                  ecp_normalize(&dir_low) && ecp_dot(dir_low, cam_fwd) >= 0.45f);
+
+    /* Also score 2.28x film-scale AT-ST head cab focus (Z +5.8m) so raised cab cameras never fail look-up dot check. */
+    EcpVec3 focus_cab = ecp_add(wroot, ecp_v3(0.0f, 0.0f, 5.8f));
+    EcpVec3 to_cab = ecp_sub(focus_cab, cam_pos);
+    float sq_cab = ecp_dot(to_cab, to_cab);
+    EcpVec3 dir_cab = to_cab;
+    int ok_cab = (sq_cab >= 1.00f && sq_cab <= *inout_best_sq &&
+                  ecp_normalize(&dir_cab) && ecp_dot(dir_cab, cam_fwd) >= 0.45f);
+
+    if (!ok_low && !ok_cab) return 0;
+    float best = ok_low && ok_cab ? (sq_low < sq_cab ? sq_low : sq_cab) : (ok_low ? sq_low : sq_cab);
+    *inout_best_sq = best;
     return 1;
 }
 
@@ -1079,7 +1090,7 @@ static void EcpResolveWalkerSubject(
     uintptr_t best_u = 0;
     uint32_t best_ref = 0u;
     uint64_t best_res = 0ULL;
-    float best_sq = 14.0f * 14.0f;
+    float best_sq = 18.0f * 18.0f;
 
     /* Tier 0: Re-verify currently cached walker handle in O(1). */
     if (g_rt.walker_ref != 0u) {
@@ -1231,12 +1242,33 @@ static EcpProfileKind EcpSelectActiveProfile(
         uint32_t wnodes = 0;
         uintptr_t wwposes = EcpUnitWorldPosesPtr(g_rt.walker_unit, &wnodes);
         if (wwposes != 0 && EcpUnitWorldPose(g_rt.walker_unit, 0, wm) && ecp_world_pose_valid(wm, &wroot, NULL)) {
+            int film_scale_atst = 0;
+            if (g_rt.walker_pelvis_node >= 0) {
+                float pm[16];
+                EcpVec3 ppos;
+                if (EcpUnitWorldPose(g_rt.walker_unit, g_rt.walker_pelvis_node, pm) &&
+                    ecp_world_pose_valid(pm, &ppos, NULL) &&
+                    (ppos.z - wroot.z) > 3.50f) {
+                    film_scale_atst = 1;
+                }
+            }
+
             EcpVec3 focus = ecp_add(wroot, ecp_v3(0.0f, 0.0f, 2.0f));
             EcpVec3 to_focus = ecp_sub(focus, cam_pos);
             float dist_focus = ecp_len(to_focus);
             EcpVec3 dir_focus = to_focus;
             int in_front = dist_focus >= 1.20f && dist_focus <= 14.0f &&
                            ecp_normalize(&dir_focus) && ecp_dot(dir_focus, cam_fwd) >= 0.45f;
+            if (!in_front && film_scale_atst) {
+                EcpVec3 cab_focus = ecp_add(wroot, ecp_v3(0.0f, 0.0f, 5.80f));
+                EcpVec3 to_cab = ecp_sub(cab_focus, cam_pos);
+                float dist_cab = ecp_len(to_cab);
+                EcpVec3 dir_cab = to_cab;
+                if (dist_cab >= 1.20f && dist_cab <= 18.0f &&
+                    ecp_normalize(&dir_cab) && ecp_dot(dir_cab, cam_fwd) >= 0.35f) {
+                    in_front = 1;
+                }
+            }
 
             int local_piloting = 0;
             if (in_front) {
@@ -1256,8 +1288,9 @@ static EcpProfileKind EcpSelectActiveProfile(
                     }
                     float xy = ecp_xy_dist(aroot, wroot);
                     float dz = aroot.z - wroot.z;
-                    if (!sights && ((xy <= 0.85f && fabsf(dz) <= 4.80f) ||
-                                    (xy <= 1.75f && dz >= 0.75f && dz <= 4.80f))) {
+                    float max_dz = film_scale_atst ? 7.50f : 4.80f;
+                    if (!sights && ((xy <= 1.25f && dz >= -4.80f && dz <= max_dz) ||
+                                    (xy <= 1.75f && dz >= 0.75f && dz <= max_dz))) {
                         local_piloting = 1;
                     }
                 }
@@ -1273,20 +1306,17 @@ static EcpProfileKind EcpSelectActiveProfile(
                     return ECP_PROFILE_NONE;
                 }
 
-                int film_scale_atst = 0;
-                if (g_rt.walker_pelvis_node >= 0) {
-                    float pm[16];
-                    EcpVec3 ppos;
-                    if (EcpUnitWorldPose(g_rt.walker_unit, g_rt.walker_pelvis_node, pm) &&
-                        ecp_world_pose_valid(pm, &ppos, NULL) &&
-                        (ppos.z - wroot.z) > 3.50f) {
-                        film_scale_atst = 1;
-                    }
-                }
                 *out_bypass = ECP_BYPASS_NONE;
                 if (film_scale_atst) {
+                    float eff_lift = g_opts.atst_scaled_lift_z;
+                    float cam_rel_z = cam_pos.z - wroot.z;
+                    if (cam_rel_z >= 5.20f && eff_lift > 0.0f) {
+                        float cap_lift = 7.60f - cam_rel_z;
+                        if (cap_lift < 0.0f) cap_lift = 0.0f;
+                        if (eff_lift > cap_lift) eff_lift = cap_lift;
+                    }
                     *out_pullback = g_opts.atst_scaled_pullback_distance;
-                    *out_lift_z = g_opts.atst_scaled_lift_z;
+                    *out_lift_z = eff_lift;
                     return ECP_PROFILE_WALKER_ATST_SCALED;
                 }
                 *out_pullback = g_opts.walker_pullback_distance;
@@ -1940,7 +1970,7 @@ static void EcpOnGameLoaded(HfMod* mod, HfEvent event, void* user)
         g_hf->log(mod, "note: allow_experimental_spring_arm is set, but raw game.dll .data spring-arm writes remain disabled in 0.1.5; using verified post-solve Havok raycast clamp");
     }
     if (g_hf->log) {
-        g_hf->log(mod, "ready v0.1.5 (O(1) lookup + hot-prefix cam + Proton fallback, watchdog=%lluus): walker=%.2fm/+%.2fm (AT-ST=%.2fm/+%.2fm), lego=%s (%.2fm/%+.2fm), margin=%.2fm",
+        g_hf->log(mod, "ready v0.1.6 (O(1) lookup + raised AT-ST cab + Proton fallback, watchdog=%lluus): walker=%.2fm/+%.2fm (AT-ST=%.2fm/+%.2fm), lego=%s (%.2fm/%+.2fm), margin=%.2fm",
             (unsigned long long)ECP_WATCHDOG_WARN_US,
             g_opts.walker_pullback_distance, g_opts.walker_lift_z,
             g_opts.atst_scaled_pullback_distance, g_opts.atst_scaled_lift_z,

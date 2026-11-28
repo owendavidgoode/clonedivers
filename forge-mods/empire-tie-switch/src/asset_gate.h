@@ -1,10 +1,15 @@
 /* Effective staged-patch reader, adapted from empire-lego-yoda's visual_gate.h.
- * 0.3.1: Verifies all 5 EmpireDivers texture tiers ([0]=full, [1]=lighter, [2]=reduced1024, [3]=reduced512, [4]=potato256)
- * with cross-part tier coherence (TIE_ALL_TIERS_MASK = 0x1Fu). */
+ * 0.4.0: Verifies either the 5-tier EmpireDivers TIE closure (assets[]) or the 5-tier Clonedivers r26
+ * Republic air wing closure (cloneAssets[]) across [0]=full, [1]=lighter, [2]=reduced1024, [3]=reduced512,
+ * [4]=potato256 with cross-part tier coherence (TIE_ALL_TIERS_MASK = 0x1Fu). */
 #pragma once
 #include <bcrypt.h>
 #define TIE_TIER_COUNT 5u
 #define TIE_ALL_TIERS_MASK ((uint8_t)((1u << TIE_TIER_COUNT) - 1u))
+#define TIE_PACK_NONE   0
+#define TIE_PACK_EMPIRE 1
+#define TIE_PACK_CLONES 2
+
 typedef struct ArchiveRow { uint64_t q[7]; uint32_t d[6]; } ArchiveRow;
 _Static_assert(sizeof(ArchiveRow) == 80, "archive row");
 typedef struct Proof
@@ -15,9 +20,18 @@ typedef struct Proof
     BY_HANDLE_FILE_INFORMATION info;
     int found;
 } Proof;
+
 #define ASSET_COUNT (sizeof assets / sizeof assets[0])
-static Proof proofs[ASSET_COUNT];
+#define MAX_ASSET_COUNT 256u
+_Static_assert(ASSET_COUNT <= MAX_ASSET_COUNT, "empire asset closure exceeds MAX_ASSET_COUNT");
+_Static_assert(CLONE_ASSET_COUNT <= MAX_ASSET_COUNT, "clones asset closure exceeds MAX_ASSET_COUNT");
+
+static Proof proofs[MAX_ASSET_COUNT];
+static const Asset* activeAssets = assets;
+static size_t activeAssetCount = ASSET_COUNT;
+static int g_activePack = TIE_PACK_EMPIRE;
 static char assetError[2400];
+
 static int AssetError(const char* why, const Asset* a, const wchar_t* path)
 {
     if (a)
@@ -96,16 +110,16 @@ static int Part(Proof* p, const Asset* a, uint8_t* ioTierMask)
 static int AssetsUnchanged(void)
 {
     const wchar_t* suffixes[] = {L"", L".stream", L".gpu_resources"};
-    for (size_t i = 0; i < ASSET_COUNT; i++)
+    for (size_t i = 0; i < activeAssetCount; i++)
     {
         wchar_t path[1100]; BY_HANDLE_FILE_INFORMATION info;
-        if (!proofs[i].found) return AssetError("missing staged proof; restart required", &assets[i], NULL);
-        if (swprintf(path, 1100, L"%ls%ls", proofs[i].path, suffixes[assets[i].part]) < 0)
-            return AssetError("staged payload path too long", &assets[i], proofs[i].path);
+        if (!proofs[i].found) return AssetError("missing staged proof; restart required", &activeAssets[i], NULL);
+        if (swprintf(path, 1100, L"%ls%ls", proofs[i].path, suffixes[activeAssets[i].part]) < 0)
+            return AssetError("staged payload path too long", &activeAssets[i], proofs[i].path);
         HANDLE file = OpenRead(path);
         int ok = file != INVALID_HANDLE_VALUE && GetFileInformationByHandle(file, &info) && SameInfo(&info, &proofs[i].info);
         if (file != INVALID_HANDLE_VALUE) CloseHandle(file);
-        if (!ok) return AssetError("staged payload file missing or changed; restart required", &assets[i], path);
+        if (!ok) return AssetError("staged payload file missing or changed; restart required", &activeAssets[i], path);
     }
     return 1;
 }
@@ -122,10 +136,43 @@ static int PatchName(const wchar_t* name, unsigned* index)
     }
     *index = n; return 1;
 }
+static int RecordRowInSet(
+    const Asset* set,
+    size_t setCount,
+    Proof* setProofs,
+    const ArchiveRow* row,
+    const wchar_t* fileName,
+    const wchar_t* fullPath,
+    unsigned index)
+{
+    for (size_t i = 0; i < setCount; i++)
+    {
+        if (row->q[0] == set[i].name && row->q[1] == set[i].type)
+        {
+            Proof* p = &setProofs[i];
+            const wchar_t* prior = wcsrchr(p->path, L'\\');
+            if (p->found && (!prior || wcsncmp(prior+1, fileName, 16) || p->index == index))
+                return AssetError("ambiguous archive provider", &set[i], fullPath);
+            if (!p->found || index > p->index)
+            {
+                wcscpy(p->path, fullPath);
+                p->row = *row;
+                p->index = index;
+                p->found = 1;
+            }
+        }
+    }
+    return 1;
+}
 static int ScanAssets(const wchar_t* directory)
 {
     wchar_t pattern[1100]; WIN32_FIND_DATAW entry;
-    memset(proofs, 0, sizeof proofs); assetError[0] = 0;
+    static Proof empProofs[ASSET_COUNT];
+    static Proof clnProofs[CLONE_ASSET_COUNT];
+    memset(proofs, 0, sizeof proofs);
+    memset(empProofs, 0, sizeof empProofs);
+    memset(clnProofs, 0, sizeof clnProofs);
+    assetError[0] = 0;
     if (swprintf(pattern, 1100, L"%ls\\*.patch_*", directory) < 0) return AssetError("staged directory path too long", NULL, directory);
     HANDLE scan = FindFirstFileW(pattern, &entry);
     if (scan == INVALID_HANDLE_VALUE) return AssetError("no readable staged patches", &assets[0], directory);
@@ -145,23 +192,61 @@ static int ScanAssets(const wchar_t* directory)
         {
             ArchiveRow row;
             if (!ReadAt(file, 72ull+32ull*head[1]+80ull*r, &row, sizeof row)) { ok = AssetError("archive row unreadable", NULL, path); break; }
-            for (size_t i = 0; i < ASSET_COUNT; i++) if (row.q[0] == assets[i].name && row.q[1] == assets[i].type)
-            {
-                Proof* p = &proofs[i]; const wchar_t* prior = wcsrchr(p->path, L'\\');
-                if (p->found && (!prior || wcsncmp(prior+1, entry.cFileName, 16) || p->index == index))
-                { ok = AssetError("ambiguous archive provider", &assets[i], path); break; }
-                if (!p->found || index > p->index) { wcscpy(p->path, path); p->row = row; p->index = index; p->found = 1; }
-            }
+            if (!RecordRowInSet(assets, ASSET_COUNT, empProofs, &row, entry.cFileName, path, index)) { ok = 0; break; }
+            if (!RecordRowInSet(cloneAssets, CLONE_ASSET_COUNT, clnProofs, &row, entry.cFileName, path, index)) { ok = 0; break; }
         }
         CloseHandle(file);
     } while (ok && FindNextFileW(scan, &entry));
     if (ok && GetLastError() != ERROR_NO_MORE_FILES) ok = AssetError("archive enumeration failed", NULL, directory);
     FindClose(scan);
-    uint8_t tierMask = TIE_ALL_TIERS_MASK;
-    if (ok) for (size_t i = 0; i < ASSET_COUNT; i++)
+    if (!ok) return 0;
+
+    size_t empFound = 0, clnFound = 0;
+    for (size_t i = 0; i < ASSET_COUNT; i++) if (empProofs[i].found) empFound++;
+    for (size_t i = 0; i < CLONE_ASSET_COUNT; i++) if (clnProofs[i].found) clnFound++;
+
+    if (empFound == ASSET_COUNT)
     {
-        if (!proofs[i].found) { ok = AssetError("missing staged resource", &assets[i], NULL); break; }
-        if (!Part(&proofs[i], &assets[i], &tierMask)) { ok = 0; break; }
+        uint8_t tierMask = TIE_ALL_TIERS_MASK;
+        int empOk = 1;
+        for (size_t i = 0; i < ASSET_COUNT; i++)
+            if (!Part(&empProofs[i], &assets[i], &tierMask)) { empOk = 0; break; }
+        if (empOk)
+        {
+            memcpy(proofs, empProofs, sizeof empProofs);
+            activeAssets = assets;
+            activeAssetCount = ASSET_COUNT;
+            g_activePack = TIE_PACK_EMPIRE;
+            assetError[0] = 0;
+            return 1;
+        }
+        if (clnFound < CLONE_ASSET_COUNT) return 0;
     }
-    return ok;
+
+    if (clnFound == CLONE_ASSET_COUNT)
+    {
+        uint8_t tierMask = TIE_ALL_TIERS_MASK;
+        int clnOk = 1;
+        for (size_t i = 0; i < CLONE_ASSET_COUNT; i++)
+            if (!Part(&clnProofs[i], &cloneAssets[i], &tierMask)) { clnOk = 0; break; }
+        if (clnOk)
+        {
+            memcpy(proofs, clnProofs, sizeof clnProofs);
+            activeAssets = cloneAssets;
+            activeAssetCount = CLONE_ASSET_COUNT;
+            g_activePack = TIE_PACK_CLONES;
+            assetError[0] = 0;
+            return 1;
+        }
+        return 0;
+    }
+
+    if (clnFound > empFound)
+    {
+        for (size_t i = 0; i < CLONE_ASSET_COUNT; i++)
+            if (!clnProofs[i].found) return AssetError("missing staged resource", &cloneAssets[i], NULL);
+    }
+    for (size_t i = 0; i < ASSET_COUNT; i++)
+        if (!empProofs[i].found) return AssetError("missing staged resource", &assets[i], NULL);
+    return 0;
 }

@@ -415,8 +415,8 @@ static void build_s2c_graph_from_clip(
 
 static HfEventCallback g_dll_game_loaded_cb = NULL;
 static HfEventCallback g_dll_session_end_cb = NULL;
-static uintptr_t g_dll_hook_targets[4];
-static int32_t g_dll_hook_priorities[4];
+static uintptr_t g_dll_hook_targets[8];
+static int32_t g_dll_hook_priorities[8];
 static uint32_t g_dll_hook_count = 0;
 static uint32_t g_dll_peer_module_queries = 0;
 static uintptr_t g_dll_fake_peer_base = 0;
@@ -474,7 +474,7 @@ static int mock_hf_on_game_thread(HfMod *mod, HfTickCallback cb, void *user) {
 }
 static int mock_hf_hook_ex(HfMod *mod, uintptr_t target, void *detour, void **original, int32_t priority) {
     (void)mod;
-    if (!detour || !original || g_dll_hook_count >= 4u) return 1;
+    if (!detour || !original || g_dll_hook_count >= 8u) return 1;
     g_dll_hook_targets[g_dll_hook_count] = target;
     g_dll_hook_priorities[g_dll_hook_count] = priority;
     g_dll_hook_count++;
@@ -547,7 +547,7 @@ static void test_code_pins_and_dll_handshake(uint8_t *eng) {
     TEST_ASSERT(init_fn(&api, (HfMod *)&fake_mod_slot) == 0, "hellforge_mod_init forward-compatible SDK-20 handshake");
     TEST_ASSERT(g_dll_game_loaded_cb != NULL && g_dll_session_end_cb != NULL, "registered load & session callbacks");
     g_dll_game_loaded_cb((HfMod *)&fake_mod_slot, HF_EVENT_GAME_LOADED, NULL);
-    TEST_ASSERT(g_dll_hook_count == 3u, "OnGameLoaded registered all 3 hooks");
+    TEST_ASSERT(g_dll_hook_count == 4u, "OnGameLoaded registered all 4 hooks (leaf, skin, retire, camera_step)");
     TEST_ASSERT(g_dll_spawn_subscribed == 1u, "OnGameLoaded subscribed to HF_ON_SPAWN burst trigger");
     TEST_ASSERT(g_dll_hook_targets[0] == (uintptr_t)eng + AT_RVA_LEAF_SKIN && g_dll_hook_priorities[0] == -10,
                 "5B2990 hooked at priority -10");
@@ -555,6 +555,8 @@ static void test_code_pins_and_dll_handshake(uint8_t *eng) {
                 "512B80 hooked at priority -10");
     TEST_ASSERT(g_dll_hook_targets[2] == (uintptr_t)eng + AT_RVA_RENDER_REMOVE && g_dll_hook_priorities[2] == -10,
                 "1E7CD0 hooked at priority -10");
+    TEST_ASSERT(g_dll_hook_targets[3] == (uintptr_t)eng + AT_RVA_CAMERA_STEP && g_dll_hook_priorities[3] == -5,
+                "689BC0 camera step hooked at priority -5 before camera pullback");
     TEST_ASSERT(g_dll_peer_module_queries == 1u, "OnGameLoaded queried lego_compact_leaf_writer.dll module_base");
     g_dll_session_end_cb((HfMod *)&fake_mod_slot, HF_EVENT_SESSION_END, NULL);
 
@@ -1433,6 +1435,286 @@ static void test_stingray_4byte_topology_and_subnormal_resilience(at_writer_stat
     printf("[PASS] test_stingray_4byte_topology_and_subnormal_resilience\n");
 }
 
+typedef struct {
+    unsigned char hdr[0x1F0];
+    uint64_t resource_id;
+    unsigned char scene_graph[0x40];
+    float local_poses[128][16];
+    float world_poses[128][16];
+    struct { uint16_t type; uint16_t parent; } topology[128];
+    unsigned char mesh_entries[16];
+    unsigned char mesh_desc[0x20];
+    unsigned char mesh_obj[0xE0];
+    uint32_t pal[4];
+    uint32_t map[4];
+    at_render48 dst[4] __attribute__((aligned(16)));
+} sim_pilot_unit;
+
+static sim_pilot_unit *g_pilot_graph_units[8];
+static uint32_t g_pilot_graph_unit_cnt = 0u;
+static uint32_t g_pilot_set_pose_calls = 0u;
+static uint32_t g_pilot_update_calls = 0u;
+static float g_pilot_last_pose[16];
+static sim_pilot_unit *g_pilot_avatar_mut = NULL;
+
+static uintptr_t sim_pilot_unit_graph(uintptr_t u) {
+    for (uint32_t i = 0; i < g_pilot_graph_unit_cnt; i++) {
+        if ((uintptr_t)g_pilot_graph_units[i]->hdr == u) {
+            return (uintptr_t)g_pilot_graph_units[i]->scene_graph;
+        }
+    }
+    return 0u;
+}
+
+static void sim_pilot_set_local_pose(uint32_t unit_ref, int32_t node, const float pose[16]) {
+    if (node == 0 && pose) {
+        g_pilot_set_pose_calls++;
+        memcpy(g_pilot_last_pose, pose, sizeof(g_pilot_last_pose));
+        if (g_pilot_avatar_mut && unit_ref == 0x220011u) {
+            memcpy(g_pilot_avatar_mut->local_poses[0], pose, 64u);
+        }
+    }
+}
+
+static void sim_pilot_update_unit(uintptr_t world, uintptr_t unit) {
+    (void)world;
+    (void)unit;
+    g_pilot_update_calls++;
+}
+
+static uint32_t sim_pilot_skin_next(void *mesh_p, void *pool_p, void *opt_graph) {
+    (void)pool_p;
+    (void)opt_graph;
+    for (uint32_t i = 0; i < g_pilot_graph_unit_cnt; i++) {
+        sim_pilot_unit *pu = g_pilot_graph_units[i];
+        if ((void *)pu->mesh_obj == mesh_p) {
+            for (unsigned k = 0; k < 4u; k++) {
+                pu->dst[k] = (at_render48){{
+                    1.0f, 0.0f, 0.0f, (float)k * 0.2f,
+                    0.0f, 1.0f, 0.0f, -1.08f,
+                    0.0f, 0.0f, 1.0f, 6.52f
+                }};
+            }
+            return at_writer_leaf_5B2990(
+                g_hook_state, pu->dst, pu->dst, pu->dst, pu->dst,
+                pu->pal, pu->map, 4u, (uintptr_t)g_fake_engine + AT_RVA_LEAF_CUR_RET);
+        }
+    }
+    return sim_skin_next(mesh_p, pool_p, opt_graph);
+}
+
+static void init_sim_pilot_unit(
+    sim_pilot_unit *pu,
+    sim_render_sys *rs,
+    uintptr_t eng_base,
+    uint32_t ref,
+    uint64_t res_id,
+    uint32_t nodes,
+    uint32_t graph_handle_idx,
+    uint32_t mesh_handle_idx) {
+    memset(pu, 0, sizeof(*pu));
+    pu->resource_id = res_id;
+    w_u64(pu->hdr, 0x00u, (uint64_t)(eng_base + AT_RVA_UNIT_VTABLE));
+    w_u32(pu->hdr, 0x08u, ref);
+    w_u64(pu->hdr, 0x30u, (uint64_t)(uintptr_t)&pu->resource_id);
+    w_u32(pu->hdr, 0x64u, 64u | graph_handle_idx);
+    w_u64(pu->hdr, 0x68u, (uint64_t)((uintptr_t)rs->mgr + 0x10u));
+    w_u32(pu->hdr, 0x70u, nodes);
+    w_u64(pu->hdr, 0x98u, (uint64_t)(uintptr_t)pu->topology);
+    w_u32(pu->hdr, 0xC8u, 1u);
+    w_u64(pu->hdr, 0xD0u, (uint64_t)(uintptr_t)pu->mesh_entries);
+
+    w_u32(pu->scene_graph, 0x10u, nodes);
+    w_u64(pu->scene_graph, 0x20u, (uint64_t)(uintptr_t)pu->local_poses);
+    w_u64(pu->scene_graph, 0x28u, (uint64_t)(uintptr_t)pu->world_poses);
+
+    pu->local_poses[0][0] = 1.0f;
+    pu->local_poses[0][4] = 1.0f;
+    pu->local_poses[0][8] = 1.0f;
+    pu->local_poses[0][12] = 1.0f;
+    pu->local_poses[0][13] = 1.0f;
+    pu->local_poses[0][14] = 1.0f;
+
+    uint32_t mh = 64u | mesh_handle_idx;
+    w_u64(pu->mesh_entries, 0u, (uint64_t)(uintptr_t)pu->mesh_desc);
+    w_u32(pu->mesh_desc, 4u, mh);
+    w_u64(pu->mesh_desc, 8u, (uint64_t)((uintptr_t)rs->mgr + 0x10u));
+
+    w_u64(pu->mesh_obj, 0x00u, (uint64_t)(eng_base + 0x1688950ULL));
+    w_u32(pu->mesh_obj, 0x08u, 3u);
+    rs->handles[mesh_handle_idx] = mh;
+    rs->map[mesh_handle_idx] = mesh_handle_idx;
+    rs->objects[mesh_handle_idx] = (uintptr_t)pu->mesh_obj;
+    rs->types[mesh_handle_idx] = 3u;
+
+    for (uint32_t k = 0; k < 4u; k++) {
+        pu->pal[k] = k;
+        pu->map[k] = k;
+    }
+}
+
+static uintptr_t g_custom_walker_ptr;
+static uintptr_t g_custom_walker_sg;
+
+static uintptr_t custom_graph_lookup(uintptr_t u) {
+    if (u == g_custom_walker_ptr) return g_custom_walker_sg;
+    return sim_pilot_unit_graph(u);
+}
+
+static void test_mounted_pilot_cab_lift_and_lower_body_hide(
+    at_writer_state *ws,
+    sim_unit_mgr *um,
+    sim_render_sys *rs) {
+    at_writer_shutdown(ws);
+    memset(um->slots, 0, sizeof(um->slots));
+    InterlockedExchange(&ws->ready, 1);
+
+    /*Verify garment lookup tables are strictly sorted & non-overlapping */
+    TEST_ASSERT(at_is_lego_lower_garment(0x4D2F00B6C4929F00ULL) == 1, "Empire baked hips is lower garment");
+    TEST_ASSERT(at_is_lego_lower_garment(0x7305FDF48136C05CULL) == 1, "Empire baked leg is lower garment");
+    TEST_ASSERT(at_is_lego_lower_garment(0xF19F70AF86F4CDB0ULL) == 1, "Stormtrooper lean hips is lower garment");
+    TEST_ASSERT(at_is_lego_lower_garment(0xBB11C8041C14C747ULL) == 0, "Empire baked torso is NOT lower garment");
+    TEST_ASSERT(at_is_any_lego_garment(0xBB11C8041C14C747ULL) == 1, "Empire baked torso IS recognized upper garment");
+
+    sim_walker w;
+    bind_walker(&w, um, rs, (uintptr_t)g_fake_engine, 0u, 1u, 10u, 0u);
+    at_mat4 id = {{1,0,0,0, 0,1,0,0, 0,0,1,0, 0,0,0,1}};
+    build_s2c_graph_from_clip(&ws->rig, AT_CLIP_POSES[0].native_local, &id, w.graph.cur);
+    build_s2c_graph_from_clip(&ws->rig, AT_CLIP_POSES[0].native_local, &id, w.graph.prev);
+    TEST_ASSERT(at_writer_tick(ws, 16u) == 1u, "admit walker for pilot cab test");
+
+    sim_pilot_unit walker_sg_holder;
+    memset(&walker_sg_holder, 0, sizeof(walker_sg_holder));
+    /* Point walker_unit's scene_graph lookup at walker_sg_holder while keeping w.unit as walker_unit */
+    for (unsigned k = 0; k < AT_S2C_NODES; k++) {
+        const at_render48 *r = &w.graph.cur[k];
+        float *m = walker_sg_holder.world_poses[k];
+        m[0] = r->v[0]; m[4] = r->v[1]; m[8]  = r->v[2];  m[12] = r->v[3];
+        m[1] = r->v[4]; m[5] = r->v[5]; m[9]  = r->v[6];  m[13] = r->v[7];
+        m[2] = r->v[8]; m[6] = r->v[9]; m[10] = r->v[10]; m[14] = r->v[11];
+        m[15] = 1.0f;
+    }
+    w_u32(walker_sg_holder.scene_graph, 0x10u, AT_S2C_NODES);
+    w_u64(walker_sg_holder.scene_graph, 0x28u, (uint64_t)(uintptr_t)walker_sg_holder.world_poses);
+
+    /* Verify direct cab local pose math: native attach_driver Z=2.68m -> lifted cab Z~6.52m, det==+1.0 */
+    float base_id[16] = {1,0,0, 0,1,0, 0,0,1, 0,0,0, 1,1,1, 0};
+    float lifted_pose[16] = {0};
+    TEST_ASSERT(at_pilot_compute_cab_local_pose(&ws->rig, walker_sg_holder.world_poses, AT_S2C_ATTACH_DRIVER_NODE, base_id, lifted_pose) == 1,
+                "at_pilot_compute_cab_local_pose succeeds");
+    const float *wp39 = walker_sg_holder.world_poses[AT_S2C_ATTACH_DRIVER_NODE];
+    const float *exp_cab = AT_CLIP_POSES[0].expected_world[66];
+    double exp_wx = exp_cab[0]*AT_PILOT_CAB_OFFSET_X + exp_cab[1]*AT_PILOT_CAB_OFFSET_Y + exp_cab[2]*AT_PILOT_CAB_OFFSET_Z + exp_cab[3];
+    double exp_wy = exp_cab[4]*AT_PILOT_CAB_OFFSET_X + exp_cab[5]*AT_PILOT_CAB_OFFSET_Y + exp_cab[6]*AT_PILOT_CAB_OFFSET_Z + exp_cab[7];
+    double exp_wz = exp_cab[8]*AT_PILOT_CAB_OFFSET_X + exp_cab[9]*AT_PILOT_CAB_OFFSET_Y + exp_cab[10]*AT_PILOT_CAB_OFFSET_Z + exp_cab[11];
+    double world_x = wp39[0]*lifted_pose[9] + wp39[4]*lifted_pose[10] + wp39[8]*lifted_pose[11]  + wp39[12];
+    double world_y = wp39[1]*lifted_pose[9] + wp39[5]*lifted_pose[10] + wp39[9]*lifted_pose[11]  + wp39[13];
+    double world_z = wp39[2]*lifted_pose[9] + wp39[6]*lifted_pose[10] + wp39[10]*lifted_pose[11] + wp39[14];
+    TEST_ASSERT(fabs(world_x - exp_wx) < 3e-3 && fabs(world_y - exp_wy) < 3e-3 && fabs(world_z - exp_wz) < 3e-3 && world_z > 6.50,
+                "pilot world root lifted from Z=2.68m into swaying 2.28x AT-ST head cab (Z=6.52m)");
+    double det3 = lifted_pose[0]*(lifted_pose[4]*lifted_pose[8] - lifted_pose[5]*lifted_pose[7]) -
+                  lifted_pose[1]*(lifted_pose[3]*lifted_pose[8] - lifted_pose[5]*lifted_pose[6]) +
+                  lifted_pose[2]*(lifted_pose[3]*lifted_pose[7] - lifted_pose[4]*lifted_pose[6]);
+    TEST_ASSERT(fabs(det3 - 1.0) < 1e-6 && lifted_pose[12] == 1.0f && lifted_pose[13] == 1.0f && lifted_pose[14] == 1.0f,
+                "lifted local pose preserves unit scale {1,1,1} and det==+1.0 for LEGO cm_solve_parent");
+
+    /* Full scene-graph & render-hide integration test: avatar + LEGO leg + LEGO torso + realistic armor/cape */
+    sim_pilot_unit avatar, lego_leg, lego_torso, real_armor;
+    init_sim_pilot_unit(&avatar, rs, (uintptr_t)g_fake_engine, 0x220011u, AT_HELLDIVER_AVATAR_ID, AT_HELLDIVER_NODES, 40u, 41u);
+    init_sim_pilot_unit(&lego_leg, rs, (uintptr_t)g_fake_engine, 0x220012u, 0x7305FDF48136C05CULL, 21u, 42u, 43u);
+    init_sim_pilot_unit(&lego_torso, rs, (uintptr_t)g_fake_engine, 0x220013u, 0xBB11C8041C14C747ULL, 29u, 44u, 45u);
+    init_sim_pilot_unit(&real_armor, rs, (uintptr_t)g_fake_engine, 0x220014u, 0x9999888877776666ULL, 4u, 46u, 47u);
+
+    /* Link avatar to walker node 39 (attach_driver) */
+    avatar.topology[0].type = 2u;
+    avatar.topology[0].parent = AT_S2C_ATTACH_DRIVER_NODE;
+    w_u64(avatar.scene_graph, 0x18u, (uint64_t)(uintptr_t)walker_sg_holder.world_poses);
+    w_u64(avatar.hdr, 0x1D0u, (uint64_t)(uintptr_t)w.unit.hdr);
+
+    /* Link walker -> avatar (walker.unit.hdr needs 0x1E0 bytes; allocate padded walker unit copy) */
+    unsigned char walker_padded[0x200];
+    memset(walker_padded, 0, sizeof(walker_padded));
+    memcpy(walker_padded, w.unit.hdr, sizeof(w.unit.hdr));
+    w_u64(walker_padded, 0x1D8u, (uint64_t)(uintptr_t)avatar.hdr);
+    w_u64(avatar.hdr, 0x1D0u, (uint64_t)(uintptr_t)walker_padded);
+    um->slots[0] = (uintptr_t)walker_padded;
+    ws->reg.slots[0].unit = (uintptr_t)walker_padded;
+
+    /* Link avatar -> lego_leg -> lego_torso -> real_armor */
+    w_u64(avatar.hdr, 0x1D8u, (uint64_t)(uintptr_t)lego_leg.hdr);
+    w_u64(lego_leg.hdr, 0x1E0u, (uint64_t)(uintptr_t)lego_torso.hdr);
+    w_u64(lego_torso.hdr, 0x1E0u, (uint64_t)(uintptr_t)real_armor.hdr);
+
+    /* real_armor has node 0=spine1(21), node 1=r_thigh(10), node 2=l_foot(18), node 3=cape(36) */
+    real_armor.topology[0].type = 2u; real_armor.topology[0].parent = 21u;
+    real_armor.topology[1].type = 2u; real_armor.topology[1].parent = 10u;
+    real_armor.topology[2].type = 2u; real_armor.topology[2].parent = 18u;
+    real_armor.topology[3].type = 2u; real_armor.topology[3].parent = 36u;
+
+    g_pilot_graph_units[0] = &avatar;
+    g_pilot_graph_units[1] = &lego_leg;
+    g_pilot_graph_units[2] = &lego_torso;
+    g_pilot_graph_units[3] = &real_armor;
+    g_pilot_graph_unit_cnt = 4u;
+    g_pilot_avatar_mut = &avatar;
+
+    g_custom_walker_ptr = (uintptr_t)walker_padded;
+    g_custom_walker_sg = (uintptr_t)walker_sg_holder.scene_graph;
+
+    ws->pilot.set_local_pose = sim_pilot_set_local_pose;
+    ws->pilot.update_unit = sim_pilot_update_unit;
+    ws->pilot.unit_graph_override = custom_graph_lookup;
+    at_skin_job_fn prev_skin = ws->skin_next;
+    ws->skin_next = ws->approved_skin_next = sim_pilot_skin_next;
+
+    g_pilot_set_pose_calls = 0u;
+    g_pilot_update_calls = 0u;
+    for (int f = 0; f < 20; f++) {
+        at_writer_step_pilots(ws, (uintptr_t)rs->world);
+    }
+    TEST_ASSERT(g_pilot_set_pose_calls == 20u, "20 frames wrote lifted pilot pose");
+    TEST_ASSERT(g_pilot_update_calls == 80u, "updated avatar + all 3 child units across 20 frames");
+    TEST_ASSERT(fabsf(avatar.local_poses[0][11] - lifted_pose[11]) < 1e-4f,
+                "unoverwritten-pose guard prevents cumulative Z drift across 20 paused frames");
+    TEST_ASSERT(ws->fast.pilot_mesh_count == 3u, "published avatar, lego_leg, and real_armor hide entries (skipping lego_torso)");
+
+    /* Dispatch 512B80 -> 5B2990 on lego_leg, lego_torso, and real_armor */
+    at_writer_dispatch_512B80(ws, lego_leg.mesh_obj, (void *)(rs->world + 0x318u), NULL,
+                              (uintptr_t)g_fake_engine + AT_RVA_CALLER_REST, NULL);
+    for (unsigned k = 0; k < 4u; k++) {
+        TEST_ASSERT(lego_leg.dst[k].v[0] == 0.0f && lego_leg.dst[k].v[5] == 0.0f && lego_leg.dst[k].v[10] == 0.0f &&
+                    fabsf(lego_leg.dst[k].v[11] - (6.52f + AT_PILOT_WAIST_MODEL_Z)) < 1e-3f,
+                    "LEGO leg skinning matrices collapsed to zero linear area at cab waist");
+    }
+
+    at_writer_dispatch_512B80(ws, lego_torso.mesh_obj, (void *)(rs->world + 0x318u), NULL,
+                              (uintptr_t)g_fake_engine + AT_RVA_CALLER_REST, NULL);
+    TEST_ASSERT(lego_torso.dst[0].v[0] == 1.0f && lego_torso.dst[0].v[5] == 1.0f && lego_torso.dst[0].v[10] == 1.0f,
+                "LEGO torso skinning matrices remain 100% intact inside cab");
+
+    at_writer_dispatch_512B80(ws, real_armor.mesh_obj, (void *)(rs->world + 0x318u), NULL,
+                              (uintptr_t)g_fake_engine + AT_RVA_CALLER_REST, NULL);
+    TEST_ASSERT(real_armor.dst[0].v[0] == 1.0f && real_armor.dst[0].v[5] == 1.0f,
+                "realistic armor spine1 matrix remains intact");
+    for (unsigned k = 1u; k < 4u; k++) {
+        TEST_ASSERT(real_armor.dst[k].v[0] == 0.0f && real_armor.dst[k].v[5] == 0.0f && real_armor.dst[k].v[10] == 0.0f,
+                    "realistic armor r_thigh, l_foot, and cape matrices collapsed to cab waist");
+    }
+
+    /* Unlink pilot -> base pose restored cleanly and pilot_mesh_count drops to 0 */
+    w_u64(walker_padded, 0x1D8u, 0ULL);
+    w_u64(avatar.scene_graph, 0x18u, 0ULL);
+    at_writer_step_pilots(ws, (uintptr_t)rs->world);
+    TEST_ASSERT(ws->fast.pilot_mesh_count == 0u, "pilot_mesh_count cleared immediately on disembark");
+    TEST_ASSERT(fabsf(avatar.local_poses[0][11]) < 1e-5f, "disembark restored unmodified base local pose");
+
+    ws->skin_next = ws->approved_skin_next = prev_skin;
+    ws->pilot.unit_graph_override = NULL;
+    g_pilot_avatar_mut = NULL;
+    g_pilot_graph_unit_cnt = 0u;
+    printf("[PASS] test_mounted_pilot_cab_lift_and_lower_body_hide\n");
+}
+
 int main(void) {
     g_fake_engine = (uint8_t *)VirtualAlloc(NULL, 0x02000000u, MEM_COMMIT | MEM_RESERVE, PAGE_READWRITE);
     g_render_sys = (sim_render_sys *)calloc(1, sizeof(sim_render_sys));
@@ -1463,6 +1745,7 @@ int main(void) {
     test_zero_walker_and_d11_fast_path(ws, um, g_render_sys);
     test_exo49_and_mixed_variant_walkers(ws, um, g_render_sys);
     test_stingray_4byte_topology_and_subnormal_resilience(ws, um, g_render_sys);
+    test_mounted_pilot_cab_lift_and_lower_body_hide(ws, um, g_render_sys);
 
     printf("ALL C TESTS PASSED (0 failures)\n");
     free(ws);

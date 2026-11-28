@@ -12,7 +12,12 @@ ROOT = Path(__file__).resolve().parents[1]
 BUILT_LUA = ROOT / "build" / "picker" / "melee_picker.built.lua"
 PATCH_FILE = ROOT / "data" / "9ba626afa44a3aa3.patch_920"
 SIGS_FILE = ROOT / "picker" / "data" / "sigs.json"
-LUA51_DLL = Path(r"D:\HellForge\game\bin\lua51.dll")
+_LUA51_CANDIDATES = (
+    Path(r"D:\ClaudeWork\clonedivers-lab\context-window180-review-astra\candidate-copy\inputs\lua-vm\lua51.dll"),
+    Path(r"D:\ClaudeWork\empire-forge\tie-runtime-ci-astra\run-42886264594\tie-held-root\game\bin\lua51.dll"),
+    Path(r"C:\Program Files (x86)\Steam\steamapps\common\Helldivers 2\bin\lua51.dll"),
+)
+LUA51_DLL = next((p for p in _LUA51_CANDIDATES if p.is_file()), _LUA51_CANDIDATES[0])
 GAME_CAPTURE = Path(
     r"D:\ClaudeWork\clonedivers-lab\camera-evidence-astra\camera-capture-mission\capture-game.dll-00001000.bin"
 )

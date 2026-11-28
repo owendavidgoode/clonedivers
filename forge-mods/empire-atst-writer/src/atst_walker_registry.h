@@ -162,4 +162,13 @@ int at_registry_resolve_render(
     uint32_t *out_epoch,
     at_resolved_graph *out_graph);
 
+/** Resolve a RenderHandle (type=3 MeshObject) through RenderManager tables. */
+int at_resolve_render_mesh_obj(
+    const at_walker_registry *reg,
+    const at_render_header *hdr,
+    uint32_t handle,
+    at_safe_read_fn read_fn,
+    void *read_user,
+    uintptr_t *out_obj);
+
 #endif /* ATST_WALKER_REGISTRY_H */

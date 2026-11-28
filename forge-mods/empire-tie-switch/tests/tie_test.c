@@ -366,7 +366,7 @@ static void TestInitAndLazyBridgeRegistration(const wchar_t* stagedData, const w
     CHECK(registerCalls == 0 && fakeModCount == 2 && bridgeMod == NULL);
     CHECK(onReadyCalls == 1 && onTickCalls == 1 && onSpawnCalls == 1 && onStratagemCalls == 1);
     CHECK(registeredReady != NULL && registeredTick != NULL);
-    CHECK(strstr(lastLogLine, "qualified staged closure parts=135") != NULL && strstr(lastLogLine, "(v0.3.2)") != NULL);
+    CHECK(strstr(lastLogLine, "qualified staged closure parts=135") != NULL && strstr(lastLogLine, "(v0.4.0)") != NULL);
 
     /* 3. Tick() before Ready() must not register bridgeMod. */
     registeredTick((HfMod*)&mod, 0.016f, registeredTickUser);
@@ -421,7 +421,7 @@ static void WriteAllChecked(HANDLE h, const void* buf, DWORD sz)
 }
 
 /* Build a standalone single-archive Stingray bundle (patch_0 + .stream + .gpu_resources) containing
- * the exact resolved 75 resources (135 parts) from sourceDir so every part can be mutated 1 byte in isolation. */
+ * the exact resolved closure resources/parts from sourceDir so every part can be mutated 1 byte in isolation. */
 static void BuildCompactClosureBundle(const wchar_t* sourceDir, const wchar_t* outDir)
 {
     const wchar_t* suffixes[] = {L"", L".stream", L".gpu_resources"};
@@ -432,25 +432,25 @@ static void BuildCompactClosureBundle(const wchar_t* sourceDir, const wchar_t* o
         uint64_t name, type;
         int assetIdx[3];
     } UniqueRes;
-    UniqueRes uniq[ASSET_COUNT];
+    UniqueRes uniq[MAX_ASSET_COUNT];
     size_t uniqCount = 0;
 
-    for (size_t i = 0; i < ASSET_COUNT; i++)
+    for (size_t i = 0; i < activeAssetCount; i++)
     {
         size_t found = uniqCount;
         for (size_t u = 0; u < uniqCount; u++)
         {
-            if (uniq[u].name == assets[i].name && uniq[u].type == assets[i].type) { found = u; break; }
+            if (uniq[u].name == activeAssets[i].name && uniq[u].type == activeAssets[i].type) { found = u; break; }
         }
         if (found == uniqCount)
         {
-            uniq[uniqCount].name = assets[i].name;
-            uniq[uniqCount].type = assets[i].type;
+            uniq[uniqCount].name = activeAssets[i].name;
+            uniq[uniqCount].type = activeAssets[i].type;
             uniq[uniqCount].assetIdx[0] = uniq[uniqCount].assetIdx[1] = uniq[uniqCount].assetIdx[2] = -1;
             uniqCount++;
         }
-        CHECK(assets[i].part < 3u);
-        uniq[found].assetIdx[assets[i].part] = (int)i;
+        CHECK(activeAssets[i].part < 3u);
+        uniq[found].assetIdx[activeAssets[i].part] = (int)i;
     }
 
     wchar_t outPaths[3][1200];
@@ -517,10 +517,12 @@ static void VerifySingleByteMutationFailsAllParts(const wchar_t* compactDir)
 {
     const wchar_t* suffixes[] = {L"", L".stream", L".gpu_resources"};
     CHECK(ScanAssets(compactDir));
+    const Asset* targetSet = activeAssets;
+    size_t targetCount = activeAssetCount;
 
-    for (size_t i = 0; i < ASSET_COUNT; i++)
+    for (size_t i = 0; i < targetCount; i++)
     {
-        unsigned part = assets[i].part;
+        unsigned part = targetSet[i].part;
         uint32_t sz = proofs[i].row.d[part];
         uint64_t off = proofs[i].row.q[2 + part];
         wchar_t partPath[1200], mainPath[1200];
@@ -529,7 +531,7 @@ static void VerifySingleByteMutationFailsAllParts(const wchar_t* compactDir)
 
         char expectTag[64];
         snprintf(expectTag, sizeof expectTag, "resource=%016llx type=%016llx part=%u",
-            (unsigned long long)assets[i].name, (unsigned long long)assets[i].type, part);
+            (unsigned long long)targetSet[i].name, (unsigned long long)targetSet[i].type, part);
 
         if (sz > 0)
         {
@@ -567,7 +569,7 @@ static void VerifySingleByteMutationFailsAllParts(const wchar_t* compactDir)
             {
                 uint64_t ro = 72ull + 32ull * head[1] + 80ull * r;
                 CHECK(ReadAt(mf, ro, &origRow, sizeof origRow));
-                if (origRow.q[0] == assets[i].name && origRow.q[1] == assets[i].type)
+                if (origRow.q[0] == targetSet[i].name && origRow.q[1] == targetSet[i].type)
                 {
                     rowOff = ro;
                     foundRow = 1;
@@ -609,8 +611,8 @@ static void VerifySingleByteMutationFailsAllParts(const wchar_t* compactDir)
             CHECK(SetEndOfFile(pf));
             CloseHandle(pf);
         }
+        CHECK(ScanAssets(compactDir));
     }
-    CHECK(ScanAssets(compactDir));
 }
 
 static void VerifyMixedTierPartFailsClosed(const wchar_t* fullDir, const wchar_t* reducedDir, const wchar_t* mixedDir)
@@ -833,7 +835,71 @@ static void TestMultiTierClosureAndSingleByteMutations(const wchar_t* stagedData
     {
         printf("note: optional hydrated r52 5-tier directories not present; synthetic 5-tier table & splice checks ran above\n");
     }
+
+    /* 4. Clonedivers r26 Republic air wing 5-tier closure + 8-delivery routing + 1-byte mutation fail-closed proof. */
+    for (size_t i = 0; i < CLONE_ASSET_COUNT; i++)
+    {
+        AssetError("clone_tier_table_check", &cloneAssets[i], L"C:\\fixture\\9ba626afa44a3aa3.patch_44");
+        for (unsigned t = 0; t < TIE_TIER_COUNT; t++)
+        {
+            CHECK(cloneAssets[i].hashes[t] != NULL && strlen(cloneAssets[i].hashes[t]) == 64u);
+            CHECK(strstr(assetError, cloneAssets[i].hashes[t]) != NULL);
+        }
+    }
+    const wchar_t* clonesR26Dirs[] = {
+        L"D:\\ClaudeWork\\swarm-packs\\clones-r26\\staged\\all-droids\\full",
+        L"D:\\ClaudeWork\\swarm-packs\\clones-r26\\staged\\all-droids\\lighter",
+        L"D:\\ClaudeWork\\swarm-packs\\clones-r26\\staged\\all-droids\\reduced1024",
+        L"D:\\ClaudeWork\\swarm-packs\\clones-r26\\staged\\all-droids\\reduced512",
+        L"D:\\ClaudeWork\\swarm-packs\\clones-r26\\staged\\all-droids\\potato256",
+        L"D:\\ClaudeWork\\swarm-packs\\clones-r26\\staged\\mixed-droids\\full"
+    };
+    int clonesR26Present = 1;
+    for (size_t c = 0; c < sizeof clonesR26Dirs / sizeof clonesR26Dirs[0]; c++)
+    {
+        DWORD attr = GetFileAttributesW(clonesR26Dirs[c]);
+        if (attr == INVALID_FILE_ATTRIBUTES || !(attr & FILE_ATTRIBUTE_DIRECTORY)) clonesR26Present = 0;
+    }
+    if (clonesR26Present)
+    {
+        for (size_t c = 0; c < sizeof clonesR26Dirs / sizeof clonesR26Dirs[0]; c++)
+        {
+            CHECK(ScanAssets(clonesR26Dirs[c]));
+            CHECK(g_activePack == TIE_PACK_CLONES && activeAssetCount == CLONE_ASSET_COUNT);
+            CHECK(AssetsUnchanged());
+        }
+
+        /* Verify all 8 Republic air wing delivery model assignments (ARC-170, Y-Wing, LAAT/i) & sortie status. */
+        Reset();
+        g_activePack = TIE_PACK_CLONES;
+        activeAssets = cloneAssets;
+        activeAssetCount = CLONE_ASSET_COUNT;
+        Snapshot clnAfter[DELIVERY_COUNT];
+        CHECK(Apply((HfMod*)&mod) && armed && !failed);
+        CHECK(SnapshotAll(clnAfter) && ModelsCorrect(clnAfter));
+        static const uint64_t expectedClones[DELIVERY_COUNT] = {
+            CLONE_FIGHTER, /* strafe */
+            CLONE_BOMBER,  /* airstrike */
+            CLONE_GUNSHIP, /* smoke */
+            CLONE_BOMBER,  /* 500kg */
+            CLONE_BOMBER,  /* cluster */
+            CLONE_GUNSHIP, /* gas */
+            CLONE_GUNSHIP, /* napalm */
+            CLONE_FIGHTER  /* 110mm */
+        };
+        for (size_t i = 0; i < DELIVERY_COUNT; i++) CHECK(Model(&clnAfter[i]) == expectedClones[i]);
+        CHECK(!strcmp(lastStatusLine, "ARC-170 strafe/110mm, Y-Wing bombing, LAAT/i support; package resident"));
+
+        /* Exhaustive 1-byte mutation fail-closed proof across every Clones closure part. */
+        wchar_t compactClones[1200];
+        CHECK(swprintf(compactClones, 1200, L"%ls\\compact_clones_r26", fixtureRoot) > 0);
+        BuildCompactClosureBundle(clonesR26Dirs[0], compactClones);
+        CHECK(g_activePack == TIE_PACK_CLONES && activeAssetCount == CLONE_ASSET_COUNT);
+        VerifySingleByteMutationFailsAllParts(compactClones);
+    }
+
     CHECK(ScanAssets(stagedData));
+    CHECK(g_activePack == TIE_PACK_EMPIRE && activeAssetCount == ASSET_COUNT);
 }
 int wmain(int argc, wchar_t** argv)
 {
@@ -844,7 +910,7 @@ int wmain(int argc, wchar_t** argv)
         hashBytes = bcrypt ? (void*)GetProcAddress(bcrypt, "BCryptHash") : NULL;
         CHECK(openHash && hashBytes && openHash(&sha, BCRYPT_SHA256_ALGORITHM, NULL, 0) >= 0);
         int ok = ScanAssets(argv[2]);
-        if (ok) printf("qualified staged closure parts=%zu\n", ASSET_COUNT);
+        if (ok) printf("qualified staged closure parts=%zu pack=%s\n", activeAssetCount, g_activePack == TIE_PACK_CLONES ? "clones" : "empire");
         else printf("off: %s\n", assetError);
         return ok ? 0 : 1;
     }

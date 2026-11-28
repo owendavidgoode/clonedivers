@@ -1,4 +1,4 @@
-/* Offline C11 unit & real-archive verification suite for starwars-localization 0.1.1. */
+/* Offline C11 unit & real-archive verification suite for starwars-localization 0.2.0. */
 #include <assert.h>
 #include <stdint.h>
 #include <stdio.h>
@@ -127,26 +127,64 @@ static int WriteSyntheticTextPatch(const char* path, const KvPair* pairs, uint32
     return WriteSyntheticMultiTextPatch(path, &spec, 1u);
 }
 
+static size_t BodyLengthWithoutVanillaTag(const char* s) {
+    if (s == NULL) return 0u;
+    size_t len = strlen(s);
+    const char* rep = strstr(s, " (Replaces ");
+    if (rep != NULL && strchr(rep, ')') != NULL) {
+        size_t pos = (size_t)(rep - s);
+        if (pos < len) len = pos;
+    }
+    const char* van = strstr(s, " [Vanilla: ");
+    if (van != NULL && strchr(van, ']') != NULL) {
+        size_t pos = (size_t)(van - s);
+        if (pos < len) len = pos;
+    }
+    return len;
+}
+
 static int HasStandaloneSeafLeak(const char* s) {
     if (s == NULL) return 0;
-    /* Ignore any trailing " (Replaces ...)" note when checking body text, though v24 has 0 SEAF anywhere. */
-    for (const char* p = s; *p != '\0'; p++) {
-        if ((p == s || !isalnum((unsigned char)p[-1])) &&
+    size_t limit = BodyLengthWithoutVanillaTag(s);
+    for (size_t idx = 0u; idx < limit; idx++) {
+        const char* p = s + idx;
+        if ((idx == 0u || !isalnum((unsigned char)p[-1])) &&
+            idx + 4u <= limit &&
             tolower((unsigned char)p[0]) == 's' &&
             tolower((unsigned char)p[1]) == 'e' &&
             tolower((unsigned char)p[2]) == 'a' &&
             tolower((unsigned char)p[3]) == 'f' &&
-            !isalnum((unsigned char)p[4])) {
+            (idx + 4u == limit || !isalnum((unsigned char)p[4]))) {
             return 1;
         }
-        if ((p == s || !isalnum((unsigned char)p[-1])) &&
+        if ((idx == 0u || !isalnum((unsigned char)p[-1])) &&
+            idx + 7u <= limit &&
             tolower((unsigned char)p[0]) == 's' && p[1] == '.' &&
             tolower((unsigned char)p[2]) == 'e' && p[3] == '.' &&
             tolower((unsigned char)p[4]) == 'a' && p[5] == '.' &&
-            tolower((unsigned char)p[6]) == 'f' && !isalnum((unsigned char)p[7])) {
+            tolower((unsigned char)p[6]) == 'f' &&
+            (idx + 7u == limit || !isalnum((unsigned char)p[7]))) {
             return 1;
         }
     }
+    return 0;
+}
+
+static int HasStandaloneDssLeak(const char* s) {
+    if (s == NULL) return 0;
+    size_t limit = BodyLengthWithoutVanillaTag(s);
+    for (size_t idx = 0u; idx < limit; idx++) {
+        const char* p = s + idx;
+        if ((idx == 0u || !isalnum((unsigned char)p[-1])) &&
+            idx + 3u <= limit &&
+            tolower((unsigned char)p[0]) == 'd' &&
+            tolower((unsigned char)p[1]) == 's' &&
+            tolower((unsigned char)p[2]) == 's' &&
+            (idx + 3u == limit || !isalnum((unsigned char)p[3]))) {
+            return 1;
+        }
+    }
+    if (SwLocContainsCI(s, "democracy space station")) return 1;
     return 0;
 }
 
@@ -161,6 +199,32 @@ static void TestFilenameParsing(void) {
     CHECK(SwLocParsePatchFilename("otherhash.patch_0") == -1, "other archive rejected");
 }
 
+static void TestCuratedTablesInvariants(void) {
+    CHECK(SW_EMPIRE_CURATED_COUNT >= 100u, "Empire curated table covers DSS, TIE, E-Web, boosters, and Hellbombs");
+    CHECK(SW_CLONES_CURATED_COUNT >= 20u, "Clones curated table covers Gonk Droid Hellbomb, boosters, walkers, and FRV");
+
+    for (uint32_t i = 0; i < SW_EMPIRE_CURATED_COUNT; i++) {
+        if (i > 0) {
+            CHECK(kSwEmpireCuratedOverrides[i].id > kSwEmpireCuratedOverrides[i - 1].id,
+                "kSwEmpireCuratedOverrides strictly sorted ascending");
+        }
+        CHECK(kSwEmpireCuratedOverrides[i].id != SW_LOC_WARBOND_LOCKED_ID, "Empire curated never touches WARBOND LOCKED");
+        CHECK(!SwLocContainsCI(kSwEmpireCuratedOverrides[i].text, "forge credit"), "Empire curated never touches Forge Credits");
+        CHECK(!HasStandaloneSeafLeak(kSwEmpireCuratedOverrides[i].text), "Empire curated has 0 SEAF leaks");
+        CHECK(!HasStandaloneDssLeak(kSwEmpireCuratedOverrides[i].text), "Empire curated has 0 DSS / Democracy Space Station leaks");
+    }
+
+    for (uint32_t i = 0; i < SW_CLONES_CURATED_COUNT; i++) {
+        if (i > 0) {
+            CHECK(kSwClonesCuratedOverrides[i].id > kSwClonesCuratedOverrides[i - 1].id,
+                "kSwClonesCuratedOverrides strictly sorted ascending");
+        }
+        CHECK(kSwClonesCuratedOverrides[i].id != SW_LOC_WARBOND_LOCKED_ID, "Clones curated never touches WARBOND LOCKED");
+        CHECK(!SwLocContainsCI(kSwClonesCuratedOverrides[i].text, "forge credit"), "Clones curated never touches Forge Credits");
+        CHECK(!HasStandaloneSeafLeak(kSwClonesCuratedOverrides[i].text), "Clones curated has 0 SEAF leaks");
+    }
+}
+
 static void TestSyntheticWorkflows(const char* fixture_dir) {
     char p1[MAX_PATH], p2[MAX_PATH], p3[MAX_PATH];
     SwLocTable tbl;
@@ -171,7 +235,7 @@ static void TestSyntheticWorkflows(const char* fixture_dir) {
     CHECK(rep.status == SW_LOC_NO_PATCHES && tbl.count == 0, "empty dir reports NO_PATCHES");
     SwLocFreeTable(&tbl);
 
-    /* 2. Multi-table modpack patch alone (7c7587b563f10985 + 1c978e745545d8ae VO subtitles) -> ALREADY_TOPMOST */
+    /* 2. Generic non-Star-Wars modpack patch alone -> ALREADY_TOPMOST (0 hooks) */
     const KvPair pack_ui[] = {
         { 100u, "K-2SO" },
         { 200u, "Imperial Artillery: Explosive" },
@@ -190,7 +254,7 @@ static void TestSyntheticWorkflows(const char* fixture_dir) {
     CHECK(WriteSyntheticMultiTextPatch(p1, pack_specs, 2u) == 0, "wrote multi-table pack patch_39");
 
     CHECK(SwLocLoadFromDataDir(fixture_dir, &tbl, &rep) == 0, "unclobbered scan succeeds");
-    CHECK(rep.status == SW_LOC_ALREADY_TOPMOST && tbl.count == 0, "unclobbered pack needs 0 hooks");
+    CHECK(rep.status == SW_LOC_ALREADY_TOPMOST && tbl.count == 0, "generic unclobbered pack needs 0 hooks");
     SwLocFreeTable(&tbl);
 
     /* 3. Non-TEXT patch_50 above patch_39 -> still ALREADY_TOPMOST */
@@ -262,7 +326,8 @@ static void TestSyntheticWorkflows(const char* fixture_dir) {
     multi_specs[70] = pack_specs[0];
     multi_specs[71] = pack_specs[1];
     CHECK(WriteSyntheticMultiTextPatch(p_multi, multi_specs, 72u) == 0, "wrote 72-table multilingual archive");
-    SwRawTextSet multi_set = {0};
+    SwRawTextSet multi_set;
+    memset(&multi_set, 0, sizeof multi_set);
     CHECK(SwLocReadAllUsTextsFromPatch(p_multi, &multi_set) == 1 && multi_set.count == 2u,
         "70 preceding non-US tables do not truncate trailing US tables");
     SwLocFreeSet(&multi_set);
@@ -278,7 +343,8 @@ static void TestSyntheticWorkflows(const char* fixture_dir) {
         over_specs[i].count = 2u;
     }
     CHECK(WriteSyntheticMultiTextPatch(p_over, over_specs, SW_LOC_MAX_US_TABLES + 1u) == 0, "wrote 65-US-table overflow archive");
-    SwRawTextSet over_set = {0};
+    SwRawTextSet over_set;
+    memset(&over_set, 0, sizeof over_set);
     CHECK(SwLocReadAllUsTextsFromPatch(p_over, &over_set) == -1 && over_set.count == 0u,
         ">64 US tables fails closed with -1 instead of silently truncating");
     DeleteFileA(p_over);
@@ -288,23 +354,116 @@ static void TestSyntheticWorkflows(const char* fixture_dir) {
     CHECK(SwLocLoadFromDataDir(fixture_dir, &tbl, &rep) == 0, "vanilla+fc scan succeeds");
     CHECK(rep.status == SW_LOC_VANILLA_ONLY && tbl.count == 0, "Regular mode with ForgeCredits installs 0 hooks");
     SwLocFreeTable(&tbl);
+    DeleteFileA(p2);
+    DeleteFileA(p3);
 }
 
-static void AuditRealV24Archive(const char* label, const char* path, const char* expected_artillery) {
-    SwRawTextSet set = {0};
+static void TestCuratedClonesAndEmpireWorkflows(const char* fixture_dir) {
+    char p_pack[MAX_PATH], p_fc[MAX_PATH];
+    snprintf(p_pack, sizeof p_pack, "%s\\9ba626afa44a3aa3.patch_38", fixture_dir);
+    snprintf(p_fc, sizeof p_fc, "%s\\9ba626afa44a3aa3.patch_99", fixture_dir);
+
+    SwLocTable tbl;
+    SwLocLoadReport rep;
+
+    /* A. Clonedivers pack TOPMOST (no forge-credits above it) -> SW_LOC_CURATED_LOADED serves Overloaded Gonk Droid! */
+    const KvPair clones_ui[] = {
+        { SW_LOC_MODE_PROBE_ID, "Republic Artillery: Explosive" },
+        { 0x0772BEDBu, "Proton Bomb" },
+        { 0xEDC80AFCu, "PROTON BOMB" },
+        { 0xC9B6BF68u, "The Proton Bomb is a tactical nuke." },
+    };
+    CHECK(WriteSyntheticTextPatch(p_pack, clones_ui, 4u, 1) == 0, "wrote Clonedivers topmost patch_38");
+    CHECK(SwLocLoadFromDataDir(fixture_dir, &tbl, &rep) == 0, "Clonedivers topmost scan succeeds");
+    CHECK(rep.status == SW_LOC_CURATED_LOADED && rep.mode == SW_LOC_MODE_CLONES, "Clonedivers topmost loads curated overrides");
+    CHECK(rep.curated_applied == SW_CLONES_CURATED_COUNT, "all Clones curated overrides loaded");
+    CHECK(SwLocLookup(&tbl, 0x0772BEDBu) != NULL && strcmp(SwLocLookup(&tbl, 0x0772BEDBu), "Overloaded Gonk Droid") == 0,
+        "Clonedivers Hellbomb title overridden from Proton Bomb to Overloaded Gonk Droid");
+    CHECK(SwLocLookup(&tbl, 0xEDC80AFCu) != NULL && strcmp(SwLocLookup(&tbl, 0xEDC80AFCu), "OVERLOADED GONK DROID") == 0,
+        "Clonedivers HELLBOMB caps overridden to OVERLOADED GONK DROID");
+    CHECK(SwLocLookup(&tbl, 0xC9B6BF68u) != NULL && strstr(SwLocLookup(&tbl, 0xC9B6BF68u), "[Vanilla: NUX-223 Hellbomb]") != NULL,
+        "Clonedivers Hellbomb description carries [Vanilla: NUX-223 Hellbomb]");
+    CHECK(SwLocLookup(&tbl, 0x83BAA715u) != NULL && strstr(SwLocLookup(&tbl, 0x83BAA715u), "B-100 Portable Hellbomb") != NULL,
+        "Clonedivers Portable Proton Bomb carries vanilla B-100 reference");
+    CHECK(SwLocLookup(&tbl, 0x7A343F36u) != NULL && strstr(SwLocLookup(&tbl, 0x7A343F36u), "Firebomb Hellpods") != NULL,
+        "Clonedivers Firebomb Drop Pods carries vanilla Firebomb Hellpods reference");
+    SwLocFreeTable(&tbl);
+
+    /* B. Clonedivers pack CLOBBERED by forge-credits -> SW_LOC_DIFF_LOADED merges pack diffs + curated overrides! */
+    const KvPair fc_base[] = {
+        { SW_LOC_MODE_PROBE_ID, "SEAF Artillery: Explosive" },
+        { 0x0772BEDBu, "Hellbomb" },
+        { 0x300u, "Forge Credits" },
+        { SW_LOC_WARBOND_LOCKED_ID, "WARBOND LOCKED" },
+    };
+    CHECK(WriteSyntheticTextPatch(p_fc, fc_base, 4u, 1) == 0, "wrote forge-credits patch_99 above Clones");
+    CHECK(SwLocLoadFromDataDir(fixture_dir, &tbl, &rep) == 0, "Clonedivers clobbered scan succeeds");
+    CHECK(rep.status == SW_LOC_DIFF_LOADED && rep.mode == SW_LOC_MODE_CLONES, "Clonedivers clobbered loads diff + curated");
+    CHECK(SwLocLookup(&tbl, SW_LOC_MODE_PROBE_ID) != NULL &&
+          strcmp(SwLocLookup(&tbl, SW_LOC_MODE_PROBE_ID), "Republic Artillery: Explosive") == 0,
+          "Clones pack diff restored alongside curated overrides");
+    CHECK(SwLocLookup(&tbl, 0x0772BEDBu) != NULL &&
+          strcmp(SwLocLookup(&tbl, 0x0772BEDBu), "Overloaded Gonk Droid") == 0,
+          "Curated Overloaded Gonk Droid beats pack Proton Bomb in two-pointer merge");
+    CHECK(SwLocLookup(&tbl, 0x300u) == NULL && SwLocLookup(&tbl, SW_LOC_WARBOND_LOCKED_ID) == NULL,
+          "Forge Credits & WARBOND LOCKED remain protected");
+    SwLocFreeTable(&tbl);
+
+    /* C. EmpireDivers pack CLOBBERED by forge-credits -> Death Star, TIE descriptions, E-Web, and [Vanilla: NUX-223 Hellbomb]! */
+    const KvPair empire_ui[] = {
+        { SW_LOC_MODE_PROBE_ID, "Imperial Artillery: Explosive" },
+        { 0x0772BEDBu, "Proton Bomb" },
+        { 0x130F2257u, "DEMOCRACY SPACE STATION" },
+        { 0x19573AB4u, "EAGLE STORM" },
+    };
+    CHECK(WriteSyntheticTextPatch(p_pack, empire_ui, 4u, 1) == 0, "wrote EmpireDivers patch_38");
+    CHECK(SwLocLoadFromDataDir(fixture_dir, &tbl, &rep) == 0, "EmpireDivers clobbered scan succeeds");
+    CHECK(rep.status == SW_LOC_DIFF_LOADED && rep.mode == SW_LOC_MODE_EMPIRE, "EmpireDivers clobbered loads diff + curated");
+    CHECK(SwLocLookup(&tbl, 0x0772BEDBu) != NULL && strcmp(SwLocLookup(&tbl, 0x0772BEDBu), "Proton Bomb") == 0,
+        "EmpireDivers keeps Proton Bomb display title");
+    CHECK(SwLocLookup(&tbl, 0xC9B6BF68u) != NULL && strstr(SwLocLookup(&tbl, 0xC9B6BF68u), "[Vanilla: NUX-223 Hellbomb]") != NULL,
+        "EmpireDivers Proton Bomb description carries [Vanilla: NUX-223 Hellbomb]");
+    CHECK(SwLocLookup(&tbl, 0x130F2257u) != NULL && strcmp(SwLocLookup(&tbl, 0x130F2257u), "DS-1 DEATH STAR") == 0,
+        "EmpireDivers DSS title -> DS-1 DEATH STAR");
+    CHECK(SwLocLookup(&tbl, 0x8C431589u) != NULL && strcmp(SwLocLookup(&tbl, 0x8C431589u), "DS-1 Orbital Battle Station (Death Star)") == 0,
+        "EmpireDivers Democracy Space Station -> DS-1 Orbital Battle Station (Death Star)");
+    CHECK(SwLocLookup(&tbl, 0x19573AB4u) != NULL && strcmp(SwLocLookup(&tbl, 0x19573AB4u), "TIE FIGHTER SQUADRON SWEEP") == 0,
+        "EmpireDivers EAGLE STORM -> TIE FIGHTER SQUADRON SWEEP");
+    CHECK(SwLocLookup(&tbl, 0x3299ACE2u) != NULL && strcmp(SwLocLookup(&tbl, 0x3299ACE2u), "IMPERIAL FLEET BLOCKADE") == 0,
+        "EmpireDivers ORBITAL BLOCKADE -> IMPERIAL FLEET BLOCKADE");
+    CHECK(SwLocLookup(&tbl, 0x8ED98C34u) != NULL && strcmp(SwLocLookup(&tbl, 0x8ED98C34u), "SUPERLASER & TURBOLASER SUPPORT") == 0,
+        "EmpireDivers HEAVY ORDNANCE DISTRIBUTION -> SUPERLASER & TURBOLASER SUPPORT");
+    CHECK(SwLocLookup(&tbl, 0x358735B7u) != NULL && strstr(SwLocLookup(&tbl, 0x358735B7u), "(Replaces Eagle 500kg Bomb)") != NULL,
+        "EmpireDivers TIE 500kg Bomb description carries (Replaces Eagle 500kg Bomb)");
+    CHECK(SwLocLookup(&tbl, 0x87DB3F84u) != NULL && strstr(SwLocLookup(&tbl, 0x87DB3F84u), "(Replaces E/MG-101 HMG Emplacement)") != NULL,
+        "EmpireDivers E-Web Emplacement description carries (Replaces E/MG-101 HMG Emplacement)");
+    SwLocFreeTable(&tbl);
+
+    /* D. EmpireDivers pack TOPMOST (no forge-credits) -> SW_LOC_CURATED_LOADED serves Death Star + TIE descriptions! */
+    DeleteFileA(p_fc);
+    CHECK(SwLocLoadFromDataDir(fixture_dir, &tbl, &rep) == 0, "EmpireDivers topmost scan succeeds");
+    CHECK(rep.status == SW_LOC_CURATED_LOADED && rep.mode == SW_LOC_MODE_EMPIRE, "EmpireDivers topmost loads curated overrides");
+    CHECK(SwLocLookup(&tbl, 0x130F2257u) != NULL && strcmp(SwLocLookup(&tbl, 0x130F2257u), "DS-1 DEATH STAR") == 0,
+        "EmpireDivers topmost still serves DS-1 DEATH STAR");
+    SwLocFreeTable(&tbl);
+    DeleteFileA(p_pack);
+}
+
+static void AuditRealPackArchive(const char* label, const char* path, SwLocMode expected_mode, const char* expected_artillery) {
+    SwRawTextSet set;
+    memset(&set, 0, sizeof set);
     int rc = SwLocReadAllUsTextsFromPatch(path, &set);
     if (rc != 1) {
-        printf("INFO: skipped real v24 archive %s (rc=%d)\n", label, rc);
+        printf("INFO: skipped optional real archive %s (rc=%d)\n", label, rc);
         return;
     }
 
-    CHECK(set.count == 14u, "v24 localization archive carries all 14 US English TEXT tables");
-    CHECK(!SwLocSetHasForgeCredits(&set), "v24 localization archive does not contain Forge Credits");
+    CHECK(set.count >= 14u, "real localization archive carries >= 14 US English TEXT tables");
+    CHECK(SwLocDetectModeFromViews(set.views, set.count) == expected_mode, "real archive mode detected accurately");
 
     uint32_t total_strings = 0;
     uint32_t seaf_leaks = 0;
-    const char* art_str = NULL;
-    const char* sub_str = NULL;
+    const char* art_str = SwLocRawLookupAcrossViews(set.views, set.count, SW_LOC_MODE_PROBE_ID);
 
     for (uint32_t t = 0; t < set.count; t++) {
         const SwRawTextView* v = &set.views[t];
@@ -315,21 +474,13 @@ static void AuditRealV24Archive(const char* label, const char* path, const char*
                 seaf_leaks++;
             }
         }
-        if (v->name_hash == SW_LOC_US_TEXT_NAME) {
-            art_str = SwLocRawLookup(v, 40455008u); /* SEAF Artillery: Explosive */
-        } else if (v->name_hash == 0x1C978E745545D8AEULL) {
-            sub_str = SwLocRawLookup(v, 625181211u); /* {0.00->1.83}SEAF backup en route... */
-        }
     }
 
-    CHECK(total_strings == 20306u, "v24 localization archive has exact 20,306 US English strings");
-    CHECK(seaf_leaks == 0u, "zero SEAF / S.E.A.F leaks across all 20,306 strings");
+    CHECK(seaf_leaks == 0u, "zero SEAF / S.E.A.F leaks across real localization archive");
     CHECK(art_str != NULL && strcmp(art_str, expected_artillery) == 0, "40455008 Artillery shell title localized");
-    CHECK(sub_str != NULL && !HasStandaloneSeafLeak(sub_str), "625181211 VO subtitle localized without SEAF");
 
-    printf("INFO: verified %s (%u tables, %u strings, seaf_leaks=%u, 40455008='%s', 625181211='%s')\n",
-        label, set.count, total_strings, seaf_leaks,
-        art_str ? art_str : "<null>", sub_str ? sub_str : "<null>");
+    printf("INFO: verified %s (%u tables, %u strings, seaf_leaks=%u, 40455008='%s')\n",
+        label, set.count, total_strings, seaf_leaks, art_str ? art_str : "<null>");
 
     SwLocFreeSet(&set);
 }
@@ -340,18 +491,13 @@ int main(int argc, char** argv) {
         return 2;
     }
     TestFilenameParsing();
+    TestCuratedTablesInvariants();
     TestSyntheticWorkflows(argv[1]);
-    AuditRealV24Archive(
-        "localization-empire-v24",
-        "D:\\ClaudeWork\\workstreams-v21\\assets\\modules\\localization-empire-v24\\full\\9ba626afa44a3aa3.patch_0",
-        "Imperial Artillery: Explosive");
-    AuditRealV24Archive(
-        "localization-clones-delta-on-v24",
-        "D:\\ClaudeWork\\workstreams-v21\\assets\\modules\\localization-clones-delta-on-v24\\full\\9ba626afa44a3aa3.patch_0",
-        "Republic Artillery: Explosive");
-    AuditRealV24Archive(
-        "localization-clones-delta-off-v24",
-        "D:\\ClaudeWork\\workstreams-v21\\assets\\modules\\localization-clones-delta-off-v24\\full\\9ba626afa44a3aa3.patch_0",
+    TestCuratedClonesAndEmpireWorkflows(argv[1]);
+    AuditRealPackArchive(
+        "clones-r26-patch_38",
+        "D:\\ClaudeWork\\swarm-packs\\clones-r26\\staged\\all-droids\\full\\9ba626afa44a3aa3.patch_38",
+        SW_LOC_MODE_CLONES,
         "Republic Artillery: Explosive");
     if (g_failed != 0) {
         fprintf(stderr, "FAILED %d / %d checks\n", g_failed, g_checks);

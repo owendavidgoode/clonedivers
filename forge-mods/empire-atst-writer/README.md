@@ -1,6 +1,6 @@
-# Empire AT-ST Film-Scale Leaf Writer (`clonedivers.empire-atst-writer` v0.2.3)
+# Empire AT-ST Film-Scale Leaf Writer (`clonedivers.empire-atst-writer` v0.2.7)
 
-`clonedivers.empire-atst-writer` (`0.2.3`) is a visual-only HellForge SDK-16 native C leaf writer for Helldivers 2 build `25480438` (`gameplay: false`, `coop: per-player`).
+`clonedivers.empire-atst-writer` (`0.2.7`) is a visual-only HellForge SDK-16+ native C leaf writer & cab pilot seat controller for Helldivers 2 build `25480438` (`gameplay: false`, `coop: per-player`).
 
 ## Overview
 
@@ -15,6 +15,7 @@ Pairs with the S2c rig-collapsed `9.04 m` film-scale AT-ST chassis `UNIT`s acros
 - **4-Walker Co-op Registry:** Tracks up to `4` concurrent walkers of any `EXO-45` / `EXO-49` / `EXO-51` / `EXO-55` mix across `4`-player co-op sessions, retiring destroyed walkers cleanly on `RenderHandle` `helldivers2.exe+0x1E7CD0` removal with monotonic generation epochs + `resource_id` ABA checks and fail-closed passthrough for any `5`th concurrent walker.
 - **Chained SDK-16 Detours:** Hooks `helldivers2.exe+0x512B80`, `+0x5B2990`, and `+0x1E7CD0` via `hf->hook_ex` chaining (`priority=-10`), coexisting cleanly alongside `clonedivers.lego-compact-leaf-writer` (`priority=0`) while preserving MXCSR rounding state and Win32 `LastError`.
 - **Fail-Closed Code & Asset Pinning:** Validates build `25480438` code byte pins (`hf->read_code`) and exact S2c bind/palette metadata before substituting private joint-aware temporal graph matrices; any mismatch (such as Clonedivers AT-TE `198`-node / `88`-bone walkers) delegates unmodified to the native renderer.
+- **Armored Cab Pilot Seat Lift & Lower-Body Hide (`0.2.7`):** Lifts mounted Helldiver pilots (`0x4D1C334D294DFA97`) from native `attach_driver` (`s2c=39`, `Z=2.68 m`) into the retargeted `2.28x` armored AT-ST head cab (`s2c=32`, `Z=6.52 m`, pelvis `Z=7.49 m`, head `Z=8.07 m`) with pure proper rotation (`det=+1.0`, unit scale `{1,1,1}`) compatible with `lego-compact-leaf-writer`, while collapsing lower-body (`hips`/`legs`/`feet`) and `cape` skinning outputs in `5B2990` to zero triangle area inside the cab.
 
 ## Build & Offline Tests
 
