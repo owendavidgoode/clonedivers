@@ -109,6 +109,8 @@ static size_t g_pendingPkgCount;
 static uint64_t g_sessionHeldPkgs[DMS_MAX_HELD_PACKAGES];
 static uint8_t g_sessionHeldSysReq[DMS_MAX_HELD_PACKAGES];
 static uint32_t g_sessionHeldCount;
+static uintptr_t g_sessionHeldPkgSys;
+static uint32_t g_pendingReverifiedOrig;
 static char g_lastRequestedKey[64];
 static ULONGLONG g_nextPkgCheckTick;
 static int g_loggedPkgMapFull;
@@ -638,10 +640,10 @@ static int FindOrAddSessionPkgSlot(uint64_t pkg_id)
 
 /* Inspects RefcountedPackageSystem's open-addressed reference map (system+0 entries, system+8 capacity, 16B stride).
  * Returns:
- *   2 = pkg_id already present in map with refcount > 0 (skip duplicate g_pkgReq)
- *   1 = map valid and < 75% full (safe to call g_pkgReq)
+ *   2 = pkg_id already present in map with refcount > 0 (safe to call g_pkgReq: increments existing key, 0 new slots)
+ *   1 = map valid, pkg_id absent, and < 75% full (safe to call g_pkgReq)
  *   0 = map uninitialized / synthetic harness (rely on session-level g_sessionHeldSysReq guard)
- *  -1 = map valid and >= 75% full (refuse g_pkgReq to prevent full-table open-addressing crash) */
+ *  -1 = map valid, pkg_id absent, and >= 75% full (refuse g_pkgReq to prevent full-table open-addressing crash) */
 static int PkgSystemRefMapQuery(uintptr_t system, uint64_t pkg_id)
 {
     if (!system || !g_hf || !g_hf->read) return 0;
@@ -788,6 +790,11 @@ static void EnsureMeleePackagesRequested(HfMod* mod, int force_now)
     uintptr_t system = 0u;
     if (g_pkgReq == NULL || game == 0u || !Ptr(game + PKG_SYSTEM_GLOBAL, &system)) return;
 
+    if (g_sessionHeldPkgSys != system) {
+        memset(g_sessionHeldSysReq, 0, sizeof(g_sessionHeldSysReq));
+        g_sessionHeldPkgSys = system;
+    }
+
     if (!force_now &&
         InterlockedCompareExchange(&g_pkgDone, 0, 0) != 0 &&
         strcmp(key, g_lastRequestedKey) == 0) {
@@ -801,18 +808,24 @@ static void EnsureMeleePackagesRequested(HfMod* mod, int force_now)
     for (size_t i = 0u; i < pkg_count; i++) {
         uint64_t id = pkgs[i];
         int slot = FindOrAddSessionPkgSlot(id);
+        int map_st = PkgSystemRefMapQuery(system, id);
 
         if (slot >= 0 && g_sessionHeldSysReq[slot]) {
-            sys_already_held++;
-            continue;
+            /* When force_now != 0 and the RefcountedPackageSystem map is readable (map_st != 0),
+             * verify our package is still present in the map (map_st == 2); if an external/transition
+             * reset dropped it, clear g_sessionHeldSysReq[slot] and re-acquire below. */
+            if (force_now && map_st != 0 && map_st != 2) {
+                g_sessionHeldSysReq[slot] = 0u;
+            } else {
+                sys_already_held++;
+                continue;
+            }
         }
-        int map_st = PkgSystemRefMapQuery(system, id);
-        if (map_st == 2) {
-            if (slot >= 0) g_sessionHeldSysReq[slot] = 1u;
-            sys_already_held++;
-        } else if (map_st == -1) {
+        if (map_st == -1) {
             map_full = 1;
         } else {
+            /* Acquire dedicated-melee-slot's own +1 reference once per session slot even when map_st == 2
+             * (incrementing an existing key uses 0 new open-addressed slots and survives external unloads). */
             g_pkgReq((uint64_t)system, (uint64_t)(uintptr_t)&id, 1, 0, 0, 0);
             if (slot >= 0) g_sessionHeldSysReq[slot] = 1u;
             sys_requested++;
@@ -829,9 +842,7 @@ static void EnsureMeleePackagesRequested(HfMod* mod, int force_now)
             sys_requested, sys_already_held, pkg_count, key[0] ? key : "(by id)");
     }
     snprintf(g_lastRequestedKey, sizeof(g_lastRequestedKey), "%s", key);
-    if (!map_full) {
-        InterlockedExchange(&g_pkgDone, 1);
-    }
+    InterlockedExchange(&g_pkgDone, map_full ? 0 : 1);
 }
 
 static volatile LONG g_dumps;
@@ -1199,19 +1210,26 @@ static void ProcessPendingSpawn(HfMod* mod)
 
     size_t resident_cnt = 0u;
     if (!AreMeleePackagesResident(mod, g_pendingPkgs, g_pendingPkgCount, &resident_cnt)) {
-        if (now > g_pendingSpawnTick + DMS_PENDING_SPAWN_TIMEOUT_MS) {
-            hf->log(mod,
-                "deferred melee %s timed out waiting for packages (%zu/%zu resident after %llu ms); re-armed for next respawn",
-                g_pendingMeleeName[0] ? g_pendingMeleeName : "(by id)",
-                resident_cnt, g_pendingPkgCount,
-                (unsigned long long)(now - g_pendingSpawnTick));
-            CancelPendingSpawn();
-            InterlockedExchange(&g_probeEntity, 0);
-            InterlockedExchange(&g_probeOriginal, 0);
-            InterlockedExchange(&g_regDone, 1);
-            InterlockedExchange(&g_armed, 1);
+        if (g_pendingReverifiedOrig != g_pendingOriginal || now >= g_nextPkgCheckTick) {
+            g_pendingReverifiedOrig = g_pendingOriginal;
+            EnsureMeleePackagesRequested(mod, 1);
         }
-        return;
+        if (!AreMeleePackagesResident(mod, g_pendingPkgs, g_pendingPkgCount, &resident_cnt)) {
+            if (now > g_pendingSpawnTick + DMS_PENDING_SPAWN_TIMEOUT_MS) {
+                hf->log(mod,
+                    "deferred melee %s timed out waiting for packages (%zu/%zu resident after %llu ms); re-armed for next respawn",
+                    g_pendingMeleeName[0] ? g_pendingMeleeName : "(by id)",
+                    resident_cnt, g_pendingPkgCount,
+                    (unsigned long long)(now - g_pendingSpawnTick));
+                CancelPendingSpawn();
+                g_pendingReverifiedOrig = 0u;
+                InterlockedExchange(&g_probeEntity, 0);
+                InterlockedExchange(&g_probeOriginal, 0);
+                InterlockedExchange(&g_regDone, 1);
+                InterlockedExchange(&g_armed, 1);
+            }
+            return;
+        }
     }
 
     uint32_t original = g_pendingOriginal;
@@ -1221,6 +1239,7 @@ static void ProcessPendingSpawn(HfMod* mod)
     char melee_label[32];
     snprintf(melee_label, sizeof(melee_label), "%s", g_pendingMeleeName[0] ? g_pendingMeleeName : "(by id)");
     CancelPendingSpawn();
+    g_pendingReverifiedOrig = 0u;
 
     uint8_t* data = g_spawnScratch + 0x1000u;
     uint32_t no_net = NET_ID_NONE;
