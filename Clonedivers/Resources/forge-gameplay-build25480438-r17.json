@@ -41,10 +41,10 @@
       "Name": "Empire AT-ST Film-Scale Leaf Writer",
       "Version": "0.2.7",
       "Url": "https://github.com/owendavidgoode/clonedivers/releases/download/forge-mods-2026-11-28/empire-atst-writer-0.2.7.zip",
-      "Bytes": 53088,
-      "Sha256": "30b27f5ccc836782f006caf003ffbd745dacfa3a4445914059c39555b60f2703",
-      "ContentHash": "9bf77704f221794a58a46dc463e2511ee2961e004d8e8197bd1f627fffdacba7",
-      "Source": "Project-owned client-only SDK-20 code mod (0.2.7 HellForge 0.5.0 relocated 4,096-record EntityManager support + 2.28x armored cab pilot seat lift Z~6.11m + lower-body/LEGO garment tucking + instant HF_ON_SPAWN Mega-City walker admission across EXO-45/49/51/55); gameplay false, coop per-player",
+      "Bytes": 53236,
+      "Sha256": "7977f48159f9619f64a62e6bb69237051273d1ceaba40b6bab8bcaf71c590d5c",
+      "ContentHash": "8e2db270bcc2e4ca3bab9c1f9d706e5e12ff5dabb467de6c9f1a648541065799",
+      "Source": "Project-owned client-only SDK-20 code mod (0.2.7 HellForge 0.5.0 relocated 4,096-record EntityManager support + 2.28x armored cab pilot seat lift Z~6.11m + C11-atomic pilot-hide seqlock + lower-body/LEGO garment tucking + instant HF_ON_SPAWN Mega-City walker admission across EXO-45/49/51/55); gameplay false, coop per-player",
       "Optional": true
     },
     {
@@ -74,10 +74,10 @@
       "Name": "AT-TE Titanfall Tactical Cockpit HUD",
       "Version": "0.1.0",
       "Url": "https://github.com/owendavidgoode/clonedivers/releases/download/forge-mods-2026-11-28/titanfall-walker-hud-0.1.0.zip",
-      "Bytes": 27891,
-      "Sha256": "a29477da162193ae85eb43b1caa8be95acc4d25031f5ea054090eea1b6ae81ab",
-      "ContentHash": "ca5751c55cec511c3e0b6581afc0b63d490215154de9d4bbe7be50d074c802ab",
-      "Source": "Project-owned client-only SDK-20 code mod (0.1.0 HfScreen/HfDraw non-modal AT-TE armored cockpit visor HUD with compass tape, hull-vs-look indicator, pitch ladder, hull integrity bar, live ordnance counters, 6-leg chassis telemetry, F7 1P/3P toggle co-existing with empire-camera-pullback, and 106-node AT-ST auto-skip); gameplay false, coop per-player",
+      "Bytes": 28243,
+      "Sha256": "4789f5c4ffa9951f3fa121cdbd93384ea2731c9b0d62f36e3e83a24de4d2c1cc",
+      "ContentHash": "b0dbb4d06083fc5bed4aba5fb297440cc80bfc1f341dbacd5c9aa10f3fae284b",
+      "Source": "Project-owned client-only SDK-20 code mod (0.1.0 HfScreen/HfDraw non-modal AT-TE armored cockpit visor HUD with SRWLOCK-synchronized telemetry & custom-walker registry, compass tape, hull-vs-look indicator, pitch ladder, hull integrity bar, live ordnance counters, 6-leg chassis telemetry, F7 1P/3P toggle co-existing with empire-camera-pullback, and 106-node AT-ST auto-skip); gameplay false, coop per-player",
       "Optional": true
     },
     {
@@ -96,10 +96,10 @@
       "Name": "Dedicated Melee Slot",
       "Version": "1.5.2-clonedivers.5",
       "Url": "https://github.com/owendavidgoode/clonedivers/releases/download/forge-mods-2026-11-28/dedicated-melee-slot-1.5.2-clonedivers.5.zip",
-      "Bytes": 60027,
-      "Sha256": "2162941747f378487146683fbc750eae3c89e0a0ce9822b91901290911149575",
-      "ContentHash": "d50d4c494adf012556f5699584474e4aa77aa513aa6ca31797886d5cfff04bc6",
-      "Source": "VibeSlacker; permissive MIT 4-player co-op hardened SDK-20 build (1.5.2-clonedivers.5 early RefcountedPackageSystem preload with <75% refmap headroom + *(part+0x1C)==4 residency gate + deferred spawn + 30s/player-down/mission-exit cleanup + non-colliding patch_920 picker); gameplay false, coop per-player",
+      "Bytes": 60347,
+      "Sha256": "22883b8c471c03cf4cc5b0609358cceca43eff553717e0b5e793d20e2a8eebfd",
+      "ContentHash": "c52122f8523b81b27613d7c04cd767a406954f66673ab26dc4874d8ec1a77cef",
+      "Source": "VibeSlacker; permissive MIT 4-player co-op hardened SDK-20 build (1.5.2-clonedivers.5 dedicated +1 RefcountedPackageSystem session ownership with <75% refmap headroom + multi-mission refmap re-verification + *(part+0x1C)==4 residency gate + deferred spawn + 30s/player-down/mission-exit cleanup + non-colliding patch_920 picker); gameplay false, coop per-player",
       "Optional": true
     },
     {
@@ -107,10 +107,10 @@
       "Name": "Chaos Invasions",
       "Version": "0.5.2",
       "Url": "https://github.com/owendavidgoode/clonedivers/releases/download/forge-mods-2026-11-28/chaos-invasions-0.5.2.zip",
-      "Bytes": 97779,
-      "Sha256": "3bc50fe74c9eb4297ec3caed8680bb737a1faf0b7b74bb3900a7fa64a7b075a1",
-      "ContentHash": "5be47603d166f8fd455849efc6a99d1ca452133bf1c7e54028fce5987d76bbb6",
-      "Source": "Project-owned gameplay SDK-20 code mod (0.5.2 HellForge 0.5.0 relocated 4,096-record EntityManager & <1,024 GwNav::Bot governor + right-sized Havok pools, genuine 12th Difficulty Slot 'LEVEL 12: STORMTROOPER' in EmpireDivers / 'LEVEL 12: CLONE WARS' in Clonedivers, ~700m theater radius, Eagle/Gunship air runs, autonomous Republic AT-TE fire support, and Hybrid Real+Virtual Battalion theater); optional default",
+      "Bytes": 98207,
+      "Sha256": "7bf62266876471bc93278f56d35b7cce039d50c898de66995758ca8bb2a98ce3",
+      "ContentHash": "cb88ac2888784fe9002777f2aee9cd356d11d7fc33fef942129568b99dff4b9c",
+      "Source": "Project-owned gameplay SDK-20 code mod (0.5.2 HellForge 0.5.0 relocated 4,096-record EntityManager & <1,024 GwNav::Bot governor + right-sized Havok pools, genuine 12th Difficulty Slot 'LEVEL 12: STORMTROOPER' in EmpireDivers / 'LEVEL 12: CLONE WARS' in Clonedivers, ~700m theater radius, Eagle/Gunship air runs, autonomous Republic AT-TE fire support, late-join peer-barriered spawn queue, and lock-free HF_EVENT_SESSION_END disarm); optional default",
       "Optional": true
     },
     {
@@ -158,10 +158,10 @@
       "Name": "Heavy SEAF Presence Everywhere",
       "Version": "1.2.0-clonedivers.8",
       "Url": "https://github.com/owendavidgoode/clonedivers/releases/download/forge-mods-2026-11-28/Clonedivers-Heavy-SEAF-1.2.0-clonedivers.8.zip",
-      "Bytes": 117878,
-      "Sha256": "93a44665b4ab8ad4b0d0a9f475e0ee2519ecb9cd206291e03de565a8826185de",
-      "ContentHash": "8d74b84423eca6fa068d48322b2c7243ee03bcbade1efdad58691e1aeea2e7e5",
-      "Source": "NontoxicKappa; MP-hardened SDK-20 host-gated compatibility package (1.2.0-clonedivers.8 HellForge 0.5.0 relocated 4,096-record EntityManager & <1,024 GwNav::Bot governor, live mission difficulty >= 12 gating preserving native 12/18 SEAF caps on D1..11, 2-squad Clone Wars drops @ 50-220m, 85% 1-slot Clone Patrol + 15% 10Hz-sliced Elite squads) permitted per owner written-permission confirmation"
+      "Bytes": 118508,
+      "Sha256": "43eda2c10d70a37ff66d5efa9f4171ea53a013059f4d77fa48c9fdc897423b5a",
+      "ContentHash": "6275cde8adc7620deac926ad97c84e58e8505ee851f214b92aa80ecc748a7688",
+      "Source": "NontoxicKappa; MP-hardened SDK-20 host-gated compatibility package (1.2.0-clonedivers.8 HellForge 0.5.0 relocated 4,096-record EntityManager & <1,024 GwNav::Bot governor, in-flight Pelican cargo ceiling reservation, live mission difficulty >= 12 gating preserving native 12/18 SEAF caps on D1..11, 2-squad Clone Wars drops @ 50-220m, 85% 1-slot Clone Patrol + 15% 10Hz-sliced Elite squads) permitted per owner written-permission confirmation"
     },
     {
       "Id": "local.mod-9fd7880666f6",
