@@ -635,7 +635,7 @@ internal static class LinuxStaleSessionGuard
         if (string.IsNullOrWhiteSpace(installRoot) || !Directory.Exists(procRoot))
             return (false, []);
 
-        var normalizedRoot = Path.TrimEndingDirectorySeparator(Path.GetFullPath(installRoot));
+        var roots = ResolveInstallRoots(installRoot);
         var ignored = new HashSet<int>();
         int startPid = selfPid ?? Environment.ProcessId;
         int? walk = startPid;
@@ -659,17 +659,20 @@ internal static class LinuxStaleSessionGuard
                 var cwd = ReadLinkSafe(Path.Combine(entry, "cwd"));
                 var exe = ReadLinkSafe(Path.Combine(entry, "exe"));
 
-                if (!BelongsToInstall(normalizedRoot, cmdline, environ, cwd, exe))
+                if (!BelongsToInstall(roots, cmdline, environ, cwd, exe))
                     continue;
 
-                if (IsPersistentSteamBridgeHost(normalizedRoot, cmdline, exe))
+                if (IsPersistentSteamBridgeHost(roots, cmdline, exe) || IsClonediversBridge(cmdline, exe))
                     continue;
+
+                if (IsOrphanWrapperOrInnerBridge(comm, cmdline, exe) is { } label)
+                {
+                    orphans.Add(new(pid, label));
+                    continue;
+                }
 
                 if (IsLiveGameOrController(comm, cmdline, exe))
                     return (true, []);
-
-                if (IsOrphanWrapperOrInnerBridge(comm, cmdline, exe) is { } label)
-                    orphans.Add(new(pid, label));
             }
         }
         catch (Exception e) when (e is IOException or UnauthorizedAccessException) { }
@@ -737,27 +740,85 @@ internal static class LinuxStaleSessionGuard
         return ended;
     }
 
-    static bool BelongsToInstall(string root, IReadOnlyList<string> cmdline, IReadOnlyList<string> environ, string? cwd, string? exe)
+    internal static IReadOnlyList<string> ResolveInstallRoots(string installRoot)
     {
-        if (environ.Any(kv => kv.Equals("INSTALL=" + root, StringComparison.Ordinal)))
-            return true;
-        if (IsUnder(exe, root) || IsUnder(cwd, root))
-            return true;
-        foreach (var arg in cmdline)
+        var comp = OperatingSystem.IsWindows() ? StringComparison.OrdinalIgnoreCase : StringComparison.Ordinal;
+        var normalized = Path.TrimEndingDirectorySeparator(Path.GetFullPath(installRoot));
+        var roots = new List<string> { normalized };
+        var resolved = ResolvePathThroughLinks(normalized);
+        if (!string.IsNullOrEmpty(resolved) && !roots.Contains(resolved, comp == StringComparison.OrdinalIgnoreCase ? StringComparer.OrdinalIgnoreCase : StringComparer.Ordinal))
+            roots.Add(resolved);
+        return roots;
+    }
+
+    static string? ResolvePathThroughLinks(string fullPath)
+    {
+        try
         {
-            if (IsUnder(arg, root)) return true;
+            var root = Path.GetPathRoot(fullPath);
+            if (string.IsNullOrEmpty(root)) return null;
+            var current = root;
+            int hops = 0;
+            foreach (var part in fullPath[root.Length..].Split([Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar], StringSplitOptions.RemoveEmptyEntries))
+            {
+                current = Path.Combine(current, part);
+                var info = new DirectoryInfo(current);
+                if (info.Exists && info.LinkTarget != null)
+                {
+                    if (++hops > 64) return null;
+                    if (info.ResolveLinkTarget(returnFinalTarget: true) is { } target)
+                        current = target.FullName;
+                }
+            }
+            return Path.TrimEndingDirectorySeparator(Path.GetFullPath(current));
+        }
+        catch { return null; }
+    }
+
+    static bool BelongsToInstall(IReadOnlyList<string> roots, IReadOnlyList<string> cmdline, IReadOnlyList<string> environ, string? cwd, string? exe)
+    {
+        foreach (var root in roots)
+        {
+            if (environ.Any(kv => kv.Equals("INSTALL=" + root, StringComparison.Ordinal)))
+                return true;
+            if (IsUnder(exe, root) || IsUnder(cwd, root))
+                return true;
+            foreach (var arg in cmdline)
+            {
+                if (IsUnder(arg, root)) return true;
+            }
         }
         return false;
     }
 
-    static bool IsPersistentSteamBridgeHost(string root, IReadOnlyList<string> cmdline, string? exe)
+    static bool IsPersistentSteamBridgeHost(IReadOnlyList<string> roots, IReadOnlyList<string> cmdline, string? exe)
     {
-        if (cmdline is [var prog, "steam-bridge", "host"] &&
-            IsUnder(prog, root))
+        foreach (var root in roots)
+        {
+            if (cmdline is [var prog, "steam-bridge", "host"] &&
+                IsUnder(prog, root))
+                return true;
+            var bridgeHostScript = Path.Combine(root, "app", "linux", "hf-bridge-host.sh");
+            if (!IsUnder(exe, root) && cmdline.Any(a => PathEquals(a, bridgeHostScript)))
+                return true;
+        }
+        return false;
+    }
+
+    static bool IsClonediversBridge(IReadOnlyList<string> cmdline, string? exe)
+    {
+        static string Leaf(string? p) => string.IsNullOrEmpty(p) ? "" : p[(p.LastIndexOfAny(['/', '\\']) + 1)..];
+        var exeLeaf = Leaf(exe);
+        if (exeLeaf.Equals(LinuxForgePlan.NativeBridgeName, StringComparison.OrdinalIgnoreCase) ||
+            exeLeaf.Equals(LinuxForgePlan.BridgeName, StringComparison.OrdinalIgnoreCase))
             return true;
-        var bridgeHostScript = Path.Combine(root, "app", "linux", "hf-bridge-host.sh");
-        if (!IsUnder(exe, root) && cmdline.Any(a => PathEquals(a, bridgeHostScript)))
-            return true;
+        foreach (var arg in cmdline)
+        {
+            var leaf = Leaf(arg);
+            if (leaf.Equals(LinuxForgePlan.NativeBridgeName, StringComparison.OrdinalIgnoreCase) ||
+                leaf.Equals(LinuxForgePlan.BridgeName, StringComparison.OrdinalIgnoreCase))
+                return true;
+        }
         return false;
     }
 
@@ -773,8 +834,6 @@ internal static class LinuxStaleSessionGuard
                 leaf.Equals("HellForge.Session.exe", StringComparison.OrdinalIgnoreCase) ||
                 leaf.Equals("HellForge.Session", StringComparison.OrdinalIgnoreCase) ||
                 leaf.StartsWith("HellForge.Sessi", StringComparison.OrdinalIgnoreCase) ||
-                leaf.Equals("HellForge.Launcher.ClonediversBridge", StringComparison.OrdinalIgnoreCase) ||
-                leaf.Equals("HellForge.Launcher.ClonediversBridge.exe", StringComparison.OrdinalIgnoreCase) ||
                 leaf.Equals("HellForge.Launcher", StringComparison.OrdinalIgnoreCase) ||
                 leaf.Equals("HellForge.exe", StringComparison.OrdinalIgnoreCase))
             {

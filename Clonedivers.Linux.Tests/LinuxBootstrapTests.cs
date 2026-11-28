@@ -69,23 +69,45 @@ internal static class LinuxBootstrapTests
               File.Exists(Path.Combine(upgLinuxRoot, "mods", "hell-forge", "hellforge-mod.json")),
               "LinuxForgeBootstrap.TryRestoreModListAfter05Upgrade restores BOM-prefixed mod list with importDone=true and syncs app/bundled-mods on 0.5.0-beta");
 
-        // Issue #44: Idempotent hf-inner.sh self_cmdline subshell-exclusion patch + LinuxStaleSessionGuard orphan cleanup
+        // Issue #44: Idempotent hf-inner.sh self_cmdline subshell-exclusion patch against verbatim 0.5.0-beta hf-inner.sh + LinuxStaleSessionGuard orphan cleanup
         var innerRoot = Path.Combine(root, "hf-inner-patch", "pfx", "drive_c", "HellForge");
         Directory.CreateDirectory(Path.Combine(innerRoot, "app", "linux"));
-        const string upstreamUnpatchedInner =
-            "#!/usr/bin/env bash\n" +
-            "wrapper_pids=\" $$\"\n" +
-            "parent=\"$PPID\"\n" +
-            "while [[ \"$parent\" =~ ^[0-9]+$ ]] && [ \"$parent\" -gt 1 ]; do\n" +
-            "    wrapper_pids+=\" $parent\"\n" +
-            "    parent=\"$(awk '/^PPid:/ { print $2 }' \"/proc/$parent/status\" 2>/dev/null || true)\"\n" +
-            "done\n\n" +
-            "of_this_install() {\n" +
-            "    local pid=\"$1\" text exe cwd\n" +
-            "    for w in $wrapper_pids; do [ \"$pid\" = \"$w\" ] && return 1; done\n" +
-            "    text=\"$({ tr '\\0' '\\n' < \"/proc/$pid/cmdline\"; } 2>/dev/null || true)\"\n" +
-            "    return 0\n" +
-            "}\n";
+        var upstreamUnpatchedInner = """
+            #!/usr/bin/env bash
+            # Processes of this installation only. The wrapper and its parents have the Windows exe path in their arguments, so leave
+            # them out. Wine shows Windows paths (with backslashes) in command lines; the environment works for both forms. This is
+            # also the scan a Proton timeout uses to end what timeout(1) left behind (H.9).
+            wrapper_pids=" $$"
+            parent=$PPID
+            while [[ "$parent" =~ ^[0-9]+$ ]] && [ "$parent" -gt 1 ]; do
+              wrapper_pids+=" $parent"
+              parent="$(ps -o ppid= -p "$parent" 2>/dev/null | tr -d '[:space:]')"
+            done
+            windows_install="Z:${INSTALL//\//\\}"
+            case "$INSTALL" in
+              */pfx/drive_c/*)
+                windows_install="C:\\${INSTALL#*/pfx/drive_c/}"
+                windows_install="${windows_install//\//\\}"
+                ;;
+            esac
+            of_this_install() {
+              local pid=$1 text
+              case " $wrapper_pids " in *" $pid "*) return 1 ;; esac
+              text="$({ tr '\0' '\n' < "/proc/$pid/cmdline"; } 2>/dev/null || true)"
+              case "$text" in *"$INSTALL"*|*"$windows_install"*) return 0 ;; esac
+              text="$({ tr '\0' '\n' < "/proc/$pid/environ"; } 2>/dev/null || true)"
+              case $'\n'"$text"$'\n' in *$'\n'"INSTALL=$INSTALL"$'\n'*) return 0 ;; esac
+              case "$(readlink "/proc/$pid/cwd" 2>/dev/null || true)" in "$INSTALL"|"$INSTALL"/*) return 0 ;; esac
+              return 1
+            }
+            matching_pids() {
+              local pattern=$1 pid
+              while IFS= read -r pid; do
+                [ -n "$pid" ] && of_this_install "$pid" && printf '%s\n' "$pid"
+              done < <(pgrep -u "$(id -u)" -f "$pattern" 2>/dev/null || true)
+              return 0
+            }
+            """.Replace("\r\n", "\n", StringComparison.Ordinal) + "\n";
         var innerScript = Path.Combine(innerRoot, "app", "linux", "hf-inner.sh");
         File.WriteAllBytes(innerScript, System.Text.Encoding.UTF8.GetBytes(upstreamUnpatchedInner));
         int firstPatch = HellForgeRelease.PatchLinuxInnerWrapper(innerRoot);
@@ -94,9 +116,9 @@ internal static class LinuxBootstrapTests
         check(firstPatch == 1 &&
               secondPatch == 0 &&
               !patchedText.Contains('\r') &&
-              patchedText.Contains("self_cmdline=\"$({ tr '\\0' '\\n' < \"/proc/$$/cmdline\"; } 2>/dev/null || true)\"", StringComparison.Ordinal) &&
-              patchedText.Contains("[ -n \"$self_cmdline\" ] && [ \"$text\" = \"$self_cmdline\" ] && return 1", StringComparison.Ordinal),
-              "Issue #44: HellForgeRelease.PatchLinuxInnerWrapper idempotently injects self_cmdline subshell guard with LF line endings");
+              patchedText.Contains("  parent=\"$(ps -o ppid= -p \"$parent\" 2>/dev/null | tr -d '[:space:]')\"\ndone\nself_cmdline=\"$({ tr '\\0' '\\n' < \"/proc/$$/cmdline\"; } 2>/dev/null || true)\"\nwindows_install=\"Z:${INSTALL//\\//\\\\}\"", StringComparison.Ordinal) &&
+              patchedText.Contains("  text=\"$({ tr '\\0' '\\n' < \"/proc/$pid/cmdline\"; } 2>/dev/null || true)\"\n  [ -n \"$self_cmdline\" ] && [ \"$text\" = \"$self_cmdline\" ] && return 1\n  case \"$text\" in *\"$INSTALL\"*|*\"$windows_install\"*) return 0 ;; esac", StringComparison.Ordinal),
+              "Issue #44: HellForgeRelease.PatchLinuxInnerWrapper idempotently patches verbatim 0.5.0-beta hf-inner.sh with LF line endings");
 
         var futureUpstreamScript = Path.Combine(innerRoot, "hf-inner.sh");
         const string futureUpstream = "#!/usr/bin/env bash\n# Upstream fixed with $BASHPID\n[ \"$pid\" = \"$BASHPID\" ] && return 1\n";
@@ -105,27 +127,33 @@ internal static class LinuxBootstrapTests
               File.ReadAllText(futureUpstreamScript) == futureUpstream,
               "Issue #44: PatchLinuxInnerScriptFile leaves upstream BASHPID-fixed scripts untouched");
 
-        // Synthetic /proc test for LinuxStaleSessionGuard: cleans orphaned hf-inner.sh & steam-bridge inner, preserves steam-bridge host, and refuses if helldivers2.exe is alive
+        // Synthetic /proc test for LinuxStaleSessionGuard: cleans orphaned hf-inner.sh (even when its cmdline holds HellForge.Session.exe) & steam-bridge inner,
+        // preserves BOTH steam-bridge host AND Clonedivers' own live ClonediversBridge child, and aborts if helldivers2.exe or HellForge.Session.exe is alive
         var fakeProc = Path.Combine(root, "fake-proc-44");
-        void WriteProc(int pid, string comm, string[] cmdline, string[] environ)
+        void WriteProc(int pid, string comm, string[] cmdline, string[] environ, int ppid = 1, string? cwdPath = null)
         {
             var pDir = Path.Combine(fakeProc, pid.ToString());
             Directory.CreateDirectory(pDir);
             File.WriteAllText(Path.Combine(pDir, "comm"), comm + "\n");
-            File.WriteAllText(Path.Combine(pDir, "status"), $"Name:\t{comm}\nPPid:\t1\n");
+            File.WriteAllText(Path.Combine(pDir, "status"), $"Name:\t{comm}\nPPid:\t{ppid}\n");
             File.WriteAllText(Path.Combine(pDir, "cmdline"), string.Join("\0", cmdline) + "\0");
             File.WriteAllText(Path.Combine(pDir, "environ"), string.Join("\0", environ) + "\0");
+            if (cwdPath != null && OperatingSystem.IsLinux())
+                File.CreateSymbolicLink(Path.Combine(pDir, "cwd"), cwdPath);
         }
         var normRoot = Path.TrimEndingDirectorySeparator(Path.GetFullPath(innerRoot));
-        WriteProc(4101, "hf-inner.sh", ["bash", Path.Combine(normRoot, "app", "linux", "hf-inner.sh")], [$"INSTALL={normRoot}"]);
+        WriteProc(9999, "Clonedivers", ["/opt/clonedivers/Clonedivers"], [], ppid: 1000);
+        WriteProc(4100, "HellForge.Launc", [Path.Combine(root, "ClonediversLauncher", "HellForge.Launcher.ClonediversBridge"), "--install", normRoot], [$"INSTALL={normRoot}"], ppid: 9999, cwdPath: normRoot);
+        WriteProc(4101, "hf-inner.sh", ["bash", Path.Combine(normRoot, "app", "linux", "hf-inner.sh"), @"C:\HellForge\app\HellForge.Session.exe", "play"], [$"INSTALL={normRoot}"]);
         WriteProc(4102, "HellForge.Cli", [Path.Combine(normRoot, "app", "cli-linux", "HellForge.Cli"), "steam-bridge", "inner"], [$"INSTALL={normRoot}"]);
         WriteProc(4103, "HellForge.Cli", [Path.Combine(normRoot, "app", "cli-linux", "HellForge.Cli"), "steam-bridge", "host"], [$"INSTALL={normRoot}"]);
         var killedPids = new List<int>();
         var cleanedLabels = LinuxStaleSessionGuard.CleanupStaleOrphans(normRoot, fakeProc, selfPid: 9999, killOverride: killedPids.Add);
         check(killedPids.OrderBy(x => x).SequenceEqual(new[] { 4101, 4102 }) &&
+              !killedPids.Contains(4100) &&
               !killedPids.Contains(4103) &&
               cleanedLabels.Count == 2,
-              "Issue #44: LinuxStaleSessionGuard cleans orphaned hf-inner.sh and steam-bridge inner while preserving steam-bridge host");
+              "Issue #44: LinuxStaleSessionGuard cleans orphaned hf-inner.sh and steam-bridge inner while preserving steam-bridge host and live ClonediversBridge child");
 
         // When helldivers2.exe is live for this install, CleanupStaleOrphans MUST NOT kill anything
         WriteProc(4104, "Main", [@"C:\HellForge\game\bin\helldivers2.exe"], [$"INSTALL={normRoot}"]);

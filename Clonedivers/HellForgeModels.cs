@@ -84,27 +84,43 @@ public static class HellForgeRelease
         PatchLinuxInnerWrapper(fullRoot);
     }
 
-    const string UnpatchedLinuxInnerAnchor =
-        "while [[ \"$parent\" =~ ^[0-9]+$ ]] && [ \"$parent\" -gt 1 ]; do\n" +
-        "    wrapper_pids+=\" $parent\"\n" +
-        "    parent=\"$(awk '/^PPid:/ { print $2 }' \"/proc/$parent/status\" 2>/dev/null || true)\"\n" +
-        "done\n\n" +
-        "of_this_install() {\n" +
-        "    local pid=\"$1\" text exe cwd\n" +
-        "    for w in $wrapper_pids; do [ \"$pid\" = \"$w\" ] && return 1; done\n" +
-        "    text=\"$({ tr '\\0' '\\n' < \"/proc/$pid/cmdline\"; } 2>/dev/null || true)\"";
+    static readonly string UnpatchedLinuxInnerAnchor = """
+        while [[ "$parent" =~ ^[0-9]+$ ]] && [ "$parent" -gt 1 ]; do
+          wrapper_pids+=" $parent"
+          parent="$(ps -o ppid= -p "$parent" 2>/dev/null | tr -d '[:space:]')"
+        done
+        windows_install="Z:${INSTALL//\//\\}"
+        case "$INSTALL" in
+          */pfx/drive_c/*)
+            windows_install="C:\\${INSTALL#*/pfx/drive_c/}"
+            windows_install="${windows_install//\//\\}"
+            ;;
+        esac
+        of_this_install() {
+          local pid=$1 text
+          case " $wrapper_pids " in *" $pid "*) return 1 ;; esac
+          text="$({ tr '\0' '\n' < "/proc/$pid/cmdline"; } 2>/dev/null || true)"
+        """.Replace("\r\n", "\n", StringComparison.Ordinal);
 
-    const string PatchedLinuxInnerReplacement =
-        "while [[ \"$parent\" =~ ^[0-9]+$ ]] && [ \"$parent\" -gt 1 ]; do\n" +
-        "    wrapper_pids+=\" $parent\"\n" +
-        "    parent=\"$(awk '/^PPid:/ { print $2 }' \"/proc/$parent/status\" 2>/dev/null || true)\"\n" +
-        "done\n" +
-        "self_cmdline=\"$({ tr '\\0' '\\n' < \"/proc/$$/cmdline\"; } 2>/dev/null || true)\"\n\n" +
-        "of_this_install() {\n" +
-        "    local pid=\"$1\" text exe cwd\n" +
-        "    for w in $wrapper_pids; do [ \"$pid\" = \"$w\" ] && return 1; done\n" +
-        "    text=\"$({ tr '\\0' '\\n' < \"/proc/$pid/cmdline\"; } 2>/dev/null || true)\"\n" +
-        "    [ -n \"$self_cmdline\" ] && [ \"$text\" = \"$self_cmdline\" ] && return 1";
+    static readonly string PatchedLinuxInnerReplacement = """
+        while [[ "$parent" =~ ^[0-9]+$ ]] && [ "$parent" -gt 1 ]; do
+          wrapper_pids+=" $parent"
+          parent="$(ps -o ppid= -p "$parent" 2>/dev/null | tr -d '[:space:]')"
+        done
+        self_cmdline="$({ tr '\0' '\n' < "/proc/$$/cmdline"; } 2>/dev/null || true)"
+        windows_install="Z:${INSTALL//\//\\}"
+        case "$INSTALL" in
+          */pfx/drive_c/*)
+            windows_install="C:\\${INSTALL#*/pfx/drive_c/}"
+            windows_install="${windows_install//\//\\}"
+            ;;
+        esac
+        of_this_install() {
+          local pid=$1 text
+          case " $wrapper_pids " in *" $pid "*) return 1 ;; esac
+          text="$({ tr '\0' '\n' < "/proc/$pid/cmdline"; } 2>/dev/null || true)"
+          [ -n "$self_cmdline" ] && [ "$text" = "$self_cmdline" ] && return 1
+        """.Replace("\r\n", "\n", StringComparison.Ordinal);
 
     /// <summary>
     /// Idempotently patches deployed &lt;root&gt;/app/linux/hf-inner.sh (and &lt;root&gt;/hf-inner.sh if present)
