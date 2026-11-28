@@ -3,21 +3,27 @@
 
 Implements all 5 r26 asset deliverables for Helldivers 2 build 25480438:
   1. Republic Commando Delta-62 Scorch (B-01v3 & CE-35), Fixer (CM-10), Sev (SC-30)
-     Katarn helmet restoration (`patch_45`) + Clone wearable ankle-cull AABB fixes.
-  2. IG-100 MagnaGuard (`9f44121c554dae89`) visible Cyborg collision-capsule rebind
+     Katarn helmet restoration (`patch_45`, `modes: ["clonedivers", "commandos"]`, grafted
+     onto `stock(dst_uid)` with `unit_safe == True` and exact `@52` bone-hash remapping)
+     + Clone wearable ankle-cull AABB fixes.
+  2. IG-100 MagnaGuard (`9f44121c554dae89`, `patch_41`) visible Cyborg collision-capsule rebind
      (`m8..m13` -> `m_collision`), CIS droid/Electrostaff/vehicle `@48` LODData & `@100`
-     MeshObject culling fixes (`patch_40..43`), and `mixed-droids` 9-resource closure (`patch_46`).
-  3. AT-TE weapon child `UNIT` culling bounds expansion (preserving all 99 runtime-pinned
+     MeshObject culling fixes (`patch_40..43`), `mixed-droids` 9-resource closure (`patch_46`),
+     and zero-draw `unit_safe` hiders for all 16 shared Cyborg corpses/severed limbs/gore/spikes
+     (`patch_47`, `option: "droids"`) + 5 `all-droids` Gunship wrecks & Berserker corpse (`patch_48`).
+  3. AT-TE weapon child `UNIT` culling bounds expansion (preserving all 83 runtime-pinned
      LEGO, Yoda, camera-pullback, and AT-ST walker `UNIT`s bit-exact).
   4. CIS Providence Dreadnought & Vulture Droid orbit/surface skybox wiring (`patch_35`
      `option: "droids"` + `lighter` `.gpu_resources` OOB size fix + `2600 m` bounds) and
-     4 distinct Eagle-rigged attack-run ships (`patch_44` + `clone_eagle_assets.h`):
+     4 self-contained Eagle-rigged attack-run ships with full privatized `MATERIAL` + `TEXTURE`
+     5-tier closure (`patch_44` + `clone_eagle_assets.h`):
        - `CLONE_FIGHTER` (`0xfb909f602a347374`): ARC-170 Starfighter
        - `CLONE_BOMBER`  (`0x21f2f1745df2d0b9`): BTL-B Y-Wing Bomber
        - `CLONE_GUNSHIP` (`0xfe2802e03035e982`): LAAT/i Republic Gunship
        - `CIS_FIGHTER`   (`0x5da3526b21f1dc24`): CIS Vulture Droid Starfighter
-  5. Preserves 100% 5-tier melee POI (`cqc-72`, `cqc-2`, `cqc-19`, `cqc-30`, `cqc-5`, `cqc-42`)
-     and Guard Dog Rover (`32cb44321da1b5a0`, `cae3f1e8a44a80b3`) package closure.
+  5. Preserves 100% 5-tier melee POI (`cqc-72`, `cqc-2`, `cqc-19`, `cqc-30`, `cqc-5`, `cqc-42`
+     Machete, `melee_chainsaw_greatsword`, `melee_flag`, `melee_sledge_hammer`) and Guard Dog Rover
+     (`32cb44321da1b5a0`, `cae3f1e8a44a80b3`) package closure.
 """
 from __future__ import annotations
 
@@ -114,7 +120,7 @@ assert CLONE_BOMBER == 0x21F2F1745DF2D0B9
 assert CLONE_GUNSHIP == 0xFE2802E03035E982
 assert CIS_FIGHTER == 0x5DA3526B21F1DC24
 
-# MagnaGuard `9f44121c554dae89` m8..m13 Cyborg ragdoll limb capsule thin hashes -> m_collision
+# MagnaGuard `9f44121c554dae89` (`patch_41`) m8..m13 Cyborg ragdoll limb capsule thin hashes -> m_collision
 MAGNAGUARD_FEMALE_UID = 0x9F44121C554DAE89
 MAGNAGUARD_COLLISION_REBINDS = {
     0x1EB1F87F: M_COLLISION,
@@ -157,8 +163,8 @@ VULTURE_SKYBOX_UNIT = 0xBB81AC6ECEB5273A
 
 # CIS large vehicles / walkers / dropships / tanks / spawners in patch_40..43
 CIS_LARGE_VEHICLE_UNITS = {
-    0x282EB766C1FFA6A1,  # cyborg_dropship (HMP)
-    0xDB90077E76FAA025,  # bot_gunship
+    0x282EB766C1FFA6A1,  # cyborg_gunship (HMP)
+    0xDB90077E76FAA025,  # bot_gunship / dropship
     0xEF570293245A17C2,  # combat_walker / Factory Strider
     0xD37E8D120D2836E3,  # cyborg_tank_body (AAT)
     0xCECD6979CF7BB0F2,  # cyborg_tank_turret_cannon
@@ -169,7 +175,7 @@ CIS_LARGE_VEHICLE_UNITS = {
     0xF8131632AA867107,  # STAP speeder
 }
 
-# Delta Squad Armory Katarn helmet restorations for `patch_45` (`option: "commandos"`)
+# Delta Squad Armory Katarn helmet restorations for `patch_45` (`modes: ["clonedivers", "commandos"]`)
 # (dst_uid, src_patch_num, src_uid)
 DELTA_SQUAD_HELMET_COPIES = (
     (0x697D6A57971DA101, 5, 0xC96CB2E72D7A0525),   # CE-35 Scorch <- B-01v3 Scorch Katarn
@@ -188,6 +194,35 @@ MIXED_DROIDS_CLOSURE_SPECS = (
     (40, 0x7F02AA6C13F641AC, TEX_T),
     (41, 0xA99E398B3352A825, TEX_T),
     (43, 0xA6E57C439405067B, TEX_T),
+)
+
+# 16 shared Cyborg corpses, severed limbs, gore piles, scout-walker wrecks & head spikes (`patch_47`: `option: "droids"`)
+CORPSE_SHARED_DROIDS = (
+    0x18D195AEB935FC04,  # conscript_arm_01
+    0x27C74F0E935A3879,  # conscript_body_01
+    0x7BB8EB7C023948B9,  # conscript_corpse_01
+    0x97EF8F7D13390015,  # conscript_corpse_02
+    0xC4918B48B52D0A66,  # conscript_corpse_03
+    0x95B777E2575BE38D,  # conscript_gore_pile_01
+    0x8BCC4C3C50F670D6,  # conscript_head_01
+    0xAEA9BA71392ABFB5,  # conscript_leg_01
+    0x93B6CBDF557994BF,  # cy_walker_scout_body_damaged
+    0x5E42EB98F62D2A2F,  # cy_walker_scout_left_leg
+    0x59F251744992869E,  # cy_walker_scout_right_leg
+    0x5932DF569221089A,  # lieutentant_corpse_01
+    0xB8763A8DDE0BFC14,  # soldier_corpse_01
+    0xF61FE9902A2BCFA3,  # fortifications/head_spike_01
+    0xFE0282B6372F8243,  # fortifications/head_spike_02
+    0xEB449DB0CF336D49,  # fortifications/head_spike_03
+)
+
+# 5 `all-droids`-only HMP Gunship death wrecks & Berserker corpse (`patch_48`: `option: "droids"`, `unlessOption: "mixed-droids"`)
+CORPSE_ALL_DROIDS_ONLY = (
+    0xBD4DD8300C918A05,  # cyborg_gunship_back_engine_wreck
+    0x5584645C436602DD,  # cyborg_gunship_left_engine_wreck
+    0xE89E899AE08E6E08,  # cyborg_gunship_main_body_wreck
+    0xE9E88A8CF06799DA,  # cyborg_gunship_right_engine_wreck
+    0x3CB084E3FBEDAE24,  # berserker_corpse_01
 )
 
 
@@ -225,6 +260,32 @@ def load_protected_units(wt_root: Path = WT_ROOT) -> set[int]:
     if len(protected) < 83:
         raise RuntimeError(f"Unexpectedly small protected UNIT set: {len(protected)}")
     return protected
+
+
+def _expand_box_and_rad(
+    mnx: float,
+    mny: float,
+    mnz: float,
+    mxx: float,
+    mxy: float,
+    mxz: float,
+    rad: float,
+    target_box: tuple[float, float, float, float, float, float],
+    target_rad: float,
+) -> tuple[float, float, float, float, float, float, float]:
+    n_mnx = min(mnx, target_box[0]) if math.isfinite(mnx) else target_box[0]
+    n_mny = min(mny, target_box[1]) if math.isfinite(mny) else target_box[1]
+    n_mnz = min(mnz, target_box[2]) if math.isfinite(mnz) else target_box[2]
+    n_mxx = max(mxx, target_box[3]) if math.isfinite(mxx) else target_box[3]
+    n_mxy = max(mxy, target_box[4]) if math.isfinite(mxy) else target_box[4]
+    n_mxz = max(mxz, target_box[5]) if math.isfinite(mxz) else target_box[5]
+    diag_r = math.sqrt(
+        max(abs(n_mnx), abs(n_mxx)) ** 2
+        + max(abs(n_mny), abs(n_mxy)) ** 2
+        + max(abs(n_mnz), abs(n_mxz)) ** 2
+    )
+    n_rad = max(rad if math.isfinite(rad) else 0.0, target_rad, diag_r)
+    return n_mnx, n_mny, n_mnz, n_mxx, n_mxy, n_mxz, n_rad
 
 
 def patch_unit_bounds_and_matmap(
@@ -296,18 +357,9 @@ def patch_unit_bounds_and_matmap(
                 frel = struct.unpack_from("<I", out, lp + 20 + 4 * lv + 4 * fi)[0]
                 boff = (lp - at48) + frel
                 mnx, mny, mnz, mxx, mxy, mxz, rad, cn, ls, tl = struct.unpack_from("<7fIfI", lod_blob, boff)
-                n_mnx = min(mnx, target_box[0]) if math.isfinite(mnx) else target_box[0]
-                n_mny = min(mny, target_box[1]) if math.isfinite(mny) else target_box[1]
-                n_mnz = min(mnz, target_box[2]) if math.isfinite(mnz) else target_box[2]
-                n_mxx = max(mxx, target_box[3]) if math.isfinite(mxx) else target_box[3]
-                n_mxy = max(mxy, target_box[4]) if math.isfinite(mxy) else target_box[4]
-                n_mxz = max(mxz, target_box[5]) if math.isfinite(mxz) else target_box[5]
-                diag_r = math.sqrt(
-                    max(abs(n_mnx), abs(n_mxx)) ** 2
-                    + max(abs(n_mny), abs(n_mxy)) ** 2
-                    + max(abs(n_mnz), abs(n_mxz)) ** 2
+                n_mnx, n_mny, n_mnz, n_mxx, n_mxy, n_mxz, n_rad = _expand_box_and_rad(
+                    mnx, mny, mnz, mxx, mxy, mxz, rad, target_box, target_rad
                 )
-                n_rad = max(rad if math.isfinite(rad) else 0.0, target_rad, diag_r)
                 n_ls = 1.0 if (not math.isfinite(ls) or ls <= 0.0 or (clamp_lod_scale and ls > 1.5)) else ls
                 n_cn = 0 if (clamp_cull_node and nn > 0 and cn >= nn) else cn
                 packed_f = struct.pack("<7fIfI", n_mnx, n_mny, n_mnz, n_mxx, n_mxy, n_mxz, n_rad, n_cn, n_ls, tl)
@@ -335,18 +387,9 @@ def patch_unit_bounds_and_matmap(
                 continue
             boff = (mh - at100) + 8
             mnx, mny, mnz, mxx, mxy, mxz, rad = struct.unpack_from("<7f", mesh_blob, boff)
-            n_mnx = min(mnx, target_box[0]) if math.isfinite(mnx) else target_box[0]
-            n_mny = min(mny, target_box[1]) if math.isfinite(mny) else target_box[1]
-            n_mnz = min(mnz, target_box[2]) if math.isfinite(mnz) else target_box[2]
-            n_mxx = max(mxx, target_box[3]) if math.isfinite(mxx) else target_box[3]
-            n_mxy = max(mxy, target_box[4]) if math.isfinite(mxy) else target_box[4]
-            n_mxz = max(mxz, target_box[5]) if math.isfinite(mxz) else target_box[5]
-            diag_r = math.sqrt(
-                max(abs(n_mnx), abs(n_mxx)) ** 2
-                + max(abs(n_mny), abs(n_mxy)) ** 2
-                + max(abs(n_mnz), abs(n_mxz)) ** 2
+            n_mnx, n_mny, n_mnz, n_mxx, n_mxy, n_mxz, n_rad = _expand_box_and_rad(
+                mnx, mny, mnz, mxx, mxy, mxz, rad, target_box, target_rad
             )
-            n_rad = max(rad if math.isfinite(rad) else 0.0, target_rad, diag_r)
             packed_m = struct.pack("<7f", n_mnx, n_mny, n_mnz, n_mxx, n_mxy, n_mxz, n_rad)
             if mesh_blob[boff : boff + 28] != packed_m:
                 mesh_blob[boff : boff + 28] = packed_m
@@ -364,6 +407,219 @@ def patch_unit_bounds_and_matmap(
     if was_safe and stock_raw is not None and not P.unit_safe((result, b"", b""), stock_raw):
         raise ValueError("patch_unit_bounds_and_matmap violated empire_port.unit_safe")
     return result
+
+
+def graft_helmet_onto_stock_unit(
+    stock_dst: bytes,
+    src_main: bytes,
+    src_gpu: bytes,
+    target_box: tuple[float, float, float, float, float, float] = (-1.5, -1.5, -2.2, 1.5, 1.5, 2.5),
+    target_rad: float = 3.2,
+) -> bytes:
+    """Graft `src_main` geometry/LODs/skins onto `stock_dst` while preserving `stock_dst` skeleton & `unit_safe`.
+
+    Preserves `stock_dst[0:len(stock_dst)]` (including external `.bones` at offset 8 and `@52` JointData)
+    and remaps `@88` SkinData joints, `@100` `aabbTransformIdx`/`headerTransformIdx`, and `@48` `cull_node`
+    by matching `@52` Stingray bone name hashes (`dst_hashes.index(src_hashes[j])`).
+    """
+    if struct.unpack_from("<Q", stock_dst, 16)[0] != 0:
+        raise ValueError("Expected inline geometry (offset 16 == 0) on stock helmet UNIT")
+
+    at52_dst = struct.unpack_from("<I", stock_dst, 52)[0]
+    at52_src = struct.unpack_from("<I", src_main, 52)[0]
+    if not at52_dst or not at52_src:
+        raise ValueError("Missing @52 JointData on stock_dst or src_main")
+
+    nn_dst = struct.unpack_from("<I", stock_dst, at52_dst)[0]
+    nn_src = struct.unpack_from("<I", src_main, at52_src)[0]
+    dst_world_cm = np.frombuffer(stock_dst, dtype="<f4", count=16 * nn_dst, offset=at52_dst + 16 + 64 * nn_dst).reshape(nn_dst, 4, 4)
+    src_world_cm = np.frombuffer(src_main, dtype="<f4", count=16 * nn_src, offset=at52_src + 16 + 64 * nn_src).reshape(nn_src, 4, 4)
+    dst_hashes = list(struct.unpack_from(f"<{nn_dst}I", stock_dst, at52_dst + 16 + 132 * nn_dst))
+    src_hashes = list(struct.unpack_from(f"<{nn_src}I", src_main, at52_src + 16 + 132 * nn_src))
+    dst_idx_by_hash = {h: idx for idx, h in enumerate(dst_hashes)}
+
+    def _remap_joint(j: int) -> int:
+        if j < 0 or j >= nn_src:
+            raise ValueError(f"Source joint index {j} out of bounds (nn_src={nn_src})")
+        bh = src_hashes[j]
+        if bh not in dst_idx_by_hash:
+            raise ValueError(f"Source bone hash 0x{bh:08x} (j={j}) missing in stock target @52")
+        return dst_idx_by_hash[bh]
+
+    out = bytearray(stock_dst)
+
+    def _append_section(field_off: int, blob: bytes) -> None:
+        out.extend(bytes(-len(out) % 16))
+        struct.pack_into("<I", out, field_off, len(out))
+        out.extend(blob)
+
+    src_hdr_offs = [struct.unpack_from("<I", src_main, f)[0] for f in (48, 52, 88, 92, 96, 100, 104, 108, 112)]
+
+    def _src_section_slice(idx_in_hdr: int) -> tuple[int, bytearray]:
+        at_s = src_hdr_offs[idx_in_hdr]
+        if not at_s:
+            return 0, bytearray()
+        upper_s = min([o for o in src_hdr_offs if o > at_s] + [len(src_main)])
+        return at_s, bytearray(src_main[at_s:upper_s])
+
+    # 1. @88 SkinData (remap joint indices & adjust inverse-bind if rest-pose world matrix differs)
+    at88_s, skin_blob = _src_section_slice(2)
+    if at88_s:
+        for sat in VC.pointers(src_main, 88):
+            bc, mo, bo, _ = struct.unpack_from("<4I", src_main, sat)
+            old_joints = struct.unpack_from(f"<{bc}I", src_main, sat + bo)
+            new_joints = [_remap_joint(j) for j in old_joints]
+            struct.pack_into(f"<{bc}I", skin_blob, (sat - at88_s) + bo, *new_joints)
+            for bi, (oj, nj) in enumerate(zip(old_joints, new_joints, strict=True)):
+                if float(np.max(np.abs(dst_world_cm[nj] - src_world_cm[oj]))) > 1e-5:
+                    m_off = (sat - at88_s) + mo + 64 * bi
+                    src_bind_rm = np.frombuffer(skin_blob, dtype="<f4", count=16, offset=m_off).reshape(4, 4).T.astype(np.float64)
+                    src_w_rm = src_world_cm[oj].T.astype(np.float64)
+                    dst_w_rm = dst_world_cm[nj].T.astype(np.float64)
+                    new_bind_rm = np.linalg.inv(dst_w_rm) @ src_w_rm @ src_bind_rm
+                    skin_blob[m_off : m_off + 64] = np.asarray(new_bind_rm.T, dtype="<f4").tobytes()
+        _append_section(88, bytes(skin_blob))
+    else:
+        struct.pack_into("<I", out, 88, 0)
+
+    # 2. @92 Layout table
+    at92_s, lay_blob = _src_section_slice(3)
+    if at92_s:
+        _append_section(92, bytes(lay_blob))
+    else:
+        struct.pack_into("<I", out, 92, 0)
+
+    # 3. @100 MeshObject table (remap mp+44 & mp+48 transform indices + expand AABB)
+    at100_s, mesh_blob = _src_section_slice(5)
+    if at100_s:
+        for mh in VC.pointers(src_main, 100):
+            mrel = mh - at100_s
+            mtype, _, ti44, ti48 = struct.unpack_from("<4I", src_main, mh + 36)
+            new_ti44 = _remap_joint(ti44) if ti44 < nn_src else 0
+            new_ti48 = _remap_joint(ti48) if ti48 < nn_src else 0
+            struct.pack_into("<II", mesh_blob, mrel + 44, new_ti44, new_ti48)
+            if mtype not in (0, 256):
+                mnx, mny, mnz, mxx, mxy, mxz, rad = struct.unpack_from("<7f", mesh_blob, mrel + 8)
+                packed_m = struct.pack(
+                    "<7f",
+                    *_expand_box_and_rad(mnx, mny, mnz, mxx, mxy, mxz, rad, target_box, target_rad),
+                )
+                mesh_blob[mrel + 8 : mrel + 36] = packed_m
+        _append_section(100, bytes(mesh_blob))
+    else:
+        struct.pack_into("<I", out, 100, 0)
+
+    # 4. @48 LODData table (remap cull_node + clamp lod_scale + expand footer AABB)
+    at48_s, lod_blob = _src_section_slice(0)
+    if at48_s:
+        for lp in VC.pointers(src_main, 48):
+            fc, lv = struct.unpack_from("<II", src_main, lp + 12)
+            for fi in range(fc):
+                frel = struct.unpack_from("<I", src_main, lp + 20 + 4 * lv + 4 * fi)[0]
+                boff = (lp - at48_s) + frel
+                mnx, mny, mnz, mxx, mxy, mxz, rad, cn, ls, tl = struct.unpack_from("<7fIfI", lod_blob, boff)
+                n_box_rad = _expand_box_and_rad(mnx, mny, mnz, mxx, mxy, mxz, rad, target_box, target_rad)
+                n_cn = _remap_joint(cn) if cn < nn_src else 0
+                n_ls = 1.0 if (not math.isfinite(ls) or ls <= 0.0 or ls > 1.5) else ls
+                lod_blob[boff : boff + 40] = struct.pack("<7fIfI", *n_box_rad, n_cn, n_ls, tl)
+        _append_section(48, bytes(lod_blob))
+    else:
+        struct.pack_into("<I", out, 48, 0)
+
+    # 5. @112 material_map (union stock_dst + src_main so retained & drawn slots both resolve)
+    merged_mm = dict(VC.material_map(stock_dst))
+    merged_mm.update(VC.material_map(src_main))
+    mm_keys = list(merged_mm.keys())
+    mm_blob = (
+        struct.pack("<I", len(mm_keys))
+        + struct.pack(f"<{len(mm_keys)}I", *mm_keys)
+        + struct.pack(f"<{len(mm_keys)}Q", *(merged_mm[k] for k in mm_keys))
+    )
+    _append_section(112, mm_blob)
+
+    result = bytes(out)
+    VC.lod_descriptors(result)
+    if not P.unit_safe((result, b"", src_gpu), stock_dst):
+        raise RuntimeError("graft_helmet_onto_stock_unit failed empire_port.unit_safe")
+    return result
+
+
+def build_zero_draw_unit_hider(stock_raw: bytes) -> tuple[bytes, bytes]:
+    """Build a crash-proof `unit_safe` invisible hider UNIT from `stock_raw` (0 drawn triangles).
+
+    Preserves `stock_raw[:len(stock_raw)]` (`@48`, `@52`, physics/node layout), rebinds all `@112`
+    material slots to invisible `m_collision` (`0x84b327056baf1c6d`), zeroes `icnt` on all rendered
+    `@100` draw groups (`mtype not in (0, 256)`), and shrinks `@92` layouts to a 1-vertex / 3-index
+    zero buffer so D3D11 buffer creation is 100% valid with minimal byte footprint.
+    """
+    if struct.unpack_from("<Q", stock_raw, 16)[0] != 0:
+        raise ValueError("Expected inline geometry (offset 16 == 0) on stock corpse/wreck UNIT")
+
+    out = bytearray(stock_raw)
+
+    def _append_section(field_off: int, blob: bytes) -> None:
+        out.extend(bytes(-len(out) % 16))
+        struct.pack_into("<I", out, field_off, len(out))
+        out.extend(blob)
+
+    hdr_offs = [struct.unpack_from("<I", stock_raw, f)[0] for f in (48, 52, 88, 92, 96, 100, 104, 108, 112)]
+    at92_s, at100_s, at112_s = hdr_offs[3], hdr_offs[5], hdr_offs[8]
+
+    # 1. Rebind all @112 material_map slots to invisible m_collision
+    if at112_s:
+        cnt112 = struct.unpack_from("<I", stock_raw, at112_s)[0]
+        thin = struct.unpack_from(f"<{cnt112}I", stock_raw, at112_s + 4)
+        mm_blob = (
+            struct.pack("<I", cnt112)
+            + struct.pack(f"<{cnt112}I", *thin)
+            + struct.pack(f"<{cnt112}Q", *([M_COLLISION] * cnt112))
+        )
+        _append_section(112, mm_blob)
+
+    # 2. Shrink @92 layouts to 1 all-zero vertex + 3 all-zero indices if layouts exist
+    gpu_buf = bytearray()
+    if at92_s:
+        new_layouts: list[bytes] = []
+        for lp in VC.pointers(stock_raw, 92):
+            lay = bytearray(stock_raw[lp : lp + 448])
+            _, stride = struct.unpack_from("<II", lay, 352)
+            _, imode = struct.unpack_from("<II", lay, 392)
+            iwidth = 2 if imode == 0 else 4
+            gpu_buf.extend(bytes(-len(gpu_buf) % 16))
+            vo = len(gpu_buf)
+            vb = stride
+            gpu_buf.extend(bytes(vb))
+            gpu_buf.extend(bytes(-len(gpu_buf) % 16))
+            io = len(gpu_buf)
+            ic = 3
+            ib = ic * iwidth
+            gpu_buf.extend(bytes(ib))
+            for off, val in ((352, 1), (392, ic), (416, vo), (420, vb), (424, io), (428, ib)):
+                struct.pack_into("<I", lay, off, val)
+            new_layouts.append(bytes(lay))
+        _append_section(92, _pack_pointer_table(new_layouts))
+
+    # 3. Zero `icnt` on all rendered `@100` draw groups (`mtype not in (0, 256)`)
+    if at100_s:
+        upper100_s = min([o for o in hdr_offs if o > at100_s] + [len(stock_raw)])
+        mesh_blob = bytearray(stock_raw[at100_s:upper100_s])
+        for mh in VC.pointers(stock_raw, 100):
+            mtype = struct.unpack_from("<I", stock_raw, mh + 36)[0]
+            if mtype in (0, 256):
+                continue
+            ng, go = struct.unpack_from("<2I", stock_raw, mh + 120)
+            for gi in range(ng):
+                g_off = (mh - at100_s) + go + 24 * gi
+                mat_i = struct.unpack_from("<I", mesh_blob, g_off)[0]
+                struct.pack_into("<6I", mesh_blob, g_off, mat_i, 0, 0, 0, 0, 0)
+        _append_section(100, bytes(mesh_blob))
+
+    result = bytes(out)
+    hider_gpu = bytes(gpu_buf)
+    VC.lod_descriptors(result)
+    if not P.unit_safe((result, b"", hider_gpu), stock_raw):
+        raise RuntimeError("build_zero_draw_unit_hider failed empire_port.unit_safe")
+    return result, hider_gpu
 
 
 def unit_needs_wearable_bounds_fix(raw: bytes) -> bool:
@@ -576,8 +832,8 @@ def graft_static_ship_onto_eagle(
     if mode in ("arc170", "vulture"):
         slay = src_ship_main[src_lps[0] : src_lps[0] + 448]
         vc, stride = struct.unpack_from("<II", slay, 352)
-        ic, imode = struct.unpack_from("<II", slay, 392)
-        vo, vb, io, ib = struct.unpack_from("<4I", slay, 416)
+        ic, _ = struct.unpack_from("<II", slay, 392)
+        vo, _, io, ib = struct.unpack_from("<4I", slay, 416)
         iwidth = ib // ic
         vbytes_src = src_ship_gpu[vo : vo + vc * stride]
         ibytes_src = src_ship_gpu[io : io + ib]
@@ -884,8 +1140,40 @@ class ClonesR26Builder:
             return None
         return (s_sz, g_sz)
 
+    def _emit_deduped_manifest_entries(
+        self,
+        patch_num: int,
+        tier_paths: dict[str, tuple[Path, Path, Path]],
+        *,
+        modes: list[str],
+        option: str | None = None,
+        unless_option: str | None = None,
+    ) -> list[dict[str, Any]]:
+        entries: list[dict[str, Any]] = []
+        for suffix_idx, suffix in enumerate(P.SUFFIXES):
+            grouped: dict[tuple[str, int], list[str]] = {}
+            for tier in TIERS:
+                sha, sz = self.store_new_file(tier_paths[tier][suffix_idx])
+                grouped.setdefault((sha, sz), []).append(tier)
+            for (sha, sz), profs in grouped.items():
+                e: dict[str, Any] = {
+                    "name": f"9ba626afa44a3aa3.patch_{patch_num}{suffix}",
+                    "url": self.url_for(sha, sz),
+                    "size": sz,
+                    "sha256": sha,
+                    "modes": list(modes),
+                }
+                if option is not None:
+                    e["option"] = option
+                if unless_option is not None:
+                    e["unlessOption"] = unless_option
+                if len(profs) < len(TIERS):
+                    e["textureProfiles"] = profs
+                entries.append(e)
+        return entries
+
     def build_patch_44_all_tiers(self, updated_files: list[dict[str, Any]]) -> tuple[list[dict[str, Any]], str]:
-        """Build 5-tier `patch_44` (4 Eagle-rigged attack-run ships + extended `eagle_base` package)."""
+        """Build 5-tier self-contained `patch_44` (4 Eagle-rigged ships + full privatized `MATERIAL`/`TEXTURE` closure)."""
         tmp_dir = self.out_dir / "_tmp_patch_44"
         if tmp_dir.exists():
             shutil.rmtree(tmp_dir)
@@ -900,7 +1188,6 @@ class ClonesR26Builder:
         if not (stock_eagle_main and stock_eagle_bones and stock_eagle_sm and stock_eagle_phys and stock_eagle_pkg):
             raise RuntimeError("Missing stock Eagle resources in native index")
 
-        # Lookup helper in updated r26 base archives (`patch_0..35`)
         def _find_updated(name: str, tier: str, opt: str | None = None) -> dict[str, Any]:
             for e in updated_files:
                 if e["name"] != name:
@@ -908,52 +1195,79 @@ class ClonesR26Builder:
                 profs = e.get("textureProfiles")
                 if profs and tier not in profs:
                     continue
-                if e.get("option") != opt:
+                if e.get("option") != opt or e.get("unlessOption") is not None:
                     continue
                 return e
             raise KeyError(f"Updated entry not found: {name} tier={tier} opt={opt}")
 
-        # Privatized CIS_FIGHTER Vulture surface IDs so CIS_FIGHTER works even when droids=false
-        priv_vulture_mat = murmur64a(f"{EAGLE_NAMESPACE}/cis_fighter/{MAT_T:016x}/22ac7de3155be838")
-        priv_vulture_tex_map = {
-            0xF4EF9BEF746C4944: murmur64a(f"{EAGLE_NAMESPACE}/cis_fighter/{TEX_T:016x}/f4ef9bef746c4944"),
-            0x01E3747D9C4356FE: murmur64a(f"{EAGLE_NAMESPACE}/cis_fighter/{TEX_T:016x}/01e3747d9c4356fe"),
-        }
+        def _priv_surface_id(kind: int, orig_id: int) -> int:
+            return murmur64a(f"{EAGLE_NAMESPACE}/surfaces/{kind:016x}/{orig_id:016x}")
 
-        # Collect all custom textures & shader parents referenced by ARC-170, Y-Wing, and LAAT/i in patch_0..31
-        base_mat_ids = (
+        # Privatize all 6 aircraft MATERIALs (5 Clone + 1 CIS Vulture) & all 28 referenced TEXTUREs
+        clone_mat_ids = (
             0xB039EFBB1458699A,  # ARC-170 PBR
             0xF9341E9855BC2CD5,  # Y-Wing emissive
             0x6C0213F6F822F5F8,  # Y-Wing hull PBR
             0xC87A67B5DECB08D2,  # LAAT/i hull PBR
             0xCA6C6FF1185569C3,  # LAAT/i emissive
         )
-        p0_31_winner_main: dict[tuple[int, int], bytes] = {}
+        vulture_orig_mat = 0x22AC7DE3155BE838
+
+        p0_31_full_main: dict[tuple[int, int], bytes] = {}
         for pnum in range(32):
             f_m = _find_updated(f"9ba626afa44a3aa3.patch_{pnum}", "full")
             mb = self.blob_path(f_m["sha256"]).read_bytes()
             for r in P.directory(self.blob_path(f_m["sha256"])):
-                p0_31_winner_main[(r[0], r[1])] = mb[r[2] : r[2] + r[7]]
+                p0_31_full_main[(r[0], r[1])] = mb[r[2] : r[2] + r[7]]
 
-        extra_package_refs: set[tuple[int, int]] = set()
-        base_mat_payloads: dict[tuple[int, int], bytes] = {}
-        for mid in base_mat_ids:
-            mraw = p0_31_winner_main[(mid, MAT_T)]
-            base_mat_payloads[(mid, MAT_T)] = mraw
-            parent_id = struct.unpack_from("<Q", mraw, 24)[0]
-            if parent_id and parent_id != mid:
-                extra_package_refs.add((parent_id, MAT_T))
-            tcnt = struct.unpack_from("<I", mraw, 64)[0]
-            for tid in struct.unpack_from(f"<{tcnt}Q", mraw, 136 + 4 * tcnt):
-                if tid:
-                    extra_package_refs.add((tid, TEX_T))
+        p35_full_m = _find_updated("9ba626afa44a3aa3.patch_35", "full", opt="droids")
+        p35_full_s = _find_updated("9ba626afa44a3aa3.patch_35.stream", "full", opt="droids")
+        p35_full_g = _find_updated("9ba626afa44a3aa3.patch_35.gpu_resources", "full", opt="droids")
+        vul_mat_full, _, _ = self.extract_resource_from_entries(
+            p35_full_m["sha256"], p35_full_s["sha256"], p35_full_g["sha256"], (vulture_orig_mat, MAT_T)
+        )
 
-        # Build per-tier patch_44 triplets and record per-tier part hashes for clone_eagle_assets.h
+        orig_mat_raws: dict[int, bytes] = {mid: p0_31_full_main[(mid, MAT_T)] for mid in clone_mat_ids}
+        orig_mat_raws[vulture_orig_mat] = vul_mat_full
+
+        priv_mat_map: dict[int, int] = {}
+        priv_mat_bytes: dict[int, bytes] = {}
+        priv_tex_map: dict[int, int] = {}
+        shader_parents: set[tuple[int, int]] = set()
+        vulture_tex_orig_ids: set[int] = set()
+
+        for orig_mid, mraw in orig_mat_raws.items():
+            priv_mid = _priv_surface_id(MAT_T, orig_mid)
+            priv_mat_map[orig_mid] = priv_mid
+            mbuf = bytearray(mraw)
+            parent_id = struct.unpack_from("<Q", mbuf, 24)[0]
+            if parent_id and parent_id != orig_mid:
+                shader_parents.add((parent_id, MAT_T))
+            tcnt = struct.unpack_from("<I", mbuf, 64)[0]
+            for ti in range(tcnt):
+                toff = 136 + 4 * tcnt + 8 * ti
+                orig_tid = struct.unpack_from("<Q", mbuf, toff)[0]
+                if not orig_tid:
+                    continue
+                if orig_mid == vulture_orig_mat:
+                    vulture_tex_orig_ids.add(orig_tid)
+                priv_tid = priv_tex_map.setdefault(orig_tid, _priv_surface_id(TEX_T, orig_tid))
+                struct.pack_into("<Q", mbuf, toff, priv_tid)
+            priv_mat_bytes[priv_mid] = bytes(mbuf)
+
         tier_part_hashes: dict[tuple[int, int, int], list[tuple[str, int]]] = {}
-        manifest_entries: list[dict[str, Any]] = []
         tier_built_paths: dict[str, tuple[Path, Path, Path]] = {}
 
         for tier in TIERS:
+            # Build per-tier winner lookup across patch_0..31 for custom Clone aircraft textures
+            p0_31_tier_wins: dict[tuple[int, int], tuple[str, str, str]] = {}
+            for pnum in range(32):
+                em = _find_updated(f"9ba626afa44a3aa3.patch_{pnum}", tier)
+                es = _find_updated(f"9ba626afa44a3aa3.patch_{pnum}.stream", tier)
+                eg = _find_updated(f"9ba626afa44a3aa3.patch_{pnum}.gpu_resources", tier)
+                for r in P.directory(self.blob_path(em["sha256"])):
+                    p0_31_tier_wins[(r[0], r[1])] = (em["sha256"], es["sha256"], eg["sha256"])
+
             # 1. Extract ARC-170 (`patch_3`)
             p3_m = _find_updated("9ba626afa44a3aa3.patch_3", tier)
             p3_g = _find_updated("9ba626afa44a3aa3.patch_3.gpu_resources", tier)
@@ -971,15 +1285,12 @@ class ClonesR26Builder:
                 p34_m["sha256"], EMPTY_SHA256, p34_g["sha256"], (0x39A445AF2B21197C, UNIT_T)
             )
 
-            # 3. Extract Vulture + its material & 2 textures (`patch_35`)
+            # 3. Extract Vulture (`patch_35`)
             p35_m = _find_updated("9ba626afa44a3aa3.patch_35", tier, opt="droids")
             p35_s = _find_updated("9ba626afa44a3aa3.patch_35.stream", tier, opt="droids")
             p35_g = _find_updated("9ba626afa44a3aa3.patch_35.gpu_resources", tier, opt="droids")
             vul_src_m, _, vul_src_g = self.extract_resource_from_entries(
                 p35_m["sha256"], p35_s["sha256"], p35_g["sha256"], (VULTURE_SKYBOX_UNIT, UNIT_T)
-            )
-            vul_mat_m, _, _ = self.extract_resource_from_entries(
-                p35_m["sha256"], p35_s["sha256"], p35_g["sha256"], (0x22AC7DE3155BE838, MAT_T)
             )
 
             # Graft CLONE_FIGHTER (ARC-170)
@@ -990,11 +1301,16 @@ class ClonesR26Builder:
                 arc_src_g,
                 model_id=CLONE_FIGHTER,
                 bind_translation=(0.0, 0.0, 0.5),
-                material_overrides={0xBB320FBE: 0xB039EFBB1458699A},
+                material_overrides={0xBB320FBE: priv_mat_map[0xB039EFBB1458699A]},
                 mode="arc170",
             )
 
-            # Build CLONE_BOMBER (BTL-B Y-Wing)
+            # Build CLONE_BOMBER (BTL-B Y-Wing) with privatized Y-Wing materials
+            yw_rebinds = {
+                th: priv_mat_map[mid]
+                for th, mid in VC.material_map(yw_src_m).items()
+                if mid in priv_mat_map
+            }
             bomber_safe = patch_unit_bounds_and_matmap(
                 yw_src_m,
                 stock_eagle_main,
@@ -1002,6 +1318,7 @@ class ClonesR26Builder:
                 45.0,
                 clamp_lod_scale=False,
                 clamp_cull_node=False,
+                mat_rebinds=yw_rebinds,
             )
             if not P.unit_safe((bomber_safe, b"", yw_src_g), stock_eagle_main):
                 raise RuntimeError("CLONE_BOMBER failed empire_port.unit_safe")
@@ -1010,22 +1327,24 @@ class ClonesR26Builder:
                 struct.pack_into("<Q", bomber_b, ctrl_off, CLONE_BOMBER)
             bomber_m, bomber_g = bytes(bomber_b), yw_src_g
 
-            # Graft CLONE_GUNSHIP (LAAT/i Gunship)
+            # Graft CLONE_GUNSHIP (LAAT/i Gunship) with privatized LAAT/i materials
+            laat_hull_priv = priv_mat_map[0xC87A67B5DECB08D2]
+            laat_emis_priv = priv_mat_map[0xCA6C6FF1185569C3]
             laat_mat_overrides = {
-                0xA93C81A8: 0xC87A67B5DECB08D2,
-                0xFCF56E70: 0xC87A67B5DECB08D2,
-                0x36E44236: 0xC87A67B5DECB08D2,
-                0x1EF972AF: 0xC87A67B5DECB08D2,
-                0xCB9E7F29: 0xC87A67B5DECB08D2,
-                0xE20F4F3F: 0xC87A67B5DECB08D2,
-                0xFE3A0BB4: 0xC87A67B5DECB08D2,
-                0x4E0885BA: 0xC87A67B5DECB08D2,
-                0x0A504517: 0xC87A67B5DECB08D2,
-                0x6748DF5E: 0xCA6C6FF1185569C3,
-                0x40BA67F0: 0xCA6C6FF1185569C3,
-                0x1298DAB7: 0xCA6C6FF1185569C3,
-                0x7D1F8C53: 0xCA6C6FF1185569C3,
-                0xBBAB759B: 0xCA6C6FF1185569C3,
+                0xA93C81A8: laat_hull_priv,
+                0xFCF56E70: laat_hull_priv,
+                0x36E44236: laat_hull_priv,
+                0x1EF972AF: laat_hull_priv,
+                0xCB9E7F29: laat_hull_priv,
+                0xE20F4F3F: laat_hull_priv,
+                0xFE3A0BB4: laat_hull_priv,
+                0x4E0885BA: laat_hull_priv,
+                0x0A504517: laat_hull_priv,
+                0x6748DF5E: laat_emis_priv,
+                0x40BA67F0: laat_emis_priv,
+                0x1298DAB7: laat_emis_priv,
+                0x7D1F8C53: laat_emis_priv,
+                0xBBAB759B: laat_emis_priv,
             }
             gunship_m, gunship_g = graft_static_ship_onto_eagle(
                 stock_eagle_main,
@@ -1038,7 +1357,7 @@ class ClonesR26Builder:
                 mode="laat",
             )
 
-            # Graft CIS_FIGHTER (Vulture Droid Starfighter) with privatized surfaces
+            # Graft CIS_FIGHTER (Vulture Droid Starfighter) with privatized Vulture material
             cis_m, cis_g = graft_static_ship_onto_eagle(
                 stock_eagle_main,
                 yw_src_m,
@@ -1046,7 +1365,7 @@ class ClonesR26Builder:
                 vul_src_g,
                 model_id=CIS_FIGHTER,
                 bind_translation=(0.0, -3.0, 0.0),
-                material_overrides={0xEFC20DDC: priv_vulture_mat},
+                material_overrides={0xEFC20DDC: priv_mat_map[vulture_orig_mat]},
                 mode="vulture",
             )
 
@@ -1067,34 +1386,31 @@ class ClonesR26Builder:
                     struct.pack_into("<Q", phys_b, poff, model_id)
                 resources[(model_id, PHYSICS_T)] = P.Generated((bytes(phys_b), stock_eagle_phys[1], stock_eagle_phys[2]))
 
-            # Privatized Vulture material + 2 textures
-            vmat_b = bytearray(vul_mat_m)
-            vcnt = struct.unpack_from("<I", vmat_b, 64)[0]
-            for ti in range(vcnt):
-                toff = 136 + 4 * vcnt + 8 * ti
-                orig_tid = struct.unpack_from("<Q", vmat_b, toff)[0]
-                if orig_tid in priv_vulture_tex_map:
-                    struct.pack_into("<Q", vmat_b, toff, priv_vulture_tex_map[orig_tid])
-            vparent = struct.unpack_from("<Q", vmat_b, 24)[0]
-            if vparent and vparent != 0x22AC7DE3155BE838:
-                extra_package_refs.add((vparent, MAT_T))
-            resources[(priv_vulture_mat, MAT_T)] = P.Generated((bytes(vmat_b), b"", b""))
+            # Include all 6 privatized aircraft MATERIALs
+            for priv_mid, mbytes in priv_mat_bytes.items():
+                resources[(priv_mid, MAT_T)] = P.Generated((mbytes, b"", b""))
 
-            for orig_tid, new_tid in priv_vulture_tex_map.items():
-                tm, ts, tg = self.extract_resource_from_entries(
-                    p35_m["sha256"], p35_s["sha256"], p35_g["sha256"], (orig_tid, TEX_T)
-                )
-                resources[(new_tid, TEX_T)] = P.Generated((tm, ts, tg))
-
-            # Include the 5 Clone aircraft PBR/emissive MATERIAL descriptors so patch_44 pins them cleanly
-            for mkey, mbytes in base_mat_payloads.items():
-                resources[mkey] = P.Generated((mbytes, b"", b""))
+            # Include all 28 privatized aircraft TEXTUREs across all 5 tiers
+            for orig_tid, priv_tid in sorted(priv_tex_map.items()):
+                if orig_tid in vulture_tex_orig_ids:
+                    tm, ts, tg = self.extract_resource_from_entries(
+                        p35_m["sha256"], p35_s["sha256"], p35_g["sha256"], (orig_tid, TEX_T)
+                    )
+                elif (orig_tid, TEX_T) in p0_31_tier_wins:
+                    m_sha, s_sha, g_sha = p0_31_tier_wins[(orig_tid, TEX_T)]
+                    tm, ts, tg = self.extract_resource_from_entries(m_sha, s_sha, g_sha, (orig_tid, TEX_T))
+                else:
+                    stk_t = self.stock_parts((orig_tid, TEX_T))
+                    if stk_t is None:
+                        raise RuntimeError(f"Missing aircraft texture 0x{orig_tid:016x} in mod and stock")
+                    tm, ts, tg = stk_t
+                resources[(priv_tid, TEX_T)] = P.Generated((tm, ts, tg))
 
             # Build extended eagle_base.package preserving all 34 native entries in exact order
             stk_pkg_raw = stock_eagle_pkg[0]
             stk_cnt = struct.unpack_from("<I", stk_pkg_raw, 8)[0]
             old_entries = {(name, kind) for kind, name in struct.iter_unpack("<QQ", stk_pkg_raw[16:])}
-            all_wanted = (set(resources.keys()) | extra_package_refs) - old_entries - {(EAGLE_PACKAGE, PACKAGE_T)}
+            all_wanted = (set(resources.keys()) | shader_parents) - old_entries - {(EAGLE_PACKAGE, PACKAGE_T)}
             added_sorted = sorted(all_wanted, key=lambda k: (k[1], k[0]))
             pkg_buf = bytearray(stk_pkg_raw)
             pkg_buf.extend(b"".join(struct.pack("<QQ", kind, name) for name, kind in added_sorted))
@@ -1117,32 +1433,11 @@ class ClonesR26Builder:
                     h_str = sha256_bytes(blob) if blob else EMPTY_SHA256
                     tier_part_hashes.setdefault((rname, rkind, part_idx), []).append((h_str, len(blob)))
 
-        # Deduplicate identical blobs across tiers when emitting manifest entries
-        for suffix_idx, suffix in enumerate(P.SUFFIXES):
-            by_tier_sha: list[tuple[str, str, int]] = []
-            for tier in TIERS:
-                p = tier_built_paths[tier][suffix_idx]
-                sha, sz = self.store_new_file(p)
-                by_tier_sha.append((tier, sha, sz))
-            # Group consecutive/matching SHAs cleanly per tier
-            grouped: dict[tuple[str, int], list[str]] = {}
-            for tier, sha, sz in by_tier_sha:
-                grouped.setdefault((sha, sz), []).append(tier)
-            for (sha, sz), profs in grouped.items():
-                entry: dict[str, Any] = {
-                    "name": f"9ba626afa44a3aa3.patch_44{suffix}",
-                    "url": self.url_for(sha, sz),
-                    "size": sz,
-                    "sha256": sha,
-                    "modes": ["clonedivers", "commandos"],
-                }
-                if len(profs) < len(TIERS):
-                    entry["textureProfiles"] = profs
-                manifest_entries.append(entry)
-
+        manifest_entries = self._emit_deduped_manifest_entries(
+            44, tier_built_paths, modes=["clonedivers", "commandos"]
+        )
         shutil.rmtree(tmp_dir)
 
-        # Format clone_eagle_assets.h matching forge-mods/empire-tie-switch/src/assets.h + asset_gate.h
         lines = [
             "/* Generated by tools/build_clones_r26.py for Helldivers 2 build 25480438",
             " * ([0]=full, [1]=lighter, [2]=reduced1024, [3]=reduced512, [4]=potato256). */",
@@ -1167,7 +1462,7 @@ class ClonesR26Builder:
         return manifest_entries, header_c
 
     def build_patch_45_all_tiers(self, updated_files: list[dict[str, Any]]) -> list[dict[str, Any]]:
-        """Build 5-tier `patch_45` (`modes: ["commandos"]`, `option: "commandos"`) for Delta Squad Armory helmets."""
+        """Build 5-tier `patch_45` (`modes: ["clonedivers", "commandos"]`) grafting Delta Squad Armory Katarn helmets onto stock."""
         tmp_dir = self.out_dir / "_tmp_patch_45"
         if tmp_dir.exists():
             shutil.rmtree(tmp_dir)
@@ -1193,18 +1488,20 @@ class ClonesR26Builder:
             for dst_uid, src_pnum, src_uid in DELTA_SQUAD_HELMET_COPIES:
                 if dst_uid in self.protected_units:
                     raise RuntimeError(f"Refusing to override protected UNIT 0x{dst_uid:016x}")
+                stock_dst = self.stock_main(dst_uid, UNIT_T)
+                if stock_dst is None:
+                    raise RuntimeError(f"Missing stock helmet UNIT 0x{dst_uid:016x}")
                 fm = _find_updated(f"9ba626afa44a3aa3.patch_{src_pnum}", tier)
                 fg = _find_updated(f"9ba626afa44a3aa3.patch_{src_pnum}.gpu_resources", tier)
                 um, _, ug = self.extract_resource_from_entries(fm["sha256"], EMPTY_SHA256, fg["sha256"], (src_uid, UNIT_T))
-                fixed_um = patch_unit_bounds_and_matmap(
+                grafted_um = graft_helmet_onto_stock_unit(
+                    stock_dst,
                     um,
-                    None,
+                    ug,
                     (-1.5, -1.5, -2.2, 1.5, 1.5, 2.5),
                     3.2,
-                    clamp_lod_scale=True,
-                    clamp_cull_node=True,
                 )
-                resources[(dst_uid, UNIT_T)] = P.Generated((fixed_um, b"", ug))
+                resources[(dst_uid, UNIT_T)] = P.Generated((grafted_um, b"", ug))
 
             out_p = tmp_dir / tier / "9ba626afa44a3aa3.patch_45"
             out_p.parent.mkdir(parents=True, exist_ok=True)
@@ -1214,25 +1511,9 @@ class ClonesR26Builder:
             PREFLIGHT.inspect_path(out_p, (stm_p.stat().st_size, gpu_p.stat().st_size))
             tier_paths[tier] = (out_p, stm_p, gpu_p)
 
-        entries: list[dict[str, Any]] = []
-        for suffix_idx, suffix in enumerate(P.SUFFIXES):
-            grouped: dict[tuple[str, int], list[str]] = {}
-            for tier in TIERS:
-                sha, sz = self.store_new_file(tier_paths[tier][suffix_idx])
-                grouped.setdefault((sha, sz), []).append(tier)
-            for (sha, sz), profs in grouped.items():
-                e: dict[str, Any] = {
-                    "name": f"9ba626afa44a3aa3.patch_45{suffix}",
-                    "url": self.url_for(sha, sz),
-                    "size": sz,
-                    "sha256": sha,
-                    "modes": ["commandos"],
-                    "option": "commandos",
-                }
-                if len(profs) < len(TIERS):
-                    e["textureProfiles"] = profs
-                entries.append(e)
-
+        entries = self._emit_deduped_manifest_entries(
+            45, tier_paths, modes=["clonedivers", "commandos"]
+        )
         shutil.rmtree(tmp_dir)
         return entries
 
@@ -1283,30 +1564,61 @@ class ClonesR26Builder:
             PREFLIGHT.inspect_path(out_p, (stm_p.stat().st_size, gpu_p.stat().st_size))
             tier_paths[tier] = (out_p, stm_p, gpu_p)
 
-        entries: list[dict[str, Any]] = []
-        for suffix_idx, suffix in enumerate(P.SUFFIXES):
-            grouped: dict[tuple[str, int], list[str]] = {}
-            for tier in TIERS:
-                sha, sz = self.store_new_file(tier_paths[tier][suffix_idx])
-                grouped.setdefault((sha, sz), []).append(tier)
-            for (sha, sz), profs in grouped.items():
-                e: dict[str, Any] = {
-                    "name": f"9ba626afa44a3aa3.patch_46{suffix}",
-                    "url": self.url_for(sha, sz),
-                    "size": sz,
-                    "sha256": sha,
-                    "modes": ["clonedivers", "commandos"],
-                    "option": "mixed-droids",
-                }
-                if len(profs) < len(TIERS):
-                    e["textureProfiles"] = profs
-                entries.append(e)
-
+        entries = self._emit_deduped_manifest_entries(
+            46, tier_paths, modes=["clonedivers", "commandos"], option="mixed-droids"
+        )
         shutil.rmtree(tmp_dir)
         return entries
 
+    def build_patch_47_and_48_hiders(self) -> list[dict[str, Any]]:
+        """Build 5-tier `patch_47` (16 shared droid corpse/gore/spike hiders) & `patch_48` (5 all-droids gunship/berserker hiders)."""
+        tmp_dir = self.out_dir / "_tmp_patch_47_48"
+        if tmp_dir.exists():
+            shutil.rmtree(tmp_dir)
+        tmp_dir.mkdir(parents=True)
+
+        header_72 = self.blob_path(self.find_r25_entry("9ba626afa44a3aa3.patch_0", "full")["sha256"]).read_bytes()[:72]
+        all_entries: list[dict[str, Any]] = []
+
+        for patch_num, uids, opt, unless_opt in (
+            (47, CORPSE_SHARED_DROIDS, "droids", None),
+            (48, CORPSE_ALL_DROIDS_ONLY, "droids", "mixed-droids"),
+        ):
+            resources: dict[tuple[int, int], P.Generated] = {}
+            for uid in uids:
+                if uid in self.protected_units:
+                    raise RuntimeError(f"Refusing to hide protected UNIT 0x{uid:016x}")
+                stk_raw = self.stock_main(uid, UNIT_T)
+                if stk_raw is None:
+                    raise RuntimeError(f"Missing stock corpse/wreck UNIT 0x{uid:016x}")
+                hm, hg = build_zero_draw_unit_hider(stk_raw)
+                resources[(uid, UNIT_T)] = P.Generated((hm, b"", hg))
+
+            tier_paths: dict[str, tuple[Path, Path, Path]] = {}
+            for tier in TIERS:
+                out_p = tmp_dir / f"p{patch_num}" / tier / f"9ba626afa44a3aa3.patch_{patch_num}"
+                out_p.parent.mkdir(parents=True, exist_ok=True)
+                P.write_archive(out_p, header_72, resources, stream_alignment=64 if tier != "full" else 16)
+                stm_p = out_p.with_name(out_p.name + ".stream")
+                gpu_p = out_p.with_name(out_p.name + ".gpu_resources")
+                PREFLIGHT.inspect_path(out_p, (stm_p.stat().st_size, gpu_p.stat().st_size))
+                tier_paths[tier] = (out_p, stm_p, gpu_p)
+
+            all_entries.extend(
+                self._emit_deduped_manifest_entries(
+                    patch_num,
+                    tier_paths,
+                    modes=["clonedivers", "commandos"],
+                    option=opt,
+                    unless_option=unless_opt,
+                )
+            )
+
+        shutil.rmtree(tmp_dir)
+        return all_entries
+
     def stage_named_views(self, r26_manifest: dict[str, Any]) -> dict[str, int]:
-        """Materialize hardlinked named `.patch_N` views for every newly built/updated archive per tier."""
+        """Materialize hardlinked named `.patch_N` views for every available archive per tier."""
         if self.staged_dir.exists():
             shutil.rmtree(self.staged_dir)
         counts: dict[str, int] = {}
@@ -1335,7 +1647,6 @@ class ClonesR26Builder:
                         staged_n += 1
                     else:
                         sha = f["sha256"]
-                        # Link all blobs available in blobs_dir or cache_dir
                         try:
                             src = self.blob_path(sha)
                         except FileNotFoundError:
@@ -1357,11 +1668,8 @@ class ClonesR26Builder:
         # Step A: Fix `patch_35`:
         #   1) Add `"option": "droids"` to all `patch_35*` manifest entries so CIS Providence Dreadnoughts
         #      appear in orbit & surface skyboxes for BOTH `all-droids` and `mixed-droids` (and turn off on `native-bots`).
-        #   2) Fix `patch_35.gpu_resources` `lighter` OOB bug (`29,404,888 < 29,404,928`) by pointing `lighter`
-        #      to `full`'s valid `29,404,928`-byte `3c32e0039ee7ed07...` blob.
-        p35_full_gpu = next(
-            e for e in files if e["name"] == "9ba626afa44a3aa3.patch_35.gpu_resources" and e.get("textureProfiles") == ["full"]
-        )
+        #   2) Fix `patch_35.gpu_resources` `lighter` OOB bug (`29,404,888 < 29,404,928`) by merging `lighter`
+        #      onto `full`'s valid `29,404,928`-byte `3c32e0039ee7ed07...` blob.
         new_files: list[dict[str, Any]] = []
         for entry in files:
             if entry["name"].startswith("9ba626afa44a3aa3.patch_35"):
@@ -1370,15 +1678,15 @@ class ClonesR26Builder:
                     if entry.get("textureProfiles") == ["full"]:
                         entry["textureProfiles"] = ["full", "lighter"]
                     elif entry.get("textureProfiles") == ["lighter"]:
-                        continue  # merged into `["full", "lighter"]` valid 29,404,928-byte blob
+                        continue
             new_files.append(entry)
         files = new_files
         r26["pack"]["files"] = files
 
         # Step B: Rewrite MAIN CPU archives in-place (0 B `.gpu_resources`/`.stream` churn!) for:
-        #   - `patch_0..31` & `patch_34`: Scorch `c96cb2e72d7a0525`, Clone wearables/ship crew NPCs, AT-TE weapon children
+        #   - `patch_0..31`, `patch_34`, `patch_37`, `patch_39`: Scorch `c96cb2e72d7a0525`, Clone wearables/NPCs, AT-TE weapon children
         #   - `patch_35`: Providence Dreadnought (`2600 m`) + Vulture Droid (`26 m`) skybox bounds
-        #   - `patch_40..43` (`all-droids` AND `mixed-droids`): MagnaGuard `9f44121c554dae89` `m8..m13` collision rebind
+        #   - `patch_40..43` (`all-droids` AND `mixed-droids`): MagnaGuard `9f44121c554dae89` (`patch_41`) `m8..m13` collision rebind
         #     + CIS droid/Electrostaff/vehicle `@48` LODData & `@100` MeshObject bounds + `lod_scale` clamp
         rewritten_cache: dict[str, tuple[str, int, int]] = {}
         stats = Counter()
@@ -1462,7 +1770,7 @@ class ClonesR26Builder:
                             stats["magnaguard_collision_rebinds"] += 1
                     return patched
 
-                # `patch_0..31` and `patch_34`
+                # `patch_0..31`, `patch_34`, `patch_37`, `patch_39`
                 if _pnum == 34 and uid in PATCH34_SHIP_EXEMPT_UNITS:
                     return raw
                 if uid == 0xCA136DAE685558C3:  # skybox ARC-170 in patch_3
@@ -1511,27 +1819,32 @@ class ClonesR26Builder:
             else:
                 rewritten_cache[cache_key] = (orig_sha, entry["size"], 0)
 
-        # Step C: Build new 5-tier triplet archives (`patch_44`, `patch_45`, `patch_46`)
+        # Step C: Build new 5-tier triplet archives (`patch_44`, `patch_45`, `patch_46`, `patch_47`, `patch_48`)
         p44_entries, eagle_header_c = self.build_patch_44_all_tiers(files)
         p45_entries = self.build_patch_45_all_tiers(files)
         p46_entries = self.build_patch_46_all_tiers(files)
+        p47_48_entries = self.build_patch_47_and_48_hiders()
         files.extend(p44_entries)
         files.extend(p45_entries)
         files.extend(p46_entries)
+        files.extend(p47_48_entries)
 
         # Update top-level r26 metadata
         r26["pack"]["version"] = "2026.11.28-r26"
         r26["pack"]["notes"] = (
-            "Clonedivers r26: Restored Republic Commando Scorch/Fixer/Sev Katarn helmets across both Armory & B-01 slots (`patch_45`) "
-            "and expanded ankle-culled Clone wearables; fixed IG-100 MagnaGuard Cyborg ragdoll capsule material leak (`m8..m13` -> `m_collision`), "
-            "CIS droid/Electrostaff/vehicle culling bounds (`patch_40..43`), and `mixed-droids` 9-resource closure (`patch_46`); "
-            "expanded AT-TE cannon culling bounds; wired CIS Providence Dreadnoughts & Vulture Droids into orbit & surface skyboxes across both "
-            "`all-droids` and `mixed-droids` (`patch_35`, plus fixed `lighter` `.gpu_resources` truncation); and added 4 distinct Eagle-rigged "
-            "attack-run ships (`ARC-170`, `BTL-B Y-Wing`, `LAAT/i Gunship`, `CIS Vulture Droid`) in `patch_44`."
+            "Clonedivers r26: Restored Republic Commando Scorch/Fixer/Sev Katarn helmets across both `clonedivers` and `commandos` "
+            "modes (`patch_45`, grafted onto stock rigs with `unit_safe` parity) and expanded ankle-culled Clone wearables; "
+            "fixed IG-100 MagnaGuard Cyborg ragdoll capsule material leak (`patch_41` `m8..m13` -> `m_collision`), CIS droid/Electrostaff/"
+            "vehicle culling bounds (`patch_40..43`), `mixed-droids` 9-resource closure (`patch_46`), and hidden vanilla Cyborg corpses, "
+            "severed limbs, gore piles, scout-walker wrecks, head spikes, and HMP Gunship death wrecks (`patch_47` & `patch_48`); "
+            "expanded AT-TE cannon culling bounds; wired CIS Providence Dreadnoughts & Vulture Droids into orbit & surface skyboxes across "
+            "both `all-droids` and `mixed-droids` (`patch_35`, plus fixed `lighter` `.gpu_resources` truncation); and added 4 self-contained "
+            "Eagle-rigged attack-run ships (`ARC-170`, `BTL-B Y-Wing`, `LAAT/i Gunship`, `CIS Vulture Droid`) with full 5-tier texture closure (`patch_44`)."
         )
         r26["pack"]["statusNotes"] = (
             "Verified across all 5 tiers (full, lighter, reduced1024, reduced512, potato256) with 0 archive preflight issues, "
-            "0 missing dependencies, 0 TINY_MESH_AABB, <= 64 bones per compact skin, 0 NaN floats, and 100% preserved LEGO/Yoda/AT-ST runtime pins."
+            "0 missing dependencies, 0 TINY_MESH_AABB, <= 64 bones per compact skin, 0 NaN floats, full `asset_gate.h` directory scan parity, "
+            "and 100% preserved LEGO/Yoda/AT-ST runtime pins."
         )
 
         manifest_path = self.out_dir / "hellforge-clones-r26.json"

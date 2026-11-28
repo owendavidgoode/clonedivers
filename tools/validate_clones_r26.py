@@ -6,16 +6,22 @@ and selection matrices (`clonedivers` / `commandos` × `all-droids` / `mixed-dro
 `covenant` / `mixed-covenant`):
   - SLIM archive directory preflight + companion `.stream` / `.gpu_resources` range checks (zero OOB!).
   - SHA-256 + exact byte-size verification for 100% of newly staged blobs in `blobs/`.
-  - 100% bit-exact preservation of all 99 runtime-pinned LEGO, Yoda, camera-pullback, and AT-ST `UNIT`s.
-  - Dependency closure (`UNIT` -> `BONES`, `STATE_MACHINE`, `GeometryGroup`, `MATERIAL` -> parent + `TEXTURE`;
-    `PACKAGE` -> all listed resources, including `eagle_base` and all 6 melee POI packages `cqc-72`, `cqc-2`,
-    `cqc-19`, `cqc-30`, `cqc-5`, `cqc-42`, plus Guard Dog Rover `32cb44321da1b5a0` / `cae3f1e8a44a80b3`).
-  - Zero external `GeometryGroup` residency violations (`verify_candidate.geometry_provider_scan`).
-  - Zero `TINY_MESH_AABB` / ankle-cull bounds / invalid `@48` `LODData` footers on unprotected `UNIT`s.
-  - `<= 64` bones per compact GPU skinning sub-palette across 100% of `UNIT`s.
-  - Zero `NaN` / `Inf` floats across scene-graph matrices (`@52`), inverse-bind matrices (`@88`), and
-    hydrated GPU vertex/UV/blend buffers (`patch_44`, `patch_45`, `patch_46`, `patch_34`, `patch_35`, `patch_40..43`).
-  - `clone_eagle_assets.h` 5-tier SHA-256 coherence check (`asset_gate.h` simulation across all 5 tiers).
+  - 100% bit-exact preservation of all 83 runtime-pinned LEGO, Yoda, camera-pullback, and AT-ST `UNIT`s.
+  - Gate 1a (`patch_45`): Delta Squad Katarn helmets (`CE-35`, `CM-10`, `SC-30`) win in BOTH `clonedivers`
+    and `commandos` modes, pass `empire_port.unit_safe` against `stock`, preserve external `.bones`, and
+    maintain 100% `@52` bone-hash parity.
+  - Gate 1b (`patch_41`, `patch_46`, `patch_47`, `patch_48`): MagnaGuard `m8..m13` rebound to `m_collision`,
+    all 16 shared Cyborg corpse/severed-limb/gore/spike `UNIT`s hidden (`0` drawn tris, `unit_safe == True`)
+    across `all-droids` & `mixed-droids`, and all 5 HMP Gunship wreck + Berserker corpse `UNIT`s hidden in
+    `all-droids` (and untouched in `mixed-droids` / `native-bots`).
+  - Gate 1d (`patch_44` + `clone_eagle_assets.h`): 100% self-contained aircraft `MATERIAL` + `TEXTURE`
+    residency in `patch_44`, every custom `eagle_base.package` entry pinned across all 5 tiers, and full
+    `asset_gate.h` `ScanAssets` simulation across ALL `*.patch_*` files in `staged/{all-droids,mixed-droids}/<tier>`.
+  - Gate 1e (`MELEE_POI_PACKAGES`): 100% 5-tier dependency closure across all 9 melee packages (`cqc-72`,
+    `cqc-2`, `cqc-19`, `cqc-30`, `cqc-5`, `cqc-42` Machete, `melee_chainsaw_greatsword`, `melee_flag`,
+    `melee_sledge_hammer`) plus Guard Dog Rover (`32cb44321da1b5a0` / `cae3f1e8a44a80b3`).
+  - Zero external `GeometryGroup` residency violations, zero `TINY_MESH_AABB`, `<= 64` bones per compact skin,
+    and zero `NaN` / `Inf` floats across matrices and hydrated GPU vertex/UV/blend buffers.
 """
 from __future__ import annotations
 
@@ -50,7 +56,10 @@ MELEE_POI_PACKAGES = (
     0x1F251A64EBA0F770,  # cqc-19 Stun Lance
     0xF3C65EAAB75F1FC2,  # cqc-30 Stun Baton
     0x1982853D15D996DA,  # cqc-5 Combat Hatchet
-    0x8F295B4D04C3A06C,  # cqc-42 Saber
+    0xF5014993C8402D87,  # cqc-42 Machete (packages/generated/loadout/machete)
+    0xEEEBC5FD26FE0F40,  # melee_chainsaw_greatsword
+    0xC40E3B3FA79052EC,  # melee_flag
+    0x39DDD2E6F131C873,  # melee_sledge_hammer
 )
 
 
@@ -74,6 +83,30 @@ def select_manifest_files(
             continue
         chosen.append(f)
     return chosen
+
+
+def drawn_index_count(raw: bytes) -> int:
+    """Return total drawn index count across all non-collision (`mtype not in (0, 256)`) `@100` meshes."""
+    at100 = struct.unpack_from("<I", raw, 100)[0]
+    if not at100:
+        return 0
+    total = 0
+    for mh in VC.pointers(raw, 100):
+        mtype = struct.unpack_from("<I", raw, mh + 36)[0]
+        if mtype in (0, 256):
+            continue
+        ng, go = struct.unpack_from("<2I", raw, mh + 120)
+        for gi in range(ng):
+            total += struct.unpack_from("<6I", raw, mh + go + 24 * gi)[4]
+    return total
+
+
+def joint_hashes(raw: bytes) -> list[int]:
+    at52 = struct.unpack_from("<I", raw, 52)[0]
+    if not at52:
+        return []
+    nn = struct.unpack_from("<I", raw, at52)[0]
+    return list(struct.unpack_from(f"<{nn}I", raw, at52 + 16 + 132 * nn))
 
 
 def check_unit_matrices_and_skins(raw: bytes) -> list[str]:
@@ -119,6 +152,9 @@ def check_unit_matrices_and_skins(raw: bytes) -> list[str]:
             vals7 = struct.unpack_from("<7f", raw, mh + 8)
             if not all(math.isfinite(x) for x in vals7):
                 issues.append(f"mesh-{mi}-nan-aabb")
+            ti44, ti48 = struct.unpack_from("<2I", raw, mh + 44)
+            if nn > 0 and (ti44 >= nn or ti48 >= nn):
+                issues.append(f"mesh-{mi}-transform-idx-oob-{ti44}-{ti48}")
             si = struct.unpack_from("<i", raw, mh + 56)[0]
             nm, mo = struct.unpack_from("<2I", raw, mh + 104)
             ng, go = struct.unpack_from("<2I", raw, mh + 120)
@@ -146,7 +182,7 @@ def check_gpu_vertices_finite(unit_main: bytes, unit_gpu: bytes) -> list[str]:
         return issues
     fmt_sizes = {
         0: 4, 1: 8, 2: 12, 3: 16, 4: 4, 21: 4, 22: 8, 23: 12, 24: 16,
-        25: 1, 26: 2, 27: 3, 28: 4, 29: 4, 30: 4, 32: 2, 33: 4, 34: 6, 35: 8,
+        25: 1, 26: 4, 27: 3, 28: 4, 29: 4, 30: 4, 32: 2, 33: 4, 34: 6, 35: 8,
     }
     for li, lp in enumerate(VC.pointers(unit_main, 92)):
         lay = unit_main[lp : lp + 448]
@@ -159,7 +195,7 @@ def check_gpu_vertices_finite(unit_main: bytes, unit_gpu: bytes) -> list[str]:
             continue
         cursor = 0
         for ai in range(acnt):
-            kind, fmt, _ = struct.unpack_from("<3I", lay, 8 + 20 * ai)
+            _, fmt, _ = struct.unpack_from("<3I", lay, 8 + 20 * ai)
             sz = fmt_sizes.get(fmt)
             if sz is None:
                 issues.append(f"layout-{li}-unknown-fmt-{fmt}")
@@ -184,6 +220,91 @@ def check_gpu_vertices_finite(unit_main: bytes, unit_gpu: bytes) -> list[str]:
             if vc > 0 and int(idx_arr.max()) >= vc:
                 issues.append(f"layout-{li}-index-exceeds-vc")
     return issues
+
+
+def simulate_asset_gate_scan_dir(
+    staged_dir: Path,
+    pin_rows: list[tuple[int, int, int, list[str]]],
+    expected_tier_idx: int,
+) -> list[str]:
+    """Faithfully simulate `forge-mods/empire-tie-switch/src/asset_gate.h` `ScanAssets(directory)` across all `*.patch_*`."""
+    errs: list[str] = []
+    patch_re = re.compile(r"^([0-9a-f]{16})\.patch_(\d+)$")
+    patch_files: list[tuple[str, int, Path]] = []
+    for entry in sorted(staged_dir.iterdir()):
+        if not entry.is_file():
+            continue
+        m = patch_re.fullmatch(entry.name)
+        if not m:
+            continue
+        idx = int(m.group(2))
+        if idx > 100000:
+            continue
+        patch_files.append((m.group(1), idx, entry))
+
+    if not patch_files:
+        return [f"ScanAssets: no readable staged patches in {staged_dir}"]
+
+    wanted_keys = {(rname, rkind) for rname, rkind, _, _ in pin_rows}
+    # Map (rname, rkind) -> (prefix16, index, main_path, row_tuple)
+    proofs: dict[tuple[int, int], tuple[str, int, Path, tuple[int, ...]]] = {}
+
+    for prefix16, idx, ppath in patch_files:
+        try:
+            rows = P.directory(ppath)
+        except Exception as exc:
+            errs.append(f"ScanAssets: invalid archive directory {ppath}: {exc}")
+            return errs
+        for row in rows:
+            rk = (row[0], row[1])
+            if rk not in wanted_keys:
+                continue
+            if rk in proofs:
+                prior_prefix, prior_idx, _, _ = proofs[rk]
+                if prior_prefix != prefix16 or prior_idx == idx:
+                    errs.append(f"ScanAssets: ambiguous archive provider for {rk[0]:016x}.{rk[1]:016x} in {ppath}")
+                    return errs
+                if idx > prior_idx:
+                    proofs[rk] = (prefix16, idx, ppath, row)
+            else:
+                proofs[rk] = (prefix16, idx, ppath, row)
+
+    tier_mask = 0x1F
+    for rname, rkind, part_idx, hashes5 in pin_rows:
+        rk = (rname, rkind)
+        if rk not in proofs:
+            errs.append(f"ScanAssets: missing staged resource {rname:016x}.{rkind:016x} part={part_idx} in {staged_dir}")
+            continue
+        _, _, main_p, row = proofs[rk]
+        comp_p = main_p.with_name(main_p.name + P.SUFFIXES[part_idx])
+        if not comp_p.is_file():
+            errs.append(f"ScanAssets: missing companion file {comp_p}")
+            continue
+        file_len = comp_p.stat().st_size
+        off = row[2 + part_idx]
+        sz = row[7 + part_idx]
+        if sz > 128 * 1024 * 1024 or off > file_len or sz > file_len - off:
+            errs.append(f"ScanAssets: OOB payload {rname:016x} part={part_idx} off={off} sz={sz} len={file_len} in {comp_p}")
+            continue
+        with comp_p.open("rb") as fh:
+            fh.seek(off)
+            pdata = fh.read(sz) if sz else b""
+        actual_h = hashlib.sha256(pdata).hexdigest()
+        part_mask = 0
+        for ti, expected_h in enumerate(hashes5):
+            if actual_h == expected_h:
+                part_mask |= 1 << ti
+        if part_mask == 0:
+            errs.append(f"ScanAssets: hash mismatch for {rname:016x}.{rkind:016x} part={part_idx} in {comp_p}")
+            continue
+        if not (part_mask & (1 << expected_tier_idx)):
+            errs.append(f"ScanAssets: tier bit {expected_tier_idx} missing for {rname:016x} part={part_idx} in {comp_p}")
+        tier_mask &= part_mask
+        if tier_mask == 0:
+            errs.append(f"ScanAssets: inconsistent texture tier across staged closure at {rname:016x} in {staged_dir}")
+            break
+
+    return errs
 
 
 def validate(
@@ -297,7 +418,7 @@ def validate(
             if not rep["passed"]:
                 errors.append(f"Preflight failed on {nm} ({f['sha256'][:12]}): {rep['issues']}")
 
-    # 3. Verify 100% bit-exact preservation of all 99 protected runtime-pinned UNITs across all 5 tiers
+    # 3. Verify 100% bit-exact preservation of all 83 protected runtime-pinned UNITs across all 5 tiers
     for tier in B.TIERS:
         r25_sel = select_manifest_files(r25, "commandos", tier, {"commandos", "droids", "aimpoints"})
         r26_sel = select_manifest_files(r26, "commandos", tier, {"commandos", "droids", "aimpoints"})
@@ -323,10 +444,29 @@ def validate(
                 if puid not in w26 or w25[puid] != w26[puid]:
                     errors.append(f"Protected UNIT 0x{puid:016x} mutated on tier={tier}")
 
-    # 4. Full 5-tier selection closure, GeometryGroup scan, UNIT schema/AABB/skin/NaN checks, and melee POI closure
+    # Parse clone_eagle_assets.h pins up-front for Gate 1d closure & ScanAssets checks
+    eagle_h_text = eagle_h_path.read_text("utf-8")
+    pin_rows = [
+        (
+            int(m.group(1), 16),
+            int(m.group(2), 16),
+            int(m.group(3)),
+            re.findall(r'"([0-9a-f]{64})"', m.group(4)),
+        )
+        for m in re.finditer(
+            r"\{0x([0-9a-f]{16})ull,\s*0x([0-9a-f]{16})ull,\s*(\d+),\s*\{([^}]+)\}\}",
+            eagle_h_text,
+        )
+    ]
+    if not pin_rows:
+        errors.append("No asset pins parsed from clone_eagle_assets.h")
+    pinned_parts_set = {(rn, rk, pt) for rn, rk, pt, _ in pin_rows}
+
+    # 4. Full 5-tier selection closure, Gate 1a/1b/1d/1e assertions, GeometryGroup scan, UNIT schema/AABB/skin/NaN checks
     selection_matrix = (
         ("commandos", {"commandos", "droids", "aimpoints"}, "commandos+all-droids"),
         ("commandos", {"commandos", "droids", "mixed-droids", "aimpoints"}, "commandos+mixed-droids"),
+        ("clonedivers", {"droids", "aimpoints"}, "clonedivers+all-droids"),
         ("clonedivers", {"droids", "mixed-droids", "aimpoints"}, "clonedivers+mixed-droids"),
         ("clonedivers", {"aimpoints"}, "clonedivers+native-bots"),
         ("commandos", {"commandos", "droids", "mixed-droids", "covenant", "mixed-covenant", "aimpoints"}, "commandos+mixed-both"),
@@ -334,6 +474,9 @@ def validate(
 
     inspected_unit_blobs: set[str] = set()
     inspected_gpu_slices: set[tuple[str, int, int]] = set()
+    stock_eagle_pkg = stock_main((B.EAGLE_PACKAGE, B.PACKAGE_T))
+    assert stock_eagle_pkg is not None
+    stock_eagle_pkg_entries = {(rn, rk) for rk, rn in struct.iter_unpack("<QQ", stock_eagle_pkg[16:])}
 
     for tier in B.TIERS:
         for mode, opts, label in selection_matrix:
@@ -357,13 +500,24 @@ def validate(
             if ("droids" in opts) != has_providence:
                 errors.append(f"Skybox Providence gating mismatch in {label}/{tier}: has={has_providence}")
 
-            # VerifyScorch/Fixer/Sev Katarn helmets on commandos
-            if "commandos" in opts and mode == "commandos":
-                for dst_uid, _, _ in B.DELTA_SQUAD_HELMET_COPIES:
-                    if winners.get((dst_uid, B.UNIT_T), ("",))[0] != "9ba626afa44a3aa3.patch_45":
-                        errors.append(f"Delta Squad helmet 0x{dst_uid:016x} not won by patch_45 in {label}/{tier}")
+            # Gate 1a: Scorch/Fixer/Sev Katarn helmets win in BOTH `clonedivers` and `commandos`, unit_safe & bone-hash aligned
+            for dst_uid, _, _ in B.DELTA_SQUAD_HELMET_COPIES:
+                h_win = winners.get((dst_uid, B.UNIT_T))
+                if not h_win or h_win[0] != "9ba626afa44a3aa3.patch_45":
+                    errors.append(f"Delta Squad helmet 0x{dst_uid:016x} not won by patch_45 in {label}/{tier}")
+                    continue
+                h_raw = h_win[1].read_bytes()[h_win[2][2] : h_win[2][2] + h_win[2][7]]
+                stk_dst = stock_main((dst_uid, B.UNIT_T))
+                assert stk_dst is not None
+                if not P.unit_safe((h_raw, b"", b""), stk_dst):
+                    errors.append(f"patch_45 helmet 0x{dst_uid:016x} failed empire_port.unit_safe in {label}/{tier}")
+                if struct.unpack_from("<Q", h_raw, 8)[0] != struct.unpack_from("<Q", stk_dst, 8)[0]:
+                    errors.append(f"patch_45 helmet 0x{dst_uid:016x} corrupted external bones ref in {label}/{tier}")
+                if joint_hashes(h_raw) != joint_hashes(stk_dst):
+                    errors.append(f"patch_45 helmet 0x{dst_uid:016x} @52 bone-hash order mismatch vs stock in {label}/{tier}")
+                metrics["patch45_helmet_checks"] += 1
 
-            # Verify MagnaGuard m8..m13 rebind in droid modes
+            # Gate 1b: MagnaGuard m8..m13 rebind + Cyborg corpse/severed-limb/gore/gunship-wreck hiders
             if "droids" in opts:
                 mg_win = winners.get((B.MAGNAGUARD_FEMALE_UID, B.UNIT_T))
                 if not mg_win:
@@ -374,6 +528,47 @@ def validate(
                     for th in B.MAGNAGUARD_COLLISION_REBINDS:
                         if mg_mm.get(th) != B.M_COLLISION:
                             errors.append(f"MagnaGuard thin 0x{th:08x} not rebound to m_collision in {label}/{tier}")
+
+                for cuid in B.CORPSE_SHARED_DROIDS:
+                    c_win = winners.get((cuid, B.UNIT_T))
+                    if not c_win or c_win[0] != "9ba626afa44a3aa3.patch_47":
+                        errors.append(f"Shared corpse/gore hider 0x{cuid:016x} not won by patch_47 in {label}/{tier}")
+                        continue
+                    c_raw = c_win[1].read_bytes()[c_win[2][2] : c_win[2][2] + c_win[2][7]]
+                    stk_c = stock_main((cuid, B.UNIT_T))
+                    assert stk_c is not None
+                    if not P.unit_safe((c_raw, b"", b""), stk_c):
+                        errors.append(f"patch_47 hider 0x{cuid:016x} failed unit_safe in {label}/{tier}")
+                    if drawn_index_count(c_raw) != 0:
+                        errors.append(f"patch_47 hider 0x{cuid:016x} still draws indices in {label}/{tier}")
+                    if any(v != B.M_COLLISION for v in VC.material_map(c_raw).values()):
+                        errors.append(f"patch_47 hider 0x{cuid:016x} material_map not rebound to m_collision in {label}/{tier}")
+                    metrics["corpse_hider_checks"] += 1
+
+                if "mixed-droids" not in opts:
+                    for wuid in B.CORPSE_ALL_DROIDS_ONLY:
+                        w_win = winners.get((wuid, B.UNIT_T))
+                        if not w_win or w_win[0] != "9ba626afa44a3aa3.patch_48":
+                            errors.append(f"all-droids wreck/corpse hider 0x{wuid:016x} not won by patch_48 in {label}/{tier}")
+                            continue
+                        w_raw = w_win[1].read_bytes()[w_win[2][2] : w_win[2][2] + w_win[2][7]]
+                        stk_w = stock_main((wuid, B.UNIT_T))
+                        assert stk_w is not None
+                        if not P.unit_safe((w_raw, b"", b""), stk_w):
+                            errors.append(f"patch_48 hider 0x{wuid:016x} failed unit_safe in {label}/{tier}")
+                        if drawn_index_count(w_raw) != 0:
+                            errors.append(f"patch_48 hider 0x{wuid:016x} still draws indices in {label}/{tier}")
+                        if any(v != B.M_COLLISION for v in VC.material_map(w_raw).values()):
+                            errors.append(f"patch_48 hider 0x{wuid:016x} material_map not rebound to m_collision in {label}/{tier}")
+                        metrics["corpse_hider_checks"] += 1
+                else:
+                    for wuid in B.CORPSE_ALL_DROIDS_ONLY:
+                        if (wuid, B.UNIT_T) in winners:
+                            errors.append(f"all-droids-only hider 0x{wuid:016x} leaked into mixed-droids ({label}/{tier})")
+            else:
+                for cuid in (*B.CORPSE_SHARED_DROIDS, *B.CORPSE_ALL_DROIDS_ONLY):
+                    if (cuid, B.UNIT_T) in winners:
+                        errors.append(f"Droid corpse/wreck hider 0x{cuid:016x} leaked into non-droid selection ({label}/{tier})")
 
             # Helper to read winner main bytes or stock main bytes
             def _get_main(key: tuple[int, int]) -> bytes | None:
@@ -390,22 +585,29 @@ def validate(
                 lbl_k = f"{key[0]:016x}.{key[1]:016x}"
                 return lbl_k in nat_idx or lbl_k in full_idx
 
-            # Check PACKAGE closure: eagle_base + all 6 melee POI packages + any pack-overridden PACKAGE
-            pkg_ids = {B.EAGLE_PACKAGE, *MELEE_POI_PACKAGES} | {k[0] for k in winners if k[1] == B.PACKAGE_T}
-            for pid in sorted(pkg_ids):
-                praw = _get_main((pid, B.PACKAGE_T))
-                if praw is None:
-                    errors.append(f"Missing PACKAGE 0x{pid:016x} in {label}/{tier}")
-                    continue
-                pcnt = struct.unpack_from("<I", praw, 8)[0]
-                for rk, rn in struct.iter_unpack("<QQ", praw[16 : 16 + 16 * pcnt]):
-                    if not _exists((rn, rk)):
-                        errors.append(
-                            f"Unresolved PACKAGE entry {rn:016x}.{rk:016x} in pkg 0x{pid:016x} ({label}/{tier})"
-                        )
-                metrics["packages_closure_verified"] += 1
+            # Gate 1d: Verify every custom eagle_base.package entry resides in patch_44 and is pinned in clone_eagle_assets.h
+            eb_raw = _get_main((B.EAGLE_PACKAGE, B.PACKAGE_T))
+            if eb_raw is None:
+                errors.append(f"Missing eagle_base.package in {label}/{tier}")
+            else:
+                eb_cnt = struct.unpack_from("<I", eb_raw, 8)[0]
+                for rk, rn in struct.iter_unpack("<QQ", eb_raw[16 : 16 + 16 * eb_cnt]):
+                    if (rn, rk) in stock_eagle_pkg_entries:
+                        continue
+                    # Native shader parents are native-only entries; all custom units/materials/textures must be in patch_44
+                    if (rn, rk) not in winners:
+                        if rk == B.MAT_T and _exists((rn, rk)):
+                            continue  # native shader parent
+                        errors.append(f"Custom eagle_base entry {rn:016x}.{rk:016x} missing from winners in {label}/{tier}")
+                        continue
+                    w_name, _, w_row, _, _ = winners[(rn, rk)]
+                    if w_name != "9ba626afa44a3aa3.patch_44":
+                        errors.append(f"Custom eagle_base entry {rn:016x}.{rk:016x} lives in {w_name} instead of patch_44")
+                    for pt in range(3):
+                        if w_row[7 + pt] > 0 and (rn, rk, pt) not in pinned_parts_set:
+                            errors.append(f"Custom eagle_base entry {rn:016x}.{rk:016x} part={pt} omitted from clone_eagle_assets.h")
 
-            # Check UNIT, MATERIAL, TEXTURE closure & GeometryGroup scan across all winners
+            # Check UNIT, MATERIAL, TEXTURE closure & GeometryGroup scan across all winners + melee POI packages
             surface_seen: set[tuple[int, bool]] = set()
 
             def _check_surface(mid: int, owner_hex: str, is_parent: bool = False) -> None:
@@ -432,6 +634,31 @@ def validate(
                 if parent_id and parent_id != mid:
                     _check_surface(parent_id, owner_hex, True)
 
+            # Check PACKAGE closure: eagle_base + all 9 melee POI packages + any pack-overridden PACKAGE
+            pkg_ids = {B.EAGLE_PACKAGE, *MELEE_POI_PACKAGES} | {k[0] for k in winners if k[1] == B.PACKAGE_T}
+            for pid in sorted(pkg_ids):
+                praw = _get_main((pid, B.PACKAGE_T))
+                if praw is None:
+                    errors.append(f"Missing PACKAGE 0x{pid:016x} in {label}/{tier}")
+                    continue
+                stk_praw = stock_main((pid, B.PACKAGE_T))
+                stk_pkg_set: set[tuple[int, int]] = set()
+                if stk_praw is not None:
+                    scnt = struct.unpack_from("<I", stk_praw, 8)[0]
+                    stk_pkg_set = {(rn, rk) for rk, rn in struct.iter_unpack("<QQ", stk_praw[16 : 16 + 16 * scnt])}
+                pcnt = struct.unpack_from("<I", praw, 8)[0]
+                for rk, rn in struct.iter_unpack("<QQ", praw[16 : 16 + 16 * pcnt]):
+                    if not _exists((rn, rk)):
+                        if (rn, rk) in stk_pkg_set:
+                            metrics["inherited_native_package_exceptions"] += 1
+                            continue
+                        errors.append(
+                            f"Unresolved PACKAGE entry {rn:016x}.{rk:016x} in pkg 0x{pid:016x} ({label}/{tier})"
+                        )
+                    elif pid in MELEE_POI_PACKAGES and rk == B.MAT_T:
+                        _check_surface(rn, f"melee_pkg:{pid:016x}")
+                metrics["packages_closure_verified"] += 1
+
             for (rid, rkind), (p_name, bp, row, s_sha, g_sha) in winners.items():
                 if rkind != B.UNIT_T:
                     continue
@@ -451,7 +678,6 @@ def validate(
                     if u_issues:
                         errors.append(f"UNIT {rid:016x} ({p_name}) issues: {u_issues}")
 
-                    # Check TINY_MESH_AABB on unprotected non-exempt UNITs
                     if rid not in protected_units:
                         at100 = struct.unpack_from("<I", uraw, 100)[0]
                         if at100:
@@ -472,7 +698,6 @@ def validate(
                                         f"TINY_MESH_AABB on UNIT {rid:016x} M{mi} ({p_name}): r={rad:.3f} span={max_span:.3f}"
                                     )
 
-                # Hydrated GPU vertex finite scan whenever `.gpu_resources` is in blobs_dir or cache_dir
                 if row[9] > 0:
                     g_slice_key = (g_sha, row[4], row[9])
                     if g_slice_key not in inspected_gpu_slices:
@@ -490,7 +715,6 @@ def validate(
                             if g_issues:
                                 errors.append(f"GPU NaN/bounds issue on UNIT {rid:016x} ({p_name}): {g_issues}")
 
-                # UNIT dependency closure (`bones`, `state_machine`, `geometry_group`, drawn `materials`)
                 for off, dep_kind, role in (
                     (8, B.BONES_T, "bones"),
                     (16, B.GG_T, "geometry-group"),
@@ -500,9 +724,8 @@ def validate(
                     if not val:
                         continue
                     if dep_kind == B.GG_T and (val, B.GG_T) not in winners:
-                        # Consolidated override external GG check (matching verify_candidate.geometry_provider_scan)
                         if struct.unpack_from("<I", uraw, 48)[0] != 0 and not VC.pointers(uraw, 48):
-                            pass  # empty LOD shell
+                            pass
                         else:
                             errors.append(f"External non-resident GeometryGroup {val:016x} on UNIT {rid:016x}")
                     if not _exists((val, dep_kind)):
@@ -529,53 +752,19 @@ def validate(
                                 elif th != 0x093FC934:
                                     errors.append(f"Unmapped drawn thin mat 0x{th:08x} on UNIT {rid:016x}")
 
-    # 5. Simulate `asset_gate.h` (`ScanAssets`) against `clone_eagle_assets.h` across all 5 staged tiers!
-    eagle_h_text = eagle_h_path.read_text("utf-8")
-    pin_rows = [
-        (
-            int(m.group(1), 16),
-            int(m.group(2), 16),
-            int(m.group(3)),
-            re.findall(r'"([0-9a-f]{64})"', m.group(4)),
-        )
-        for m in re.finditer(
-            r"\{0x([0-9a-f]{16})ull,\s*0x([0-9a-f]{16})ull,\s*(\d+),\s*\{([^}]+)\}\}",
-            eagle_h_text,
-        )
-    ]
-    if not pin_rows:
-        errors.append("No asset pins parsed from clone_eagle_assets.h")
-
-    for tier_idx, tier in enumerate(B.TIERS):
-        vdir = out_dir / "staged" / "all-droids" / tier
-        p44 = vdir / "9ba626afa44a3aa3.patch_44"
-        rows_map = {(r[0], r[1]): r for r in P.directory(p44)}
-        tier_mask = 0x1F
-        for rname, rkind, part_idx, hashes5 in pin_rows:
-            if (rname, rkind) not in rows_map:
-                errors.append(f"clone_eagle_assets.h missing ({rname:016x}, {rkind:016x}) in staged {tier}")
-                continue
-            r = rows_map[(rname, rkind)]
-            comp_p = p44.with_name(p44.name + P.SUFFIXES[part_idx])
-            with comp_p.open("rb") as fh:
-                fh.seek(r[2 + part_idx])
-                pdata = fh.read(r[7 + part_idx])
-            actual_h = hashlib.sha256(pdata).hexdigest()
-            part_mask = 0
-            for ti, expected_h in enumerate(hashes5):
-                if actual_h == expected_h:
-                    part_mask |= 1 << ti
-            tier_mask &= part_mask
-            if not (part_mask & (1 << tier_idx)):
-                errors.append(f"clone_eagle_assets.h hash mismatch on tier {tier} for {rname:016x} part={part_idx}")
-        if tier_mask == 0:
-            errors.append(f"asset_gate.h tierMask collapsed to 0 on tier {tier}")
-        metrics["eagle_asset_gate_tiers_verified"] += 1
+    # 5. Simulate `asset_gate.h` (`ScanAssets`) across the FULL staged directory (`*.patch_*`) for both variants & all 5 tiers!
+    for variant_name in ("all-droids", "mixed-droids"):
+        for tier_idx, tier in enumerate(B.TIERS):
+            vdir = out_dir / "staged" / variant_name / tier
+            scan_errs = simulate_asset_gate_scan_dir(vdir, pin_rows, tier_idx)
+            errors.extend(scan_errs)
+            metrics["eagle_asset_gate_full_dirs_verified"] += 1
 
     summary = {
         "passed": len(errors) == 0,
         "errorCount": len(errors),
         "errors": errors[:50],
+        "pinCount": len(pin_rows),
         "metrics": dict(metrics),
     }
     (out_dir / "validation-summary.json").write_text(json.dumps(summary, indent=2) + "\n", encoding="utf-8")

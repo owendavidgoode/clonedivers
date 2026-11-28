@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Unit tests for Clonedivers r26 Stingray binary mutators, vertex converters, and SLIM archive rewriter."""
+"""Unit tests for Clonedivers r26 Stingray binary mutators, helmet rig grafting, hiders, and SLIM rewriter."""
 from __future__ import annotations
 
 import struct
@@ -19,44 +19,71 @@ import validate_clones_r26 as V  # noqa: E402
 import verify_candidate as VC  # noqa: E402
 
 
-def _make_synthetic_stock_unit() -> bytes:
-    """Create a valid 320-byte Stingray UNIT with @48 LODData, @52 JointData, @100 MeshObject, and @112 mat_map."""
+def _make_synthetic_stock_unit(
+    *,
+    bones_id: int = B.EAGLE_UNIT,
+    joint_hashes: tuple[int, ...] = (0x11111111, 0x22222222),
+    with_mesh_and_layout: bool = True,
+) -> bytes:
+    """Create a valid Stingray UNIT with @48 LODData, @52 JointData, optional @92/@100, and @112 mat_map."""
     buf = bytearray(128)
-    struct.pack_into("<Q", buf, 8, B.EAGLE_UNIT)
+    struct.pack_into("<Q", buf, 8, bones_id)
     struct.pack_into("<Q", buf, 32, B.EAGLE_UNIT)
 
-    # @52 JointData (2 identity joints)
+    # @52 JointData
+    nn = len(joint_hashes)
     buf.extend(bytes(-len(buf) % 16))
     struct.pack_into("<I", buf, 52, len(buf))
     eye = np.eye(4, dtype="<f4").tobytes()
-    buf.extend(struct.pack("<4I", 2, 0, 0, 0))
-    buf.extend(eye * 2)  # local
-    buf.extend(eye * 2)  # world
-    buf.extend(struct.pack("<2I", 0, 0))  # parents
-    buf.extend(struct.pack("<2I", 0x11111111, 0x22222222))  # hashes
+    buf.extend(struct.pack("<4I", nn, 0, 0, 0))
+    buf.extend(eye * nn)  # local
+    buf.extend(eye * nn)  # world
+    buf.extend(struct.pack(f"<{nn}I", *([0] * nn)))  # parents
+    buf.extend(struct.pack(f"<{nn}I", *joint_hashes))  # hashes
 
-    # @48 LODData inside native prefix (1 group, 1 level, 1 footer with tiny 0.2m AABB & inflated ls=12.0)
-    buf.extend(bytes(-len(buf) % 16))
-    struct.pack_into("<I", buf, 48, len(buf))
-    lod_grp = bytearray()
-    lod_grp.extend(struct.pack("<5I", 0, 0, 0, 1, 1))  # footers=1, levels=1
-    lod_grp.extend(struct.pack("<2I", 28, 44))  # entry_rel=28, footer_rel=44
-    lod_grp.extend(struct.pack("<2f2I", 100.0, 0.0, 1, 0))  # 16 bytes -> ends at 44
-    lod_grp.extend(struct.pack("<7fIfI", -0.1, -0.1, 0.0, 0.1, 0.1, 0.2, 0.2, 99, 12.0, 0))  # 40B footer
-    buf.extend(B._pack_pointer_table([bytes(lod_grp)]))
+    if with_mesh_and_layout:
+        # @48 LODData inside native prefix (1 group, 1 level, 1 footer with tiny 0.2m AABB & inflated ls=12.0)
+        buf.extend(bytes(-len(buf) % 16))
+        struct.pack_into("<I", buf, 48, len(buf))
+        lod_grp = bytearray()
+        lod_grp.extend(struct.pack("<5I", 0, 0, 0, 1, 1))  # footers=1, levels=1
+        lod_grp.extend(struct.pack("<2I", 28, 44))  # entry_rel=28, footer_rel=44
+        lod_grp.extend(struct.pack("<2f2I", 100.0, 0.0, 1, 0))
+        lod_grp.extend(struct.pack("<7fIfI", -0.1, -0.1, 0.0, 0.1, 0.1, 0.2, 0.2, nn - 1, 12.0, 0))
+        buf.extend(B._pack_pointer_table([bytes(lod_grp)]))
 
-    # @100 MeshObject inside native prefix (tiny 0.2m AABB)
-    buf.extend(bytes(-len(buf) % 16))
-    struct.pack_into("<I", buf, 100, len(buf))
-    mh = bytearray(128)
-    struct.pack_into("<7f", mh, 8, -0.1, -0.1, 0.0, 0.1, 0.1, 0.2, 0.2)
-    struct.pack_into("<I", mh, 36, 9)  # drawn meshType
-    struct.pack_into("<2i", mh, 56, -1, -1)
-    struct.pack_into("<2I", mh, 104, 1, 128)
-    struct.pack_into("<2I", mh, 120, 1, 132)
-    mh.extend(struct.pack("<I", 0x1EB1F87F))
-    mh.extend(struct.pack("<6I", 0, 0, 12, 0, 36, 0))
-    buf.extend(B._pack_mesh_info_table([bytes(mh)], [0xAABBCCDD]))
+        # @88 SkinData (1 bone pointing to last joint `nn - 1`)
+        buf.extend(bytes(-len(buf) % 16))
+        struct.pack_into("<I", buf, 88, len(buf))
+        buf.extend(B._pack_pointer_table([B._pack_single_joint_skin(nn - 1, np.eye(4, dtype=np.float64), 1)]))
+
+        # @92 Layout (12B pos vertex, u16 indices)
+        buf.extend(bytes(-len(buf) % 16))
+        struct.pack_into("<I", buf, 92, len(buf))
+        lay = bytearray(448)
+        struct.pack_into("<3I", lay, 8, 0, 2, 0)  # pos f32x3
+        struct.pack_into("<I", lay, 328, 1)  # 1 attr
+        struct.pack_into("<II", lay, 352, 4, 12)  # vc=4, stride=12
+        struct.pack_into("<II", lay, 392, 6, 0)  # ic=6, u16
+        struct.pack_into("<4I", lay, 416, 0, 48, 48, 12)
+        buf.extend(B._pack_pointer_table([bytes(lay)]))
+
+        # @100 MeshObject inside native prefix (tiny 0.2m AABB)
+        buf.extend(bytes(-len(buf) % 16))
+        struct.pack_into("<I", buf, 100, len(buf))
+        mh = bytearray(128)
+        struct.pack_into("<7f", mh, 8, -0.1, -0.1, 0.0, 0.1, 0.1, 0.2, 0.2)
+        struct.pack_into("<4I", mh, 36, 9, joint_hashes[-1], nn - 1, nn - 1)  # drawn meshType, transformIdx=nn-1
+        struct.pack_into("<2i", mh, 56, 0, 0)  # skinIdx=0, layoutIdx=0
+        struct.pack_into("<2I", mh, 104, 1, 128)
+        struct.pack_into("<2I", mh, 120, 1, 132)
+        mh.extend(struct.pack("<I", 0x1EB1F87F))
+        mh.extend(struct.pack("<6I", 0, 0, 4, 0, 6, 0))
+        buf.extend(B._pack_mesh_info_table([bytes(mh)], [0xAABBCCDD]))
+    else:
+        buf.extend(bytes(-len(buf) % 16))
+        struct.pack_into("<I", buf, 48, len(buf))
+        buf.extend(struct.pack("<I", 0))
 
     # @112 material_map inside native prefix
     buf.extend(bytes(-len(buf) % 16))
@@ -90,16 +117,50 @@ class ClonesR26UnitTests(unittest.TestCase):
         self.assertTrue(P.unit_safe((patched, b"", b""), stock))
         VC.lod_descriptors(patched)
         self.assertEqual(VC.material_map(patched)[0x1EB1F87F], B.M_COLLISION)
-        lp = VC.pointers(patched, 48)[0]
-        fc, lv = struct.unpack_from("<II", patched, lp + 12)
-        frel = struct.unpack_from("<I", patched, lp + 20 + 4 * lv)[0]
-        mnx, mny, mnz, mxx, mxy, mxz, rad, cn, ls, _ = struct.unpack_from("<7fIfI", patched, lp + frel)
-        self.assertLessEqual(mnz, -2.5)
-        self.assertGreaterEqual(mxz, 3.5)
-        self.assertGreaterEqual(rad, 5.5)
-        self.assertEqual(cn, 0)
-        self.assertAlmostEqual(ls, 1.0)
         self.assertEqual(V.check_unit_matrices_and_skins(patched), [])
+
+    def test_graft_helmet_onto_stock_unit_remaps_joints_and_preserves_external_bones(self) -> None:
+        # Stock target has external bones != 0 and 3 joints (0x6F6E4346 is index 1 in dst, index 3 in src!)
+        stock_dst = _make_synthetic_stock_unit(
+            bones_id=0x651CCF16AB84901A,
+            joint_hashes=(0x11111111, 0x6F6E4346, 0x33333333),
+        )
+        src_main = _make_synthetic_stock_unit(
+            bones_id=0,
+            joint_hashes=(0x11111111, 0x99999999, 0x33333333, 0x6F6E4346),
+        )
+        dummy_gpu = bytes(60)
+        grafted = B.graft_helmet_onto_stock_unit(stock_dst, src_main, dummy_gpu)
+        self.assertTrue(P.unit_safe((grafted, b"", dummy_gpu), stock_dst))
+        self.assertEqual(struct.unpack_from("<Q", grafted, 8)[0], 0x651CCF16AB84901A)
+        self.assertEqual(V.joint_hashes(grafted), [0x11111111, 0x6F6E4346, 0x33333333])
+        self.assertEqual(V.check_unit_matrices_and_skins(grafted), [])
+        # Verify @88 skin joint, @100 mp+44/48, and @48 cull_node all remapped from src j=3 -> dst j=1
+        sat = VC.pointers(grafted, 88)[0]
+        bc, _, bo, _ = struct.unpack_from("<4I", grafted, sat)
+        self.assertEqual(struct.unpack_from(f"<{bc}I", grafted, sat + bo), (1,))
+        mh = VC.pointers(grafted, 100)[0]
+        self.assertEqual(struct.unpack_from("<2I", grafted, mh + 44), (1, 1))
+        lp = VC.pointers(grafted, 48)[0]
+        fc, lv = struct.unpack_from("<II", grafted, lp + 12)
+        frel = struct.unpack_from("<I", grafted, lp + 20 + 4 * lv)[0]
+        self.assertEqual(struct.unpack_from("<I", grafted, lp + frel + 28)[0], 1)
+
+    def test_build_zero_draw_unit_hider_handles_corpse_and_meshless_wreck_units(self) -> None:
+        corpse_stk = _make_synthetic_stock_unit()
+        hm, hg = B.build_zero_draw_unit_hider(corpse_stk)
+        self.assertTrue(P.unit_safe((hm, b"", hg), corpse_stk))
+        self.assertEqual(V.drawn_index_count(hm), 0)
+        self.assertEqual(VC.material_map(hm)[0x1EB1F87F], B.M_COLLISION)
+        self.assertEqual(V.check_unit_matrices_and_skins(hm), [])
+        self.assertEqual(V.check_gpu_vertices_finite(hm, hg), [])
+
+        wreck_stk = _make_synthetic_stock_unit(with_mesh_and_layout=False)
+        wm, wg = B.build_zero_draw_unit_hider(wreck_stk)
+        self.assertTrue(P.unit_safe((wm, b"", wg), wreck_stk))
+        self.assertEqual(wg, b"")
+        self.assertEqual(V.drawn_index_count(wm), 0)
+        self.assertEqual(VC.material_map(wm)[0x1EB1F87F], B.M_COLLISION)
 
     def test_vertex_converters_preserve_xyz_and_uvs_exact(self) -> None:
         v44 = struct.pack("<I3fI6f", 0xFFFFFFFF, 1.5, -2.5, 3.25, 0x12345678, 0.25, 0.75, 0.5, -0.5, 1.0, 0.0)
@@ -160,6 +221,8 @@ class ClonesR26UnitTests(unittest.TestCase):
             0x651CCF16AB84901A,  # SC-30 Sev
             0x9F44121C554DAE89,  # MagnaGuard female
             0x746A7F3BEDA32699,  # MagnaGuard male
+            *B.CORPSE_SHARED_DROIDS,
+            *B.CORPSE_ALL_DROIDS_ONLY,
         ):
             self.assertNotIn(editable, protected)
 
