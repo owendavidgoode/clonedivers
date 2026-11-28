@@ -354,10 +354,13 @@ def main() -> int:
         "0 Wwise codec mismatches, and 100% preserved AT-ST, TIE, and LEGO Yoda runtime pins."
     )
 
-    # Strip deathtrooper option
+    # Strip deathtrooper option and enforce v2.3 mixed-droids + mixed-covenant defaults
     r55_doc["pack"]["options"] = [
         opt for opt in r55_doc["pack"]["options"] if opt.get("id") != "deathtrooper"
     ]
+    for opt in r55_doc["pack"]["options"]:
+        if opt.get("id") in {"droids", "mixed-droids", "covenant", "mixed-covenant"}:
+            opt["default"] = True
 
     new_files = []
     replaced_manifest_rows = 0

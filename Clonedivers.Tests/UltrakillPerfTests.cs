@@ -745,10 +745,48 @@ internal static class UltrakillPerfTests
               hd2Sample.DrmResidentGttBytes == 13631488UL * 1024UL &&
               hd2Sample.AmdEvictedVramBytes == 2097152UL * 1024UL &&
               obs43.System.SwapUsedBytes == (8388608UL - 524288UL) * 1024UL &&
-              obs43.System.LinuxUnattributedBytes is > (10UL << 30) &&
+              obs43.System.LinuxUnattributedBytes == (31680512UL - 512000UL - 13631488UL - 2097152UL - 131072UL - 262144UL) * 1024UL &&
               summaryLine.Contains("DRM-VRAM=14.00 GiB", StringComparison.Ordinal) &&
               summaryLine.Contains("DRM-GTT=13.00 GiB", StringComparison.Ordinal) &&
-              summaryLine.Contains("PeakKernel/TTM=", StringComparison.Ordinal),
-              "Issue #43/#45/#46: ProcessMemorySampler & SessionMemoryTracker deduplicate drm-client-id VRAM/GTT, measure VmSwap, and surface kernel TTM pool usage");
+              summaryLine.Contains("PeakUnattributedEst=", StringComparison.Ordinal),
+              "Issue #43/#45/#46: ProcessMemorySampler & SessionMemoryTracker deduplicate drm-client-id VRAM/GTT, measure VmSwap, and compute non-double-counted unattributed physical RAM estimate");
+
+        // Codex Findings #12, #13, #14 regressions:
+        // #12: 32 GiB total, 2 GiB free, 12 GiB available, 10 GiB anon, 10 GiB cache -> 10 GiB unattributed (no double cache subtraction)
+        var mem32 = ProcessMemorySampler.ParseLinuxMemInfo(
+            "MemTotal:       33554432 kB\n" +
+            "MemFree:         2097152 kB\n" +
+            "MemAvailable:   12582912 kB\n" +
+            "AnonPages:      10485760 kB\n" +
+            "Cached:          8388608 kB\n" +
+            "Buffers:         1048576 kB\n" +
+            "SReclaimable:    1048576 kB\n");
+        check(mem32.LinuxUnattributedBytes == (10UL << 30),
+              "Finding #12: ParseLinuxMemInfo decomposes MemTotal - MemFree without double-subtracting reclaimable cache");
+
+        // #14: High-FD Wine/esync process (>256 fds) filters /proc/<pid>/fd/* -> /dev/dri/* without dropping DRM fd #350
+        var highFdProc = Path.Combine(dir, "proc-highfd", "8888");
+        var highFdDir = Path.Combine(highFdProc, "fd");
+        var highFdInfoDir = Path.Combine(highFdProc, "fdinfo");
+        Directory.CreateDirectory(highFdDir);
+        Directory.CreateDirectory(highFdInfoDir);
+        for (int fd = 0; fd < 300; fd++)
+            await File.WriteAllTextAsync(Path.Combine(highFdDir, fd.ToString()), "eventfd");
+        await File.WriteAllTextAsync(Path.Combine(highFdDir, "350"), "/dev/dri/renderD128");
+        await File.WriteAllTextAsync(Path.Combine(highFdInfoDir, "350"), drmFdText);
+        var highFdDrm = ProcessMemorySampler.ReadLinuxDrmFdInfo(
+            highFdInfoDir,
+            resolveFdTarget: e => e.Name == "350" ? "/dev/dri/renderD128" : "anon_inode:[eventfd]");
+        check(highFdDrm.ResidentVramBytes == 14680064UL * 1024UL &&
+              highFdDrm.ResidentGttBytes == 13631488UL * 1024UL,
+              "Finding #14: ReadLinuxDrmFdInfo filters /proc/<pid>/fd targets for /dev/dri/* and captures DRM descriptors past FD 256");
+
+        // #13: Windows CaptureSystem reports valid commit & pagefile occupancy (SwapUsedBytes <= SwapTotalBytes)
+        if (OperatingSystem.IsWindows())
+        {
+            var winSys = ProcessMemorySampler.CaptureSystem();
+            check(winSys.TotalRamBytes > 0 && winSys.CommittedBytes > 0 && winSys.SwapUsedBytes <= winSys.SwapTotalBytes,
+                  "Finding #13: Windows CaptureSystem queries K32EnumPageFilesW pagefile occupancy with SwapUsedBytes <= SwapTotalBytes");
+        }
     }
 }

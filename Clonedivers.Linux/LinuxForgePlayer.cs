@@ -620,12 +620,13 @@ internal sealed class LinuxForgePlayer(IForgeConnection connection, LinuxForgePr
 
 /// <summary>
 /// Detects and cleans up stale orphaned hf-inner.sh / hellforge-offline.sh / steam-bridge inner processes
-/// left behind after a crashed Linux session (#44) ONLY when status is not running and no game/session runner is alive.
-/// Never touches steam-bridge host, active games, HellForge.Session, or ClonediversBridge.
+/// left behind after a crashed incomplete Linux session (#44) ONLY when status is not running, the latest
+/// session record lacks completedUtc, and no live game/session/CLI/Proton launch process is running.
+/// Never touches steam-bridge host, active or starting launches, HellForge.Session, or ClonediversBridge.
 /// </summary>
 internal static class LinuxStaleSessionGuard
 {
-    internal sealed record OrphanProcess(int Pid, string Name);
+    internal sealed record OrphanProcess(int Pid, string Name, string? StartTimeTicks = null);
 
     internal static (bool LiveSessionProcessFound, IReadOnlyList<OrphanProcess> Orphans) ScanOrphans(
         string installRoot,
@@ -667,7 +668,7 @@ internal static class LinuxStaleSessionGuard
 
                 if (IsOrphanWrapperOrInnerBridge(comm, cmdline, exe) is { } label)
                 {
-                    orphans.Add(new(pid, label));
+                    orphans.Add(new(pid, label, ReadProcStartTime(procRoot, pid)));
                     continue;
                 }
 
@@ -708,12 +709,27 @@ internal static class LinuxStaleSessionGuard
         }
     }
 
+    internal static string? ReadProcStartTime(string procRoot, int pid)
+    {
+        var stat = ReadTextSafe(Path.Combine(procRoot, pid.ToString(System.Globalization.CultureInfo.InvariantCulture), "stat"), 4096);
+        if (string.IsNullOrEmpty(stat)) return null;
+        int closeParen = stat.LastIndexOf(')');
+        if (closeParen < 0 || closeParen + 2 >= stat.Length) return null;
+        var fields = stat[(closeParen + 2)..].Split(' ', StringSplitOptions.RemoveEmptyEntries);
+        // /proc/<pid>/stat field 3 is state (index 0 after ") "), so field 22 (starttime) is index 19.
+        return fields.Length > 19 ? fields[19] : null;
+    }
+
     internal static IReadOnlyList<string> CleanupStaleOrphans(
         string installRoot,
         string procRoot = "/proc",
         int? selfPid = null,
-        Action<int>? killOverride = null)
+        Action<int>? killOverride = null,
+        bool requireIncompleteSession = true)
     {
+        if (requireIncompleteSession && !HasCrashedIncompleteSession(installRoot))
+            return [];
+
         var (liveFound, orphans) = ScanOrphans(installRoot, procRoot, selfPid);
         if (liveFound || orphans.Count == 0)
             return [];
@@ -723,6 +739,18 @@ internal static class LinuxStaleSessionGuard
         {
             try
             {
+                if (orphan.StartTimeTicks != null)
+                {
+                    var currentStart = ReadProcStartTime(procRoot, orphan.Pid);
+                    if (!string.Equals(currentStart, orphan.StartTimeTicks, StringComparison.Ordinal))
+                        continue;
+                }
+                else if (killOverride == null)
+                {
+                    // On real Linux /proc, refuse termination if /proc/<pid>/stat starttime could not be bound.
+                    continue;
+                }
+
                 if (killOverride != null)
                 {
                     killOverride(orphan.Pid);
@@ -730,6 +758,8 @@ internal static class LinuxStaleSessionGuard
                 else
                 {
                     using var proc = System.Diagnostics.Process.GetProcessById(orphan.Pid);
+                    if (!string.Equals(ReadProcStartTime(procRoot, orphan.Pid), orphan.StartTimeTicks, StringComparison.Ordinal))
+                        continue;
                     proc.Kill(entireProcessTree: false);
                     proc.WaitForExit(2000);
                 }
@@ -825,7 +855,16 @@ internal static class LinuxStaleSessionGuard
     static bool IsLiveGameOrController(string comm, IReadOnlyList<string> cmdline, string? exe)
     {
         static string Leaf(string? p) => string.IsNullOrEmpty(p) ? "" : p[(p.LastIndexOfAny(['/', '\\']) + 1)..];
-        var candidates = cmdline.Select(Leaf).Append(Leaf(exe)).Append(comm);
+        var exeLeaf = Leaf(exe);
+        bool isCli = exeLeaf.Equals("HellForge.Cli", StringComparison.OrdinalIgnoreCase) ||
+                     exeLeaf.Equals("HellForge.Cli.exe", StringComparison.OrdinalIgnoreCase) ||
+                     comm.Equals("HellForge.Cli", StringComparison.OrdinalIgnoreCase) ||
+                     cmdline.Any(a => Leaf(a).Equals("HellForge.Cli", StringComparison.OrdinalIgnoreCase) ||
+                                      Leaf(a).Equals("HellForge.Cli.exe", StringComparison.OrdinalIgnoreCase));
+        if (isCli && cmdline.Any(a => a is "play" or "run"))
+            return true;
+
+        var candidates = cmdline.Select(Leaf).Append(exeLeaf).Append(comm);
         foreach (var leaf in candidates)
         {
             if (string.IsNullOrEmpty(leaf)) continue;
@@ -835,7 +874,11 @@ internal static class LinuxStaleSessionGuard
                 leaf.Equals("HellForge.Session", StringComparison.OrdinalIgnoreCase) ||
                 leaf.StartsWith("HellForge.Sessi", StringComparison.OrdinalIgnoreCase) ||
                 leaf.Equals("HellForge.Launcher", StringComparison.OrdinalIgnoreCase) ||
-                leaf.Equals("HellForge.exe", StringComparison.OrdinalIgnoreCase))
+                leaf.Equals("HellForge.exe", StringComparison.OrdinalIgnoreCase) ||
+                leaf.Equals("proton", StringComparison.OrdinalIgnoreCase) ||
+                leaf.StartsWith("pressure-vessel", StringComparison.OrdinalIgnoreCase) ||
+                leaf.Equals("pv-adverb", StringComparison.OrdinalIgnoreCase) ||
+                leaf.Equals("steam-runtime-launch-client", StringComparison.OrdinalIgnoreCase))
             {
                 return true;
             }
