@@ -14,21 +14,19 @@ Client only (`gameplay: false`, `coop: per-player`); no Lua loader, engine audio
      and the exact applied record, and sharing an 8-slot consumed `(peer, avatar, network)` deduplication ring
      across `HF_ON_PLAYER_DOWN` and the 100 ms poll route. Remote player deaths remain silent.
 
-2. **Stormtrooper Salute Trigger (`audio/stormtrooper-salute.wav`, Optional Drop-In):**
+2. **Stormtrooper Salute Trigger (`audio/stormtrooper-salute.wav`, Bundled Out of the Box & Overridable):**
    - Vanilla Helldivers 2 Salute emotes (*Super Earth Salute* and *Casual Salute*) have no dedicated Wwise VO event.
-   - When an optional valid RIFF/WAVE file (`<= 4 MB`, 1-2 ch PCM or IEEE float, 8-96 kHz, e.g. 48 kHz 16-bit PCM
-     Robot Chicken *"Stormtrooper"* escalator clip) is placed at `<mod_folder>\audio\stormtrooper-salute.wav`,
-     the mod monitors the **local** player's 107-node Helldiver avatar scene graph (`0x4D1C334D294DFA97`) read-only
+   - Ships out of the box with a 100% original synthesized Stormtrooper helmet-comm WAV (`audio/stormtrooper-salute.wav`,
+     24 kHz 16-bit mono PCM, `<= 80 KB`, deadpan `"Stormtrooper."` nod with light helmet click; zero copyrighted TV audio).
+     Any valid replacement RIFF/WAVE file (`<= 4 MB`, 1-2 ch PCM or IEEE float, 8-96 kHz) placed at
+     `<mod_folder>\audio\stormtrooper-salute.wav` automatically overrides the default clip, and removing the file
+     gracefully disables Salute polling with zero per-tick overhead.
+   - Monitors the **local** player's 107-node Helldiver avatar scene graph (`0x4D1C334D294DFA97`) read-only
      in both `HF_STATE_SHIP` (Star Destroyer bridge) and `HF_STATE_MISSION` (compatible with both 2,048-slot and
-     relocated 4,096-slot `EntityManager` tables via `clonedivers_em_layout.h`).
-   - Fires `PlaySoundW` (`SND_MEMORY | SND_ASYNC | SND_NODEFAULT | SND_NOSTOP`) once per rising edge after 3
-     consecutive stationary Salute samples (~200-300 ms), latching until the Salute pose is released (with a
-     1.5 s re-trigger cooldown) and rejecting two-handed emotes, weapon aiming/reloading, sprinting, grenade/stratagem
-     throws, and remote co-op players.
-   - **Clean Fallback:** When `audio/stormtrooper-salute.wav` is absent, Salute polling is completely disabled with
-     zero per-tick overhead, and LEGO Yoda death continues to operate identically to `0.2.2`. Conversely, if
-     `stormtrooper-salute.wav` is staged on a non-LEGO Imperial armor loadout, Salute playback works independently
-     while LEGO Yoda death remains gated strictly on confirmed LEGO torso proofs.
+     relocated 4,096-slot `EntityManager` tables via `clonedivers_em_layout.h`), firing `PlaySoundW`
+     (`SND_MEMORY | SND_ASYNC | SND_NODEFAULT | SND_NOSTOP`) once per rising edge after 3 consecutive stationary
+     Salute samples (~200-300 ms) with hold-latch and 1.5 s re-trigger cooldown while rejecting two-handed emotes,
+     weapon aiming/reloading, sprinting, grenade/stratagem throws, and remote co-op players.
 
 ## Playback & Operational Notes
 

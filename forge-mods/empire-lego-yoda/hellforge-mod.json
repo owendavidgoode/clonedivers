@@ -3,7 +3,7 @@
   "id": "clonedivers.empire-lego-yoda",
   "name": "Empire LEGO Yoda Death & Stormtrooper Salute",
   "version": "0.2.3",
-  "description": "4-player co-op per-slot local WAV death detection on confirmed Empire/Clonedivers LEGO torso assets plus optional local Stormtrooper Salute WAV trigger; build 25480438.",
+  "description": "4-player co-op per-slot local WAV death detection on confirmed Empire/Clonedivers LEGO torso assets plus bundled deadpan Stormtrooper Salute WAV trigger; build 25480438.",
   "gameplay": false,
   "coop": "per-player",
   "code": { "dll": "empire_lego_yoda.dll", "sdk": 16, "game": "25480438" }

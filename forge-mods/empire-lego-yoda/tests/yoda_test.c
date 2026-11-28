@@ -300,8 +300,19 @@ static void RunSaluteTests(const wchar_t* fixtureDir)
     }
     CHECK(saluteCalls == 0);
 
-    /* Clean up synthetic Salute arenas & file */
+    /* Clean up synthetic Salute file, then verify real bundled out-of-the-box audio/stormtrooper-salute.wav! */
     CHECK(DeleteFileW(salutePath) && RemoveDirectoryW(audioDir));
+    {
+        const wchar_t* prodModDir = (GetFileAttributesW(L".\\yoda-torsos.json") != INVALID_FILE_ATTRIBUTES) ? L"." :
+                                    (GetFileAttributesW(L"..\\yoda-torsos.json") != INVALID_FILE_ATTRIBUTES) ? L".." :
+                                    L"forge-mods\\empire-lego-yoda";
+        CHECK(LoadOptionalSaluteWave(prodModDir) && saluteReady && saluteAudio != NULL &&
+              saluteAudioSize >= 8000u && saluteAudioSize <= 80u * 1024u);
+        Reset(); ready = 0; saluteReady = 1; state = HF_STATE_SHIP; sampleEvery = 100; saluteCalls = 0;
+        SetSuperEarthSalutePose(worldPoses);
+        for (int t = 0; t < 3; t++) { clockMs += 100; Observe(); }
+        CHECK(saluteCalls == 1);
+    }
     LoadOptionalSaluteWave(NULL);
     exeBase = 0; emCell = 0; invCell = 0; sampleEvery = 0;
     free(worldPoses); free(fakeUnit); free(umGens); free(umSlots);
