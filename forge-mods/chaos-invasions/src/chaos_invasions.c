@@ -53,10 +53,14 @@
 #define CHAOS_PRELOAD_RATE_PER_S       12.0f
 #define CHAOS_PRELOAD_FACTION_WAIT_S   0.5f
 
-#define CHAOS_PKG_EAGLE_BASE     0x2C26BC4C6592FA14ull
-#define CHAOS_PKG_EXO49_ATTE     0xE72D3E9B05C3DB0Bull
-#define CHAOS_ENTITY_EXO49_ATTE  0xC2D449ECF7FACAB1ull
-#define CHAOS_STRAGGLER_MAX_R_M  260.0f
+#define CHAOS_PKG_EAGLE_BASE       0x2C26BC4C6592FA14ull
+#define CHAOS_PKG_COMBAT_WALKER    0x22749A294788AF66ull
+#define CHAOS_PKG_EXO49_ATTE       0xE72D3E9B05C3DB0Bull
+#define CHAOS_ENTITY_EXO49_ATTE    0xC2D449ECF7FACAB1ull
+#define CHAOS_STRAT_TABLE_RVA      0x37CB600u
+#define CHAOS_MAX_OWNED_PKGS       384u
+#define CHAOS_MAX_AUX_BUNDLE_PKGS  6
+#define CHAOS_STRAGGLER_MAX_R_M    260.0f
 
 enum { PHASE_INACTIVE = 0, PHASE_ACTIVE = 1, PHASE_ENDED = 2 };
 
@@ -156,6 +160,7 @@ static int g_preload_built[CHAOS_FACTIONS];
 static int g_faction_resident[CHAOS_FACTIONS];
 static int g_preload_ready_logged[CHAOS_FACTIONS];
 static int g_preload_refmap_warned[CHAOS_FACTIONS];
+static int g_bot_smoke_requested = 0;
 static int g_bot_smoke_resident = 0;
 static float g_preload_mission_time = 0.0f;
 static float g_preload_tokens = 0.0f;
@@ -192,7 +197,8 @@ static float g_preload_watchdog_s = 0.0f;
 static float g_straggler_recycle_s = 0.0f;
 static float g_last_wave_anchor[3] = {0.0f, 0.0f, 0.0f};
 static int g_has_last_wave_anchor = 0;
-static uint64_t g_chaos_owned_pkgs[128];
+static uint64_t g_chaos_owned_pkgs[CHAOS_MAX_OWNED_PKGS];
+static uint8_t g_chaos_owned_pkg_evicted[CHAOS_MAX_OWNED_PKGS];
 static uint32_t g_chaos_owned_pkg_count = 0u;
 static uint8_t s_refmap_scan_buf[4096u * 16u];
 
@@ -243,8 +249,29 @@ static int ChaosOwnsPkg(uint64_t pkg_id)
 static void ChaosRecordOwnedPkg(uint64_t pkg_id)
 {
     if (!pkg_id || ChaosOwnsPkg(pkg_id)) return;
-    if (g_chaos_owned_pkg_count < (uint32_t)(sizeof(g_chaos_owned_pkgs) / sizeof(g_chaos_owned_pkgs[0]))) {
+    if (g_chaos_owned_pkg_count < CHAOS_MAX_OWNED_PKGS) {
+        g_chaos_owned_pkg_evicted[g_chaos_owned_pkg_count] = 0u;
         g_chaos_owned_pkgs[g_chaos_owned_pkg_count++] = pkg_id;
+    }
+}
+
+static int ChaosOwnedPkgEvicted(uint64_t pkg_id)
+{
+    if (!pkg_id) return 0;
+    for (uint32_t i = 0; i < g_chaos_owned_pkg_count; i++) {
+        if (g_chaos_owned_pkgs[i] == pkg_id) return g_chaos_owned_pkg_evicted[i] != 0u;
+    }
+    return 0;
+}
+
+static void ChaosSetOwnedPkgEvicted(uint64_t pkg_id, uint8_t evicted)
+{
+    if (!pkg_id) return;
+    for (uint32_t i = 0; i < g_chaos_owned_pkg_count; i++) {
+        if (g_chaos_owned_pkgs[i] == pkg_id) {
+            g_chaos_owned_pkg_evicted[i] = evicted;
+            return;
+        }
     }
 }
 
@@ -1252,6 +1279,10 @@ static uint8_t* ChaosReadRefMapBuffer(uintptr_t gbase, uintptr_t* out_pkg_sys, u
     return buf;
 }
 
+static int ChaosEnsureOwnedAuxBundle(uintptr_t gbase, uintptr_t ebase, size_t esize,
+                                     const uint64_t* pkgs, int pkg_count,
+                                     int* io_requested, int* io_resident);
+
 /* Releases every engine package ref_count acquired by Chaos during the ending mission (#43/#45/#46).
  * Inspects pkg_sys before each RefcountedPackageRelease (game.dll+0x12FE4E0) so only present entries
  * with refcnt >= 1 are decremented (1 -> 0 unloads; >=2 -> N-1 preserves external engine owners; 0 double-free). */
@@ -1261,6 +1292,7 @@ static void ReleaseChaosOwnedPackages(uintptr_t gbase)
     if (!gbase || !g_pins_ok || !hf || !hf->read) {
         g_chaos_owned_pkg_count = 0u;
         memset(g_chaos_owned_pkgs, 0, sizeof g_chaos_owned_pkgs);
+        memset(g_chaos_owned_pkg_evicted, 0, sizeof g_chaos_owned_pkg_evicted);
         return;
     }
 
@@ -1296,6 +1328,7 @@ static void ReleaseChaosOwnedPackages(uintptr_t gbase)
     uint32_t owned_before = g_chaos_owned_pkg_count;
     g_chaos_owned_pkg_count = 0u;
     memset(g_chaos_owned_pkgs, 0, sizeof g_chaos_owned_pkgs);
+    memset(g_chaos_owned_pkg_evicted, 0, sizeof g_chaos_owned_pkg_evicted);
     if (hf && self && hf->log && (released > 0u || skipped > 0u)) {
         hf->log(self, "CHAOS_PKG_RELEASE: owned=%u released=%u skipped=%u", owned_before, released, skipped);
     }
@@ -1359,7 +1392,9 @@ static void PreloadForeignFactionPackagesPaced(
             if (f == native || !g_preload_built[f]) continue;
             int evicted = 0;
             for (int i = 0; i < g_preload_count[f]; i++) {
-                if (PackageStateExe(ebase, esize, g_preload_pkgs[f][i]) == 0) {
+                uint64_t wpkg = g_preload_pkgs[f][i];
+                if (PackageStateExe(ebase, esize, wpkg) == 0) {
+                    ChaosSetOwnedPkgEvicted(wpkg, 1u);
                     g_preload_requested[f][i] = 0;
                     evicted = 1;
                 }
@@ -1407,10 +1442,18 @@ static void PreloadForeignFactionPackagesPaced(
         if (!block_next_faction) {
             BuildPreloadList(gbase, f);
 
-            /* Best-effort catalogue smoke flare package for Bot dropship arrivals (in HF_STATE_MISSION only). */
-            if (!is_prepare && f == CHAOS_BOTS && !g_bot_smoke_resident && hf->load_package) {
-                int ls = hf->load_package(self, CHAOS_PKG_G3_SMOKE);
-                if (ls == HF_PACKAGE_RESIDENT) g_bot_smoke_resident = 1;
+            /* Smoke flare package for Bot dropship arrivals (in HF_STATE_MISSION only; managed via Chaos refmap, never hf->load_package). */
+            if (!is_prepare && f == CHAOS_BOTS && !g_bot_smoke_resident) {
+                uint64_t smoke_pkg = CHAOS_PKG_G3_SMOKE;
+                if (ChaosEnsureOwnedAuxBundle(gbase, ebase, esize, &smoke_pkg, 1,
+                                              &g_bot_smoke_requested, &g_bot_smoke_resident)) {
+                    /* Refresh local map_buf view if ChaosEnsureOwnedAuxBundle mutated pkg_sys */
+                    if (map_buf && map_entries_addr) {
+                        (void)ReadMem(map_entries_addr, map_buf, (size_t)map_cap * 16u);
+                    }
+                } else if (map_buf && map_entries_addr) {
+                    (void)ReadMem(map_entries_addr, map_buf, (size_t)map_cap * 16u);
+                }
             }
 
             if (map_buf && g_preload_built[f]) {
@@ -1420,6 +1463,13 @@ static void PreloadForeignFactionPackagesPaced(
                     int pkg_state = PackageStateExe(ebase, esize, pkg_id);
                     /* Already resident in Stingray PackageManager: no request or token needed. */
                     if (pkg_state == 2) {
+                        ChaosSetOwnedPkgEvicted(pkg_id, 0u);
+                        g_preload_requested[f][i] = 1;
+                        continue;
+                    }
+                    /* Shared package already requested by an earlier Chaos faction in this mission and not evicted:
+                     * mark requested without touching pkg_sys or falsely triggering REARM while still queued! */
+                    if (ChaosOwnsPkg(pkg_id) && !ChaosOwnedPkgEvicted(pkg_id)) {
                         g_preload_requested[f][i] = 1;
                         continue;
                     }
@@ -1436,7 +1486,48 @@ static void PreloadForeignFactionPackagesPaced(
                         }
                         break;
                     }
-                    if (!already || (pkg_state == 0 && refcnt == 0ULL)) {
+                    if (ChaosOwnsPkg(pkg_id)) {
+                        /* Flagged evicted mid-mission by the 5.0s post-ready watchdog: */
+                        ChaosSetOwnedPkgEvicted(pkg_id, 0u);
+                        if (pkg_state == 0 && already && refcnt == 1ULL && slot_idx < map_cap) {
+                            /* Confirmed unloaded (pkg_state == 0) while still held exclusively by Chaos: reset 1 -> 0
+                             * in-place and re-request so mid-mission eviction recovers cleanly. */
+                            if (!WriteU64(map_entries_addr + (uintptr_t)slot_idx * 16u + 8u, 0ULL)) {
+                                break;
+                            }
+                            hf->log(self, "CHAOS_PRELOAD_REARM: faction=%s pkg=%016llx slot=%u stale_ref=%llu",
+                                    chaos_faction_names[f], (unsigned long long)pkg_id, slot_idx,
+                                    (unsigned long long)refcnt);
+                            CallPkgRequest(gbase, (void*)pkg_sys, &pkg_id, 1u);
+                            if (pace_requests) {
+                                --req_budget;
+                                g_preload_tokens -= 1.0f;
+                                if (g_preload_tokens < 0.0f) g_preload_tokens = 0.0f;
+                            }
+                            if (!ReadMem(map_entries_addr, map_buf, (size_t)map_cap * 16u)) {
+                                if (map_heap_owned) free(map_buf);
+                                map_buf = NULL;
+                                map_heap_owned = 0;
+                                break;
+                            }
+                        } else if (pkg_state == 0 && (!already || refcnt == 0ULL)) {
+                            CallPkgRequest(gbase, (void*)pkg_sys, &pkg_id, 1u);
+                            if (pace_requests) {
+                                --req_budget;
+                                g_preload_tokens -= 1.0f;
+                                if (g_preload_tokens < 0.0f) g_preload_tokens = 0.0f;
+                            }
+                            if (!ReadMem(map_entries_addr, map_buf, (size_t)map_cap * 16u)) {
+                                if (map_heap_owned) free(map_buf);
+                                map_buf = NULL;
+                                map_heap_owned = 0;
+                                break;
+                            }
+                        }
+                        g_preload_requested[f][i] = 1;
+                    } else {
+                        /* Acquire Chaos's own +1 ref (whether refcnt == 0 or already >= 1 from an external holder)
+                         * so mission-end ReleaseChaosOwnedPackages symmetrically decrements N+1 -> N and never deadlocks. */
                         ChaosRecordOwnedPkg(pkg_id);
                         CallPkgRequest(gbase, (void*)pkg_sys, &pkg_id, 1u);
                         if (pace_requests) {
@@ -1450,30 +1541,6 @@ static void PreloadForeignFactionPackagesPaced(
                             map_heap_owned = 0;
                             break;
                         }
-                        g_preload_requested[f][i] = 1;
-                    } else if (pkg_state == 0 && refcnt == 1ULL && ChaosOwnsPkg(pkg_id) && slot_idx < map_cap) {
-                        /* Confirmed unloaded (pkg_state == 0) while still held exclusively by Chaos: reset 1 -> 0
-                         * in-place and re-request so mid-mission eviction recovers cleanly. */
-                        if (!WriteU64(map_entries_addr + (uintptr_t)slot_idx * 16u + 8u, 0ULL)) {
-                            break;
-                        }
-                        hf->log(self, "CHAOS_PRELOAD_REARM: faction=%s pkg=%016llx slot=%u stale_ref=%llu",
-                                chaos_faction_names[f], (unsigned long long)pkg_id, slot_idx,
-                                (unsigned long long)refcnt);
-                        CallPkgRequest(gbase, (void*)pkg_sys, &pkg_id, 1u);
-                        if (pace_requests) {
-                            --req_budget;
-                            g_preload_tokens -= 1.0f;
-                            if (g_preload_tokens < 0.0f) g_preload_tokens = 0.0f;
-                        }
-                        if (!ReadMem(map_entries_addr, map_buf, (size_t)map_cap * 16u)) {
-                            if (map_heap_owned) free(map_buf);
-                            map_buf = NULL;
-                            map_heap_owned = 0;
-                            break;
-                        }
-                        g_preload_requested[f][i] = 1;
-                    } else if (pkg_state >= 1) {
                         g_preload_requested[f][i] = 1;
                     }
                 }
@@ -2876,24 +2943,28 @@ static void ServiceVirtualBattalions(uintptr_t gbase, int native, int diff,
 
 /* ---- Deliverable 5A: Periodic Friendly Eagle Storm & Enemy Gunship Strafing Runs (D11 & D12) ------------------- */
 
-static int ChaosEnsureOwnedAuxPackage(uintptr_t gbase, uintptr_t ebase, size_t esize,
-                                      uint64_t pkg_id, int* io_requested, int* io_resident)
+/* Requests & verifies auxiliary mission package bundles strictly via refmap-checked CallPkgRequest + ChaosRecordOwnedPkg
+ * (never hf->load_package, avoiding both 60 Hz non-catalogue log floods and permanent session package leaks). */
+static int ChaosEnsureOwnedAuxBundle(uintptr_t gbase, uintptr_t ebase, size_t esize,
+                                     const uint64_t* pkgs, int pkg_count,
+                                     int* io_requested, int* io_resident)
 {
     if (*io_resident) return 1;
-    if (hf && hf->load_package) {
-        int ls = hf->load_package(self, pkg_id);
-        if (ls == HF_PACKAGE_RESIDENT) {
-            *io_requested = 1;
-            *io_resident = 1;
-            return 1;
+    uint64_t unique_pkgs[CHAOS_MAX_AUX_BUNDLE_PKGS];
+    int unique_cnt = 0;
+    for (int i = 0; i < pkg_count; ++i) {
+        uint64_t pid = pkgs[i];
+        if (pid == 0ULL || pid == ~0ULL) continue;
+        int dup = 0;
+        for (int j = 0; j < unique_cnt; ++j) {
+            if (unique_pkgs[j] == pid) { dup = 1; break; }
+        }
+        if (!dup && unique_cnt < CHAOS_MAX_AUX_BUNDLE_PKGS) {
+            unique_pkgs[unique_cnt++] = pid;
         }
     }
-    int ex_st = PackageStateExe(ebase, esize, pkg_id);
-    if (ex_st == 2) {
-        *io_requested = 1;
-        *io_resident = 1;
-        return 1;
-    }
+    if (unique_cnt == 0) return 0;
+
     if (!*io_requested && gbase && g_pins_ok) {
         uintptr_t pkg_sys = 0, map_addr = 0;
         uint32_t map_cap = 0;
@@ -2901,24 +2972,69 @@ static int ChaosEnsureOwnedAuxPackage(uintptr_t gbase, uintptr_t ebase, size_t e
         int heap_owned = 0;
         uint8_t* map_buf = ChaosReadRefMapBuffer(gbase, &pkg_sys, &map_addr, &map_cap, &empty_key, &heap_owned);
         if (map_buf && pkg_sys) {
-            uint32_t used = 0, slot_idx = 0xFFFFFFFFu;
-            uint64_t refcnt = 0ULL;
-            int already = 0;
-            if (ChaosRefMapInspect(map_buf, map_cap, empty_key, pkg_id, &used, &already, &slot_idx, &refcnt)) {
-                if (!already || refcnt == 0ULL) {
-                    ChaosRecordOwnedPkg(pkg_id);
-                    CallPkgRequest(gbase, (void*)pkg_sys, &pkg_id, 1u);
+            int all_handled = 1;
+            for (int k = 0; k < unique_cnt; ++k) {
+                uint64_t pid = unique_pkgs[k];
+                if (ChaosOwnsPkg(pid)) continue;
+                uint32_t used = 0, slot_idx = 0xFFFFFFFFu;
+                uint64_t refcnt = 0ULL;
+                int already = 0;
+                if (!ChaosRefMapInspect(map_buf, map_cap, empty_key, pid, &used, &already, &slot_idx, &refcnt)) {
+                    all_handled = 0;
+                    break;
                 }
-                *io_requested = 1;
+                ChaosRecordOwnedPkg(pid);
+                CallPkgRequest(gbase, (void*)pkg_sys, &pid, 1u);
+                if (!ReadMem(map_addr, map_buf, (size_t)map_cap * 16u)) {
+                    all_handled = 0;
+                    break;
+                }
             }
+            if (all_handled) *io_requested = 1;
         }
         if (heap_owned && map_buf) free(map_buf);
     }
-    if (*io_requested && PackageStateExe(ebase, esize, pkg_id) == 2 && CallPkgsIdle(gbase)) {
-        *io_resident = 1;
-        return 1;
+
+    if (*io_requested) {
+        int ready = CallPkgsIdle(gbase) != 0;
+        for (int k = 0; ready && k < unique_cnt; ++k) {
+            if (PackageStateExe(ebase, esize, unique_pkgs[k]) != 2) ready = 0;
+        }
+        if (ready) {
+            *io_resident = 1;
+            return 1;
+        }
     }
     return 0;
+}
+
+static int ChaosBuildEagleAirBundle(uintptr_t gbase, uint64_t out_pkgs[CHAOS_MAX_AUX_BUNDLE_PKGS])
+{
+    int n = 0;
+    uintptr_t srow = 0;
+    uint64_t row_pkg = 0ULL;
+    if (gbase && ReadPtr(gbase + CHAOS_STRAT_TABLE_RVA + (uintptr_t)HF_STRATAGEM_EAGLE_STRAFING_RUN * 8u, &srow) &&
+        srow != 0u && ReadMem(srow + 0xA8u, &row_pkg, 8) && row_pkg != 0ULL && row_pkg != ~0ULL) {
+        out_pkgs[n++] = row_pkg;
+    }
+    out_pkgs[n++] = CHAOS_PKG_EAGLE_BASE;
+    return n;
+}
+
+static int ChaosBuildAtteBundle(uintptr_t gbase, uint64_t out_pkgs[CHAOS_MAX_AUX_BUNDLE_PKGS])
+{
+    int n = 0;
+    if (gbase && g_pins_ok) {
+        const uint8_t* rec = CallLookupEntityPkgs(gbase, CHAOS_ENTITY_EXO49_ATTE);
+        if (rec) {
+            uint64_t p0 = 0ULL, p1 = 0ULL;
+            if (ReadMem((uintptr_t)rec + 8u, &p0, 8) && p0 != 0ULL && p0 != ~0ULL) out_pkgs[n++] = p0;
+            if (ReadMem((uintptr_t)rec + 16u, &p1, 8) && p1 != 0ULL && p1 != ~0ULL) out_pkgs[n++] = p1;
+        }
+    }
+    out_pkgs[n++] = CHAOS_PKG_COMBAT_WALKER;
+    out_pkgs[n++] = CHAOS_PKG_EXO49_ATTE;
+    return n;
 }
 
 static int ChaosPointClearOfPlayers(const float pt[3], const float (*players)[3], int living, float min_r)
@@ -2937,7 +3053,7 @@ static int ChaosPickAirRunTarget(uintptr_t gbase, const float (*players)[3], int
                                  float out_pos[3], float out_dir[2])
 {
     if (living <= 0) return 0;
-    /* Prefer a live tracked enemy inside min_r..max_r when available */
+    /* Prefer a live tracked enemy inside min_r..max_r relative to the NEAREST living co-op player */
     int limit = (g_tracker.high_water > 0 && g_tracker.high_water <= CHAOS_MAX_TRACKED)
                 ? g_tracker.high_water : CHAOS_MAX_TRACKED;
     for (int i = 0; i < limit; ++i) {
@@ -2945,11 +3061,21 @@ static int ChaosPickAirRunTarget(uintptr_t gbase, const float (*players)[3], int
         float epos[3];
         if (!EntityPosition(gbase, g_tracker.units[i].entity, epos)) continue;
         if (!ChaosPointClearOfPlayers(epos, players, living, min_clear_r)) continue;
-        float dx = epos[0] - players[0][0];
-        float dy = epos[1] - players[0][1];
-        float d2 = dx * dx + dy * dy;
-        if (d2 >= min_r * min_r && d2 <= max_r * max_r) {
-            float d = sqrtf(d2);
+        float best_d2 = 1e30f;
+        int best_p = 0;
+        for (int p = 0; p < living; ++p) {
+            float pdx = epos[0] - players[p][0];
+            float pdy = epos[1] - players[p][1];
+            float pd2 = pdx * pdx + pdy * pdy;
+            if (pd2 < best_d2) {
+                best_d2 = pd2;
+                best_p = p;
+            }
+        }
+        if (best_d2 >= min_r * min_r && best_d2 <= max_r * max_r && best_d2 > 1.0f) {
+            float dx = epos[0] - players[best_p][0];
+            float dy = epos[1] - players[best_p][1];
+            float d = sqrtf(best_d2);
             memcpy(out_pos, epos, 12);
             out_dir[0] = -dy / d;
             out_dir[1] = dx / d;
@@ -3144,8 +3270,12 @@ static void ServiceTacticalAirRuns(uintptr_t gbase, uintptr_t ebase, size_t esiz
         }
     }
 
-    (void)ChaosEnsureOwnedAuxPackage(gbase, ebase, esize, CHAOS_PKG_EAGLE_BASE,
-                                     &g_air_runs.eagle_pkg_requested, &g_air_runs.eagle_pkg_resident);
+    {
+        uint64_t eagle_pkgs[CHAOS_MAX_AUX_BUNDLE_PKGS];
+        int eagle_cnt = ChaosBuildEagleAirBundle(gbase, eagle_pkgs);
+        (void)ChaosEnsureOwnedAuxBundle(gbase, ebase, esize, eagle_pkgs, eagle_cnt,
+                                        &g_air_runs.eagle_pkg_requested, &g_air_runs.eagle_pkg_resident);
+    }
 
     if (g_air_runs.friendly_cd_s <= 0.0f) {
         g_air_runs.friendly_cd_s = 12.0f + (float)(NextRand() % 8u);
@@ -3269,92 +3399,85 @@ static void ServiceAutonomousAtteWalker(uintptr_t gbase, uintptr_t ebase, size_t
 
     ChaosRefreshEmSnapshot(gbase, clock_state.age);
     uint32_t reserve_floor = g_em_snap.gwnav_reserve ? g_em_snap.gwnav_reserve : UK_EM_RESERVE_SLOTS;
-    if (!ChaosEnsureOwnedAuxPackage(gbase, ebase, esize, CHAOS_PKG_EXO49_ATTE,
-                                    &g_atte.pkg_requested, &g_atte.pkg_resident)) {
-        return;
+    {
+        uint64_t atte_pkgs[CHAOS_MAX_AUX_BUNDLE_PKGS];
+        int atte_cnt = ChaosBuildAtteBundle(gbase, atte_pkgs);
+        if (!ChaosEnsureOwnedAuxBundle(gbase, ebase, esize, atte_pkgs, atte_cnt,
+                                       &g_atte.pkg_requested, &g_atte.pkg_resident)) {
+            return;
+        }
     }
 
     if (g_atte.redeploy_cd_s > 0.0f) g_atte.redeploy_cd_s -= dt;
     if (g_atte.spawn_retry_s > 0.0f) g_atte.spawn_retry_s -= dt;
 
-    /* Deploy or redeploy outer-perimeter Republic AT-TE fire-support walker (78..112 m from squad) */
+    /* Deploy or leapfrog-redeploy outer-perimeter Republic AT-TE fire-support walker (78..112 m from squad).
+     * Never latches g_atte.active or fires salvos unless SpawnAutonomousAtteHull yields a valid live hull entity! */
     if (!g_atte.active && g_atte.spawn_retry_s <= 0.0f &&
         g_em_snap.valid && g_em_snap.free_slots >= reserve_floor + 16u) {
         g_atte.spawn_retry_s = 3.0f;
         float wpos[3], wdir[2];
         if (ChaosPickAirRunTarget(gbase, living_pos, living_players, 78.0f, 112.0f, 46.0f, wpos, wdir)) {
-            float hdg = atan2f(living_pos[0][1] - wpos[1], living_pos[0][0] - wpos[0]);
+            int near_p = 0;
+            float near_d2 = 1e30f;
+            for (int p = 0; p < living_players; ++p) {
+                float pdx = living_pos[p][0] - wpos[0];
+                float pdy = living_pos[p][1] - wpos[1];
+                float pd2 = pdx * pdx + pdy * pdy;
+                if (pd2 < near_d2) { near_d2 = pd2; near_p = p; }
+            }
+            float hdg = atan2f(living_pos[near_p][1] - wpos[1], living_pos[near_p][0] - wpos[0]);
             uint32_t eid = 0u;
-            (void)SpawnAutonomousAtteHull(gbase, wpos, hdg, &eid);
-            g_atte.active = 1;
-            g_atte.entity = eid;
-            memcpy(g_atte.pos, wpos, 12);
-            g_atte.heading_rad = hdg;
-            g_atte.fire_cd_s = 2.0f;
-            g_atte.redeploy_cd_s = 20.0f;
-            hf->log(self, "CHAOS_ATTE_DEPLOY: entity=%u pos=(%.1f,%.1f,%.1f) mode=autonomous_perimeter_support",
-                    eid, (double)wpos[0], (double)wpos[1], (double)wpos[2]);
+            if (SpawnAutonomousAtteHull(gbase, wpos, hdg, &eid) && eid != 0u && eid != 0xFFFFFFFFu) {
+                g_atte.active = 1;
+                g_atte.entity = eid;
+                memcpy(g_atte.pos, wpos, 12);
+                g_atte.heading_rad = hdg;
+                g_atte.fire_cd_s = 2.0f;
+                g_atte.redeploy_cd_s = 20.0f;
+                hf->log(self, "CHAOS_ATTE_DEPLOY: entity=%u pos=(%.1f,%.1f,%.1f) mode=autonomous_perimeter_leapfrog",
+                        eid, (double)wpos[0], (double)wpos[1], (double)wpos[2]);
+            }
         }
     }
-    if (!g_atte.active) return;
+    if (!g_atte.active || g_atte.entity == 0u || g_atte.entity == 0xFFFFFFFFu) return;
 
-    /* Sync physical hull transform if present; yield if destroyed or if a player comes within 18m */
-    if (g_atte.entity != 0u) {
-        if (!EntityAlive(g_atte.entity, NULL)) {
-            g_atte.active = 0;
-            g_atte.entity = 0u;
-            g_atte.spawn_retry_s = 18.0f;
+    /* Require a live physical hull with a valid world transform every tick before firing any salvo */
+    if (!EntityAlive(g_atte.entity, NULL)) {
+        g_atte.active = 0;
+        g_atte.entity = 0u;
+        g_atte.spawn_retry_s = 18.0f;
+        return;
+    }
+    {
+        float live_hull[3];
+        if (!EntityPosition(gbase, g_atte.entity, live_hull)) {
+            DespawnAtteWalkerIfActive(gbase);
+            g_atte.spawn_retry_s = 6.0f;
             return;
         }
-        float live_hull[3];
-        if (EntityPosition(gbase, g_atte.entity, live_hull)) {
-            memcpy(g_atte.pos, live_hull, 12);
-        }
+        memcpy(g_atte.pos, live_hull, 12);
     }
 
     float min_player_d2 = 1e30f;
-    int nearest_p = 0;
     for (int p = 0; p < living_players; ++p) {
         float dx = g_atte.pos[0] - living_pos[p][0];
         float dy = g_atte.pos[1] - living_pos[p][1];
         float d2 = dx * dx + dy * dy;
-        if (d2 < min_player_d2) { min_player_d2 = d2; nearest_p = p; }
+        if (d2 < min_player_d2) min_player_d2 = d2;
     }
 
     /* Yield immediately if any player approaches within 18m (inspecting / boarding safety) */
     if (min_player_d2 < 18.0f * 18.0f) return;
 
-    /* If squad moved > 175m away and all players are >= 46m clear, leapfrog AT-TE forward on perimeter */
-    if (min_player_d2 > 175.0f * 175.0f && g_atte.redeploy_cd_s <= 0.0f) {
+    /* When the squad advances > 165m away from the stationary fire-support hull, leapfrog AT-TE forward on perimeter */
+    if (min_player_d2 > 165.0f * 165.0f && g_atte.redeploy_cd_s <= 0.0f) {
         DespawnAtteWalkerIfActive(gbase);
         g_atte.spawn_retry_s = 0.25f;
         return;
     }
 
-    /* Advance waypoint smoothly at 3.8 m/s along projected ground perimeter around squad */
-    {
-        float dist = sqrtf(min_player_d2);
-        float to_px = (living_pos[nearest_p][0] - g_atte.pos[0]) / dist;
-        float to_py = (living_pos[nearest_p][1] - g_atte.pos[1]) / dist;
-        float radial = (dist > 108.0f) ? 3.2f : (dist < 76.0f ? -2.4f : 0.0f);
-        float step_x = (to_px * radial - to_py * 2.1f) * dt;
-        float step_y = (to_py * radial + to_px * 2.1f) * dt;
-        float next_p[3] = {g_atte.pos[0] + step_x, g_atte.pos[1] + step_y, g_atte.pos[2]};
-        uintptr_t enc_em = 0;
-        if (ReadPtr(gbase + CHAOS_ENCOUNTER_RVA, &enc_em)) {
-            float proj[3] = {0.0f, 0.0f, 0.0f};
-            CallProjectAnchor(gbase, (void*)enc_em, proj, next_p);
-            if (isfinite(proj[0]) && isfinite(proj[1]) && isfinite(proj[2]) &&
-                !(proj[0] == 0.0f && proj[1] == 0.0f && proj[2] == 0.0f)) {
-                memcpy(next_p, proj, 12);
-            }
-        }
-        if (ChaosPointClearOfPlayers(next_p, living_pos, living_players, 42.0f)) {
-            memcpy(g_atte.pos, next_p, 12);
-        }
-    }
-
-    /* Fire heavy dorsal cannon + quad laser turret salvos at enemy swarms every ~3.8s */
+    /* Fire heavy dorsal cannon + quad laser turret salvos from the live hull transform every 3.6..4.8s */
     g_atte.fire_cd_s -= dt;
     if (g_atte.fire_cd_s <= 0.0f &&
         hf && hf->size >= offsetof(HfApi, spawn_projectile) + sizeof(hf->spawn_projectile) &&
@@ -3824,12 +3947,15 @@ static void LoadHostOptions(int is_poll)
     ChaosApplyEffectiveHostConfig(live_diff, is_poll, "CHAOS_HOST_OPTIONS");
 }
 
+static void ResetMissionState(void);
+
 static int Killed(void)
 {
     if (!stopped && stop_file[0]) {
         DWORD a = GetFileAttributesA(stop_file);
         if (a != INVALID_FILE_ATTRIBUTES || GetLastError() != ERROR_FILE_NOT_FOUND) {
             stopped = 1;
+            ResetMissionState();
             hf->log(self, "CHAOS_STOP: latched until session restart");
             SetStatusOnce("Chaos stopped until next session");
         }
@@ -3855,6 +3981,7 @@ static void ResetMissionState(void)
     g_last_foreign_faction = -1;
     g_preload_watchdog_s = 0.0f;
     g_straggler_recycle_s = 0.0f;
+    g_bot_smoke_requested = 0;
     g_bot_smoke_resident = 0;
     memset(&g_pending, 0, sizeof g_pending);
     memset(g_last_faction_masks, 0, sizeof g_last_faction_masks);
@@ -4102,10 +4229,21 @@ static void OnSpawn(HfMod* mod, const HfEventInfo* info, void* user)
     }
 }
 
+static void OnMissionEnd(HfMod* mod, const HfEventInfo* info, void* user)
+{
+    (void)mod; (void)info; (void)user;
+    if (InterlockedCompareExchange(&g_phase, PHASE_ACTIVE, PHASE_ACTIVE) != PHASE_ACTIVE) return;
+    ResetMissionState();
+    if (hf && self && hf->game_state) {
+        state = hf->game_state(self);
+    }
+}
+
 static void OnSessionEnd(HfMod* mod, HfEvent ev, void* user)
 {
     (void)mod; (void)ev; (void)user;
     UltrakillSyncDirectorPatrolValve(0);
+    DespawnAtteWalkerIfActive(GameBase(NULL));
     ReleaseChaosOwnedPackages(GameBase(NULL));
     InterlockedExchange(&g_phase, PHASE_ENDED);
 }
@@ -4136,7 +4274,9 @@ static void Tick(HfMod* mod, float dt, void* user)
         unsigned prev_state = state;
         state = now;
         previous_role = host;
-        if (prev_state == HF_STATE_PREPARE_MISSION && now == HF_STATE_MISSION && !g_shared_applied) {
+        if (prev_state == HF_STATE_MISSION && now == HF_STATE_PREPARE_MISSION) {
+            ResetMissionState();
+        } else if (prev_state == HF_STATE_PREPARE_MISSION && now == HF_STATE_MISSION && !g_shared_applied) {
             landed = 0;
             memset(&g_pending, 0, sizeof g_pending);
             ChaosReset(&clock_state, &config);
@@ -4427,6 +4567,7 @@ HF_MOD_EXPORT int hellforge_mod_init(const HfApi* api, HfMod* mod)
     (void)api->on(mod, HF_EVENT_ENTITIES_READY, OnEntitiesReady, NULL);
     ChaosEnsureD12SlotAndItemEx(1);
     if (!api->subscribe(mod, HF_ON_SPAWN, OnSpawn, NULL, 0) ||
+        !api->subscribe(mod, HF_ON_MISSION_END, OnMissionEnd, NULL, 0) ||
         !api->on_game_thread(mod, Tick, NULL)) {
         InterlockedExchange(&g_phase, PHASE_ENDED);
         return 1;

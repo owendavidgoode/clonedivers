@@ -5,6 +5,9 @@ static unsigned checks, subscriptions, ticks, fail_subscription, skipped_logs, f
 static unsigned preload_deferred_logs, g_pkg_request_calls, g_pkg_requested_items, g_lookup_pkg_calls;
 static unsigned g_pkg_release_calls, g_pkg_released_items, g_pkg_double_free_errors;
 static unsigned g_remove_entity_calls, g_req_entity_spawn_calls, g_activate_beacon_calls;
+static unsigned g_load_package_calls, g_rearm_logs;
+static int g_mock_fail_entity_spawn = 0;
+static HfListener g_mock_on_mission_end = NULL;
 static uint32_t g_last_removed_entity, g_last_spawned_entity, g_last_beacon_type;
 static uint64_t g_last_spawned_resource;
 static unsigned spawn_logs, spawn_unmapped_logs, transport_spawn_logs, wave_complete_logs, wave_timeout_logs;
@@ -103,6 +106,7 @@ static void Log(HfMod* m, const char* format, ...)
     if (strstr(buf, "CHAOS_LANDING")) ++landing_logs;
     if (strstr(buf, "CHAOS_PRELOAD_READY")) ++preload_ready_logs;
     if (strstr(buf, "CHAOS_PRELOAD_DEFERRED")) ++preload_deferred_logs;
+    if (strstr(buf, "CHAOS_PRELOAD_REARM:")) ++g_rearm_logs;
     if (strstr(buf, "CHAOS_SPAWN:")) ++spawn_logs;
     if (strstr(buf, "CHAOS_SPAWN_UNMAPPED:")) ++spawn_unmapped_logs;
     if (strstr(buf, "CHAOS_TRANSPORT_SPAWN:")) ++transport_spawn_logs;
@@ -117,7 +121,8 @@ static void Status(HfMod* m, const char* s) { (void)m; (void)s; }
 
 static int Subscribe(HfMod* m, uint32_t k, HfListener cb, void* u, int32_t p)
 {
-    (void)m; (void)k; (void)cb; (void)u; (void)p;
+    (void)m; (void)u; (void)p;
+    if (k == HF_ON_MISSION_END) g_mock_on_mission_end = cb;
     ++subscriptions;
     return subscriptions == fail_subscription ? 0 : 1;
 }
@@ -144,6 +149,7 @@ static uint32_t g_mock_explosion_type = 0;
 static int MockLoadPackage(HfMod* m, uint64_t pkg)
 {
     (void)m;
+    ++g_load_package_calls;
     if (pkg == CHAOS_PKG_G3_SMOKE) {
         g_mock_smoke_state = 1;
         return HF_PACKAGE_RESIDENT;
@@ -318,9 +324,20 @@ static void MockPkgRequest(void* sys, const uint64_t* ids, uint32_t count)
                 }
             }
         }
-        /* Match RefcountedPackageRequest (game.dll+0x12fe47f): PackageManager->Load() runs ONLY when ref == 1! */
+        /* Match RefcountedPackageRequest (game.dll+0x12fe47f): PackageManager->Load() runs ONLY when ref == 1!
+         * Preserve any pre-seeded in-flight/corrupt FakeExePkg fixture (state != 0) when already present. */
         if (new_ref == 1ULL) {
-            AddExeResidentPkg(pkg, 2u, 4u);
+            int already_in_mgr = 0;
+            for (uint32_t ei = 0; ei < g_exe_pkg_count; ei++) {
+                if (g_exe_pkgs[ei].id == pkg && g_exe_pkgs[ei].parts > 0u &&
+                    g_exe_pkgs[ei].part_storage[0].state != 0u) {
+                    already_in_mgr = 1;
+                    break;
+                }
+            }
+            if (!already_in_mgr) {
+                AddExeResidentPkg(pkg, 2u, 4u);
+            }
         }
     }
 }
@@ -377,18 +394,21 @@ static uint32_t* MockRequestEntitySpawn(uint32_t* out_entity, uint64_t resource,
 {
     ++g_req_entity_spawn_calls;
     g_last_spawned_resource = resource;
-    uint32_t eid = 44000u + (uint32_t)g_req_entity_spawn_calls;
+    if (g_mock_fail_entity_spawn) {
+        g_last_spawned_entity = 0u;
+        if (out_entity) *out_entity = 0u;
+        return out_entity;
+    }
+    uint32_t eid = 44000u + ((uint32_t)g_req_entity_spawn_calls * 32u) + 11u;
     g_last_spawned_entity = eid;
     if (out_entity) *out_entity = eid;
     if (creation) {
         float pos[3] = {0.0f, 0.0f, 0.0f};
         memcpy(pos, (const uint8_t*)creation + 8u + 48u, 12u);
         uint32_t tslot = eid % 32u;
-        if (tslot != 0u) {
-            g_tm_buckets[tslot].k = eid;
-            g_tm_buckets[tslot].v = tslot;
-            memcpy(g_tm_data[tslot] + 0x2E0u, pos, 12u);
-        }
+        g_tm_buckets[tslot].k = eid;
+        g_tm_buckets[tslot].v = tslot;
+        memcpy(g_tm_data[tslot] + 0x2E0u, pos, 12u);
     }
     return out_entity;
 }
@@ -771,6 +791,10 @@ static void InitMockGameArenas(uint32_t native_director_mask, uint32_t difficult
 static void ResetMockCountersAndModState(void)
 {
     ResetMissionState();
+    g_ultrakill.salvos_fired_total = 0u;
+    g_ultrakill.friendly_air_runs_total = 0u;
+    g_ultrakill.enemy_air_runs_total = 0u;
+    g_ultrakill.atte_salvos_total = 0u;
     g_pins_checked = g_pins_ok = g_exe_pins_ok = 0;
     g_native_faction = -1;
     memset(g_rosters_loaded, 0, sizeof g_rosters_loaded);
@@ -780,9 +804,14 @@ static void ResetMockCountersAndModState(void)
     memset(g_preload_built, 0, sizeof g_preload_built);
     memset(g_faction_resident, 0, sizeof g_faction_resident);
     memset(g_chaos_owned_pkgs, 0, sizeof g_chaos_owned_pkgs);
+    memset(g_chaos_owned_pkg_evicted, 0, sizeof g_chaos_owned_pkg_evicted);
     g_chaos_owned_pkg_count = 0u;
+    g_bot_smoke_requested = 0;
     g_bot_smoke_resident = 0;
     g_mock_smoke_state = 0;
+    g_load_package_calls = 0u;
+    g_rearm_logs = 0u;
+    g_mock_fail_entity_spawn = 0;
     g_mock_explosion_calls = 0;
     g_mock_explosion_type = 0;
     g_transport_calls = g_roster_calls = g_fx_calls = g_burst_calls = 0;
@@ -1606,7 +1635,7 @@ static void TestPrepareMissionZeroPreloadAndPacedMissionQueue(void)
     CHECK(max_per_tick >= 1u && max_per_tick <= 2u);
     CHECK(saw_squids_before_bugs == 1);
     CHECK(g_faction_resident[CHAOS_SQUIDS] && g_faction_resident[CHAOS_BUGS]);
-    CHECK(g_mock_smoke_state == 0); /* Smoke flare deferred until HF_STATE_MISSION */
+    CHECK(g_bot_smoke_requested == 0 && g_bot_smoke_resident == 0 && g_load_package_calls == 0u); /* Smoke flare deferred until HF_STATE_MISSION, zero hf->load_package */
 
     game_state = HF_STATE_MISSION;
     Tick(self, dt60, NULL);
@@ -1848,7 +1877,8 @@ static void TestV035Mission2PreloadRearmAndCoopSafeRoster(void)
     int bugs_pkgs = g_preload_count[CHAOS_BUGS];
     CHECK(bots_pkgs >= 4 && bugs_pkgs >= 4);
     uint32_t owned_m1 = g_chaos_owned_pkg_count;
-    CHECK(owned_m1 == (uint32_t)(bots_pkgs + bugs_pkgs));
+    CHECK(owned_m1 == (uint32_t)(bots_pkgs + bugs_pkgs + 1)); /* +1 for CHAOS_PKG_G3_SMOKE managed symmetrically via Chaos refmap */
+    CHECK(g_load_package_calls == 0u);
 
     /* Simulate one shared package (ref == 2) held by an external engine system before mission teardown */
     uint64_t shared_pkg = g_preload_pkgs[CHAOS_BOTS][0];
@@ -1911,13 +1941,17 @@ static void TestV035Mission2PreloadRearmAndCoopSafeRoster(void)
         if (g_ref_slots[s].key == saved_unloaded[1]) CHECK(g_ref_slots[s].ref == 2ULL);
         if (g_ref_slots[s].key == saved_unloaded[2]) CHECK(g_ref_slots[s].ref == 1ULL);
     }
-    /* Restore valid resources pointer: 5.0s watchdog catches eviction and re-arms ONLY saved_unloaded[0] (Chaos-owned & ref==1)! */
+    /* Restore valid resources pointer: 5.0s watchdog catches eviction:
+     *   - saved_unloaded[0] (Chaos-owned & ref==1) re-arms in-place (1 -> 0 -> 1)
+     *   - saved_unloaded[1] (Chaos-owned & ref==2) preserves external ref==2 without deadlocking
+     *   - saved_unloaded[2] (unowned, externally held ref==1) acquires Chaos's +1 ref (1 -> 2) */
     memcpy(g_exe_mgr_mem + 0x208u, &saved_res_ptr, 8);
     Seconds(6);
-    CHECK(g_pkg_request_calls == 1u);
+    CHECK(g_pkg_request_calls == 2u);
     for (uint32_t s = 0; s < 256u; s++) {
+        if (g_ref_slots[s].key == saved_unloaded[0]) CHECK(g_ref_slots[s].ref == 1ULL);
         if (g_ref_slots[s].key == saved_unloaded[1]) CHECK(g_ref_slots[s].ref == 2ULL);
-        if (g_ref_slots[s].key == saved_unloaded[2]) CHECK(g_ref_slots[s].ref == 1ULL);
+        if (g_ref_slots[s].key == saved_unloaded[2]) CHECK(g_ref_slots[s].ref == 2ULL);
     }
 }
 
@@ -3382,11 +3416,142 @@ static void TestV230OvernightDeliverables(HfApi* api)
     InterlockedExchange(&g_empire_mode_active, 0L);
 
     g_pkg_double_free_errors = 0u;
+    CHECK(g_load_package_calls == 0u); /* Zero hf->load_package calls across entire PREPARE + MISSION run! */
     game_state = HF_STATE_SHIP;
     Tick(self, 0.2f, NULL);
     CHECK(g_chaos_owned_pkg_count == 0u && g_pkg_double_free_errors == 0u);
     for (uint32_t s = 0; s < 256u; ++s) {
         if (g_ref_slots[s].key != 0ULL) CHECK(g_ref_slots[s].ref == 0ULL);
+    }
+
+    /* 4. Verifier regressions:
+     *    (a) Shared foreign package across f0 & f1 while pkg_state == 0 triggers 0 false REARM,
+     *        and externally held refcnt >= 2 at pkg_state == 0 acquires N -> N+1 without deadlocking block_next_faction.
+     *    (b) Direct HF_STATE_MISSION -> HF_STATE_PREPARE_MISSION retry AND HF_ON_MISSION_END both release owned packages.
+     *    (c) Mid-mission chaos.stop releases owned packages, despawns AT-TE, and reopens director_valve_closed.
+     *    (d) Failed AT-TE hull spawn (eid == 0) fires 0 disembodied salvos; live hull leapfrog-redeploys when squad moves > 165 m.
+     *    (e) Co-op ChaosPickAirRunTarget selects enemy cluster near separated teammate players[1]. */
+    {
+        InitMockGameArenas(CHAOS_NATIVE_BOTS_BIT, 12u);
+        ResetMockCountersAndModState();
+        memcpy(g_arena_game + UK_CONTEXT_RVA, &p_ctx, 8u);
+        g_d12_slot.state = 1;
+        g_d12_slot.row12 = &g_mock_d11_row;
+        memcpy(g_d12_slot.row12_baseline, &g_mock_d11_row, sizeof g_mock_d11_row);
+        D12PopulateRow12(&g_d12_slot, &g_host_opts);
+
+        /* Wire Eagle Strafing Run stratagem row 30 (+0xA8) & EXO-49 entity package lookup */
+        static uint8_t mock_eagle_row[0x200];
+        memset(mock_eagle_row, 0, sizeof mock_eagle_row);
+        uint64_t eagle_row_pkg = 0xEEEE003000000030ull;
+        memcpy(mock_eagle_row + 0xA8u, &eagle_row_pkg, 8u);
+        void* p_eagle_row = mock_eagle_row;
+        memcpy(g_arena_game + CHAOS_STRAT_TABLE_RVA + (size_t)HF_STRATAGEM_EAGLE_STRAFING_RUN * 8u, &p_eagle_row, 8u);
+        g_lookup_hashes[g_lookup_count] = CHAOS_ENTITY_EXO49_ATTE;
+        g_lookup_recs[g_lookup_count].pkg0 = 0xDDAA004900000001ull;
+        g_lookup_recs[g_lookup_count].pkg1 = 0xDDAA004900000002ull;
+        ++g_lookup_count;
+
+        /* Share a queued package across Squids & Bugs AND pre-seed an externally-held refcnt=2 package at pkg_state=0 */
+        const uint64_t cross_shared_pkg = 0x5555AAAABBBBCCCCull;
+        const uint64_t ext_held_pkg = 0x6666DDDDEEEEFFFFull;
+        g_lookup_hashes[g_lookup_count] = 0x905809a4c28d8a45ull + 5u; /* Squid curated row 5 */
+        g_lookup_recs[g_lookup_count].pkg0 = cross_shared_pkg;
+        g_lookup_recs[g_lookup_count].pkg1 = ext_held_pkg;
+        ++g_lookup_count;
+        g_lookup_hashes[g_lookup_count] = 0x51eea86bf6997e4eull + 2u; /* Bug row 2 */
+        g_lookup_recs[g_lookup_count].pkg0 = cross_shared_pkg;
+        g_lookup_recs[g_lookup_count].pkg1 = 0ULL;
+        ++g_lookup_count;
+        /* Put ext_held_pkg in refmap with ref == 2, state == 0 (unloaded / queued externally) */
+        uint32_t eh_slot = (uint32_t)(ext_held_pkg & 255ULL);
+        g_ref_slots[eh_slot].key = ext_held_pkg;
+        g_ref_slots[eh_slot].ref = 2ULL;
+        AddExeResidentPkg(ext_held_pkg, 2u, 0u);
+
+        game_state = HF_STATE_MISSION;
+        state = HF_STATE_MISSION;
+        g_mock_fail_entity_spawn = 1; /* Force AT-TE hull spawn failure first! */
+        g_rearm_logs = 0u;
+        for (int s = 0; s < 12; ++s) {
+            for (int f = 0; f < 10; ++f) {
+                Tick(self, 0.1f, NULL);
+                /* Simulate f0 requesting cross_shared_pkg while still queued (state 0) before f1 inspects it */
+                if (s == 1 && f == 0) {
+                    AddExeResidentPkg(cross_shared_pkg, 2u, 0u);
+                } else if (s == 3 && f == 0) {
+                    AddExeResidentPkg(cross_shared_pkg, 2u, 4u);
+                    AddExeResidentPkg(ext_held_pkg, 2u, 4u);
+                }
+            }
+        }
+        CHECK(g_rearm_logs == 0u); /* Zero false CHAOS_PRELOAD_REARM on shared package! */
+        CHECK(g_faction_resident[CHAOS_SQUIDS] && g_faction_resident[CHAOS_BUGS]); /* No block_next_faction deadlock! */
+        CHECK(g_ref_slots[eh_slot].ref == 3ULL); /* Externally held 2 -> 3 (+1 Chaos lease) */
+        CHECK(ChaosOwnsPkg(eagle_row_pkg) && ChaosOwnsPkg(CHAOS_PKG_EAGLE_BASE));
+        CHECK(ChaosOwnsPkg(0xDDAA004900000001ull) && ChaosOwnsPkg(0xDDAA004900000002ull) &&
+              ChaosOwnsPkg(CHAOS_PKG_COMBAT_WALKER) && ChaosOwnsPkg(CHAOS_PKG_EXO49_ATTE));
+        CHECK(g_load_package_calls == 0u);
+        /* Hull spawn was forced to fail: MUST NOT latch g_atte.active or fire disembodied ghost salvos! */
+        CHECK(g_atte.active == 0 && g_atte.entity == 0u && g_ultrakill.atte_salvos_total == 0u);
+
+        /* Re-enable entity spawn -> AT-TE hull deploys cleanly, fires salvos, and leapfrog-redeploys when squad moves > 165 m! */
+        g_mock_fail_entity_spawn = 0;
+        Seconds(7);
+        CHECK(g_atte.active == 1 && g_atte.entity != 0u && g_ultrakill.atte_salvos_total >= 1u);
+        uint32_t first_atte_eid = g_atte.entity;
+        float moved_ppos[3] = {320.0f, 200.0f, 10.0f}; /* 220 m > 165 m away from initial AT-TE */
+        memcpy(g_tm_data[0] + 0x2E0u, moved_ppos, 12u);
+        Seconds(22);
+        CHECK(g_atte.active == 1 && g_atte.entity != 0u && g_atte.entity != first_atte_eid);
+        float RestorePpos[3] = {100.0f, 200.0f, 10.0f};
+        memcpy(g_tm_data[0] + 0x2E0u, RestorePpos, 12u);
+
+        /* Co-op ChaosPickAirRunTarget nearest-player check: enemy 65 m from players[1] (365 m from players[0]) */
+        ChaosTrackerReset(&g_tracker);
+        uint32_t coop_enemy = 31007u;
+        g_tm_buckets[coop_enemy % 32u].k = coop_enemy;
+        g_tm_buckets[coop_enemy % 32u].v = coop_enemy % 32u;
+        float coop_epos[3] = {465.0f, 200.0f, 10.0f};
+        memcpy(g_tm_data[coop_enemy % 32u] + 0x2E0u, coop_epos, 12u);
+        CHECK(ChaosTrackerRecordSpawnAt(&g_tracker, CHAOS_BUGS, coop_enemy, 0, clock_state.age) == 1);
+        float coop_players[2][3] = {{100.0f, 200.0f, 10.0f}, {400.0f, 200.0f, 10.0f}};
+        float picked_pos[3] = {0}, picked_dir[2] = {0};
+        CHECK(ChaosPickAirRunTarget((uintptr_t)g_arena_game, coop_players, 2, 48.0f, 118.0f, 26.0f, picked_pos, picked_dir) == 1);
+        CHECK(fabsf(picked_pos[0] - 465.0f) < 0.01f);
+
+        /* Direct HF_STATE_MISSION -> HF_STATE_PREPARE_MISSION transition releases Mission 1's owned packages (3 -> 2 on ext_held_pkg)! */
+        g_pkg_double_free_errors = 0u;
+        game_state = HF_STATE_PREPARE_MISSION;
+        Tick(self, 0.016f, NULL); /* settles in PREPARE_MISSION after ResetMissionState */
+        CHECK(g_chaos_owned_pkg_count == 0u && g_pkg_double_free_errors == 0u);
+        CHECK(g_ref_slots[eh_slot].ref == 2ULL); /* External 2 refs preserved! */
+
+        /* Stream again in Mission 2, then verify HF_ON_MISSION_END listener releases cleanly */
+        game_state = HF_STATE_MISSION;
+        Seconds(5);
+        CHECK(g_chaos_owned_pkg_count > 0u && g_mock_on_mission_end != NULL);
+        HfStateEvent mend_ev = {0};
+        mend_ev.info.size = sizeof(HfStateEvent);
+        mend_ev.info.kind = HF_ON_MISSION_END;
+        game_state = HF_STATE_SHIP;
+        g_mock_on_mission_end(self, (const HfEventInfo*)&mend_ev, NULL);
+        CHECK(g_chaos_owned_pkg_count == 0u && g_pkg_double_free_errors == 0u);
+        CHECK(g_ref_slots[eh_slot].ref == 2ULL);
+
+        /* Mid-mission chaos.stop kill switch releases packages, despawns AT-TE, and reopens director_valve_closed! */
+        game_state = HF_STATE_MISSION;
+        Seconds(10);
+        UltrakillSyncDirectorPatrolValve(1);
+        CHECK(g_chaos_owned_pkg_count > 0u && g_atte.active == 1 && g_ultrakill.director_valve_closed == 1);
+        FILE* sf = fopen(stop_file, "wb"); CHECK(sf != NULL); fclose(sf);
+        Tick(self, 0.1f, NULL);
+        CHECK(stopped == 1 && g_chaos_owned_pkg_count == 0u && g_atte.active == 0 && g_atte.entity == 0u &&
+              g_ultrakill.director_valve_closed == 0);
+        CHECK(DeleteFileA(stop_file));
+        stopped = 0;
+        g_ref_slots[eh_slot].key = 0ULL;
+        g_ref_slots[eh_slot].ref = 0ULL;
     }
 
     g_d12_slot.state = 0;
@@ -3563,8 +3728,9 @@ int main(int argc, char** argv)
     api.version = 15; CHECK(hellforge_mod_init(&api, (HfMod*)1) == 1); api.version = 16;
     api.size = offsetof(HfApi, set_status); CHECK(hellforge_mod_init(&api, (HfMod*)1) == 1); api.size = sizeof api;
     fail_subscription = 1; CHECK(hellforge_mod_init(&api, (HfMod*)1) == 1 && !ticks);
+    subscriptions = 0; fail_subscription = 2; CHECK(hellforge_mod_init(&api, (HfMod*)1) == 1 && !ticks);
     subscriptions = fail_subscription = 0;
-    CHECK(hellforge_mod_init(&api, (HfMod*)1) == 0 && subscriptions == 1 && ticks == 1);
+    CHECK(hellforge_mod_init(&api, (HfMod*)1) == 0 && subscriptions == 2 && ticks == 1);
 
     TestFailClosedPinsAndResidencyGate();
     TestSpawnersFallbacksAndJoiner();
@@ -3577,7 +3743,7 @@ int main(int argc, char** argv)
     api.share_get = MockShareGet;
     api.share_row = MockShareRow;
     subscriptions = ticks = 0;
-    CHECK(hellforge_mod_init(&api, (HfMod*)1) == 0 && subscriptions == 3 && ticks == 1);
+    CHECK(hellforge_mod_init(&api, (HfMod*)1) == 0 && subscriptions == 4 && ticks == 1);
     TestHostClientSplitAndLateJoin(&api);
     TestMidMissionHostMigration();
     TestHostOptionsPresetsAndPrecedence(&api);
