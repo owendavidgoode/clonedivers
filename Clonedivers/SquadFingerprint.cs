@@ -20,6 +20,7 @@ public static class SquadFingerprint
         HellForgePreset.EmpireAtstWriter,
         HellForgePreset.EmpireTieSwitch,
         HellForgePreset.EmpireCameraPullback,
+        HellForgePreset.TitanfallWalkerHud,
         HellForgePreset.StarWarsLocalization,
         HellForgePreset.DedicatedMeleeSlot
     };

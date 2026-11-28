@@ -392,9 +392,9 @@ public sealed class PreviewForgeHost : IForgeUiHost
         Bullets:
         [
             "EmpireDivers Difficulty 12 ('LEVEL 12: STORMTROOPER') + Clonedivers ('LEVEL 12: CLONE WARS') armed by default right after D11.",
-            "All Star Wars & host gameplay goodies enabled by default: Total War Chaos Invasions, Constant Reinforcements, Encrypted Death Trooper Voice, Delta Squad, 80/20 CIS Droids & Mixed Covenant.",
-            "EmpireDivers r54 & Clonedivers r25: film-scale AT-ST visibility & Parade Stormtrooper frustum culling across all 5 texture tiers.",
-            "HellForge 0.5.0-beta (Engine 0.1.58 / Mod SDK 20): Shared Galactic War, 4,096-record EntityManager support, and 'Play Now, Sync Later' instant onboarding (Squad Code r16)."
+            "Star Wars & host gameplay defaults: Total War Chaos Invasions, Constant Reinforcements, Delta Squad, 80/20 CIS Droids & Mixed Covenant, plus AT-TE Titanfall Cockpit HUD & per-attack Republic/TIE Air Wing.",
+            "EmpireDivers r55 & Clonedivers r26: Lambda shuttle alignment, GAR/Imperial VO fixes, ARC-170 / Y-Wing / LAAT/i air wing, and safer High (Streamed) VRAM auto-detection.",
+            "HellForge 0.5.0-beta (Engine 0.1.58 / Mod SDK 20): Shared Galactic War, 4,096-record EntityManager support, and 'Play Now, Sync Later' instant onboarding (Squad Code r17)."
         ],
         IsFallback: false,
         ReleaseUrl: $"https://github.com/owendavidgoode/clonedivers/releases/tag/v{AppInfo.Version}"));

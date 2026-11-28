@@ -126,11 +126,11 @@ internal static class LauncherRedesignTests
             check(!string.IsNullOrWhiteSpace(home.Headline) &&
                   !string.IsNullOrWhiteSpace(setup.Headline) &&
                   diag.HealthChecks.Count > 0 &&
-                  diag.HealthChecks.Single(h => h.Name == "Gameplay Preset").Status.StartsWith("18/18 (", StringComparison.Ordinal) &&
-                  System.Text.RegularExpressions.Regex.IsMatch(home.SquadMatchHash, @"^r16-[0-9a-f]{4}$") &&
+                  diag.HealthChecks.Single(h => h.Name == "Gameplay Preset").Status.StartsWith("19/19 (", StringComparison.Ordinal) &&
+                  System.Text.RegularExpressions.Regex.IsMatch(home.SquadMatchHash, @"^r17-[0-9a-f]{4}$") &&
                   !string.IsNullOrWhiteSpace(diag.DiscordReportText) &&
                   !string.IsNullOrWhiteSpace(diag.DiskUsageSummary),
-                $"PreviewForgeHost preset '{preset}' produces complete Home/Setup/Diagnostics state with 18/18 r16 match hash and Discord report");
+                $"PreviewForgeHost preset '{preset}' produces complete Home/Setup/Diagnostics state with 19/19 r17 match hash and Discord report");
         }
 
         var stepDownHome = new PreviewForgeHost("home-stepdown").GetHomeState();

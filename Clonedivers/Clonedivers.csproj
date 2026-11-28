@@ -33,9 +33,9 @@
     <PackageReference Include="Avalonia.Desktop" Version="11.3.22" />
     <PackageReference Include="Avalonia.Themes.Fluent" Version="11.3.22" />
     <EmbeddedResource Include="clonedivers.ico" LogicalName="Clonedivers.Icon.ico" />
-    <EmbeddedResource Include="Resources/hellforge-clones-r25.json" LogicalName="Clonedivers.HellForge.Manifest.json" />
-    <EmbeddedResource Include="Resources/hellforge-empire-r54.json" LogicalName="Clonedivers.HellForge.Empire.Manifest.json" />
-    <EmbeddedResource Include="Resources/forge-gameplay-build25480438-r16.json" LogicalName="Clonedivers.Forge.Gameplay.json" />
+    <EmbeddedResource Include="Resources/hellforge-clones-r26.json" LogicalName="Clonedivers.HellForge.Manifest.json" />
+    <EmbeddedResource Include="Resources/hellforge-empire-r55.json" LogicalName="Clonedivers.HellForge.Empire.Manifest.json" />
+    <EmbeddedResource Include="Resources/forge-gameplay-build25480438-r17.json" LogicalName="Clonedivers.Forge.Gameplay.json" />
     <EmbeddedResource Include="..\dist\PresentMon.exe" LogicalName="Clonedivers.PresentMon.exe" />
     <EmbeddedResource Include="Licenses\PresentMon.txt" LogicalName="Clonedivers.PresentMon.LICENSE.txt" />
   </ItemGroup>

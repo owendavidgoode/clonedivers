@@ -22,7 +22,7 @@ For a new installation, run `Clonedivers.exe`, pick your mode (**Regular**, **Cl
 1. **Step 1 · Preflight Check**: confirms Steam is signed in and at least **70 GB (`70 GiB`)** is free on your chosen local folder outside OneDrive and Steam (for example `D:\HellForge`).
 2. **Step 2 · Forge & Game Copy**: downloads and verifies the official HellForge installer and copies build `25480438` from Steam or downloads it via the in-app **Steam Mobile QR** flow (with **Official setup (fallback)** available). Steam sign-in and Windows UAC prompts remain player actions.
 3. **Step 3 · Guided Steam Account Sync (or Play Now, Sync Later)**: guides your one-way HD2 → Forge account capture so your real Warbonds, unlocks, and XP copy locally (or choose **Play Now, Sync Later** to start immediately on HellForge `0.5`'s built-in `live-like` starter profile and sync your Warbonds later from Home or Settings). Leave *Apply import* and *auto-apply* off — Clonedivers imports the sealed capture automatically as soon as Helldivers 2 and HellForge close. *(Never share account captures, seal keys, profiles, or import receipts.)*
-4. **Step 4 · Pack Download & Ready**: downloads and verifies the `build25480438-r16` gameplay preset (`18` archives) and your selected Star Wars pack (`Clonedivers 2026.11.27-r25` or `EmpireDivers 2026.11.27-r54`) with resumable `.partial` byte progress (`1 MiB` pooled streaming I/O), automatic completed-backup disk reclamation, and multi-volume space checks.
+4. **Step 4 · Pack Download & Ready**: downloads and verifies the `build25480438-r17` gameplay preset (`19` archives) and your selected Star Wars pack (`Clonedivers 2026.11.28-r26` or `EmpireDivers 2026.11.28-r55`) with resumable `.partial` byte progress (`1 MiB` pooled streaming I/O), automatic completed-backup disk reclamation, and multi-volume space checks.
 
 An existing HellForge `0.4.0-beta` or `0.3.0-beta` installation offers **Upgrade HellForge**, snapshotting
 profile/settings and preserving your enabled mod list (`importDone: true`) across the supported `--unpack` upgrade with automatic
@@ -43,18 +43,18 @@ installations can be chosen with **Locate** and are never silently replaced.
 
 ## First Forge Setup
 
-**Set up selected mode** installs the pinned **`build25480438-r16`** catalog (`9` required
-gameplay/author archives + `9` optional SDK-16/20 defaults enabled once on fresh setup, zero
+**Set up selected mode** installs the pinned **`build25480438-r17`** catalog (`9` required
+gameplay/author archives + `10` optional SDK-16/20 defaults enabled once on fresh setup, zero
 `hf-mod.com` URLs) alongside HellForge's `3` bundled baseline mods and your chosen Star Wars
-pack (`22` active mods in Clones/Empire, `21` in Regular). Both **Clones (`2026.11.27-r25`)**
-and **Empire (`2026.11.27-r54`)** provide all **5 texture tiers**, **3 Enemy Skins** (`All CIS
+pack (`23` active mods in Clones/Empire, `22` in Regular). Both **Clones (`2026.11.28-r26`)**
+and **Empire (`2026.11.28-r55`)** provide all **5 texture tiers**, **3 Enemy Skins** (`All CIS
 Droids`, `Mixed Bots + CIS Droids` default, `Native Automatons`), and **3-way Covenant + Squids**
 (`Mixed Covenant + Squids` default, `All Covenant`, `Native Squids`), plus **Delta Squad** (ON by default) in
-Clones, **Encrypted Death Trooper Voice** (ON by default on slot 4) in Empire, **Galactic War** campaign selection (`HellForge War` default, `All Planets Open`, `Live Mirror`, `Custom`), and host-driven
+Clones, **Galactic War** campaign selection (`HellForge War` default, `All Planets Open`, `Live Mirror`, `Custom`), and host-driven
 **Theater Scale (`L12 ULTRAKILL · Stormtrooper` in Empire / `L12 ULTRAKILL · Clone Wars` in Clones default, adding a genuine `Difficulty 12` slot after `Hell Forge` `11` while keeping `D1–11` intact with `Total War` Chaos & `Constant` Heavy SEAF on by default, vs `Standard (D1–11)`)** under Customize -> Advanced. Regular installs
 only the gameplay preset without Star Wars appearance packs.
 
-Setup applies load order, loader/menu options, Guard Dogs AI/safety `ON` with `Targeting Marker`
+Setup applies load order, loader/menu options, Guard Dogs AI/safety `ON` with `Sentry Safety`, `SEAF Safety`, `Targeting Laser`, and `Targeting Marker`
 `OFF`, and `clonedivers-host-options.json` defaults. It automatically disables conflicting
 alternatives and retired mods (`chef.smarter-seaf`, standalone `Mod Options Menu`, and
 `local.clonedivers-mine-boundary`, which engine `0.1.58` provides natively), and sets automatic

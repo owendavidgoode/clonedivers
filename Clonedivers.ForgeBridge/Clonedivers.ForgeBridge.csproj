@@ -27,9 +27,9 @@
     <Compile Include="../Clonedivers/HellForgeRecovery.cs" Link="Core/HellForgeRecovery.cs" />
     <Compile Include="../Clonedivers/HellForgeModels.cs" Link="Core/HellForgeModels.cs" />
     <Compile Include="../Clonedivers/HellForgePreset.cs" Link="Core/HellForgePreset.cs" />
-    <EmbeddedResource Include="../Clonedivers/Resources/hellforge-clones-r25.json" LogicalName="Clonedivers.HellForge.Manifest.json" />
-    <EmbeddedResource Include="../Clonedivers/Resources/hellforge-empire-r54.json" LogicalName="Clonedivers.HellForge.Empire.Manifest.json" />
-    <EmbeddedResource Include="../Clonedivers/Resources/forge-gameplay-build25480438-r16.json" LogicalName="Clonedivers.Forge.Gameplay.json" />
+    <EmbeddedResource Include="../Clonedivers/Resources/hellforge-clones-r26.json" LogicalName="Clonedivers.HellForge.Manifest.json" />
+    <EmbeddedResource Include="../Clonedivers/Resources/hellforge-empire-r55.json" LogicalName="Clonedivers.HellForge.Empire.Manifest.json" />
+    <EmbeddedResource Include="../Clonedivers/Resources/forge-gameplay-build25480438-r17.json" LogicalName="Clonedivers.Forge.Gameplay.json" />
     <Compile Include="../Clonedivers/PackArtifactEngine.cs" Link="Core/PackArtifactEngine.cs" />
     <Compile Include="../Clonedivers/UltrakillRuntimeProfile.cs" Link="Core/UltrakillRuntimeProfile.cs" />
     <Compile Include="../Clonedivers/HellForgeGameplayCatalog.cs" Link="Core/HellForgeGameplayCatalog.cs" />

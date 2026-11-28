@@ -61,10 +61,25 @@ public static class HellForgePack
         if (feed.Format != 3 || pack.GameBuild != SupportedBuild || pack.IsBroken || !FileSafety.IsSha256(manifestSha))
             throw new InvalidDataException($"Export requires a working format-3 pack targeting HellForge build {SupportedBuild}.");
         var options = pack.Options.ToDictionary(o => o.Id, o => o.Default, StringComparer.OrdinalIgnoreCase);
-        foreach (var (id, on) in changes ?? new Dictionary<string, bool>())
+        if (changes != null)
         {
-            if (!options.ContainsKey(id)) throw new ArgumentException($"Unknown pack option: {id}");
-            options[id] = on;
+            if (changes.TryGetValue("droids", out var droidsVal) && !droidsVal &&
+                !changes.GetValueOrDefault("mixed-droids") && !changes.GetValueOrDefault("mixed_droids"))
+            {
+                if (options.ContainsKey("mixed-droids")) options["mixed-droids"] = false;
+                if (options.ContainsKey("mixed_droids")) options["mixed_droids"] = false;
+            }
+            if (changes.TryGetValue("covenant", out var covVal) && !covVal &&
+                !changes.GetValueOrDefault("mixed-covenant") && !changes.GetValueOrDefault("mixed_covenant"))
+            {
+                if (options.ContainsKey("mixed-covenant")) options["mixed-covenant"] = false;
+                if (options.ContainsKey("mixed_covenant")) options["mixed_covenant"] = false;
+            }
+            foreach (var (id, on) in changes)
+            {
+                if (!options.ContainsKey(id)) throw new ArgumentException($"Unknown pack option: {id}");
+                options[id] = on;
+            }
         }
         options["empire"] = mode == "empire";
         options["commandos"] = mode == "commandos";
@@ -133,12 +148,8 @@ public static class HellForgePack
         requested.Remove("deathtrooper");
         if (mode == "empire")
         {
-            var empireChanges = new Dictionary<string, bool>(StringComparer.OrdinalIgnoreCase)
-            {
-                ["droids"] = requested.GetValueOrDefault("droids", true),
-                ["covenant"] = requested.GetValueOrDefault("covenant", false)
-            };
-            foreach (var key in new[] { "mixed-droids", "mixed_droids", "mixed-covenant", "mixed_covenant" })
+            var empireChanges = new Dictionary<string, bool>(StringComparer.OrdinalIgnoreCase);
+            foreach (var key in new[] { "droids", "covenant", "mixed-droids", "mixed_droids", "mixed-covenant", "mixed_covenant" })
                 if (requested.TryGetValue(key, out var value)) empireChanges[key] = value;
             requested = empireChanges;
         }
@@ -181,6 +192,18 @@ public static class HellForgePack
                 if (mixedCovOn) requested["covenant"] = true;
                 if (!optionIds.Contains(futureCovKey)) requested.Remove(futureCovKey);
             }
+        }
+        if (requested.TryGetValue("droids", out var reqDroids) && !reqDroids &&
+            !requested.GetValueOrDefault("mixed-droids") && !requested.GetValueOrDefault("mixed_droids"))
+        {
+            if (optionIds.Contains("mixed-droids")) requested["mixed-droids"] = false;
+            if (optionIds.Contains("mixed_droids")) requested["mixed_droids"] = false;
+        }
+        if (requested.TryGetValue("covenant", out var reqCov) && !reqCov &&
+            !requested.GetValueOrDefault("mixed-covenant") && !requested.GetValueOrDefault("mixed_covenant"))
+        {
+            if (optionIds.Contains("mixed-covenant")) requested["mixed-covenant"] = false;
+            if (optionIds.Contains("mixed_covenant")) requested["mixed_covenant"] = false;
         }
         if (mode == "empire" && optionIds.Contains("deathtrooper"))
         {

@@ -16,16 +16,17 @@ public static class HellForgePreset
     public const string EmpireAtstWriter = "clonedivers.empire-atst-writer";
     public const string EmpireTieSwitch = "clonedivers.empire-tie-switch";
     public const string EmpireCameraPullback = "clonedivers.empire-camera-pullback";
+    public const string TitanfallWalkerHud = "clonedivers.titanfall-walker-hud";
     public const string StarWarsLocalization = "clonedivers.starwars-localization";
     public const string DedicatedMeleeSlot = "vibeslacker.dedicated-melee-slot";
     public const string FasterCorpseCleanup = "local.faster-corpse-cleanup";
     public const string ChaosInvasions = "clonedivers.chaos-invasions";
-    public static readonly string[] Optional = [CleanExit, LegoCompactLeafWriter, EmpireLegoYoda, EmpireAtstWriter, EmpireTieSwitch, EmpireCameraPullback, StarWarsLocalization, DedicatedMeleeSlot, ChaosInvasions];
-    public static readonly string[] AllModeCompanions = [LegoCompactLeafWriter, EmpireLegoYoda, EmpireAtstWriter, EmpireTieSwitch, EmpireCameraPullback, StarWarsLocalization];
+    public static readonly string[] Optional = [CleanExit, LegoCompactLeafWriter, EmpireLegoYoda, EmpireAtstWriter, EmpireTieSwitch, EmpireCameraPullback, TitanfallWalkerHud, StarWarsLocalization, DedicatedMeleeSlot, ChaosInvasions];
+    public static readonly string[] AllModeCompanions = [LegoCompactLeafWriter, EmpireLegoYoda, EmpireAtstWriter, EmpireTieSwitch, EmpireCameraPullback, TitanfallWalkerHud, StarWarsLocalization];
     public static string[] RequiredCompanionsForMode(string mode) => mode switch
     {
-        "empire" => [LegoCompactLeafWriter, EmpireLegoYoda, EmpireAtstWriter, EmpireTieSwitch, EmpireCameraPullback, StarWarsLocalization],
-        "clonedivers" or "commandos" => [LegoCompactLeafWriter, EmpireLegoYoda, EmpireCameraPullback, StarWarsLocalization],
+        "empire" => [LegoCompactLeafWriter, EmpireLegoYoda, EmpireAtstWriter, EmpireTieSwitch, EmpireCameraPullback, TitanfallWalkerHud, StarWarsLocalization],
+        "clonedivers" or "commandos" => [LegoCompactLeafWriter, EmpireLegoYoda, EmpireTieSwitch, EmpireCameraPullback, TitanfallWalkerHud, StarWarsLocalization],
         "regular" => [],
         _ => []
     };

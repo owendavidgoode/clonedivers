@@ -12,13 +12,13 @@ internal static class GameplayInstallTests
     {
         var catalog = HellForgeGameplayCatalog.Pinned;
         catalog.Validate();
-        check(catalog.Id == "build25480438-r16" && catalog.Artifacts.Count == 18 && catalog.Artifacts.Sum(a => a.Bytes) == 8588323 &&
-            SquadFingerprint.Compute(catalog) == "r16-a26f",
-            "the r16 preset pairs nine optional SDK-20/16 mods with nine required gameplay and author archives and computes match code r16-a26f");
-        check(catalog.Artifacts.Count(a => a.Url.Contains("/owendavidgoode/clonedivers/")) == 15 && catalog.Artifacts.Count(a => !a.Url.Contains("/owendavidgoode/clonedivers/")) == 3 &&
+        check(catalog.Id == "build25480438-r17" && catalog.Artifacts.Count == 19 && catalog.Artifacts.Sum(a => a.Bytes) == 8715407 &&
+            SquadFingerprint.Compute(catalog) == "r17-a26f",
+            "the r17 preset pairs ten optional SDK-20/16 mods with nine required gameplay and author archives and computes match code r17-a26f");
+        check(catalog.Artifacts.Count(a => a.Url.Contains("/owendavidgoode/clonedivers/")) == 16 && catalog.Artifacts.Count(a => !a.Url.Contains("/owendavidgoode/clonedivers/")) == 3 &&
             catalog.Artifacts.All(a => !a.Url.Contains("hf-mod.com", StringComparison.OrdinalIgnoreCase)) &&
             catalog.Artifacts.All(a => !a.FileName.Contains("clear-skies", StringComparison.OrdinalIgnoreCase)),
-            "r8 eliminates hf-mod.com dependencies via permissive mirrors, permitted SEAF packages, project/MIT code mods, and three direct author GitHub releases while excluding non-redistributable clear-skies");
+            "r17 eliminates hf-mod.com dependencies via permissive mirrors, permitted SEAF packages, project/MIT code mods, and three direct author GitHub releases while excluding non-redistributable clear-skies");
         check(catalog.Artifacts.All(a => FileSafety.IsSha256(a.ContentHash) && FileSafety.IsSha256(a.Sha256)), "every gameplay dependency has independent archive and official content-hash pins");
         var cleanExit = catalog.Artifacts.Single(a => a.Id == HellForgePreset.CleanExit);
         var leafWriter = catalog.Artifacts.Single(a => a.Id == HellForgePreset.LegoCompactLeafWriter);
@@ -26,6 +26,7 @@ internal static class GameplayInstallTests
         var atst = catalog.Artifacts.Single(a => a.Id == HellForgePreset.EmpireAtstWriter);
         var tieSwitch = catalog.Artifacts.Single(a => a.Id == HellForgePreset.EmpireTieSwitch);
         var cameraPullback = catalog.Artifacts.Single(a => a.Id == HellForgePreset.EmpireCameraPullback);
+        var walkerHud = catalog.Artifacts.Single(a => a.Id == HellForgePreset.TitanfallWalkerHud);
         var swLoc = catalog.Artifacts.Single(a => a.Id == HellForgePreset.StarWarsLocalization);
         var dedicatedMelee = catalog.Artifacts.Single(a => a.Id == HellForgePreset.DedicatedMeleeSlot);
         var chaos = catalog.Artifacts.Single(a => a.Id == HellForgePreset.ChaosInvasions);
@@ -42,48 +43,57 @@ internal static class GameplayInstallTests
             leafWriter.ContentHash == "4287eff52df086c4b0493723e63edb26a9f4c9d1284df43e93c6bdfbe0eeabd2" &&
             leafWriter.Url == "https://github.com/owendavidgoode/clonedivers/releases/download/forge-mods-2026-11-28/lego-compact-leaf-writer-0.2.4.zip",
             "LEGO Compact Leaf Writer is optional with the exact 0.2.4 SDK-20 relocated-EM release pins");
-        check(yoda.Name == "Empire LEGO Yoda Death" && yoda.Version == "0.2.2" && yoda.Bytes == 54747 &&
-            yoda.Sha256 == "f97b33e109bffc9f9c9f77d48a83c7d2b094f30e543f1cf8a1f42b0e7cfbdd68" &&
-            yoda.ContentHash == "25b9df01a07e94fc79cfb2b820f13f013ccb05a5399048db2fa31e893b37d5af" &&
-            yoda.Url == "https://github.com/owendavidgoode/clonedivers/releases/download/forge-mods-2026-11-26/empire-lego-yoda-0.2.2.zip",
-            "Empire LEGO Yoda Death is optional with the exact 0.2.2 O(1) hash-indexed release pins");
-        check(atst.Name == "Empire AT-ST Film-Scale Leaf Writer" && atst.Version == "0.2.6" && atst.Bytes == 40306 &&
-            atst.Sha256 == "22179f06145c135e695c3042853553f4318dfac2e69f40d827eb51611924766d" &&
-            atst.ContentHash == "b0b7837d5c64a76e1a9e8c983076788feff448d3c1bab66d62abdd49b0c83c66" &&
-            atst.Url == "https://github.com/owendavidgoode/clonedivers/releases/download/forge-mods-2026-11-28/empire-atst-writer-0.2.6.zip",
-            "Empire AT-ST Film-Scale Leaf Writer is optional with the exact 0.2.6 SDK-20 relocated-EM release pins");
-        check(tieSwitch.Name == "Empire per-attack TIE (lab candidate)" && tieSwitch.Version == "0.3.2" && tieSwitch.Bytes == 25501 &&
-            tieSwitch.Sha256 == "2269fb9c913f0f3da03fb4ab24be9e1af66599594f49a83d035f167cf53cbefd" &&
-            tieSwitch.ContentHash == "ef62a3fc3e65ce392ea55d14495eba57e1543b5db28940cac519bf3a4c5eb6df" &&
-            tieSwitch.Url == "https://github.com/owendavidgoode/clonedivers/releases/download/forge-mods-2026-11-26/empire-tie-switch-0.3.2.zip",
-            "Empire per-attack TIE switch is optional with the exact 0.3.2 zero-CreateFileW mission guard release pins");
-        check(cameraPullback.Name == "Empire & Clone Camera Pullback" && cameraPullback.Version == "0.1.5" && cameraPullback.Bytes == 35230 &&
-            cameraPullback.Sha256 == "ca58387566fc31e64cfabfa8380f0c9439c6ceb6b871fa5007926c786c582bf2" &&
-            cameraPullback.ContentHash == "d973fb81e72618642e5d4fa2670f1d85f75eacf8fcdd36758214b4d2776a9d66" &&
-            cameraPullback.Url == "https://github.com/owendavidgoode/clonedivers/releases/download/forge-mods-2026-11-28/empire-camera-pullback-0.1.5.zip",
-            "Empire & Clone Camera Pullback is optional with the exact 0.1.5 SDK-20 session-cached relocated-EM release pins");
-        check(dedicatedMelee.Name == "Dedicated Melee Slot" && dedicatedMelee.Version == "1.5.2-clonedivers.4" && dedicatedMelee.Bytes == 55994 &&
-            dedicatedMelee.Sha256 == "2523782a17941ce2ebf3ac0df8381171c05fb40b58b8c295e38d13a38362d676" &&
-            dedicatedMelee.ContentHash == "42c7235aee004ea6c7a348e80a855606406b3f00acd8a21cf0021cbdaa29b997" &&
-            dedicatedMelee.Url == "https://github.com/owendavidgoode/clonedivers/releases/download/forge-mods-2026-11-28/dedicated-melee-slot-1.5.2-clonedivers.4.zip",
-            "Dedicated Melee Slot is optional with the exact 1.5.2-clonedivers.4 SDK-20 relocated-EM release pins");
-        check(swLoc.Name == "Star Wars Localization Bridge" && swLoc.Version == "0.1.1" && swLoc.Bytes == 10577 &&
-            swLoc.Sha256 == "b0ff55d0464ee6fa3b72693bd04b0bc28384773af04d21740e4e1f5a5ee9ddba" &&
-            swLoc.ContentHash == "1590c83d7907fbc033d62e3a896d2dda2bddc2c935d3e6acd7715d9bf0dc3362" &&
-            swLoc.Url == "https://github.com/owendavidgoode/clonedivers/releases/download/forge-mods-2026-11-25/starwars-localization-0.1.1.zip",
-            "Star Wars Localization Bridge is optional with the exact 0.1.1 SEAF-free release pins");
-        check(chaos.Name == "Chaos Invasions" && chaos.Version == "0.5.2" && chaos.Bytes == 84638 &&
-            chaos.Sha256 == "e57017ca9f42f67f0a09d9e5659c048ebd3efc135fdd0e31e170db6b49bdfd68" &&
-            chaos.ContentHash == "3d0975b9fe222b32452d784e7fb7c2b126319742d352fcd6b564b17374784b98" &&
+        check(yoda.Name == "Empire LEGO Yoda Death & Stormtrooper Salute" && yoda.Version == "0.2.3" && yoda.Bytes == 101380 &&
+            yoda.Sha256 == "44d6b8de840b9256cba0cc4c5804f7161c276e734861c640b5d5d58735756c8a" &&
+            yoda.ContentHash == "ae37854010066ee31639b8e747fefb9548000a05692586d97968d00a75861ca7" &&
+            yoda.Url == "https://github.com/owendavidgoode/clonedivers/releases/download/forge-mods-2026-11-28/empire-lego-yoda-0.2.3.zip",
+            "Empire LEGO Yoda Death & Stormtrooper Salute is optional with the exact 0.2.3 Salute WAV release pins");
+        check(atst.Name == "Empire AT-ST Film-Scale Leaf Writer" && atst.Version == "0.2.7" && atst.Bytes == 53088 &&
+            atst.Sha256 == "30b27f5ccc836782f006caf003ffbd745dacfa3a4445914059c39555b60f2703" &&
+            atst.ContentHash == "9bf77704f221794a58a46dc463e2511ee2961e004d8e8197bd1f627fffdacba7" &&
+            atst.Url == "https://github.com/owendavidgoode/clonedivers/releases/download/forge-mods-2026-11-28/empire-atst-writer-0.2.7.zip",
+            "Empire AT-ST Film-Scale Leaf Writer is optional with the exact 0.2.7 cab-lift SDK-20 release pins");
+        check(tieSwitch.Name == "Star Wars Per-Attack Air Wing (TIE & Republic)" && tieSwitch.Version == "0.4.0" && tieSwitch.Bytes == 33395 &&
+            tieSwitch.Sha256 == "1f7a0fc564aadbb550d72e3da9e51d05e35cc14e0ca0dfbb30ebfdc2b8551d46" &&
+            tieSwitch.ContentHash == "3ea07d28dbb4944b40f8f2b890b72c438162c5c3cbbb4676da2c7301d38c8816" &&
+            tieSwitch.Url == "https://github.com/owendavidgoode/clonedivers/releases/download/forge-mods-2026-11-28/empire-tie-switch-0.4.0.zip" &&
+            HellForgePreset.RequiredCompanionsForMode("clonedivers").Contains(HellForgePreset.EmpireTieSwitch) &&
+            HellForgePreset.RequiredCompanionsForMode("empire").Contains(HellForgePreset.EmpireTieSwitch),
+            "Star Wars Per-Attack Air Wing 0.4.0 is optional and enabled across both Empire and Clonedivers mode presets");
+        check(cameraPullback.Name == "Empire & Clone Camera Pullback" && cameraPullback.Version == "0.1.6" && cameraPullback.Bytes == 36423 &&
+            cameraPullback.Sha256 == "8ed5df776d87fa7a025cab804f12b36b411f85d80569cdd8169a4cefecc975b3" &&
+            cameraPullback.ContentHash == "a9769817d7414c5e3ce811e7f05e6f10b3a65990878f2ce0dd59b7d2a5c537e3" &&
+            cameraPullback.Url == "https://github.com/owendavidgoode/clonedivers/releases/download/forge-mods-2026-11-28/empire-camera-pullback-0.1.6.zip",
+            "Empire & Clone Camera Pullback is optional with the exact 0.1.6 SDK-20 1P/3P peer-handoff release pins");
+        check(walkerHud.Name == "AT-TE Titanfall Tactical Cockpit HUD" && walkerHud.Version == "0.1.0" && walkerHud.Bytes == 27891 &&
+            walkerHud.Sha256 == "a29477da162193ae85eb43b1caa8be95acc4d25031f5ea054090eea1b6ae81ab" &&
+            walkerHud.ContentHash == "ca5751c55cec511c3e0b6581afc0b63d490215154de9d4bbe7be50d074c802ab" &&
+            walkerHud.Url == "https://github.com/owendavidgoode/clonedivers/releases/download/forge-mods-2026-11-28/titanfall-walker-hud-0.1.0.zip" &&
+            HellForgePreset.RequiredCompanionsForMode("clonedivers").Contains(HellForgePreset.TitanfallWalkerHud) &&
+            HellForgePreset.RequiredCompanionsForMode("empire").Contains(HellForgePreset.TitanfallWalkerHud),
+            "AT-TE Titanfall Tactical Cockpit HUD 0.1.0 is registered and enabled across Clonedivers and Empire presets");
+        check(dedicatedMelee.Name == "Dedicated Melee Slot" && dedicatedMelee.Version == "1.5.2-clonedivers.5" && dedicatedMelee.Bytes == 60027 &&
+            dedicatedMelee.Sha256 == "2162941747f378487146683fbc750eae3c89e0a0ce9822b91901290911149575" &&
+            dedicatedMelee.ContentHash == "d50d4c494adf012556f5699584474e4aa77aa513aa6ca31797886d5cfff04bc6" &&
+            dedicatedMelee.Url == "https://github.com/owendavidgoode/clonedivers/releases/download/forge-mods-2026-11-28/dedicated-melee-slot-1.5.2-clonedivers.5.zip",
+            "Dedicated Melee Slot is optional with the exact 1.5.2-clonedivers.5 SDK-20 residency-gated release pins");
+        check(swLoc.Name == "Star Wars Localization Bridge" && swLoc.Version == "0.2.0" && swLoc.Bytes == 20693 &&
+            swLoc.Sha256 == "01bdedc065c029d6ca0c0b8216dd452b8898239674f4d9ab7413f203b1921cf1" &&
+            swLoc.ContentHash == "cae727ce6ecadf901fbbb4f09ac1c74028dd6c1f5851ee4e8697b1b5acd8f198" &&
+            swLoc.Url == "https://github.com/owendavidgoode/clonedivers/releases/download/forge-mods-2026-11-28/starwars-localization-0.2.0.zip",
+            "Star Wars Localization Bridge is optional with the exact 0.2.0 Death Star & Gonk Droid release pins");
+        check(chaos.Name == "Chaos Invasions" && chaos.Version == "0.5.2" && chaos.Bytes == 97779 &&
+            chaos.Sha256 == "3bc50fe74c9eb4297ec3caed8680bb737a1faf0b7b74bb3900a7fa64a7b075a1" &&
+            chaos.ContentHash == "5be47603d166f8fd455849efc6a99d1ca452133bf1c7e54028fce5987d76bbb6" &&
             chaos.Url == "https://github.com/owendavidgoode/clonedivers/releases/download/forge-mods-2026-11-28/chaos-invasions-0.5.2.zip",
-            "Chaos Invasions is optional with the exact 0.5.2 SDK-20 relocated-EM & Stormtrooper Difficulty 12 release pins");
-        check(!corpseCleanup.Optional && corpseCleanup.Version == "1.0.6-clonedivers.4" && corpseCleanup.Bytes == 81988 &&
-            corpseCleanup.Sha256 == "6c6d59f62d222fa393697e8bdff4436bf2b4a8833d487c948bb8f0eebe957284" &&
-            corpseCleanup.ContentHash == "f09456ccff0da17fd87dcf44dd0ea3f261f79d09eb48812e2d6bcc967c71de5b" &&
-            !heavySeaf.Optional && heavySeaf.Version == "1.2.0-clonedivers.8" && heavySeaf.Bytes == 114199 &&
-            heavySeaf.Sha256 == "3aa65e16f59dc8c8c8bd0125ff5a3035ca29e4a43536a1a0565342a776022e63" &&
-            heavySeaf.ContentHash == "52db31f447286d6687ab9e27cb3790b7a780a97c8599a9a6ee7c57618f0422bf",
-            "Faster Corpse Cleanup (1.0.6-clonedivers.4) and Heavy SEAF Presence (1.2.0-clonedivers.8) are required in r16");
+            "Chaos Invasions is optional with the exact 0.5.2 SDK-20 air-run & AT-TE support release pins");
+        check(!corpseCleanup.Optional && corpseCleanup.Version == "1.0.6-clonedivers.4" && corpseCleanup.Bytes == 81710 &&
+            corpseCleanup.Sha256 == "8255f2ad5d25fce4a41db6da938336f5422e0b3d0f5a87b1ee7ced321128c144" &&
+            corpseCleanup.ContentHash == "33383f70cc39aa524fd0e34ccf23f481e2107f38924c53256646b79b92f1ea2b" &&
+            !heavySeaf.Optional && heavySeaf.Version == "1.2.0-clonedivers.8" && heavySeaf.Bytes == 117878 &&
+            heavySeaf.Sha256 == "93a44665b4ab8ad4b0d0a9f475e0ee2519ecb9cd206291e03de565a8826185de" &&
+            heavySeaf.ContentHash == "8d74b84423eca6fa068d48322b2c7243ee03bcbade1efdad58691e1aeea2e7e5",
+            "Faster Corpse Cleanup (1.0.6-clonedivers.4) and Heavy SEAF Presence (1.2.0-clonedivers.8) are required in r17");
         using (var stream = typeof(GameplayInstallTests).Assembly.GetManifestResourceStream("Clonedivers.Tests.CleanExit.json")!)
         using (var manifest = JsonDocument.Parse(stream))
             check(manifest.RootElement.GetProperty("id").GetString() == cleanExit.Id && manifest.RootElement.GetProperty("version").GetString() == cleanExit.Version &&

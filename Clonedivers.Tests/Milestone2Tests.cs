@@ -228,16 +228,16 @@ internal static class Milestone2Tests
             };
             if (mode == "empire" && dtCallerFlag) opts["deathtrooper"] = true;
             var sel = HellForgePack.PinnedSelection(mode, tex, opts);
-            var expectedVer = mode == "empire" ? "2026.11.27-r54" : "2026.11.27-r25";
+            var expectedVer = mode == "empire" ? "2026.11.28-r55" : "2026.11.28-r26";
             var expectedCount = mode == "empire"
                 ? (enemy == "native-automatons" ? 132 : 144)
-                : (enemy == "native-automatons" ? 120 : 132);
+                : (enemy == "native-automatons" ? 129 : 144);
             bool dtNeverEnabled = !sel.Options.TryGetValue("deathtrooper", out var dtVal) || !dtVal;
             if (sel.Version != expectedVer || sel.Texture != tex || sel.Files.Count != expectedCount || !dtNeverEnabled)
                 check(false, $"PinnedSelection {mode}/{tex}/{enemy}/{squid}/dt={dtCallerFlag} mismatch");
             matrixChecked++;
         }
-        check(matrixChecked == 180, "PinnedSelection resolves all 180 r25/r54 combinations natively and forces deathtrooper=false even if caller passes true");
+        check(matrixChecked == 180, "PinnedSelection resolves all 180 r26/r55 combinations natively and strips/disables deathtrooper even if caller passes true");
 
         // r19 / r47 fallback: both reduced1024 and potato256 fall back to lighter when reduced512 is absent
         var r19Bytes = ReadResourceBytes("Clonedivers.Tests.Clones.R19.Manifest.json");
@@ -300,7 +300,7 @@ internal static class Milestone2Tests
               loadedCovTrue.EnemySkin == "mixed-droids" &&
               !loadedCovTrue.SelectionKey.Contains("deathtrooper", StringComparison.OrdinalIgnoreCase) &&
               loadedCovTrue.AppliedSelection != loadedCovTrue.SelectionKey &&
-              !loadedCovTrue.Selection().Options["deathtrooper"],
+              !loadedCovTrue.Selection().Options.GetValueOrDefault("deathtrooper"),
             "upgrading legacy hellforge.json with DeathTrooperVoice=true strips deathtrooper from SelectionKey/Selection so old pack re-syncs cleanly");
 
         var covFalsePath = Path.Combine(dir, "legacy-cov-false.json");
@@ -363,8 +363,8 @@ internal static class Milestone2Tests
         check(r20MixedCov.Options["covenant"] && !r20MixedCov.Options.ContainsKey("mixed-covenant") &&
               r48MixedCovDtOff.Options["covenant"] && !r48MixedCovDtOff.Options.ContainsKey("deathtrooper") &&
               r21Live.Options["mixed-covenant"] && r21Live.Options["covenant"] &&
-              r49LiveDtOff.Options["mixed-covenant"] && !r49LiveDtOff.Options["deathtrooper"],
-              "r20/r48 fall back cleanly while live embedded r25/r54 resolve mixed-covenant and always keep deathtrooper=false");
+              r49LiveDtOff.Options["mixed-covenant"] && !r49LiveDtOff.Options.GetValueOrDefault("deathtrooper"),
+              "r20/r48 fall back cleanly while live embedded r26/r55 resolve mixed-covenant and never enable deathtrooper");
 
         // Synthetic r49 3-way SquidSkin + forced deathtrooper=false verification (even when manifest Default=true and caller passes deathtrooper=true!)
         var r49Bytes = BuildSyntheticV21ManifestBytes(isEmpire: true);
@@ -449,30 +449,33 @@ internal static class Milestone2Tests
 
     static void TestR8CatalogDraftAndSources(Action<bool, string> check)
     {
-        check(HellForgeGameplayCatalog.Pinned.Id == "build25480438-r16" &&
-              HellForgeGameplayCatalog.Current.Id == "build25480438-r16" &&
-              HellForgeGameplayCatalog.Pinned.Artifacts.Count == 18,
-              "HellForgeGameplayCatalog activates build25480438-r16 (18 artifacts) as the pinned default");
+        check(HellForgeGameplayCatalog.Pinned.Id == "build25480438-r17" &&
+              HellForgeGameplayCatalog.Current.Id == "build25480438-r17" &&
+              HellForgeGameplayCatalog.Pinned.Artifacts.Count == 19,
+              "HellForgeGameplayCatalog activates build25480438-r17 (19 artifacts) as the pinned default");
 
-        var r16Json = Encoding.UTF8.GetString(ReadResourceBytes("Clonedivers.Forge.Gameplay.json"));
-        var r16 = JsonSerializer.Deserialize<HellForgeGameplayCatalog>(r16Json, HellForgePack.Json)!;
-        r16.ValidateDraft();
+        var r17Json = Encoding.UTF8.GetString(ReadResourceBytes("Clonedivers.Forge.Gameplay.json"));
+        var r17 = JsonSerializer.Deserialize<HellForgeGameplayCatalog>(r17Json, HellForgePack.Json)!;
+        r17.ValidateDraft();
 
-        check(r16.Id == "build25480438-r16" &&
-              r16.GameBuild == HellForgePack.SupportedBuild &&
-              r16.Artifacts.Count == 18 &&
-              r16.Order.Count == 21 &&
-              r16.Order[^1] == HellForgePreset.BingusSharedLoader &&
-              !r16.Artifacts.Any(a => a.Url.Contains("hf-mod.com", StringComparison.OrdinalIgnoreCase)),
-              "forge-gameplay-build25480438-r16.json passes ValidateDraft with 18 artifacts, 21 ordered IDs, zero hf-mod.com URLs, and Bingus Shared Loader last");
+        check(r17.Id == "build25480438-r17" &&
+              r17.GameBuild == HellForgePack.SupportedBuild &&
+              r17.Artifacts.Count == 19 &&
+              r17.Order.Count == 22 &&
+              r17.Order[^1] == HellForgePreset.BingusSharedLoader &&
+              !r17.Artifacts.Any(a => a.Url.Contains("hf-mod.com", StringComparison.OrdinalIgnoreCase)),
+              "forge-gameplay-build25480438-r17.json passes ValidateDraft with 19 artifacts, 22 ordered IDs, zero hf-mod.com URLs, and Bingus Shared Loader last");
 
-        // Verify all 9 updated/new v2.1..v2.3.0 code-mod manifests match r16 IDs, versions, and co-op/gameplay flags
+        // Verify all 11 updated/new v2.1..v2.3.0 code-mod manifests match r17 IDs, versions, and co-op/gameplay flags
         var expectedMods = new (string Resource, string Id, bool ExpectedGameplay, bool ExpectedOptional)[]
         {
             ("Clonedivers.Tests.CleanExit.json", HellForgePreset.CleanExit, false, true),
+            ("Clonedivers.Tests.LegoCompactLeafWriter.json", HellForgePreset.LegoCompactLeafWriter, false, true),
+            ("Clonedivers.Tests.EmpireLegoYoda.json", HellForgePreset.EmpireLegoYoda, false, true),
             ("Clonedivers.Tests.EmpireAtstWriter.json", HellForgePreset.EmpireAtstWriter, false, true),
             ("Clonedivers.Tests.EmpireTieSwitch.json", HellForgePreset.EmpireTieSwitch, false, true),
             ("Clonedivers.Tests.EmpireCameraPullback.json", HellForgePreset.EmpireCameraPullback, false, true),
+            ("Clonedivers.Tests.TitanfallWalkerHud.json", HellForgePreset.TitanfallWalkerHud, false, true),
             ("Clonedivers.Tests.StarWarsLocalization.json", HellForgePreset.StarWarsLocalization, false, true),
             ("Clonedivers.Tests.DedicatedMeleeSlot.json", HellForgePreset.DedicatedMeleeSlot, false, true),
             ("Clonedivers.Tests.FasterCorpseCleanup.json", HellForgePreset.FasterCorpseCleanup, true, false),
@@ -482,7 +485,7 @@ internal static class Milestone2Tests
 
         foreach (var (resName, id, expectedGameplay, expectedOptional) in expectedMods)
         {
-            var art = r16.Artifacts.Single(a => a.Id == id);
+            var art = r17.Artifacts.Single(a => a.Id == id);
             using var doc = JsonDocument.Parse(ReadResourceBytes(resName));
             var rootEl = doc.RootElement;
             check(rootEl.GetProperty("id").GetString() == id &&
@@ -498,18 +501,20 @@ internal static class Milestone2Tests
                   art.Bytes > 0 &&
                   FileSafety.IsSha256(art.Sha256) &&
                   FileSafety.IsSha256(art.ContentHash),
-                  $"r16 artifact '{id}' ({art.Version}) matches forge-mods hellforge-mod.json, targets forge-mods-2026-11-22..28, and pins valid hashes");
+                  $"r17 artifact '{id}' ({art.Version}) matches forge-mods hellforge-mod.json, targets forge-mods-2026-11-22..28, and pins valid hashes");
         }
 
-        // SquadFingerprint client-only vs gameplay classification for r16 mods
+        // SquadFingerprint client-only vs gameplay classification for r17 mods
         var camMod = new HellForgeMod(HellForgePreset.EmpireCameraPullback, "Empire & Clone Camera Pullback", true, "f", []);
+        var hudMod = new HellForgeMod(HellForgePreset.TitanfallWalkerHud, "AT-TE Titanfall Tactical Cockpit HUD", true, "f", []);
         var meleeMod = new HellForgeMod(HellForgePreset.DedicatedMeleeSlot, "Dedicated Melee Slot", true, "f", []);
         var corpseMod = new HellForgeMod(HellForgePreset.FasterCorpseCleanup, "Faster Corpse Cleanup", true, "f", ["gameplay"]);
         check(!SquadFingerprint.IsGameplayMod(camMod) &&
+              !SquadFingerprint.IsGameplayMod(hudMod) &&
               !SquadFingerprint.IsGameplayMod(meleeMod) &&
               SquadFingerprint.IsGameplayMod(corpseMod) &&
-              SquadFingerprint.Compute(r16).StartsWith("r16-", StringComparison.Ordinal),
-              "SquadFingerprint excludes per-player camera pullback & melee slot from squad hash while including gameplay corpse cleanup");
+              SquadFingerprint.Compute(r17).StartsWith("r17-", StringComparison.Ordinal),
+              "SquadFingerprint excludes per-player camera pullback, walker HUD & melee slot from squad hash while including gameplay corpse cleanup");
     }
 
     static void TestDiscordHelmetExport(string dir, Action<bool, string> check)

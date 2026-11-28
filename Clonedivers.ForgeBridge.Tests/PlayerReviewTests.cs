@@ -197,8 +197,8 @@ internal static class PlayerReviewTests
             var v2Prefs = new HellForgePreferences { Mode = v2Resp.GetProperty("Mode").GetString()!, Texture = v2Resp.GetProperty("Texture").GetString()!, EnemySkin = v2Resp.GetProperty("EnemySkin").GetString()!, Droids = v2Resp.GetProperty("Droids").GetBoolean(), Covenant = v2Resp.GetProperty("Covenant").GetBoolean() };
             var v2Selected = v2Prefs.Selection();
             check(v2Prefs.Mode == "clonedivers" && v2Prefs.Texture == "reduced512" && v2Prefs.EnemySkin == "mixed-droids" && v2Prefs.Droids && v2Prefs.Covenant &&
-                v2Selected.Version == "2026.11.27-r25" && v2Selected.Texture == "reduced512" && v2Selected.Options["mixed-droids"] && v2Selected.Options["droids"] && v2Selected.Options["covenant"] && v2Selected.Files.Count == 132,
-                "bridge select-mode resolves reduced512, mixed-droids, and covenant natively against Clones r25");
+                v2Selected.Version == "2026.11.28-r26" && v2Selected.Texture == "reduced512" && v2Selected.Options["mixed-droids"] && v2Selected.Options["droids"] && v2Selected.Options["covenant"] && v2Selected.Files.Count == 144,
+                "bridge select-mode resolves reduced512, mixed-droids, and covenant natively against Clones r26");
             var v21EmpResp = await playPlayer.RunAsync(["select-mode", "--mode", "empire", "--delta", "no", "--texture", "potato256", "--droids", "yes", "--covenant", "yes", "--enemy-skin", "mixed-droids", "--squid-skin", "mixed-covenant"], CancellationToken.None);
             var v21EmpPrefs = new HellForgePreferences
             {
@@ -208,8 +208,8 @@ internal static class PlayerReviewTests
                 SquidSkin = v21EmpResp.GetProperty("SquidSkin").GetString()!
             };
             var v21EmpSel = v21EmpPrefs.Selection();
-            check(v21EmpSel.Version == "2026.11.27-r54" && v21EmpSel.Texture == "potato256" && v21EmpSel.Options["mixed-covenant"] && v21EmpSel.Options["covenant"] && !v21EmpSel.Options["deathtrooper"] && v21EmpSel.Files.Count == 144,
-                "bridge select-mode resolves potato256, mixed-covenant, and forces deathtrooper=false against Empire r54");
+            check(v21EmpSel.Version == "2026.11.28-r55" && v21EmpSel.Texture == "potato256" && v21EmpSel.Options["mixed-covenant"] && v21EmpSel.Options["covenant"] && !v21EmpSel.Options.GetValueOrDefault("deathtrooper") && v21EmpSel.Files.Count == 144,
+                "bridge select-mode resolves potato256, mixed-covenant, and strips deathtrooper against Empire r55");
             var backResp = await playPlayer.RunAsync(["select-mode", "--mode", "empire", "--delta", "no", "--texture", "lighter", "--droids", "no", "--covenant", "no"], CancellationToken.None);
             check(backResp.GetProperty("Mode").GetString() == "empire" && backResp.GetProperty("Texture").GetString() == "lighter" &&
                 !backResp.GetProperty("Droids").GetBoolean() && backResp.GetProperty("EnemySkin").GetString() == "native-automatons",
