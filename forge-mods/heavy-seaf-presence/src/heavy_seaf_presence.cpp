@@ -1214,6 +1214,73 @@ static int HeavyHasEntityHeadroom(uintptr_t game, uint32_t min_free)
 }
 #endif
 
+#define HEAVY_PELICAN_CARGO_TROOPS   6
+#define HEAVY_PELICAN_INFLIGHT_MS    25000ULL
+#define HEAVY_MAX_INFLIGHT_SHUTTLES  16
+
+struct HeavyInflightShuttle {
+    ULONGLONG admitted_ms;
+    ULONGLONG expires_ms;
+    int remaining_troops;
+};
+
+static HeavyInflightShuttle g_inflight_shuttles[HEAVY_MAX_INFLIGHT_SHUTTLES];
+static int g_inflight_last_living = -1;
+
+static void HeavyClearInflightSeaf(void)
+{
+    memset(g_inflight_shuttles, 0, sizeof g_inflight_shuttles);
+    g_inflight_last_living = -1;
+}
+
+static int HeavyReconcileInflightSeaf(ULONGLONG now_ms, int current_living)
+{
+    int newly_spawned = (g_inflight_last_living >= 0 && current_living > g_inflight_last_living)
+                        ? (current_living - g_inflight_last_living) : 0;
+    g_inflight_last_living = current_living;
+
+    int total_inflight = 0;
+    for (int i = 0; i < HEAVY_MAX_INFLIGHT_SHUTTLES; ++i) {
+        HeavyInflightShuttle& s = g_inflight_shuttles[i];
+        if (s.remaining_troops <= 0) continue;
+        if (now_ms >= s.expires_ms || now_ms < s.admitted_ms) {
+            s.remaining_troops = 0;
+            continue;
+        }
+        if (newly_spawned > 0) {
+            int take = (newly_spawned < s.remaining_troops) ? newly_spawned : s.remaining_troops;
+            s.remaining_troops -= take;
+            newly_spawned -= take;
+            if (s.remaining_troops <= 0) {
+                s.remaining_troops = 0;
+                continue;
+            }
+        }
+        total_inflight += s.remaining_troops;
+    }
+    return total_inflight;
+}
+
+static void HeavyRecordAdmittedSeafShuttle(ULONGLONG now_ms, int current_living)
+{
+    if (g_inflight_last_living < 0) g_inflight_last_living = current_living;
+    int victim = 0;
+    ULONGLONG earliest = ~0ULL;
+    for (int i = 0; i < HEAVY_MAX_INFLIGHT_SHUTTLES; ++i) {
+        if (g_inflight_shuttles[i].remaining_troops <= 0) {
+            victim = i;
+            break;
+        }
+        if (g_inflight_shuttles[i].expires_ms < earliest) {
+            earliest = g_inflight_shuttles[i].expires_ms;
+            victim = i;
+        }
+    }
+    g_inflight_shuttles[victim].admitted_ms = now_ms;
+    g_inflight_shuttles[victim].expires_ms = now_ms + HEAVY_PELICAN_INFLIGHT_MS;
+    g_inflight_shuttles[victim].remaining_troops = HEAVY_PELICAN_CARGO_TROOPS;
+}
+
 static int HeavyCanAdmitSeafSpawn(uintptr_t game, int eff_ceiling, int* out_living_seaf,
                                   uint32_t* out_walking_ai, uint32_t* out_live_em)
 {
@@ -1230,13 +1297,16 @@ static int HeavyCanAdmitSeafSpawn(uintptr_t game, int eff_ceiling, int* out_livi
     }
     int pool_seaf = heavy_seaf_live_troops();
     int living = (em_seaf > pool_seaf) ? em_seaf : pool_seaf;
-    if (out_living_seaf) *out_living_seaf = living;
+    int inflight = HeavyReconcileInflightSeaf(HeavyNowMs(), living);
+    int committed = living + inflight;
+    int shuttle_cost = (cap >= HEAVY_PELICAN_CARGO_TROOPS) ? HEAVY_PELICAN_CARGO_TROOPS : 1;
+    if (out_living_seaf) *out_living_seaf = committed;
     if (out_walking_ai) *out_walking_ai = walking_ai;
     if (out_live_em) *out_live_em = live_em;
 
-    if (living >= cap) return 0;
-    if (walking_ai >= HEAVY_MAX_WALKING_AI_GATE) return 0;
-    if (live_em >= HEAVY_MAX_LIVE_EM_GATE) return 0;
+    if (committed + shuttle_cost > cap) return 0;
+    if (walking_ai + (uint32_t)inflight >= HEAVY_MAX_WALKING_AI_GATE) return 0;
+    if (live_em + (uint32_t)inflight >= HEAVY_MAX_LIVE_EM_GATE) return 0;
     if (free_slots < cd_em_scale_reserve(layout.bounded_capacity, HEAVY_GWNAV_RESERVE_2048)) return 0;
     return 1;
 }
@@ -1276,6 +1346,7 @@ static void Native1401SpawnDetour(uintptr_t a, uintptr_t b, uintptr_t c, uintptr
             }
             return;
         }
+        HeavyRecordAdmittedSeafShuttle(HeavyNowMs(), g_inflight_last_living >= 0 ? g_inflight_last_living : 0);
         ++g_native_1401_allowed_drops;
     }
     if (g_native_1401_spawn) g_native_1401_spawn(a, b, c, d);
@@ -1649,6 +1720,7 @@ static void Tick(HfMod* mod, float dt, void* user)
             if (was_host) {
                 armed = 0; tries = 0; wave_left = 0; wave_held = 0; g_call_left = 0; g_have_beacon = 0;
                 was_host = 0;
+                HeavyClearInflightSeaf();
                 EnterCriticalSection(&g_lock);
                 squad = g_squad;
                 tpl = g_tpl;
@@ -1672,6 +1744,7 @@ static void Tick(HfMod* mod, float dt, void* user)
             g_wave_sites = 0;
             next_wave = 0;
             HeavyLandingGateReset(&g_landing_gate);
+            HeavyClearInflightSeaf();
             was_host = 1;
         }
         if (!armed && tries < 8 && now >= mission_at && now - mission_at > 2000) {
@@ -1737,6 +1810,7 @@ static void Tick(HfMod* mod, float dt, void* user)
                         uint32_t call_type = eff_clone_wars ? 116u : WaveCallTypeFor(eff_support_squads);
                         rc = TimedCallSeaf(game, squad_k, call_type, NULL);
                         if (rc == 0) {
+                            HeavyRecordAdmittedSeafShuttle(now, g_inflight_last_living >= 0 ? g_inflight_last_living : 0);
                             sent++;
                             squad_k++;
                             wave_left--;
@@ -1766,6 +1840,7 @@ static void Tick(HfMod* mod, float dt, void* user)
                 uint32_t call_type = WaveCallTypeFor(OptionsEffectiveSupportSquads(beacon_diff));
                 int rc = TimedCallSeaf(game, g_call_k, call_type, g_beacon);
                 if (rc == 0) {
+                    HeavyRecordAdmittedSeafShuttle(now, g_inflight_last_living >= 0 ? g_inflight_last_living : 0);
                     g_call_k++;
                     g_call_left--;
                     Log("SEAF Reinforcement wave squad %d of 3 (%s)", g_call_k, call_type == 116u ? "regular SEAF" : "SEAF support squad");
@@ -1791,6 +1866,7 @@ static void Tick(HfMod* mod, float dt, void* user)
             wave_held = 0;
             g_call_left = 0;
             g_have_beacon = 0;
+            HeavyClearInflightSeaf();
         }
     }
     if (state == HF_STATE_PREPARE_MISSION) return;

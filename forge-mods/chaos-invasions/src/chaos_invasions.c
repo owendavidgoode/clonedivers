@@ -1285,14 +1285,12 @@ static int ChaosEnsureOwnedAuxBundle(uintptr_t gbase, uintptr_t ebase, size_t es
 
 /* Releases every engine package ref_count acquired by Chaos during the ending mission (#43/#45/#46).
  * Inspects pkg_sys before each RefcountedPackageRelease (game.dll+0x12FE4E0) so only present entries
- * with refcnt >= 1 are decremented (1 -> 0 unloads; >=2 -> N-1 preserves external engine owners; 0 double-free). */
+ * with refcnt >= 1 are decremented (1 -> 0 unloads; >=2 -> N-1 preserves external engine owners; 0 double-free).
+ * Retains any unreleased entries in g_chaos_owned_pkgs if refmap reads fail initially or mid-loop. */
 static void ReleaseChaosOwnedPackages(uintptr_t gbase)
 {
     if (g_chaos_owned_pkg_count == 0u) return;
     if (!gbase || !g_pins_ok || !hf || !hf->read) {
-        g_chaos_owned_pkg_count = 0u;
-        memset(g_chaos_owned_pkgs, 0, sizeof g_chaos_owned_pkgs);
-        memset(g_chaos_owned_pkg_evicted, 0, sizeof g_chaos_owned_pkg_evicted);
         return;
     }
 
@@ -1301,36 +1299,55 @@ static void ReleaseChaosOwnedPackages(uintptr_t gbase)
     uint64_t empty_key = 0;
     int heap_owned = 0;
     uint8_t* map_buf = ChaosReadRefMapBuffer(gbase, &pkg_sys, &map_entries_addr, &map_cap, &empty_key, &heap_owned);
-    uint32_t released = 0u, skipped = 0u;
+    if (!map_buf || !pkg_sys) {
+        if (heap_owned && map_buf) free(map_buf);
+        return;
+    }
 
-    if (map_buf && pkg_sys) {
-        size_t map_bytes = (size_t)map_cap * 16u;
-        for (uint32_t i = 0; i < g_chaos_owned_pkg_count; ++i) {
-            uint64_t pkg_id = g_chaos_owned_pkgs[i];
-            if (!pkg_id) continue;
-            uint32_t used = 0u, slot_idx = 0xFFFFFFFFu;
-            uint64_t refcnt = 0ULL;
-            int present = 0;
-            (void)ChaosRefMapInspect(map_buf, map_cap, empty_key, pkg_id, &used, &present, &slot_idx, &refcnt);
-            if (present && refcnt >= 1ULL) {
-                CallPkgRelease(gbase, (void*)pkg_sys, &pkg_id, 1u);
-                ++released;
-                if (!ReadMem(map_entries_addr, map_buf, map_bytes)) {
-                    break;
-                }
-            } else {
-                ++skipped;
+    uint32_t owned_before = g_chaos_owned_pkg_count;
+    uint32_t released = 0u, skipped = 0u;
+    size_t map_bytes = (size_t)map_cap * 16u;
+
+    for (uint32_t i = 0; i < g_chaos_owned_pkg_count; ++i) {
+        uint64_t pkg_id = g_chaos_owned_pkgs[i];
+        if (!pkg_id) continue;
+        uint32_t used = 0u, slot_idx = 0xFFFFFFFFu;
+        uint64_t refcnt = 0ULL;
+        int present = 0;
+        (void)ChaosRefMapInspect(map_buf, map_cap, empty_key, pkg_id, &used, &present, &slot_idx, &refcnt);
+        if (present && refcnt >= 1ULL) {
+            CallPkgRelease(gbase, (void*)pkg_sys, &pkg_id, 1u);
+            g_chaos_owned_pkgs[i] = 0ULL;
+            g_chaos_owned_pkg_evicted[i] = 0u;
+            ++released;
+            if ((i + 1u < g_chaos_owned_pkg_count) && !ReadMem(map_entries_addr, map_buf, map_bytes)) {
+                break;
             }
+        } else {
+            g_chaos_owned_pkgs[i] = 0ULL;
+            g_chaos_owned_pkg_evicted[i] = 0u;
+            ++skipped;
         }
     }
     if (heap_owned && map_buf) free(map_buf);
 
-    uint32_t owned_before = g_chaos_owned_pkg_count;
-    g_chaos_owned_pkg_count = 0u;
-    memset(g_chaos_owned_pkgs, 0, sizeof g_chaos_owned_pkgs);
-    memset(g_chaos_owned_pkg_evicted, 0, sizeof g_chaos_owned_pkg_evicted);
-    if (hf && self && hf->log && (released > 0u || skipped > 0u)) {
-        hf->log(self, "CHAOS_PKG_RELEASE: owned=%u released=%u skipped=%u", owned_before, released, skipped);
+    uint32_t remaining = 0u;
+    for (uint32_t i = 0; i < g_chaos_owned_pkg_count; ++i) {
+        if (g_chaos_owned_pkgs[i] != 0ULL) {
+            g_chaos_owned_pkgs[remaining] = g_chaos_owned_pkgs[i];
+            g_chaos_owned_pkg_evicted[remaining] = g_chaos_owned_pkg_evicted[i];
+            ++remaining;
+        }
+    }
+    for (uint32_t i = remaining; i < CHAOS_MAX_OWNED_PKGS; ++i) {
+        g_chaos_owned_pkgs[i] = 0ULL;
+        g_chaos_owned_pkg_evicted[i] = 0u;
+    }
+    g_chaos_owned_pkg_count = remaining;
+
+    if (hf && self && hf->log && (released > 0u || skipped > 0u || remaining > 0u)) {
+        hf->log(self, "CHAOS_PKG_RELEASE: owned=%u released=%u skipped=%u retained=%u",
+                owned_before, released, skipped, remaining);
     }
 }
 
@@ -2633,6 +2650,10 @@ static int EnqueueTheaterPlatoon(int faction, int diff, int count, uint32_t flag
 
 static void DrainTheaterSpawnQueue(uintptr_t gbase, uintptr_t director)
 {
+    if (!config.enabled) {
+        ChaosSpawnQueueReset(&g_spawn_queue);
+        return;
+    }
     if (g_spawn_queue.count == 0u) return;
     ChaosRefreshEmSnapshot(gbase, clock_state.age);
     uint32_t reserve_floor = g_em_snap.gwnav_reserve ? g_em_snap.gwnav_reserve : UK_EM_RESERVE_SLOTS;
@@ -2654,6 +2675,10 @@ static void DrainTheaterSpawnQueue(uintptr_t gbase, uintptr_t director)
     ChaosSpawnJob job;
     for (uint32_t n = 0; n < budget && ChaosSpawnQueuePop(&g_spawn_queue, &job); ++n) {
         if (job.faction >= CHAOS_FACTIONS || job.row_slot >= CHAOS_CURATED_PER_FACTION) continue;
+        if (!((int)job.faction == g_native_faction ||
+              (g_faction_resident[job.faction] && PeersReadyForFaction(gbase, (int)job.faction)))) {
+            continue;
+        }
         const ChaosRosterUnit* u = &g_rosters[job.faction][job.row_slot];
         if (!u->valid || !u->row_addr) continue;
         void* slot = CallSpawnRosterRow(gbase, (void*)director, (const void*)u->row_addr,
@@ -2833,20 +2858,26 @@ static void ServiceVirtualBattalions(uintptr_t gbase, int native, int diff,
         }
 
         /* Promote outer enemy regiment into a cohesive 18-24 unit real swarm when players close within 135 m! */
-        if (b->faction < CHAOS_FACTIONS && nearest_d2 < 135.0f * 135.0f &&
-            g_rosters_loaded[b->faction] && g_faction_resident[b->faction] &&
-            g_spawn_queue.count + 24u < UK_SPAWN_QUEUE_CAP &&
-            g_em_snap.valid &&
-            g_em_snap.free_slots >= reserve_floor + 28u &&
-            g_em_snap.walking_ai_slots + 24u <= UK_MAX_WALKING_AI_CAP) {
-            uint32_t flags = (b->faction == CHAOS_BUGS) ? 0x24u : 0x3Cu;
-            int swarm_n = (b->unit_count >= 18u) ? (int)b->unit_count : 20;
-            int promoted = EnqueueTheaterPlatoon((int)b->faction, diff, swarm_n, flags,
-                                                 b->pos, players[nearest_p]);
-            if (promoted > 0) {
-                g_ultrakill.promotions_total += (uint32_t)promoted;
-                b->active = 0u;
-                continue;
+        {
+            int eff_native = (native >= 0) ? native : g_native_faction;
+            int fac_ready = (b->faction < CHAOS_FACTIONS) &&
+                            g_rosters_loaded[b->faction] &&
+                            (((int)b->faction == eff_native) ||
+                             (g_faction_resident[b->faction] && PeersReadyForFaction(gbase, (int)b->faction)));
+            if (config.enabled && fac_ready && nearest_d2 < 135.0f * 135.0f &&
+                g_spawn_queue.count + 24u < UK_SPAWN_QUEUE_CAP &&
+                g_em_snap.valid &&
+                g_em_snap.free_slots >= reserve_floor + 28u &&
+                g_em_snap.walking_ai_slots + 24u <= UK_MAX_WALKING_AI_CAP) {
+                uint32_t flags = (b->faction == CHAOS_BUGS) ? 0x24u : 0x3Cu;
+                int swarm_n = (b->unit_count >= 18u) ? (int)b->unit_count : 20;
+                int promoted = EnqueueTheaterPlatoon((int)b->faction, diff, swarm_n, flags,
+                                                     b->pos, players[nearest_p]);
+                if (promoted > 0) {
+                    g_ultrakill.promotions_total += (uint32_t)promoted;
+                    b->active = 0u;
+                    continue;
+                }
             }
         }
 
@@ -3783,9 +3814,12 @@ static void LoadOptions(const char* path, int session_required)
     }
     if (memcmp(&config, &next, sizeof next) != 0) {
         config = next;
-        if (!config.enabled && g_pending.active) {
-            ChaosTrackerReleaseUnusedReservations(&g_tracker, g_pending.faction);
-            memset(&g_pending, 0, sizeof g_pending);
+        if (!config.enabled) {
+            ChaosSpawnQueueReset(&g_spawn_queue);
+            if (g_pending.active) {
+                ChaosTrackerReleaseUnusedReservations(&g_tracker, g_pending.faction);
+                memset(&g_pending, 0, sizeof g_pending);
+            }
         }
         ChaosReset(&clock_state, &config);
         g_shared_dirty = 1;
@@ -3808,9 +3842,12 @@ static void ChaosApplyEffectiveHostConfig(int live_diff, int is_poll, const char
     UltrakillSyncDifficulty12();
     if (memcmp(&config, &next, sizeof next) != 0) {
         config = next;
-        if (!config.enabled && g_pending.active) {
-            ChaosTrackerReleaseUnusedReservations(&g_tracker, g_pending.faction);
-            memset(&g_pending, 0, sizeof g_pending);
+        if (!config.enabled) {
+            ChaosSpawnQueueReset(&g_spawn_queue);
+            if (g_pending.active) {
+                ChaosTrackerReleaseUnusedReservations(&g_tracker, g_pending.faction);
+                memset(&g_pending, 0, sizeof g_pending);
+            }
         }
         ChaosReset(&clock_state, &config);
         g_shared_dirty = 1;
@@ -3841,9 +3878,12 @@ static void ChaosRestoreNonD12Config(int live_diff, const char* log_tag)
     UltrakillSyncDifficulty12();
     if (memcmp(&config, &target, sizeof target) != 0) {
         config = target;
-        if (!config.enabled && g_pending.active) {
-            ChaosTrackerReleaseUnusedReservations(&g_tracker, g_pending.faction);
-            memset(&g_pending, 0, sizeof g_pending);
+        if (!config.enabled) {
+            ChaosSpawnQueueReset(&g_spawn_queue);
+            if (g_pending.active) {
+                ChaosTrackerReleaseUnusedReservations(&g_tracker, g_pending.faction);
+                memset(&g_pending, 0, sizeof g_pending);
+            }
         }
         ChaosReset(&clock_state, &config);
         g_shared_dirty = 1;
@@ -4062,6 +4102,11 @@ static void HandleHostMigration(unsigned old_host, unsigned new_host)
         memset(g_ultrakill.battalions, 0, sizeof g_ultrakill.battalions);
         g_ultrakill.virtual_units_total = 0u;
         g_ultrakill.virtual_regiments_active = 0u;
+        g_atte.active = 0;
+        g_atte.entity = 0u;
+        g_atte.fire_cd_s = 0.0f;
+        g_atte.redeploy_cd_s = 0.0f;
+        g_atte.spawn_retry_s = 0.0f;
     }
     UltrakillSyncDifficulty12();
 
@@ -4241,10 +4286,10 @@ static void OnMissionEnd(HfMod* mod, const HfEventInfo* info, void* user)
 
 static void OnSessionEnd(HfMod* mod, HfEvent ev, void* user)
 {
+    /* SDK v20 contract (hellforge_mod.h:60-65): HF_EVENT_SESSION_END runs on the loader watch thread
+     * or under Windows process-exit loader lock — never call game.dll functions here.
+     * In-session mission teardown is handled on the game thread via ResetMissionState(). */
     (void)mod; (void)ev; (void)user;
-    UltrakillSyncDirectorPatrolValve(0);
-    DespawnAtteWalkerIfActive(GameBase(NULL));
-    ReleaseChaosOwnedPackages(GameBase(NULL));
     InterlockedExchange(&g_phase, PHASE_ENDED);
 }
 
@@ -4401,7 +4446,7 @@ static void Tick(HfMod* mod, float dt, void* user)
 
     if (ChaosIsUltrakillActiveInMission(gbase)) {
         ServiceUltrakillTheater(gbase, director, native, diff, living_pos, living_players, dt);
-    } else if (g_spawn_queue.count > 0u) {
+    } else if (config.enabled && g_spawn_queue.count > 0u) {
         DrainTheaterSpawnQueue(gbase, director);
     }
 

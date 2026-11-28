@@ -41,10 +41,17 @@ static unsigned g_mock_write_calls_seen = 0;
 static char g_mock_logs_dir[1700] = {0};
 static HfEventCallback g_mock_on_game_loaded = NULL;
 static HfEventCallback g_mock_on_entities_ready = NULL;
+static HfEventCallback g_mock_on_session_end = NULL;
+static uintptr_t g_mock_fail_read_addr = 0u;
+static int g_mock_fail_read_countdown = -1;
 
 static int MockRead(uintptr_t address, void* buffer, size_t size)
 {
     if (!address || !buffer) return 1;
+    if (g_mock_fail_read_addr != 0u && address == g_mock_fail_read_addr && g_mock_fail_read_countdown >= 0) {
+        if (g_mock_fail_read_countdown == 0) return 1;
+        --g_mock_fail_read_countdown;
+    }
     if (g_mock_fail_em_bulk_read &&
         (size == UK_EM_DESCRIPTOR_CAP * UK_EM_DESCRIPTOR_STRIDE ||
          size == UK_EM_MAX_DESCRIPTOR_CAP * UK_EM_DESCRIPTOR_STRIDE)) return 1;
@@ -132,6 +139,7 @@ static int OnEvent(HfMod* m, HfEvent e, HfEventCallback cb, void* u)
     (void)m; (void)u;
     if (e == HF_EVENT_GAME_LOADED) g_mock_on_game_loaded = cb;
     else if (e == HF_EVENT_ENTITIES_READY) g_mock_on_entities_ready = cb;
+    else if (e == HF_EVENT_SESSION_END) g_mock_on_session_end = cb;
     return 0;
 }
 
@@ -3552,6 +3560,128 @@ static void TestV230OvernightDeliverables(HfApi* api)
         stopped = 0;
         g_ref_slots[eh_slot].key = 0ULL;
         g_ref_slots[eh_slot].ref = 0ULL;
+
+        /* 5. Codex Wave-3b review regressions (Findings 1, 5, 6, 7): */
+        ResetMissionState();
+        game_state = HF_STATE_MISSION;
+        state = HF_STATE_MISSION;
+        role = HF_SESSION_HOST;
+        previous_role = 1u;
+        g_native_faction = CHAOS_BOTS;
+        ResolveCuratedRosterForFaction((uintptr_t)g_arena_game, CHAOS_BOTS);
+        ResolveCuratedRosterForFaction((uintptr_t)g_arena_game, CHAOS_BUGS);
+        g_faction_resident[CHAOS_BOTS] = 1;
+        g_faction_resident[CHAOS_BUGS] = 1;
+        g_em_snap.valid = 0;
+        ChaosRefreshEmSnapshot((uintptr_t)g_arena_game, clock_state.age + 1.0);
+
+        /* (5a) Finding 5: Late-joiner with resident_mask == 0 blocks DrainTheaterSpawnQueue & ServiceVirtualBattalions for foreign factions! */
+        uint32_t pcount2 = 2u;
+        uint64_t host_peer = 0x1111ULL, joiner_peer = 0x2222ULL;
+        void* p_luser = g_mock_local_user_mem;
+        memcpy(g_arena_game + CHAOS_LOCAL_USER_RVA, &p_luser, 8u);
+        memcpy(g_mock_local_user_mem + 0xB398u, &host_peer, 8u);
+        memcpy(g_pm_mem + 0x84u, &pcount2, 4u);
+        memcpy(g_pm_mem + 0x2C8u + 0u * 0x38u, &host_peer, 8u);
+        memcpy(g_pm_mem + 0x2C8u + 1u * 0x38u, &joiner_peer, 8u);
+        ReconcilePeers((uintptr_t)g_arena_game);
+        CHECK(!PeersReadyForFaction((uintptr_t)g_arena_game, CHAOS_BUGS));
+
+        ChaosSpawnJob bug_job = {0};
+        bug_job.faction = CHAOS_BUGS; bug_job.row_slot = 0u; bug_job.flags = 0x24u;
+        bug_job.pos[0] = 180.0f; bug_job.pos[1] = 200.0f; bug_job.pos[2] = 10.0f;
+        bug_job.target[0] = 100.0f; bug_job.target[1] = 200.0f; bug_job.target[2] = 10.0f;
+        ChaosSpawnQueueReset(&g_spawn_queue);
+        ChaosSpawnQueuePush(&g_spawn_queue, &bug_job);
+        unsigned r_before_peer = g_roster_calls;
+        DrainTheaterSpawnQueue((uintptr_t)g_arena_game, (uintptr_t)g_director_mem);
+        CHECK(g_roster_calls == r_before_peer); /* Foreign job blocked while joiner is still loading! */
+
+        memset(g_ultrakill.battalions, 0, sizeof g_ultrakill.battalions);
+        g_ultrakill.battalions[0].active = 1u;
+        g_ultrakill.battalions[0].faction = CHAOS_BUGS;
+        g_ultrakill.battalions[0].unit_count = 20u;
+        g_ultrakill.battalions[0].pos[0] = 180.0f; /* 80m < 135m promotion threshold */
+        g_ultrakill.battalions[0].pos[1] = 200.0f;
+        g_ultrakill.battalions[0].pos[2] = 10.0f;
+        g_ultrakill.battalions[0].ttl = 30.0f;
+        uint32_t promo_before = g_ultrakill.promotions_total;
+        float host_ppos[1][3] = {{100.0f, 200.0f, 10.0f}};
+        ServiceVirtualBattalions((uintptr_t)g_arena_game, CHAOS_BOTS, 12, host_ppos, 1, 0.1f);
+        CHECK(g_ultrakill.promotions_total == promo_before && g_ultrakill.battalions[0].active == 1u);
+
+        /* Native faction job IS allowed through DrainTheaterSpawnQueue even while late-joiner loads foreign packages */
+        ChaosSpawnJob bot_job = bug_job;
+        bot_job.faction = CHAOS_BOTS;
+        ChaosSpawnQueuePush(&g_spawn_queue, &bot_job);
+        DrainTheaterSpawnQueue((uintptr_t)g_arena_game, (uintptr_t)g_director_mem);
+        CHECK(g_roster_calls == r_before_peer + 1u);
+
+        /* Disabling Chaos (CD_CHAOS_OFF) clears g_spawn_queue immediately and prevents draining! */
+        uint32_t pcount1 = 1u;
+        memcpy(g_pm_mem + 0x84u, &pcount1, 4u);
+        memset(g_peer_sync, 0, sizeof g_peer_sync);
+        role = HF_SESSION_SOLO;
+        ChaosSpawnQueuePush(&g_spawn_queue, &bug_job);
+        CHECK(g_spawn_queue.count == 1u);
+        g_host_opts.chaos_intensity = CD_CHAOS_OFF;
+        g_host_opts.theater_preset = CD_THEATER_STANDARD;
+        ChaosApplyEffectiveHostConfig(5, 0, "TEST_OFF");
+        CHECK(config.enabled == 0 && g_spawn_queue.count == 0u);
+        ChaosSpawnQueuePush(&g_spawn_queue, &bug_job);
+        unsigned r_before_off = g_roster_calls;
+        DrainTheaterSpawnQueue((uintptr_t)g_arena_game, (uintptr_t)g_director_mem);
+        CHECK(g_roster_calls == r_before_off && g_spawn_queue.count == 0u);
+        g_host_opts = cd_host_options_defaults();
+        ChaosApplyEffectiveHostConfig(12, 0, "TEST_ON");
+
+        /* (5b) Finding 6: ReleaseChaosOwnedPackages retains unreleased entries on initial or mid-loop ReadMem failure */
+        g_chaos_owned_pkg_count = 0u;
+        memset(g_chaos_owned_pkgs, 0, sizeof g_chaos_owned_pkgs);
+        uint64_t rpkgs[3] = {0x7777000000000001ull, 0x7777000000000002ull, 0x7777000000000003ull};
+        for (int k = 0; k < 3; ++k) {
+            MockPkgRequest(NULL, &rpkgs[k], 1u);
+            ChaosRecordOwnedPkg(rpkgs[k]);
+        }
+        CHECK(g_chaos_owned_pkg_count == 3u);
+        g_pkg_release_calls = 0u;
+        g_pkg_double_free_errors = 0u;
+        g_mock_fail_read_addr = (uintptr_t)g_ref_slots;
+        g_mock_fail_read_countdown = 0; /* Initial ChaosReadRefMapBuffer fails */
+        ReleaseChaosOwnedPackages((uintptr_t)g_arena_game);
+        CHECK(g_pkg_release_calls == 0u && g_chaos_owned_pkg_count == 3u);
+
+        g_mock_fail_read_countdown = 1; /* Initial read ok, 1st release ok, post-release ReadMem fails mid-loop! */
+        ReleaseChaosOwnedPackages((uintptr_t)g_arena_game);
+        CHECK(g_pkg_release_calls == 1u && g_chaos_owned_pkg_count == 2u &&
+              g_chaos_owned_pkgs[0] == rpkgs[1] && g_chaos_owned_pkgs[1] == rpkgs[2]);
+
+        g_mock_fail_read_addr = 0u;
+        g_mock_fail_read_countdown = -1;
+        ReleaseChaosOwnedPackages((uintptr_t)g_arena_game);
+        CHECK(g_pkg_release_calls == 3u && g_chaos_owned_pkg_count == 0u && g_pkg_double_free_errors == 0u);
+
+        /* (5c) Finding 7: HandleHostMigration (1 -> 0) zeroes g_atte without calling CallRemoveEntity */
+        g_atte.active = 1;
+        g_atte.entity = 44999u;
+        unsigned rem_before_mig = g_remove_entity_calls;
+        HandleHostMigration(1u, 0u);
+        CHECK(g_atte.active == 0 && g_atte.entity == 0u && g_remove_entity_calls == rem_before_mig);
+
+        /* (5d) Finding 1: OnSessionEnd (HF_EVENT_SESSION_END) sets PHASE_ENDED and calls ZERO game.dll functions! */
+        CHECK(g_mock_on_session_end != NULL);
+        MockPkgRequest(NULL, &rpkgs[0], 1u);
+        ChaosRecordOwnedPkg(rpkgs[0]);
+        g_atte.active = 1;
+        g_atte.entity = 44998u;
+        g_pkg_release_calls = 0u;
+        unsigned rem_before_se = g_remove_entity_calls;
+        g_mock_on_session_end(self, HF_EVENT_SESSION_END, NULL);
+        CHECK(InterlockedCompareExchange(&g_phase, PHASE_ENDED, PHASE_ENDED) == PHASE_ENDED);
+        CHECK(g_pkg_release_calls == 0u && g_remove_entity_calls == rem_before_se && g_chaos_owned_pkg_count == 1u);
+        InterlockedExchange(&g_phase, PHASE_ACTIVE);
+        ResetMissionState(); /* Game-thread cleanup releases cleanly */
+        CHECK(g_chaos_owned_pkg_count == 0u && g_atte.active == 0);
     }
 
     g_d12_slot.state = 0;
