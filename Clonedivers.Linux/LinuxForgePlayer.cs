@@ -678,6 +678,7 @@ internal static class LinuxStaleSessionGuard
         }
         catch (Exception e) when (e is IOException or UnauthorizedAccessException) { }
 
+        orphans.Sort((a, b) => a.Pid.CompareTo(b.Pid));
         return (false, orphans);
     }
 

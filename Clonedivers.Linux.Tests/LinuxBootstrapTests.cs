@@ -187,11 +187,12 @@ internal static class LinuxBootstrapTests
         var reusedClean = LinuxStaleSessionGuard.CleanupStaleOrphans(normRoot, fakeProc, selfPid: 9999, killOverride: pid =>
         {
             killedPids.Add(pid);
-            if (pid == 4101)
-                WriteProcStat(4102, "unrelated-reused", 1, 999999); // Simulate PID 4102 reused while 4101 was terminating!
+            int otherPid = pid == 4101 ? 4102 : 4101;
+            WriteProcStat(otherPid, "unrelated-reused", 1, 999999); // Simulate remaining orphan PID reused while first was terminating!
         });
         check(killedPids.SequenceEqual(new[] { 4101 }) && reusedClean.Count == 1,
               "Finding #11: LinuxStaleSessionGuard verifies /proc/<pid>/stat starttime before Kill and skips reused PIDs");
+        WriteProcStat(4101, "hf-inner.sh", 1, 20001);
         WriteProcStat(4102, "HellForge.Cli", 1, 20002);
 
         // 4. Active HellForge.Cli play / proton / pressure-vessel / helldivers2.exe aborts cleanup (Finding #4)
