@@ -484,7 +484,15 @@ static bool claimed_id(uint32_t id) {
     for (auto c : claimed) if (c == id) return true;
     return false;
 }
-static void claim(const uint32_t ids[6]) { for (unsigned n = 0; n < 6; n++) claimed.push_back(ids[n]); }
+static void claim(const uint32_t ids[6]) {
+    for (unsigned n = 0; n < 6; n++) {
+        if (!ids[n] || claimed_id(ids[n])) continue;
+        if (claimed.size() >= 128u) {
+            claimed.erase(claimed.begin(), claimed.begin() + (claimed.size() - 127u));
+        }
+        claimed.push_back(ids[n]);
+    }
+}
 
 static bool reconcile(Tracked& tr) {
     auto inv = inventory(tr.soldier.identity.id);
@@ -667,6 +675,7 @@ static void ResetMission() {
     tracked.clear();
     claimed.clear();
     census.clear();
+    clear_weapon_buffers();
     census_live = 0;
     census_at = 0;
     live = 0;

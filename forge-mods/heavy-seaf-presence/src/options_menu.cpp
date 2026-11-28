@@ -271,7 +271,8 @@ static void LoadHostOptions(int is_poll)
     g_session_edit_mask = 0u;
     CdHeavySeafMode eff_seaf = cd_effective_heavy_seaf(&ho);
     int cw = (eff_seaf == CD_HEAVY_SEAF_CLONE_WARS) ? 1 : 0;
-    int wc = (ho.seaf_wave_ceiling > 0) ? ho.seaf_wave_ceiling : (cw ? 180 : 24);
+    int wc = (ho.seaf_wave_ceiling > 0) ? ho.seaf_wave_ceiling : (cw ? HEAVY_MAX_BOT_SAFE_SEAF_CEILING : 24);
+    if (wc > HEAVY_MAX_BOT_SAFE_SEAF_CEILING) wc = HEAVY_MAX_BOT_SAFE_SEAF_CEILING;
     HeavyApplyHostMode(eff_seaf, &c, &sup, &iv, &sq, &ex);
     if (c != g_constant || sup != g_support_squads || iv != g_interval || sq != g_squads ||
         ex != g_extra_squads || wc != g_wave_ceiling || cw != g_clone_wars) {
@@ -664,7 +665,8 @@ int OptionsExtraSquads(void)
 
 int OptionsWaveCeiling(void)
 {
-    return g_wave_ceiling > 0 ? g_wave_ceiling : 24;
+    int wc = g_wave_ceiling > 0 ? g_wave_ceiling : 24;
+    return wc > HEAVY_MAX_BOT_SAFE_SEAF_CEILING ? HEAVY_MAX_BOT_SAFE_SEAF_CEILING : wc;
 }
 
 int OptionsCloneWars(void)
@@ -709,16 +711,17 @@ static void OptionsComputeEffective(
         if (g_last_host_opts.seaf_wave_ceiling > 0) {
             ceiling = cw ? g_last_host_opts.seaf_wave_ceiling : 24;
         } else {
-            ceiling = cw ? ((live_diff >= 12 || g_last_host_opts.theater_preset != CD_THEATER_CLONE_WARS) ? 180 : 78) : 24;
+            ceiling = cw ? HEAVY_MAX_BOT_SAFE_SEAF_CEILING : 24;
         }
+        if (ceiling > HEAVY_MAX_BOT_SAFE_SEAF_CEILING) ceiling = HEAVY_MAX_BOT_SAFE_SEAF_CEILING;
     } else if (live_diff >= 12) {
         cw = 1;
         constant = 1;
         sup = 0;
         iv = 24;
         squads = 2;
-        ex = 10;
-        ceiling = 78;
+        ex = 5;
+        ceiling = HEAVY_MAX_BOT_SAFE_SEAF_CEILING;
     }
 
     if (g_session_edit_mask != 0u &&

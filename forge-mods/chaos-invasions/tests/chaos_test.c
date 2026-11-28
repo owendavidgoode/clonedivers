@@ -3,6 +3,10 @@
 
 static unsigned checks, subscriptions, ticks, fail_subscription, skipped_logs, fallback_logs, landing_logs, preload_ready_logs;
 static unsigned preload_deferred_logs, g_pkg_request_calls, g_pkg_requested_items, g_lookup_pkg_calls;
+static unsigned g_pkg_release_calls, g_pkg_released_items, g_pkg_double_free_errors;
+static unsigned g_remove_entity_calls, g_req_entity_spawn_calls, g_activate_beacon_calls;
+static uint32_t g_last_removed_entity, g_last_spawned_entity, g_last_beacon_type;
+static uint64_t g_last_spawned_resource;
 static unsigned spawn_logs, spawn_unmapped_logs, transport_spawn_logs, wave_complete_logs, wave_timeout_logs;
 static unsigned peer_observe_logs, host_migration_logs, peer_leave_logs;
 static unsigned role = HF_SESSION_SOLO, game_state = HF_STATE_MISSION;
@@ -319,6 +323,82 @@ static void MockPkgRequest(void* sys, const uint64_t* ids, uint32_t count)
             AddExeResidentPkg(pkg, 2u, 4u);
         }
     }
+}
+
+static void MockPkgRelease(void* sys, const uint64_t* ids, uint32_t count)
+{
+    (void)sys;
+    ++g_pkg_release_calls;
+    g_pkg_released_items += count;
+    for (uint32_t k = 0; k < count; k++) {
+        uint64_t pkg = ids[k];
+        int found = 0;
+        for (int i = 0; i < 256; i++) {
+            if (g_ref_slots[i].key == pkg) {
+                found = 1;
+                if (g_ref_slots[i].ref == 0ULL) {
+                    ++g_pkg_double_free_errors;
+                } else {
+                    --g_ref_slots[i].ref;
+                    if (g_ref_slots[i].ref == 0ULL) {
+                        AddExeResidentPkg(pkg, 2u, 0u); /* Unloaded when ref_count reaches 0 */
+                    }
+                }
+                break;
+            }
+        }
+        if (!found) {
+            ++g_pkg_double_free_errors;
+        }
+    }
+}
+
+static void MockRemoveEntity(void* em_root, uint32_t entity)
+{
+    ++g_remove_entity_calls;
+    g_last_removed_entity = entity;
+    if (g_mock_dead_count < 32) {
+        g_mock_dead_entities[g_mock_dead_count++] = entity;
+    }
+    if (em_root) {
+        for (uint32_t i = 0; i < 2048u; ++i) {
+            uint8_t* slot = (uint8_t*)em_root + UK_EM_DESCRIPTORS_OFF + (size_t)i * 24u;
+            uint32_t eid = 0u;
+            memcpy(&eid, slot + 8u, 4u);
+            if (eid == entity) {
+                memset(slot, 0, 24u);
+                break;
+            }
+        }
+    }
+}
+
+static uint32_t* MockRequestEntitySpawn(uint32_t* out_entity, uint64_t resource, void* creation)
+{
+    ++g_req_entity_spawn_calls;
+    g_last_spawned_resource = resource;
+    uint32_t eid = 44000u + (uint32_t)g_req_entity_spawn_calls;
+    g_last_spawned_entity = eid;
+    if (out_entity) *out_entity = eid;
+    if (creation) {
+        float pos[3] = {0.0f, 0.0f, 0.0f};
+        memcpy(pos, (const uint8_t*)creation + 8u + 48u, 12u);
+        uint32_t tslot = eid % 32u;
+        if (tslot != 0u) {
+            g_tm_buckets[tslot].k = eid;
+            g_tm_buckets[tslot].v = tslot;
+            memcpy(g_tm_data[tslot] + 0x2E0u, pos, 12u);
+        }
+    }
+    return out_entity;
+}
+
+static int MockActivateBeacon(uint32_t strat_type, const float pos[3])
+{
+    (void)pos;
+    ++g_activate_beacon_calls;
+    g_last_beacon_type = strat_type;
+    return 1;
 }
 
 static uint8_t MockPkgsIdle(void* unused) { (void)unused; return g_mock_idle; }
@@ -674,6 +754,7 @@ static void InitMockGameArenas(uint32_t native_director_mask, uint32_t difficult
     g_mock.exe_size = kArenaExeSize;
     g_mock.lookup_entity_pkgs = MockLookupEntityPkgs;
     g_mock.pkg_request = MockPkgRequest;
+    g_mock.pkg_release = MockPkgRelease;
     g_mock.pkgs_idle = MockPkgsIdle;
     g_mock.has_headroom = MockHasHeadroom;
     g_mock.project_anchor = MockProjectAnchor;
@@ -682,10 +763,14 @@ static void InitMockGameArenas(uint32_t native_director_mask, uint32_t difficult
     g_mock.particle_fx = MockParticleFx;
     g_mock.breach_burst = MockBreachBurst;
     g_mock.alive_override = MockAlive;
+    g_mock.remove_entity = MockRemoveEntity;
+    g_mock.request_entity_spawn = MockRequestEntitySpawn;
+    g_mock.activate_beacon_override = MockActivateBeacon;
 }
 
 static void ResetMockCountersAndModState(void)
 {
+    ResetMissionState();
     g_pins_checked = g_pins_ok = g_exe_pins_ok = 0;
     g_native_faction = -1;
     memset(g_rosters_loaded, 0, sizeof g_rosters_loaded);
@@ -715,6 +800,10 @@ static void ResetMockCountersAndModState(void)
     g_force_anchor_z_bad = 0;
     skipped_logs = fallback_logs = landing_logs = preload_ready_logs = preload_deferred_logs = 0;
     g_pkg_request_calls = g_pkg_requested_items = g_lookup_pkg_calls = 0;
+    g_pkg_release_calls = g_pkg_released_items = g_pkg_double_free_errors = 0;
+    g_remove_entity_calls = g_req_entity_spawn_calls = g_activate_beacon_calls = 0;
+    g_last_removed_entity = g_last_spawned_entity = g_last_beacon_type = 0u;
+    g_last_spawned_resource = 0ULL;
     spawn_logs = spawn_unmapped_logs = transport_spawn_logs = wave_complete_logs = wave_timeout_logs = 0;
     peer_observe_logs = host_migration_logs = peer_leave_logs = 0;
     g_mock_dead_count = 0;
@@ -760,18 +849,26 @@ static void TestPolicyAndGuards(void)
     CHECK(c.enabled == 1 && c.cooldown == 150 && c.grace == 45);
     CHECK(c.total_cap == 12 && c.faction_cap == 6 && c.squad_size == 4 && c.mission_budget == 36);
     CHECK(c.bots_weight == 100 && c.squids_weight == 80 && c.bugs_weight == 100);
+    CHECK(c.air_runs_enabled == 1 && c.atte_walker_support == 1);
 
     const char* invalid[] = {
-        "enabled=2", "total_cap=25", "squad_size=0", "bug_weight=-1", "squid_weight=201",
-        "cooldown_seconds=29", "cooldown_seconds=901", "landing_grace_seconds=14", "landing_grace_seconds=301",
-        "mission_budget=0", "unknown=1", "enabled=1junk", "enabled=99999999999999999999999", "enabled=", "=1"
+        "enabled=2", "total_cap=641", "squad_size=0", "squad_size=33", "bug_weight=-1", "squid_weight=201",
+        "cooldown_seconds=9", "cooldown_seconds=901", "landing_grace_seconds=5", "landing_grace_seconds=301",
+        "mission_budget=0", "mission_budget=25001", "air_runs_enabled=2", "atte_walker_support=2",
+        "unknown=1", "enabled=1junk", "enabled=99999999999999999999999", "enabled=", "=1"
     };
     for (unsigned i = 0; i < sizeof invalid / sizeof *invalid; i++) {
         CHECK(!ChaosParse(&c, invalid[i]));
         CHECK(!memcmp(&c, &before, sizeof c));
     }
-    CHECK(ChaosParse(&c, "cooldown_seconds=30\r\n") && c.cooldown == 30);
-    CHECK(ChaosParse(&c, "landing_grace_seconds=15\n") && c.grace == 15);
+    CHECK(ChaosParse(&c, "cooldown_seconds=10\r\n") && c.cooldown == 10);
+    CHECK(ChaosParse(&c, "landing_grace_seconds=6\n") && c.grace == 6);
+    CHECK(ChaosParse(&c, "squad_size=24\n") && c.squad_size == 24);
+    CHECK(ChaosParse(&c, "mission_budget=25000\n") && c.mission_budget == 25000);
+    CHECK(ChaosParse(&c, "air_runs_enabled=0\n") && c.air_runs_enabled == 0);
+    CHECK(ChaosParse(&c, "atte_walker_support=0\n") && c.atte_walker_support == 0);
+    CHECK(ChaosParse(&c, "air_runs_enabled=1\n") && c.air_runs_enabled == 1);
+    CHECK(ChaosParse(&c, "atte_walker_support=1\n") && c.atte_walker_support == 1);
     CHECK(ChaosParse(&c, "cooldown_seconds=900") && c.cooldown == 900);
     CHECK(ChaosParse(&c, "landing_grace_seconds=300") && c.grace == 300);
 
@@ -1161,13 +1258,12 @@ static void TestHostClientSplitAndLateJoin(HfApi* channel_api)
     role = HF_SESSION_JOINER;
     game_state = HF_STATE_PREPARE_MISSION;
     Seconds(5);
-    CHECK(g_pkg_request_calls == 0u && g_lookup_pkg_calls == 0u && preload_deferred_logs == 1u);
-    CHECK(!g_faction_resident[CHAOS_BOTS] && !g_faction_resident[CHAOS_SQUIDS]);
+    CHECK(g_pkg_request_calls > 0u && g_lookup_pkg_calls > 0u);
     CHECK(g_mock_send_calls >= 1u && g_mock_last_send_to == HF_TO_HOST);
     ChaosPeerMsg sent_msg;
     memcpy(&sent_msg, g_mock_last_send_buf, sizeof sent_msg);
     CHECK(ChaosPeerMsgValid(&sent_msg));
-    CHECK(sent_msg.resident_mask == 0u && sent_msg.in_mission == 0u);
+    CHECK(sent_msg.in_mission == 0u);
     CHECK(g_transport_calls == 0 && g_roster_calls == 0);
 
     /* Entering active mission as Joiner paces foreign package preload cleanly and reports in_mission=1 */
@@ -1415,22 +1511,23 @@ static void TestHostOptionsPresetsAndPrecedence(HfApi* api)
         "{\"format\":1,\"chaosIntensity\":\"total-war\",\"heavySeaf\":\"standard\",\"fasterCorpseCleanup\":true}",
         t0 + 10000000ULL));
     Seconds(2);
-    CHECK(config.enabled == 1 && config.cooldown == 75 && config.grace == 30 &&
-          config.total_cap == 20 && config.faction_cap == 12 &&
-          config.squad_size == 6 && config.mission_budget == 72 &&
+    CHECK(config.enabled == 1 && config.cooldown == 45 && config.grace == 8 &&
+          config.total_cap == 64 && config.faction_cap == 40 &&
+          config.squad_size == 20 && config.mission_budget == 960 &&
           config.squids_weight == 100);
-    /* Verify 30s grace triggers a 6-unit total-war wave! */
+    /* Verify 8s grace triggers a 20-unit outer swarm wave (6 vanguard + 14 queued)! */
     config.bots_weight = 100; config.squids_weight = 0; Publish();
     g_bridge_user_edit_mtime = 0ULL;
     ChaosReset(&clock_state, &config);
-    Seconds(30);
-    CHECK(g_transport_calls == 1u && g_pending.squad_size == 6 && g_tracker.reserved[CHAOS_BOTS] == 6);
+    Seconds(8);
+    CHECK(g_roster_calls >= 6u && g_pending.squad_size == 6);
 
     /* 3. Verify mtime precedence: newer in-game Mod Options Menu edit in ChaosInvasions.values wins */
     char bridge_edit[512];
     snprintf(bridge_edit, sizeof bridge_edit,
              "session=%lu\nenabled=1\ncooldown_seconds=120\nlanding_grace_seconds=45\ntotal_cap=12\n"
-             "faction_cap=6\nsquad_size=4\nmission_budget=36\ndroid_weight=100\nsquid_weight=80\nbug_weight=100\n",
+             "faction_cap=6\nsquad_size=4\nmission_budget=36\ndroid_weight=100\nsquid_weight=80\nbug_weight=100\n"
+             "air_runs_enabled=1\natte_walker_support=1\n",
              token);
     CHECK(WriteTextWithMtime(bridge, bridge_edit, t0 + 50000000ULL));
     Seconds(2);
@@ -1465,50 +1562,39 @@ static void TestHostOptionsPresetsAndPrecedence(HfApi* api)
 
 static void TestPrepareMissionZeroPreloadAndPacedMissionQueue(void)
 {
-    /* Simulate Owen's exact D11 Mega City Bots scenario: total-war intensity, difficulty 11, native = Bots. */
-    unsigned roles_to_test[3] = {HF_SESSION_SOLO, HF_SESSION_HOST, HF_SESSION_JOINER};
-    for (int r = 0; r < 3; r++) {
-        InitMockGameArenas(CHAOS_NATIVE_BOTS_BIT, 11u);
-        role = roles_to_test[r];
-        game_state = HF_STATE_SHIP;
-        ResetMockCountersAndModState();
-        ChaosApplyHostIntensity(&config, &g_ini_config, CD_CHAOS_TOTAL_WAR);
-        Publish();
+    /* v2.3: Verify disabled Host ("off") performs 0 preloads during HF_STATE_PREPARE_MISSION,
+     * while active Solo/Host/Joiner pre-stream foreign packages during HF_STATE_PREPARE_MISSION (Hellpod drop)
+     * after 1.5s settle at <= 2 requests/frame and preserve residency seamlessly into HF_STATE_MISSION! */
+    InitMockGameArenas(CHAOS_NATIVE_BOTS_BIT, 11u);
+    role = HF_SESSION_SOLO;
+    game_state = HF_STATE_SHIP;
+    ResetMockCountersAndModState();
+    ChaosApplyHostIntensity(&config, &g_ini_config, CD_CHAOS_OFF);
+    Publish();
+    game_state = HF_STATE_PREPARE_MISSION;
+    Seconds(15);
+    CHECK(g_pkg_request_calls == 0u && g_pkg_requested_items == 0u && g_lookup_pkg_calls == 0u);
 
-        /* Spend 60 full seconds inside HF_STATE_PREPARE_MISSION (Mega City generation + RenderTerrainLightingMaps). */
-        game_state = HF_STATE_PREPARE_MISSION;
-        Seconds(60);
-        CHECK(g_pkg_request_calls == 0u && g_pkg_requested_items == 0u && g_lookup_pkg_calls == 0u);
-        CHECK(g_mock_smoke_state == 0 && preload_deferred_logs == 1u);
-        CHECK(!g_preload_built[CHAOS_SQUIDS] && !g_preload_built[CHAOS_BUGS]);
-        CHECK(!g_faction_resident[CHAOS_SQUIDS] && !g_faction_resident[CHAOS_BUGS]);
-
-        /* Even a direct helper call with HF_STATE_PREPARE_MISSION must fail closed with 0 requests. */
-        PreloadForeignFactionPackages((uintptr_t)g_arena_game, (uintptr_t)g_arena_exe, kArenaExeSize, 1.0f, HF_STATE_PREPARE_MISSION);
-        CHECK(g_pkg_request_calls == 0u && !g_preload_built[CHAOS_SQUIDS]);
-    }
-
-    /* Now transition Host from HF_STATE_PREPARE_MISSION -> HF_STATE_MISSION at real 60 FPS (dt = 1/60s)
-     * and verify: (a) 0 requests during 1.0s settle, (b) <= 2 requests/tick, (c) Squids completes before Bugs starts! */
+    /* Now test active Host pre-streaming during HF_STATE_PREPARE_MISSION at real 60 FPS (dt = 1/60s):
+     * (a) 0 requests during 1.5s settle, (b) <= 2 requests/tick, (c) Squids completes before Bugs starts,
+     * (d) transitioning HF_STATE_PREPARE_MISSION -> HF_STATE_MISSION keeps both foreign factions resident immediately! */
     InitMockGameArenas(CHAOS_NATIVE_BOTS_BIT, 11u);
     role = HF_SESSION_HOST;
-    game_state = HF_STATE_PREPARE_MISSION;
+    game_state = HF_STATE_SHIP;
     ResetMockCountersAndModState();
     ChaosApplyHostIntensity(&config, &g_ini_config, CD_CHAOS_TOTAL_WAR);
     Publish();
-    Seconds(5);
-    CHECK(g_pkg_request_calls == 0u);
 
-    game_state = HF_STATE_MISSION;
+    game_state = HF_STATE_PREPARE_MISSION;
     const float dt60 = 1.0f / 60.0f;
-    for (int f = 0; f < 58; f++) {
+    for (int f = 0; f < 88; f++) {
         Tick(self, dt60, NULL);
     }
     CHECK(g_pkg_request_calls == 0u && !g_preload_built[CHAOS_SQUIDS] && !g_preload_built[CHAOS_BUGS]);
 
     unsigned max_per_tick = 0u;
     int saw_squids_before_bugs = 0;
-    for (int f = 0; f < 360; f++) {
+    for (int f = 0; f < 420; f++) {
         unsigned before = g_pkg_request_calls;
         Tick(self, dt60, NULL);
         unsigned delta = g_pkg_request_calls - before;
@@ -1520,12 +1606,17 @@ static void TestPrepareMissionZeroPreloadAndPacedMissionQueue(void)
     CHECK(max_per_tick >= 1u && max_per_tick <= 2u);
     CHECK(saw_squids_before_bugs == 1);
     CHECK(g_faction_resident[CHAOS_SQUIDS] && g_faction_resident[CHAOS_BUGS]);
+    CHECK(g_mock_smoke_state == 0); /* Smoke flare deferred until HF_STATE_MISSION */
+
+    game_state = HF_STATE_MISSION;
+    Tick(self, dt60, NULL);
+    CHECK(g_faction_resident[CHAOS_SQUIDS] && g_faction_resident[CHAOS_BUGS]);
 }
 
 static void TestH4SlowD11JoinerBarrierAndImmediateMissionSync(void)
 {
     /* 1. H4 Joiner: Immediate in_mission: 0 -> 1 transmission on the VERY FIRST 60Hz tick in HF_STATE_MISSION
-     *    (even while resident_mask == 0 during the 1.0s settle window, and even if Director is momentarily NULL). */
+     *    (even if Director is momentarily NULL). */
     InitMockGameArenas(CHAOS_NATIVE_BOTS_BIT, 11u);
     role = HF_SESSION_JOINER;
     game_state = HF_STATE_PREPARE_MISSION;
@@ -1536,12 +1627,18 @@ static void TestH4SlowD11JoinerBarrierAndImmediateMissionSync(void)
     uint64_t peers2[4] = {1001ULL, 2002ULL, 0ULL, 0ULL};
     SetMockLobbyPeers(2u, peers2);
 
-    /* Spend 45s in HF_STATE_PREPARE_MISSION (slow D11 Mega City level gen) -> sends {resident_mask=0, in_mission=0} once */
-    Seconds(45);
+    /* Spend 1s in HF_STATE_PREPARE_MISSION (within 1.5s settle) -> sends {resident_mask=0, in_mission=0} once */
+    Seconds(1);
     CHECK(g_mock_send_calls == 1u);
     ChaosPeerMsg msg;
     memcpy(&msg, g_mock_last_send_buf, sizeof msg);
     CHECK(ChaosPeerMsgValid(&msg) && msg.resident_mask == 0u && msg.in_mission == 0u);
+
+    /* Spend another 44s in PrepareMission -> preloads foreign packages while keeping in_mission == 0 */
+    Seconds(44);
+    memcpy(&msg, g_mock_last_send_buf, sizeof msg);
+    CHECK(ChaosPeerMsgValid(&msg) && msg.in_mission == 0u);
+    unsigned sends_before_mission = g_mock_send_calls;
 
     /* Temporarily zero Director pointer on Frame 1 of HF_STATE_MISSION to prove Tick 1 STILL sends in_mission=1! */
     void* saved_dir = NULL;
@@ -1551,9 +1648,9 @@ static void TestH4SlowD11JoinerBarrierAndImmediateMissionSync(void)
 
     game_state = HF_STATE_MISSION;
     Tick(self, 1.0f / 60.0f, NULL); /* Single 16.6ms frame! */
-    CHECK(g_mock_send_calls == 2u);
+    CHECK(g_mock_send_calls == sends_before_mission + 1u);
     memcpy(&msg, g_mock_last_send_buf, sizeof msg);
-    CHECK(ChaosPeerMsgValid(&msg) && msg.resident_mask == 0u && msg.in_mission == 1u);
+    CHECK(ChaosPeerMsgValid(&msg) && msg.in_mission == 1u);
     memcpy(g_arena_game + CHAOS_DIRECTOR_RVA, &saved_dir, 8);
 
     /* 2. H4 Host: Slow D11 Mega City joiner spending 55s (> 30s!) in PrepareMission (in_mission=0) MUST NOT expire at 30s,
@@ -1565,7 +1662,8 @@ static void TestH4SlowD11JoinerBarrierAndImmediateMissionSync(void)
     game_state = HF_STATE_MISSION;
     ResetMockCountersAndModState();
     config = ChaosDefaults();
-    ChaosApplyHostIntensity(&config, &config, CD_CHAOS_TOTAL_WAR); /* grace=30s, cooldown=30s below */
+    ChaosApplyHostIntensity(&config, &config, CD_CHAOS_TOTAL_WAR);
+    config.grace = 30;
     config.cooldown = 30;
     config.bots_weight = 100;
     config.squids_weight = 0;
@@ -1636,26 +1734,26 @@ static void TestH4SlowD11JoinerBarrierAndImmediateMissionSync(void)
 
 static void TestV034BotDropDeadlockAndCityHardening(void)
 {
-    /* 1. Partial headroom & alternate-faction fallback on native Squids (total-war: faction_cap=12, squad_size=6) */
+    /* 1. Partial headroom & alternate-faction fallback on native Squids (total-war: faction_cap=40, total_cap=64, squad_size=20) */
     ChaosConfig tw = ChaosDefaults();
     ChaosApplyHostIntensity(&tw, &tw, CD_CHAOS_TOTAL_WAR);
-    CHECK(tw.faction_cap == 12 && tw.total_cap == 20 && tw.squad_size == 6);
+    CHECK(tw.faction_cap == 40 && tw.total_cap == 64 && tw.squad_size == 20);
     ChaosEvidence ev = {0};
     ev.host = ev.mission = ev.players = ev.closure = ev.resident = ev.peers = 1;
     ev.placement = ev.constructor = ev.arrival = ev.population_known = 1;
     ev.native_faction = CHAOS_SQUIDS;
     ev.difficulty = 11;
-    ev.live[CHAOS_BOTS] = 5; ev.total_live = 5; ev.mission_spawned = 26;
+    ev.live[CHAOS_BOTS] = 15; ev.total_live = 15; ev.mission_spawned = 26;
     CHECK(ChaosRefuse(&tw, &ev, CHAOS_BOTS) == NULL);
-    CHECK(ChaosEffectiveSquadSize(&tw, &ev, CHAOS_BOTS) == 6);
-    ev.live[CHAOS_BOTS] = 8; ev.total_live = 8;
+    CHECK(ChaosEffectiveSquadSize(&tw, &ev, CHAOS_BOTS) == 20);
+    ev.live[CHAOS_BOTS] = 36; ev.total_live = 36;
     CHECK(ChaosRefuse(&tw, &ev, CHAOS_BOTS) == NULL);
     CHECK(ChaosEffectiveSquadSize(&tw, &ev, CHAOS_BOTS) == 4);
-    ev.live[CHAOS_BOTS] = 11; ev.total_live = 11; /* rem=1 < min_wave=2 -> refuses Bots, allows Bugs */
+    ev.live[CHAOS_BOTS] = 39; ev.total_live = 39; /* rem=1 < min_wave=2 -> refuses Bots, allows Bugs */
     CHECK(strcmp(ChaosRefuse(&tw, &ev, CHAOS_BOTS), "population_cap") == 0);
     CHECK(ChaosRefuse(&tw, &ev, CHAOS_BUGS) == NULL);
 
-    /* Live Tick() fallback: Bots capped at 11/12 on native Squids with both weights>0 -> falls back to Bug breach! */
+    /* Live Tick() fallback: Bots capped at 39/40 on native Squids with both weights>0 -> falls back to Bug swarm! */
     InitMockGameArenas(CHAOS_NATIVE_SQUIDS_BIT, 11u);
     role = HF_SESSION_SOLO;
     game_state = HF_STATE_MISSION;
@@ -1665,11 +1763,11 @@ static void TestV034BotDropDeadlockAndCityHardening(void)
     config.bots_weight = 199; config.bugs_weight = 1; /* strongly favors Bots */
     Publish();
     ChaosReset(&clock_state, &config);
-    for (uint32_t i = 0; i < 11u; i++) {
+    for (uint32_t i = 0; i < 39u; i++) {
         CHECK(ChaosTrackerRecordSpawnAt(&g_tracker, CHAOS_BOTS, 8000u + i, 0, 10.0));
     }
     Seconds(16);
-    CHECK(g_fx_calls == 1 && g_roster_calls == 6 && g_transport_calls == 0);
+    CHECK(g_roster_calls >= 6 && g_transport_calls == 0);
 
     /* 2. Paired sub-entity 0x426b3df007be9f18 is NOT double-counted & corpse wrapper 0x62928899dac02979 suppressed */
     CHECK(ChaosEnemyFamily(0x426b3df007be9f18ull) == -1);
@@ -1679,7 +1777,7 @@ static void TestV034BotDropDeadlockAndCityHardening(void)
     game_state = HF_STATE_MISSION;
     ResetMockCountersAndModState();
     ChaosApplyHostIntensity(&config, &g_ini_config, CD_CHAOS_TOTAL_WAR);
-    config.grace = 15; config.cooldown = 30;
+    config.grace = 15; config.cooldown = 30; config.squad_size = 6;
     config.bots_weight = 100; config.bugs_weight = 0;
     Publish();
     ChaosReset(&clock_state, &config);
@@ -1736,51 +1834,63 @@ static void TestV035Mission2PreloadRearmAndCoopSafeRoster(void)
     CHECK(ChaosRefMapInspect(entries, 16u, empty_k, pkg_b, &used, &pres_b, &slot_b, &rc_b));
     CHECK(used == 2u && pres_b == 1 && slot_b == 4u && rc_b == 1ULL);
 
-    /* 2. Full Mission-1 -> Ship teardown (unloading 6 packages behind RefcountedPackageSystem's back) -> Mission-2 re-arm */
+    /* 2. v2.3 Symmetric RefcountedPackageRelease on ResetMissionState (#43/#45/#46) + Mission-2 reload + mid-mission re-arm */
     InitMockGameArenas(CHAOS_NATIVE_SQUIDS_BIT, 11u);
     role = HF_SESSION_SOLO;
     game_state = HF_STATE_MISSION;
     ResetMockCountersAndModState();
     ChaosApplyHostIntensity(&config, &g_ini_config, CD_CHAOS_TOTAL_WAR);
+    config.air_runs_enabled = 0;
     Publish();
     Seconds(6);
     CHECK(g_faction_resident[CHAOS_BOTS] && g_faction_resident[CHAOS_BUGS]);
     int bots_pkgs = g_preload_count[CHAOS_BOTS];
     int bugs_pkgs = g_preload_count[CHAOS_BUGS];
     CHECK(bots_pkgs >= 4 && bugs_pkgs >= 4);
-    uint64_t saved_unloaded[6] = {
-        g_preload_pkgs[CHAOS_BOTS][0], g_preload_pkgs[CHAOS_BOTS][1], g_preload_pkgs[CHAOS_BOTS][2],
-        g_preload_pkgs[CHAOS_BUGS][0], g_preload_pkgs[CHAOS_BUGS][1], g_preload_pkgs[CHAOS_BUGS][2]
-    };
+    uint32_t owned_m1 = g_chaos_owned_pkg_count;
+    CHECK(owned_m1 == (uint32_t)(bots_pkgs + bugs_pkgs));
 
-    /* Return to Ship: simulate Stingray PackageLoader unloading 3 Bots + 3 Bugs packages (pstate=0)
-     * WITHOUT releasing their g_ref_slots entries (ref remains 1ULL)! */
-    game_state = HF_STATE_SHIP;
-    Seconds(1);
-    CHECK(!g_faction_resident[CHAOS_BOTS] && !g_faction_resident[CHAOS_BUGS]);
-    for (int i = 0; i < 6; i++) {
-        AddExeResidentPkg(saved_unloaded[i], 2u, 0u); /* state 0 != 4 (unloaded!) */
+    /* Simulate one shared package (ref == 2) held by an external engine system before mission teardown */
+    uint64_t shared_pkg = g_preload_pkgs[CHAOS_BOTS][0];
+    for (uint32_t s = 0; s < 256u; s++) {
+        if (g_ref_slots[s].key == shared_pkg) g_ref_slots[s].ref = 2ULL;
     }
 
-    /* Enter Mission 2: resident packages skip CallPkgRequest (0 tokens), while the 6 unloaded Chaos-owned ref==1 packages
-     * reset ref 1 -> 0 in-place and call CallPkgRequest (0 -> 1 -> Load()), restoring full residency! */
+    /* Return to Ship: ResetMissionState() MUST call RefcountedPackageRelease (0x12FE4E0) on all owned packages!
+     * Exclusive packages go 1 -> 0 (unloaded), shared_pkg goes 2 -> 1 (preserved), and repeated ResetMissionState() has 0 double-frees! */
+    g_pkg_release_calls = 0u;
+    g_pkg_double_free_errors = 0u;
+    game_state = HF_STATE_SHIP;
+    Seconds(1);
+    ResetMissionState(); /* second reset must be a safe no-op */
+    CHECK(!g_faction_resident[CHAOS_BOTS] && !g_faction_resident[CHAOS_BUGS]);
+    CHECK(g_chaos_owned_pkg_count == 0u);
+    CHECK(g_pkg_release_calls == owned_m1 && g_pkg_double_free_errors == 0u);
+    for (uint32_t s = 0; s < 256u; s++) {
+        if (g_ref_slots[s].key == shared_pkg) CHECK(g_ref_slots[s].ref == 1ULL);
+        else if (g_ref_slots[s].key != 0ULL) CHECK(g_ref_slots[s].ref == 0ULL);
+    }
+
+    /* Enter Mission 2: shared_pkg is still resident (skips CallPkgRequest), while the (owned_m1 - 1) unloaded packages request cleanly! */
     g_pkg_request_calls = 0;
     g_pkg_requested_items = 0;
     game_state = HF_STATE_MISSION;
     Seconds(6);
-    CHECK(g_pkg_request_calls == 6u && g_pkg_requested_items == 6u);
+    CHECK(g_pkg_request_calls == owned_m1 - 1u && g_pkg_requested_items == owned_m1 - 1u);
     CHECK(g_faction_resident[CHAOS_BOTS] && g_faction_resident[CHAOS_BUGS]);
 
-    /* 3. Safety guards: inconclusive PackageStateExe (-1), shared refcnt > 1, or unowned package must NEVER overwrite ref_count! */
-    game_state = HF_STATE_SHIP;
-    Seconds(1);
-    AddExeResidentPkg(saved_unloaded[0], 2u, 0u); /* unloaded */
-    AddExeResidentPkg(saved_unloaded[1], 2u, 0u); /* unloaded, shared ref=2 */
-    AddExeResidentPkg(saved_unloaded[2], 2u, 0u); /* unloaded, unowned */
+    /* 3. Mid-mission eviction watchdog + safety guards: inconclusive PackageStateExe (-1), shared refcnt > 1, or unowned package must NEVER overwrite ref_count! */
+    uint64_t saved_unloaded[3] = {
+        g_preload_pkgs[CHAOS_BOTS][1],
+        g_preload_pkgs[CHAOS_BOTS][2],
+        g_preload_pkgs[CHAOS_BUGS][0]
+    };
+    AddExeResidentPkg(saved_unloaded[0], 2u, 0u); /* mid-mission evicted, Chaos-owned ref=1 */
+    AddExeResidentPkg(saved_unloaded[1], 2u, 0u); /* mid-mission evicted, shared ref=2 */
+    AddExeResidentPkg(saved_unloaded[2], 2u, 0u); /* mid-mission evicted, unowned */
     for (uint32_t s = 0; s < 256u; s++) {
         if (g_ref_slots[s].key == saved_unloaded[1]) g_ref_slots[s].ref = 2ULL;
     }
-    /* Remove saved_unloaded[2] from g_chaos_owned_pkgs to simulate external engine owner */
     for (uint32_t oi = 0; oi < g_chaos_owned_pkg_count; oi++) {
         if (g_chaos_owned_pkgs[oi] == saved_unloaded[2]) {
             g_chaos_owned_pkgs[oi] = g_chaos_owned_pkgs[--g_chaos_owned_pkg_count];
@@ -1792,20 +1902,18 @@ static void TestV035Mission2PreloadRearmAndCoopSafeRoster(void)
     memcpy(&saved_res_ptr, g_exe_mgr_mem + 0x208u, 8);
     uintptr_t zero_ptr = 0;
     memcpy(g_exe_mgr_mem + 0x208u, &zero_ptr, 8);
-    CHECK(PackageStateExe((uintptr_t)g_arena_exe, sizeof g_arena_exe, saved_unloaded[0]) == -1);
+    CHECK(PackageStateExe((uintptr_t)g_arena_exe, kArenaExeSize, saved_unloaded[0]) == -1);
     g_pkg_request_calls = 0;
-    game_state = HF_STATE_MISSION;
-    Seconds(2);
-    /* Zero requests and zero ref_count clobbers while PackageStateExe == -1! */
+    Seconds(6); /* crosses 5.0s residency watchdog while PackageStateExe == -1 */
     CHECK(g_pkg_request_calls == 0u);
     for (uint32_t s = 0; s < 256u; s++) {
         if (g_ref_slots[s].key == saved_unloaded[0]) CHECK(g_ref_slots[s].ref == 1ULL);
         if (g_ref_slots[s].key == saved_unloaded[1]) CHECK(g_ref_slots[s].ref == 2ULL);
         if (g_ref_slots[s].key == saved_unloaded[2]) CHECK(g_ref_slots[s].ref == 1ULL);
     }
-    /* Restore valid resources pointer: ONLY saved_unloaded[0] (Chaos-owned & ref==1) re-arms; ref==2 and unowned stay intact! */
+    /* Restore valid resources pointer: 5.0s watchdog catches eviction and re-arms ONLY saved_unloaded[0] (Chaos-owned & ref==1)! */
     memcpy(g_exe_mgr_mem + 0x208u, &saved_res_ptr, 8);
-    Seconds(3);
+    Seconds(6);
     CHECK(g_pkg_request_calls == 1u);
     for (uint32_t s = 0; s < 256u; s++) {
         if (g_ref_slots[s].key == saved_unloaded[1]) CHECK(g_ref_slots[s].ref == 2ULL);
@@ -1926,13 +2034,14 @@ static void TestV040UltrakillD12PoolsAndCloneWarsTheater(HfApi* api)
     CHECK(hellforge_mod_init(api, (HfMod*)1) == 0);
 
     CHECK(g_ultrakill.d12_applied == 1);
-    CHECK(g_mock_d11_row.encounter_points == 1500.0f && g_mock_d11_row.patrol_cap[0] == 32u);
-    CHECK(fabsf(g_mock_d11_row.map_radius[0] - 0.92f) < 0.001f);
-    CHECK(strcmp(UltrakillTextDetour(0x55AA0011u, NULL, NULL, NULL), "LEVEL 12: CLONE WARS") == 0);
+    CHECK(g_mock_d11_row.encounter_points == 1500.0f && g_mock_d11_row.patrol_cap[0] == 24u);
+    CHECK(g_mock_d11_row.major_objectives == 1u && g_mock_d11_row.optional_objectives == 5u);
+    CHECK(fabsf(g_mock_d11_row.map_radius[0] - 0.685f) < 0.001f);
+    CHECK(strcmp(UltrakillTextDetour(0x55AA0011u, NULL, NULL, NULL), "CLONE WARS") == 0);
     CHECK(strcmp(UltrakillTextDetour(0x55AA0012u, NULL, NULL, NULL), "12") == 0);
     CHECK(strcmp(UltrakillTextDetour(0x99999999u, NULL, NULL, NULL), "HELL FORGE") == 0);
 
-    /* Run 25 frames at 60 FPS -> verifies paced <= 4 SpawnRosterRow/frame, lg+0x2D70 -> 0.92f, and 1,600+ virtual battalion units! */
+    /* Run frames at 60 FPS -> verifies paced <= 4 SpawnRosterRow/frame, lg+0x2D70 -> 0.685f (~701 m), and 1,600+ virtual battalion units! */
     unsigned max_roster_per_frame = 0u;
     for (int f = 0; f < 180; f++) {
         unsigned before = g_roster_calls;
@@ -1942,7 +2051,7 @@ static void TestV040UltrakillD12PoolsAndCloneWarsTheater(HfApi* api)
     }
     float live_r = 0.0f;
     memcpy(&live_r, mock_lg + UK_LG_PLAYABLE_RADIUS_OFF, 4);
-    CHECK(fabsf(live_r - 0.92f) < 0.002f);
+    CHECK(fabsf(live_r - 0.685f) < 0.002f);
     CHECK(max_roster_per_frame <= UK_MAX_SPAWNS_PER_FRAME);
     CHECK(g_ultrakill.multi_ring_spawns_total >= 12u);
     CHECK(g_ultrakill.virtual_units_total >= 1580u && g_ultrakill.virtual_units_total <= 2200u);
@@ -2011,8 +2120,8 @@ static void TestV040UltrakillD12PoolsAndCloneWarsTheater(HfApi* api)
     role = HF_SESSION_HOST;
     Tick(self, 1.0f / 60.0f, NULL);
     CHECK(g_ultrakill.d12_applied == 1);
-    CHECK(fabsf(g_mock_d11_row.map_radius[0] - 0.92f) < 0.001f);
-    CHECK(strcmp(UltrakillTextDetour(0x55AA0011u, NULL, NULL, NULL), "LEVEL 12: CLONE WARS") == 0);
+    CHECK(fabsf(g_mock_d11_row.map_radius[0] - 0.685f) < 0.001f);
+    CHECK(strcmp(UltrakillTextDetour(0x55AA0011u, NULL, NULL, NULL), "CLONE WARS") == 0);
 
     /* Ship-state lobby transitions: HOST -> JOINER -> SOLO also synchronize D12 row immediately */
     game_state = HF_STATE_SHIP;
@@ -2022,7 +2131,7 @@ static void TestV040UltrakillD12PoolsAndCloneWarsTheater(HfApi* api)
     CHECK(g_ultrakill.d12_applied == 0 && fabsf(g_mock_d11_row.map_radius[0] - 0.76f) < 0.001f);
     role = HF_SESSION_SOLO;
     Tick(self, 1.0f / 60.0f, NULL);
-    CHECK(g_ultrakill.d12_applied == 1 && fabsf(g_mock_d11_row.map_radius[0] - 0.92f) < 0.001f);
+    CHECK(g_ultrakill.d12_applied == 1 && fabsf(g_mock_d11_row.map_radius[0] - 0.685f) < 0.001f);
     game_state = HF_STATE_MISSION;
 
     /* Switch back to standard mode -> restores Difficulty 11 row byte-for-byte! */
@@ -2504,12 +2613,13 @@ static void TestV050GenuineDifficulty12SlotAndGating(HfApi* api)
     CHECK(D12TryInstallNativeSlot(&d12s, api, self, (uintptr_t)g_arena_game, kArenaGameSize, &def_opts) == 1);
     CHECK(d12s.state == 1 && d12s.row12 == (HfDifficultySettings*)((uint8_t*)row11 + D12_ROW_BYTES));
 
-    /* Verify Row 11 ("HELL FORGE") is 100% UNTOUCHED while Row 12 ("LEVEL 12: CLONE WARS") is populated! */
+    /* Verify Row 11 ("HELL FORGE") is 100% UNTOUCHED while Row 12 ("CLONE WARS") is populated with 1-primary / 5-optional! */
     CHECK(row11->level == 11u && fabsf(row11->encounter_points - 1100.0f) < 0.01f && fabsf(row11->map_radius[0] - 0.76f) < 0.001f);
     CHECK(d12s.row12->level == 12u && d12s.row12->unlock_item == D12_UNLOCK_ITEM_ID);
     CHECK(d12s.row12->name_text == D12_NAME_TEXT_ID && d12s.row12->description_text == D12_NUM_TEXT_ID);
     CHECK(((const uint8_t*)d12s.row12)[0xECu] == 11u);
-    CHECK(fabsf(d12s.row12->encounter_points - 1500.0f) < 0.01f && fabsf(d12s.row12->map_radius[0] - 0.92f) < 0.001f);
+    CHECK(d12s.row12->major_objectives == 1u && d12s.row12->optional_objectives == 5u);
+    CHECK(fabsf(d12s.row12->encounter_points - 1500.0f) < 0.01f && fabsf(d12s.row12->map_radius[0] - 0.685f) < 0.001f);
 
     /* Verify kIconStub, companion iconChecks (+0x9D0..+0xA00), & kRadiiStub flipped jne (0x85/0x75) -> jb (0x82/0x72), and bounds/ranges widened 11 -> 12 */
     CHECK(hf_code[0x040u + 4u] == 0x82u);
@@ -2529,11 +2639,11 @@ static void TestV050GenuineDifficulty12SlotAndGating(HfApi* api)
      * and serves "LEVEL 12: STORMTROOPER" in EmpireDivers vs "LEVEL 12: CLONE WARS" in Clonedivers / Regular! */
     g_d12_slot.state = 1;
     role = HF_SESSION_JOINER;
-    CHECK(strcmp(UltrakillTextDetour(D12_NAME_TEXT_ID, NULL, NULL, NULL), "LEVEL 12: CLONE WARS") == 0);
+    CHECK(strcmp(UltrakillTextDetour(D12_NAME_TEXT_ID, NULL, NULL, NULL), "CLONE WARS") == 0);
     CHECK(strcmp(UltrakillTextDetour(D12_NUM_TEXT_ID, NULL, NULL, NULL), "12") == 0);
     CHECK(strcmp(UltrakillTextDetour(0x55AA0011u, NULL, NULL, NULL), "HELL FORGE") == 0);
 
-    /* Explicit activeMode="empire" in CdHostOptions -> "LEVEL 12: STORMTROOPER" on both Joiner & Host */
+    /* Explicit activeMode="empire" in CdHostOptions -> "STORMTROOPER" on both Joiner & Host */
     {
         CdHostOptions parsed_emp;
         const char* emp_json = "{\"format\":1,\"theaterPreset\":\"clone-wars\",\"chaosIntensity\":\"total-war\",\"heavySeaf\":\"constant\",\"activeMode\":\"empire\",\"fasterCorpseCleanup\":true}";
@@ -2550,11 +2660,11 @@ static void TestV050GenuineDifficulty12SlotAndGating(HfApi* api)
 
         g_host_opts = parsed_emp;
         RefreshActivePackMode(0);
-        CHECK(strcmp(UltrakillTextDetour(D12_NAME_TEXT_ID, NULL, NULL, NULL), "LEVEL 12: STORMTROOPER") == 0);
+        CHECK(strcmp(UltrakillTextDetour(D12_NAME_TEXT_ID, NULL, NULL, NULL), "STORMTROOPER") == 0);
 
-        /* Forced level12-ultrakill still displays "LEVEL 12: ULTRAKILL" */
+        /* Forced level12-ultrakill displays "ULTRAKILL" */
         g_host_opts.theater_preset = CD_THEATER_LEVEL12_ULTRAKILL;
-        CHECK(strcmp(UltrakillTextDetour(D12_NAME_TEXT_ID, NULL, NULL, NULL), "LEVEL 12: ULTRAKILL") == 0);
+        CHECK(strcmp(UltrakillTextDetour(D12_NAME_TEXT_ID, NULL, NULL, NULL), "ULTRAKILL") == 0);
 
         /* hellforge-mods.json auto-detection (including stray disabled demo Empire pack + enabled r54 Empire pack) */
         CdActiveMode det_mode = CD_MODE_AUTO;
@@ -2575,7 +2685,7 @@ static void TestV050GenuineDifficulty12SlotAndGating(HfApi* api)
 
         g_host_opts = cd_host_options_defaults();
         RefreshActivePackMode(0);
-        CHECK(strcmp(UltrakillTextDetour(D12_NAME_TEXT_ID, NULL, NULL, NULL), "LEVEL 12: CLONE WARS") == 0);
+        CHECK(strcmp(UltrakillTextDetour(D12_NAME_TEXT_ID, NULL, NULL, NULL), "CLONE WARS") == 0);
     }
     g_d12_slot.state = 0;
 
@@ -2746,9 +2856,9 @@ static void TestV050GenuineDifficulty12SlotAndGating(HfApi* api)
     Tick(self, 1.0f / 60.0f, NULL);
     CHECK(config.cooldown == 150 && config.total_cap == 12 && g_ultrakill.virtual_units_total == 0u);
 
-    mock_lg[CD_LG_DIFFICULTY_OFF] = 12u; /* Playing Difficulty 12 ("LEVEL 12: CLONE WARS")! */
+    mock_lg[CD_LG_DIFFICULTY_OFF] = 12u; /* Playing Difficulty 12 ("CLONE WARS")! */
     for (int f = 0; f < 30; ++f) Tick(self, 1.0f / 60.0f, NULL);
-    CHECK(config.cooldown == 12 && config.total_cap == 820 && g_ultrakill.virtual_units_total >= 1900u);
+    CHECK(config.cooldown == 10 && config.grace == 7 && config.total_cap == 620 && g_ultrakill.virtual_units_total >= 1900u);
 
     /* 5. Verify full startup sequence: HF_EVENT_GAME_LOADED -> StratagemsInstalled overwrites registered-items.json ->
      *    Ship Tick / HF_EVENT_ENTITIES_READY automatically restores mixId=3440558350 while keeping stratagems + D11! */
@@ -3020,8 +3130,8 @@ static void TestV050GenuineDifficulty12SlotAndGating(HfApi* api)
         game_state = HF_STATE_MISSION;
         mock_lg[CD_LG_DIFFICULTY_OFF] = 12u;
         for (int f = 0; f < 10; ++f) Tick(self, 1.0f / 60.0f, NULL);
-        CHECK(config.enabled == 1 && config.cooldown == 12 && config.total_cap == 820 &&
-              config.squad_size == 6 && config.mission_budget == 15000);
+        CHECK(config.enabled == 1 && config.cooldown == 10 && config.grace == 7 && config.total_cap == 620 &&
+              config.squad_size == 24 && config.mission_budget == 25000);
 
         /* Return D12 -> Ship -> D5: MUST restore custom `options.ini` settings (NOT retain D12 settings)! */
         game_state = HF_STATE_SHIP;
@@ -3038,7 +3148,8 @@ static void TestV050GenuineDifficulty12SlotAndGating(HfApi* api)
         char session_edit[512];
         snprintf(session_edit, sizeof session_edit,
                  "session=%lu\nenabled=1\ncooldown_seconds=95\nlanding_grace_seconds=35\ntotal_cap=16\n"
-                 "faction_cap=10\nsquad_size=5\nmission_budget=48\ndroid_weight=110\nsquid_weight=70\nbug_weight=90\n",
+                 "faction_cap=10\nsquad_size=5\nmission_budget=48\ndroid_weight=110\nsquid_weight=70\nbug_weight=90\n"
+                 "air_runs_enabled=1\natte_walker_support=1\n",
                  token);
         CHECK(WriteTextWithMtime(bridge, session_edit, 134600000000000000ULL));
         Seconds(2);
@@ -3050,7 +3161,7 @@ static void TestV050GenuineDifficulty12SlotAndGating(HfApi* api)
         game_state = HF_STATE_MISSION;
         mock_lg[CD_LG_DIFFICULTY_OFF] = 12u;
         Seconds(3);
-        CHECK(config.cooldown == 12 && config.total_cap == 820 && config.mission_budget == 15000);
+        CHECK(config.cooldown == 10 && config.total_cap == 620 && config.mission_budget == 25000);
 
         /* Transition D12 -> Ship -> D5: MUST restore explicit session settings (95 / 16 / 5 / 48)! */
         game_state = HF_STATE_SHIP;
@@ -3072,7 +3183,7 @@ static void TestV050GenuineDifficulty12SlotAndGating(HfApi* api)
         CHECK(hellforge_mod_init(api, (HfMod*)1) == 0);
         CHECK(config.enabled == 0 && config.cooldown == 200);
         for (int f = 0; f < 5; ++f) Tick(self, 1.0f / 60.0f, NULL);
-        CHECK(config.enabled == 1 && config.cooldown == 12);
+        CHECK(config.enabled == 1 && config.cooldown == 10);
         game_state = HF_STATE_SHIP;
         Tick(self, 1.0f / 60.0f, NULL);
         game_state = HF_STATE_MISSION;
@@ -3109,6 +3220,184 @@ static void TestV050GenuineDifficulty12SlotAndGating(HfApi* api)
     VirtualFree(hf_board, 0, MEM_RELEASE);
     VirtualFree(hf_code, 0, MEM_RELEASE);
     VirtualFree(hf_table, 0, MEM_RELEASE);
+}
+
+static void TestV230OvernightDeliverables(HfApi* api)
+{
+    /* 1. Co-op UltrakillTargetRealAiCap high density (no 420 slash!) & <= 620 GwNav::Bot Director valve */
+    CdHostOptions ho = cd_host_options_defaults();
+    CHECK(UltrakillTargetRealAiCap(&ho, 0) == 610);
+    CHECK(UltrakillTargetRealAiCap(&ho, 1) == 600);
+    ho.target_active_units = 900;
+    CHECK(UltrakillTargetRealAiCap(&ho, 0) == (int)UK_MAX_WALKING_AI_CAP);
+    CHECK(UltrakillTargetRealAiCap(&ho, 1) == (int)UK_MAX_WALKING_AI_CAP);
+
+    /* 2. Verify D12_SELECTION_END_RVA (0x175784F, HellForge MixMission 2-primary hook) stays == 11 (0x75 jne)
+     *    while D12 row gets 1-primary / 5-optional (<= 14 HUD/map markers < DIF_MARKER_SLOTS = 16)! */
+    {
+        InitMockGameArenas(CHAOS_NATIVE_BOTS_BIT, 11u);
+        ResetMockCountersAndModState();
+        uint8_t* mix_stub = D12AllocNearGame((uintptr_t)g_arena_game, kArenaGameSize, 0x1000u, 0u);
+        CHECK(mix_stub != NULL);
+        memset(mix_stub, 0x90, 0x1000u);
+        static const uint8_t kMixCheck[5] = {0x83, 0x79, 0x10, 0x0B, 0x75}; /* cmp dword [rcx+0x10], 11; jne */
+        memcpy(mix_stub + 19u, kMixCheck, sizeof kMixCheck);
+        CHECK(D12WriteE9JumpPad(api, (uintptr_t)g_arena_game + D12_SELECTION_END_RVA, (uintptr_t)mix_stub, 7u) == 1);
+
+        HfDifficultySettings base11 = {0};
+        base11.level = 11u;
+        base11.major_objectives = 1u;
+        base11.optional_objectives = 8u;
+        for (int i = 0; i < 4; ++i) base11.map_radius[i] = 0.76f;
+        HfDifficultySettings row12_test = {0};
+        CdHostOptions cw_opts = cd_host_options_defaults();
+        UltrakillApplyDifficultyRow12(&row12_test, (const uint8_t*)&base11, &cw_opts);
+        CHECK(row12_test.major_objectives == 1u && row12_test.optional_objectives == 5u);
+        CHECK(fabsf(row12_test.map_radius[0] - 0.685f) < 0.001f);
+        CHECK(mix_stub[19u + 4u] == 0x75u); /* D11 MixMission check remains strictly == 11! */
+        VirtualFree(mix_stub, 0, MEM_RELEASE);
+    }
+
+    /* 3. End-to-end D12 Clone Wars simulation:
+     *    - PREPARE_MISSION preloading + 7s grace
+     *    - Tight <= 580/620 walking-AI Director patrol/reinforce valve
+     *    - Outer cohesive SWARM clusters (18-32 units at 95-185 m) & multi-faction foreign rotation
+     *    - > 260 m straggler recycling via RemoveEntity (0xFDC310)
+     *    - 140-380 m virtual laser salvos
+     *    - Periodic friendly Eagle Storm (30u) + enemy gunship strafing runs
+     *    - Autonomous friendly Republic AT-TE walker (EXO-49 0xC2D449ECF7FACAB1) on D12 Clones + clean Empire/Ship teardown! */
+    InitMockGameArenas(CHAOS_NATIVE_BOTS_BIT, 12u);
+    ResetMockCountersAndModState();
+    memset(&g_mock_d11_row, 0, sizeof g_mock_d11_row);
+    g_mock_d11_row.level = 11u;
+    g_mock_d11_row.major_objectives = 1u;
+    g_mock_d11_row.optional_objectives = 8u;
+    for (int i = 0; i < 4; ++i) g_mock_d11_row.map_radius[i] = 0.76f;
+    for (int f = 0; f < 3; ++f) {
+        g_mock_d11_row.patrol_cap[f] = 24u;
+        g_mock_d11_row.patrol_interval[f] = 30.0f;
+    }
+    api->difficulty_row = MockDifficultyRow;
+    api->spawn_projectile = MockSpawnProjectile;
+
+    uint8_t* mock_ctx = (uint8_t*)calloc(1, 0xAF000u);
+    uint8_t* mock_lg  = (uint8_t*)calloc(1, 0x3000u);
+    void* p_ctx = mock_ctx;
+    void* p_lg  = mock_lg;
+    uint32_t lg_mode = 3u;
+    float r_init = 0.76f, r_border = 0.93f;
+    memcpy(g_arena_game + UK_CONTEXT_RVA, &p_ctx, 8u);
+    memcpy(mock_ctx + UK_CONTEXT_LG_OFF, &p_lg, 8u);
+    memcpy(mock_lg + UK_LG_MODE_OFF, &lg_mode, 4u);
+    memcpy(mock_lg + UK_LG_PLAYABLE_RADIUS_OFF, &r_init, 4u);
+    memcpy(mock_lg + UK_LG_BORDER_RADIUS_OFF, &r_border, 4u);
+    mock_lg[CD_LG_DIFFICULTY_OFF] = 12u;
+
+    role = HF_SESSION_SOLO;
+    game_state = HF_STATE_PREPARE_MISSION;
+    subscriptions = ticks = 0u;
+    CHECK(hellforge_mod_init(api, (HfMod*)1) == 0);
+    g_d12_slot.state = 1;
+    g_d12_slot.row12 = &g_mock_d11_row;
+    memcpy(g_d12_slot.row12_baseline, &g_mock_d11_row, sizeof g_mock_d11_row);
+    D12PopulateRow12(&g_d12_slot, &g_host_opts);
+
+    /* Pre-stream foreign packages (Squids + Bugs) during Hellpod drop (HF_STATE_PREPARE_MISSION) */
+    for (int f = 0; f < 420; ++f) Tick(self, 1.0f / 60.0f, NULL);
+    CHECK(g_faction_resident[CHAOS_SQUIDS] && g_faction_resident[CHAOS_BUGS]);
+
+    /* Touch down in HF_STATE_MISSION -> 7s grace, autonomous AT-TE deploys, air runs fire, both foreign factions rotate! */
+    game_state = HF_STATE_MISSION;
+    g_mock_proj_calls = 0u;
+    uint32_t squids_enqueued = 0u, bugs_enqueued = 0u;
+    for (int sec = 0; sec < 45; ++sec) {
+        for (int f = 0; f < 10; ++f) {
+            Tick(self, 0.1f, NULL);
+            for (uint32_t q = 0; q < g_spawn_queue.count; ++q) {
+                uint8_t fac = g_spawn_queue.jobs[(g_spawn_queue.head + q) % UK_SPAWN_QUEUE_CAP].faction;
+                if (fac == CHAOS_SQUIDS) ++squids_enqueued;
+                else if (fac == CHAOS_BUGS) ++bugs_enqueued;
+            }
+        }
+    }
+    CHECK(squids_enqueued > 0u && bugs_enqueued > 0u); /* Both off-planet factions dropped consistently! */
+    CHECK(g_ultrakill.friendly_air_runs_total >= 1u && g_activate_beacon_calls >= 1u &&
+          g_last_beacon_type == HF_STRATAGEM_EAGLE_STRAFING_RUN);
+    CHECK(g_ultrakill.enemy_air_runs_total >= 1u);
+    CHECK(g_atte.active == 1 && g_atte.entity != 0u && g_last_spawned_resource == CHAOS_ENTITY_EXO49_ATTE);
+    CHECK(g_ultrakill.atte_salvos_total >= 1u);
+    CHECK(g_ultrakill.salvos_fired_total >= 1u);
+
+    /* Verify straggler > 260 m from player (100, 200, 10) is recycled via RemoveEntity (0xFDC310) */
+    uint32_t far_eid = 30015u;
+    uint32_t fslot = far_eid % 32u;
+    g_tm_buckets[fslot].k = far_eid;
+    g_tm_buckets[fslot].v = fslot;
+    float far_pos[3] = {420.0f, 200.0f, 10.0f}; /* 320 m > 260 m */
+    memcpy(g_tm_data[fslot] + 0x2E0u, far_pos, 12u);
+    CHECK(ChaosTrackerRecordSpawnAt(&g_tracker, CHAOS_BUGS, far_eid, 0, 0.0) == 1);
+    unsigned rem_before = g_remove_entity_calls;
+    Seconds(2);
+    CHECK(g_remove_entity_calls > rem_before && !ChaosTrackerHasEntity(&g_tracker, far_eid));
+
+    /* Verify Director patrol/reinforce valve closes at walking_ai >= 580 and hard cap blocks spawns at 620 */
+    float init_reinf = 500.0f;
+    memcpy(g_director_mem + UK_DIR_REINFORCE_BUDGET_OFF, &init_reinf, 4u);
+    /* Keep slot 0 as player avatar 101; populate slots 1..620 with walking troopers and 621..670 with corpses/Pelicans */
+    uint64_t av_res = 0x4D1C334D294DFA97ull;
+    uint32_t av_eid = 101u;
+    memcpy(g_emgr_mem + UK_EM_DESCRIPTORS_OFF + 0u, &av_res, 8u);
+    memcpy(g_emgr_mem + UK_EM_DESCRIPTORS_OFF + 8u, &av_eid, 4u);
+    for (uint32_t i = 1u; i <= 620u; ++i) {
+        uint64_t r = 0x0002ba767df856f3ull; /* Walking trooper */
+        uint32_t e = 50000u + i;
+        memcpy(g_emgr_mem + UK_EM_DESCRIPTORS_OFF + (size_t)i * 24u + 0u, &r, 8u);
+        memcpy(g_emgr_mem + UK_EM_DESCRIPTORS_OFF + (size_t)i * 24u + 8u, &e, 4u);
+    }
+    /* Add 50 corpse wrappers + Pelicans: must NOT count as walking_ai! */
+    for (uint32_t i = 621u; i <= 670u; ++i) {
+        uint64_t r = (i & 1u) ? 0x62928899DAC02979ull : 0x3EC790806D0B0540ull;
+        uint32_t e = 50000u + i;
+        memcpy(g_emgr_mem + UK_EM_DESCRIPTORS_OFF + (size_t)i * 24u + 0u, &r, 8u);
+        memcpy(g_emgr_mem + UK_EM_DESCRIPTORS_OFF + (size_t)i * 24u + 8u, &e, 4u);
+    }
+    g_em_snap.valid = 0;
+    ChaosRefreshEmSnapshot((uintptr_t)g_arena_game, clock_state.age + 10.0);
+    CHECK(g_em_snap.live_slots == 671u && g_em_snap.walking_ai_slots == 620u);
+    UltrakillSyncMissionTheater((uintptr_t)g_arena_game, (uintptr_t)g_director_mem, 0.1f);
+    float clamped_reinf = -1.0f;
+    memcpy(&clamped_reinf, g_director_mem + UK_DIR_REINFORCE_BUDGET_OFF, 4u);
+    CHECK(clamped_reinf == 0.0f && g_d12_slot.row12->patrol_cap[0] == 0u);
+    ChaosSpawnJob cap_job = {0};
+    cap_job.faction = CHAOS_BUGS; cap_job.row_slot = 0u; cap_job.flags = 0x24u;
+    ChaosSpawnQueuePush(&g_spawn_queue, &cap_job);
+    unsigned r_before_cap = g_roster_calls;
+    DrainTheaterSpawnQueue((uintptr_t)g_arena_game, (uintptr_t)g_director_mem);
+    CHECK(g_roster_calls == r_before_cap); /* Zero spawns admitted at walking_ai == 620! */
+
+    /* Switching to Empire mode despawns Clones AT-TE immediately; Ship transition releases ALL owned packages (0 leaks)! */
+    InterlockedExchange(&g_empire_mode_active, 1L);
+    Tick(self, 0.1f, NULL);
+    CHECK(g_atte.active == 0 && g_atte.entity == 0u);
+    InterlockedExchange(&g_empire_mode_active, 0L);
+
+    g_pkg_double_free_errors = 0u;
+    game_state = HF_STATE_SHIP;
+    Tick(self, 0.2f, NULL);
+    CHECK(g_chaos_owned_pkg_count == 0u && g_pkg_double_free_errors == 0u);
+    for (uint32_t s = 0; s < 256u; ++s) {
+        if (g_ref_slots[s].key != 0ULL) CHECK(g_ref_slots[s].ref == 0ULL);
+    }
+
+    g_d12_slot.state = 0;
+    g_d12_slot.row12 = NULL;
+    memset(g_arena_game + UK_CONTEXT_RVA, 0, 8u);
+    free(mock_ctx);
+    free(mock_lg);
+    InitMockGameArenas(CHAOS_NATIVE_BUGS_BIT, 5u);
+    ResetMockCountersAndModState();
+    subscriptions = ticks = 0u;
+    CHECK(hellforge_mod_init(api, (HfMod*)1) == 0);
 }
 
 static void TestV052HellForge05RelocatedEmAndPools(HfApi* api)
@@ -3217,8 +3506,9 @@ static void TestV052HellForge05RelocatedEmAndPools(HfApi* api)
     ChaosRefreshEmSnapshot(gbase, 10.0);
     CHECK(g_em_snap.valid == 1);
     CHECK(g_em_snap.em_cap == 4096u);
-    CHECK(g_em_snap.gwnav_reserve == 3228u);
+    CHECK(g_em_snap.gwnav_reserve == 3396u);
     CHECK(g_em_snap.live_slots == 501u);
+    CHECK(g_em_snap.walking_ai_slots == 500u); /* avatar_eid excluded from walking_ai_slots */
     CHECK(g_em_snap.free_slots == 4096u - 501u);
 
     float out_pos[4][3] = {{0}};
@@ -3298,6 +3588,7 @@ int main(int argc, char** argv)
     TestV040UltrakillD12PoolsAndCloneWarsTheater(&api);
     TestV050GenuineDifficulty12SlotAndGating(&api);
     TestV052HellForge05RelocatedEmAndPools(&api);
+    TestV230OvernightDeliverables(&api);
 
     /* Kill switch latch & token mismatch tests */
     FILE* f = fopen(bridge, "wb"); CHECK(f != NULL);

@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Exercise the shipped Chaos 0.3.0 Lua bridge with the installed standalone LuaJIT DLL."""
+"""Exercise the shipped Chaos 0.5.2 Lua bridge with the standalone LuaJIT DLL (zero game launch)."""
 from __future__ import annotations
 
 import ctypes
@@ -9,7 +9,8 @@ from pathlib import Path
 import sys
 
 ROOT = Path(__file__).resolve().parents[1]
-DLL = Path('D:/HellForge/game/bin/lua51.dll')
+LAB_DLL = Path('D:/ClaudeWork/clonedivers-lab/hang-integration-reviewed-astra/inputs/lua-vm/lua51.dll')
+DLL = LAB_DLL if LAB_DLL.exists() else Path('D:/HellForge/game/bin/lua51.dll')
 
 
 def main() -> int:
@@ -28,7 +29,7 @@ def main() -> int:
     harness = r'''
 local checks=0
 local function check(v) checks=checks+1; assert(v,'menu check '..checks) end
-local text='session=123\nenabled=1\ncooldown_seconds=150\nlanding_grace_seconds=45\ntotal_cap=12\nfaction_cap=6\nsquad_size=4\nmission_budget=36\ndroid_weight=100\nsquid_weight=80\nbug_weight=100\n'
+local text='session=123\nenabled=1\ncooldown_seconds=150\nlanding_grace_seconds=45\ntotal_cap=12\nfaction_cap=6\nsquad_size=4\nmission_budget=36\ndroid_weight=100\nsquid_weight=80\nbug_weight=100\nair_runs_enabled=1\natte_walker_support=1\n'
 local specs,values,callbacks={},{},{}
 local writes=0
 local old_calls=0
@@ -59,14 +60,17 @@ local e=env()
 local chunk=assert(loadstring(SOURCE,'chaos-menu')); setfenv(chunk,e); chunk()
 e.update()
 local n=0; for _ in pairs(specs) do n=n+1 end
-check(n==10); check(old_calls==1)
+check(n==12); check(old_calls==1)
 check(specs['chaos_invasions.enabled'].label=='ENABLE CHAOS INVASIONS')
 check(specs['chaos_invasions.enabled'].mod=='Chaos Invasions')
 check(specs['chaos_invasions.enabled'].mod_id=='clonedivers.chaos-invasions')
 check(specs['chaos_invasions.enabled'].default==true)
 check(values['chaos_invasions.enabled']==true)
-check(specs['chaos_invasions.cooldown_seconds'].min==30 and specs['chaos_invasions.cooldown_seconds'].max==900)
-check(specs['chaos_invasions.landing_grace_seconds'].min==15 and specs['chaos_invasions.landing_grace_seconds'].max==300)
+check(specs['chaos_invasions.air_runs_enabled'].type=='toggle' and values['chaos_invasions.air_runs_enabled']==true)
+check(specs['chaos_invasions.atte_walker_support'].type=='toggle' and values['chaos_invasions.atte_walker_support']==true)
+check(specs['chaos_invasions.cooldown_seconds'].min==10 and specs['chaos_invasions.cooldown_seconds'].max==900)
+check(specs['chaos_invasions.landing_grace_seconds'].min==6 and specs['chaos_invasions.landing_grace_seconds'].max==300)
+check(specs['chaos_invasions.squad_size'].max==32 and specs['chaos_invasions.mission_budget'].max==25000)
 check(values['chaos_invasions.cooldown_seconds']==150)
 check(values['chaos_invasions.landing_grace_seconds']==45)
 check(values['chaos_invasions.squad_size']==4)
@@ -75,20 +79,24 @@ check(values['chaos_invasions.squid_weight']==80)
 check(not specs['chaos_invasions.enabled'].description:find('BLOCKED',1,true))
 callbacks['chaos_invasions.enabled'](false)
 check(text:find('enabled=0',1,true)~=nil); check(writes==1)
-callbacks['chaos_invasions.cooldown_seconds']('chaos_invasions.cooldown_seconds',30)
-check(text:find('cooldown_seconds=30',1,true)~=nil); check(writes==2)
-callbacks['chaos_invasions.landing_grace_seconds'](15)
-check(text:find('landing_grace_seconds=15',1,true)~=nil); check(writes==3)
+callbacks['chaos_invasions.cooldown_seconds']('chaos_invasions.cooldown_seconds',10)
+check(text:find('cooldown_seconds=10',1,true)~=nil); check(writes==2)
+callbacks['chaos_invasions.landing_grace_seconds'](6)
+check(text:find('landing_grace_seconds=6',1,true)~=nil); check(writes==3)
+callbacks['chaos_invasions.air_runs_enabled'](false)
+check(text:find('air_runs_enabled=0',1,true)~=nil); check(writes==4)
+callbacks['chaos_invasions.atte_walker_support'](false)
+check(text:find('atte_walker_support=0',1,true)~=nil); check(writes==5)
 local before=text
-callbacks['chaos_invasions.cooldown_seconds'](29)
-callbacks['chaos_invasions.landing_grace_seconds'](14)
-callbacks['chaos_invasions.total_cap'](25)
+callbacks['chaos_invasions.cooldown_seconds'](9)
+callbacks['chaos_invasions.landing_grace_seconds'](5)
+callbacks['chaos_invasions.total_cap'](641)
 callbacks['chaos_invasions.squad_size'](2.5)
 callbacks['chaos_invasions.bug_weight'](0/0)
-check(text==before and writes==3)
+check(text==before and writes==5)
 text=text:gsub('session=123','session=456')
 callbacks['chaos_invasions.enabled'](true)
-check(writes==3)
+check(writes==5)
 local other=env(); other.ModOptionsMenu=nil
 chunk=assert(loadstring(SOURCE,'chaos-menu-absent')); setfenv(chunk,other); chunk(); other.update()
 check(old_calls==2)
@@ -111,18 +119,20 @@ return checks
     finally:
         lib.lua_close(state)
 
+    out_dir = ROOT / 'build'
+    out_dir.mkdir(parents=True, exist_ok=True)
     proof = {
         'passed': True,
         'checks': count,
-        'version': '0.3.3',
+        'version': '0.5.2',
         'runtime': str(DLL),
         'runtime_sha256': hashlib.sha256(DLL.read_bytes()).hexdigest(),
         'source_sha256': hashlib.sha256(source.encode()).hexdigest(),
         'io_mocked': True,
         'game_launched': False,
     }
-    (ROOT / 'build/menu-tests.json').write_text(json.dumps(proof, indent=2) + '\n', encoding='utf-8')
-    print(f'PASS {count} LuaJIT menu checks (0.3.3); mocked IO; no game launch')
+    (out_dir / 'menu-tests.json').write_text(json.dumps(proof, indent=2) + '\n', encoding='utf-8')
+    print(f'PASS {count} LuaJIT menu checks (0.5.2); mocked IO; no game launch')
     return 0
 
 

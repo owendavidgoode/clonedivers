@@ -584,11 +584,11 @@ int main(int argc, char** argv)
     CHECK(s_active_reaper_tier == 0u && fabsf(s_effective_delay_s - 2.0f) < 1e-4f,
           "clone-wars corpseDelaySeconds=2 with corpseTurboReaper=false sets Tier-0 reaper delay to 2.0s on Difficulty 12");
 
-    /* Review #3 P3: Verify corpseTurboReaper=false + corpseDelaySeconds=2 preserves 2.0s delay across ALL
-     * pressure tiers (Tier 1: wrecks>=96 / live>=900, Tier 2: wrecks>=192 / live>=1300, Tier 3: wrecks>=320 / live>=1550)
+    /* Review #3 P3 + GwNav::Bot Pressure Tiers: Verify corpseTurboReaper=false + corpseDelaySeconds=2 preserves 2.0s delay across ALL
+     * pressure tiers (Tier 1: wrecks>=64 / live>=380, Tier 2: wrecks>=140 / live>=500, Tier 3: wrecks>=220 / live>=620)
      * while retaining each pressure tier's processing budgets! */
     {
-        uint32_t tier_wrecks[3] = { 96u, 192u, 320u };
+        uint32_t tier_wrecks[3] = { 64u, 140u, 220u };
         unsigned exp_tiers[3]   = { 1u,  2u,   3u   };
         unsigned exp_budgets[3] = { 6u,  12u,  16u  };
         for (int ti = 0; ti < 3; ++ti) {
@@ -601,8 +601,8 @@ int main(int argc, char** argv)
                   removal_budget == exp_budgets[ti],
                   "corpseTurboReaper=false + corpseDelaySeconds=2 preserves 2.0s delay and wreck-threshold tier budget");
         }
-        uint32_t zero_wrecks = 8u; /* >=8 triggers EM descriptor snapshot for entity-threshold check */
-        uint32_t tier_entities[3] = { 900u, 1300u, 1550u };
+        uint32_t zero_wrecks = 8u; /* >=1 triggers EM descriptor snapshot for entity-threshold check */
+        uint32_t tier_entities[3] = { 380u, 500u, 620u };
         for (int ti = 0; ti < 3; ++ti) {
             setup_corpse_in_queue(0x720u + (uint32_t)ti, 0x820u + (uint32_t)ti, 2u, 1u);
             memcpy(g_fake_queue + 0x818u, &zero_wrecks, 4u);
@@ -621,6 +621,25 @@ int main(int argc, char** argv)
                   removal_budget == exp_budgets[ti],
                   "corpseTurboReaper=false + corpseDelaySeconds=2 preserves 2.0s delay and entity-threshold tier budget");
         }
+
+        /* 60-minute endurance simulation (14,400 updates @ 0.25s = 3,600s) with continuous unit ID churn -> 0 leaked factory_lives! */
+        setup_corpse_in_queue(0x9000u, 0xA000u, 2u, 1u);
+        for (uint32_t step = 0; step < 14400u; ++step) {
+            uint32_t uid = 0x20000u + step;
+            uint32_t eid = 0x50000u + step;
+            uint32_t kind = 2u;
+            float rem = 15.0f;
+            memcpy(g_fake_queue + 0x18u + 0u, &uid, 4u);
+            memcpy(g_fake_queue + 0x18u + 4u, &eid, 4u);
+            memcpy(g_fake_queue + 0x18u + 8u, &kind, 4u);
+            memcpy(g_fake_queue + 0x18u + 12u, &rem, 4u);
+            cc_factory_update((uintptr_t)g_fake_queue, 0.25f);
+        }
+        unsigned used_lives = 0u;
+        for (unsigned li = 0; li < CC_MAX_LIVES; ++li) {
+            if (factory_lives[li].used) ++used_lives;
+        }
+        CHECK(used_lives <= 2u, "60-minute continuous corpse churn evicts stale factory_lives with zero linear growth");
     }
 
     /* 7b. HellForge 0.5.0-beta relocated 4,096-record EntityManager: phase-2 corpse at slot 3,100 (> 2,048) */

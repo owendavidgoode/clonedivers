@@ -286,6 +286,7 @@ static int mock_read(uintptr_t at, void* out, size_t n)
     if (at == g_fake_game + 0x6A8F00u && n <= sizeof SEARCH_BYTES) { memcpy(out, SEARCH_BYTES, n); return 0; }
     if (at == g_fake_game + 0x13CAA80u && n <= sizeof QUERY_BYTES) { memcpy(out, QUERY_BYTES, n); return 0; }
     if (at == g_fake_game + 0x6ABDB0u && n <= sizeof DISPATCH_BYTES) { memcpy(out, DISPATCH_BYTES, n); return 0; }
+    if (at == g_fake_game + NATIVE_1401_SPAWN_RVA && n <= sizeof NATIVE_1401_PROLOGUE) { memcpy(out, NATIVE_1401_PROLOGUE, n); return 0; }
     if (at == g_fake_game + DIRECTOR_RVA && n == 8) { uintptr_t p = (uintptr_t)g_ai_director; memcpy(out, &p, 8); return 0; }
     if (at == g_fake_game + 0x3326340u && n == 8) { uintptr_t p = (uintptr_t)g_context_obj; memcpy(out, &p, 8); return 0; }
     if (at == g_fake_game + 0x3483C34u && n == 4) { uint32_t inv = 0xFFFFFFFFu; memcpy(out, &inv, 4); return 0; }
@@ -379,7 +380,28 @@ static uint32_t mock_add_stratagem(HfMod*, const HfStratagem*) { return 501u; }
 static uintptr_t mock_stratagem_row(uint32_t id) { return id == 501u ? (uintptr_t)g_strat_row_custom : 0u; }
 static int mock_subscribe(HfMod*, uint32_t, HfListener, void*, int32_t) { return 1; }
 static HfEventCallback g_session_end_cb = NULL;
-static int mock_on(HfMod*, HfEvent ev, HfEventCallback cb, void*) { if (ev == HF_EVENT_SESSION_END) g_session_end_cb = cb; return 0; }
+static HfEventCallback g_game_loaded_cb = NULL;
+static unsigned g_mock_orig_1401_calls = 0;
+static void mock_orig_1401_spawn(uintptr_t, uintptr_t, uintptr_t, uintptr_t) { ++g_mock_orig_1401_calls; }
+static int mock_hook(HfMod*, uintptr_t target, void* detour, void** orig)
+{
+    (void)detour;
+    if (target == g_fake_game + NATIVE_1401_SPAWN_RVA) {
+        *orig = (void*)mock_orig_1401_spawn;
+        return 0;
+    }
+    return 1;
+}
+static int mock_hook_ex(HfMod* m, uintptr_t target, void* detour, void** orig, int32_t)
+{
+    return mock_hook(m, target, detour, orig);
+}
+static int mock_on(HfMod*, HfEvent ev, HfEventCallback cb, void*)
+{
+    if (ev == HF_EVENT_SESSION_END) g_session_end_cb = cb;
+    else if (ev == HF_EVENT_GAME_LOADED) g_game_loaded_cb = cb;
+    return 0;
+}
 static HfTickCallback g_tick_cb = NULL;
 static int mock_on_game_thread(HfMod*, HfTickCallback cb, void*) { g_tick_cb = cb; return 1; }
 
@@ -443,6 +465,8 @@ int main(int argc, char** argv)
     api.write = mock_write;
     api.write_u32_if = mock_write_u32_if;
     api.code_matches = mock_code_matches;
+    api.hook = mock_hook;
+    api.hook_ex = mock_hook_ex;
     api.add_stratagem = mock_add_stratagem;
     api.stratagem_row = mock_stratagem_row;
     api.subscribe = mock_subscribe;
@@ -487,35 +511,35 @@ int main(int argc, char** argv)
     CHECK(OptionsConstant() == 1 && OptionsSupportSquads() == 1 && OptionsSquadsPerWave() == 1 && OptionsWaveIntervalMs() == 90000,
           "newer Launcher Apply enables constant mode");
 
-    /* Verify Clone Wars Grand Army preset ("heavySeaf":"clone-wars") -> 1-slot native 116u squads (support=0), 24s cadence, 200 ceiling override, SquadStep=10 */
+    /* Verify Clone Wars Grand Army preset ("heavySeaf":"clone-wars") -> 1-slot native 116u squads (support=0), 24s cadence, ceiling clamped <= 48, SquadStep=5 */
     CHECK(write_file_mtime(host_json, "{\"format\":1,\"theaterPreset\":\"clone-wars\",\"chaosIntensity\":\"clone-wars\",\"heavySeaf\":\"clone-wars\",\"fasterCorpseCleanup\":true,\"seafWaveCeiling\":200}", t0 + 900000000ULL),
           "write clone-wars host options");
     OptionsMenuPoll(1.5f);
     CHECK(OptionsConstant() == 1 && OptionsSupportSquads() == 0 && OptionsCloneWars() == 1 &&
           OptionsSquadsPerWave() == 2 && OptionsWaveIntervalMs() == 24000 &&
-          OptionsWaveCeiling() == 200 && SquadStep() == 10,
-          "clone-wars preset configures 24s 2-squad native 116u Clone Trooper drops with ceiling=200 and SquadStep=10");
+          OptionsWaveCeiling() == 48 && SquadStep() == 5,
+          "clone-wars preset configures 24s 2-squad native 116u Clone Trooper drops with GwNav-safe ceiling=48 and SquadStep=5");
 
-    /* Verify HeavyHasEntityHeadroom (<1,024 GwNav::Bot governor) fails closed on read errors and holds at >=869 occupied slots */
+    /* Verify HeavyHasEntityHeadroom (<1,024 GwNav::Bot governor: <= 660 walking AI & <= 740 live EM) fails closed on read errors */
     memset(g_factory_obj + 0xF32F18u, 0, 2048u * 24u);
-    CHECK(HeavyHasEntityHeadroom(g_fake_game, 1180u) == 1, "empty EntityManager grants 2048 >= 1180 headroom");
-    CHECK(HeavyHasEntityHeadroom(0u, 1180u) == 0, "null game base fails closed");
+    CHECK(HeavyHasEntityHeadroom(g_fake_game, HEAVY_GWNAV_RESERVE_2048) == 1, "empty EntityManager grants 2048 >= 1308 headroom");
+    CHECK(HeavyHasEntityHeadroom(0u, HEAVY_GWNAV_RESERVE_2048) == 0, "null game base fails closed");
     g_mock_fail_factory_read = 1;
-    CHECK(HeavyHasEntityHeadroom(g_fake_game, 1180u) == 0, "failed factory pointer read fails closed");
+    CHECK(HeavyHasEntityHeadroom(g_fake_game, HEAVY_GWNAV_RESERVE_2048) == 0, "failed factory pointer read fails closed");
     g_mock_fail_factory_read = 0;
     g_mock_fail_invalid_read = 1;
-    CHECK(HeavyHasEntityHeadroom(g_fake_game, 1180u) == 0, "failed sentinel read fails closed");
+    CHECK(HeavyHasEntityHeadroom(g_fake_game, HEAVY_GWNAV_RESERVE_2048) == 0, "failed sentinel read fails closed");
     g_mock_fail_invalid_read = 0;
     g_mock_fail_desc_read = 1;
-    CHECK(HeavyHasEntityHeadroom(g_fake_game, 1180u) == 0, "failed descriptor bulk read fails closed");
+    CHECK(HeavyHasEntityHeadroom(g_fake_game, HEAVY_GWNAV_RESERVE_2048) == 0, "failed descriptor bulk read fails closed");
     g_mock_fail_desc_read = 0;
-    for (uint32_t i = 0; i < 900u; ++i) {
+    for (uint32_t i = 0; i < 660u; ++i) {
         uint64_t res = 0x0002BA767DF856F3ULL;
         uint32_t eid = 1000u + i;
         memcpy(g_factory_obj + 0xF32F18u + (size_t)i * 24u + 0u, &res, 8);
         memcpy(g_factory_obj + 0xF32F18u + (size_t)i * 24u + 8u, &eid, 4);
     }
-    CHECK(HeavyHasEntityHeadroom(g_fake_game, 1180u) == 0, "900 occupied EntityManager slots (1148 free < 1180) holds Clone Wars SEAF wave");
+    CHECK(HeavyHasEntityHeadroom(g_fake_game, HEAVY_GWNAV_RESERVE_2048) == 0, "660 walking AI units blocks SEAF spawn before GwNav::Bot 1,024 pool");
     init_mock_world();
 
     /* Restore constant mode for the wave-1 landing gate assertions below */
@@ -649,7 +673,7 @@ int main(int argc, char** argv)
               "clone-wars preset preserves native 12/18, 10/18 SEAF template on Difficulty 10");
     }
 
-    g_settings_obj[CD_LG_DIFFICULTY_OFF] = 12u; /* Difficulty 12: Clone Wars activates 2-squad native 116u wave AND raises template to 72/78, 70/78! */
+    g_settings_obj[CD_LG_DIFFICULTY_OFF] = 12u; /* Difficulty 12: Clone Wars activates 2-squad native 116u wave AND raises template to 42/48, 40/48! */
     g_test_now_ms_override = 330000ULL;
     Tick(fake_mod, 2.5f, NULL);
     g_test_now_ms_override = 333000ULL;
@@ -661,8 +685,8 @@ int main(int argc, char** argv)
         memcpy(&tvals[1], g_seaf_template + 16u, 4u);
         memcpy(&tvals[2], g_seaf_template + 40u, 4u);
         memcpy(&tvals[3], g_seaf_template + 44u, 4u);
-        CHECK(tvals[0] == 72u && tvals[1] == 78u && tvals[2] == 70u && tvals[3] == 78u,
-              "Difficulty 12 raises SEAF template to 72/78, 70/78");
+        CHECK(tvals[0] == 42u && tvals[1] == 48u && tvals[2] == 40u && tvals[3] == 48u,
+              "Difficulty 12 raises SEAF template to GwNav-safe 42/48, 40/48");
     }
 
     /* Returning to Ship after Difficulty 12 restores SEAF template back to native 12/18, 10/18! */
@@ -761,12 +785,12 @@ int main(int argc, char** argv)
 
         /* Switching to Difficulty 12 still activates Clone Wars waves while honoring explicit 75s interval edit! */
         OptionsResolveForDifficulty(12, &ecw, &econ, &esq, &eiv, &eceil);
-        CHECK(ecw == 1 && econ == 1 && esq == 2 && eiv == 75000 && eceil == 78 &&
-              OptionsEffectiveCloneWars(12) == 1 && SquadStepForDifficulty(12) == 10,
-              "Difficulty 12 activates Clone Wars while preserving explicit 75s session interval edit");
+        CHECK(ecw == 1 && econ == 1 && esq == 2 && eiv == 75000 && eceil == 48 &&
+              OptionsEffectiveCloneWars(12) == 1 && SquadStepForDifficulty(12) == 5,
+              "Difficulty 12 activates Clone Wars (ceiling=48, SquadStep=5) while preserving explicit 75s session interval edit");
     }
 
-    /* 4e. HellForge 0.5.0-beta relocated 4,096-record EntityManager: GwNav reserve scaling (1180 -> 3228)
+    /* 4e. HellForge 0.5.0-beta relocated 4,096-record EntityManager: GwNav reserve scaling (1308 -> 3356)
      *     and ResolveLivingHostMissionGround at descriptor slot 2,800 (> 2,048). */
     {
         init_mock_world();
@@ -788,24 +812,24 @@ int main(int argc, char** argv)
             for (uint32_t i = 0; i < 4096u; ++i) {
                 memcpy(g_mock_reloc_em_base + (size_t)i * 24u + 8u, &inv, 4u);
             }
-            /* Populate 800 live entities (<= 868 GwNav safe ceiling -> 3,296 free >= 3,228 scaled reserve -> PASS) */
-            for (uint32_t i = 0; i < 800u; ++i) {
+            /* Populate 620 walking AI entities (< 660 walking AI & < 740 live EM -> 3,476 free >= 3,356 scaled reserve -> PASS) */
+            for (uint32_t i = 0; i < 620u; ++i) {
                 uint64_t res = 0x123456789ABCDEF0ULL;
                 uint32_t eid = 0x5000u + i;
                 memcpy(g_mock_reloc_em_base + (size_t)i * 24u + 0u, &res, 8u);
                 memcpy(g_mock_reloc_em_base + (size_t)i * 24u + 8u, &eid, 4u);
             }
-            CHECK(HeavyHasEntityHeadroom(g_fake_game, 1180u) == 1,
-                  "4,096-slot relocated EM allows wave with 800 live entities (3,296 free >= 3,228 scaled reserve)");
-            /* Add 100 more live entities (900 live > 868 ceiling -> 3,196 free < 3,228 scaled reserve -> BLOCK!) */
-            for (uint32_t i = 800u; i < 900u; ++i) {
+            CHECK(HeavyHasEntityHeadroom(g_fake_game, HEAVY_GWNAV_RESERVE_2048) == 1,
+                  "4,096-slot relocated EM allows wave with 620 walking AI (3,476 free >= 3,356 scaled reserve)");
+            /* Add 40 more walking AI (660 walking AI == HEAVY_MAX_WALKING_AI_GATE -> BLOCK!) */
+            for (uint32_t i = 620u; i < 660u; ++i) {
                 uint64_t res = 0x123456789ABCDEF0ULL;
                 uint32_t eid = 0x5000u + i;
                 memcpy(g_mock_reloc_em_base + (size_t)i * 24u + 0u, &res, 8u);
                 memcpy(g_mock_reloc_em_base + (size_t)i * 24u + 8u, &eid, 4u);
             }
-            CHECK(HeavyHasEntityHeadroom(g_fake_game, 1180u) == 0,
-                  "4,096-slot relocated EM blocks wave at 900 live entities to protect <1,024 GwNav::Bot ceiling");
+            CHECK(HeavyHasEntityHeadroom(g_fake_game, HEAVY_GWNAV_RESERVE_2048) == 0,
+                  "4,096-slot relocated EM blocks wave at 660 walking AI to protect <1,024 GwNav::Bot ceiling");
 
             /* Move local host player's network map entry (net_id=0x33 -> char_id=0x555) to relocated slot 2,800 (> 2,048!) */
             uint32_t net_id = 0x33u, slot2800 = 2800u, char_id = 0x555u;
@@ -825,6 +849,116 @@ int main(int argc, char** argv)
             g_mock_factory_override = 0u;
             g_mock_reloc_em_base = NULL;
             free(near_mem);
+        }
+    }
+
+    /* 4f. P0 Crash Fix Verification (68476c40 & f0da2ba8):
+     *     - Native modifier-1401 Pelican hook (0x94DC20) blocks drops at >= 48 living SEAF OR >= 660 walking AI (including 896!).
+     *     - Dynamic template admission (+40/+44) zeroes to 0/0 when gated and restores 40/48 when below.
+     *     - Clone Wars D12 7.0s fast landing grace (holds at 6.9s, fires at 7.0s). */
+    {
+        init_mock_world();
+        g_tpl = (uintptr_t)g_seaf_template;
+        g_squad = 1;
+        g_applied_step = 0;
+        g_applied_gate_closed = 0;
+        g_native_1401_spawn = NULL;
+        g_native_1401_blocked_drops = 0u;
+        g_native_1401_allowed_drops = 0u;
+        g_mock_orig_1401_calls = 0u;
+
+        CHECK(g_game_loaded_cb != NULL, "HF_EVENT_GAME_LOADED callback registered");
+        if (g_game_loaded_cb) g_game_loaded_cb(fake_mod, HF_EVENT_GAME_LOADED, NULL);
+        CHECK(g_native_1401_spawn == mock_orig_1401_spawn, "native modifier-1401 Pelican spawner (0x94DC20) hooked cleanly");
+
+        CHECK(write_file_mtime(host_json, "{\"format\":1,\"theaterPreset\":\"clone-wars\",\"chaosIntensity\":\"clone-wars\",\"heavySeaf\":\"clone-wars\",\"fasterCorpseCleanup\":true}", t0 + 6000000000ULL),
+              "write clone-wars options for P0 native-1401 gate & 7s grace test");
+        OptionsMenuPoll(1.5f);
+
+        g_mock_role = HF_SESSION_SOLO;
+        g_mock_state = HF_STATE_SHIP;
+        g_test_now_ms_override = 500000ULL;
+        Tick(fake_mod, 2.5f, NULL);
+
+        g_mock_state = HF_STATE_MISSION;
+        g_mock_mission_mode = 3u;
+        g_mock_player_life = 3u;
+        g_settings_obj[CD_LG_DIFFICULTY_OFF] = 12u;
+        g_activate_calls = 0u;
+
+        /* Ground entry at 510,000 ms -> ArmMission at 513,000 ms -> +6,900 ms (516,900 ms) still held; +7,000 ms (517,000 ms) fires! */
+        g_test_now_ms_override = 510000ULL;
+        Tick(fake_mod, 0.5f, NULL);
+        g_test_now_ms_override = 513000ULL;
+        Tick(fake_mod, 0.5f, NULL);
+        g_test_now_ms_override = 516900ULL;
+        Tick(fake_mod, 0.5f, NULL);
+        CHECK(g_landing_gate.grace_ready == 0 && g_activate_calls == 0u, "Clone Wars 7s grace holds at +6.9s");
+        g_test_now_ms_override = 517000ULL;
+        Tick(fake_mod, 0.5f, NULL);
+        CHECK(g_landing_gate.grace_ready == 1 && g_activate_calls == 1u, "Clone Wars 7s grace dispatches wave 1 at +7.0s");
+
+        /* Under low population (1 player entity), native 1401 Pelican drop is allowed */
+        Native1401SpawnDetour(0x1234u, 0u, 0u, 0u);
+        CHECK(g_mock_orig_1401_calls == 1u && g_native_1401_blocked_drops == 0u,
+              "native 1401 Pelican drop allowed when living_seaf < 48 and walking_ai < 660");
+
+        /* Populate 48 living SEAF soldiers in EntityManager -> blocks native 1401 Pelican AND zeroes template admission! */
+        HeavyEnsureSeafSoldierHashes();
+        for (uint32_t i = 0; i < 48u; ++i) {
+            uint64_t sres = g_seaf_soldier_hashes[i % 11u];
+            uint32_t eid = 0x7000u + i;
+            memcpy(g_factory_obj + 0xF32F18u + (size_t)(10u + i) * 24u + 0u, &sres, 8u);
+            memcpy(g_factory_obj + 0xF32F18u + (size_t)(10u + i) * 24u + 8u, &eid, 4u);
+        }
+        Native1401SpawnDetour(0x1234u, 0u, 0u, 0u);
+        CHECK(g_mock_orig_1401_calls == 1u && g_native_1401_blocked_drops == 1u,
+              "native 1401 Pelican drop blocked synchronously at 48 living SEAF");
+        g_test_now_ms_override = 518000ULL;
+        Tick(fake_mod, 0.5f, NULL);
+        {
+            uint32_t adm[2] = {99u, 99u};
+            memcpy(&adm[0], g_seaf_template + 40u, 4u);
+            memcpy(&adm[1], g_seaf_template + 44u, 4u);
+            CHECK(adm[0] == 0u && adm[1] == 0u, "template admission (+40/+44) dynamically clamped to 0/0 at 48 SEAF");
+        }
+
+        /* Reproduce tonight's exact crash scenario: 0 SEAF alive, real_em_live = 896 (>= 660 walking AI) -> BLOCKED! */
+        memset(g_factory_obj + 0xF32F18u + 10u * 24u, 0, 900u * 24u);
+        for (uint32_t i = 0; i < 896u; ++i) {
+            uint64_t eres = 0x0002BA767DF856F3ULL;
+            uint32_t eid = 0x9000u + i;
+            memcpy(g_factory_obj + 0xF32F18u + (size_t)(10u + i) * 24u + 0u, &eres, 8u);
+            memcpy(g_factory_obj + 0xF32F18u + (size_t)(10u + i) * 24u + 8u, &eid, 4u);
+        }
+        Native1401SpawnDetour(0x1234u, 0u, 0u, 0u);
+        CHECK(g_mock_orig_1401_calls == 1u && g_native_1401_blocked_drops == 2u,
+              "native 1401 Pelican drop blocked synchronously at real_em_live=896 (prevents helldivers2.exe+0x801b03 crash!)");
+
+        /* Corpse wrappers (200 corpses + 400 walking AI = 600 EM, 400 walking AI < 660) do NOT falsely block SEAF drops,
+         * and restoring headroom re-opens template admission to 40/48! */
+        memset(g_factory_obj + 0xF32F18u + 10u * 24u, 0, 900u * 24u);
+        for (uint32_t i = 0; i < 400u; ++i) {
+            uint64_t eres = 0x0002BA767DF856F3ULL;
+            uint32_t eid = 0x9000u + i;
+            memcpy(g_factory_obj + 0xF32F18u + (size_t)(10u + i) * 24u + 0u, &eres, 8u);
+            memcpy(g_factory_obj + 0xF32F18u + (size_t)(10u + i) * 24u + 8u, &eid, 4u);
+        }
+        for (uint32_t i = 0; i < 200u; ++i) {
+            uint64_t cres = 0x62928899DAC02979ULL; /* Corpse wrapper */
+            uint32_t eid = 0xB000u + i;
+            memcpy(g_factory_obj + 0xF32F18u + (size_t)(420u + i) * 24u + 0u, &cres, 8u);
+            memcpy(g_factory_obj + 0xF32F18u + (size_t)(420u + i) * 24u + 8u, &eid, 4u);
+        }
+        g_test_now_ms_override = 519000ULL;
+        Tick(fake_mod, 0.5f, NULL);
+        Native1401SpawnDetour(0x1234u, 0u, 0u, 0u);
+        {
+            uint32_t adm[2] = {0u, 0u};
+            memcpy(&adm[0], g_seaf_template + 40u, 4u);
+            memcpy(&adm[1], g_seaf_template + 44u, 4u);
+            CHECK(g_mock_orig_1401_calls == 2u && adm[0] == 40u && adm[1] == 48u,
+                  "400 walking AI + 200 corpses re-opens template admission 40/48 and permits native 1401 Pelican");
         }
     }
 

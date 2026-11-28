@@ -168,11 +168,11 @@ static ULONGLONG HeavyNowMs(void)
     return GetTickCount64();
 }
 
-/* 0 keeps the game's cap. 1..5 adds that many squads of 6 (up to 25 in Clone Wars mode -> 162-168 SEAF). */
+/* 0 keeps the game's cap. 1..5 adds that many squads of 6 (bounded <= 48 SEAF to protect the 1,024 GwNav::Bot pool). */
 static int SquadStep(void)
 {
     int step = OptionsExtraSquads();
-    int max_step = OptionsCloneWars() ? 25 : 5;
+    const int max_step = 5;
     if (step < EXTRA_SQUADS) step = EXTRA_SQUADS;
     if (step < 0) return 0;
     if (step > max_step) return max_step;
@@ -182,7 +182,7 @@ static int SquadStep(void)
 static int SquadStepForDifficulty(int live_diff)
 {
     int step = OptionsEffectiveExtraSquads(live_diff);
-    int max_step = OptionsEffectiveCloneWars(live_diff) ? 25 : 5;
+    const int max_step = 5;
     if (step < EXTRA_SQUADS) step = EXTRA_SQUADS;
     if (step < 0) return 0;
     if (step > max_step) return max_step;
@@ -642,6 +642,7 @@ static uintptr_t FindTemplate(int allow_write)
 }
 
 static int g_applied_step = 0;
+static int g_applied_gate_closed = 0;
 
 static int TemplateFramingMatches(const uint8_t* p)
 {
@@ -652,12 +653,14 @@ static int TemplateFramingMatches(const uint8_t* p)
     return 1;
 }
 
-static void SyncTemplateForStep(uintptr_t at, int want_step)
+static void SyncTemplateForStepAndGate(uintptr_t at, int want_step, int gate_closed)
 {
     uint8_t raw[96];
     uint32_t want_add;
     uint32_t prev_add;
     static const uint32_t expect[4] = {12u, 18u, 10u, 18u};
+    uint32_t want_vals[4];
+    uint32_t prev_vals[4];
     uint32_t gotv[4];
     static const uintptr_t OFFS[4] = {12u, 16u, 40u, 44u};
     int i;
@@ -665,14 +668,17 @@ static void SyncTemplateForStep(uintptr_t at, int want_step)
     int matches_want = 1;
 
     if (want_step < 0) want_step = 0;
-    if (want_step > 25) want_step = 25;
+    if (want_step > 5) want_step = 5;
+    gate_closed = gate_closed ? 1 : 0;
 
     EnterCriticalSection(&g_lock);
     int cur_applied = g_applied_step;
+    int cur_gate = g_applied_gate_closed;
     int cur_squad = g_squad;
     LeaveCriticalSection(&g_lock);
 
-    if (want_step == cur_applied && ((want_step == 0 && cur_squad == 1) || (want_step > 0 && cur_squad == 2)))
+    if (want_step == cur_applied && gate_closed == cur_gate &&
+        ((want_step == 0 && !gate_closed && cur_squad == 1) || ((want_step > 0 || gate_closed) && cur_squad == 2)))
         return;
 
     if (!ApiRd(at, raw, 96) || !TemplateFramingMatches(raw)) {
@@ -681,22 +687,34 @@ static void SyncTemplateForStep(uintptr_t at, int want_step)
         g_squad = 3;
         g_tpl = 0;
         g_applied_step = 0;
+        g_applied_gate_closed = 0;
         LeaveCriticalSection(&g_lock);
         return;
     }
 
     want_add = (uint32_t)want_step * 6u;
     prev_add = (uint32_t)cur_applied * 6u;
+    want_vals[0] = expect[0] + want_add;
+    want_vals[1] = expect[1] + want_add;
+    want_vals[2] = gate_closed ? 0u : (expect[2] + want_add);
+    want_vals[3] = gate_closed ? 0u : (expect[3] + want_add);
+
+    prev_vals[0] = expect[0] + prev_add;
+    prev_vals[1] = expect[1] + prev_add;
+    prev_vals[2] = cur_gate ? 0u : (expect[2] + prev_add);
+    prev_vals[3] = cur_gate ? 0u : (expect[3] + prev_add);
+
     for (i = 0; i < 4; i++) {
         memcpy(&gotv[i], raw + OFFS[i], 4);
-        if (gotv[i] != expect[i] + prev_add) matches_prev = 0;
-        if (gotv[i] != expect[i] + want_add) matches_want = 0;
+        if (gotv[i] != prev_vals[i]) matches_prev = 0;
+        if (gotv[i] != want_vals[i]) matches_want = 0;
     }
 
     if (matches_want) {
         EnterCriticalSection(&g_lock);
         g_applied_step = want_step;
-        g_squad = (want_step > 0) ? 2 : 1;
+        g_applied_gate_closed = gate_closed;
+        g_squad = (want_step > 0 || gate_closed) ? 2 : 1;
         LeaveCriticalSection(&g_lock);
         return;
     }
@@ -704,7 +722,7 @@ static void SyncTemplateForStep(uintptr_t at, int want_step)
     if (!matches_prev) {
         Log("SEAF cap left alone: template %llx holds %u,%u / %u,%u, not expected %u,%u / %u,%u",
             (unsigned long long)at, gotv[0], gotv[1], gotv[2], gotv[3],
-            expect[0] + prev_add, expect[1] + prev_add, expect[2] + prev_add, expect[3] + prev_add);
+            prev_vals[0], prev_vals[1], prev_vals[2], prev_vals[3]);
         EnterCriticalSection(&g_lock);
         g_squad = 3;
         LeaveCriticalSection(&g_lock);
@@ -712,13 +730,16 @@ static void SyncTemplateForStep(uintptr_t at, int want_step)
     }
 
     for (i = 0; i < 4; i++) {
+        if (gotv[i] == want_vals[i]) continue;
         if (g_api->write_u32_if == NULL ||
-            g_api->write_u32_if(g_mod, at + OFFS[i], gotv[i], expect[i] + want_add) != 0) {
+            g_api->write_u32_if(g_mod, at + OFFS[i], gotv[i], want_vals[i]) != 0) {
             int j;
             for (j = 0; j < i && g_api->write_u32_if != NULL; j++) {
-                (void)g_api->write_u32_if(g_mod, at + OFFS[j], expect[j] + want_add, gotv[j]);
+                if (gotv[j] != want_vals[j]) {
+                    (void)g_api->write_u32_if(g_mod, at + OFFS[j], want_vals[j], gotv[j]);
+                }
             }
-            Log("SEAF cap: write %u at template+%u did not apply", expect[i] + want_add, (unsigned)OFFS[i]);
+            Log("SEAF cap: write %u at template+%u did not apply", want_vals[i], (unsigned)OFFS[i]);
             EnterCriticalSection(&g_lock);
             g_squad = 3;
             LeaveCriticalSection(&g_lock);
@@ -728,15 +749,24 @@ static void SyncTemplateForStep(uintptr_t at, int want_step)
 
     EnterCriticalSection(&g_lock);
     g_applied_step = want_step;
-    g_squad = (want_step > 0) ? 2 : 1;
+    g_applied_gate_closed = gate_closed;
+    g_squad = (want_step > 0 || gate_closed) ? 2 : 1;
     LeaveCriticalSection(&g_lock);
 
-    if (want_step == 0) {
+    if (want_step == 0 && !gate_closed) {
         Log("SEAF cap restored to native defaults 12/18, admission 10/18 (template %llx)", (unsigned long long)at);
+    } else if (gate_closed) {
+        Log("SEAF native admission gated to 0/0 (per drop %u/%u, template %llx) to protect <1,024 GwNav::Bot pool",
+            want_vals[0], want_vals[1], (unsigned long long)at);
     } else {
         Log("SEAF cap raised by %d squad(s): per drop %u/%u, admission %u/%u (template %llx)",
-            want_step, expect[0] + want_add, expect[1] + want_add, expect[2] + want_add, expect[3] + want_add, (unsigned long long)at);
+            want_step, want_vals[0], want_vals[1], want_vals[2], want_vals[3], (unsigned long long)at);
     }
+}
+
+static void SyncTemplateForStep(uintptr_t at, int want_step)
+{
+    SyncTemplateForStepAndGate(at, want_step, 0);
 }
 
 static int WorkerStopped(void)
@@ -1029,17 +1059,124 @@ static int FarFromWave(const float* g)
 
 #include "clonedivers_em_layout.h"
 
-static int HeavyHasEntityHeadroom(uintptr_t game, uint32_t min_free)
+/* Stingray MurmurHash64A (seed 0) so SEAF soldier entity hashes resolve offline & at runtime. */
+static uint64_t HeavyMurmur64A(const char* text)
+{
+    const uint64_t mult = 0xc6a4a7935bd1e995ULL;
+    const unsigned shift = 47u;
+    const uint8_t* data = (const uint8_t*)text;
+    size_t len = text ? strlen(text) : 0u;
+    uint64_t h = (uint64_t)len * mult;
+    size_t nblocks = len / 8u;
+    for (size_t i = 0; i < nblocks; ++i) {
+        uint64_t k = 0ULL;
+        memcpy(&k, data + i * 8u, 8u);
+        k *= mult;
+        k ^= k >> shift;
+        k *= mult;
+        h = (h ^ k) * mult;
+    }
+    const uint8_t* tail = data + nblocks * 8u;
+    uint64_t rem = 0ULL;
+    for (size_t r = len & 7u; r > 0u; --r) {
+        rem = (rem << 8u) | (uint64_t)tail[r - 1u];
+    }
+    if ((len & 7u) != 0u) {
+        h = (h ^ rem) * mult;
+    }
+    h ^= h >> shift;
+    h *= mult;
+    h ^= h >> shift;
+    return h;
+}
+
+static uint64_t g_seaf_soldier_hashes[11];
+static int g_seaf_soldier_hashes_ready;
+
+static void HeavyEnsureSeafSoldierHashes(void)
+{
+    static const char* const kPaths[11] = {
+        "content/fac_super_earth/cha_seaf/cha_battlefront_seaf",
+        "content/fac_super_earth/cha_seaf/cha_battlefront_seaf_2",
+        "content/fac_super_earth/cha_seaf/cha_battlefront_seaf_3",
+        "content/fac_super_earth/cha_seaf/cha_battlefront_seaf_4",
+        "content/fac_super_earth/cha_seaf/cha_battlefront_seaf_leader",
+        "content/fac_super_earth/cha_seaf/cha_battlefront_seaf_leader_2",
+        "content/fac_super_earth/cha_seaf/cha_battlefront_seaf_medic",
+        "content/fac_super_earth/cha_seaf/cha_battlefront_seaf_medic_2",
+        "content/fac_super_earth/cha_seaf/cha_battlefront_seaf_medic_3",
+        "content/fac_super_earth/cha_seaf/cha_battlefront_seaf_specialist",
+        "content/fac_super_earth/cha_seaf/cha_battlefront_seaf_specialist_2",
+    };
+    if (g_seaf_soldier_hashes_ready) return;
+    for (int i = 0; i < 11; ++i) {
+        uint64_t h = (g_api && g_api->size >= offsetof(HfApi, resource_hash) + sizeof(g_api->resource_hash) &&
+                      g_api->resource_hash != NULL)
+                     ? g_api->resource_hash(kPaths[i])
+                     : 0ULL;
+        g_seaf_soldier_hashes[i] = h ? h : HeavyMurmur64A(kPaths[i]);
+    }
+    g_seaf_soldier_hashes_ready = 1;
+}
+
+static int HeavyIsSeafSoldierResource(uint64_t res)
+{
+    if (!res) return 0;
+    if (!g_seaf_soldier_hashes_ready) HeavyEnsureSeafSoldierHashes();
+    for (int i = 0; i < 11; ++i) {
+        if (res == g_seaf_soldier_hashes[i]) return 1;
+    }
+    return 0;
+}
+
+/* Proven non-GwNav::Bot resources (corpse wrappers, dismembered limbs, dropships/shuttles/cargo, unpiloted Exosuits).
+ * Every other occupied EntityManager slot is counted conservatively toward walking_ai so we NEVER under-count GwNav::Bot! */
+static int HeavyIsProvenNonWalkingResource(uint64_t res)
+{
+    switch (res) {
+        case 0x62928899DAC02979ULL: /* corpse wrapper A */
+        case 0xC6D5AF4610B26661ULL: /* corpse wrapper B */
+        case 0x9C311C48F9609212ULL: /* corpse wrapper C */
+        case 0xB971B1141E1CBFACULL: /* dismembered part */
+        case 0x49674794A165EDA8ULL: /* dismembered part */
+        case 0x8FB47DD28B398CF7ULL: /* dismembered part */
+        case 0xB8580CAC32214FC0ULL: /* dismembered part */
+        case 0x3EC790806D0B0540ULL: /* SEAF Pelican shuttle */
+        case 0xA56F9F7E8CD25D04ULL: /* Native modifier-1401 shuttle_dropship_seaf */
+        case 0x75F7E96AF7DCD303ULL: /* SEAF Pelican cargo */
+        case 0xDB90077E76FAA025ULL: /* Automaton dropship */
+        case 0xD84FFC32A6E640A8ULL: /* Automaton dropship alt */
+        case 0x74E2285C01DA4F71ULL: /* Illuminate dropship */
+        case 0x2AD2E055DAD21F6EULL: /* Illuminate invasion ship */
+        case 0xC2D449ECF7FACAB1ULL: /* EXO-49 Emancipator Exosuit (AT-TE vehicle) */
+        case 0x058E6DC1D55C0720ULL: /* EXO-45 Patriot Exosuit */
+            return 1;
+        default:
+            return 0;
+    }
+}
+
+static int HeavyInspectEmAndWalkingAi(uintptr_t game, CdEmLayout* out_layout, uint32_t* out_free_slots,
+                                      uint32_t* out_live_em, uint32_t* out_walking_ai, int* out_em_seaf)
 {
     static uint8_t s_em_desc_buf[CD_EM_MAX_CAPACITY * CD_EM_RECORD_STRIDE];
     uintptr_t factory = 0, desc_base = 0;
     uint32_t invalid = 0xffffffffu;
-    uint32_t free_slots = 0u;
+    uint32_t free_slots = 0u, live_em = 0u, walking_ai = 0u;
+    int em_seaf = 0;
+
+    if (out_free_slots) *out_free_slots = 0u;
+    if (out_live_em) *out_live_em = 0u;
+    if (out_walking_ai) *out_walking_ai = 0u;
+    if (out_em_seaf) *out_em_seaf = 0;
+
     if (game == 0 || !g_api || !ApiRd(game + 0x346bf98u, &factory, 8) || factory < 0x10000u) return 0;
     if (!ApiRd(game + 0x348456cu, &invalid, 4)) return 0;
     CdEmLayout layout = cd_em_resolve_hf(game, g_api->read);
     desc_base = cd_em_records_base(factory, layout.records_offset);
     if (!desc_base || !ApiRd(desc_base, s_em_desc_buf, (size_t)layout.bounded_capacity * CD_EM_RECORD_STRIDE)) return 0;
+
+    HeavyEnsureSeafSoldierHashes();
     for (uint32_t i = 0; i < layout.bounded_capacity; i++) {
         uint64_t res = 0;
         uint32_t eid = 0;
@@ -1048,9 +1185,100 @@ static int HeavyHasEntityHeadroom(uintptr_t game, uint32_t min_free)
         memcpy(&eid, slot + 8u, 4);
         if (res == 0ULL || eid == 0u || eid == 0xffffffffu || eid == invalid) {
             ++free_slots;
+            continue;
+        }
+        ++live_em;
+        if (!HeavyIsProvenNonWalkingResource(res)) {
+            ++walking_ai;
+        }
+        if (HeavyIsSeafSoldierResource(res)) {
+            ++em_seaf;
         }
     }
+    if (out_layout) *out_layout = layout;
+    if (out_free_slots) *out_free_slots = free_slots;
+    if (out_live_em) *out_live_em = live_em;
+    if (out_walking_ai) *out_walking_ai = walking_ai;
+    if (out_em_seaf) *out_em_seaf = em_seaf;
+    return 1;
+}
+
+#ifdef HEAVY_SEAF_UNIT_TEST
+static int HeavyHasEntityHeadroom(uintptr_t game, uint32_t min_free)
+{
+    CdEmLayout layout;
+    uint32_t free_slots = 0u, walking_ai = 0u;
+    if (!HeavyInspectEmAndWalkingAi(game, &layout, &free_slots, NULL, &walking_ai, NULL)) return 0;
+    if (walking_ai >= HEAVY_MAX_WALKING_AI_GATE) return 0;
     return free_slots >= cd_em_scale_reserve(layout.bounded_capacity, min_free);
+}
+#endif
+
+static int HeavyCanAdmitSeafSpawn(uintptr_t game, int eff_ceiling, int* out_living_seaf,
+                                  uint32_t* out_walking_ai, uint32_t* out_live_em)
+{
+    CdEmLayout layout;
+    uint32_t free_slots = 0u, live_em = 0u, walking_ai = 0u;
+    int em_seaf = 0;
+    int cap = (eff_ceiling > 0 && eff_ceiling <= HEAVY_MAX_BOT_SAFE_SEAF_CEILING)
+              ? eff_ceiling : HEAVY_MAX_BOT_SAFE_SEAF_CEILING;
+    if (!HeavyInspectEmAndWalkingAi(game, &layout, &free_slots, &live_em, &walking_ai, &em_seaf)) {
+        if (out_living_seaf) *out_living_seaf = cap;
+        if (out_walking_ai) *out_walking_ai = HEAVY_MAX_WALKING_AI_GATE;
+        if (out_live_em) *out_live_em = HEAVY_MAX_LIVE_EM_GATE;
+        return 0;
+    }
+    int pool_seaf = heavy_seaf_live_troops();
+    int living = (em_seaf > pool_seaf) ? em_seaf : pool_seaf;
+    if (out_living_seaf) *out_living_seaf = living;
+    if (out_walking_ai) *out_walking_ai = walking_ai;
+    if (out_live_em) *out_live_em = live_em;
+
+    if (living >= cap) return 0;
+    if (walking_ai >= HEAVY_MAX_WALKING_AI_GATE) return 0;
+    if (live_em >= HEAVY_MAX_LIVE_EM_GATE) return 0;
+    if (free_slots < cd_em_scale_reserve(layout.bounded_capacity, HEAVY_GWNAV_RESERVE_2048)) return 0;
+    return 1;
+}
+
+/* Native modifier-1401 SEAF Pelican spawner (game.dll+0x94DC20, build 25480438).
+ * Synchronously blocks native Pelican drops whenever living SEAF >= ceiling (<= 48) or walking AI >= 660
+ * so unloading troopers can NEVER overflow the fixed 1,024-slot GwNav::Bot pool (helldivers2.exe+0x801b03). */
+#define NATIVE_1401_SPAWN_RVA 0x94dc20u
+static const unsigned char NATIVE_1401_PROLOGUE[33] = {
+    0x48, 0x89, 0x5c, 0x24, 0x08, 0x48, 0x89, 0x7c, 0x24, 0x18, 0x55, 0x48, 0x8d, 0xac, 0x24, 0x70,
+    0xf7, 0xff, 0xff, 0x48, 0x81, 0xec, 0x90, 0x09, 0x00, 0x00, 0x48, 0x8b, 0x05, 0xcf, 0xe3, 0xce,
+    0x01
+};
+typedef void (*Native1401SpawnFn)(uintptr_t, uintptr_t, uintptr_t, uintptr_t);
+static Native1401SpawnFn g_native_1401_spawn;
+static unsigned g_native_1401_blocked_drops;
+static unsigned g_native_1401_allowed_drops;
+static ULONGLONG g_native_1401_last_log_ms;
+
+static void Native1401SpawnDetour(uintptr_t a, uintptr_t b, uintptr_t c, uintptr_t d)
+{
+    if (g_api && g_mod && g_api->game_state && g_api->game_state(g_mod) == HF_STATE_MISSION && HeavyIsHostOrSolo()) {
+        uintptr_t game = g_api->module_base ? g_api->module_base("game.dll", NULL) : 0u;
+        int live_diff = (game != 0u) ? cd_read_live_mission_difficulty(g_api->read, game) : 0;
+        int eff_cw = 0, eff_con = 0, eff_sq = 1, eff_iv = 120000, eff_ceiling = 24;
+        OptionsResolveForDifficulty(live_diff, &eff_cw, &eff_con, &eff_sq, &eff_iv, &eff_ceiling);
+        int living = 0;
+        uint32_t walking_ai = 0u, live_em = 0u;
+        if (!HeavyCanAdmitSeafSpawn(game, eff_ceiling, &living, &walking_ai, &live_em)) {
+            ++g_native_1401_blocked_drops;
+            ULONGLONG now = HeavyNowMs();
+            if (g_native_1401_last_log_ms == 0ULL || now - g_native_1401_last_log_ms >= 15000ULL) {
+                g_native_1401_last_log_ms = now;
+                Log("NATIVE_1401_GATE: blocked native SEAF Pelican drop (living_seaf=%d/%d walking_ai=%u/%u live_em=%u/%u blocked=%u)",
+                    living, eff_ceiling, walking_ai, (unsigned)HEAVY_MAX_WALKING_AI_GATE,
+                    live_em, (unsigned)HEAVY_MAX_LIVE_EM_GATE, g_native_1401_blocked_drops);
+            }
+            return;
+        }
+        ++g_native_1401_allowed_drops;
+    }
+    if (g_native_1401_spawn) g_native_1401_spawn(a, b, c, d);
 }
 
 static int ResolveLivingHostMissionGround(uintptr_t game, uint32_t* out_owner, uint32_t* out_character, float out_origin[3])
@@ -1408,11 +1636,11 @@ static void Tick(HfMod* mod, float dt, void* user)
     (void)user;
     if (!g_squads_tick_joined) HeavyEquipBeginFrame();
     OptionsMenuPoll(dt);
+    state = g_api->game_state(mod);
     acc += dt;
-    if (acc < 2.0f) return;
+    if (acc < (state == HF_STATE_MISSION ? 0.25f : 2.0f)) return;
     acc = 0.0f;
     PrepareCallIn();
-    state = g_api->game_state(mod);
     now = HeavyNowMs();
     if (state == HF_STATE_MISSION) {
         int is_host = HeavyIsHostOrSolo();
@@ -1425,7 +1653,7 @@ static void Tick(HfMod* mod, float dt, void* user)
                 squad = g_squad;
                 tpl = g_tpl;
                 LeaveCriticalSection(&g_lock);
-                if ((squad == 1 || squad == 2) && tpl > 0x10000) SyncTemplateForStep(tpl, 0);
+                if ((squad == 1 || squad == 2) && tpl > 0x10000) SyncTemplateForStepAndGate(tpl, 0, 0);
                 Log("mission: host role lost; SEAF director mutations and wave spawns paused");
             }
             return;
@@ -1452,41 +1680,48 @@ static void Tick(HfMod* mod, float dt, void* user)
         }
         game = g_api->module_base("game.dll", NULL);
         {
+            int live_diff = (game != 0 && g_api != NULL) ? cd_read_live_mission_difficulty(g_api->read, game) : 0;
+            int eff_clone_wars = 0, eff_constant = 0, eff_squads = 1, eff_interval_ms = 120000, eff_ceiling = 24;
+            int eff_support_squads = OptionsEffectiveSupportSquads(live_diff);
+            OptionsResolveForDifficulty(live_diff, &eff_clone_wars, &eff_constant, &eff_squads, &eff_interval_ms, &eff_ceiling);
+
+            ULONGLONG eff_grace_ms = eff_clone_wars ? HEAVY_CLONE_WARS_LANDING_GRACE_MS : HEAVY_LANDING_GRACE_MS;
             int host_on_ground = (game != 0) ? ResolveLivingHostMissionGround(game, NULL, NULL, NULL) : 0;
-            int gate = HeavyLandingGateStep(&g_landing_gate, state, is_host, host_on_ground, now);
+            int gate = HeavyLandingGateStepWithGrace(&g_landing_gate, state, is_host, host_on_ground, now, eff_grace_ms);
             if (gate == 2) {
                 Log("AUTO_WAVE_GROUND_GATE: host entity verified on mission ground; arming %llu ms post-landing grace",
-                    (unsigned long long)HEAVY_LANDING_GRACE_MS);
+                    (unsigned long long)eff_grace_ms);
             }
-            int live_diff = (game != 0 && g_api != NULL) ? cd_read_live_mission_difficulty(g_api->read, game) : 0;
+
+            int living_seaf = 0;
+            uint32_t walking_ai = 0u, live_em = 0u;
+            int bot_admit_ok = (game != 0) ? HeavyCanAdmitSeafSpawn(game, eff_ceiling, &living_seaf, &walking_ai, &live_em) : 0;
+
             if (live_diff >= 1) {
                 EnterCriticalSection(&g_lock);
                 squad = g_squad;
                 tpl = g_tpl;
                 LeaveCriticalSection(&g_lock);
                 if ((squad == 1 || squad == 2) && tpl > 0x10000) {
-                    SyncTemplateForStep(tpl, SquadStepForDifficulty(live_diff));
+                    SyncTemplateForStepAndGate(tpl, SquadStepForDifficulty(live_diff), !bot_admit_ok);
                 }
             }
-            int eff_clone_wars = 0, eff_constant = 0, eff_squads = 1, eff_interval_ms = 120000, eff_ceiling = 24;
-            int eff_support_squads = OptionsEffectiveSupportSquads(live_diff);
-            OptionsResolveForDifficulty(live_diff, &eff_clone_wars, &eff_constant, &eff_squads, &eff_interval_ms, &eff_ceiling);
+
             if (armed && !drop_stop && game != 0 && eff_constant && gate == 1) {
                 int rc;
                 if (wave_left == 0 && now >= next_wave) {
-                    int living = heavy_seaf_live_troops();
-                    int ceiling = eff_ceiling;
-                    int em_ok = !eff_clone_wars || HeavyHasEntityHeadroom(game, 1180u);
-                    if (living >= ceiling || !em_ok) {
+                    if (!bot_admit_ok) {
                         if (!wave_held) {
                             wave_held = 1;
-                            Log("SEAF field holds %d/%d living troops (em_headroom=%d); the next wave waits for casualties",
-                                living, ceiling, em_ok);
+                            Log("SEAF field holds %d/%d living troops (walking_ai=%u/%u live_em=%u/%u); the next wave waits for casualties",
+                                living_seaf, eff_ceiling, walking_ai, (unsigned)HEAVY_MAX_WALKING_AI_GATE,
+                                live_em, (unsigned)HEAVY_MAX_LIVE_EM_GATE);
                         }
                     } else {
                         if (wave_held) {
                             wave_held = 0;
-                            Log("SEAF field down to %d/%d living troops; waves resume", living, ceiling);
+                            Log("SEAF field down to %d/%d living troops (walking_ai=%u); waves resume",
+                                living_seaf, eff_ceiling, walking_ai);
                         }
                         wave_left = eff_squads;
                         waves++;
@@ -1495,41 +1730,53 @@ static void Tick(HfMod* mod, float dt, void* user)
                     }
                 }
                 if (wave_left > 0) {
-                    uint32_t call_type = eff_clone_wars ? 116u : WaveCallTypeFor(eff_support_squads);
-                    rc = TimedCallSeaf(game, squad_k, call_type, NULL);
-                    if (rc == 0) {
-                        sent++;
-                        squad_k++;
-                        wave_left--;
-                        Log("%s %d called in%s", call_type == 116u ? "SEAF shuttle" : "SEAF support squad", sent, waves == 1 ? " after ground grace" : "");
-                        if (wave_left == 0) next_wave = now + (ULONGLONG)eff_interval_ms;
-                    } else if (rc == 2) {
-                        drop_stop = 1;
-                        Log("SEAF shuttles stopped: this build's call-in code does not match");
-                    } else if (rc == 3) {
-                        squad_k++;
-                        wave_left--;
-                        if (!said_site) { said_site = 1; Log("SEAF shuttle: no landing site near the player this time"); }
-                        if (wave_left == 0) next_wave = now + (ULONGLONG)eff_interval_ms;
+                    if (!bot_admit_ok) {
+                        wave_left = 0;
+                        next_wave = now + 4000ULL;
+                    } else {
+                        uint32_t call_type = eff_clone_wars ? 116u : WaveCallTypeFor(eff_support_squads);
+                        rc = TimedCallSeaf(game, squad_k, call_type, NULL);
+                        if (rc == 0) {
+                            sent++;
+                            squad_k++;
+                            wave_left--;
+                            Log("%s %d called in%s", call_type == 116u ? "SEAF shuttle" : "SEAF support squad", sent, waves == 1 ? " after ground grace" : "");
+                            if (wave_left == 0) next_wave = now + (ULONGLONG)eff_interval_ms;
+                        } else if (rc == 2) {
+                            drop_stop = 1;
+                            Log("SEAF shuttles stopped: this build's call-in code does not match");
+                        } else if (rc == 3) {
+                            squad_k++;
+                            wave_left--;
+                            if (!said_site) { said_site = 1; Log("SEAF shuttle: no landing site near the player this time"); }
+                            if (wave_left == 0) next_wave = now + (ULONGLONG)eff_interval_ms;
+                        }
                     }
                 }
             }
         }
         if (armed && !drop_stop && game != 0 && g_call_left > 0 && g_have_beacon) {
             int beacon_diff = (g_api != NULL) ? cd_read_live_mission_difficulty(g_api->read, game) : 0;
-            uint32_t call_type = WaveCallTypeFor(OptionsEffectiveSupportSquads(beacon_diff));
-            int rc = TimedCallSeaf(game, g_call_k, call_type, g_beacon);
-            if (rc == 0) {
-                g_call_k++;
-                g_call_left--;
-                Log("SEAF Reinforcement wave squad %d of 3 (%s)", g_call_k, call_type == 116u ? "regular SEAF" : "SEAF support squad");
-            } else if (rc == 2) {
+            int b_cw = 0, b_con = 0, b_sq = 1, b_iv = 120000, b_ceil = 24;
+            OptionsResolveForDifficulty(beacon_diff, &b_cw, &b_con, &b_sq, &b_iv, &b_ceil);
+            if (!HeavyCanAdmitSeafSpawn(game, b_ceil, NULL, NULL, NULL)) {
                 g_call_left = 0;
-                Log("SEAF Reinforcement wave stopped: this build's call-in code does not match");
-            } else if (rc == 3) {
-                g_call_k++;
-                g_call_left--;
-                Log("SEAF Reinforcement: no landing site for squad %d", g_call_k);
+                Log("SEAF Reinforcement held: field at SEAF ceiling or GwNav::Bot safety gate");
+            } else {
+                uint32_t call_type = WaveCallTypeFor(OptionsEffectiveSupportSquads(beacon_diff));
+                int rc = TimedCallSeaf(game, g_call_k, call_type, g_beacon);
+                if (rc == 0) {
+                    g_call_k++;
+                    g_call_left--;
+                    Log("SEAF Reinforcement wave squad %d of 3 (%s)", g_call_k, call_type == 116u ? "regular SEAF" : "SEAF support squad");
+                } else if (rc == 2) {
+                    g_call_left = 0;
+                    Log("SEAF Reinforcement wave stopped: this build's call-in code does not match");
+                } else if (rc == 3) {
+                    g_call_k++;
+                    g_call_left--;
+                    Log("SEAF Reinforcement: no landing site for squad %d", g_call_k);
+                }
             }
         }
         return;
@@ -1553,7 +1800,7 @@ static void Tick(HfMod* mod, float dt, void* user)
     tpl = g_tpl;
     LeaveCriticalSection(&g_lock);
     if ((squad == 1 || squad == 2) && tpl > 0x10000) {
-        SyncTemplateForStep(tpl, HeavyIsHostOrSolo() ? SquadStepForDifficulty(0) : 0);
+        SyncTemplateForStepAndGate(tpl, HeavyIsHostOrSolo() ? SquadStepForDifficulty(0) : 0, 0);
     }
 }
 
@@ -1741,10 +1988,34 @@ static void OnGameLoaded(HfMod* mod, HfEvent event, void* user)
     int rc;
     (void)event;
     (void)user;
+    HeavyEnsureSeafSoldierHashes();
     FindSupportSquads(mod);
     game = g_api->module_base("game.dll", NULL);
     if (game == 0) { Log("game.dll is not loaded; the map tag cannot be added"); return; }
     if (heavy_squad_pool_init(g_api, mod) != 0) Log("the SEAF squad pool did not initialize after game load; custom roster is unavailable");
+
+    if (g_native_1401_spawn == NULL) {
+        unsigned char p1401[sizeof NATIVE_1401_PROLOGUE];
+        int (*rd_code)(uintptr_t, void*, size_t) =
+            (g_api->size >= offsetof(HfApi, read_code) + sizeof(g_api->read_code) && g_api->read_code != NULL)
+            ? g_api->read_code : g_api->read;
+        target = game + NATIVE_1401_SPAWN_RVA;
+        if (rd_code != NULL && rd_code(target, p1401, sizeof p1401) == 0 &&
+            memcmp(p1401, NATIVE_1401_PROLOGUE, sizeof p1401) == 0) {
+            if (g_api->size >= offsetof(HfApi, hook_ex) + sizeof(g_api->hook_ex) && g_api->hook_ex != NULL) {
+                rc = g_api->hook_ex(mod, target, (void*)Native1401SpawnDetour, (void**)&g_native_1401_spawn, 15u);
+            } else if (g_api->hook != NULL) {
+                rc = g_api->hook(mod, target, (void*)Native1401SpawnDetour, (void**)&g_native_1401_spawn);
+            } else {
+                rc = -1;
+            }
+            Log("native modifier-1401 Pelican gate hook (0x%x): %s", NATIVE_1401_SPAWN_RVA, rc == 0 ? "installed" : "failed");
+        } else {
+            Log("native modifier-1401 Pelican spawner at game.dll+0x%x did not match pin; relying on template admission gate",
+                NATIVE_1401_SPAWN_RVA);
+        }
+    }
+
     target = game + STATUS_RVA;
     if (g_api->read(target, now, sizeof now) != 0 || memcmp(now, STATUS_PROLOGUE, sizeof now) != 0) {
         Log("war-status parser at game.dll+0x%x does not match this build; the map tag is not hooked", STATUS_RVA);
@@ -1767,6 +2038,9 @@ static void OnSessionEnd(HfMod* mod, HfEvent event, void* user)
     (void)mod;
     (void)event;
     (void)user;
+#ifdef HEAVY_SEAF_UNIT_TEST
+    (void)Worker;
+#endif
     InterlockedExchange(&g_worker_stop, 1);
 }
 

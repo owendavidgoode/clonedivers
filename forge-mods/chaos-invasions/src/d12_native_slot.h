@@ -1362,9 +1362,12 @@ static inline int D12TryInstallNativeSlot(
     static const uint8_t kCmpRaxF9_11Jne[8]   = {0x80, 0xB8, 0xF9, 0x00, 0x00, 0x00, 0x0B, 0x75};
     static const uint8_t kCmpRsi9_11Jne[5]    = {0x80, 0x7E, 0x09, 0x0B, 0x75};
     static const uint8_t kCmpR13F9_11Jne[9]   = {0x41, 0x80, 0xBD, 0xF9, 0x00, 0x00, 0x00, 0x0B, 0x75};
-    static const uint8_t kCmpRcx10_11Jne[5]   = {0x83, 0x79, 0x10, 0x0B, 0x75};
 
-    D12StubFlipTarget flips[14];
+    /* NOTE: D12_SELECTION_END_RVA (0x175784F, HellForge's MixMission HF_DIFFICULTY_SECOND_PRIMARY hook)
+     * is intentionally NOT flipped to >= 11 so D11 ("HELL FORGE") keeps its 2-primary / 8-optional marathon
+     * layout while D12 ("CLONE WARS" / "STORMTROOPER") runs as a clean 1-primary / 5-optional battle
+     * keeping total HUD/map markers <= 14 (< DIF_MARKER_SLOTS = 16). */
+    D12StubFlipTarget flips[13];
     if (!D12ValidateCodeSlotFlip(api, d_code + 0x040u, 0u,  kCmpEsi11Jne,      sizeof kCmpEsi11Jne,      0x82u, &flips[0]) ||
         !D12ValidateCodeSlotFlip(api, d_code + 0x940u, 0u,  kCmpEsi11Jne,      sizeof kCmpEsi11Jne,      0x82u, &flips[1]) ||
         !D12ValidateCodeSlotFlip(api, d_code + 0x9D0u, 0u,  kCmpRdi4_11Jne,    sizeof kCmpRdi4_11Jne,    0x82u, &flips[2]) ||
@@ -1375,10 +1378,9 @@ static inline int D12TryInstallNativeSlot(
         !D12ValidateCodeSlotFlip(api, d_code + 0x7E0u, 0u,  kCmpRsi9_11Jne,  sizeof kCmpRsi9_11Jne,  0x72u, &flips[7]) ||
         !D12ValidateCodeSlotFlip(api, d_code + 0x810u, 31u, kCmpRaxF9_11Jne, sizeof kCmpRaxF9_11Jne, 0x72u, &flips[8]) ||
         !D12ValidateCodeSlotFlip(api, d_code + 0xC40u, 14u, kCmpR13F9_11Jne, sizeof kCmpR13F9_11Jne, 0x72u, &flips[9]) ||
-        !D12ValidateHookSiteFlip(api, game + D12_SELECTION_END_RVA, 19u, kCmpRcx10_11Jne, sizeof kCmpRcx10_11Jne, 0x72u, &flips[10]) ||
-        !D12ValidateHookSiteFlip(api, game + D12_GRANT_SITE_RVA,    30u, kCmpRaxF9_11Jne, sizeof kCmpRaxF9_11Jne, 0x72u, &flips[11]) ||
-        !D12ValidateHookSiteFlip(api, game + D12_RADAR_STATE_RVA,   44u, kCmpRaxF9_11Jne, sizeof kCmpRaxF9_11Jne, 0x72u, &flips[12]) ||
-        !D12ValidateHookSiteFlip(api, game + D12_SHELL_WEIGHT_RVA,  38u, kCmpRaxF9_11Jne, sizeof kCmpRaxF9_11Jne, 0x72u, &flips[13])) {
+        !D12ValidateHookSiteFlip(api, game + D12_GRANT_SITE_RVA,    30u, kCmpRaxF9_11Jne, sizeof kCmpRaxF9_11Jne, 0x72u, &flips[10]) ||
+        !D12ValidateHookSiteFlip(api, game + D12_RADAR_STATE_RVA,   44u, kCmpRaxF9_11Jne, sizeof kCmpRaxF9_11Jne, 0x72u, &flips[11]) ||
+        !D12ValidateHookSiteFlip(api, game + D12_SHELL_WEIGHT_RVA,  38u, kCmpRaxF9_11Jne, sizeof kCmpRaxF9_11Jne, 0x72u, &flips[12])) {
         st->state = -1;
         api->log(mod, "CHAOS_D12_SLOT: refused reason=companion_stub_pin_mismatch");
         return -1;
@@ -1440,6 +1442,17 @@ static inline int D12TryInstallNativeSlot(
     }
     memcpy(d12_bands + 11u * 8u, d12_bands + 10u * 8u, 8u);
     memcpy(d12_distance + 11u * 12u, d12_distance + 10u * 12u, 12u);
+    {
+        float target_r = UltrakillResolveRadiusFactor(ho);
+        for (uint32_t k = 0u; k < 3u; ++k) {
+            float dval = 0.0f;
+            memcpy(&dval, d12_distance + 11u * 12u + k * 4u, 4u);
+            if (dval > 0.50f) {
+                dval = dval * (target_r / 0.76f);
+                memcpy(d12_distance + 11u * 12u + k * 4u, &dval, 4u);
+            }
+        }
+    }
 
     /* 5. Prepare RX stubs:
      *    +0x000: relocated orig_extra (for index 10 == Difficulty 11)
@@ -1576,7 +1589,7 @@ static inline int D12TryInstallNativeSlot(
         !D12ApplyCheckedPatch(api, patches, &patch_count, patch_cap, game + D12_BOARD_REG_MAX_RVA + 1u, &twelve, 4u, 1))) {
         fail_reason = "stub_redirect_failed";
     }
-    for (size_t i = 0u; !fail_reason && i < 14u; ++i) {
+    for (size_t i = 0u; !fail_reason && i < 13u; ++i) {
         if (!flips[i].active) continue;
         if (!D12ApplyCheckedPatch(api, patches, &patch_count, patch_cap, flips[i].patch_addr, &flips[i].new_jcc, 1u, 1))
             fail_reason = "companion_flip_write_failed";

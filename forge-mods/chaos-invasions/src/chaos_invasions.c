@@ -47,9 +47,16 @@
 #define CHAOS_BREACH_TIMEOUT_S    8.0
 #define CHAOS_BREACH_STAGGER_S    3.5f
 
-#define CHAOS_PRELOAD_SETTLE_S       1.0f
-#define CHAOS_PRELOAD_RATE_PER_S     6.0f
-#define CHAOS_PRELOAD_FACTION_WAIT_S 8.0f
+#define CHAOS_PRELOAD_SETTLE_PREPARE_S 1.5f
+#define CHAOS_PRELOAD_SETTLE_S         0.5f
+#define CHAOS_PRELOAD_RATE_PREPARE_S   4.0f
+#define CHAOS_PRELOAD_RATE_PER_S       12.0f
+#define CHAOS_PRELOAD_FACTION_WAIT_S   0.5f
+
+#define CHAOS_PKG_EAGLE_BASE     0x2C26BC4C6592FA14ull
+#define CHAOS_PKG_EXO49_ATTE     0xE72D3E9B05C3DB0Bull
+#define CHAOS_ENTITY_EXO49_ATTE  0xC2D449ECF7FACAB1ull
+#define CHAOS_STRAGGLER_MAX_R_M  260.0f
 
 enum { PHASE_INACTIVE = 0, PHASE_ACTIVE = 1, PHASE_ENDED = 2 };
 
@@ -180,10 +187,49 @@ static float g_share_poll = 0.0f;
 static int g_shared_dirty = 0;
 static int g_shared_applied = 0;
 static double g_last_foreign_spawn_age = -1000.0;
+static int g_last_foreign_faction = -1;
+static float g_preload_watchdog_s = 0.0f;
+static float g_straggler_recycle_s = 0.0f;
 static float g_last_wave_anchor[3] = {0.0f, 0.0f, 0.0f};
 static int g_has_last_wave_anchor = 0;
 static uint64_t g_chaos_owned_pkgs[128];
 static uint32_t g_chaos_owned_pkg_count = 0u;
+static uint8_t s_refmap_scan_buf[4096u * 16u];
+
+typedef struct ChaosAirRunState {
+    float friendly_cd_s;
+    float enemy_cd_s;
+    int eagle_pkg_requested;
+    int eagle_pkg_resident;
+    int strafe_burst_rem;
+    int strafe_is_friendly;
+    float strafe_step_cd_s;
+    float strafe_start[3];
+    float strafe_dir[2];
+    int strafe_step_idx;
+} ChaosAirRunState;
+
+typedef struct ChaosAtteWalkerState {
+    int pkg_requested;
+    int pkg_resident;
+    int active;
+    uint32_t entity;
+    float pos[3];
+    float heading_rad;
+    float fire_cd_s;
+    float redeploy_cd_s;
+    float spawn_retry_s;
+} ChaosAtteWalkerState;
+
+static ChaosAirRunState g_air_runs;
+static ChaosAtteWalkerState g_atte;
+#if defined(__GNUC__) || defined(__clang__)
+static uint8_t s_atte_spawn_ctx[0x8A0] __attribute__((aligned(16)));
+static uint8_t s_atte_spawn_creation[0x58] __attribute__((aligned(8)));
+#else
+static __declspec(align(16)) uint8_t s_atte_spawn_ctx[0x8A0];
+static __declspec(align(8)) uint8_t s_atte_spawn_creation[0x58];
+#endif
 
 static int ChaosOwnsPkg(uint64_t pkg_id)
 {
@@ -219,8 +265,12 @@ typedef struct ChaosNativeMock {
     void (*breach_burst)(void* q, const float pos[3], uint32_t fx, uint32_t se, uint32_t oe, uint64_t z, uint32_t te);
     const uint8_t* (*lookup_entity_pkgs)(uint64_t entity_hash);
     void (*pkg_request)(void* sys, const uint64_t* ids, uint32_t count);
+    void (*pkg_release)(void* sys, const uint64_t* ids, uint32_t count);
     uint8_t (*pkgs_idle)(void* unused);
     int (*alive_override)(uint32_t entity);
+    void (*remove_entity)(void* em_root, uint32_t entity);
+    uint32_t* (*request_entity_spawn)(uint32_t* out_entity, uint64_t resource, void* creation);
+    int (*activate_beacon_override)(uint32_t strat_type, const float pos[3]);
 } ChaosNativeMock;
 static ChaosNativeMock g_mock;
 #endif
@@ -415,6 +465,33 @@ static void CallPkgRequest(uintptr_t gbase, void* sys, const uint64_t* ids, uint
 #endif
     typedef void (*Fn)(void*, const uint64_t*, uint32_t);
     ((Fn)(gbase + kChaosCodePins[CPIN_PKG_REQUEST].rva))(sys, ids, count);
+}
+
+static void CallPkgRelease(uintptr_t gbase, void* sys, const uint64_t* ids, uint32_t count)
+{
+#ifdef CHAOS_UNIT_TEST
+    if (g_mock.pkg_release) { g_mock.pkg_release(sys, ids, count); return; }
+#endif
+    typedef void (*Fn)(void*, const uint64_t*, uint32_t);
+    ((Fn)(gbase + kChaosCodePins[CPIN_PKG_RELEASE].rva))(sys, ids, count);
+}
+
+static void CallRemoveEntity(uintptr_t gbase, void* em_root, uint32_t entity)
+{
+#ifdef CHAOS_UNIT_TEST
+    if (g_mock.remove_entity) { g_mock.remove_entity(em_root, entity); return; }
+#endif
+    typedef void (*Fn)(void*, uint32_t);
+    ((Fn)(gbase + kChaosCodePins[CPIN_REMOVE_ENTITY].rva))(em_root, entity);
+}
+
+static uint32_t* CallRequestEntitySpawn(uintptr_t gbase, uint32_t* out_entity, uint64_t resource, void* creation)
+{
+#ifdef CHAOS_UNIT_TEST
+    if (g_mock.request_entity_spawn) return g_mock.request_entity_spawn(out_entity, resource, creation);
+#endif
+    typedef uint32_t* (*Fn)(uint32_t*, uint64_t, void*);
+    return ((Fn)(gbase + kChaosCodePins[CPIN_REQUEST_ENTITY_SPAWN].rva))(out_entity, resource, creation);
 }
 
 static int CallPkgsIdle(uintptr_t gbase)
@@ -633,7 +710,7 @@ static void ChaosRefreshEmSnapshot(uintptr_t gbase, double now_age)
         g_em_snap.valid = 0;
         return;
     }
-    uint32_t live = 0u;
+    uint32_t live = 0u, walking_ai = 0u;
     for (uint32_t i = 0; i < layout.bounded_capacity; i++) {
         uint32_t eid = 0;
         uint64_t res = 0;
@@ -642,12 +719,18 @@ static void ChaosRefreshEmSnapshot(uintptr_t gbase, double now_age)
         memcpy(&eid, slot + 8u, 4);
         if (res != 0ULL && eid != 0u && eid != 0xFFFFFFFFu && eid != inv) {
             ++live;
+            if (!ChaosIsProvenNonWalkingResource(res)) {
+                ++walking_ai;
+            }
         }
     }
 #ifdef CHAOS_UNIT_TEST
     /* In synthetic arenas where descriptors[] aren't populated per spawn, conservatively fold in tracked live count. */
     if ((uint32_t)g_tracker.total_live > live && (uint32_t)g_tracker.total_live <= layout.bounded_capacity) {
         live = (uint32_t)g_tracker.total_live;
+    }
+    if ((uint32_t)g_tracker.total_live > walking_ai && (uint32_t)g_tracker.total_live <= layout.bounded_capacity) {
+        walking_ai = (uint32_t)g_tracker.total_live;
     }
 #endif
     g_em_snap.em_root = em;
@@ -657,6 +740,7 @@ static void ChaosRefreshEmSnapshot(uintptr_t gbase, double now_age)
     g_em_snap.gwnav_reserve = cd_em_scale_reserve(layout.bounded_capacity, UK_EM_RESERVE_SLOTS);
     g_em_snap.invalid_entity = inv;
     g_em_snap.live_slots = live;
+    g_em_snap.walking_ai_slots = walking_ai;
     g_em_snap.free_slots = (live < layout.bounded_capacity) ? (layout.bounded_capacity - live) : 0u;
     g_em_snap.captured_age = now_age;
     g_em_snap.valid = 1;
@@ -1122,6 +1206,100 @@ static void SendClientStatusIfNeeded(unsigned now, uint8_t required_mask)
 }
 
 static int ChaosIsUltrakillActiveInMission(uintptr_t gbase);
+static int EnqueueTheaterPlatoon(int faction, int diff, int count, uint32_t flags,
+                                 const float anchor[3], const float target[3]);
+
+static uint8_t* ChaosReadRefMapBuffer(uintptr_t gbase, uintptr_t* out_pkg_sys, uintptr_t* out_entries_addr,
+                                      uint32_t* out_cap, uint64_t* out_empty_key, int* out_heap_owned)
+{
+    if (out_pkg_sys) *out_pkg_sys = 0u;
+    if (out_entries_addr) *out_entries_addr = 0u;
+    if (out_cap) *out_cap = 0u;
+    if (out_empty_key) *out_empty_key = 0ULL;
+    if (out_heap_owned) *out_heap_owned = 0;
+
+    uintptr_t pkg_sys = 0, map_entries_addr = 0;
+    uint32_t map_cap = 0;
+    uint64_t empty_key = 0;
+    if (!gbase ||
+        !ReadPtr(gbase + CHAOS_PKG_SYSTEM_RVA, &pkg_sys) ||
+        !ReadPtr(pkg_sys + 0x00u, &map_entries_addr) ||
+        !ReadMem(pkg_sys + 0x08u, &map_cap, 4) ||
+        !ReadMem(pkg_sys + 0x10u, &empty_key, 8) ||
+        map_cap < 16u || map_cap > 65536u || (map_cap & (map_cap - 1u)) != 0u) {
+        return NULL;
+    }
+
+    size_t bytes = (size_t)map_cap * 16u;
+    uint8_t* buf = NULL;
+    int heap_owned = 0;
+    if (bytes <= sizeof(s_refmap_scan_buf)) {
+        buf = s_refmap_scan_buf;
+    } else {
+        buf = (uint8_t*)malloc(bytes);
+        heap_owned = 1;
+    }
+    if (!buf) return NULL;
+    if (!ReadMem(map_entries_addr, buf, bytes)) {
+        if (heap_owned) free(buf);
+        return NULL;
+    }
+    if (out_pkg_sys) *out_pkg_sys = pkg_sys;
+    if (out_entries_addr) *out_entries_addr = map_entries_addr;
+    if (out_cap) *out_cap = map_cap;
+    if (out_empty_key) *out_empty_key = empty_key;
+    if (out_heap_owned) *out_heap_owned = heap_owned;
+    return buf;
+}
+
+/* Releases every engine package ref_count acquired by Chaos during the ending mission (#43/#45/#46).
+ * Inspects pkg_sys before each RefcountedPackageRelease (game.dll+0x12FE4E0) so only present entries
+ * with refcnt >= 1 are decremented (1 -> 0 unloads; >=2 -> N-1 preserves external engine owners; 0 double-free). */
+static void ReleaseChaosOwnedPackages(uintptr_t gbase)
+{
+    if (g_chaos_owned_pkg_count == 0u) return;
+    if (!gbase || !g_pins_ok || !hf || !hf->read) {
+        g_chaos_owned_pkg_count = 0u;
+        memset(g_chaos_owned_pkgs, 0, sizeof g_chaos_owned_pkgs);
+        return;
+    }
+
+    uintptr_t pkg_sys = 0, map_entries_addr = 0;
+    uint32_t map_cap = 0;
+    uint64_t empty_key = 0;
+    int heap_owned = 0;
+    uint8_t* map_buf = ChaosReadRefMapBuffer(gbase, &pkg_sys, &map_entries_addr, &map_cap, &empty_key, &heap_owned);
+    uint32_t released = 0u, skipped = 0u;
+
+    if (map_buf && pkg_sys) {
+        size_t map_bytes = (size_t)map_cap * 16u;
+        for (uint32_t i = 0; i < g_chaos_owned_pkg_count; ++i) {
+            uint64_t pkg_id = g_chaos_owned_pkgs[i];
+            if (!pkg_id) continue;
+            uint32_t used = 0u, slot_idx = 0xFFFFFFFFu;
+            uint64_t refcnt = 0ULL;
+            int present = 0;
+            (void)ChaosRefMapInspect(map_buf, map_cap, empty_key, pkg_id, &used, &present, &slot_idx, &refcnt);
+            if (present && refcnt >= 1ULL) {
+                CallPkgRelease(gbase, (void*)pkg_sys, &pkg_id, 1u);
+                ++released;
+                if (!ReadMem(map_entries_addr, map_buf, map_bytes)) {
+                    break;
+                }
+            } else {
+                ++skipped;
+            }
+        }
+    }
+    if (heap_owned && map_buf) free(map_buf);
+
+    uint32_t owned_before = g_chaos_owned_pkg_count;
+    g_chaos_owned_pkg_count = 0u;
+    memset(g_chaos_owned_pkgs, 0, sizeof g_chaos_owned_pkgs);
+    if (hf && self && hf->log && (released > 0u || skipped > 0u)) {
+        hf->log(self, "CHAOS_PKG_RELEASE: owned=%u released=%u skipped=%u", owned_before, released, skipped);
+    }
+}
 
 static void PreloadForeignFactionPackagesPaced(
     uintptr_t gbase,
@@ -1131,12 +1309,12 @@ static void PreloadForeignFactionPackagesPaced(
     unsigned cur_state,
     int pace_requests)
 {
-    /* NEVER preload foreign enemy packages during HF_STATE_PREPARE_MISSION (or outside active HF_STATE_MISSION):
-     * D11 Mega City generation + RenderTerrainLightingMaps peak-allocates 45.6 MB VirtualAlloc buffers during PrepareMission. */
-    if (cur_state != HF_STATE_MISSION) return;
+    /* Stream foreign faction packages during BOTH HF_STATE_PREPARE_MISSION (Hellpod drop, gently paced at 4 pkgs/s)
+     * and HF_STATE_MISSION (12 pkgs/s) so off-planet Chaos swarms are resident right as landing grace expires. */
+    if (cur_state != HF_STATE_MISSION && cur_state != HF_STATE_PREPARE_MISSION) return;
 
     /* On Solo / Host, skip foreign package preloading entirely while Chaos is disabled ("off" preset).
-     * Joined clients still preload in HF_STATE_MISSION so they stay ready for the Host's active config. */
+     * Joined clients still preload so they stay ready for the Host's active config. */
     if (pace_requests && Host() && !config.enabled) {
         preload_log_poll -= dt;
         if (preload_log_poll <= 0.0f) {
@@ -1151,19 +1329,66 @@ static void PreloadForeignFactionPackagesPaced(
     if (g_native_faction != native) {
         g_native_faction = native;
         g_shared_dirty = 1;
-        hf->log(self, "CHAOS_MISSION_CONTEXT: native_faction=%s difficulty=%d host=%d",
-                chaos_faction_names[native], diff, Host());
+        hf->log(self, "CHAOS_MISSION_CONTEXT: native_faction=%s difficulty=%d host=%d state=%u",
+                chaos_faction_names[native], diff, Host(), cur_state);
     }
 
-    int req_budget = CHAOS_MAX_PRELOAD_PKGS * CHAOS_FACTIONS;
-    if (pace_requests) {
-        g_preload_mission_time += dt;
-        if (g_preload_mission_time < CHAOS_PRELOAD_SETTLE_S) {
+    if (ChaosIsUltrakillActiveInMission(gbase) && native >= 0 && native < CHAOS_FACTIONS) {
+        if (ResolveCuratedRosterForFaction(gbase, native)) {
+            g_faction_resident[native] = 1;
+        }
+    }
+
+    /* Fast path + 5.0s residency watchdog: zero per-tick refmap reads once both foreign factions are resident,
+     * while catching & re-streaming any package evicted mid-mission so foreign waves never stop dropping! */
+    int all_foreign_resident = 1;
+    for (int f = 0; f < CHAOS_FACTIONS; f++) {
+        if (f != native && !g_faction_resident[f]) {
+            all_foreign_resident = 0;
+            break;
+        }
+    }
+    if (all_foreign_resident && pace_requests) {
+        g_preload_watchdog_s += dt;
+        if (g_preload_watchdog_s < 5.0f) {
             SendClientStatusIfNeeded(cur_state, ChaosRequiredForeignMask(native));
             return;
         }
-        g_preload_tokens += dt * CHAOS_PRELOAD_RATE_PER_S;
-        float max_burst = (dt >= 0.25f) ? 4.0f : 2.0f;
+        g_preload_watchdog_s = 0.0f;
+        for (int f = 0; f < CHAOS_FACTIONS; f++) {
+            if (f == native || !g_preload_built[f]) continue;
+            int evicted = 0;
+            for (int i = 0; i < g_preload_count[f]; i++) {
+                if (PackageStateExe(ebase, esize, g_preload_pkgs[f][i]) == 0) {
+                    g_preload_requested[f][i] = 0;
+                    evicted = 1;
+                }
+            }
+            if (evicted) {
+                g_faction_resident[f] = 0;
+                all_foreign_resident = 0;
+                hf->log(self, "CHAOS_PRELOAD_WATCHDOG: faction=%s package_evicted=1 re_streaming=1",
+                        chaos_faction_names[f]);
+            }
+        }
+        if (all_foreign_resident) {
+            SendClientStatusIfNeeded(cur_state, ChaosRequiredForeignMask(native));
+            return;
+        }
+    }
+
+    int is_prepare = (cur_state == HF_STATE_PREPARE_MISSION);
+    int req_budget = CHAOS_MAX_PRELOAD_PKGS * CHAOS_FACTIONS;
+    if (pace_requests) {
+        float settle_s = is_prepare ? CHAOS_PRELOAD_SETTLE_PREPARE_S : CHAOS_PRELOAD_SETTLE_S;
+        float rate_s   = is_prepare ? CHAOS_PRELOAD_RATE_PREPARE_S   : CHAOS_PRELOAD_RATE_PER_S;
+        g_preload_mission_time += dt;
+        if (g_preload_mission_time < settle_s) {
+            SendClientStatusIfNeeded(cur_state, ChaosRequiredForeignMask(native));
+            return;
+        }
+        g_preload_tokens += dt * rate_s;
+        float max_burst = is_prepare ? 2.0f : ((dt >= 0.25f) ? 6.0f : 3.0f);
         if (g_preload_tokens > max_burst) g_preload_tokens = max_burst;
         req_budget = (int)g_preload_tokens;
     }
@@ -1171,26 +1396,11 @@ static void PreloadForeignFactionPackagesPaced(
     uintptr_t pkg_sys = 0, map_entries_addr = 0;
     uint32_t map_cap = 0;
     uint64_t empty_key = 0;
-    uint8_t* map_buf = NULL;
-    if (ReadPtr(gbase + CHAOS_PKG_SYSTEM_RVA, &pkg_sys) &&
-        ReadPtr(pkg_sys + 0x00u, &map_entries_addr) &&
-        ReadMem(pkg_sys + 0x08u, &map_cap, 4) &&
-        ReadMem(pkg_sys + 0x10u, &empty_key, 8) &&
-        map_cap >= 16u && map_cap <= 65536u && (map_cap & (map_cap - 1u)) == 0u) {
-        map_buf = (uint8_t*)malloc((size_t)map_cap * 16u);
-        if (map_buf && !ReadMem(map_entries_addr, map_buf, (size_t)map_cap * 16u)) {
-            free(map_buf);
-            map_buf = NULL;
-        }
-    }
+    int map_heap_owned = 0;
+    uint8_t* map_buf = ChaosReadRefMapBuffer(gbase, &pkg_sys, &map_entries_addr, &map_cap, &empty_key, &map_heap_owned);
 
     int ready_count = 0;
     int block_next_faction = 0;
-    if (ChaosIsUltrakillActiveInMission(gbase) && native >= 0 && native < CHAOS_FACTIONS) {
-        if (ResolveCuratedRosterForFaction(gbase, native)) {
-            g_faction_resident[native] = 1;
-        }
-    }
     for (int f = 0; f < CHAOS_FACTIONS; f++) {
         if (f == native) continue;
 
@@ -1198,7 +1408,7 @@ static void PreloadForeignFactionPackagesPaced(
             BuildPreloadList(gbase, f);
 
             /* Best-effort catalogue smoke flare package for Bot dropship arrivals (in HF_STATE_MISSION only). */
-            if (f == CHAOS_BOTS && !g_bot_smoke_resident && hf->load_package) {
+            if (!is_prepare && f == CHAOS_BOTS && !g_bot_smoke_resident && hf->load_package) {
                 int ls = hf->load_package(self, CHAOS_PKG_G3_SMOKE);
                 if (ls == HF_PACKAGE_RESIDENT) g_bot_smoke_resident = 1;
             }
@@ -1235,15 +1445,15 @@ static void PreloadForeignFactionPackagesPaced(
                             if (g_preload_tokens < 0.0f) g_preload_tokens = 0.0f;
                         }
                         if (!ReadMem(map_entries_addr, map_buf, (size_t)map_cap * 16u)) {
-                            free(map_buf);
+                            if (map_heap_owned) free(map_buf);
                             map_buf = NULL;
+                            map_heap_owned = 0;
                             break;
                         }
                         g_preload_requested[f][i] = 1;
                     } else if (pkg_state == 0 && refcnt == 1ULL && ChaosOwnsPkg(pkg_id) && slot_idx < map_cap) {
-                        /* Confirmed unloaded (pkg_state == 0, zero read errors) AND exclusively held by Chaos's
-                         * own prior mission request (refcnt == 1 && ChaosOwnsPkg): reset ref_count -> 0 in-place
-                         * (preserving open-addressing probe chain) so RefcountedPackageRequest transitions 0 -> 1. */
+                        /* Confirmed unloaded (pkg_state == 0) while still held exclusively by Chaos: reset 1 -> 0
+                         * in-place and re-request so mid-mission eviction recovers cleanly. */
                         if (!WriteU64(map_entries_addr + (uintptr_t)slot_idx * 16u + 8u, 0ULL)) {
                             break;
                         }
@@ -1257,17 +1467,15 @@ static void PreloadForeignFactionPackagesPaced(
                             if (g_preload_tokens < 0.0f) g_preload_tokens = 0.0f;
                         }
                         if (!ReadMem(map_entries_addr, map_buf, (size_t)map_cap * 16u)) {
-                            free(map_buf);
+                            if (map_heap_owned) free(map_buf);
                             map_buf = NULL;
+                            map_heap_owned = 0;
                             break;
                         }
                         g_preload_requested[f][i] = 1;
                     } else if (pkg_state >= 1) {
-                        /* Streaming or resident in PackageManager with existing refmap entry; wait for residency. */
                         g_preload_requested[f][i] = 1;
                     }
-                    /* When pkg_state == -1 (transient read failure) or refcnt > 1 / unowned, leave refmap untouched
-                     * and keep g_preload_requested[f][i] == 0 so a clean later tick re-evaluates safely. */
                 }
             }
         }
@@ -1278,8 +1486,8 @@ static void PreloadForeignFactionPackagesPaced(
                 g_faction_resident[f] = 1;
                 if (!g_preload_ready_logged[f]) {
                     g_preload_ready_logged[f] = 1;
-                    hf->log(self, "CHAOS_PRELOAD_READY: faction=%s resident=%d/%d idle=%d host=%d",
-                            chaos_faction_names[f], res, g_preload_count[f], idle, Host());
+                    hf->log(self, "CHAOS_PRELOAD_READY: faction=%s resident=%d/%d idle=%d host=%d state=%u",
+                            chaos_faction_names[f], res, g_preload_count[f], idle, Host(), cur_state);
                 }
             }
         }
@@ -1302,7 +1510,7 @@ static void PreloadForeignFactionPackagesPaced(
         }
     }
 
-    if (map_buf) free(map_buf);
+    if (map_heap_owned && map_buf) free(map_buf);
 
     SendClientStatusIfNeeded(cur_state, ChaosRequiredForeignMask(native));
 
@@ -1393,20 +1601,108 @@ static void PruneStaleTrackedUnits(uintptr_t gbase, size_t gsize,
     if (changed) ChaosTrackerRecount(&g_tracker);
 }
 
-static int FindSafeGroundAnchor(uintptr_t gbase, float out_anchor[3], float out_player[3])
+static int ChaosEnemyFamilyEx(uint64_t resource);
+
+/* Recycles enemies stranded > 260 m from ALL living players via RemoveEntity (game.dll+0xFDC310)
+ * so both EntityManager and GwNav::Bot slots return to active combat around the squad. */
+static void RecycleFarEnemyStragglers(uintptr_t gbase, const float (*living_pos)[3], int living_players,
+                                      double now_age, float dt)
+{
+    if (!Host() || !landed || living_players <= 0 || !gbase || !g_pins_ok) return;
+    g_straggler_recycle_s += dt;
+    if (g_straggler_recycle_s < 1.0f) return;
+    g_straggler_recycle_s = 0.0f;
+
+    ChaosRefreshEmSnapshot(gbase, now_age);
+    if (!g_em_snap.valid || !g_em_snap.em_root) return;
+
+    const float max_d2 = CHAOS_STRAGGLER_MAX_R_M * CHAOS_STRAGGLER_MAX_R_M;
+    int budget = 12;
+    int tracker_changed = 0;
+
+    int limit = (g_tracker.high_water > 0 && g_tracker.high_water <= CHAOS_MAX_TRACKED)
+                ? g_tracker.high_water : CHAOS_MAX_TRACKED;
+    for (int i = 0; i < limit && budget > 0; ++i) {
+        ChaosTrackedUnit* u = &g_tracker.units[i];
+        if (!u->active) continue;
+        double age = now_age - u->spawn_age;
+        if (age < 12.0) continue;
+        float pos[3] = {0.0f, 0.0f, 0.0f};
+        if (!EntityPosition(gbase, u->entity, pos)) continue;
+        float min_d2 = 1e30f;
+        for (int p = 0; p < living_players; ++p) {
+            float dx = pos[0] - living_pos[p][0];
+            float dy = pos[1] - living_pos[p][1];
+            float d2 = dx * dx + dy * dy;
+            if (d2 < min_d2) min_d2 = d2;
+        }
+        if (min_d2 > max_d2 && EntityAuthorityAllowed(u->entity, 1u)) {
+            CallRemoveEntity(gbase, (void*)g_em_snap.em_root, u->entity);
+            u->active = 0u;
+            tracker_changed = 1;
+            --budget;
+            ++g_ultrakill.stragglers_recycled_total;
+        }
+    }
+
+    if (ChaosIsUltrakillActiveInMission(gbase) && budget > 0 && g_em_snap.walking_ai_slots >= 260u) {
+        static uint32_t s_scan_cursor = 0u;
+        uint32_t cap = g_em_snap.em_cap;
+        uint32_t steps = cap < 512u ? cap : 512u;
+        for (uint32_t k = 0; k < steps && budget > 0; ++k) {
+            uint32_t idx = (s_scan_cursor + k) % cap;
+            const uint8_t* slot = g_em_snap.raw + (size_t)idx * UK_EM_DESCRIPTOR_STRIDE;
+            uint64_t res = 0ULL;
+            uint32_t eid = 0u;
+            uint8_t flags = slot[0x14u];
+            memcpy(&res, slot + 0u, 8);
+            memcpy(&eid, slot + 8u, 4);
+            if (!res || !eid || eid == 0xFFFFFFFFu || eid == g_em_snap.invalid_entity) continue;
+            if ((flags & 1u) == 0u || (flags & 2u) != 0u) continue; /* locally owned live enemy only */
+            if (ChaosIsProvenNonWalkingResource(res) || ChaosEnemyFamilyEx(res) < 0) continue;
+            if (ChaosTrackerHasEntity(&g_tracker, eid)) continue;
+            float pos[3] = {0.0f, 0.0f, 0.0f};
+            if (!EntityPosition(gbase, eid, pos)) continue;
+            float min_d2 = 1e30f;
+            for (int p = 0; p < living_players; ++p) {
+                float dx = pos[0] - living_pos[p][0];
+                float dy = pos[1] - living_pos[p][1];
+                float d2 = dx * dx + dy * dy;
+                if (d2 < min_d2) min_d2 = d2;
+            }
+            if (min_d2 > max_d2 && EntityAuthorityAllowed(eid, 1u)) {
+                CallRemoveEntity(gbase, (void*)g_em_snap.em_root, eid);
+                --budget;
+                ++g_ultrakill.stragglers_recycled_total;
+            }
+        }
+        s_scan_cursor = (s_scan_cursor + steps) % (cap ? cap : 1u);
+    }
+
+    if (tracker_changed) ChaosTrackerRecount(&g_tracker);
+}
+
+static int FindSafeGroundAnchorEx(uintptr_t gbase, int squad_size, float out_anchor[3], float out_player[3])
 {
     float players[4][3];
     int living = CollectLivingPlayers(gbase, players, NULL);
     uintptr_t em = 0;
     if (living <= 0 || !ReadPtr(gbase + CHAOS_ENCOUNTER_RVA, &em)) return 0;
 
+    int outer_swarm = (squad_size >= 12) || ChaosIsUltrakillActiveInMission(gbase);
+    float probe_min_r = outer_swarm ? 98.0f  : 40.0f;
+    float probe_max_r = outer_swarm ? 182.0f : 60.0f;
+    float valid_min_r = outer_swarm ? 95.0f  : 38.0f;
+    float valid_max_r = outer_swarm ? 185.0f : 62.0f;
+    float min_all_r   = outer_swarm ? 70.0f  : 28.0f;
+
     int start_p = (int)(NextRand() % (uint32_t)living);
     for (int attempt = 0; attempt < 16; attempt++) {
         int strict = (attempt < 10);
-        float max_dz = strict ? 6.0f : 12.0f;
+        float max_dz = outer_swarm ? (strict ? 18.0f : 32.0f) : (strict ? 6.0f : 12.0f);
         int pi = (start_p + attempt) % living;
         float angle = (float)(NextRand() % 3600u) * (3.14159265f / 1800.0f);
-        float radius = 40.0f + (float)(NextRand() % 200u) * 0.1f; /* 40..60m probe center */
+        float radius = probe_min_r + (float)(NextRand() % 1000u) * 0.001f * (probe_max_r - probe_min_r);
         float seed[3] = {
             players[pi][0] + radius * cosf(angle),
             players[pi][1] + radius * sinf(angle),
@@ -1414,7 +1710,9 @@ static int FindSafeGroundAnchor(uintptr_t gbase, float out_anchor[3], float out_
         };
         float candidate[3] = {0.0f, 0.0f, 0.0f};
         CallProjectAnchor(gbase, (void*)em, candidate, seed);
-        if (!ChaosAnchorValidEx(candidate, players[pi], players, living, max_dz)) continue;
+        if (!ChaosAnchorValidRange(candidate, players[pi], players, living,
+                                   valid_min_r, valid_max_r, min_all_r, max_dz))
+            continue;
         if (strict && g_has_last_wave_anchor) {
             float ldx = candidate[0] - g_last_wave_anchor[0];
             float ldy = candidate[1] - g_last_wave_anchor[1];
@@ -1596,9 +1894,12 @@ static void DispatchChaosWave(uintptr_t gbase, uintptr_t director, int faction, 
 {
     int sq = squad_count > 0 ? squad_count : config.squad_size;
     if (sq < 1) sq = 1;
-    if (sq > 6) sq = 6;
+    if (sq > 32) sq = 32;
     memcpy(g_last_wave_anchor, anchor, 12);
     g_has_last_wave_anchor = 1;
+    if (faction >= 0 && faction < CHAOS_FACTIONS && faction != g_native_faction) {
+        g_last_foreign_faction = faction;
+    }
 
     if (g_pending.active) ChaosTrackerReleaseUnusedReservations(&g_tracker, g_pending.faction);
     memset(&g_pending, 0, sizeof g_pending);
@@ -1608,6 +1909,28 @@ static void DispatchChaosWave(uintptr_t gbase, uintptr_t director, int faction, 
     g_pending.squad_size = sq;
     memcpy(g_pending.anchor, anchor, 12);
     memcpy(g_pending.target, player_pos, 12);
+
+    /* Cohesive Outer SWARM Wave (18-32 units on 95-185 m perimeter ring marching inward onto squad):
+     * dispatch a 6-unit vanguard immediately and stream the remaining cluster smoothly at <= 4/frame! */
+    if (sq > 6) {
+        int lead = 6;
+        int rest = sq - lead;
+        uint32_t swarm_flags = (faction == CHAOS_BUGS) ? 0x24u : 0x3Cu;
+        ChaosTrackerReserveWave(&g_tracker, faction, lead);
+        g_pending.squad_size = lead;
+        g_pending.is_transport = 0;
+        g_pending.used_fallback = 1;
+        g_pending.timeout = CHAOS_BREACH_TIMEOUT_S;
+        DispatchStaggeredRoster(gbase, director, faction, diff, lead, swarm_flags, anchor, player_pos, 1.2f);
+        int queued = EnqueueTheaterPlatoon(faction, diff, rest, swarm_flags, anchor, player_pos);
+        ++g_wave_seq;
+        g_shared_dirty = 1;
+        PublishSharedState(1);
+        hf->log(self, "CHAOS_WAVE_DISPATCH: event=%s mode=outer_swarm count=%d vanguard=%d queued=%d anchor=(%.1f,%.1f,%.1f)",
+                chaos_names[faction], sq, lead, queued, anchor[0], anchor[1], anchor[2]);
+        return;
+    }
+
     ChaosTrackerReserveWave(&g_tracker, faction, sq);
 
     if (faction == CHAOS_BOTS || faction == CHAOS_SQUIDS) {
@@ -1983,11 +2306,11 @@ static const char* ChaosD12DisplayName(void)
     if (g_host_opts.chaos_intensity == CD_CHAOS_ULTRAKILL ||
         (g_host_opts.theater_preset == CD_THEATER_LEVEL12_ULTRAKILL &&
          g_host_opts.chaos_intensity != CD_CHAOS_CLONE_WARS)) {
-        return "LEVEL 12: ULTRAKILL";
+        return "ULTRAKILL";
     }
     return (InterlockedCompareExchange(&g_empire_mode_active, 0, 0) != 0)
-           ? "LEVEL 12: STORMTROOPER"
-           : "LEVEL 12: CLONE WARS";
+           ? "STORMTROOPER"
+           : "CLONE WARS";
 }
 
 static const char* UltrakillTextDetour(uint32_t id, void* a, void* b, void* c)
@@ -2005,7 +2328,7 @@ static const char* UltrakillTextDetour(uint32_t id, void* a, void* b, void* c)
         if (id == g_ultrakill.d11_name_text_id && Host()) {
             return (cd_effective_chaos_intensity(&g_host_opts) == CD_CHAOS_CLONE_WARS)
                    ? ChaosD12DisplayName()
-                   : "LEVEL 12: ULTRAKILL";
+                   : "ULTRAKILL";
         }
     }
     return g_ultrakill.orig_text ? g_ultrakill.orig_text(id, a, b, c) : "";
@@ -2128,7 +2451,7 @@ static void UltrakillTryEnlargePhysicsPools(void)
     if (rc == 1) {
         g_ultrakill.pools_status = 1;
         hf->log(self,
-                "CHAOS_ULTRAKILL_POOLS: enlarged=1 ragdolls=8192 ragdoll_actors=262144 motions=262144 bodies=524288 dynamic=262144 keyframed=65536");
+                "CHAOS_ULTRAKILL_POOLS: enlarged=1 ragdolls=2048 ragdoll_actors=65536 motions=131072 bodies=262144 dynamic=131072 keyframed=32768");
     } else if (rc == 0) {
         g_ultrakill.pools_status = -1;
         hf->log(self, "CHAOS_ULTRAKILL_POOLS: enlarged=0 reason=physics_setup_already_ran");
@@ -2187,7 +2510,8 @@ static int FindTheaterRingAnchor(uintptr_t gbase, const float (*players)[3], int
     if (living <= 0 || !ReadPtr(gbase + CHAOS_ENCOUNTER_RVA, &em)) return 0;
     int start_p = (int)(NextRand() % (uint32_t)living);
     float span = (max_r > min_r) ? (max_r - min_r) : 20.0f;
-    for (int attempt = 0; attempt < 12; attempt++) {
+    float min_all = (min_r >= 90.0f) ? 68.0f : 42.0f;
+    for (int attempt = 0; attempt < 14; attempt++) {
         int pi = (start_p + attempt) % living;
         float angle = (float)(NextRand() % 3600u) * (3.14159265f / 1800.0f);
         float radius = min_r + (float)(NextRand() % 1000u) * 0.001f * span;
@@ -2199,7 +2523,7 @@ static int FindTheaterRingAnchor(uintptr_t gbase, const float (*players)[3], int
         float candidate[3] = {0.0f, 0.0f, 0.0f};
         CallProjectAnchor(gbase, (void*)em, candidate, seed);
         if (!ChaosAnchorValidRange(candidate, players[pi], players, living,
-                                   min_r - 6.0f, max_r + 12.0f, 32.0f, 42.0f))
+                                   min_r - 6.0f, max_r + 12.0f, min_all, 42.0f))
             continue;
         memcpy(out_anchor, candidate, 12);
         memcpy(out_player, players[pi], 12);
@@ -2222,7 +2546,7 @@ static int EnqueueTheaterPlatoon(int faction, int diff, int count, uint32_t flag
             const ChaosRosterUnit* u = &g_rosters[faction][idxs[i]];
             if (!u->valid || !u->row_addr) continue;
             float angle = (float)(base + i) * (6.2831853f / (float)count);
-            float rad = 2.0f + 1.2f * (float)((base + i) % 4);
+            float rad = 2.4f + 1.35f * (float)((base + i) % 6); /* Cohesive 2.4..9.2m swarm cluster */
             ChaosSpawnJob job;
             memset(&job, 0, sizeof job);
             job.faction = (uint8_t)faction;
@@ -2232,7 +2556,7 @@ static int EnqueueTheaterPlatoon(int faction, int diff, int count, uint32_t flag
             job.pos[1] = anchor[1] + rad * sinf(angle);
             job.pos[2] = anchor[2];
             memcpy(job.target, target, 12);
-            job.delay_s = 0.05f * (float)((base + i) & 7);
+            job.delay_s = 0.04f * (float)((base + i) & 7);
             if (!ChaosSpawnQueuePush(&g_spawn_queue, &job)) return enqueued;
             ++enqueued;
         }
@@ -2245,16 +2569,20 @@ static void DrainTheaterSpawnQueue(uintptr_t gbase, uintptr_t director)
     if (g_spawn_queue.count == 0u) return;
     ChaosRefreshEmSnapshot(gbase, clock_state.age);
     uint32_t reserve_floor = g_em_snap.gwnav_reserve ? g_em_snap.gwnav_reserve : UK_EM_RESERVE_SLOTS;
-    if (!g_em_snap.valid || g_em_snap.free_slots < reserve_floor) {
-        return; /* Hard <1,024-GwNav::Bot / EntityManager safety floor: fail closed on invalid read or low headroom! */
+    if (!g_em_snap.valid ||
+        g_em_snap.free_slots < reserve_floor ||
+        g_em_snap.walking_ai_slots >= UK_MAX_WALKING_AI_CAP) {
+        return; /* Hard <= 620 walking AI & EntityManager safety floor (< 1,024 GwNav::Bot)! */
     }
     if (!CallHasHeadroom(gbase, (void*)director, 3u, 1u)) {
         return;
     }
 
     uint32_t budget = UK_MAX_SPAWNS_PER_FRAME;
-    uint32_t avail = g_em_snap.free_slots - reserve_floor;
-    if (avail < budget) budget = avail;
+    uint32_t avail_em = g_em_snap.free_slots - reserve_floor;
+    uint32_t avail_walk = UK_MAX_WALKING_AI_CAP - g_em_snap.walking_ai_slots;
+    if (avail_em < budget) budget = avail_em;
+    if (avail_walk < budget) budget = avail_walk;
 
     ChaosSpawnJob job;
     for (uint32_t n = 0; n < budget && ChaosSpawnQueuePop(&g_spawn_queue, &job); ++n) {
@@ -2271,13 +2599,54 @@ static void DrainTheaterSpawnQueue(uintptr_t gbase, uintptr_t director)
         if (g_em_snap.valid && g_em_snap.free_slots > 0u) {
             --g_em_snap.free_slots;
             ++g_em_snap.live_slots;
+            ++g_em_snap.walking_ai_slots;
         }
+    }
+}
+
+static void UltrakillSyncDirectorPatrolValve(int close_valve)
+{
+    HfDifficultySettings* active_row = NULL;
+    const HfDifficultySettings* base_row = NULL;
+    if (g_d12_slot.state == 1 && g_d12_slot.row12 != NULL) {
+        active_row = g_d12_slot.row12;
+        base_row = (const HfDifficultySettings*)g_d12_slot.row12_baseline;
+    } else if (g_ultrakill.d12_applied && g_ultrakill.d11_snapshot_valid &&
+               hf && hf->size >= offsetof(HfApi, difficulty_row) + sizeof(hf->difficulty_row) && hf->difficulty_row) {
+        active_row = (HfDifficultySettings*)hf->difficulty_row(11u);
+        base_row = (const HfDifficultySettings*)g_ultrakill.d11_baseline;
+    }
+    if (!active_row) return;
+
+    (void)base_row;
+    if (close_valve) {
+        if (!g_ultrakill.director_valve_closed) {
+            for (int f = 0; f < 3; ++f) {
+                active_row->patrol_cap[f] = 0u;
+                active_row->patrol_interval[f] = 9999.0f;
+            }
+            active_row->encounter_points = 0.0f;
+            active_row->spawner_cooldown = 9999.0f;
+            uint32_t zero_reinf = 0u;
+            memcpy((uint8_t*)active_row + UK_DIFF_REINFORCE_CAP_OFF, &zero_reinf, sizeof zero_reinf);
+            g_ultrakill.director_valve_closed = 1;
+        }
+    } else if (g_ultrakill.director_valve_closed) {
+        for (int f = 0; f < 3; ++f) {
+            active_row->patrol_cap[f] = 24u;
+            active_row->patrol_interval[f] = 30.0f;
+        }
+        active_row->encounter_points = 1500.0f;
+        active_row->spawner_cooldown = 10.0f;
+        uint32_t reinf_cap = 96u;
+        memcpy((uint8_t*)active_row + UK_DIFF_REINFORCE_CAP_OFF, &reinf_cap, sizeof reinf_cap);
+        g_ultrakill.director_valve_closed = 0;
     }
 }
 
 static void UltrakillSyncMissionTheater(uintptr_t gbase, uintptr_t director, float dt)
 {
-    /* Expand playable radius factor on 2x generated missions (lg+0x2D70: 0.76 -> 0.92 = 942 m). */
+    /* Sync playable radius factor on 2x generated missions (~701 m = 0.685f default). */
     uintptr_t ctx = 0, lg = 0;
     uint32_t mode = 0;
     if (ReadPtr(gbase + UK_CONTEXT_RVA, &ctx) && ReadPtr(ctx + UK_CONTEXT_LG_OFF, &lg) &&
@@ -2285,13 +2654,10 @@ static void UltrakillSyncMissionTheater(uintptr_t gbase, uintptr_t director, flo
         float cur_r = 0.0f, border_r = 0.0f;
         if (ReadMem(lg + UK_LG_PLAYABLE_RADIUS_OFF, &cur_r, 4) &&
             ReadMem(lg + UK_LG_BORDER_RADIUS_OFF, &border_r, 4) &&
-            isfinite(cur_r) && isfinite(border_r) && border_r >= 0.82f) {
-            float want_r = 0.92f;
-            if (g_host_opts.map_radius_permille >= 380 && g_host_opts.map_radius_permille <= 940) {
-                want_r = (float)g_host_opts.map_radius_permille / 1000.0f;
-            }
+            isfinite(cur_r) && isfinite(border_r) && border_r >= 0.60f) {
+            float want_r = UltrakillResolveRadiusFactor(&g_host_opts);
             if (want_r > border_r - 0.01f) want_r = border_r - 0.01f;
-            if (want_r > cur_r + 0.005f) {
+            if (fabsf(want_r - cur_r) > 0.005f) {
                 uint32_t bits = 0;
                 memcpy(&bits, &want_r, 4);
                 if (ChaosWriteDataU32(lg + UK_LG_PLAYABLE_RADIUS_OFF, bits)) {
@@ -2306,25 +2672,32 @@ static void UltrakillSyncMissionTheater(uintptr_t gbase, uintptr_t director, flo
         }
     }
 
-    /* Active Director reinforcement valve: clamp native reinforcement_budget to 0 immediately when live
-     * EntityManager occupancy reaches 780 so native spawners + SEAF never approach the 1,024 GwNav::Bot
-     * ceiling (~1,175 EM slots at helldivers2.exe+0x801b03), and gently replenish when below 680. */
-    if (director && g_em_snap.valid && g_em_snap.live_slots >= 780u) {
-        float cur_budget = 0.0f;
-        if (ReadMem(director + UK_DIR_REINFORCE_BUDGET_OFF, &cur_budget, 4) &&
-            isfinite(cur_budget) && cur_budget > 0.0f) {
-            uint32_t zero_bits = 0u;
-            ChaosWriteDataU32(director + UK_DIR_REINFORCE_BUDGET_OFF, zero_bits);
+    /* Tight Director patrol & reinforcement valve (<= 620 walking AI):
+     * Close native patrol/traveller/straggler caps and zero reinforce_budget whenever walking AI >= 580
+     * (or live EM >= 680) so D12 3x outposts + Pelicans NEVER approach the 1,024 GwNav::Bot ceiling. */
+    if (g_em_snap.valid &&
+        (g_em_snap.walking_ai_slots >= UK_DIRECTOR_VALVE_STOP_WALKING || g_em_snap.live_slots >= 680u)) {
+        UltrakillSyncDirectorPatrolValve(1);
+        if (director) {
+            float cur_budget = 0.0f;
+            if (ReadMem(director + UK_DIR_REINFORCE_BUDGET_OFF, &cur_budget, 4) &&
+                isfinite(cur_budget) && cur_budget > 0.0f) {
+                uint32_t zero_bits = 0u;
+                ChaosWriteDataU32(director + UK_DIR_REINFORCE_BUDGET_OFF, zero_bits);
+            }
         }
-    } else {
+    } else if (g_em_snap.valid &&
+               g_em_snap.walking_ai_slots < UK_DIRECTOR_VALVE_RESUME_WALKING &&
+               g_em_snap.live_slots < 620u) {
+        UltrakillSyncDirectorPatrolValve(0);
         g_ultrakill.budget_refresh_s -= dt;
         if (g_ultrakill.budget_refresh_s <= 0.0f) {
             g_ultrakill.budget_refresh_s = 4.0f;
             float cur_budget = 0.0f;
-            if (director && g_em_snap.valid && g_em_snap.live_slots < 680u &&
+            if (director &&
                 ReadMem(director + UK_DIR_REINFORCE_BUDGET_OFF, &cur_budget, 4) &&
-                isfinite(cur_budget) && cur_budget < 600.0f) {
-                float topup = 900.0f;
+                isfinite(cur_budget) && cur_budget < 500.0f) {
+                float topup = 750.0f;
                 uint32_t bits = 0;
                 memcpy(&bits, &topup, 4);
                 ChaosWriteDataU32(director + UK_DIR_REINFORCE_BUDGET_OFF, bits);
@@ -2339,12 +2712,15 @@ static void ServiceVirtualBattalions(uintptr_t gbase, int native, int diff,
     if (living <= 0) return;
     int live_diff = ChaosLiveMissionDifficulty(gbase);
     int want_virtual = UltrakillTargetVirtualUnitsForDiff(&g_host_opts, live_diff);
-    float max_map_r = (g_ultrakill.live_radius_factor > 0.40f ? g_ultrakill.live_radius_factor : 0.92f) * 1024.0f - 35.0f;
+    float eff_rf = (g_ultrakill.live_radius_factor > 0.40f)
+                   ? g_ultrakill.live_radius_factor
+                   : UltrakillResolveRadiusFactor(&g_host_opts);
+    float max_map_r = eff_rf * 1024.0f - 35.0f;
     if (max_map_r < 320.0f) max_map_r = 320.0f;
-    if (max_map_r > 920.0f) max_map_r = 920.0f;
+    if (max_map_r > 680.0f) max_map_r = 680.0f;
 
-    g_ultrakill.salvo_budget_tokens += dt * 3.0f;
-    if (g_ultrakill.salvo_budget_tokens > 2.0f) g_ultrakill.salvo_budget_tokens = 2.0f;
+    g_ultrakill.salvo_budget_tokens += dt * 3.5f;
+    if (g_ultrakill.salvo_budget_tokens > 3.0f) g_ultrakill.salvo_budget_tokens = 3.0f;
     uint32_t reserve_floor = g_em_snap.gwnav_reserve ? g_em_snap.gwnav_reserve : UK_EM_RESERVE_SLOTS;
     int can_fire_proj = (hf && hf->size >= offsetof(HfApi, spawn_projectile) + sizeof(hf->spawn_projectile) &&
                          hf->spawn_projectile != NULL &&
@@ -2389,13 +2765,16 @@ static void ServiceVirtualBattalions(uintptr_t gbase, int native, int diff,
             if (d2 < nearest_d2) { nearest_d2 = d2; nearest_p = p; }
         }
 
-        /* Promote outer enemy regiment into real EntityManager AI when players close within 185m! */
-        if (b->faction < CHAOS_FACTIONS && nearest_d2 < 185.0f * 185.0f &&
+        /* Promote outer enemy regiment into a cohesive 18-24 unit real swarm when players close within 135 m! */
+        if (b->faction < CHAOS_FACTIONS && nearest_d2 < 135.0f * 135.0f &&
             g_rosters_loaded[b->faction] && g_faction_resident[b->faction] &&
-            g_spawn_queue.count + b->unit_count < UK_SPAWN_QUEUE_CAP &&
-            g_em_snap.valid && g_em_snap.free_slots >= reserve_floor + 36u) {
+            g_spawn_queue.count + 24u < UK_SPAWN_QUEUE_CAP &&
+            g_em_snap.valid &&
+            g_em_snap.free_slots >= reserve_floor + 28u &&
+            g_em_snap.walking_ai_slots + 24u <= UK_MAX_WALKING_AI_CAP) {
             uint32_t flags = (b->faction == CHAOS_BUGS) ? 0x24u : 0x3Cu;
-            int promoted = EnqueueTheaterPlatoon((int)b->faction, diff, (int)b->unit_count, flags,
+            int swarm_n = (b->unit_count >= 18u) ? (int)b->unit_count : 20;
+            int promoted = EnqueueTheaterPlatoon((int)b->faction, diff, swarm_n, flags,
                                                  b->pos, players[nearest_p]);
             if (promoted > 0) {
                 g_ultrakill.promotions_total += (uint32_t)promoted;
@@ -2404,14 +2783,14 @@ static void ServiceVirtualBattalions(uintptr_t gbase, int native, int diff,
             }
         }
 
-        /* Steer gently toward combat ring around players (240..520m) */
+        /* Steer into the visible 150..365 m battle ring framing the squad */
         if (nearest_d2 > 1.0f) {
             float dist = sqrtf(nearest_d2);
             float dir_x = (players[nearest_p][0] - b->pos[0]) / dist;
             float dir_y = (players[nearest_p][1] - b->pos[1]) / dist;
             float tangent_x = -dir_y;
             float tangent_y = dir_x;
-            float radial = (dist > 480.0f) ? 2.4f : (dist < 220.0f ? -2.2f : 0.4f);
+            float radial = (dist > 365.0f) ? 3.2f : (dist < 150.0f ? -2.6f : 0.4f);
             float swirl = (b->faction == UK_VIRTUAL_FACTION_CLONES) ? 2.2f : -2.2f;
             b->vel[0] = dir_x * radial + tangent_x * swirl;
             b->vel[1] = dir_y * radial + tangent_y * swirl;
@@ -2421,29 +2800,27 @@ static void ServiceVirtualBattalions(uintptr_t gbase, int native, int diff,
         if (b->faction == UK_VIRTUAL_FACTION_CLONES) last_clone_idx = (int)i;
         else last_enemy_idx = (int)i;
 
-        /* Exchange non-explosive sky-arc laser salvos between CIS & Republic regiments within resident range */
+        /* Exchange visible non-explosive laser salvos strictly inside 140..380 m around the squad */
         if (can_fire_proj && b->fire_cooldown <= 0.0f && g_ultrakill.salvo_budget_tokens >= 1.0f &&
-            nearest_d2 >= 90.0f * 90.0f && nearest_d2 <= 360.0f * 360.0f) {
+            nearest_d2 >= 140.0f * 140.0f && nearest_d2 <= 380.0f * 380.0f) {
             int opp_idx = (b->faction == UK_VIRTUAL_FACTION_CLONES) ? last_enemy_idx : last_clone_idx;
             if (opp_idx >= 0 && g_ultrakill.battalions[opp_idx].active) {
                 const ChaosVirtualBattalion* opp = &g_ultrakill.battalions[opp_idx];
                 float dx = opp->pos[0] - b->pos[0];
                 float dy = opp->pos[1] - b->pos[1];
                 float len2d = sqrtf(dx * dx + dy * dy);
-                if (len2d >= 25.0f && len2d <= 340.0f) {
-                    float base_z = players[nearest_p][2] + 26.0f;
-                    if (base_z < 30.0f) base_z = 30.0f;
+                if (len2d >= 20.0f && len2d <= 280.0f) {
+                    float base_z = players[nearest_p][2] + 12.0f;
+                    if (base_z < 16.0f) base_z = 16.0f;
                     float muzzle[3] = {b->pos[0], b->pos[1], base_z};
-                    float dir[3] = {dx / len2d, dy / len2d, 0.08f};
-                    /* Pure non-explosive laser bolts ONLY (never explosive plasma that invokes RequestExplosion
-                     * at game.dll+0x144c414 against far unloaded Havok broadphase terrain). */
+                    float dir[3] = {dx / len2d, dy / len2d, -0.03f};
                     uint32_t proj = (b->faction == UK_VIRTUAL_FACTION_CLONES)
                                     ? HF_PROJECTILE_LAS12_SAI
                                     : HF_PROJECTILE_LAS58_TALON;
                     hf->spawn_projectile(self, proj, muzzle, dir);
                     g_ultrakill.salvo_budget_tokens -= 1.0f;
                     ++g_ultrakill.salvos_fired_total;
-                    b->fire_cooldown = 1.25f + (float)(NextRand() % 900u) * 0.001f;
+                    b->fire_cooldown = 1.05f + (float)(NextRand() % 800u) * 0.001f;
                 }
             }
         }
@@ -2452,7 +2829,7 @@ static void ServiceVirtualBattalions(uintptr_t gbase, int native, int diff,
         active_units += b->unit_count;
     }
 
-    /* Spawn up to 8 new outer-ring regiments per tick until outer virtual force meets theater target */
+    /* Spawn up to 8 new outer-ring regiments per tick in the 145..375 m ring until virtual force meets target */
     int spawns_left = 8;
     while ((int)active_units < want_virtual && spawns_left-- > 0) {
         int slot = -1;
@@ -2463,7 +2840,7 @@ static void ServiceVirtualBattalions(uintptr_t gbase, int native, int diff,
 
         int pi = (int)(NextRand() % (uint32_t)living);
         float angle = (float)(NextRand() % 3600u) * (3.14159265f / 1800.0f);
-        float radius = 235.0f + (float)(NextRand() % 560u); /* 235..795m across the 942m theater */
+        float radius = 145.0f + (float)(NextRand() % 230u); /* 145..375 m visible horizon ring */
         float px = players[pi][0] + radius * cosf(angle);
         float py = players[pi][1] + radius * sinf(angle);
         float r2 = px * px + py * py;
@@ -2476,25 +2853,579 @@ static void ServiceVirtualBattalions(uintptr_t gbase, int native, int diff,
         ChaosVirtualBattalion* nb = &g_ultrakill.battalions[slot];
         memset(nb, 0, sizeof *nb);
         nb->active = 1u;
-        if ((NextRand() % 100u) < 38u) {
-            nb->faction = UK_VIRTUAL_FACTION_CLONES; /* Grand Army of the Republic outer battalion */
+        if ((NextRand() % 100u) < 40u) {
+            nb->faction = UK_VIRTUAL_FACTION_CLONES;
         } else {
-            int ef = ChaosChooseEx(&config, native, diff, 1, NextRand());
-            nb->faction = (uint8_t)((ef >= 0 && ef < CHAOS_FACTIONS) ? ef : native);
+            int ef = ChaosChooseForeignRotated(&config, native, diff, g_last_foreign_faction, NextRand());
+            if (ef < 0 || (NextRand() % 100u) < 35u) ef = native;
+            nb->faction = (uint8_t)((ef >= 0 && ef < CHAOS_FACTIONS) ? ef : 0);
         }
-        nb->unit_count = (uint8_t)(10u + (NextRand() % 3u)); /* 10..12 troopers/regiment */
+        nb->unit_count = (uint8_t)(10u + (NextRand() % 5u));
         nb->pos[0] = px;
         nb->pos[1] = py;
         nb->pos[2] = players[pi][2] + 2.0f;
-        nb->fire_cooldown = 0.35f + (float)(NextRand() % 1000u) * 0.001f;
-        nb->ttl = 75.0f + (float)(NextRand() % 45u);
+        nb->fire_cooldown = 0.25f + (float)(NextRand() % 900u) * 0.001f;
+        nb->ttl = 65.0f + (float)(NextRand() % 40u);
         ++active_regs;
         active_units += nb->unit_count;
     }
 
     g_ultrakill.virtual_regiments_active = active_regs;
     g_ultrakill.virtual_units_total = active_units;
+}
+
+/* ---- Deliverable 5A: Periodic Friendly Eagle Storm & Enemy Gunship Strafing Runs (D11 & D12) ------------------- */
+
+static int ChaosEnsureOwnedAuxPackage(uintptr_t gbase, uintptr_t ebase, size_t esize,
+                                      uint64_t pkg_id, int* io_requested, int* io_resident)
+{
+    if (*io_resident) return 1;
+    if (hf && hf->load_package) {
+        int ls = hf->load_package(self, pkg_id);
+        if (ls == HF_PACKAGE_RESIDENT) {
+            *io_requested = 1;
+            *io_resident = 1;
+            return 1;
+        }
+    }
+    int ex_st = PackageStateExe(ebase, esize, pkg_id);
+    if (ex_st == 2) {
+        *io_requested = 1;
+        *io_resident = 1;
+        return 1;
+    }
+    if (!*io_requested && gbase && g_pins_ok) {
+        uintptr_t pkg_sys = 0, map_addr = 0;
+        uint32_t map_cap = 0;
+        uint64_t empty_key = 0;
+        int heap_owned = 0;
+        uint8_t* map_buf = ChaosReadRefMapBuffer(gbase, &pkg_sys, &map_addr, &map_cap, &empty_key, &heap_owned);
+        if (map_buf && pkg_sys) {
+            uint32_t used = 0, slot_idx = 0xFFFFFFFFu;
+            uint64_t refcnt = 0ULL;
+            int already = 0;
+            if (ChaosRefMapInspect(map_buf, map_cap, empty_key, pkg_id, &used, &already, &slot_idx, &refcnt)) {
+                if (!already || refcnt == 0ULL) {
+                    ChaosRecordOwnedPkg(pkg_id);
+                    CallPkgRequest(gbase, (void*)pkg_sys, &pkg_id, 1u);
+                }
+                *io_requested = 1;
+            }
+        }
+        if (heap_owned && map_buf) free(map_buf);
+    }
+    if (*io_requested && PackageStateExe(ebase, esize, pkg_id) == 2 && CallPkgsIdle(gbase)) {
+        *io_resident = 1;
+        return 1;
+    }
+    return 0;
+}
+
+static int ChaosPointClearOfPlayers(const float pt[3], const float (*players)[3], int living, float min_r)
+{
+    float r2 = min_r * min_r;
+    for (int i = 0; i < living; ++i) {
+        float dx = pt[0] - players[i][0];
+        float dy = pt[1] - players[i][1];
+        if (dx * dx + dy * dy < r2) return 0;
+    }
+    return 1;
+}
+
+static int ChaosPickAirRunTarget(uintptr_t gbase, const float (*players)[3], int living,
+                                 float min_r, float max_r, float min_clear_r,
+                                 float out_pos[3], float out_dir[2])
+{
+    if (living <= 0) return 0;
+    /* Prefer a live tracked enemy inside min_r..max_r when available */
+    int limit = (g_tracker.high_water > 0 && g_tracker.high_water <= CHAOS_MAX_TRACKED)
+                ? g_tracker.high_water : CHAOS_MAX_TRACKED;
+    for (int i = 0; i < limit; ++i) {
+        if (!g_tracker.units[i].active) continue;
+        float epos[3];
+        if (!EntityPosition(gbase, g_tracker.units[i].entity, epos)) continue;
+        if (!ChaosPointClearOfPlayers(epos, players, living, min_clear_r)) continue;
+        float dx = epos[0] - players[0][0];
+        float dy = epos[1] - players[0][1];
+        float d2 = dx * dx + dy * dy;
+        if (d2 >= min_r * min_r && d2 <= max_r * max_r) {
+            float d = sqrtf(d2);
+            memcpy(out_pos, epos, 12);
+            out_dir[0] = -dy / d;
+            out_dir[1] = dx / d;
+            return 1;
+        }
+    }
+
+    uintptr_t em = 0;
+    int has_em = ReadPtr(gbase + CHAOS_ENCOUNTER_RVA, &em);
+    int pi = (int)(NextRand() % (uint32_t)living);
+    for (int attempt = 0; attempt < 12; ++attempt) {
+        float ang = (float)(NextRand() % 3600u) * (3.14159265f / 1800.0f);
+        float rad = min_r + (float)(NextRand() % 1000u) * 0.001f * (max_r - min_r);
+        float cand[3] = {
+            players[pi][0] + rad * cosf(ang),
+            players[pi][1] + rad * sinf(ang),
+            players[pi][2]
+        };
+        if (has_em) {
+            float proj[3] = {0.0f, 0.0f, 0.0f};
+            CallProjectAnchor(gbase, (void*)em, proj, cand);
+            if (isfinite(proj[0]) && isfinite(proj[1]) && isfinite(proj[2]) &&
+                !(proj[0] == 0.0f && proj[1] == 0.0f && proj[2] == 0.0f)) {
+                memcpy(cand, proj, 12);
+            }
+        }
+        if (!ChaosPointClearOfPlayers(cand, players, living, min_clear_r)) continue;
+        memcpy(out_pos, cand, 12);
+        out_dir[0] = -sinf(ang);
+        out_dir[1] = cosf(ang);
+        return 1;
+    }
+    return 0;
+}
+
+static int ChaosTryDispatchNativeEagleBeacon(uintptr_t gbase, const float target_pos[3])
+{
+#ifdef CHAOS_UNIT_TEST
+    if (g_mock.activate_beacon_override) {
+        return g_mock.activate_beacon_override(HF_STRATAGEM_EAGLE_STRAFING_RUN, target_pos);
+    }
     (void)gbase;
+    return 0;
+#else
+    static const uint8_t kSearchPin[30] = {
+        0x40, 0x55, 0x53, 0x56, 0x57, 0x41, 0x54, 0x41, 0x55, 0x41, 0x56, 0x48, 0x8d, 0x6c, 0x24, 0x80,
+        0x48, 0x81, 0xec, 0x80, 0x01, 0x00, 0x00, 0x48, 0x8b, 0x05, 0xf2, 0x30, 0xf9, 0x01
+    };
+    static const uint8_t kQueryPin[25] = {
+        0x48, 0x8b, 0xc4, 0x48, 0x89, 0x58, 0x20, 0x55, 0x56, 0x57, 0x41, 0x54, 0x41, 0x55, 0x41, 0x56,
+        0x41, 0x57, 0x48, 0x8d, 0xa8, 0x48, 0xfe, 0xff, 0xff
+    };
+    static const char kDispatchPat[] =
+        "48 89 5C 24 18 55 56 57 41 54 41 55 41 56 41 57 48 8D AC 24 B0 FC FF FF 48 81 EC 50 04 00 00 48 8B 05 3A 02 F9 01";
+    static uint8_t s_ctl[0x8E8];
+    static uint8_t s_front[0x8A0];
+    static uint8_t s_mgr_raw[160];
+
+    if (!hf || !hf->read_code) return 0;
+    uint8_t sb[30], qb[25];
+    if (hf->read_code(gbase + 0x6A8F00u, sb, sizeof sb) != 0 || memcmp(sb, kSearchPin, sizeof sb) != 0 ||
+        hf->read_code(gbase + 0x13CAA80u, qb, sizeof qb) != 0 || memcmp(qb, kQueryPin, sizeof qb) != 0)
+        return 0;
+
+    int disp_ok = (hf->size >= offsetof(HfApi, code_matches) + sizeof(hf->code_matches) &&
+                   hf->code_matches != NULL && hf->code_matches(gbase + 0x6ABDB0u, kDispatchPat));
+    if (!disp_ok) return 0;
+
+    uintptr_t rec = 0, pm = 0, em = 0, player_obj = 0, manager = 0, world = 0;
+    uint32_t def_id = 0, pcount = 0, s = 0, owner = 0, character = 0, invalid = 0;
+    if (!ReadPtr(gbase + 0x37CB600u + (uintptr_t)HF_STRATAGEM_EAGLE_STRAFING_RUN * 8u, &rec) ||
+        !ReadMem(rec, &def_id, 4) || def_id != HF_STRATAGEM_EAGLE_STRAFING_RUN)
+        return 0;
+    if (!ReadMem(gbase + 0x3483C34u, &invalid, 4)) return 0;
+    if (!ReadPtr(gbase + CHAOS_PLAYERS_RVA, &pm) || !ReadMem(pm + 0x84u, &pcount, 4) || pcount == 0 || pcount > 4u ||
+        !ReadPtr(gbase + CHAOS_ENTITIES_RVA, &em))
+        return 0;
+
+    uint64_t local_peer = 0;
+    uintptr_t user_ptr = 0;
+    if (ReadPtr(gbase + CHAOS_LOCAL_USER_RVA, &user_ptr)) ReadMem(user_ptr + 0xB398u, &local_peer, 8);
+    CdEmLayout em_layout = cd_em_resolve_hf(gbase, hf->read);
+    int picked = 0;
+    for (s = 0; s < pcount && !picked; ++s) {
+        uint64_t speer = 0;
+        uint32_t slife = 0, snet = 0, sowner = 0, sidx = 0, char_id = 0;
+        if (!ReadMem(pm + 0x2C8u + (uintptr_t)s * 0x38u, &speer, 8)) continue;
+        if (local_peer != 0ULL && speer != local_peer) continue;
+        if (!ReadMem(pm + 0x2E0u + (uintptr_t)s * 0x38u, &slife, 4) || slife != 3u) continue;
+        if (!ReadMem(pm + 0x3A8u + (uintptr_t)s * 0x20u, &snet, 4) || snet == 0x7FFFu) continue;
+        if (!ReadPtr(pm + 0xE8u + (uintptr_t)s * 8u, &player_obj) || !ReadMem(player_obj + 8u, &sowner, 4)) continue;
+        if (!HashFindU32(em + 0xF22EC8u, snet, &sidx) || sidx >= em_layout.capacity) continue;
+        uintptr_t drec = cd_em_record_at(em, em_layout.records_offset, sidx);
+        if (!drec || !ReadMem(drec + 8u, &char_id, 4) || char_id == 0u || char_id == 0xFFFFFFFFu || char_id == invalid)
+            continue;
+        owner = sowner;
+        character = char_id;
+        picked = 1;
+    }
+    if (!picked) return 0;
+
+    uint8_t* mgr_copy = (uint8_t*)(((uintptr_t)s_mgr_raw + 15u) & ~(uintptr_t)15u);
+    if (!ReadPtr(gbase + 0x33266B0u, &manager) || !ReadMem(manager, mgr_copy, 128)) return 0;
+    memcpy(&world, mgr_copy + 8u, 8);
+    if (!world) return 0;
+
+    memset(s_ctl, 0, sizeof s_ctl);
+    uintptr_t ctl_va = (uintptr_t)s_ctl;
+    memcpy(mgr_copy + 0x68u, &ctl_va, 8);
+    memcpy(s_ctl + 0x30u, target_pos, 12);
+
+    uint8_t src[60];
+    memset(src, 0, sizeof src);
+    uint32_t stype = HF_STRATAGEM_EAGLE_STRAFING_RUN;
+    memcpy(src + 0u, &stype, 4);
+    memcpy(src + 8u, &invalid, 4);
+    memcpy(src + 12u, &character, 4);
+    memcpy(src + 16u, target_pos, 12);
+    memcpy(src + 28u, &invalid, 4);
+    float approach[3] = {target_pos[0], target_pos[1], target_pos[2]};
+
+    typedef unsigned char (*SearchFn)(void*, uint32_t, const void*, float*, int);
+    SearchFn search_fn = (SearchFn)(gbase + 0x6A8F00u);
+    if (!search_fn(mgr_copy, 0u, src, approach, 1) ||
+        !isfinite(approach[0]) || !isfinite(approach[1]) || !isfinite(approach[2]))
+        return 0;
+
+    memcpy(s_front, s_ctl + 0x40u, sizeof s_front);
+    memcpy(s_front + 0x3A4u, &character, 4);
+    memcpy(s_front + 0x3B4u, &invalid, 4);
+    memcpy(s_front + 0x3F8u, &invalid, 4);
+
+    HfFn_ActivateStratagemBeacon dispatch_fn =
+        (hf->size >= offsetof(HfApi, hook_function) + sizeof(void*) && hf->function != NULL)
+            ? hf_fn_ActivateStratagemBeacon(self)
+            : NULL;
+    if (!dispatch_fn) dispatch_fn = (HfFn_ActivateStratagemBeacon)(gbase + 0x6ABDB0u);
+    (void)dispatch_fn((void*)manager, -1, owner, approach, s_front, stype, 0ULL, 0ULL, 0ULL, 0ULL);
+    return 1;
+#endif
+}
+
+static void ServiceTacticalAirRuns(uintptr_t gbase, uintptr_t ebase, size_t esize, int live_diff,
+                                   const float (*living_pos)[3], int living_players, float dt)
+{
+    if (!Host() || !landed || living_players <= 0 || !config.air_runs_enabled) {
+        g_air_runs.strafe_burst_rem = 0;
+        return;
+    }
+    if (live_diff < 11 && !ChaosIsUltrakillActiveInMission(gbase)) return;
+
+    ChaosRefreshEmSnapshot(gbase, clock_state.age);
+    uint32_t reserve_floor = g_em_snap.gwnav_reserve ? g_em_snap.gwnav_reserve : UK_EM_RESERVE_SLOTS;
+    int can_proj = (hf && hf->size >= offsetof(HfApi, spawn_projectile) + sizeof(hf->spawn_projectile) &&
+                    hf->spawn_projectile != NULL &&
+                    g_em_snap.valid && g_em_snap.free_slots >= reserve_floor + 8u);
+
+    /* Drain active multi-bolt fighter / gunship strafing pass along ground track */
+    if (g_air_runs.strafe_burst_rem > 0) {
+        g_air_runs.strafe_step_cd_s -= dt;
+        while (g_air_runs.strafe_burst_rem > 0 && g_air_runs.strafe_step_cd_s <= 0.0f) {
+            g_air_runs.strafe_step_cd_s += 0.07f;
+            float along = ((float)g_air_runs.strafe_step_idx - 3.5f) * 4.5f;
+            float impact[3] = {
+                g_air_runs.strafe_start[0] + g_air_runs.strafe_dir[0] * along,
+                g_air_runs.strafe_start[1] + g_air_runs.strafe_dir[1] * along,
+                g_air_runs.strafe_start[2]
+            };
+            if (can_proj && ChaosPointClearOfPlayers(impact, living_pos, living_players, 22.0f)) {
+                float alt = g_air_runs.strafe_is_friendly ? 36.0f : 40.0f;
+                float muzzle[3] = {
+                    impact[0] - g_air_runs.strafe_dir[0] * 28.0f,
+                    impact[1] - g_air_runs.strafe_dir[1] * 28.0f,
+                    impact[2] + alt
+                };
+                float dx = impact[0] - muzzle[0];
+                float dy = impact[1] - muzzle[1];
+                float dz = (impact[2] + 0.8f) - muzzle[2];
+                float len = sqrtf(dx * dx + dy * dy + dz * dz);
+                if (len > 1.0f) {
+                    float dir[3] = {dx / len, dy / len, dz / len};
+                    uint32_t proj = g_air_runs.strafe_is_friendly
+                                    ? ((g_air_runs.strafe_step_idx & 1)
+                                       ? HF_PROJECTILE_MG206_HEAVY_MACHINE_GUN
+                                       : HF_PROJECTILE_LAS12_SAI)
+                                    : HF_PROJECTILE_LAS58_TALON;
+                    hf->spawn_projectile(self, proj, muzzle, dir);
+                }
+            }
+            ++g_air_runs.strafe_step_idx;
+            --g_air_runs.strafe_burst_rem;
+        }
+    }
+
+    (void)ChaosEnsureOwnedAuxPackage(gbase, ebase, esize, CHAOS_PKG_EAGLE_BASE,
+                                     &g_air_runs.eagle_pkg_requested, &g_air_runs.eagle_pkg_resident);
+
+    if (g_air_runs.friendly_cd_s <= 0.0f) {
+        g_air_runs.friendly_cd_s = 12.0f + (float)(NextRand() % 8u);
+    } else {
+        g_air_runs.friendly_cd_s -= dt;
+        if (g_air_runs.friendly_cd_s <= 0.0f) {
+            g_air_runs.friendly_cd_s = 32.0f + (float)(NextRand() % 14u);
+            float tpos[3], tdir[2];
+            if (g_em_snap.valid && g_em_snap.free_slots >= reserve_floor + 16u &&
+                ChaosPickAirRunTarget(gbase, living_pos, living_players, 48.0f, 118.0f, 26.0f, tpos, tdir)) {
+                int native_eagle = g_air_runs.eagle_pkg_resident
+                                   ? ChaosTryDispatchNativeEagleBeacon(gbase, tpos)
+                                   : 0;
+                if (g_air_runs.strafe_burst_rem == 0) {
+                    g_air_runs.strafe_is_friendly = 1;
+                    g_air_runs.strafe_burst_rem = 8;
+                    g_air_runs.strafe_step_idx = 0;
+                    g_air_runs.strafe_step_cd_s = 0.0f;
+                    memcpy(g_air_runs.strafe_start, tpos, 12);
+                    memcpy(g_air_runs.strafe_dir, tdir, 8);
+                }
+                ++g_ultrakill.friendly_air_runs_total;
+                hf->log(self, "CHAOS_AIR_RUN: side=friendly_eagle_storm beacon=%d pos=(%.1f,%.1f,%.1f) total=%u",
+                        native_eagle, (double)tpos[0], (double)tpos[1], (double)tpos[2],
+                        g_ultrakill.friendly_air_runs_total);
+            }
+        }
+    }
+
+    if (g_air_runs.enemy_cd_s <= 0.0f) {
+        g_air_runs.enemy_cd_s = 18.0f + (float)(NextRand() % 10u);
+    } else {
+        g_air_runs.enemy_cd_s -= dt;
+        if (g_air_runs.enemy_cd_s <= 0.0f) {
+            g_air_runs.enemy_cd_s = 36.0f + (float)(NextRand() % 16u);
+            float tpos[3], tdir[2];
+            if (can_proj && g_air_runs.strafe_burst_rem == 0 &&
+                ChaosPickAirRunTarget(gbase, living_pos, living_players, 38.0f, 105.0f, 24.0f, tpos, tdir)) {
+                g_air_runs.strafe_is_friendly = 0;
+                g_air_runs.strafe_burst_rem = 8;
+                g_air_runs.strafe_step_idx = 0;
+                g_air_runs.strafe_step_cd_s = 0.0f;
+                memcpy(g_air_runs.strafe_start, tpos, 12);
+                memcpy(g_air_runs.strafe_dir, tdir, 8);
+                ++g_ultrakill.enemy_air_runs_total;
+                hf->log(self, "CHAOS_AIR_RUN: side=enemy_gunship_strafe pos=(%.1f,%.1f,%.1f) total=%u",
+                        (double)tpos[0], (double)tpos[1], (double)tpos[2],
+                        g_ultrakill.enemy_air_runs_total);
+            }
+        }
+    }
+}
+
+/* ---- Deliverable 5B: Autonomous Friendly Republic AT-TE Fire-Support Walker Prototype (D12 Clones) ------------ */
+
+static void DespawnAtteWalkerIfActive(uintptr_t gbase)
+{
+    if (g_atte.entity != 0u && g_atte.entity != 0xFFFFFFFFu && gbase && g_pins_ok && hf && hf->read) {
+        uintptr_t em = 0;
+        if (ReadPtr(gbase + CHAOS_ENTITIES_RVA, &em)) {
+            CallRemoveEntity(gbase, (void*)em, g_atte.entity);
+        }
+    }
+    g_atte.active = 0;
+    g_atte.entity = 0u;
+}
+
+static int SpawnAutonomousAtteHull(uintptr_t gbase, const float pos[3], float heading_rad, uint32_t* out_eid)
+{
+    if (out_eid) *out_eid = 0u;
+    if (!gbase || !g_pins_ok || !g_em_snap.valid || !g_em_snap.em_root) return 0;
+
+    uint16_t ctor_ready = 1u;
+#ifndef CHAOS_UNIT_TEST
+    if (!ReadMem(g_em_snap.em_root + 0xF3F828u, &ctor_ready, sizeof ctor_ready) || ctor_ready != 1u) {
+        return 0;
+    }
+#else
+    (void)ctor_ready;
+#endif
+    memset(s_atte_spawn_ctx, 0, sizeof s_atte_spawn_ctx);
+    memset(s_atte_spawn_creation, 0, sizeof s_atte_spawn_creation);
+    s_atte_spawn_creation[0] = 1u;
+    uint32_t unit_sentinel = 0x7FFFu;
+    memcpy(s_atte_spawn_creation + 4u, &unit_sentinel, 4u);
+
+    float c = cosf(heading_rad);
+    float s = sinf(heading_rad);
+    float transform[16] = {
+        c,    s,    0.0f, 0.0f,
+       -s,    c,    0.0f, 0.0f,
+        0.0f, 0.0f, 1.0f, 0.0f,
+        pos[0], pos[1], pos[2], 1.0f
+    };
+    memcpy(s_atte_spawn_creation + 8u, transform, sizeof transform);
+    void* ctx_ptr = s_atte_spawn_ctx;
+    memcpy(s_atte_spawn_creation + 0x48u, &ctx_ptr, sizeof ctx_ptr);
+
+    uint32_t spawned_eid = 0u;
+    CallRequestEntitySpawn(gbase, &spawned_eid, CHAOS_ENTITY_EXO49_ATTE, s_atte_spawn_creation);
+    if (spawned_eid == 0u || spawned_eid == 0xFFFFFFFFu) return 0;
+    if (out_eid) *out_eid = spawned_eid;
+    return 1;
+}
+
+static void ServiceAutonomousAtteWalker(uintptr_t gbase, uintptr_t ebase, size_t esize, int live_diff,
+                                        const float (*living_pos)[3], int living_players, float dt)
+{
+    int want_atte = Host() &&
+                    landed &&
+                    living_players > 0 &&
+                    live_diff >= 12 &&
+                    config.atte_walker_support != 0 &&
+                    InterlockedCompareExchange(&g_empire_mode_active, 0, 0) == 0;
+    if (!want_atte) {
+        if (g_atte.active || g_atte.entity != 0u) {
+            DespawnAtteWalkerIfActive(gbase);
+        }
+        return;
+    }
+
+    ChaosRefreshEmSnapshot(gbase, clock_state.age);
+    uint32_t reserve_floor = g_em_snap.gwnav_reserve ? g_em_snap.gwnav_reserve : UK_EM_RESERVE_SLOTS;
+    if (!ChaosEnsureOwnedAuxPackage(gbase, ebase, esize, CHAOS_PKG_EXO49_ATTE,
+                                    &g_atte.pkg_requested, &g_atte.pkg_resident)) {
+        return;
+    }
+
+    if (g_atte.redeploy_cd_s > 0.0f) g_atte.redeploy_cd_s -= dt;
+    if (g_atte.spawn_retry_s > 0.0f) g_atte.spawn_retry_s -= dt;
+
+    /* Deploy or redeploy outer-perimeter Republic AT-TE fire-support walker (78..112 m from squad) */
+    if (!g_atte.active && g_atte.spawn_retry_s <= 0.0f &&
+        g_em_snap.valid && g_em_snap.free_slots >= reserve_floor + 16u) {
+        g_atte.spawn_retry_s = 3.0f;
+        float wpos[3], wdir[2];
+        if (ChaosPickAirRunTarget(gbase, living_pos, living_players, 78.0f, 112.0f, 46.0f, wpos, wdir)) {
+            float hdg = atan2f(living_pos[0][1] - wpos[1], living_pos[0][0] - wpos[0]);
+            uint32_t eid = 0u;
+            (void)SpawnAutonomousAtteHull(gbase, wpos, hdg, &eid);
+            g_atte.active = 1;
+            g_atte.entity = eid;
+            memcpy(g_atte.pos, wpos, 12);
+            g_atte.heading_rad = hdg;
+            g_atte.fire_cd_s = 2.0f;
+            g_atte.redeploy_cd_s = 20.0f;
+            hf->log(self, "CHAOS_ATTE_DEPLOY: entity=%u pos=(%.1f,%.1f,%.1f) mode=autonomous_perimeter_support",
+                    eid, (double)wpos[0], (double)wpos[1], (double)wpos[2]);
+        }
+    }
+    if (!g_atte.active) return;
+
+    /* Sync physical hull transform if present; yield if destroyed or if a player comes within 18m */
+    if (g_atte.entity != 0u) {
+        if (!EntityAlive(g_atte.entity, NULL)) {
+            g_atte.active = 0;
+            g_atte.entity = 0u;
+            g_atte.spawn_retry_s = 18.0f;
+            return;
+        }
+        float live_hull[3];
+        if (EntityPosition(gbase, g_atte.entity, live_hull)) {
+            memcpy(g_atte.pos, live_hull, 12);
+        }
+    }
+
+    float min_player_d2 = 1e30f;
+    int nearest_p = 0;
+    for (int p = 0; p < living_players; ++p) {
+        float dx = g_atte.pos[0] - living_pos[p][0];
+        float dy = g_atte.pos[1] - living_pos[p][1];
+        float d2 = dx * dx + dy * dy;
+        if (d2 < min_player_d2) { min_player_d2 = d2; nearest_p = p; }
+    }
+
+    /* Yield immediately if any player approaches within 18m (inspecting / boarding safety) */
+    if (min_player_d2 < 18.0f * 18.0f) return;
+
+    /* If squad moved > 175m away and all players are >= 46m clear, leapfrog AT-TE forward on perimeter */
+    if (min_player_d2 > 175.0f * 175.0f && g_atte.redeploy_cd_s <= 0.0f) {
+        DespawnAtteWalkerIfActive(gbase);
+        g_atte.spawn_retry_s = 0.25f;
+        return;
+    }
+
+    /* Advance waypoint smoothly at 3.8 m/s along projected ground perimeter around squad */
+    {
+        float dist = sqrtf(min_player_d2);
+        float to_px = (living_pos[nearest_p][0] - g_atte.pos[0]) / dist;
+        float to_py = (living_pos[nearest_p][1] - g_atte.pos[1]) / dist;
+        float radial = (dist > 108.0f) ? 3.2f : (dist < 76.0f ? -2.4f : 0.0f);
+        float step_x = (to_px * radial - to_py * 2.1f) * dt;
+        float step_y = (to_py * radial + to_px * 2.1f) * dt;
+        float next_p[3] = {g_atte.pos[0] + step_x, g_atte.pos[1] + step_y, g_atte.pos[2]};
+        uintptr_t enc_em = 0;
+        if (ReadPtr(gbase + CHAOS_ENCOUNTER_RVA, &enc_em)) {
+            float proj[3] = {0.0f, 0.0f, 0.0f};
+            CallProjectAnchor(gbase, (void*)enc_em, proj, next_p);
+            if (isfinite(proj[0]) && isfinite(proj[1]) && isfinite(proj[2]) &&
+                !(proj[0] == 0.0f && proj[1] == 0.0f && proj[2] == 0.0f)) {
+                memcpy(next_p, proj, 12);
+            }
+        }
+        if (ChaosPointClearOfPlayers(next_p, living_pos, living_players, 42.0f)) {
+            memcpy(g_atte.pos, next_p, 12);
+        }
+    }
+
+    /* Fire heavy dorsal cannon + quad laser turret salvos at enemy swarms every ~3.8s */
+    g_atte.fire_cd_s -= dt;
+    if (g_atte.fire_cd_s <= 0.0f &&
+        hf && hf->size >= offsetof(HfApi, spawn_projectile) + sizeof(hf->spawn_projectile) &&
+        hf->spawn_projectile != NULL &&
+        g_em_snap.valid && g_em_snap.free_slots >= reserve_floor + 8u) {
+        g_atte.fire_cd_s = 3.6f + (float)(NextRand() % 1200u) * 0.001f;
+
+        float target[3] = {0.0f, 0.0f, 0.0f};
+        int have_target = 0;
+        int limit = (g_tracker.high_water > 0 && g_tracker.high_water <= CHAOS_MAX_TRACKED)
+                    ? g_tracker.high_water : CHAOS_MAX_TRACKED;
+        for (int i = 0; i < limit; ++i) {
+            if (!g_tracker.units[i].active) continue;
+            float epos[3];
+            if (!EntityPosition(gbase, g_tracker.units[i].entity, epos)) continue;
+            if (!ChaosPointClearOfPlayers(epos, living_pos, living_players, 22.0f)) continue;
+            float dx = epos[0] - g_atte.pos[0];
+            float dy = epos[1] - g_atte.pos[1];
+            float d2 = dx * dx + dy * dy;
+            if (d2 >= 28.0f * 28.0f && d2 <= 205.0f * 205.0f) {
+                memcpy(target, epos, 12);
+                have_target = 1;
+                break;
+            }
+        }
+        if (!have_target && g_has_last_wave_anchor &&
+            ChaosPointClearOfPlayers(g_last_wave_anchor, living_pos, living_players, 24.0f)) {
+            float dx = g_last_wave_anchor[0] - g_atte.pos[0];
+            float dy = g_last_wave_anchor[1] - g_atte.pos[1];
+            float d2 = dx * dx + dy * dy;
+            if (d2 >= 25.0f * 25.0f && d2 <= 220.0f * 220.0f) {
+                memcpy(target, g_last_wave_anchor, 12);
+                have_target = 1;
+            }
+        }
+        if (!have_target) {
+            float tdir[2];
+            if (ChaosPickAirRunTarget(gbase, living_pos, living_players, 95.0f, 165.0f, 32.0f, target, tdir)) {
+                float dx = target[0] - g_atte.pos[0];
+                float dy = target[1] - g_atte.pos[1];
+                if (dx * dx + dy * dy >= 25.0f * 25.0f) have_target = 1;
+            }
+        }
+
+        if (have_target) {
+            float dorsal_muzzle[3] = {g_atte.pos[0], g_atte.pos[1], g_atte.pos[2] + 4.8f};
+            float dx = target[0] - dorsal_muzzle[0];
+            float dy = target[1] - dorsal_muzzle[1];
+            float dz = (target[2] + 1.0f) - dorsal_muzzle[2];
+            float len = sqrtf(dx * dx + dy * dy + dz * dz);
+            if (len > 5.0f) {
+                float dir[3] = {dx / len, dy / len, dz / len};
+                float side_x = -dir[1], side_y = dir[0];
+                /* 2 dorsal heavy mass-driver kinetic slugs + 4 forward anti-personnel Republic laser bolts */
+                hf->spawn_projectile(self, HF_PROJECTILE_MG206_HEAVY_MACHINE_GUN, dorsal_muzzle, dir);
+                dorsal_muzzle[2] += 0.25f;
+                hf->spawn_projectile(self, HF_PROJECTILE_MG206_HEAVY_MACHINE_GUN, dorsal_muzzle, dir);
+                for (int b = 0; b < 4; ++b) {
+                    float off = ((b & 1) ? 1.35f : -1.35f);
+                    float zoff = (b < 2) ? 2.9f : 3.3f;
+                    float ball_muzzle[3] = {
+                        g_atte.pos[0] + side_x * off,
+                        g_atte.pos[1] + side_y * off,
+                        g_atte.pos[2] + zoff
+                    };
+                    hf->spawn_projectile(self, HF_PROJECTILE_LAS12_SAI, ball_muzzle, dir);
+                }
+                ++g_ultrakill.atte_salvos_total;
+            }
+        }
+    }
 }
 
 static void ServiceUltrakillTheater(uintptr_t gbase, uintptr_t director, int native, int diff,
@@ -2520,37 +3451,69 @@ static void ServiceUltrakillTheater(uintptr_t gbase, uintptr_t director, int nat
     }
 
     int target_real = UltrakillTargetRealAiCap(&g_host_opts, has_remote);
-    int cur_real = g_em_snap.valid ? (int)g_em_snap.live_slots : g_tracker.total_live;
+    int cur_walking = g_em_snap.valid ? (int)g_em_snap.walking_ai_slots : g_tracker.total_live;
 
     g_ultrakill.surge_accum_s += dt;
-    if (g_ultrakill.surge_accum_s >= 0.65f && living_players > 0) {
+    if (g_ultrakill.surge_accum_s >= 1.05f && living_players > 0) {
         g_ultrakill.surge_accum_s = 0.0f;
         uint32_t surge_reserve = g_em_snap.gwnav_reserve ? g_em_snap.gwnav_reserve : UK_EM_RESERVE_SLOTS;
         if (g_em_snap.valid &&
-            cur_real < target_real &&
-            g_spawn_queue.count < 96u &&
+            cur_walking < target_real &&
+            (uint32_t)cur_walking < UK_MAX_WALKING_AI_CAP &&
+            g_spawn_queue.count < 128u &&
             g_em_snap.free_slots >= surge_reserve + 24u) {
-            int chosen = ChaosChooseEx(&config, native, diff, 1, NextRand());
-            if (chosen >= 0 && chosen < CHAOS_FACTIONS && chosen != native &&
-                (!g_rosters_loaded[chosen] || !g_faction_resident[chosen] || !PeersReadyForFaction(gbase, chosen))) {
-                if (native >= 0 && native < CHAOS_FACTIONS &&
-                    ChaosWeight(&config, native, diff) > 0 && g_rosters_loaded[native]) {
-                    chosen = native;
+
+            /* Reserve top 72 walking-AI slots exclusively for foreign Chaos swarms, and draw rotated foreign
+             * factions 70% of the time overall so off-planet factions drop consistently all mission long! */
+            int native_headroom_full = (cur_walking >= target_real - UK_FOREIGN_HEADROOM_SLOTS);
+            int prefer_foreign = native_headroom_full || ((NextRand() % 100u) < 70u);
+            int chosen = -1;
+            if (prefer_foreign) {
+                chosen = ChaosChooseForeignRotated(&config, native, diff, g_last_foreign_faction, NextRand());
+                if (chosen >= 0 && chosen < CHAOS_FACTIONS &&
+                    (!g_rosters_loaded[chosen] || !g_faction_resident[chosen] || !PeersReadyForFaction(gbase, chosen))) {
+                    int alt = 3 - native - chosen;
+                    if (alt >= 0 && alt < CHAOS_FACTIONS && alt != native &&
+                        ChaosWeight(&config, alt, diff) > 0 &&
+                        g_rosters_loaded[alt] && g_faction_resident[alt] && PeersReadyForFaction(gbase, alt)) {
+                        chosen = alt;
+                    } else if (!native_headroom_full && native >= 0 && native < CHAOS_FACTIONS &&
+                               ChaosWeight(&config, native, diff) > 0 && g_rosters_loaded[native]) {
+                        chosen = native;
+                    } else {
+                        chosen = -1;
+                    }
+                }
+            } else {
+                chosen = native;
+                if (chosen < 0 || chosen >= CHAOS_FACTIONS || !g_rosters_loaded[chosen]) {
+                    chosen = ChaosChooseForeignRotated(&config, native, diff, g_last_foreign_faction, NextRand());
                 }
             }
+
             if (chosen >= 0 && chosen < CHAOS_FACTIONS &&
                 g_rosters_loaded[chosen] && (chosen == native || g_faction_resident[chosen]) &&
                 (chosen == native || PeersReadyForFaction(gbase, chosen))) {
-                uint32_t ring_sel = NextRand() % 3u;
-                float min_r = (ring_sel == 0u) ? 55.0f : (ring_sel == 1u ? 115.0f : 225.0f);
-                float max_r = (ring_sel == 0u) ? 115.0f : (ring_sel == 1u ? 225.0f : 365.0f);
+                /* 65% outer cohesive SWARM ring (95..185 m marching inward past SEAF), 35% active combat flank (65..165 m) */
+                int outer_swarm = ((NextRand() % 100u) < 65u);
+                float min_r = outer_swarm ? 95.0f  : 65.0f;
+                float max_r = outer_swarm ? 185.0f : 165.0f;
                 if (g_host_opts.spawn_radius_min_m > 0) min_r = (float)g_host_opts.spawn_radius_min_m;
                 if (g_host_opts.spawn_radius_max_m > 0 && (float)g_host_opts.spawn_radius_max_m > min_r)
                     max_r = (float)g_host_opts.spawn_radius_max_m;
+
                 float anchor[3], target_p[3];
                 if (FindTheaterRingAnchor(gbase, living_pos, living_players, min_r, max_r, anchor, target_p)) {
-                    uint32_t flags = (chosen == CHAOS_BUGS) ? 0x24u : 0x3Cu;
-                    EnqueueTheaterPlatoon(chosen, diff, 12, flags, anchor, target_p);
+                    int swarm_count = 18 + (int)(NextRand() % 15u); /* 18..32 cohesive swarm cluster! */
+                    int rem_walk = target_real - cur_walking;
+                    if (swarm_count > rem_walk) swarm_count = rem_walk;
+                    if (swarm_count >= 6) {
+                        uint32_t flags = (chosen == CHAOS_BUGS) ? 0x24u : 0x3Cu;
+                        if (EnqueueTheaterPlatoon(chosen, diff, swarm_count, flags, anchor, target_p) > 0 &&
+                            chosen != native) {
+                            g_last_foreign_faction = chosen;
+                        }
+                    }
                 }
             }
         }
@@ -2562,19 +3525,27 @@ static void ServiceUltrakillTheater(uintptr_t gbase, uintptr_t director, int nat
     if (g_ultrakill.telemetry_accum_s >= 5.0f) {
         g_ultrakill.telemetry_accum_s = 0.0f;
         uint32_t real_units = g_em_snap.valid ? g_em_snap.live_slots : (uint32_t)g_tracker.total_live;
+        uint32_t walk_units = g_em_snap.valid ? g_em_snap.walking_ai_slots : (uint32_t)g_tracker.total_live;
         uint32_t total_theater = real_units + g_ultrakill.virtual_units_total;
-        float r_m = (g_ultrakill.live_radius_factor > 0.1f ? g_ultrakill.live_radius_factor : 0.92f) * 1024.0f;
+        float r_m = (g_ultrakill.live_radius_factor > 0.1f
+                     ? g_ultrakill.live_radius_factor
+                     : UltrakillResolveRadiusFactor(&g_host_opts)) * 1024.0f;
         float area_km2 = 3.14159265f * r_m * r_m * 1e-6f;
         hf->log(self,
-                "CHAOS_THEATER_TELEMETRY: preset=%s real_em_live=%u em_free=%u chaos_tracked=%d virtual_regiments=%u virtual_units=%u total_theater_units=%u queued=%u radius_m=%.1f area_km2=%.2f salvos=%u promoted=%u",
+                "CHAOS_THEATER_TELEMETRY: preset=%s real_em_live=%u walking_ai=%u em_free=%u chaos_tracked=%d virtual_regiments=%u virtual_units=%u total_theater_units=%u queued=%u recycled=%u air_f=%u air_e=%u atte_salvos=%u radius_m=%.1f area_km2=%.2f salvos=%u promoted=%u",
                 cd_theater_preset_name(g_host_opts.theater_preset),
                 real_units,
+                walk_units,
                 g_em_snap.valid ? g_em_snap.free_slots : 0u,
                 g_tracker.total_live,
                 g_ultrakill.virtual_regiments_active,
                 g_ultrakill.virtual_units_total,
                 total_theater,
                 g_spawn_queue.count,
+                g_ultrakill.stragglers_recycled_total,
+                g_ultrakill.friendly_air_runs_total,
+                g_ultrakill.enemy_air_runs_total,
+                g_ultrakill.atte_salvos_total,
                 (double)r_m,
                 (double)area_km2,
                 g_ultrakill.salvos_fired_total,
@@ -2594,18 +3565,20 @@ static void FormatBridgeValues(char* out, size_t cap)
     snprintf(out, cap,
              "session=%lu\nenabled=%d\ncooldown_seconds=%d\nlanding_grace_seconds=%d\ntotal_cap=%d\n"
              "faction_cap=%d\nsquad_size=%d\nmission_budget=%d\ndroid_weight=%d\n"
-             "squid_weight=%d\nbug_weight=%d\n",
+             "squid_weight=%d\nbug_weight=%d\nair_runs_enabled=%d\natte_walker_support=%d\n",
              token,
              config.enabled ? 1 : 0,
-             ClampInt_(config.cooldown, 30, 900),
-             ClampInt_(config.grace, 15, 300),
-             ClampInt_(config.total_cap, 1, 24),
-             ClampInt_(config.faction_cap, 1, 16),
-             ClampInt_(config.squad_size, 1, 6),
-             ClampInt_(config.mission_budget, 1, 96),
+             ClampInt_(config.cooldown, 10, 900),
+             ClampInt_(config.grace, 6, 300),
+             ClampInt_(config.total_cap, 1, 640),
+             ClampInt_(config.faction_cap, 1, 400),
+             ClampInt_(config.squad_size, 1, 32),
+             ClampInt_(config.mission_budget, 1, 25000),
              ClampInt_(config.bots_weight, 0, 200),
              ClampInt_(config.squids_weight, 0, 200),
-             ClampInt_(config.bugs_weight, 0, 200));
+             ClampInt_(config.bugs_weight, 0, 200),
+             config.air_runs_enabled ? 1 : 0,
+             config.atte_walker_support ? 1 : 0);
 }
 
 static void Publish(void)
@@ -2664,7 +3637,7 @@ static void LoadOptions(const char* path, int session_required)
         if (!ChaosParse(&next, line)) { fclose(f); return; }
         ++count;
     }
-    int valid = !ferror(f) && (!session_required || count == 10);
+    int valid = !ferror(f) && (!session_required || count == 12);
     fclose(f);
     if (!valid) return;
     if (!session_required) {
@@ -2871,8 +3844,18 @@ static int ReadyPhase(void)
 
 static void ResetMissionState(void)
 {
+    uintptr_t cur_gbase = GameBase(NULL);
+    UltrakillSyncDirectorPatrolValve(0);
+    DespawnAtteWalkerIfActive(cur_gbase);
+    ReleaseChaosOwnedPackages(cur_gbase);
+    memset(&g_air_runs, 0, sizeof g_air_runs);
+    memset(&g_atte, 0, sizeof g_atte);
     landed = 0;
     g_native_faction = -1;
+    g_last_foreign_faction = -1;
+    g_preload_watchdog_s = 0.0f;
+    g_straggler_recycle_s = 0.0f;
+    g_bot_smoke_resident = 0;
     memset(&g_pending, 0, sizeof g_pending);
     memset(g_last_faction_masks, 0, sizeof g_last_faction_masks);
     memset(g_faction_resident, 0, sizeof g_faction_resident);
@@ -3122,6 +4105,8 @@ static void OnSpawn(HfMod* mod, const HfEventInfo* info, void* user)
 static void OnSessionEnd(HfMod* mod, HfEvent ev, void* user)
 {
     (void)mod; (void)ev; (void)user;
+    UltrakillSyncDirectorPatrolValve(0);
+    ReleaseChaosOwnedPackages(GameBase(NULL));
     InterlockedExchange(&g_phase, PHASE_ENDED);
 }
 
@@ -3183,15 +4168,20 @@ static void Tick(HfMod* mod, float dt, void* user)
         return;
     }
 
-    /* v0.3.2 D11 Mega City OOM Fix: NEVER touch native Director/rosters or preload foreign packages during
-     * HF_STATE_PREPARE_MISSION while level generation & RenderTerrainLightingMaps allocate 45.6 MB buffers. */
+    /* Pre-stream foreign faction packages during HF_STATE_PREPARE_MISSION (Hellpod drop, gently paced at 4 pkgs/s)
+     * so off-planet Chaos waves are resident and ready right as the 6-8s landing grace expires! */
     if (now == HF_STATE_PREPARE_MISSION) {
-        if (!g_preload_deferred_logged) {
-            g_preload_deferred_logged = 1;
-            hf->log(self, "CHAOS_PRELOAD_DEFERRED: state=PREPARE_MISSION reason=defer_until_mission");
+        if (ProveChaosRuntime()) {
+            size_t pgsize = 0, pesize = 0;
+            uintptr_t pgbase = GameBase(&pgsize), pebase = ExeBase(&pesize);
+            if (pgbase) {
+                PreloadForeignFactionPackagesPaced(pgbase, pebase, pesize, dt, now, 1);
+            }
         }
         if (!host) {
-            SendClientStatusIfNeeded(now, 0u);
+            SendClientStatusIfNeeded(
+                now,
+                (g_native_faction >= 0 && g_native_faction < CHAOS_FACTIONS) ? ChaosRequiredForeignMask(g_native_faction) : 0u);
         }
         return;
     }
@@ -3203,7 +4193,7 @@ static void Tick(HfMod* mod, float dt, void* user)
     uintptr_t gbase = GameBase(&gsize), ebase = ExeBase(&esize);
     if (!gbase) return;
 
-    /* All-peer curated foreign package preloading (strictly in HF_STATE_MISSION, smoothly paced) */
+    /* All-peer curated foreign package preloading (smoothly paced, with 5.0s residency watchdog) */
     PreloadForeignFactionPackagesPaced(gbase, ebase, esize, dt, now, 1);
 
     g_prune_accum_s += dt;
@@ -3242,6 +4232,7 @@ static void Tick(HfMod* mod, float dt, void* user)
     if (g_prune_accum_s == 0.0f) {
         PruneStaleTrackedUnits(gbase, gsize, living_pos, living_players, clock_state.age);
     }
+    RecycleFarEnemyStragglers(gbase, living_pos, living_players, clock_state.age, dt);
     ReconcilePeers(gbase);
 
     /* 250ms Host/Solo mutual-hostility perception narrowing */
@@ -3270,6 +4261,15 @@ static void Tick(HfMod* mod, float dt, void* user)
 
     if (ChaosIsUltrakillActiveInMission(gbase)) {
         ServiceUltrakillTheater(gbase, director, native, diff, living_pos, living_players, dt);
+    } else if (g_spawn_queue.count > 0u) {
+        DrainTheaterSpawnQueue(gbase, director);
+    }
+
+    {
+        int live_diff_now = ChaosLiveMissionDifficulty(gbase);
+        if (live_diff_now <= 0) live_diff_now = diff;
+        ServiceTacticalAirRuns(gbase, ebase, esize, live_diff_now, living_pos, living_players, dt);
+        ServiceAutonomousAtteWalker(gbase, ebase, esize, live_diff_now, living_pos, living_players, dt);
     }
 
     g_share_poll -= dt;
@@ -3281,7 +4281,7 @@ static void Tick(HfMod* mod, float dt, void* user)
     if (!ChaosDue(&clock_state, &config, dt, landed != 0)) return;
     g_shared_dirty = 1;
 
-    int chosen = ChaosChoose(&config, native, diff, NextRand());
+    int chosen = ChaosChooseForeignRotated(&config, native, diff, g_last_foreign_faction, NextRand());
 
     ChaosEvidence ev = {0};
     ev.host = (int)host;
@@ -3299,12 +4299,14 @@ static void Tick(HfMod* mod, float dt, void* user)
         ChaosRefreshEmSnapshot(gbase, clock_state.age);
         uint32_t uk_reserve = g_em_snap.gwnav_reserve ? g_em_snap.gwnav_reserve : UK_EM_RESERVE_SLOTS;
         uint32_t min_free = is_uk ? uk_reserve : 32u;
-        if (is_uk && g_em_snap.valid && g_em_snap.free_slots >= uk_reserve) {
+        if (is_uk && g_em_snap.valid && g_em_snap.free_slots >= uk_reserve &&
+            g_em_snap.walking_ai_slots < UK_MAX_WALKING_AI_CAP) {
             bypass_hr = 1u;
         }
         ev.constructor = (chosen >= 0) &&
                          g_em_snap.valid &&
                          (g_em_snap.free_slots >= min_free) &&
+                         (g_em_snap.walking_ai_slots < UK_MAX_WALKING_AI_CAP) &&
                          CallHasHeadroom(gbase, (void*)director, 3u, bypass_hr);
     }
     ev.arrival = g_pins_ok;
@@ -3345,7 +4347,7 @@ static void Tick(HfMod* mod, float dt, void* user)
     if (eff_sq <= 0) return;
 
     float anchor[3], target[3];
-    if (!FindSafeGroundAnchor(gbase, anchor, target)) {
+    if (!FindSafeGroundAnchorEx(gbase, eff_sq, anchor, target)) {
         hf->log(self, "CHAOS_SKIP: attempt=%u event=%s reason=all_player_clearance_and_navmesh_unqualified",
                 clock_state.attempts, chaos_names[chosen]);
         return;

@@ -2,15 +2,17 @@
 -- Session menu bridge via ModOptionsMenu + %LOCALAPPDATA%/Clonedivers/ChaosInvasions.values
 local rows = {
     {'enabled','ENABLE CHAOS INVASIONS',1,0,1,'Toggle cross-faction Chaos waves during missions (150s default cooldown, 45s landing grace).'},
-    {'cooldown_seconds','EVENT COOLDOWN (SECONDS)',150,30,900,'Seconds between foreign Chaos waves after landing grace expires.'},
-    {'landing_grace_seconds','LANDING GRACE (SECONDS)',45,15,300,'Initial seconds after landing before the first Chaos wave can trigger.'},
-    {'total_cap','CHAOS POPULATION CAP (EXCLUDES SEAF)',12,1,24,'Maximum living Chaos-spawned foreign enemies across all invader factions.'},
-    {'faction_cap','CHAOS CAP PER INVADER FACTION',6,1,12,'Maximum living Chaos-spawned enemies allowed for a single foreign faction.'},
-    {'squad_size','UNITS PER EVENT',4,1,6,'Enemies dispatched per Chaos Dropship, Warp Ship, or Terminid breach.'},
-    {'mission_budget','MAXIMUM CHAOS UNITS PER MISSION',36,1,96,'Total Chaos enemies allowed across an entire mission.'},
-    {'droid_weight','DROID INVASION WEIGHT',100,0,200,'Relative weight for Automaton Dropship invasions when mission faction is not Bots.'},
-    {'squid_weight','SQUID SHIP WEIGHT',80,0,200,'Relative weight for Illuminate Warp Ship invasions when mission faction is not Squids.'},
-    {'bug_weight','BUG BREACH WEIGHT',100,0,200,'Relative weight for Terminid Breach invasions when mission faction is not Bugs.'},
+    {'cooldown_seconds','EVENT COOLDOWN (SECONDS)',150,10,900,'Seconds between foreign Chaos waves after landing grace expires.'},
+    {'landing_grace_seconds','LANDING GRACE (SECONDS)',45,6,300,'Initial seconds after landing before the first Chaos wave can trigger.'},
+    {'total_cap','CHAOS POPULATION CAP (EXCLUDES SEAF)',12,1,640,'Maximum living Chaos-spawned foreign enemies across all invader factions.'},
+    {'faction_cap','CHAOS CAP PER INVADER FACTION',6,1,400,'Maximum living Chaos-spawned enemies allowed for a single foreign faction.'},
+    {'squad_size','UNITS PER EVENT',4,1,32,'Enemies dispatched per Chaos swarm cluster, Dropship, Warp Ship, or Terminid breach.'},
+    {'mission_budget','MAXIMUM CHAOS UNITS PER MISSION',36,1,25000,'Total Chaos enemies allowed across an entire mission.'},
+    {'droid_weight','DROID INVASION WEIGHT',100,0,200,'Relative weight for Automaton / CIS Dropship & Swarm invasions when mission faction is not Bots.'},
+    {'squid_weight','SQUID SHIP WEIGHT',80,0,200,'Relative weight for Illuminate / Covenant invasions when mission faction is not Squids.'},
+    {'bug_weight','BUG BREACH WEIGHT',100,0,200,'Relative weight for Terminid Swarm invasions when mission faction is not Bugs.'},
+    {'air_runs_enabled','TACTICAL AIR & GUNSHIP RUNS (D11/D12)',1,0,1,'Enable periodic friendly Eagle Storm fighter runs and enemy gunship strafing runs on Difficulty 11 & 12.'},
+    {'atte_walker_support','AUTONOMOUS REPUBLIC AT-TE SUPPORT (D12 CLONES)',1,0,1,'Deploy an autonomous outer-perimeter Republic AT-TE fire-support walker prototype on Level 12 Clone Wars.'},
 }
 local base = os and os.getenv and os.getenv('LOCALAPPDATA')
 local path = base and (base .. '/Clonedivers/ChaosInvasions.values')
@@ -43,7 +45,7 @@ local function step()
     for _,row in ipairs(rows) do
         local key,label,default,lo,hi,description=unpack(row)
         local id='chaos_invasions.'..key
-        local toggle=key=='enabled'
+        local toggle=(key=='enabled' or key=='air_runs_enabled' or key=='atte_walker_support')
         local default_value=default
         if toggle then default_value=default~=0 end
         local ok=menu.register_option(id,{
