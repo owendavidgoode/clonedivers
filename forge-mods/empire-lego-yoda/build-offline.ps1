@@ -9,14 +9,19 @@ $ErrorActionPreference = 'Stop'
 $mod = $PSScriptRoot
 $workspace = Join-Path $mod 'build\workspace'
 $stage = Join-Path $workspace 'mods\empire-lego-yoda'
+$sharedStage = Join-Path $workspace 'mods\shared'
 $sdk = Join-Path $workspace 'app\sdk'
 $tools = Join-Path $workspace 'tools'
-New-Item -ItemType Directory -Force $sdk,$tools,$stage,$Out | Out-Null
+New-Item -ItemType Directory -Force $sdk,$tools,$stage,$sharedStage,$Out | Out-Null
 Copy-Item "$Source\native\mod-sdk\*.h" $sdk -Force
 $compiler = Join-Path $tools 'zig'
 if (!(Test-Path -LiteralPath $compiler)) { New-Item -ItemType Junction -Path $compiler -Target $Zig | Out-Null }
 if ((Get-Item -LiteralPath $compiler).Target[0] -ne $Zig) { throw 'Compiler junction target differs; refusing build.' }
 Copy-Item "$mod\src","$mod\audio","$mod\tests" $stage -Recurse -Force
+if (Test-Path -LiteralPath "$mod\..\shared\clonedivers_em_layout.h") {
+    Copy-Item -LiteralPath "$mod\..\shared\clonedivers_em_layout.h" -Destination $sharedStage -Force
+    Copy-Item -LiteralPath "$mod\..\shared\clonedivers_em_layout.h" -Destination "$stage\src\clonedivers_em_layout.h" -Force
+}
 Copy-Item "$mod\hellforge-mod.json","$mod\README.md","$mod\CREDITS.md","$mod\build-offline.ps1","$mod\yoda-torsos.json" $stage -Force
 $oldTemp = $env:TEMP; $oldTmp = $env:TMP; $oldGlobal = $env:ZIG_GLOBAL_CACHE_DIR; $oldLocal = $env:ZIG_LOCAL_CACHE_DIR
 try {

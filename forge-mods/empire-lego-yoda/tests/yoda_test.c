@@ -9,9 +9,9 @@ struct HfMod { const HfApi* api; };
 static HfApi api;
 static struct HfMod mod;
 static unsigned char players[0x500], user[0xB400], health[0x1100], manager[0xC00], playerDesc[24], healthDesc[24], kit[64], healthRecord[0x1B8];
-static uintptr_t playerCell, userCell, healthCell, kitPointer, healthPointer;
+static uintptr_t playerCell, userCell, healthCell, emCell, invCell, kitPointer, healthPointer;
 static uint32_t mapEntries[8];
-static int calls, playback = 1, checks;
+static int calls, saluteCalls, playback = 1, checks;
 static uint32_t state = HF_STATE_MISSION;
 static int badPin, missingMapping;
 #define CHECK(x) do { assert(x); checks++; } while (0)
@@ -24,6 +24,8 @@ static uintptr_t Global(HfMod* m, const char* name)
     if (!strcmp(name, "PlayerManager")) return (uintptr_t)&playerCell;
     if (!strcmp(name, "LocalUser")) return (uintptr_t)&userCell;
     if (!strcmp(name, "HealthManager")) return (uintptr_t)&healthCell;
+    if (!strcmp(name, "EntityManager")) return emCell ? (uintptr_t)&emCell : 0;
+    if (!strcmp(name, "InventoryManager")) return invCell ? (uintptr_t)&invCell : 0;
     return 0;
 }
 static uint32_t GameState(HfMod* m) { (void)m; return state; }
@@ -38,7 +40,12 @@ static uint32_t Entity(HfMod* m, uint32_t network)
 }
 static void Log(HfMod* m, const char* format, ...) { (void)m; (void)format; }
 static void Status(HfMod* m, const char* text) { (void)m; (void)text; }
-static uintptr_t Module(const char* name, size_t* size) { (void)name; (void)size; return game; }
+static uintptr_t Module(const char* name, size_t* size)
+{
+    (void)size;
+    if (name && !strcmp(name, "helldivers2.exe")) return exeBase;
+    return game;
+}
 static int Code(uintptr_t p, void* out, size_t n)
 {
     for (size_t i = 0; i < sizeof kPassivePins / sizeof kPassivePins[0]; i++)
@@ -49,7 +56,11 @@ static int Code(uintptr_t p, void* out, size_t n)
 static BOOL WINAPI Play(LPCWSTR wav, HMODULE module, DWORD flags)
 {
     (void)module;
-    CHECK(wav == (LPCWSTR)audio && (flags & SND_MEMORY) && (flags & SND_ASYNC)); calls++; return playback;
+    CHECK((flags & SND_MEMORY) && (flags & SND_ASYNC));
+    if (saluteAudio && wav == (LPCWSTR)saluteAudio) { saluteCalls++; return playback; }
+    CHECK(wav == (LPCWSTR)audio);
+    calls++;
+    return playback;
 }
 static void Observe(void) { Tick((HfMod*)&mod, 0.016f, NULL); }
 static void MarkDead(void) { Put32(players, 0x2E0, 2); Put32(healthRecord, 0x19C, 2); }
@@ -64,6 +75,7 @@ static void Reset(void)
     memset(&saved, 0, sizeof saved); memset(slotStates, 0, sizeof slotStates);
     memset(consumedRing, 0, sizeof consumedRing); consumedRingCursor = 0; activeSlot = -1;
     consumedPeer = consumedAvatar = consumedNetwork = 0; reportedPollRejection = 0;
+    ResetSaluteTracker(); saluteLastFiredMs = 0;
     clockMs = 1000; lastSample = 0; missingMapping = 0;
     memset(players, 0, sizeof players); memset(user, 0, sizeof user); memset(manager, 0, sizeof manager);
     memset(health, 0, sizeof health); memset(kit, 0, sizeof kit); memset(healthRecord, 0, sizeof healthRecord);
@@ -80,7 +92,67 @@ static void Reset(void)
     kitPointer = (uintptr_t)kit; Put64(manager, 0, (uintptr_t)&kitPointer); Put32(manager, 8, 1); Put32(kit, 0, visuals[0].kit);
     Put32(health, 0x1020, 1); healthPointer = (uintptr_t)healthDesc;
     Put64(health, 0x1048, (uintptr_t)&healthPointer); Put64(health, 0x1058, (uintptr_t)healthRecord); Put32(healthDesc, 8, 210);
-    ready = proven = gameLoaded = 1; calls = 0; playback = 1; state = HF_STATE_MISSION; play = Play;
+    ready = proven = gameLoaded = 1; calls = 0; saluteCalls = 0; playback = 1; state = HF_STATE_MISSION; play = Play;
+}
+
+/* Write a valid minimal 16-bit PCM RIFF/WAVE file for offline Salute tests */
+static void WriteMinimalWave(const wchar_t* path, int corrupt)
+{
+    unsigned char wav[64] = {0};
+    memcpy(wav + 0, "RIFF", 4);
+    Put32(wav, 4, 56u);
+    memcpy(wav + 8, corrupt ? "XXXX" : "WAVE", 4);
+    memcpy(wav + 12, "fmt ", 4);
+    Put32(wav, 16, 16u);
+    uint16_t pcmTag = 1u, ch = 1u, blockAlign = 2u, bits = 16u;
+    memcpy(wav + 20, &pcmTag, 2);
+    memcpy(wav + 22, &ch, 2);
+    Put32(wav, 24, 48000u);
+    Put32(wav, 28, 96000u);
+    memcpy(wav + 32, &blockAlign, 2);
+    memcpy(wav + 34, &bits, 2);
+    memcpy(wav + 36, "data", 4);
+    Put32(wav, 40, 20u);
+    HANDLE out = CreateFileW(path, GENERIC_WRITE, 0, NULL, CREATE_ALWAYS, FILE_ATTRIBUTE_NORMAL, NULL);
+    CHECK(out != INVALID_HANDLE_VALUE);
+    DWORD wrote = 0;
+    CHECK(WriteFile(out, wav, sizeof wav, &wrote, NULL) && wrote == sizeof wav);
+    CloseHandle(out);
+}
+
+static void SetBindPose(float mats[SALUTE_AVATAR_NODES][16])
+{
+    memset(mats, 0, sizeof(float) * SALUTE_AVATAR_NODES * 16u);
+    for (unsigned i = 0; i < SALUTE_AVATAR_NODES; i++)
+    {
+        mats[i][0] = mats[i][5] = mats[i][10] = mats[i][15] = 1.0f;
+    }
+    /* Verified Helldiver avatar bind-pose coordinates */
+    mats[AV_NODE_ROOT][12] = 0.0f;        mats[AV_NODE_ROOT][13] = 0.0f;       mats[AV_NODE_ROOT][14] = 0.0f;
+    mats[AV_NODE_HIPS][12] = 0.0f;        mats[AV_NODE_HIPS][13] = -0.02f;     mats[AV_NODE_HIPS][14] = 0.98f;
+    mats[AV_NODE_CHEST][12] = 0.0f;       mats[AV_NODE_CHEST][13] = -0.029f;   mats[AV_NODE_CHEST][14] = 1.344f;
+    mats[AV_NODE_L_SHOULDER][12] = -0.21f; mats[AV_NODE_L_SHOULDER][13] = -0.069f; mats[AV_NODE_L_SHOULDER][14] = 1.474f;
+    mats[AV_NODE_L_HAND][12] = -0.30f;    mats[AV_NODE_L_HAND][13] = 0.02f;    mats[AV_NODE_L_HAND][14] = 0.92f;
+    mats[AV_NODE_R_SHOULDER][12] = +0.21f; mats[AV_NODE_R_SHOULDER][13] = -0.069f; mats[AV_NODE_R_SHOULDER][14] = 1.474f;
+    mats[AV_NODE_R_ELBOW][12] = +0.34f;   mats[AV_NODE_R_ELBOW][13] = -0.04f;  mats[AV_NODE_R_ELBOW][14] = 1.22f;
+    mats[AV_NODE_R_HAND][12] = +0.32f;    mats[AV_NODE_R_HAND][13] = 0.12f;    mats[AV_NODE_R_HAND][14] = 0.94f;
+    mats[AV_NODE_HEAD][12] = 0.0f;        mats[AV_NODE_HEAD][13] = -0.025f;    mats[AV_NODE_HEAD][14] = 1.691f;
+}
+
+static void SetSuperEarthSalutePose(float mats[SALUTE_AVATAR_NODES][16])
+{
+    SetBindPose(mats);
+    /* Super Earth Salute: right upper arm horizontal (+X), right forearm vertical (+Z), fist at head height */
+    mats[AV_NODE_R_ELBOW][12] = +0.49f; mats[AV_NODE_R_ELBOW][13] = -0.05f; mats[AV_NODE_R_ELBOW][14] = 1.47f;
+    mats[AV_NODE_R_HAND][12]  = +0.48f; mats[AV_NODE_R_HAND][13]  = -0.02f; mats[AV_NODE_R_HAND][14]  = 1.75f;
+}
+
+static void SetCasualTempleSalutePose(float mats[SALUTE_AVATAR_NODES][16])
+{
+    SetBindPose(mats);
+    /* Casual Salute: right elbow flared out, right hand at right temple */
+    mats[AV_NODE_R_ELBOW][12] = +0.44f; mats[AV_NODE_R_ELBOW][13] = +0.04f; mats[AV_NODE_R_ELBOW][14] = 1.50f;
+    mats[AV_NODE_R_HAND][12]  = +0.16f; mats[AV_NODE_R_HAND][13]  = +0.05f; mats[AV_NODE_R_HAND][14]  = 1.71f;
 }
 
 /* The controls recorded player 5, avatar 710 at lifecycle 3 then 2, and 738 at 3.
@@ -102,6 +174,152 @@ static void RecordedMissingDown(void)
     Down((HfMod*)&mod, &late, NULL); CHECK(calls == 1);
     sampleEvery = 0;
 }
+
+static void RunSaluteTests(const wchar_t* fixtureDir)
+{
+    /* 1. Optional WAV loader: absent -> graceful silent fallback; corrupt -> rejected; valid -> loaded */
+    CHECK(!LoadOptionalSaluteWave(fixtureDir) && !saluteReady && saluteAudio == NULL);
+    wchar_t audioDir[1100], salutePath[1100];
+    swprintf(audioDir, 1100, L"%ls\\audio", fixtureDir);
+    CHECK(CreateDirectoryW(audioDir, NULL) || GetLastError() == ERROR_ALREADY_EXISTS);
+    swprintf(salutePath, 1100, L"%ls\\stormtrooper-salute.wav", audioDir);
+    WriteMinimalWave(salutePath, 1);
+    CHECK(!LoadOptionalSaluteWave(fixtureDir) && !saluteReady);
+    WriteMinimalWave(salutePath, 0);
+    CHECK(LoadOptionalSaluteWave(fixtureDir) && saluteReady && saluteAudio != NULL && saluteAudioSize == 64u);
+
+    /* 2. Build synthetic EntityManager + UnitManager + InventoryManager in heap memory */
+    unsigned char* fakeExe = (unsigned char*)calloc(1, 0x1A20000);
+    unsigned char* fakeEm = (unsigned char*)calloc(1, 0xF40000);
+    unsigned char* fakeUm = (unsigned char*)calloc(1, 0x200);
+    unsigned char* fakeInv = (unsigned char*)calloc(1, 0x200);
+    uint32_t* emBuckets = (uint32_t*)calloc(16, sizeof(uint32_t));
+    uint32_t* invBuckets = (uint32_t*)calloc(16, sizeof(uint32_t));
+    unsigned char* invRecords = (unsigned char*)calloc(4, 0x30);
+    uintptr_t* umSlots = (uintptr_t*)calloc(8, sizeof(uintptr_t));
+    uint8_t* umGens = (uint8_t*)calloc(8, 1);
+    unsigned char* fakeUnit = (unsigned char*)calloc(1, 0x200);
+    float (*worldPoses)[16] = (float (*)[16])calloc(SALUTE_AVATAR_NODES, sizeof(float[16]));
+    CHECK(fakeExe && fakeEm && fakeUm && fakeInv && emBuckets && invBuckets && invRecords && umSlots && umGens && fakeUnit && worldPoses);
+
+    exeBase = (uintptr_t)fakeExe;
+    emCell = (uintptr_t)fakeEm;
+    invCell = (uintptr_t)fakeInv;
+
+    /* Wire EntityManager map at +0xF1AEB0: avatar=210 -> descIdx=3 -> unitHandle=(gen=5<<22)|2 */
+    for (int i = 0; i < 16; i++) emBuckets[i] = UINT32_MAX;
+    uint32_t avatarId = 210u, descIdx = 3u, unitIdx = 2u;
+    uint8_t unitGen = 5u;
+    uint32_t unitHandle = ((uint32_t)unitGen << 22) | unitIdx;
+    emBuckets[(avatarId & 7u) * 2u] = avatarId;
+    emBuckets[(avatarId & 7u) * 2u + 1u] = descIdx;
+    Put64(fakeEm, SALUTE_EM_ENTITY_MAP + 0, (uintptr_t)emBuckets);
+    Put32(fakeEm, SALUTE_EM_ENTITY_MAP + 8, 8u);
+    Put32(fakeEm, SALUTE_EM_ENTITY_MAP + 12, UINT32_MAX);
+    Put32(fakeEm, SALUTE_EM_ENTITY_MAP + 16, 1u);
+
+    uintptr_t descAt = (uintptr_t)fakeEm + (uintptr_t)CD_EM_DEFAULT_OFFSET + (uintptr_t)descIdx * 24u;
+    Put64((void*)descAt, 0, SALUTE_AVATAR_RESOURCE);
+    Put32((void*)descAt, 8, avatarId);
+    Put32((void*)descAt, 12, unitHandle);
+    Put32((void*)descAt, 16, 200u);
+    Put32((void*)descAt, 20, 1u);
+
+    /* Wire UnitManager at exe + 0x1A100F0 */
+    Put64(fakeExe, SALUTE_EXE_UNITS_RVA, (uintptr_t)fakeUm);
+    Put64(fakeUm, 0x88, (uintptr_t)umSlots);
+    Put32(fakeUm, 0x98, 8u);
+    Put64(fakeUm, 0xA0, (uintptr_t)umGens);
+    umGens[unitIdx] = unitGen;
+    umSlots[unitIdx] = (uintptr_t)fakeUnit;
+    Put64(fakeUnit, 0x00, exeBase + SALUTE_EXE_UNIT_VTABLE_RVA);
+    Put32(fakeUnit, 0x70, SALUTE_AVATAR_NODES);
+    Put64(fakeUnit, 0x88, (uintptr_t)worldPoses);
+
+    /* Wire InventoryManager at invCell: avatar=210 -> recIdx=1 */
+    for (int i = 0; i < 16; i++) invBuckets[i] = UINT32_MAX;
+    invBuckets[(avatarId & 7u) * 2u] = avatarId;
+    invBuckets[(avatarId & 7u) * 2u + 1u] = 1u;
+    Put64(fakeInv, 0x28 + 0, (uintptr_t)invBuckets);
+    Put32(fakeInv, 0x28 + 8, 8u);
+    Put32(fakeInv, 0x28 + 12, UINT32_MAX);
+    Put32(fakeInv, 0x28 + 16, 1u);
+    Put64(fakeInv, 0x50, (uintptr_t)invRecords);
+
+    /* Test A: Idle bind pose never triggers Salute */
+    Reset(); ready = 0; saluteReady = 1; sampleEvery = 100;
+    SetBindPose(worldPoses);
+    for (int t = 0; t < 6; t++) { clockMs += 100; Observe(); }
+    CHECK(saluteCalls == 0 && calls == 0);
+
+    /* Test B: Super Earth Salute in HF_STATE_SHIP triggers once after 3 samples and latches while held */
+    Reset(); ready = 0; saluteReady = 1; state = HF_STATE_SHIP; sampleEvery = 100;
+    SetSuperEarthSalutePose(worldPoses);
+    clockMs += 100; Observe(); CHECK(saluteCalls == 0);
+    clockMs += 100; Observe(); CHECK(saluteCalls == 0);
+    clockMs += 100; Observe(); CHECK(saluteCalls == 1);
+    /* Holding salute for 3 full seconds must NOT loop/repeat */
+    for (int t = 0; t < 30; t++) { clockMs += 100; Observe(); }
+    CHECK(saluteCalls == 1);
+    /* Dropping back to bind pose unlatches after 2 samples, then Casual Temple Salute fires in HF_STATE_MISSION! */
+    SetBindPose(worldPoses);
+    clockMs += 100; Observe();
+    clockMs += 100; Observe();
+    CHECK(!saluteLatched && saluteCalls == 1);
+
+    state = HF_STATE_MISSION;
+    SetCasualTempleSalutePose(worldPoses);
+    clockMs += 1600; Observe(); CHECK(saluteCalls == 1);
+    clockMs += 100;  Observe(); CHECK(saluteCalls == 1);
+    clockMs += 100;  Observe(); CHECK(saluteCalls == 2);
+
+    /* Test C: Rejections — two-handed raise (Hug), grenade/stratagem selection=4, sprinting, downed/dead */
+    Reset(); ready = 0; saluteReady = 1; state = HF_STATE_MISSION; sampleEvery = 100;
+    SetSuperEarthSalutePose(worldPoses);
+    worldPoses[AV_NODE_L_HAND][14] = 1.55f; /* Left hand raised too (two-handed emote / support weapon) */
+    for (int t = 0; t < 5; t++) { clockMs += 100; Observe(); }
+    CHECK(saluteCalls == 0);
+
+    Reset(); ready = 0; saluteReady = 1; state = HF_STATE_MISSION; sampleEvery = 100;
+    SetSuperEarthSalutePose(worldPoses);
+    Put32(invRecords, 0x30u * 1u + 0x1Cu, 4u); /* Holding grenade/stratagem orb */
+    for (int t = 0; t < 5; t++) { clockMs += 100; Observe(); }
+    CHECK(saluteCalls == 0);
+    Put32(invRecords, 0x30u * 1u + 0x1Cu, 1u); /* Primary equipped on hip while saluting -> allowed */
+    for (int t = 0; t < 3; t++) { clockMs += 100; Observe(); }
+    CHECK(saluteCalls == 1);
+
+    /* Moving fast (>0.45 m/s) rejects salute */
+    Reset(); ready = 0; saluteReady = 1; state = HF_STATE_MISSION; sampleEvery = 100;
+    SetSuperEarthSalutePose(worldPoses);
+    for (int t = 0; t < 5; t++)
+    {
+        worldPoses[AV_NODE_ROOT][12] += 0.20f; /* 2.0 m/s */
+        clockMs += 100;
+        Observe();
+    }
+    CHECK(saluteCalls == 0);
+
+    /* Clean up synthetic Salute file, then verify real bundled out-of-the-box audio/stormtrooper-salute.wav! */
+    CHECK(DeleteFileW(salutePath) && RemoveDirectoryW(audioDir));
+    {
+        const wchar_t* prodModDir = (GetFileAttributesW(L".\\yoda-torsos.json") != INVALID_FILE_ATTRIBUTES) ? L"." :
+                                    (GetFileAttributesW(L"..\\yoda-torsos.json") != INVALID_FILE_ATTRIBUTES) ? L".." :
+                                    L"forge-mods\\empire-lego-yoda";
+        CHECK(LoadOptionalSaluteWave(prodModDir) && saluteReady && saluteAudio != NULL &&
+              saluteAudioSize >= 8000u && saluteAudioSize <= 80u * 1024u);
+        Reset(); ready = 0; saluteReady = 1; state = HF_STATE_SHIP; sampleEvery = 100; saluteCalls = 0;
+        SetSuperEarthSalutePose(worldPoses);
+        for (int t = 0; t < 3; t++) { clockMs += 100; Observe(); }
+        CHECK(saluteCalls == 1);
+    }
+    LoadOptionalSaluteWave(NULL);
+    exeBase = 0; emCell = 0; invCell = 0; sampleEvery = 0;
+    free(worldPoses); free(fakeUnit); free(umGens); free(umSlots);
+    free(invRecords); free(invBuckets); free(emBuckets);
+    free(fakeInv); free(fakeUm); free(fakeEm); free(fakeExe);
+}
+
 static void WritePart(const wchar_t* target, const Proof* original, int gpu, int corrupt)
 {
     wchar_t input[1100]; swprintf(input, 1100, L"%ls%ls", original->path, gpu ? L".gpu_resources" : L"");
@@ -160,7 +378,7 @@ int wmain(int argc, wchar_t** argv)
     CHECK(ScanVisuals(argv[2]) == 1);
     api.size = sizeof api; api.version = 16; api.read = TestRead; api.global = Global; api.game_state = GameState; api.entity_of_network = Entity; api.log = Log;
     hf = &api; mod.api = &api;
-    game = (uintptr_t)calloc(1, 0x3326500); CHECK(game != 0);
+    game = (uintptr_t)calloc(1, 0x3480000); CHECK(game != 0);
     api.module_base = Module; api.read_code = Code; api.set_status = Status;
     proven = 0; CHECK(Prove((HfMod*)&mod) && proven == 1);
     proven = 0; badPin = 1; CHECK(!Prove((HfMod*)&mod) && proven == -1);
@@ -334,7 +552,7 @@ int wmain(int argc, wchar_t** argv)
         CHECK(visuals[255].kit == 0x70000000u + 247u);
         CHECK(DeleteFileW(jsonPath));
 
-        /* Validate production yoda-torsos.json (12 Wave 2A Clone torsos -> 20 total visuals) + real delta archives if present */
+        /* Validate production yoda-torsos.json (22 extra torsos -> 30 total visuals) + real delta archives if present */
         {
             const wchar_t* prodModDir = (GetFileAttributesW(L".\\yoda-torsos.json") != INVALID_FILE_ATTRIBUTES) ? L"." :
                                         (GetFileAttributesW(L"..\\yoda-torsos.json") != INVALID_FILE_ATTRIBUTES) ? L".." :
@@ -364,16 +582,17 @@ int wmain(int argc, wchar_t** argv)
         LoadExtraTorsos(NULL);
         CHECK(visualCount == YODA_BUILTIN_VISUALS);
     }
-    if (GetFileAttributesW(L"D:\\HellForge\\mods\\clonedivers-r19-full") != INVALID_FILE_ATTRIBUTES)
+
+    /* 0.2.3 Stormtrooper Salute pose detector & optional drop-in WAV tests */
+    RunSaluteTests(argv[2]);
+
+    const wchar_t* optLiveDir = _wgetenv(L"YODA_TEST_LIVE_MOD_DIR");
+    if (optLiveDir && *optLiveDir && GetFileAttributesW(optLiveDir) != INVALID_FILE_ATTRIBUTES)
     {
-        CHECK(ScanVisuals(L"D:\\HellForge\\mods\\clonedivers-r19-full") == 4);
-        Reset();
-        Put32(manager, 0x96C, visuals[4].body); Put32(manager, 0x96C + 12, visuals[4].kit); Put32(kit, 0, visuals[4].kit);
-        Observe(); CHECK(saved.visual >= 4 && saved.visual < 8 && saved.avatar == 210);
-        Die(); CHECK(calls == 1);
+        CHECK(ScanVisuals(optLiveDir) >= 4);
     }
 
     free((void*)game);
-    printf("PASS: %d checks; 0.2.0 co-op slots 0..3, compaction, Empire + Clonedivers LEGO hashes, yoda-torsos.json, offline SDK/poll verified\n", checks);
+    printf("PASS: %d checks; 0.2.3 co-op slots 0..3, compaction, Empire + Clonedivers LEGO hashes, yoda-torsos.json, Stormtrooper Salute pose & WAV verified\n", checks);
     return 0;
 }

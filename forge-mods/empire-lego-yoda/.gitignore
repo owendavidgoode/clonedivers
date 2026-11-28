@@ -3,7 +3,8 @@ dist/
 workspace/
 actual-output/
 sdk/
-audio/
+audio/*
+!audio/stormtrooper-salute.wav
 *.dll
 *.exe
 *.pdb
